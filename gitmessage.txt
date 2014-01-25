@@ -1,0 +1,10 @@
+# Prefrace everyline with one of the following;
+# Add, Mod(ify), Ref(actoring), Fix, Rem(ove) or Rea(dability)
+#
+# EX.
+# Add: New function to rule the world.
+# Mod: Add women factor in Domination.ruleTheWorld().
+# Ref: Extract empathy stuff to an abstract class.
+# Fix: RUL-42 or #42 Starvation need to be initialised before Energy to avoid the nullpointer in People.  
+# Rem: freeSpeech is not used anymore.
+# Rea: Removed old TODO and extra space in header.
