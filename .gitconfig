@@ -1,0 +1,14 @@
+[user]
+	email = KyleOndy@gmail.com
+	name = Kyle Ondy
+[core]
+	editor = vim
+	autocrlf = input
+[commit]
+	template = /home/kyle/.gitmessage.txt
+[help]
+	autocorrect = 1
+[color]
+	ui = true
+[push]
+	default = simple

@@ -1,0 +1,10 @@
+# Prefrace everyline with one of the following;
+# Add, Mod(ify), Ref(actoring), Fix, Rem(ove) or Rea(dability)
+#
+# EX.
+# Add: New function to replace all images with kittens.
+# Mod: Add puppies to CuteImage.Random().
+# Ref: Extract queueing stuff to an abstract class.
+# Fix: Was not freeing memory after member initialsation.
+# Rem: commonSense is not used anymore.
+# Rea: Removed old TODO and extra space in header.
