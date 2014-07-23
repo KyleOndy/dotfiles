@@ -72,6 +72,10 @@ let mapleader=","               " change the mapleader from \ to ,
 set incsearch                   "Find the next match as we type the search
 set hlsearch                    "Highlight searches by default
 set viminfo='100,f1             "Save up to 100 marks, enable capital marks
+set wildmode=list:longest       "make cmdline tab completion similar to bash
+set wildmenu                    "enable ctrl-n and ctrl-p to scroll thru matches
+set wildignore=*.o,*.obj,*~     "stuff to ignore when tab completing"
+
 
 "-------------------------------------------------------------
 " Swap File
@@ -144,11 +148,3 @@ map <right> <nop>
 " Quickly edit/reload the vimrc file
 nmap <silent> <leader>ev :e $MYVIMRC<CR>
 nmap <silent> <leader>sv :so $MYVIMRC<CR>
-
-"-------------------------------------------------------------
-" Search settings
-"-------------------------------------------------------------
-
- set wildmode=list:longest          "make cmdline tab completion similar to bash
- set wildmenu                       "enable ctrl-n and ctrl-p to scroll thru matches
- set wildignore=*.o,*.obj,*~        "stuff to ignore when tab completing"
