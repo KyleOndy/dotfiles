@@ -17,6 +17,7 @@ NeoBundle 'vim-scripts/matchit.zip'
 NeoBundle 'scrooloose/nerdtree'
 NeoBundle 'scrooloose/syntastic'
 NeoBundle 'scrooloose/nerdcommenter'
+NeoBundle 'altercation/vim-colors-solarized'
 
 NeoBundleCheck
 filetype plugin indent on
