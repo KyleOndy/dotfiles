@@ -5,7 +5,7 @@
 	editor = vim
 	autocrlf = input
 [commit]
-	template = /home/kyle/.gitmessage.txt
+	template = ~/.gitmessage.txt
 [help]
 	autocorrect = 1
 [color]
