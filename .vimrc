@@ -47,6 +47,7 @@ set laststatus=2                "Makes status bar two line high
 "set cursorline                 "Highlights current line
 "set cursorcolumn               "Highlights current column
 set colorcolumn=80              "Colored line at 80 characters
+set t_Co=256                    "Force 256 colors
 colors wombat256mod             "Wombat Color Scheme
 set list
 " colorscheme solarized
