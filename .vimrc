@@ -50,7 +50,6 @@ set colorcolumn=80              "Colored line at 80 characters
 set t_Co=256                    "Force 256 colors
 colors wombat256mod             "Wombat Color Scheme
 set list
-" colorscheme solarized
 "set spell spelllang=en_us      "Spell check, I do need it. Lots.
 
 " This makes vim act like all other editors, buffers can
