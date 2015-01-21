@@ -7,7 +7,7 @@ if has('vim_starting')
     silent execute '!git clone https://github.com/Shougo/neobundle.vim ~/.vim/bundle/neobundle.vim'
   endif
 endif
-call neobundle#rc(expand('~/.vim/bundle/'))
+call neobundle#begin(expand('~/.vim/bundle/'))
 NeoBundleFetch "Shougo/neobundle.vim"
 " Plugins
 NeoBundle 'KyleOndy/wombat256mod'
@@ -19,6 +19,7 @@ NeoBundle 'scrooloose/syntastic'
 NeoBundle 'scrooloose/nerdcommenter'
 NeoBundle 'altercation/vim-colors-solarized'
 NeoBundle 'pangloss/vim-javascript'
+call neobundle#end()
 
 NeoBundleCheck
 filetype plugin indent on
