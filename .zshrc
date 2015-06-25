@@ -66,3 +66,4 @@ source ~/.git-flow-completion.zsh
 export EDITOR=vim
 export VISUAL=vim
 export TERM=xterm-256color
+export PATH=$PATH:~/.gem/ruby/2.2.0/bin
