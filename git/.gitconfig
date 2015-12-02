@@ -1,5 +1,3 @@
-[init]
-  templatedir = ~/.git_template
 [user]
   email = KyleOndy@gmail.com
   name = Kyle Ondy
