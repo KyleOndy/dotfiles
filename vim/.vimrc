@@ -11,14 +11,9 @@ call neobundle#begin(expand('~/.vim/bundle/'))
 NeoBundleFetch "Shougo/neobundle.vim"
 " Plugins
 NeoBundle 'KyleOndy/wombat256mod'
-NeoBundle 'tpope/vim-fugitive'
-NeoBundle 'tpope/vim-surround'
-NeoBundle 'vim-scripts/matchit.zip'
-NeoBundle 'scrooloose/nerdtree'
 NeoBundle 'scrooloose/syntastic'
-NeoBundle 'scrooloose/nerdcommenter'
 NeoBundle 'altercation/vim-colors-solarized'
-NeoBundle 'pangloss/vim-javascript'
+NeoBundle 'vim-pandoc/vim-pandoc-syntax'
 call neobundle#end()
 
 NeoBundleCheck
