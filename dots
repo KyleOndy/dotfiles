@@ -1,9 +1,8 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
+set -e
 
-if [[ -z $DOTSPATH ]]; then
-    DOTSPATH="$(cd $(dirname ${(%):-%N}); pwd)"
-fi
-
-source $DOTSPATH/zsh/zsh/functions.zsh
-
-dots $*
+for d in `find \`pwd\`/apps/ -maxdepth 1 -mindepth 1 -type d`
+do
+	echo $d
+	cp -rv --symbolic-link $d/. ~/
+done
