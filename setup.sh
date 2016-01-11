@@ -8,5 +8,4 @@ else
   echo 'need to modify script to handel this OS'
 fi
 
-./dots
-
+./dots.sh
