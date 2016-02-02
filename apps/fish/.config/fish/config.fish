@@ -1,1 +1,7 @@
 set -x PATH ~/.local/bin $PATH
+
+alias vim nvim
+alias vi nvim
+
+alias ghc 'stack exec -- ghc'
+alias ghci 'stack exec -- ghci'
