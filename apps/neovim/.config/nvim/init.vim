@@ -13,6 +13,8 @@ call plug#begin()
       Plug 'kyleondy/wombat256mod'
       " syntax checking
       Plug 'scrooloose/syntastic'
+      " a Git wrapper so awesome, it should be illegal
+      Plug 'tpope/vim-fugitive'
   " }
   " haskell {
       " hekp for haskell
