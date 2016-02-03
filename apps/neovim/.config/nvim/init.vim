@@ -4,6 +4,8 @@ call plug#begin()
   Plug 'kien/ctrlp.vim'
   " airline is a better status line and a tab-bar for nvim.
   Plug 'bling/vim-airline'
+  " airline themse
+  Plug 'vim-airline/vim-airline-themes'
   " neomake is asyncronsyc make
   Plug 'benekastah/neomake'
   " my favorite color scheme
