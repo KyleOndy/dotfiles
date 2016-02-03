@@ -39,15 +39,12 @@ let mapleader="\<SPACE>"
 
 " General {
   colors wombat256mod                 "Wombat Color Scheme
-"
+
   set backspace=indent,eol,start      " Allow backspace over everything in insert mode.
   set complete-=i
   set smarttab
-
-  set smartindent        " Or I let the smartindent take care of it.
-
+  set smartindent
   set nrformats-=octal
-
   set ttimeout
   set ttimeoutlen=100
 " }
