@@ -1,21 +1,29 @@
 call plug#begin()
 
-  " ctrl-p is a fuzzy file finder.
-  Plug 'kien/ctrlp.vim'
-  " airline is a better status line and a tab-bar for nvim.
-  Plug 'bling/vim-airline'
-  " airline themse
-  Plug 'vim-airline/vim-airline-themes'
-  " neomake is asyncronsyc make
-  Plug 'benekastah/neomake'
-  " my favorite color scheme
-  Plug 'kyleondy/wombat256mod'
-  " hekp for haskell
-  Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
-  " syntax checking
-  Plug 'scrooloose/syntastic'
-  " hakell dev tools
-  Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+  " core plugins {
+      " ctrl-p is a fuzzy file finder.
+      Plug 'kien/ctrlp.vim'
+      " airline is a better status line and a tab-bar for nvim.
+      Plug 'bling/vim-airline'
+      " airline themse
+      Plug 'vim-airline/vim-airline-themes'
+      " asynchronous :make using Neovim's job-control functionality
+      Plug 'benekastah/neomake'
+      " my favorite color scheme
+      Plug 'kyleondy/wombat256mod'
+      " syntax checking
+      Plug 'scrooloose/syntastic'
+      " a Git wrapper so awesome, it should be illegal
+      Plug 'tpope/vim-fugitive'
+      " shows a git diff in the gutter
+      Plug 'airblade/vim-gitgutter'
+  " }
+  " haskell {
+      " hekp for haskell
+      Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
+      " hakell dev tools
+      Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+  " }
 
 call plug#end()
 
@@ -31,15 +39,12 @@ let mapleader="\<SPACE>"
 
 " General {
   colors wombat256mod                 "Wombat Color Scheme
-"
+
   set backspace=indent,eol,start      " Allow backspace over everything in insert mode.
   set complete-=i
   set smarttab
-
-  set smartindent        " Or I let the smartindent take care of it.
-
+  set smartindent
   set nrformats-=octal
-
   set ttimeout
   set ttimeoutlen=100
 " }
@@ -184,20 +189,6 @@ let mapleader="\<SPACE>"
 
   " Toggle between normal and relative numbering.
   nnoremap <leader>r :call NumberToggle()<cr>
-
-  " Sets a status line. If in a Git repository, shows the current branch.
-  " Also shows the current file name, line and column number.
-  if has('statusline')
-      set laststatus=2
-
-      " Broken down into easily includeable segments
-      set statusline=%<%f\                     " Filename
-      set statusline+=%w%h%m%r                 " Options
-      "set statusline+=%{fugitive#statusline()} " Git Hotness
-      set statusline+=\ [%{&ff}/%Y]            " Filetype
-      set statusline+=\ [%{getcwd()}]          " Current dir
-      set statusline+=%=%-14.(%l,%c%V%)\ %p%%  " Right aligned file nav info
-  endif
 " }
 
 " Keybindings {
@@ -210,6 +201,13 @@ let mapleader="\<SPACE>"
   nmap <Leader>P "+P
   vmap <Leader>p "+p
   vmap <Leader>P "+P
+  "
+  " Quickly edit/reload the vimrc file
+  nmap <silent> <leader>ev :e $MYVIMRC<CR>
+  nmap <silent> <leader>sv :so $MYVIMRC<CR>
+
+  au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
+  au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
 " }
 
 " Plugin Settings {
@@ -224,7 +222,7 @@ let mapleader="\<SPACE>"
     let g:airline_left_alt_sep = '|'
     let g:airline_right_sep = ' '
     let g:airline_right_alt_sep = '|'
-    let g:airline_theme= 'serene'
+    let g:airline_theme= 'wombat'
   " }
   " CtrlP {
     " Open file menu
@@ -234,23 +232,16 @@ let mapleader="\<SPACE>"
     " Open most recently used files
     nnoremap <Leader>f :CtrlPMRUFiles<CR>
   " }
+ " NeoMake {
+    augroup NeomakeHaskell
+      autocmd!
+      autocmd! BufWritePost *.hs Neomake
+    augroup END
+  " }
+  "  Syntastic {
+    let g:syntastic_always_populate_loc_list = 1
+    let g:syntastic_auto_loc_list = 1
+    let g:syntastic_check_on_open = 1
+    let g:syntastic_check_on_wq = 0
+  "  }
 " }
-
-augroup NeomakeHaskell
-  autocmd!
-  autocmd! BufWritePost *.hs Neomake
-augroup END
-
-" Quickly edit/reload the vimrc file
-nmap <silent> <leader>ev :e $MYVIMRC<CR>
-nmap <silent> <leader>sv :so $MYVIMRC<CR>
-
-
-set statusline+=%#warningmsg#
-set statusline+=%{SyntasticStatuslineFlag()}
-set statusline+=%*
-
-let g:syntastic_always_populate_loc_list = 1
-let g:syntastic_auto_loc_list = 1
-let g:syntastic_check_on_open = 1
-let g:syntastic_check_on_wq = 0
