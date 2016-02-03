@@ -15,6 +15,8 @@ call plug#begin()
       Plug 'scrooloose/syntastic'
       " a Git wrapper so awesome, it should be illegal
       Plug 'tpope/vim-fugitive'
+      " shows a git diff in the gutter
+      Plug 'airblade/vim-gitgutter'
   " }
   " haskell {
       " hekp for haskell
