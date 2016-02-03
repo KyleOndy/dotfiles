@@ -1,21 +1,25 @@
 call plug#begin()
 
-  " ctrl-p is a fuzzy file finder.
-  Plug 'kien/ctrlp.vim'
-  " airline is a better status line and a tab-bar for nvim.
-  Plug 'bling/vim-airline'
-  " airline themse
-  Plug 'vim-airline/vim-airline-themes'
-  " neomake is asyncronsyc make
-  Plug 'benekastah/neomake'
-  " my favorite color scheme
-  Plug 'kyleondy/wombat256mod'
-  " hekp for haskell
-  Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
-  " syntax checking
-  Plug 'scrooloose/syntastic'
-  " hakell dev tools
-  Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+  " core plugins {
+      " ctrl-p is a fuzzy file finder.
+      Plug 'kien/ctrlp.vim'
+      " airline is a better status line and a tab-bar for nvim.
+      Plug 'bling/vim-airline'
+      " airline themse
+      Plug 'vim-airline/vim-airline-themes'
+      " asynchronous :make using Neovim's job-control functionality
+      Plug 'benekastah/neomake'
+      " my favorite color scheme
+      Plug 'kyleondy/wombat256mod'
+      " syntax checking
+      Plug 'scrooloose/syntastic'
+  " }
+  " haskell {
+      " hekp for haskell
+      Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
+      " hakell dev tools
+      Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+  " }
 
 call plug#end()
 
