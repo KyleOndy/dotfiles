@@ -201,6 +201,13 @@ let mapleader="\<SPACE>"
   nmap <Leader>P "+P
   vmap <Leader>p "+p
   vmap <Leader>P "+P
+  "
+  " Quickly edit/reload the vimrc file
+  nmap <silent> <leader>ev :e $MYVIMRC<CR>
+  nmap <silent> <leader>sv :so $MYVIMRC<CR>
+
+  au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
+  au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
 " }
 
 " Plugin Settings {
@@ -225,20 +232,16 @@ let mapleader="\<SPACE>"
     " Open most recently used files
     nnoremap <Leader>f :CtrlPMRUFiles<CR>
   " }
+ " NeoMake {
+    augroup NeomakeHaskell
+      autocmd!
+      autocmd! BufWritePost *.hs Neomake
+    augroup END
+  " }
+  "  Syntastic {
+    let g:syntastic_always_populate_loc_list = 1
+    let g:syntastic_auto_loc_list = 1
+    let g:syntastic_check_on_open = 1
+    let g:syntastic_check_on_wq = 0
+  "  }
 " }
-
-augroup NeomakeHaskell
-  autocmd!
-  autocmd! BufWritePost *.hs Neomake
-augroup END
-
-" Quickly edit/reload the vimrc file
-nmap <silent> <leader>ev :e $MYVIMRC<CR>
-nmap <silent> <leader>sv :so $MYVIMRC<CR>
-
-
-
-let g:syntastic_always_populate_loc_list = 1
-let g:syntastic_auto_loc_list = 1
-let g:syntastic_check_on_open = 1
-let g:syntastic_check_on_wq = 0
