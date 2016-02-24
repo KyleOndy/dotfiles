@@ -1,3 +1,5 @@
+docker
+docker-machine
 fish
 g++
 gcc
