@@ -17,3 +17,5 @@ sudo
 tar
 tmux
 tree
+xclip
+xsel
