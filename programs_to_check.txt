@@ -5,12 +5,16 @@ g++
 gcc
 git
 gpg
+hakyll-init
+hdevtools
+hlint
 htop
 latex
 make
 mosh
 mtr
 pass
+pointfree
 rsync
 ssh
 stack
