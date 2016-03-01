@@ -1,3 +1,4 @@
+bower
 docker
 docker-machine
 fish
@@ -5,6 +6,8 @@ g++
 gcc
 git
 gpg
+grunt
+gulp
 hakyll-init
 hdevtools
 hlint
@@ -13,6 +16,7 @@ latex
 make
 mosh
 mtr
+node
 pass
 pointfree
 rsync
@@ -25,3 +29,4 @@ tmux
 tree
 xclip
 xsel
+yo
