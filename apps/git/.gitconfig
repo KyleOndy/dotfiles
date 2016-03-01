@@ -2,7 +2,7 @@
   email = Kyle@Ondy.me
   name = Kyle Ondy
 [core]
-  editor = vim
+  editor = nvim
   autocrlf = input
   excludesfile = ~/.gitignore
 [commit]
