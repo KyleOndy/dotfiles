@@ -1,4 +1,5 @@
 set -x PATH ~/.local/bin $PATH
+set -x PATH ~/.gem/ruby $PATH
 
 alias vim nvim
 alias vi nvim
