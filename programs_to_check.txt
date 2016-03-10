@@ -30,4 +30,5 @@ tmux
 tree
 xclip
 xsel
+yesod-bin
 yo
