@@ -115,7 +115,7 @@ let mapleader="\<SPACE>"
   set autoread            " If file updates, load automatically.
   set autochdir           " Switch to current file's parent directory.
 
-  autocmd FileType gitcommit setlocal spell
+  autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
 
   " Remove special characters for filename
   set isfname-=:
