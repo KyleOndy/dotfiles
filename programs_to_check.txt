@@ -23,7 +23,6 @@ rsync
 s3_website
 ssh
 stack
-stack
 sudo
 tar
 tmux
