@@ -5,7 +5,7 @@ fish
 g++
 gcc
 git
-gpg
+gpg2
 grunt
 gulp
 hakyll-init
