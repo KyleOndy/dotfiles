@@ -1,15 +1,6 @@
-set -x PATH ~/.local/bin $PATH
-set -x PATH ~/.gem/ruby $PATH
-
-alias vim nvim
-alias vi nvim
-
-alias ghc 'stack exec -- ghc'
-alias ghci 'stack exec -- ghci'
-
-alias treea "tree -a -I '.git|.stack-work'"
-
-alias :q exit
+. "$HOME/.config/fish/functions/export.fish"
+. "$HOME/.config/fish/functions/aliases.fish"
+. "$HOME/.config/fish/functions/utils.fish"
 
 # source local config
-. ~/.config/fish/config.fish.local
+. "$HOME/.config/fish/config.fish.local"
