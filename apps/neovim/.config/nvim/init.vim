@@ -24,6 +24,9 @@ call plug#begin()
       " hakell dev tools
       Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
   " }
+  " fish {
+      Plug 'dag/vim-fish', { 'for': 'fish' }
+  " }
 
 call plug#end()
 
