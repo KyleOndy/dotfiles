@@ -9,6 +9,7 @@ function tree4; tree --dirsfirst -ChFLQ 4 $argv; end
 function tree5; tree --dirsfirst -ChFLQ 5 $argv; end
 function tree6; tree --dirsfirst -ChFLQ 6 $argv; end
 # My extension on the above
+function treea; tree -a -I '.git|.stack-work' --dirsfirst -ChFQ $argv; end
 function treea1; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 1 $argv; end
 function treea2; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 2 $argv; end
 function treea3; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 3 $argv; end
