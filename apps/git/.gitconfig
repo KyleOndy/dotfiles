@@ -1,12 +1,14 @@
 [user]
   email = Kyle@Ondy.me
   name = Kyle Ondy
+  signingkey = F871B092
 [core]
   editor = nvim
   autocrlf = input
   excludesfile = ~/.gitignore
 [commit]
   template = ~/.gitmessage.txt
+  gpgsign = true
 [help]
   autocorrect = 1
 [color]
