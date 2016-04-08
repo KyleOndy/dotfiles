@@ -8,6 +8,9 @@ set -x PATH "./bin" $PATH
 # stack bins
 set -x PATH "$HOME/.local/bin" $PATH
 
+# gem path
+set -x PATH "$HOME/.gem/ruby" $PATH
+
 # editor
 set -x EDITOR "nvim"
 
