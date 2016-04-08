@@ -27,6 +27,9 @@ call plug#begin()
   " fish {
       Plug 'dag/vim-fish', { 'for': 'fish' }
   " }
+  " elm {
+      Plug 'lambdatoast/elm.vim', { 'for': 'elm' }
+  " }
 
 call plug#end()
 
