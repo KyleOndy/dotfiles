@@ -24,3 +24,5 @@ alias ghci 'stack exec -- ghci'
 
 # Old Habits
 alias :q exit
+
+alias gpg gpg2
