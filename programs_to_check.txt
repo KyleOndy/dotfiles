@@ -5,6 +5,7 @@ fish
 g++
 gcc
 git
+git-extras
 gpg2
 grunt
 gulp
