@@ -43,4 +43,4 @@
   lg = !"git lg1"
   wdiff = diff --color-words
 [gpg]
-	program = gpg2
+  program = gpg2
