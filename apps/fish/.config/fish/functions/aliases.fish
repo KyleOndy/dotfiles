@@ -26,3 +26,6 @@ alias ghci 'stack exec -- ghci'
 alias :q exit
 
 alias gpg gpg2
+
+# git
+alias gst 'git status'
