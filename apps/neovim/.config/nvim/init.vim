@@ -30,6 +30,9 @@ call plug#begin()
   " elm {
       Plug 'lambdatoast/elm.vim', { 'for': 'elm' }
   " }
+  " golang {
+      Plug 'fatih/vim-go', { 'for': 'go' }
+  " }
 
 call plug#end()
 
