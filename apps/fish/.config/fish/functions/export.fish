@@ -30,3 +30,6 @@ setenv -x LESS_TERMCAP_us (set_color -o green)
 
 # No asnible cows
 set -x ANSIBLE_NOCOWS 1
+
+# Golang config
+set -x GOPATH "$HOME/go"
