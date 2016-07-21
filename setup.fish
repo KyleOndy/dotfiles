@@ -7,7 +7,7 @@ eval $BASE_DIR/dots.sh > /dev/null
 
 set LOCAL_FISH_CONFIG "$HOME/.config/fish/config.fish.local"
 if test ! -e $LOCAL_FISH_CONFIG
-  touch $LOCAL_FIST_CONFIG
+  touch $LOCAL_FISH_CONFIG
 end
 
 . "$HOME/.config/fish/config.fish"
