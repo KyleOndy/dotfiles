@@ -1,0 +1,16 @@
+[general]
+accounts = KyleOndy
+
+[Account KyleOndy]
+localrepository = KyleOndy-local
+remoterepository = KyleOndy-remote
+status_backend = sqlite
+
+[Repository KyleOndy-local]
+type= Maildir
+localfolders = ~/.mail/kyle-ondy.me
+
+[Repository KyleOndy-remote]
+type = IMAP
+remotehost = mail.ondy.me
+remoteuser = kyle@ondy.me
