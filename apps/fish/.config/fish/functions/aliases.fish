@@ -17,6 +17,8 @@ function treea4; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 4 $argv; end
 function treea5; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 5 $argv; end
 function treea6; tree -a -I '.git|.stack-work' --dirsfirst -ChFLQ 6 $argv; end
 
+function bigdirs; du -h --max-depth=1 $argv | sort -h; end
+
 
 # Stack
 alias ghc 'stack exec -- ghc'
