@@ -1,5 +1,7 @@
 [general]
 accounts = KyleOndy
+# Path to file with arbitrary Python code to be loaded
+pythonfile = ~/.mutt/offlineimap.py
 
 [Account KyleOndy]
 localrepository = KyleOndy-local
@@ -7,10 +9,21 @@ remoterepository = KyleOndy-remote
 status_backend = sqlite
 
 [Repository KyleOndy-local]
-type= Maildir
-localfolders = ~/.mail/kyle-ondy.me
+type            = Maildir
+localfolders    = ~/.mail/kyle-ondy.me
+sep             = /
+nametrans       = lambda folder: {'Inbox': 'INBOX',
+                                  }.get(folder, folder)
 
 [Repository KyleOndy-remote]
 type = IMAP
-remotehost = mail.ondy.me
-remoteuser = kyle@ondy.me
+remotehost      = mail.ondy.me
+remoteuser      = kyle@ondy.me
+remotepasseval  = get_pass("kyle@ondy.me")
+realdelete      = no
+nametrans       = lambda folder: {'INBOX': 'Inbox',
+                                  }.get(folder, folder)
+
+maxconnections  = 3
+ssl             = true
+sslcacertfile   = /etc/pki/tls/cert.pem
