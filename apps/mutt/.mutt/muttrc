@@ -1,7 +1,13 @@
 source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
 
-set ssl_starttls=yes
-set ssl_force_tls=yes
+set mbox_type   = Maildir
+set folder      = ~/.mail/kyle-ondy.me
+set spoolfile   = "~/.mail/kyle-ondy.me/Inbox"
+set record      = "~/.mail/kyle-ondy.me/Sent"
+set postponed   = "~/.mail/kyle-ondy.me/Drafts"
+
+
+set sendmail    = "sendmail -oi -oem"
 set editor='nvim'
 
 # I18n
@@ -9,28 +15,35 @@ set charset      = utf-8
 set send_charset = utf-8
 
 
-# from https://wiki.archlinux.org/index.php/Mutt#Passwords_management
-# store all my passwords is a gpg encrypted file.
-
-# Try to use the pass exec directly?
-#source "gpg2 -dq $HOME/.my-pwds.gpg |"
-
-
-set imap_user = 'kyle@ondy.me'
-#set imap_pass= 'pass ondy.me/email/kyle@ondy.me'
-
-set from='kyle@ondy.me'
 set realname='Kyle Ondy'
+set from='kyle@ondy.me'
 
-set folder = imaps://mail.ondy.me
-set spoolfile = imaps://mail.ondy.me/INBOX
+# General Config
+set edit_headers=yes
+set date_format="%y-%m-%d %T"
+set index_format="%2C | %Z [%d] %-30.30F (%-4.4c) %s"
 
-set header_cache = "~/.mutt/cache/headers"
-set message_cachedir = "~/.mutt/cache/bodies"
-set certificate_file = "~/.mutt/certificates"
+# Display recipient instead of sender in "Sent" folder view
+set my_index_format_pre='set index_format="%2C | %Z [%d] %-30.30'
+set my_index_format_post=' (%-4.4c) %?M?<%M> ?%s"'
+folder-hook .*[sS]ent.* "$my_index_format_pre"t"$my_index_format_post"
+folder-hook ! .*[sS]ent.* "$my_index_format_pre"F"$my_index_format_post"
+
+set pager_context=3
+set pager_stop=yes
+
+set fast_reply=yes
+set include=yes
 
 # Key Bindings
-bind index G imap-fetch-mail
+bind pager j next-line
+bind pager k previous-line
+bind attach,index,pager \CD next-page
+bind attach,index,pager \CU previous-page
+bind pager g top
+bind pager G bottom
+bind attach,index g first-entry
+bind attach,index G last-entry
 
 # Sidebar config
 #set sidebar_width=30
@@ -42,3 +55,26 @@ bind index G imap-fetch-mail
 # Sortingh
 set sort=threads
 set sort_aux=reverse-last-date-received
+
+#source ~/.mutt/crypto
+#set pgp_use_gpg_agent=yes
+#set crypt_use_gpgme=yes
+#set crypt_replysign=yes
+#set crypt_replysignencrypted=yes
+#set pgp_decode_command="gpg %?p?--passphrase-fd 0? --no-verbose --batch --output - %f"
+#set pgp_verify_command="gpg --no-verbose --batch --output - --verify %s %f"
+#set pgp_decrypt_command="gpg --passphrase-fd 0 --no-verbose --batch --output - %f"
+#set pgp_sign_command="gpg --no-verbose --batch --output - --passphrase-fd 0 --armor --detach-sign --textmode %?a?-u %a? %f"
+#set pgp_clearsign_command="gpg --no-verbose --batch --output - --passphrase-fd 0 --armor --textmode --clearsign %?a?-u %a? %f"
+#set pgp_encrypt_only_command="pgpewrap gpg --batch --quiet --no-verbose --output - --encrypt --textmode --armor --always-trust --encrypt-to 0xC9C40C31 -- -r %r -- %f"
+#set pgp_encrypt_sign_command="pgpewrap gpg --passphrase-fd 0 --batch --quiet --no-verbose --textmode --output - --encrypt --sign %?a?-u %a? --armor --always-trust --encrypt-to 0xC9C40C31 -- -r %r -- %f"
+#set pgp_import_command="gpg --no-verbose --import -v %f"
+#set pgp_export_command="gpg --no-verbose --export --armor %r"
+#set pgp_verify_key_command="gpg --no-verbose --batch --fingerprint --check-sigs %r"
+#set pgp_list_pubring_command="gpg --no-verbose --batch --with-colons --list-keys %r"
+#set pgp_list_secring_command="gpg --no-verbose --batch --with-colons --list-secret-keys %r"
+#set pgp_autosign=yes
+#set pgp_sign_as=0x6839D3ADF871B092
+#set pgp_replyencrypt=yes
+#set pgp_timeout=1800
+#set pgp_good_sign="^gpg: Good signature from"
