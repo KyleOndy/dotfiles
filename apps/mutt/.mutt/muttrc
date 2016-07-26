@@ -1,0 +1,45 @@
+source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
+
+set ssl_starttls=yes
+set ssl_force_tls=yes
+set editor='nvim'
+
+# I18n
+set charset      = utf-8
+set send_charset = utf-8
+
+
+# from https://wiki.archlinux.org/index.php/Mutt#Passwords_management
+# store all my passwords is a gpg encrypted file.
+
+# Try to use the pass exec directly?
+#source "gpg2 -dq $HOME/.my-pwds.gpg |"
+
+
+set imap_user = 'kyle@ondy.me'
+#set imap_pass= 'pass ondy.me/email/kyle@ondy.me'
+
+set from='kyle@ondy.me'
+set realname='Kyle Ondy'
+
+set folder = imaps://mail.ondy.me
+set spoolfile = imaps://mail.ondy.me/INBOX
+
+set header_cache = "~/.mutt/cache/headers"
+set message_cachedir = "~/.mutt/cache/bodies"
+set certificate_file = "~/.mutt/certificates"
+
+# Key Bindings
+bind index G imap-fetch-mail
+
+# Sidebar config
+set sidebar_width=30
+set sidebar_visible=yes
+set imap_check_subscribed=yes
+set sidebar_shortpath=yes
+
+color sidebar_new yellow default
+
+# Sortingh
+set sort=threads
+set sort_aux=reverse-last-date-received
