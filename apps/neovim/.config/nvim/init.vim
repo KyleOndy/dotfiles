@@ -125,6 +125,7 @@ let mapleader="\<SPACE>"
   set autochdir           " Switch to current file's parent directory.
 
   autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
+  autocmd FileType mail setlocal spell | setlocal tw=80
 
   " Remove special characters for filename
   set isfname-=:
