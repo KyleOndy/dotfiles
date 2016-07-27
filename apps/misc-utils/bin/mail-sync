@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+while pkill --signal 0 offlineimap
+do
+    sleep 2
+done
+
+mkdir -p ~/var/log/
+offlineimap #> ~/var/log/mail-sync 2>&1 &
