@@ -16,8 +16,34 @@ set charset       = utf-8
 set send_charset  = utf-8
 
 
-set realname='Kyle Ondy'
-set from='kyle@ondy.me'
+# Compose View ----------------------------------
+set realname      = 'Kyle Ondy'
+set from          = 'kyle@ondy.me'
+set envelope_from
+set sig_dashes
+set edit_headers
+set fast_reply
+set askcc
+set fcc_attach
+unset mime_forward
+set forward_format = "Fwd: %s"
+set forward_decode
+set attribution = "On %d, %n wrote:"
+set reply_to
+set reverse_name
+set include
+set forward_quote
+
+
+
+
+
+bind index <tab>    sync-mailbox
+bind index <space>  collapse-thread
+# Sync email
+#macro index O "<shell-escape>offlineimap -o<enter>"           "run offlineimap to sync all mail"
+macro index,pager s '<sync-mailbox><shell-escape>mail-sync &<enter>'
+
 
 # General Config
 set edit_headers=yes
