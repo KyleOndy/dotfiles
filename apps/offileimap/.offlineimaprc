@@ -1,7 +1,7 @@
 [general]
 accounts = KyleOndy
 # Path to file with arbitrary Python code to be loaded
-pythonfile = ~/.mutt/offlineimap.py
+pythonfile = ~/.offlineimap/offlineimap.py
 
 [Account KyleOndy]
 localrepository = KyleOndy-local
