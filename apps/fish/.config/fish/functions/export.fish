@@ -5,6 +5,9 @@ set -x LC_CTYPE en_US.UTF-8
 # respect local bins
 set -x PATH "./bin" $PATH
 
+# my own little utils
+set -x PATH "$HOME/bin" $PATH
+
 # stack bins
 set -x PATH "$HOME/.local/bin" $PATH
 
