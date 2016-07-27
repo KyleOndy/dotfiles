@@ -1,18 +1,19 @@
 source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
 
-set mbox_type   = Maildir
-set folder      = ~/.mail/kyle-ondy.me
-set spoolfile   = "~/.mail/kyle-ondy.me/Inbox"
-set record      = "~/.mail/kyle-ondy.me/Sent"
-set postponed   = "~/.mail/kyle-ondy.me/Drafts"
+set mbox_type     = Maildir
+set folder        = "~/.mail/kyle-ondy.me"
+set spoolfile     = "~/.mail/kyle-ondy.me/Inbox"
+set record        = "~/.mail/kyle-ondy.me/Sent"
+set postponed     = "~/.mail/kyle-ondy.me/Drafts"
 
 
-set sendmail    = "sendmail -oi -oem"
-set editor='nvim'
+set sendmail      = "sendmail -oi -oem"
+set editor        = 'nvim'
+set timeout       = 10
 
 # I18n
-set charset      = utf-8
-set send_charset = utf-8
+set charset       = utf-8
+set send_charset  = utf-8
 
 
 set realname='Kyle Ondy'
