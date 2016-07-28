@@ -1,21 +1,74 @@
-source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
-
-set mbox_type     = Maildir
-set folder        = "~/.mail/kyle-ondy.me"
-set spoolfile     = "~/.mail/kyle-ondy.me/Inbox"
-set record        = "~/.mail/kyle-ondy.me/Sent"
-set postponed     = "~/.mail/kyle-ondy.me/Drafts"
-
-
-set sendmail      = "sendmail -oi -oem"
-set editor        = 'nvim'
-set timeout       = 10
-unset wait_key
-
 # I18n
 set charset       = utf-8
 set send_charset  = utf-8
 
+# Paths ----------------------------------------------
+set folder           = ~/.mail               # where email is stored
+set alias_file       = ~/.mutt/alias         # where to store aliases
+set header_cache     = ~/.mutt/cache/headers # where to store headers
+set message_cachedir = ~/.mutt/cache/bodies  # where to store bodies
+set certificate_file = ~/.mutt/certificates  # where to store certs
+set mailcap_path     = ~/.mutt/mailcap       # entries for filetypes
+set tmpdir           = ~/.mutt/temp          # where to keep temp files
+set signature        = ~/.mutt/sig           # my signature file
+
+# Basic Options --------------------------------------
+set wait_key = no        # shut up, mutt
+set mbox_type = Maildir  # mailbox type
+set timeout = 3          # idle time before scanning
+set mail_check = 0       # minimum time between scans
+set delete               # don't ask, just do
+set quit                 # don't ask, just do!!
+set beep_new             # bell on new mails
+set pipe_decode          # strip headers and eval mimes when piping
+set thorough_search      # strip headers and eval mimes before searching
+set editor        = 'nvim'
+set sendmail      = "msmtp -a kyleondy"
+set sendmail_wait = 0
+unset record
+
+# Sidebar Patch --------------------------------------
+set sidebar_visible
+set sidebar_format = "%B%?F? [%F]?%* %?N?%N/?%S"
+set mail_check_stats
+set sidebar_short_path=yes
+#color sidebar_new yellow default
+
+# Status Bar -----------------------------------------
+set status_chars  = " *%A"
+set status_format = "───[ Folder: %f ]───[%r%m messages%?n? (%n new)?%?d? (%d to delete)?%?t? (%t tagged)? ]───%>─%?p?( %p postponed )?───"
+
+
+# Header Options -------------------------------------
+ignore *                                # ignore all headers
+unignore from: to: cc: date: subject:   # show only these
+unhdr_order *                           # some distros order things by default
+hdr_order from: to: cc: date: subject:  # and in this order
+
+
+# Account Settings -----------------------------------
+# Default inbox
+set spoolfile = "+kyle-ondy.me/Inbox"
+
+# Mailboxes to show in sidebar
+mailboxes +kyle-ondy.me/Inbox \
+          +kyle-ondy.me/Sent \
+          +kyle-ondy.me/Drafts
+
+set postponed = "+kyle-ondy.me/Drafts"
+set record    = "+kyle-ondy.me/Sent"
+
+# Index View Options ---------------------------------
+set date_format = "%m/%d"
+set index_format = "[%Z]  %D  %-20.20F  %s"
+set sort = threads                         # like gmail
+set sort_aux = reverse-last-date-received  # like gmail
+set uncollapse_jump                        # don't collapse on an unread message
+set reply_regexp = "^(([Rr][Ee]?(\[[0-9]+\])?: *)?(\[[^]]+\] *)?)*"
+
+# Saner copy/move dialogs
+macro index C "<copy-message>?<toggle-mailboxes>" "copy a message to a mailbox"
+macro index M "<save-message>?<toggle-mailboxes>" "move a message to a mailbox"
 
 # Compose View ----------------------------------
 set realname      = 'Kyle Ondy'
@@ -35,57 +88,57 @@ set reverse_name
 set include
 set forward_quote
 
+# Pager View Options ---------------------------------
+set pager_index_lines = 10 # number of index lines to show
+set pager_context = 3      # number of context lines to show
+set pager_stop             # don't go to next message automatically
+set menu_scroll            # scroll in menus
+set tilde                  # show tildes like in vim
+unset markers              # no ugly plus signs
 
+set quote_regexp = "^( {0,4}[>|:#%]| {0,4}[a-z0-9]+[>|]+)+"
+alternative_order text/plain text/enriched text/html
 
-
-
-bind index <tab>    sync-mailbox
-bind index <space>  collapse-thread
-# Sync email
-#macro index O "<shell-escape>offlineimap -o<enter>"           "run offlineimap to sync all mail"
-macro index,pager s '<sync-mailbox><shell-escape>mail-sync<enter>'
-
-
-# General Config
-set edit_headers=yes
-set date_format="%y-%m-%d %T"
-set index_format="%2C | %Z [%d] %-30.30F (%-4.4c) %s"
-
-# Display recipient instead of sender in "Sent" folder view
-set my_index_format_pre='set index_format="%2C | %Z [%d] %-30.30'
-set my_index_format_post=' (%-4.4c) %?M?<%M> ?%s"'
-folder-hook .*[sS]ent.* "$my_index_format_pre"t"$my_index_format_post"
-folder-hook ! .*[sS]ent.* "$my_index_format_pre"F"$my_index_format_post"
-
-set pager_context=3
-set pager_stop=yes
-
-set fast_reply=yes
-set include=yes
-
-# Key Bindings
-bind pager j next-line
-bind pager k previous-line
+# Key Bindings ---------------------------------------
 bind attach,index,pager \CD next-page
 bind attach,index,pager \CU previous-page
-bind pager g top
-bind pager G bottom
-bind attach,index g first-entry
-bind attach,index G last-entry
 
-# Sidebar config
-#set sidebar_width=30
-#set sidebar_visible=yes
-#set imap_check_subscribed=yes
-#set sidebar_shortpath=yes
-#color sidebar_new yellow default
+bind index,pager <down>   sidebar-next
+bind index,pager <up>     sidebar-prev
+bind index,pager <right>  sidebar-open
 
-# Sortingh
-set sort=threads
-set sort_aux=reverse-last-date-received
+bind attach,index gg       first-entry
+bind attach,index G        last-entry
 
-#source ~/.mutt/crypto
-#set pgp_use_gpg_agent=yes
+bind index R        group-reply
+bind index <tab>    sync-mailbox
+bind index <space>  collapse-thread
+
+
+bind pager k  previous-line
+bind pager j  next-line
+bind pager gg top
+bind pager G  bottom
+
+bind pager R  group-reply
+
+bind compose p postpone-message
+bind index p recall-message
+
+# View attachments properly.
+bind attach <return> view-mailcap
+
+
+# Macros ---------------------------------------------
+#macro index,pager s '<sync-mailbox><shell-escape>mail-sync<enter>'
+macro index,pager s '<sync-mailbox><shell-escape>offlineimap -qf INBOX<enter>'
+macro index,pager S '<sync-mailbox><shell-escape>offlineimap<enter>'
+
+# File Sourcing --------------------------------------
+source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
+
+# GPG ------------------------------------------------
+##set pgp_use_gpg_agent=yes
 #set crypt_use_gpgme=yes
 #set crypt_replysign=yes
 #set crypt_replysignencrypted=yes
@@ -106,3 +159,26 @@ set sort_aux=reverse-last-date-received
 #set pgp_replyencrypt=yes
 #set pgp_timeout=1800
 #set pgp_good_sign="^gpg: Good signature from"
+
+# Other Options to Organize --------------------------
+
+# General Config
+#set edit_headers=yes
+#set date_format="%y-%m-%d %T"
+#set index_format="%2C | %Z [%d] %-30.30F (%-4.4c) %s"
+
+# Display recipient instead of sender in "Sent" folder view
+#set my_index_format_pre='set index_format="%2C | %Z [%d] %-30.30'
+#set my_index_format_post=' (%-4.4c) %?M?<%M> ?%s"'
+#folder-hook .*[sS]ent.* "$my_index_format_pre"t"$my_index_format_post"
+#folder-hook ! .*[sS]ent.* "$my_index_format_pre"F"$my_index_format_post"
+
+#set pager_context=3
+#set pager_stop=yes
+
+#set fast_reply=yes
+#set include=yes
+
+# Sortingh
+#set sort=threads
+#set sort_aux=reverse-last-date-received
