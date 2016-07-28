@@ -8,6 +8,7 @@
   excludesfile = ~/.gitignore
 [commit]
   template = ~/.gitmessage.txt
+  gpgSign = true
 [help]
   autocorrect = 1
 [color]
