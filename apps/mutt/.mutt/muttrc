@@ -122,7 +122,7 @@ bind pager G  bottom
 
 bind pager R  group-reply
 
-bind compose p postpone-message
+#bind compose p postpone-message    # intefears with PGP
 bind index p recall-message
 
 # View attachments properly.
