@@ -31,7 +31,7 @@ unset record
 set sidebar_visible
 set sidebar_format = "%B%?F? [%F]?%* %?N?%N/?%S"
 set mail_check_stats
-set sidebar_short_path=yes
+set sidebar_short_path
 #color sidebar_new yellow default
 
 # Status Bar -----------------------------------------
