@@ -10,6 +10,7 @@ set postponed     = "~/.mail/kyle-ondy.me/Drafts"
 set sendmail      = "sendmail -oi -oem"
 set editor        = 'nvim'
 set timeout       = 10
+unset wait_key
 
 # I18n
 set charset       = utf-8
@@ -42,7 +43,7 @@ bind index <tab>    sync-mailbox
 bind index <space>  collapse-thread
 # Sync email
 #macro index O "<shell-escape>offlineimap -o<enter>"           "run offlineimap to sync all mail"
-macro index,pager s '<sync-mailbox><shell-escape>mail-sync &<enter>'
+macro index,pager s '<sync-mailbox><shell-escape>mail-sync<enter>'
 
 
 # General Config
