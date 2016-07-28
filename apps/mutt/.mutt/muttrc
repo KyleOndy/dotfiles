@@ -159,25 +159,3 @@ source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
 #set pgp_replyencrypt=yes
 #set pgp_timeout=1800
 #set pgp_good_sign="^gpg: Good signature from"
-
-# Other Options to Organize --------------------------
-
-# General Config
-#set edit_headers=yes
-#set index_format="%2C | %Z [%d] %-30.30F (%-4.4c) %s"
-
-# Display recipient instead of sender in "Sent" folder view
-#set my_index_format_pre='set index_format="%2C | %Z [%d] %-30.30'
-#set my_index_format_post=' (%-4.4c) %?M?<%M> ?%s"'
-#folder-hook .*[sS]ent.* "$my_index_format_pre"t"$my_index_format_post"
-#folder-hook ! .*[sS]ent.* "$my_index_format_pre"F"$my_index_format_post"
-
-#set pager_context=3
-#set pager_stop=yes
-
-#set fast_reply=yes
-#set include=yes
-
-# Sortingh
-#set sort=threads
-#set sort_aux=reverse-last-date-received
