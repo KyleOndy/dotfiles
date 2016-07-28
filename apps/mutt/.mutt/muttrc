@@ -59,7 +59,7 @@ set postponed = "+kyle-ondy.me/Drafts"
 set record    = "+kyle-ondy.me/Sent"
 
 # Index View Options ---------------------------------
-set date_format = "%m/%d"
+set date_format="%y-%m-%d %R"
 set index_format = "[%Z]  %D  %-20.20F  %s"
 set sort = threads                         # like gmail
 set sort_aux = reverse-last-date-received  # like gmail
@@ -164,7 +164,6 @@ source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
 
 # General Config
 #set edit_headers=yes
-#set date_format="%y-%m-%d %T"
 #set index_format="%2C | %Z [%d] %-30.30F (%-4.4c) %s"
 
 # Display recipient instead of sender in "Sent" folder view
