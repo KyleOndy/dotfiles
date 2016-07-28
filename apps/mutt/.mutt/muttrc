@@ -130,7 +130,6 @@ bind attach <return> view-mailcap
 
 
 # Macros ---------------------------------------------
-#macro index,pager s '<sync-mailbox><shell-escape>mail-sync<enter>'
 macro index,pager s '<sync-mailbox><shell-escape>offlineimap -qf INBOX<enter>'
 macro index,pager S '<sync-mailbox><shell-escape>offlineimap<enter>'
 
