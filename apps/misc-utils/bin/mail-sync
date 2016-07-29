@@ -6,4 +6,4 @@ do
 done
 
 mkdir -p ~/var/log/
-offlineimap #> ~/var/log/mail-sync 2>&1 &
+offlineimap > ~/var/log/mail-sync 2>&1 &
