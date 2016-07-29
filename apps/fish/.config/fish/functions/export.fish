@@ -19,7 +19,12 @@ set -x EDITOR "nvim"
 
 # LESS with colors
 # from http://blog.0x1fff.com/2009/11/linux-tip-color-enabled-pager-less.html
+set -x PAGER "less"
 set -x LESS "-RSM~gIsw"
+
+if test -e /usr/bin/src-hilite-lesspipe.sh
+  set -x LESSOPEN "| /usr/bin/src-hilite-lesspipe.sh %s"
+end
 
 # Colorful man pages
 # from http://pastie.org/pastes/206041/text
