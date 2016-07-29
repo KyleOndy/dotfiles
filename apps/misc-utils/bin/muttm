@@ -3,7 +3,7 @@
 mkdir -p ~/var/log
 while true      # run forever
 do
-    offlineimap 2>&1 > ~/var/log/offlineimap.log  # run offlineimap and copy log to ~/mail-log
+    mail-sync
     sleep 120   # sleep 2 minutes
 done &          # run loop in background
 LOOP_PID=$!     # copy PID of loop
