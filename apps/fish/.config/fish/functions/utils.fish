@@ -1,9 +1,5 @@
 alias myip="curl -s checkip.dyndns.org | grep -Eo '[0-9\.]+'"
 
-function update_dots
-  cd ~/.dotfiles; and git stash save and git pull; and ./dots.sh
-end
-
 function fish_prompt --description 'Write out the prompt'
     # Just calculate these once, to save a few cycles when displaying the prompt
   if not set -q __fish_prompt_hostname
