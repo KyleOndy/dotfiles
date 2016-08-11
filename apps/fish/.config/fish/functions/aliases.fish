@@ -10,7 +10,6 @@ function tree5; tree -L 5 $argv; end
 function tree6; tree -L 6 $argv; end
 
 alias treea "tree -a -I '.git|.stack-work' --dirsfirst -ChFQ"
-function treea;  tree $argv; end
 function treea1; tree -L 1 $argv; end
 function treea2; tree -L 2 $argv; end
 function treea3; tree -L 3 $argv; end
