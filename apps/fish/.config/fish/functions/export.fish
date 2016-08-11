@@ -41,3 +41,6 @@ set -x ANSIBLE_NOCOWS 1
 
 # Golang config
 set -x GOPATH "$HOME/go"
+
+# Diable fish greeting
+set fish_greeting
