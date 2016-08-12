@@ -17,6 +17,8 @@ call plug#begin()
       Plug 'tpope/vim-fugitive'
       " shows a git diff in the gutter
       Plug 'airblade/vim-gitgutter'
+      " honor .editorconfig files
+      Plug 'editorconfig/editorconfig-vim'
   " }
   " haskell {
       " hekp for haskell
