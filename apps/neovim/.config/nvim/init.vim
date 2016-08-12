@@ -25,6 +25,8 @@ call plug#begin()
       Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
       " hakell dev tools
       Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+      " run stylish-haskell on save
+      Plug 'nbouscal/vim-stylish-haskell'
   " }
   " fish {
       Plug 'dag/vim-fish', { 'for': 'fish' }
