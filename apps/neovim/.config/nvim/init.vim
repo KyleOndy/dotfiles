@@ -130,6 +130,7 @@ let mapleader="\<SPACE>"
 
   autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
   autocmd FileType mail setlocal spell | setlocal tw=80
+  autocmd FileType markdown setloca spell
 
   " Remove special characters for filename
   set isfname-=:
