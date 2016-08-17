@@ -74,3 +74,7 @@ My old config files I can't get rid of
 
 ### weechat
 My irc client of choice
+
+## TODO
+
+[ ] mutt colorscheme needs some love and tweaking
