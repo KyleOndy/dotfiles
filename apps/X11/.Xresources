@@ -4,8 +4,8 @@ URxvt.geometry: 100x25
 URxvt.intensityStyles: false
 URxvt.urgentOnBell: true
 URxvt.saveLines: 1000
-URxvt.font: xft:DejaVu Sans Mono:size=11
-URxvt.boldFont: xft:DejaVu Sans Mono:bold:size=11
+URxvt.font: xft:DejaVu Sans Mono:size=10
+URxvt.boldFont: xft:DejaVu Sans Mono:bold:size=10
 URxvt.perl-ext-common: default,vtwheel,clipboard,keyboard-select,url-select
 
 ! browser
