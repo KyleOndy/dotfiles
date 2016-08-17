@@ -10,7 +10,7 @@ call plug#begin()
       " asynchronous :make using Neovim's job-control functionality
       Plug 'benekastah/neomake'
       " my favorite color scheme
-      Plug 'kyleondy/wombat256mod'
+      Plug 'chriskempson/base16-vim'
       " syntax checking
       Plug 'scrooloose/syntastic'
       " a Git wrapper so awesome, it should be illegal
@@ -51,7 +51,7 @@ endif
 let mapleader="\<SPACE>"
 
 " General {
-  colors wombat256mod                 "Wombat Color Scheme
+  colors base16-eighties
 
   set backspace=indent,eol,start      " Allow backspace over everything in insert mode.
   set complete-=i
