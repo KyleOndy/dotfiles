@@ -17,6 +17,9 @@ set -x PATH "$HOME/.gem/ruby" $PATH
 # editor
 set -x EDITOR "nvim"
 
+# i3-sensible-terminal needs this set to use a 256 color term
+set -x TERMINAL "urxvt256c"
+
 # LESS with colors
 # from http://blog.0x1fff.com/2009/11/linux-tip-color-enabled-pager-less.html
 set -x PAGER "less"
