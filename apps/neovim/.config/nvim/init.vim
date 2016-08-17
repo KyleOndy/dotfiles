@@ -19,6 +19,8 @@ call plug#begin()
       Plug 'airblade/vim-gitgutter'
       " honor .editorconfig files
       Plug 'editorconfig/editorconfig-vim'
+      " better tmux navigation
+      Plug 'christoomey/vim-tmux-navigator'
   " }
   " haskell {
       " hekp for haskell
@@ -222,6 +224,15 @@ let mapleader="\<SPACE>"
   " Quickly edit/reload the vimrc file
   nmap <silent> <leader>ev :e $MYVIMRC<CR>
   nmap <silent> <leader>sv :so $MYVIMRC<CR>
+
+  " make slpits a bit better
+  nnoremap <C-j> <C-w>j
+  nnoremap <C-k> <C-w>k
+  nnoremap <C-h> <C-w>h
+  nnoremap <C-l> <C-w>l
+
+  set splitbelow
+  set splitright
 
   au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
   au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
