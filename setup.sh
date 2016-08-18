@@ -3,9 +3,8 @@ set -eu
 
 BASE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# what programs are we missing?
 eval $BASE_DIR/check.sh | grep missing
-#eval $BASE_DIR/dots.sh > /dev/null
-
 
 # if we do not have a local config file, create an empty one
 FISH_CONFIG_DIR="$HOME/.config/fish"
@@ -18,8 +17,7 @@ fi
 # Lets symlink some files!
 for d in `find "$BASE_DIR/apps/" -maxdepth 1 -mindepth 1 -type d`
 do
-  echo $d
-  cp -fav --symbolic-link $d/ ~/
+  cp -fa --symbolic-link $d/. ~/
 done
 
 # fix some off permission of gpg
