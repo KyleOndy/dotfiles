@@ -226,11 +226,6 @@ let mapleader="\<SPACE>"
   nmap <silent> <leader>sv :so $MYVIMRC<CR>
 
   " make slpits a bit better
-  nnoremap <C-j> <C-w>j
-  nnoremap <C-k> <C-w>k
-  nnoremap <C-h> <C-w>h
-  nnoremap <C-l> <C-w>l
-
   set splitbelow
   set splitright
 
@@ -272,4 +267,12 @@ let mapleader="\<SPACE>"
     let g:syntastic_check_on_open = 1
     let g:syntastic_check_on_wq = 0
   "  }
+  "vim-tmux-navigation {
+    let g:tmux_navigator_no_mappings = 1
+    nnoremap <silent> <A-h> :TmuxNavigateLeft<cr>
+    nnoremap <silent> <A-j> :TmuxNavigateDown<cr>
+    nnoremap <silent> <A-k> :TmuxNavigateUp<cr>
+    nnoremap <silent> <A-l> :TmuxNavigateRight<cr>
+    nnoremap <silent> <A-\> :TmuxNavigatePrevious<cr>
+  "}
 " }
