@@ -25,4 +25,8 @@ chown $(whoami):$(whoami) ~/.gnupg/gpg.conf
 chmod 600 ~/.gnupg/*
 chmod 700 ~/.gnupg
 
-. "$HOME/.config/fish/config.fish"
+
+echo "Setting fish as default shell"
+chsh -s $(which fish) $(whoami)
+
+fish
