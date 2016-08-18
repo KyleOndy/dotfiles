@@ -1,9 +1,18 @@
 #!/usr/bin/env sh
 set -eu
 
+pushd () {
+  command pushd "$@" > /dev/null
+}
+popd () {
+  command popd "$@" > /dev/null
+}
+
 LOCAL=$(git rev-parse @)
 REMOTE=$(git rev-parse @{u})
 BASE=$(git merge-base @ @{u})
+
+pushd $HOME/.dotfiles
 
 if [ $LOCAL = $REMOTE ]; then
     echo "dotfiles are up-to-date"
@@ -15,3 +24,5 @@ elif [ $REMOTE = $BASE ]; then
 else
     echo "dotfiles have diverged. You are on your own."
 fi
+
+popd
