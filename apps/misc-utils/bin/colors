@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+#show what colors are available
+NUM_COLORS=16
+if ! [ -z "$1" ]; then
+  NUM_COLORS="$1"
+fi
+
+
+for i in $(seq 0 $NUM_COLORS) ; do
+  printf "\x1b[38;5;${i}mcolour${i}\n"
+done
