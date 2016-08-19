@@ -1,5 +1,5 @@
 # Check if we have the most up to date copy of dotfiles
-checkDotsUpdate
+#checkDotsUpdate
 
 . "$HOME/.config/fish/functions/export.fish"
 . "$HOME/.config/fish/functions/aliases.fish"
