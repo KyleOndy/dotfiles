@@ -21,6 +21,8 @@ call plug#begin()
       Plug 'editorconfig/editorconfig-vim'
       " better tmux navigation
       Plug 'christoomey/vim-tmux-navigator'
+      " more tpope, surround
+      Plug 'tpope/vim-surround'
   " }
   " haskell {
       " hekp for haskell
