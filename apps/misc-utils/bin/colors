@@ -7,6 +7,7 @@ if ! [ -z "$1" ]; then
 fi
 
 
-for i in $(seq 0 $NUM_COLORS) ; do
-  printf "\x1b[38;5;${i}mcolour${i}\n"
+for i in $(seq 0 "$NUM_COLORS") ; do
+  #printf "\x1b[38;5;${i}mcolour${i}\n"
+  printf "\x1b[38;5;%imcolour%i\n" "${i}" "${i}"
 done
