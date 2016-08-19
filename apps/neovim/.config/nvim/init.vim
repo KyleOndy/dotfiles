@@ -30,7 +30,7 @@ call plug#begin()
       " hakell dev tools
       Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
       " run stylish-haskell on save
-      Plug 'nbouscal/vim-stylish-haskell'
+      Plug 'nbouscal/vim-stylish-haskell', { 'for': 'haskell' }
   " }
   " fish {
       Plug 'dag/vim-fish', { 'for': 'fish' }
