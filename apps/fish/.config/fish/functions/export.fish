@@ -47,3 +47,5 @@ set -x GOPATH "$HOME/go"
 
 # Diable fish greeting
 set fish_greeting
+
+set -x DOTFILES "$HOME/.dotfiles"
