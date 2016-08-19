@@ -4,6 +4,8 @@ docker-machine
 fish
 g++
 gcc
+ghc-mod
+ghc-modi
 git
 git-extras
 gpg2
