@@ -25,6 +25,7 @@ pass
 pointfree
 rsync
 s3_website
+shellcheck
 ssh
 stack
 sudo
