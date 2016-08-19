@@ -8,11 +8,11 @@ popd () {
   command popd "$@" > /dev/null
 }
 
+pushd $DOTFILES
 LOCAL=$(git rev-parse @)
 REMOTE=$(git rev-parse @{u})
 BASE=$(git merge-base @ @{u})
 
-pushd $HOME/.dotfiles
 
 if [ $LOCAL = $REMOTE ]; then
     echo "dotfiles are up-to-date"
