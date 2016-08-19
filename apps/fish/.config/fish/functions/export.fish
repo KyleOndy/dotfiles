@@ -46,6 +46,6 @@ set -x ANSIBLE_NOCOWS 1
 set -x GOPATH "$HOME/go"
 
 # Diable fish greeting
-set fish_greeting
+set -x fish_greeting
 
 set -x DOTFILES "$HOME/.dotfiles"
