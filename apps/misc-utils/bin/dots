@@ -57,7 +57,7 @@ case "$1" in
     fi
 
     # Lets symlink some files!
-    find "$DOTFILES/apps/" -maxdepth 2 -mindepth 2 -exec cp -fa --symbolic-link {} "$HOME" \;
+    find "$DOTFILES/apps/" -maxdepth 2 -mindepth 2 -exec cp -fav --symbolic-link {} "$HOME" \;
 
     # fix some off permission of gpg
     chown "$(whoami)":"$(whoami)" ~/.gnupg/gpg.conf
