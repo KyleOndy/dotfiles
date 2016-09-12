@@ -23,6 +23,8 @@ call plug#begin()
       Plug 'christoomey/vim-tmux-navigator'
       " more tpope, surround
       Plug 'tpope/vim-surround'
+      " better completion
+      Plug 'Valloric/YouCompleteMe', { 'do': './install.py --clang-completer' }
   " }
   " haskell {
       " hekp for haskell
