@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# mim
-# mutt (improved)
+# m(utt) im(proved)
 
 mkdir -p ~/var/log
 while true      # run forever
