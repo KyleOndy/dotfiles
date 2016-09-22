@@ -49,3 +49,4 @@ set -x GOPATH "$HOME/go"
 set -x fish_greeting
 
 set -x DOTFILES "$HOME/.dotfiles"
+set -x MAIL_BACKUP "$HOME/Dropbox/.mail"
