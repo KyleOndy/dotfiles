@@ -228,10 +228,6 @@ let mapleader="\<SPACE>"
   nmap <silent> <leader>ev :e $MYVIMRC<CR>
   nmap <silent> <leader>sv :so $MYVIMRC<CR>
 
-  " make slpits a bit better
-  set splitbelow
-  set splitright
-
   au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
   au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
 " }
