@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -eu
+
+rsync -arp "$HOME/.mail" "$MAIL_BACKUP"
