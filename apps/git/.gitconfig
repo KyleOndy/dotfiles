@@ -9,8 +9,6 @@
 [commit]
   template = ~/.gitmessage.txt
   gpgSign = true
-[help]
-  autocorrect = 1
 [color]
   ui = auto
 [color "branch"]
