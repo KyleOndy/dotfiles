@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # m(utt) im(proved)
 
+cd "$HOME/Downloads"
 mkdir -p ~/var/log
 while true      # run forever
 do
