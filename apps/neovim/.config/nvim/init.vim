@@ -30,6 +30,7 @@ call plug#begin()
       Plug 'tpope/vim-surround'
       " better completion
       Plug 'Valloric/YouCompleteMe', { 'do': './install.py --clang-completer' }
+      Plug 'pearofducks/ansible-vim'
   " }
   " haskell {
       " hekp for haskell
