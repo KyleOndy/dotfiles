@@ -148,9 +148,6 @@ let mapleader="\<SPACE>"
   set isfname-==
   set isfname-=+
 
-  " Map ; to :
-  nnoremap ; :
-
   if &history < 1000
     set history=1000      " Number of lines in command history.
   endif
