@@ -258,17 +258,11 @@ let mapleader="\<SPACE>"
     nnoremap <Leader>f :CtrlPMRUFiles<CR>
   " }
  " NeoMake {
-    augroup NeomakeHaskell
-      autocmd!
-      autocmd! BufWritePost *.hs Neomake
-    augroup END
+    " run neomake everytime a buffer is read or written
+    autocmd! BufReadPost,BufWritePost * Neomake
+    " open the error list, but don't move my cursor
+    let g:neomake_open_list = 2
   " }
-  "  Syntastic {
-    let g:syntastic_always_populate_loc_list = 1
-    let g:syntastic_auto_loc_list = 1
-    let g:syntastic_check_on_open = 1
-    let g:syntastic_check_on_wq = 0
-  "  }
   "vim-tmux-navigation {
     let g:tmux_navigator_no_mappings = 1
     nnoremap <silent> <A-h> :TmuxNavigateLeft<cr>
