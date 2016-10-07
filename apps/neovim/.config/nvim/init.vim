@@ -18,8 +18,6 @@ call plug#begin()
       Plug 'benekastah/neomake'
       " my favorite color scheme
       Plug 'kyleondy/wombat256mod'
-      " syntax checking
-      Plug 'scrooloose/syntastic'
       " a Git wrapper so awesome, it should be illegal
       Plug 'tpope/vim-fugitive'
       " shows a git diff in the gutter
