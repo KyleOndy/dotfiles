@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -eu
 
-rsync -arp "$HOME/.mail" "$MAIL_BACKUP"
+rsync -arp --exclude '.notmuch' "$HOME/.mail" "$MAIL_BACKUP"
