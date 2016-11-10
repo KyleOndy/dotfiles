@@ -31,6 +31,8 @@ call plug#begin()
       " better completion
       Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
       Plug 'pearofducks/ansible-vim'
+      Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+      Plug 'junegunn/fzf.vim'
   " }
   " haskell {
       " hekp for haskell
