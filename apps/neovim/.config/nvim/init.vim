@@ -29,7 +29,7 @@ call plug#begin()
       " more tpope, surround
       Plug 'tpope/vim-surround'
       " better completion
-      Plug 'Valloric/YouCompleteMe', { 'do': './install.py --clang-completer' }
+      Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
       Plug 'pearofducks/ansible-vim'
   " }
   " haskell {
