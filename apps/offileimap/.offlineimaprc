@@ -28,4 +28,4 @@ nametrans       = lambda folder: {'INBOX': 'Inbox',
 
 maxconnections  = 3
 ssl             = true
-sslcacertfile   = /etc/pki/tls/cert.pem
+sslcacertfile   = /etc/ssl/cert.pem
