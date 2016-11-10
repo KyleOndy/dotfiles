@@ -21,6 +21,8 @@ antigen apply
 
 # alias. Move to different file?
 alias :q='exit'
+alias :e='nvim'
+alias :E='nvim .'
 alias lsd='ls -l | grep "^d"'
 
 alias tree='tree --dirsfirst -ChFQ'
