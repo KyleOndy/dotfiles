@@ -11,6 +11,7 @@ antigen bundles <<EOBUNDLES
   zsh-users/zsh-syntax-highlighting
   zsh-users/zsh-autosuggestions
   zsh-users/zsh-history-substring-search
+  colored-man-pages
 EOBUNDLES
 antigen theme daveverwer
 antigen apply
