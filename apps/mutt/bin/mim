@@ -1,14 +1,21 @@
 #!/usr/bin/env bash
 # m(utt) im(proved)
-DOWNLOADS=$HOME/Downloads
+set -eu
 
-mkdir -p "$DOWNLOADS"
-cd "$DOWNLOADS"
-mkdir -p ~/var/log
+DROPBOX_DOWNLOADS=$HOME/Dropbox/mail_downloads
+if [ -d "$DROPBOX_DOWNLOADS" ]; then
+  cd "$DROPBOX_DOWNLOADS"
+elif [ -d "$HOME/Downloads" ]; then
+  cd "$HOME/Downloads"
+fi
+
+mkdir -p "$HOME/.mutt/temp"
+
+mkdir -p "$HOME/var/log"
 while true      # run forever
 do
     mail-sync
-    mail-copy
+    #mail-copy
     sleep 120   # sleep 2 minutes
 done &          # run loop in background
 LOOP_PID=$!     # copy PID of loop
@@ -17,6 +24,6 @@ mutt            # run mutt in foreground (and waits for mutt to exit)
 kill $LOOP_PID              # these two lines are a cool trick to kill the
 wait $LOOP_PID 2>/dev/null  # infinite loop and hide the error that it generates
 
-mail-copy       # copy maildir as-is on exit
+#mail-copy       # copy maildir as-is on exit
 mail-sync &     # sync mail once more after mutt exits
 exit 0          # force script to exit "cleanly"
