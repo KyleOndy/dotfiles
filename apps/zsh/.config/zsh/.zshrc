@@ -12,6 +12,13 @@ antigen bundles <<EOBUNDLES
   zsh-users/zsh-autosuggestions
   zsh-users/zsh-history-substring-search
   colored-man-pages
+  pass
+  docker
+  gpg-agent
+  gitfast
+  npm
+  pip
+  sudo
 EOBUNDLES
 antigen theme daveverwer
 antigen apply
