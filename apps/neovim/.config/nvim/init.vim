@@ -207,10 +207,10 @@ let mapleader="\<SPACE>"
   " Relative numbering
   function! NumberToggle()
     if(&relativenumber == 1)
-      set nornu
+      set norelativenumber
       set number
     else
-      set rnu
+      set relativenumber
     endif
   endfunc
 
