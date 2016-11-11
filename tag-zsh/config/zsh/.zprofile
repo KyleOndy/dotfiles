@@ -3,10 +3,7 @@
 # so any path setting needs to be sone here to prevent
 # duplicates
 
-## my own little utils
-export PATH="$HOME/bin:$PATH"
-
-# stack bins
+# local bins
 export PATH="$HOME/.local/bin:$PATH"
 #
 # gem path
