@@ -1,0 +1,14 @@
+EXCLUDE='README.md LICENCE'
+TAGS='
+git
+gnupg
+gui
+haskell
+mail-recipent
+mail-sender
+scripts
+tmux
+vim
+weechat
+zsh
+'
