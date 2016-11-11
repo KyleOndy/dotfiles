@@ -30,7 +30,7 @@ antigen apply
 alias :q='exit'
 alias :e='nvim'
 alias :E='nvim .'
-alias lsd='ls -l | grep "^d"'
+function lsd() { ls -l $@ | grep "^d" }
 
 alias tree='tree --dirsfirst -ChFQ'
 function tree1() { tree -L 1 $@ }
