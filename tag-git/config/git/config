@@ -1,3 +1,4 @@
+# vim: ft=gitconfig
 [user]
   email = kyle@ondy.me
   name = Kyle Ondy
@@ -5,10 +6,12 @@
 [core]
   editor = nvim
   autocrlf = input
-  excludesfile = ~/.gitignore
+  excludesfile = ~/.config/git/ignore
 [commit]
   template = ~/.gitmessage.txt
   gpgSign = true
+[init]
+  templatedir = ~/.config/git/template
 [color]
   ui = auto
 [color "branch"]
@@ -27,6 +30,7 @@
   untracked = red bold
 [diff]
   tool = vimdiff
+  mnemonicprefix = true
 [difftool]
   prompt = false
 [merge]
@@ -36,6 +40,9 @@
   followTags = true
 [pull]
   rebase = true
+[rebase]
+  autoStash = true
+  stat = true
 [alias]
   lg1 = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
   lg2 = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
