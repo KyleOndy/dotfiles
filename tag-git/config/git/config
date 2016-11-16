@@ -8,7 +8,7 @@
   autocrlf = input
   excludesfile = ~/.config/git/ignore
 [commit]
-  template = ~/.gitmessage.txt
+  template = ~/.config/git/message.txt
   gpgSign = true
 [init]
   templatedir = ~/.config/git/template
