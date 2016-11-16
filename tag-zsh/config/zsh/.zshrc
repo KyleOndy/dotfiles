@@ -1,8 +1,12 @@
 # .zshrc is for interactive shell configuration. You set options for the interactive shell there with the  setopt and unsetopt commands. You can also load shell modules, set your history options, change your prompt, set up zle and completion, et cetera. You also set any variables that are only used in the interactive shell (e.g. $LS_COLORS).
 
 
-# is the internet on fire status reports
-host -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose
+# is the internet on fire status reports, if we have network
+if ping -q -c1 -W1 istheinternetonfire.com &> /dev/null; then
+  host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose
+else
+  cowsay -f moose Not detected internet
+fi
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh

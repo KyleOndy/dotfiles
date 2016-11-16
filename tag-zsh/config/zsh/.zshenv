@@ -5,11 +5,11 @@
 ZDOTDIR=$HOME/.config/zsh
 DOTFILES=$HOME/.dotfiles
 
-if [ "$XDG_CURRENT_DESKTOP" = "i3" ]; then
-  # i3-sensible-terminal needs this set to use a 256 color term
-  export TERMINAL="urxvt256c"
-fi
-#
+#if [ "$XDG_CURRENT_DESKTOP" = "i3" ]; then
+#  # i3-sensible-terminal needs this set to use a 256 color term
+#  export TERMINAL="urxvt"
+#fi
+
 ## editor
 export VISUAL='nvim'
 export EDITOR=$VISUAL
