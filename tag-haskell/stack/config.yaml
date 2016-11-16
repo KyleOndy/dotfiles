@@ -1,4 +1,4 @@
-local-bin-patt: ~/.stack/bin
+local-bin-path: /home/kondy/.stack/bin
 
 # dont use system ghc, install if neeeded
 system-ghc: false
