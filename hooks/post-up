@@ -12,9 +12,22 @@ secure() {
   done
 }
 
+setup_antigen() {
+  local ZSH_CONFIG="$HOME/.config/zsh"
+  local ANTIGEN="$ZSH_CONFIG/antigen"
+
+  if [ ! -d "$ANTIGEN" ]; then
+    mkdir -p "$ZSH_CONFIG"
+    git clone https://github.com/zsh-users/antigen "$ANTIGEN"
+  else
+    git -C "$ANTIGEN" pull
+  fi
+}
+
+setup_antigen
 secure ~/.msmtprc ~/.config/gnupg
 
 [ -d ~/.mutt ] && mkdir -p ~/.mutt/temp
 
 # dot-prefixed files are skipped unless explicitly named
-rcup -K config/zsh/{.zprofile,.zshenv,.zshrc}
+# rcup -K "$HOME"/.config/zsh/{.zprofile,.zshenv,.zshrc}
