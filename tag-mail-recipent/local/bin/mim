@@ -12,6 +12,8 @@ fi
 mkdir -p "$HOME/.mutt/temp"
 
 mkdir -p "$HOME/var/log"
+# run once to make sure that the yubikey and such work
+offlineimap
 while true      # run forever
 do
     mail-sync
