@@ -3,3 +3,4 @@
 :set -isrc
 :set -itest
 :set -XOverloadedStrings
+:set +t
