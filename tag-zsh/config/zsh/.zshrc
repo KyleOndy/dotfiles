@@ -18,6 +18,7 @@ antigen bundles <<EOBUNDLES
   colored-man-pages
   pass
   docker
+  ssh-agent
   gpg-agent
   gitfast
   npm
