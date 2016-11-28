@@ -67,3 +67,6 @@ alias gst='git status'
 # look into history options
 setopt inc_append_history
 setopt share_history
+
+# let shellcheck follow files
+export SHELLCHECK_OPTS='-x'
