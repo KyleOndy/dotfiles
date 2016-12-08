@@ -12,19 +12,19 @@ fi
 source $ZDOTDIR/antigen/antigen.zsh
 antigen use oh-my-zsh
 antigen bundles <<EOBUNDLES
-  zsh-users/zsh-syntax-highlighting
+  colored-man-pages
+  docker
+  gitfast
+  gpg-agent
+  npm
+  pass
+  pip
+  ssh-agent
+  sudo
+  vagrant
   zsh-users/zsh-autosuggestions
   zsh-users/zsh-history-substring-search
-  colored-man-pages
-  pass
-  docker
-  ssh-agent
-  vagrant
-  gpg-agent
-  gitfast
-  npm
-  pip
-  sudo
+  zsh-users/zsh-syntax-highlighting
 EOBUNDLES
 antigen theme daveverwer
 antigen apply
