@@ -19,6 +19,7 @@ antigen bundles <<EOBUNDLES
   pass
   docker
   ssh-agent
+  vagrant
   gpg-agent
   gitfast
   npm
