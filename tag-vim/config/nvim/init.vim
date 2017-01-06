@@ -29,10 +29,12 @@ call plug#begin('~/.config/nvim/plugged')
       " more tpope, surround
       Plug 'tpope/vim-surround'
       " better completion
-      Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
+      "Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
       Plug 'pearofducks/ansible-vim'
       Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
       Plug 'junegunn/fzf.vim'
+      Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+      Plug 'ervandew/supertab'
   " }
   " haskell {
       " hekp for haskell
@@ -274,3 +276,5 @@ let mapleader="\<SPACE>"
     nnoremap <silent> <A-\> :TmuxNavigatePrevious<cr>
   "}
 " }
+
+let g:deoplete#enable_at_startup = 1
