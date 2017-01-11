@@ -15,6 +15,7 @@ type            = Maildir
 localfolders    = ~/.mail/kyle-ondy.me
 sep             = /
 nametrans       = lambda folder: {'Inbox': 'INBOX',
+                                  'Archive':'Archive'
                                   }.get(folder, folder)
 
 [Repository KyleOndy-remote]
@@ -24,6 +25,7 @@ remoteuser      = kyle@ondy.me
 remotepasseval  = get_pass("kyle@ondy.me")
 realdelete      = no
 nametrans       = lambda folder: {'INBOX': 'Inbox',
+                                  'Archive':'Archive'
                                   }.get(folder, folder)
 
 maxconnections  = 3
