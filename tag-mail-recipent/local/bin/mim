@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # m(utt) im(proved)
-set -eu
+set -euo pipefail
 
 DROPBOX_DOWNLOADS=$HOME/Dropbox/mail_downloads
 if [ -d "$DROPBOX_DOWNLOADS" ]; then
