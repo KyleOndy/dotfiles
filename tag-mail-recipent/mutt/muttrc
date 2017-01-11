@@ -53,6 +53,7 @@ set spoolfile = "+kyle-ondy.me/Inbox"
 
 # Mailboxes to show in sidebar
 mailboxes +kyle-ondy.me/Inbox \
+          +kyle-ondy.me/Archive \
           +kyle-ondy.me/Sent \
           +kyle-ondy.me/Drafts
 
@@ -70,6 +71,7 @@ set reply_regexp = "^(([Rr][Ee]?(\[[0-9]+\])?: *)?(\[[^]]+\] *)?)*"
 # Saner copy/move dialogs
 macro index C "<copy-message>?<toggle-mailboxes>" "copy a message to a mailbox"
 macro index M "<save-message>?<toggle-mailboxes>" "move a message to a mailbox"
+macro index,pager A "<save-message>=kyle-ondy.me/Archive<enter>"     " move thread to archive
 
 # Compose View ----------------------------------
 set realname      = 'Kyle Ondy'
