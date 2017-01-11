@@ -15,8 +15,9 @@ export RCRC="$XDG_CONFIG_HOME/rcrc"
 
 
 path=(
-  $HOME/.local/bin
   $HOME/.stack/bin
+  $HOME/.local/bin
+  $HOME/.gem/ruby/2.3.0/bin
   $GOPATH/bin
   $path
 )
