@@ -18,7 +18,7 @@ while true      # run forever
 do
     mail-sync
     #mail-copy
-    sleep 120   # sleep 2 minutes
+    sleep 600   # I don't need to check that often. I can always manually check
 done &          # run loop in background
 LOOP_PID=$!     # copy PID of loop
 mutt            # run mutt in foreground (and waits for mutt to exit)
