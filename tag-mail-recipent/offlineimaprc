@@ -28,6 +28,5 @@ nametrans       = lambda folder: {'INBOX': 'Inbox',
                                   'Archive':'Archive'
                                   }.get(folder, folder)
 
-maxconnections  = 3
 ssl             = true
 sslcacertfile   = /etc/ssl/cert.pem
