@@ -58,8 +58,8 @@ function treea6() { treea -L 6 $@ }
 function bigdirs() { du -h --max-depth=1 $@ | sort -h }
 functions filecount() { du -a | cut -d/ -f2 | sort | uniq -c | sort -n }
 
-alias ghc='stack exec -- ghc'
-alias ghci='stack exec -- ghci'
+alias ghc='stack ghc'
+alias ghci='stack ghci'
 
 alias gpg=gpg2
 
