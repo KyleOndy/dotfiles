@@ -2,4 +2,4 @@
 
 # Gets the latest LTS version.
 
-curl -sL https://www.stackage.org/snapshots | grep LTS | sed -n 's/.*\(LTS Haskell [0-9]*\.[0-9]*\).*$/\1/p' | sort -hr
+curl -sL https://www.stackage.org | grep LTS | sed -n 's/.*\(LTS [0-9]*\.[0-9]*\).*$/\1/p' | sort -hr
