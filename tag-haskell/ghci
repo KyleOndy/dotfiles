@@ -1,4 +1,4 @@
-:set prompt "λ> "
+:set prompt "%s λ> "
 :set -iapp
 :set -isrc
 :set -itest
