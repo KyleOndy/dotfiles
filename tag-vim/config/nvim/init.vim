@@ -45,9 +45,14 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'neovimhaskell/haskell-vim', { 'for': 'haskell' }
       " run stylish-haskell on save
       Plug 'nbouscal/vim-stylish-haskell', { 'for': 'haskell' }
-  " }
-  " fish {
-      Plug 'dag/vim-fish', { 'for': 'fish' }
+      " the power of ghc-mod
+      Plug 'eagletmt/ghcmod-vim', { 'for': 'haskell' }
+      " use ghc-mod for completion
+      Plug 'eagletmt/neco-ghc', { 'for': 'haskell' }
+      " command execution
+      Plug 'shougo/vimproc', { 'for': 'haskell', 'do': 'make' }
+      " hdevtool support
+      Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
   " }
   " elm {
       Plug 'lambdatoast/elm.vim', { 'for': 'elm' }
@@ -277,6 +282,15 @@ let mapleader="\<SPACE>"
     nnoremap <silent> <A-l> :TmuxNavigateRight<cr>
     nnoremap <silent> <A-\> :TmuxNavigatePrevious<cr>
   "}
+  "neo-ghc {
+    let g:haskellmode_completion_ghc = 1
+    autocmd FileType haskell setlocal omnifunc=necoghc#omnifunc
+  "}
+  " supertab {
+    inoremap <Nul> <c-r>=SuperTabAlternateCompletion("\<lt>c-x>\<lt>c-o>"<cr>
+    let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
+  " }
+  " deoplete {
+    let g:deoplete#enable_at_startup = 1
+  " }
 " }
-
-let g:deoplete#enable_at_startup = 1
