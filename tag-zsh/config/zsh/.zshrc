@@ -5,7 +5,7 @@
 if ping -q -c1 -W1 istheinternetonfire.com &> /dev/null; then
   host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose
 else
-  cowsay -f moose Not detected internet
+  cowsay -f moose No internet connection detected
 fi
 
 # Load plugins
