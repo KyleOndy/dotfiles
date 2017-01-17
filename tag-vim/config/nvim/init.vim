@@ -31,9 +31,13 @@ call plug#begin('~/.config/nvim/plugged')
       " better completion
       "Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
       Plug 'pearofducks/ansible-vim'
+      " fuzzy file finder
       Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
+      " funzzy file finding in vim
       Plug 'junegunn/fzf.vim'
+      " autocompletion
       Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
+      " tab completions
       Plug 'ervandew/supertab'
   " }
   " haskell {
