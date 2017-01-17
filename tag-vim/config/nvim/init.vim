@@ -30,6 +30,7 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'tpope/vim-surround'
       " better completion
       "Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
+      " ansible syntax
       Plug 'pearofducks/ansible-vim'
       " fuzzy file finder
       Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
