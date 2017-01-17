@@ -7,7 +7,8 @@ stack install \
   hlint \
   hoogle \
   pandoc \
-  pointfree
+  pointfree \
+  stylish-haskell
 
 # generate index
 hoogle data
