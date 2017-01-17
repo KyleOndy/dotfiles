@@ -28,8 +28,6 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'christoomey/vim-tmux-navigator'
       " more tpope, surround
       Plug 'tpope/vim-surround'
-      " better completion
-      "Plug 'Valloric/YouCompleteMe', { 'do': './install.py --all' }
       " ansible syntax
       Plug 'pearofducks/ansible-vim'
       " fuzzy file finder
