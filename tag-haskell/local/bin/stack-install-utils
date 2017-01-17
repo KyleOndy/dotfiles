@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+stack install \
+  ghc-mod \
+  hdevtools \
+  hlint \
+  hoogle \
+  pandoc \
+  pointfree
+
+# generate index
+hoogle data
