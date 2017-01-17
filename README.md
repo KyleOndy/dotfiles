@@ -2,6 +2,9 @@ These are my personal dot files.
 Feel free to use anything for inspiration or verbatim.
 I know I've used plenty of people for inspiration.
 
+# BELOW IS OUTDATED
+
+todo: fix below
 
 ## File Structure
 
