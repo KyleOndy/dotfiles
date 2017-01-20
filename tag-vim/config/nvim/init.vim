@@ -40,6 +40,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'ervandew/supertab'
       " haskicrop master bundle
       Plug 'hashivim/vim-hashicorp-tools'
+      " show marks in gutter
+      Plug 'kshenoy/vim-signature'
   " }
   " haskell {
       " hekp for haskell
