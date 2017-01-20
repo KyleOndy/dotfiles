@@ -38,6 +38,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
       " tab completions
       Plug 'ervandew/supertab'
+      " haskicrop master bundle
+      Plug 'hashivim/vim-hashicorp-tools'
   " }
   " haskell {
       " hekp for haskell
