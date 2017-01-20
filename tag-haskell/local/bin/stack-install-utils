@@ -10,5 +10,4 @@ stack install \
   pointfree \
   stylish-haskell
 
-# generate index
-hoogle data
+hoogle generate
