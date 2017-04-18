@@ -38,15 +38,14 @@ cat <<-EOF > /etc/apt/sources.list
   deb-src http://security.debian.org/ stretch/updates main contrib non-free
 EOF
 
-  # add docker apt repo
-cat <<-EOF > /etc/apt/sources.list.d/docker.list
-  deb https://apt.dockerproject.org/repo debian-stretch main
-  deb https://apt.dockerproject.org/repo debian-stretch testing
-  deb https://apt.dockerproject.org/repo debian-stretch experimental
-EOF
 
   # add docker gpg key
   apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 8D81803C0EBFCD88
+  # add thoughtbot gpg key
+  apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 8D81803C0EBFCD88
+
+  # add docker repo
+  sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 
   # turn off translations, speed up apt-get update
   mkdir -p /etc/apt/apt.conf.d
