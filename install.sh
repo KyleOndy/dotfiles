@@ -97,6 +97,7 @@ base() {
     make \
     mount \
     net-tools \
+    neovim \
     network-manager \
     openvpn \
     pinentry-curses \
