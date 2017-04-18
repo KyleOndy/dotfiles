@@ -47,6 +47,7 @@ EOF
 
   # add docker repo
   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+  sudo add-apt-repository "deb http://apt.thoughtbot.com/debian/ stable main"
 
   # turn off translations, speed up apt-get update
   mkdir -p /etc/apt/apt.conf.d
@@ -100,6 +101,7 @@ base() {
     network-manager \
     openvpn \
     pinentry-curses \
+    rcm \
     rxvt-unicode-256color \
     s3cmd \
     scdaemon \
