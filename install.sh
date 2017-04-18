@@ -67,6 +67,7 @@ base() {
     bash-completion \
     bc \
     bridge-utils \
+    build-essential \
     bzip2 \
     ca-certificates \
     cgroupfs-mount \
