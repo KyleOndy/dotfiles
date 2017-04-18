@@ -24,8 +24,9 @@ setup_sources() {
     apt-transport-https \
     ca-certificates \
     curl \
-        dirmngr \
-        gnupg2 \
+    dirmngr \
+    gnupg2 \
+    python-software-properties
 
 cat <<-EOF > /etc/apt/sources.list
   deb http://httpredir.debian.org/debian stretch main contrib non-free
