@@ -322,6 +322,9 @@ install_scripts() {
   # install lolcat
   curl -sSL https://raw.githubusercontent.com/tehmaze/lolcat/master/lolcat > /usr/local/bin/lolcat
   chmod +x /usr/local/bin/lolcat
+
+  # install stack
+  curl -sSL https://get.haskellstack.org/ | sh
 }
 
 # install syncthing
