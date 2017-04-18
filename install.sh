@@ -43,7 +43,7 @@ EOF
   # add docker gpg key
   apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 8D81803C0EBFCD88
   # add thoughtbot gpg key
-  apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 8D81803C0EBFCD88
+  wget -qO - https://apt.thoughtbot.com/thoughtbot.gpg.key | sudo apt-key add -
 
   # add docker repo
   sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
