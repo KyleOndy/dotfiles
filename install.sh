@@ -116,8 +116,7 @@ base() {
     xclip \
     xcompmgr \
     xz-utils \
-    zip \
-    --no-install-recommends
+    zip
 
   # install tlp with recommends
   apt-get install -y tlp tlp-rdw
