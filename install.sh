@@ -81,7 +81,6 @@ base() {
     gnupg \
     gnupg2 \
     gnupg-agent \
-    google-cloud-sdk \
     grep \
     gzip \
     hostname \
