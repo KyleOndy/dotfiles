@@ -26,7 +26,7 @@ setup_sources() {
     curl \
     dirmngr \
     gnupg2 \
-    python-software-properties
+    software-properties-common
 
 cat <<-EOF > /etc/apt/sources.list
   deb http://httpredir.debian.org/debian stretch main contrib non-free
