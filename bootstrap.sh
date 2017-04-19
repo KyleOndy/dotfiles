@@ -11,5 +11,6 @@ curl -s https://raw.githubusercontent.com/KyleOndy/dotfiles/install_script/insta
 #curl -o /tmp/install.sh.asc https://raw.githubusercontent.com/KyleOndy/dotfiles/install_script/install.sh.asc
 #gpg2 --verify install.sh
 
+cd /tmp
 chmod +x ./install.sh
 ./install.sh sources
