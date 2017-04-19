@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
 
 # install.sh
 #  This script installs my basic setup for a debian laptop
