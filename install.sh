@@ -206,87 +206,87 @@ install_golang() {
   set -x
   set +e
   go get github.com/golang/lint/golint
-  go get golang.org/x/tools/cmd/cover
-  go get golang.org/x/review/git-codereview
-  go get golang.org/x/tools/cmd/goimports
-  go get golang.org/x/tools/cmd/gorename
-  go get golang.org/x/tools/cmd/guru
+  #go get golang.org/x/tools/cmd/cover
+  #go get golang.org/x/review/git-codereview
+  #go get golang.org/x/tools/cmd/goimports
+  #go get golang.org/x/tools/cmd/gorename
+  #go get golang.org/x/tools/cmd/guru
 
-  go get github.com/jessfraz/apk-file
-  go get github.com/jessfraz/audit
-  go get github.com/jessfraz/bane
-  go get github.com/jessfraz/battery
-  go get github.com/jessfraz/certok
-  go get github.com/jessfraz/cliaoke
-  go get github.com/jessfraz/ghb0t
-  go get github.com/jessfraz/magneto
-  go get github.com/jessfraz/netns
-  go get github.com/jessfraz/netscan
-  go get github.com/jessfraz/onion
-  go get github.com/jessfraz/pastebinit
-  go get github.com/jessfraz/pepper
-  go get github.com/jessfraz/pony
-  go get github.com/jessfraz/reg
-  go get github.com/jessfraz/riddler
-  go get github.com/jessfraz/udict
-  go get github.com/jessfraz/weather
+  #go get github.com/jessfraz/apk-file
+  #go get github.com/jessfraz/audit
+  #go get github.com/jessfraz/bane
+  #go get github.com/jessfraz/battery
+  #go get github.com/jessfraz/certok
+  #go get github.com/jessfraz/cliaoke
+  #go get github.com/jessfraz/ghb0t
+  #go get github.com/jessfraz/magneto
+  #go get github.com/jessfraz/netns
+  #go get github.com/jessfraz/netscan
+  #go get github.com/jessfraz/onion
+  #go get github.com/jessfraz/pastebinit
+  #go get github.com/jessfraz/pepper
+  #go get github.com/jessfraz/pony
+  #go get github.com/jessfraz/reg
+  #go get github.com/jessfraz/riddler
+  #go get github.com/jessfraz/udict
+  #go get github.com/jessfraz/weather
 
-  go get github.com/axw/gocov/gocov
-  go get github.com/brianredbeard/gpget
-  go get github.com/crosbymichael/gistit
-  go get github.com/crosbymichael/ip-addr
-  go get github.com/davecheney/httpstat
-  go get github.com/google/gops
-  go get github.com/jstemmer/gotags
-  go get github.com/nsf/gocode
-  go get github.com/rogpeppe/godef
-  go get github.com/shurcooL/markdownfmt
-  go get github.com/Soulou/curl-unix-socket
+  #go get github.com/axw/gocov/gocov
+  #go get github.com/brianredbeard/gpget
+  #go get github.com/crosbymichael/gistit
+  #go get github.com/crosbymichael/ip-addr
+  #go get github.com/davecheney/httpstat
+  #go get github.com/google/gops
+  #go get github.com/jstemmer/gotags
+  #go get github.com/nsf/gocode
+  #go get github.com/rogpeppe/godef
+  #go get github.com/shurcooL/markdownfmt
+  #go get github.com/Soulou/curl-unix-socket
 
-  aliases=( cloudflare/cfssl docker/docker golang/dep letsencrypt/boulder opencontainers/runc jessfraz/binctr jessfraz/contained.af )
-  for project in "${aliases[@]}"; do
-    owner=$(dirname "$project")
-    repo=$(basename "$project")
-    if [[ -d "${HOME}/${repo}" ]]; then
-      rm -rf "${HOME:?}/${repo}"
-    fi
-
-    mkdir -p "${GOPATH}/src/github.com/${owner}"
-
-    if [[ ! -d "${GOPATH}/src/github.com/${project}" ]]; then
-      (
-      # clone the repo
-      cd "${GOPATH}/src/github.com/${owner}"
-      git clone "https://github.com/${project}.git"
-      # fix the remote path, since our gitconfig will make it git@
-      cd "${GOPATH}/src/github.com/${project}"
-      git remote set-url origin "https://github.com/${project}.git"
-      )
-    else
-      echo "found ${project} already in gopath"
-    fi
-
-    # make sure we create the right git remotes
-    if [[ "$owner" != "jessfraz" ]]; then
-      (
-      cd "${GOPATH}/src/github.com/${project}"
-      git remote set-url --push origin no_push
-      git remote add jessfraz "https://github.com/jessfraz/${repo}.git"
-      )
-    fi
-  done
-
-  # do special things for k8s GOPATH
-  mkdir -p "${GOPATH}/src/k8s.io"
-  kubes_repos=( community kubernetes release test-infra )
-  for krepo in "${kubes_repos[@]}"; do
-    git clone "https://github.com/kubernetes/${krepo}.git" "${GOPATH}/src/k8s.io/${krepo}"
-    cd "${GOPATH}/src/k8s.io/${krepo}"
-    git remote set-url --push origin no_push
-    git remote add jessfraz "https://github.com/jessfraz/${krepo}.git"
-  done
-  )
-}
+#  aliases=( cloudflare/cfssl docker/docker golang/dep letsencrypt/boulder opencontainers/runc jessfraz/binctr jessfraz/contained.af )
+#  for project in "${aliases[@]}"; do
+#    owner=$(dirname "$project")
+#    repo=$(basename "$project")
+#    if [[ -d "${HOME}/${repo}" ]]; then
+#      rm -rf "${HOME:?}/${repo}"
+#    fi
+#
+#    mkdir -p "${GOPATH}/src/github.com/${owner}"
+#
+#    if [[ ! -d "${GOPATH}/src/github.com/${project}" ]]; then
+#      (
+#      # clone the repo
+#      cd "${GOPATH}/src/github.com/${owner}"
+#      git clone "https://github.com/${project}.git"
+#      # fix the remote path, since our gitconfig will make it git@
+#      cd "${GOPATH}/src/github.com/${project}"
+#      git remote set-url origin "https://github.com/${project}.git"
+#      )
+#    else
+#      echo "found ${project} already in gopath"
+#    fi
+#
+#    # make sure we create the right git remotes
+#    if [[ "$owner" != "jessfraz" ]]; then
+#      (
+#      cd "${GOPATH}/src/github.com/${project}"
+#      git remote set-url --push origin no_push
+#      git remote add jessfraz "https://github.com/jessfraz/${repo}.git"
+#      )
+#    fi
+#  done
+#
+#  # do special things for k8s GOPATH
+#  mkdir -p "${GOPATH}/src/k8s.io"
+#  kubes_repos=( community kubernetes release test-infra )
+#  for krepo in "${kubes_repos[@]}"; do
+#    git clone "https://github.com/kubernetes/${krepo}.git" "${GOPATH}/src/k8s.io/${krepo}"
+#    cd "${GOPATH}/src/k8s.io/${krepo}"
+#    git remote set-url --push origin no_push
+#    git remote add jessfraz "https://github.com/jessfraz/${krepo}.git"
+#  done
+#  )
+#}
 
 # install graphics drivers
 install_graphics() {
