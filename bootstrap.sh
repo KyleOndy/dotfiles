@@ -13,4 +13,4 @@ curl -s https://raw.githubusercontent.com/KyleOndy/dotfiles/install_script/insta
 
 cd /tmp
 chmod +x ./install.sh
-./install.sh sources
+./install.sh
