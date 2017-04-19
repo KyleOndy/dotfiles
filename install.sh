@@ -520,18 +520,13 @@ main() {
 
   if [[ $cmd == "sources" ]]; then
     check_is_sudo
-
-    # setup /etc/apt/sources.list
     setup_sources
-
     base
   elif [[ $cmd == "graphics" ]]; then
     check_is_sudo
-
     install_graphics "$2"
   elif [[ $cmd == "wm" ]]; then
     check_is_sudo
-
     install_wmapps
   elif [[ $cmd == "dotfiles" ]]; then
     get_dotfiles
