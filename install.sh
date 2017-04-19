@@ -170,7 +170,7 @@ install_docker() {
   # create docker group
   sudo groupadd docker
     sudo gpasswd -a "$USERNAME" docker
-    apt-get install docker-ce
+    apt-get install -y docker-ce
 
   systemctl daemon-reload
   systemctl enable docker
