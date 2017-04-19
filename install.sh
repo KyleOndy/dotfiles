@@ -286,8 +286,8 @@ install_golang() {
 #    git remote set-url --push origin no_push
 #    git remote add jessfraz "https://github.com/jessfraz/${krepo}.git"
 #  done
-#  )
-#}
+   )
+ }
 
 # install graphics drivers
 install_graphics() {
