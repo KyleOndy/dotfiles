@@ -348,22 +348,6 @@ install_wmapps() {
   local pkgs=( feh i3 i3lock i3status scrot slim suckless-tools )
 
   apt-get install -y "${pkgs[@]}"
-
-  # add xorg conf
-  curl -sSL https://raw.githubusercontent.com/jessfraz/dotfiles/master/etc/X11/xorg.conf > /etc/X11/xorg.conf
-
-  # get correct sound cards on boot
-  curl -sSL https://raw.githubusercontent.com/jessfraz/dotfiles/master/etc/modprobe.d/intel.conf > /etc/modprobe.d/intel.conf
-
-  # pretty fonts
-  curl -sSL https://raw.githubusercontent.com/jessfraz/dotfiles/master/etc/fonts/local.conf > /etc/fonts/local.conf
-
-  echo "Fonts file setup successfully now run:"
-  echo "  dpkg-reconfigure fontconfig-config"
-  echo "with settings: "
-  echo "  Autohinter, Automatic, No."
-  echo "Run: "
-  echo "  dpkg-reconfigure fontconfig"
 }
 
 get_dotfiles() {
