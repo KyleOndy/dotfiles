@@ -345,7 +345,7 @@ install_syncthing() {
 
 # install stuff for i3 window manager
 install_wmapps() {
-  local pkgs=( feh i3 i3lock i3status neovim scrot slim suckless-tools )
+  local pkgs=( feh i3 i3lock i3status scrot slim suckless-tools )
 
   apt-get install -y "${pkgs[@]}" --no-install-recommends
 
