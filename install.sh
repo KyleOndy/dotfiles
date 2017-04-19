@@ -169,7 +169,7 @@ setup_sudo() {
 # and adds necessary items to boot params
 install_docker() {
   # create docker group
-  sudo groupadd docker
+  sudo groupadd docker || true
     sudo gpasswd -a "$USERNAME" docker
     apt-get install -y docker-ce
 
