@@ -100,6 +100,7 @@ base() {
     neovim \
     network-manager \
     openvpn \
+    pcscd \
     pinentry-curses \
     rcm \
     rxvt-unicode-256color \
