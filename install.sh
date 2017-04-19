@@ -115,6 +115,7 @@ base() {
     tzdata \
     unzip \
     xclip \
+    xsel \
     xcompmgr \
     xz-utils \
     zip
