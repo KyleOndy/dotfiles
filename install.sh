@@ -347,11 +347,7 @@ install_syncthing() {
 install_wmapps() {
   local pkgs=( feh i3 i3lock i3status scrot slim suckless-tools )
 
-  apt-get install -y "${pkgs[@]}" --no-install-recommends
-
-  # update clickpad settings
-  mkdir -p /etc/X11/xorg.conf.d/
-  curl -sSL https://raw.githubusercontent.com/jessfraz/dotfiles/master/etc/X11/xorg.conf.d/50-synaptics-clickpad.conf > /etc/X11/xorg.conf.d/50-synaptics-clickpad.conf
+  apt-get install -y "${pkgs[@]}"
 
   # add xorg conf
   curl -sSL https://raw.githubusercontent.com/jessfraz/dotfiles/master/etc/X11/xorg.conf > /etc/X11/xorg.conf
