@@ -343,24 +343,6 @@ install_syncthing() {
   systemctl enable "syncthing@${USERNAME}"
 }
 
-# install wifi drivers
-install_wifi() {
-  local system=$1
-
-  if [[ -z "$system" ]]; then
-    echo "You need to specify whether it's broadcom or intel"
-    exit 1
-  fi
-
-  if [[ $system == "broadcom" ]]; then
-    local pkg="broadcom-sta-dkms"
-
-    apt-get install -y "$pkg" --no-install-recommends
-  else
-    update-iwlwifi
-  fi
-}
-
 # install stuff for i3 window manager
 install_wmapps() {
   local pkgs=( feh i3 i3lock i3status neovim scrot slim suckless-tools )
@@ -543,8 +525,6 @@ main() {
     setup_sources
 
     base
-  elif [[ $cmd == "wifi" ]]; then
-    install_wifi "$2"
   elif [[ $cmd == "graphics" ]]; then
     check_is_sudo
 
