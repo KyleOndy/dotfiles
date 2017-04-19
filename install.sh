@@ -115,6 +115,7 @@ base() {
     tree \
     tzdata \
     unzip \
+    wicd-curses \
     xclip \
     xsel \
     xcompmgr \
