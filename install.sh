@@ -380,21 +380,6 @@ install_vim() {
   (
   cd "$HOME"
 
-  # install .vim files
-  git clone --recursive https://github.com/jessfraz/.vim.git "${HOME}/.vim"
-  ln -snf "${HOME}/.vim/vimrc" "${HOME}/.vimrc"
-  sudo ln -snf "${HOME}/.vim" /root/.vim
-  sudo ln -snf "${HOME}/.vimrc" /root/.vimrc
-
-  # alias vim dotfiles to neovim
-  mkdir -p "${XDG_CONFIG_HOME:=$HOME/.config}"
-  ln -snf "${HOME}/.vim" "${XDG_CONFIG_HOME}/nvim"
-  ln -snf "${HOME}/.vimrc" "${XDG_CONFIG_HOME}/nvim/init.vim"
-  # do the same for root
-  sudo mkdir -p /root/.config
-  sudo ln -snf "${HOME}/.vim" /root/.config/nvim
-  sudo ln -snf "${HOME}/.vimrc" /root/.config/nvim/init.vim
-
   # update alternatives to neovim
   sudo update-alternatives --install /usr/bin/vi vi "$(which nvim)" 60
   sudo update-alternatives --config vi
@@ -402,18 +387,6 @@ install_vim() {
   sudo update-alternatives --config vim
   sudo update-alternatives --install /usr/bin/editor editor "$(which nvim)" 60
   sudo update-alternatives --config editor
-
-  # install things needed for deoplete for vim
-  sudo apt-get update
-
-  sudo apt-get install -y \
-    python3-pip \
-    --no-install-recommends
-
-  pip3 install -U \
-    setuptools \
-    wheel \
-    neovim
   )
 }
 
