@@ -22,4 +22,5 @@ shellcheck:
 	docker run --rm -i $(DOCKER_FLAGS) \
 		-v $(CURDIR):/usr/src:ro \
 		--workdir /usr/src \
-		r.j3ss.co/shellcheck ./test.sh
+		--entrypoint="/bin/bash"
+		kyleondy/shellcheck ./test.sh
