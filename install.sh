@@ -476,16 +476,16 @@ install_vagrant() {
 usage() {
   echo -e "install.sh\n\tThis script installs my basic setup for a debian laptop\n"
   echo "Usage:"
-  echo "  sources                     - setup sources & install base pkgs"
-  echo "  wifi {broadcom,intel}       - install wifi drivers"
-  echo "  graphics {dell,mac,lenovo}  - install graphics drivers"
-  echo "  wm                          - install window manager/desktop pkgs"
-  echo "  dotfiles                    - get dotfiles"
-  echo "  vim                         - install vim specific dotfiles"
-  echo "  golang                      - install golang and packages"
-  echo "  scripts                     - install scripts"
-  echo "  syncthing                   - install syncthing"
-  echo "  vagrant                     - install vagrant and virtualbox"
+  echo "  sources                     (root) - setup sources & install base pkgs"
+  echo "  wifi {broadcom,intel}       (user) - install wifi drivers"
+  echo "  graphics {dell,mac,lenovo}  (root) - install graphics drivers"
+  echo "  wm                          (root) - install window manager/desktop pkgs"
+  echo "  dotfiles                    (user) - get dotfiles"
+  echo "  vim                         (user) - install vim specific dotfiles"
+  echo "  golang                      (user) - install golang and packages"
+  echo "  scripts                     (user) - install scripts"
+  echo "  syncthing                   (user) - install syncthing"
+  echo "  vagrant                     (user) - install vagrant and virtualbox"
 }
 
 main() {
