@@ -2,8 +2,8 @@
 
 all: dots test
 
+dots: export RCRC=$(HOME)/.dotfiles/config/rcrc
 dots:
-	RCRC=$(HOME)/.dotfiles/config/rcrc
 	rcup -v
 
 test: shellcheck
