@@ -47,7 +47,7 @@ EOF
   add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 
   # thought bot
-  wget -qO - https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
+  curl -O https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
   echo "deb http://apt.thoughtbot.com/debian/ stable main" | tee /etc/apt/sources.list.d/thoughtbot.list
 
   # virtualbox
