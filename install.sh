@@ -297,20 +297,9 @@ install_golang() {
 
 # install graphics drivers
 install_graphics() {
-  local system=$1
-
-  if [[ -z "$system" ]]; then
-    echo "You need to specify whether it's dell, mac or lenovo"
-    exit 1
-  fi
-
-  local pkgs=( nvidia-kernel-dkms bumblebee-nvidia primus )
-
-  if [[ $system == "mac" ]] || [[ $system == "dell" ]]; then
-    pkgs=( xorg xserver-xorg xserver-xorg-video-intel )
-  fi
-
-  apt-get install -y "${pkgs[@]}" --no-install-recommends
+  apt-get install -y \
+      xorg \
+      xserver-xorg
 }
 
 # install custom scripts/binaries
