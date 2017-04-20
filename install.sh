@@ -357,7 +357,7 @@ get_dotfiles() {
   cd "$HOME"
 
   # install dotfiles from repo
-  git clone https://github.com/kondy/dotfiles.git "${HOME}/.dotfiles"
+  git clone https://github.com/kyleondy/dotfiles.git "${HOME}/.dotfiles"
   cd "${HOME}/.dotfiles"
 
   # installs all the things
