@@ -401,7 +401,7 @@ install_virtualbox() {
 }
 
 install_vagrant() {
-  VAGRANT_VERSION=1.8.1
+  VAGRANT_VERSION=1.9.1
 
   # if we are passing the version
   if [[ ! -z "$1" ]]; then
@@ -416,14 +416,8 @@ install_vagrant() {
     install_virtualbox
   fi
 
-  tmpdir=$(mktemp -d)
-  (
-  cd "$tmpdir"
-  curl -sSL -o vagrant.deb "https://releases.hashicorp.com/vagrant/${VAGRANT_VERSION}/vagrant_${VAGRANT_VERSION}_x86_64.deb"
-  dpkg -i vagrant.deb
-  )
-
-  rm -rf "$tmpdir"
+  apt-get update
+  apt-get install -y vagrant
 
   # install plugins
   vagrant plugin install vagrant-vbguest
