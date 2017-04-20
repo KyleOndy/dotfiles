@@ -125,7 +125,8 @@ base() {
     wicd-curses \
     xclip \
     xsel \
-    zip
+    zip \
+    zsh
 
   # install tlp with recommends
   apt-get install -y tlp tlp-rdw
@@ -356,6 +357,7 @@ get_dotfiles() {
 
   # installs all the things
   make
+  chsh -s $(which zsh) ${USERNAME}
 
   #sudo systemctl enable "i3lock@${USERNAME}"
   #sudo systemctl enable suspend-sedation.service
