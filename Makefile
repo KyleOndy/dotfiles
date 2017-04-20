@@ -1,6 +1,10 @@
-.PHONY: all test shellcheck
+.PHONY: all dots test shellcheck
 
-all: test
+all: dots test
+
+dots:
+	RCRC=$(HOME)/.dotfiles/config/rcrc
+	rcup -v
 
 test: shellcheck
 
