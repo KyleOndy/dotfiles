@@ -47,11 +47,11 @@ EOF
   add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 
   # thought bot
-  curl -O https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
+  curl https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
   echo "deb http://apt.thoughtbot.com/debian/ stable main" | tee /etc/apt/sources.list.d/thoughtbot.list
 
   # virtualbox
-  curl -O https://www.virtualbox.org/download/oracle_vbox_2016.asc | apt-key add -
+  curl https://www.virtualbox.org/download/oracle_vbox_2016.asc | apt-key add -
 
   # turn off translations, speed up apt-get update
   mkdir -p /etc/apt/apt.conf.d
