@@ -99,6 +99,7 @@ base() {
     mount \
     net-tools \
     neovim \
+    python-neovim \
     network-manager \
     openvpn \
     pcscd \
