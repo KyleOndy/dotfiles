@@ -496,27 +496,27 @@ main() {
     exit 1
   fi
 
-  if [[ $cmd == "sources (root)" ]]; then
+  if [[ $cmd == "sources" ]]; then
     check_is_sudo
     setup_sources
     base
-  elif [[ $cmd == "graphics (root)" ]]; then
+  elif [[ $cmd == "graphics" ]]; then
     check_is_sudo
     install_graphics "$2"
-  elif [[ $cmd == "wm (root)" ]]; then
+  elif [[ $cmd == "wm" ]]; then
     check_is_sudo
     install_wmapps
-  elif [[ $cmd == "dotfiles (user)" ]]; then
+  elif [[ $cmd == "dotfiles" ]]; then
     get_dotfiles
-  elif [[ $cmd == "vim (user)" ]]; then
+  elif [[ $cmd == "vim" ]]; then
     install_vim
-  elif [[ $cmd == "golan (user)g" ]]; then
+  elif [[ $cmd == "golang" ]]; then
     install_golang "$2"
-  elif [[ $cmd == "script (user)s" ]]; then
+  elif [[ $cmd == "scripts" ]]; then
     install_scripts
-  elif [[ $cmd == "syncthin (user)g" ]]; then
+  elif [[ $cmd == "syncthing" ]]; then
     install_syncthing
-  elif [[ $cmd == "vagran (user)t" ]]; then
+  elif [[ $cmd == "vagrant" ]]; then
     install_vagrant "$2"
   else
     usage
