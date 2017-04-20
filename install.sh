@@ -73,15 +73,11 @@ base() {
     asciinema \
     adduser \
     alsa-utils \
-    apparmor \
     automake \
     bash-completion \
     bc \
-    bridge-utils \
     build-essential \
-    bzip2 \
     ca-certificates \
-    cgroupfs-mount \
     coreutils \
     curl \
     dnsutils \
@@ -95,15 +91,9 @@ base() {
     grep \
     gzip \
     hostname \
-    indent \
     iptables \
     jq \
     less \
-    libapparmor-dev \
-    libc6-dev \
-    libltdl-dev \
-    libseccomp-dev \
-    locales \
     lsof \
     make \
     mount \
@@ -128,8 +118,6 @@ base() {
     wicd-curses \
     xclip \
     xsel \
-    xcompmgr \
-    xz-utils \
     zip
 
   # install tlp with recommends
