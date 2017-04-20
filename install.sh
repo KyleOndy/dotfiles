@@ -357,24 +357,21 @@ get_dotfiles() {
   cd "$HOME"
 
   # install dotfiles from repo
-  git clone https://github.com/jessfraz/dotfiles.git "${HOME}/dotfiles"
-  cd "${HOME}/dotfiles"
+  git clone https://github.com/kondy/dotfiles.git "${HOME}/.dotfiles"
+  cd "${HOME}/.dotfiles"
 
   # installs all the things
   make
 
-  # enable dbus for the user session
-  # systemctl --user enable dbus.socket
+  #sudo systemctl enable "i3lock@${USERNAME}"
+  #sudo systemctl enable suspend-sedation.service
 
-  sudo systemctl enable "i3lock@${USERNAME}"
-  sudo systemctl enable suspend-sedation.service
-
-  cd "$HOME"
-  mkdir -p ~/Pictures
-  mkdir -p ~/Torrents
+  #cd "$HOME"
+  #mkdir -p ~/Pictures
+  #mkdir -p ~/Torrents
   )
 
-  install_vim;
+  #install_vim;
 }
 
 install_vim() {
