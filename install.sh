@@ -41,16 +41,21 @@ cat <<-EOF > /etc/apt/sources.list
   deb http://download.virtualbox.org/virtualbox/debian stretch contrib
 EOF
 
+  # looking up the actual key since if someone got control of the website the key is hosted on,
+  # they could switch the key
 
   # add docker gpg key
+  # todo: use full key
   apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 8D81803C0EBFCD88
   add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
 
   # thought bot
+  # todo: see if key is on public keyserver, refrence actaul key
   curl https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
   echo "deb http://apt.thoughtbot.com/debian/ stable main" | tee /etc/apt/sources.list.d/thoughtbot.list
 
   # virtualbox
+  # todo: see if key is on public keyserver, refrence actaul key
   curl https://www.virtualbox.org/download/oracle_vbox_2016.asc | apt-key add -
 
   # turn off translations, speed up apt-get update
