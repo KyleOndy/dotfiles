@@ -70,9 +70,10 @@ base() {
   apt-get -y upgrade
 
   apt-get install -y \
-    asciinema \
     adduser \
     alsa-utils \
+    asciinema \
+    atop \
     automake \
     bash-completion \
     bc \
@@ -86,24 +87,30 @@ base() {
     gcc \
     git \
     gnupg \
-    gnupg2 \
     gnupg-agent \
+    gnupg2 \
     grep \
     gzip \
     hostname \
+    htop \
     iptables \
     jq \
     less \
     lsof \
     make \
+    mosh \
     mount \
-    net-tools \
     neovim \
+    net-tools \
     network-manager \
+    nload \
+    nmap \
     openvpn \
+    pass \
     pcscd \
     pinentry-curses \
     rcm \
+    rsync \
     rxvt-unicode-256color \
     s3cmd \
     scdaemon \
