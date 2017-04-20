@@ -37,6 +37,8 @@ cat <<-EOF > /etc/apt/sources.list
 
   deb http://security.debian.org/ stretch/updates main contrib non-free
   deb-src http://security.debian.org/ stretch/updates main contrib non-free
+
+  deb http://download.virtualbox.org/virtualbox/debian stretch contrib
 EOF
 
 
@@ -47,6 +49,9 @@ EOF
   # thought bot
   wget -qO - https://apt.thoughtbot.com/thoughtbot.gpg.key | apt-key add -
   echo "deb http://apt.thoughtbot.com/debian/ stable main" | tee /etc/apt/sources.list.d/thoughtbot.list
+
+  # virtualbox
+  curl -O https://www.virtualbox.org/download/oracle_vbox_2016.asc | apt-key add -
 
   # turn off translations, speed up apt-get update
   mkdir -p /etc/apt/apt.conf.d
@@ -391,30 +396,8 @@ install_vim() {
 }
 
 install_virtualbox() {
-  # check if we need to install libvpx1
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' libvpx1 | grep "install ok installed")
-  echo "Checking for libvpx1: $PKG_OK"
-  if [ "" == "$PKG_OK" ]; then
-    echo "No libvpx1. Installing libvpx1."
-    jessie_sources=/etc/apt/sources.list.d/jessie.list
-    echo "deb http://httpredir.debian.org/debian jessie main contrib non-free" > "$jessie_sources"
-
-    apt-get update
-    apt-get install -y -t jessie libvpx1 \
-      --no-install-recommends
-
-    # cleanup the file that we used to install things from jessie
-    rm "$jessie_sources"
-  fi
-
-  echo "deb http://download.virtualbox.org/virtualbox/debian vivid contrib" >> /etc/apt/sources.list.d/virtualbox.list
-
-  curl -sSL https://www.virtualbox.org/download/oracle_vbox.asc | apt-key add -
-
   apt-get update
-  apt-get install -y \
-    virtualbox-5.0
-  --no-install-recommends
+  apt-get install -y virtualbox-5.1
 }
 
 install_vagrant() {
