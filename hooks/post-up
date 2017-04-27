@@ -12,22 +12,26 @@ secure() {
   done
 }
 
-setup_antigen() {
-  local ZSH_CONFIG="$HOME/.config/zsh"
-  local ANTIGEN="$ZSH_CONFIG/antigen"
+pull_or_update() {
+  local repo=$1
+  local destination=$2
 
-  if [ ! -d "$ANTIGEN" ]; then
-    mkdir -p "$ZSH_CONFIG"
-    git clone https://github.com/zsh-users/antigen "$ANTIGEN"
+  if [ ! -d "$destination" ]; then
+    mkdir -p "$(dirname $destination)"
+    git clone https://github.com/"$repo" "$destination"
   else
-    git -C "$ANTIGEN" pull
+    git -C "$destination" pull
   fi
 }
 
-setup_antigen
+# Antigen. Zsh package maneger
+pull_or_update "zsh-users/antigen" "$HOME/.config/zsh/antigen"
+
+# Ruby Env
+RBENV="$HOME/.rbenv"
+pull_or_update "rbenv/rbenv" "$RBENV"
+(cd "$RBENV" && src/configure && make -C src) || true
+
 secure ~/.msmtprc ~/.config/gnupg
 
 [ -d ~/.mutt ] && mkdir -p ~/.mutt/temp
-
-# dot-prefixed files are skipped unless explicitly named
-# rcup -K "$HOME"/.config/zsh/{.zprofile,.zshenv,.zshrc}
