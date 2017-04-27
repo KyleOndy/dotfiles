@@ -80,10 +80,12 @@ base() {
     build-essential \
     ca-certificates \
     coreutils \
+    cowsay \
     curl \
     dnsutils \
     file \
     findutils \
+    fonts-fantasque-sans \
     gcc \
     git \
     gnupg \
@@ -93,10 +95,12 @@ base() {
     gzip \
     hostname \
     htop \
+    iceweasel \
     iptables \
     jq \
     less \
     lsof \
+    lynx \
     make \
     mosh \
     mount \
@@ -119,6 +123,7 @@ base() {
     strace \
     sudo \
     tar \
+    tmux \
     tree \
     tzdata \
     unzip \
