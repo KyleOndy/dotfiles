@@ -203,6 +203,8 @@ let mapleader="\<SPACE>"
   " Diff options
   set diffopt+=iwhite
 
+  " use jk to exit insert mode
+  inoremap jk <Esc>`^
   "Enter to go to EOF and backspace to go to start
   nnoremap <CR> G
   nnoremap <BS> gg
