@@ -48,3 +48,13 @@ export GOPATH="$HOME/go"
 
 export DOTFILES="$HOME/.dotfiles"
 export MAIL_BACKUP="$HOME/Dropbox/.mail"
+
+# path
+typeset -U path
+path=(
+  $HOME/.stack/bin
+  $HOME/.local/bin
+  $GOPATH/bin
+  $HOME/.rbenv/bin
+  $path
+)

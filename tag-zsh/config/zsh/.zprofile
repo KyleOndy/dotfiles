@@ -14,16 +14,11 @@ export NOTMUCH_CONFIG="$XDG_CONFIG_HOME/notmuchrc"
 export RCRC="$XDG_CONFIG_HOME/rcrc"
 
 
-path=(
-  $HOME/.stack/bin
-  $HOME/.local/bin
-  $HOME/.gem/ruby/2.3.0/bin
-  $GOPATH/bin
-  $path
-)
-
 # local bins
-#export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:$PATH"
+
+# stack bins
+export PATH="$HOME/.stack/bin:$PATH"
 #
 # gem path
 #export PATH="$HOME/.gem/ruby:$PATH"
