@@ -1,0 +1,4 @@
+#!/usr/bin/env/ env
+
+sudo apt update
+sudo apt dist-upgrade
