@@ -25,8 +25,3 @@ export PATH="$HOME/.stack/bin:$PATH"
 
 # userd for i3
 export TERMINAL="urxvt"
-
-# Finally, start x
-if [ -z "$DISPLAY" ] && [ -n "XDG_VTNR" ] && [ "$XDG_VTNR" -eq 1 ]; then
-  exec startx
-fi
