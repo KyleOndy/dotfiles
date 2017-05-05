@@ -113,6 +113,7 @@ base() {
     pass \
     pcscd \
     pinentry-curses \
+    python3-pip \
     rcm \
     rsync \
     rxvt-unicode-256color \
