@@ -19,6 +19,7 @@ antigen bundles <<EOBUNDLES
   npm
   pass
   pip
+  rbenv
   ssh-agent
   sudo
   vagrant
