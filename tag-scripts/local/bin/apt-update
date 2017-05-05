@@ -1,4 +1,4 @@
-#!/usr/bin/env/ env
+#!/usr/bin/env sh
 
 sudo apt update
 sudo apt dist-upgrade
