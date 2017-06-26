@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
 
 sudo apt update
-sudo apt dist-upgrade
+sudo apt -y dist-upgrade
+sudo apt -y autoremove
