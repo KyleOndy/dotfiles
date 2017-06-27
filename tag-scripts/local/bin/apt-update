@@ -1,5 +1,10 @@
 #!/usr/bin/env sh
 
-sudo apt update
-sudo apt -y dist-upgrade
-sudo apt -y autoremove
+printf "Updating sources...\n\t"
+sudo apt -qq update
+
+printf "Ugrading packages...\n\t"
+sudo apt -qq -y dist-upgrade
+
+printf "Removing unneeded packages...\n\t"
+sudo apt -qq -y autoremove
