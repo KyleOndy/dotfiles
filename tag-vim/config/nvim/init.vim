@@ -116,7 +116,6 @@ let mapleader="\<SPACE>"
 
   set noerrorbells        " No beeps.
   set modeline            " Enable modeline.
-  set esckeys             " Cursor keys in insert mode.
   set linespace=0         " Set line-spacing to minimum.
   set nojoinspaces        " Prevents inserting two spaces after punctuation on a join (J)
 
@@ -204,6 +203,8 @@ let mapleader="\<SPACE>"
   " Diff options
   set diffopt+=iwhite
 
+  " use jk to exit insert mode
+  inoremap jk <Esc>`^
   "Enter to go to EOF and backspace to go to start
   nnoremap <CR> G
   nnoremap <BS> gg

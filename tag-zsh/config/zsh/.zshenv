@@ -48,3 +48,28 @@ export GOPATH="$HOME/go"
 
 export DOTFILES="$HOME/.dotfiles"
 export MAIL_BACKUP="$HOME/Dropbox/.mail"
+
+# XDG
+export XDG_CACHE_HOME="$HOME/.cache"
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_HOME="$HOME/.local/share"
+
+export GNUPGHOME="$XDG_CONFIG_HOME/gnupg"
+export GOPATH="$XDG_CONFIG_HOME/go"
+export LESSHISTFILE="$XDG_CACHE_HOME/lesshist"
+export NOTMUCH_CONFIG="$XDG_CONFIG_HOME/notmuchrc"
+export RCRC="$XDG_CONFIG_HOME/rcrc"
+
+
+# userd for i3
+export TERMINAL="urxvt"
+
+# path
+typeset -U path
+path=(
+  $HOME/.stack/bin
+  $HOME/.local/bin
+  $GOPATH/bin
+  $HOME/.rbenv/bin
+  $path
+)
