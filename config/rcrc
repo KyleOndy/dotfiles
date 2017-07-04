@@ -1,4 +1,4 @@
-EXCLUDES='README.md LICENCE'
+EXCLUDES='README.md LICENCE install.sh bootstrap.sh Makefile'
 SYMLINK_DIRS='zsh'
 TAGS='
 git
@@ -8,6 +8,7 @@ haskell
 mail-recipent
 mail-sender
 scripts
+ssh
 tmux
 vim
 weechat
