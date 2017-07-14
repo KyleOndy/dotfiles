@@ -13,7 +13,7 @@ mkdir -p "$HOME/.mutt/temp"
 
 mkdir -p "$HOME/var/log"
 # run once to make sure that the yubikey and such work
-offlineimap
+
 while true      # run forever
 do
     mail-sync
@@ -26,6 +26,5 @@ mutt            # run mutt in foreground (and waits for mutt to exit)
 kill $LOOP_PID              # these two lines are a cool trick to kill the
 wait $LOOP_PID 2>/dev/null  # infinite loop and hide the error that it generates
 
-mail-sync       # sync mail once more after mutt exits
 mail-backup     # copy maildir as-is on exit
 exit 0          # force script to exit "cleanly"
