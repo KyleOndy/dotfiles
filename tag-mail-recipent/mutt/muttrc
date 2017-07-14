@@ -1,6 +1,7 @@
 # I18n
 set charset       = utf-8
 set send_charset  = utf-8
+set signature        = ~/.mutt/signature     # my signature file
 
 # Paths ----------------------------------------------
 set folder           = ~/.mail               # where email is stored
@@ -10,8 +11,16 @@ set message_cachedir = ~/.mutt/cache/bodies  # where to store bodies
 set certificate_file = ~/.mutt/certificates  # where to store certs
 set mailcap_path     = ~/.mutt/mailcap       # entries for filetypes
 set tmpdir           = ~/.mutt/temp          # where to keep temp files
-set signature        = ~/.mutt/sig           # my signature file
+
+source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
+source ~/.mutt/mailboxes
+source ~/.mutt/bindings
+source ~/.mutt/macros
+source ~/.mutt/gpg
+source ~/.mutt/hooks
 source $alias_file
+
+#### CLEAN BELOW
 
 # Basic Options --------------------------------------
 set wait_key = no        # shut up, mutt
@@ -24,8 +33,6 @@ set beep_new             # bell on new mails
 set pipe_decode          # strip headers and eval mimes when piping
 set thorough_search      # strip headers and eval mimes before searching
 set editor        = 'nvim'
-set sendmail      = "msmtp -a kyleondy"
-set sendmail_wait = 0
 unset record
 
 # Sidebar Patch --------------------------------------
@@ -49,16 +56,12 @@ hdr_order from: to: cc: date: subject:  # and in this order
 
 # Account Settings -----------------------------------
 # Default inbox
-set spoolfile = "+kyle-ondy.me/Inbox"
+set spoolfile = "+personal/Inbox"
 
 # Mailboxes to show in sidebar
-mailboxes +kyle-ondy.me/Inbox \
-          +kyle-ondy.me/Archive \
-          +kyle-ondy.me/Sent \
-          +kyle-ondy.me/Drafts
 
-set postponed = "+kyle-ondy.me/Drafts"
-set record    = "+kyle-ondy.me/Sent"
+#set postponed = "+kyle-ondy.me/Drafts"
+#set record    = "+kyle-ondy.me/Sent"
 
 # Index View Options ---------------------------------
 set date_format="%y-%m-%d %R"
@@ -69,14 +72,8 @@ set uncollapse_jump                        # don't collapse on an unread message
 set reply_regexp = "^(([Rr][Ee]?(\[[0-9]+\])?: *)?(\[[^]]+\] *)?)*"
 set confirmappend=no
 
-# Saner copy/move dialogs
-macro index C "<copy-message>?<toggle-mailboxes>" "copy a message to a mailbox"
-macro index M "<save-message>?<toggle-mailboxes>" "move a message to a mailbox"
-macro index,pager A "<save-message>=kyle-ondy.me/Archive<enter>"     " move thread to archive
 
 # Compose View ----------------------------------
-set realname      = 'Kyle Ondy'
-set from          = 'kyle@ondy.me'
 set envelope_from
 set sig_dashes
 set edit_headers
@@ -102,49 +99,3 @@ unset markers              # no ugly plus signs
 
 set quote_regexp = "^( {0,4}[>|:#%]| {0,4}[a-z0-9]+[>|]+)+"
 alternative_order text/plain text/enriched text/html
-
-# Key Bindings ---------------------------------------
-bind attach,index,pager \CD next-page
-bind attach,index,pager \CU previous-page
-
-bind index,pager <down>   sidebar-next
-bind index,pager <up>     sidebar-prev
-bind index,pager <right>  sidebar-open
-
-bind attach,index gg       first-entry
-bind attach,index G        last-entry
-
-bind index R        group-reply
-bind index <tab>    sync-mailbox
-bind index <space>  collapse-thread
-
-
-bind pager k  previous-line
-bind pager j  next-line
-bind pager gg top
-bind pager G  bottom
-
-bind pager R  group-reply
-
-#bind compose p postpone-message    # intefears with PGP
-bind index p recall-message
-
-# View attachments properly.
-bind attach <return> view-mailcap
-
-
-# Macros ---------------------------------------------
-macro index,pager s '<sync-mailbox><shell-escape>offlineimap -qf INBOX<enter>'
-macro index,pager S '<sync-mailbox><shell-escape>offlineimap<enter>'
-
-# File Sourcing --------------------------------------
-source ~/.mutt/mutt-colors-solarized-dark-256.muttrc
-
-# GPG ------------------------------------------------
-#set pgp_use_gpg_agent = yes
-set crypt_use_gpgme=yes
-set pgp_sign_as = 0x6839D3ADF871B092
-set crypt_autosign                              # sign all outgoing messages
-set crypt_replyencrypt                          # encrypt replies to messages which are encrypted
-set crypt_replysignencrypted                    # encrypt and sign replies to encryped messages
-set pgp_good_sign="^gpg: Good signature from"

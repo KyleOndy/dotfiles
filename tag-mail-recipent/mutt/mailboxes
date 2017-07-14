@@ -1,0 +1,15 @@
+# vim: ft=muttrc
+mailboxes "+-- personal -----------" \
+          +personal/Inbox \
+          +personal/Drafts \
+          +personal/Sent \
+          +personal/Trash \
+          "+-- gmail --------------" \
+          +gmail/Inbox \
+          +gmail/Archive \
+          +gmail/Sent \
+          +gmail/Drafts \
+          +gmail/Spam \
+          +gmail/Trash
+
+

@@ -1,0 +1,18 @@
+# vim: ft=muttrc
+
+# Account specific settings
+set realname      = 'Kyle Ondy'
+set from          = 'kyle@ondy.me'
+set mbox          = "+personal/Archives"
+set trash         = "+personal/Trash"
+set postponed     = "+personal/Drafts"
+set sendmail      = "msmtp -a personal"
+set sendmail_wait = 0
+
+macro index ,c "<change-folder>+gmail/Inbox<enter>" "change accounts"
+macro index ,s "<sync-mailbox><shell-escape>mbsync --pull-new --push personal<enter>" "sync mailbox and quick sync IMAP"
+macro index ,S "<sync-mailbox><shell-escape>mbsync personal<enter>" "sync mailbox and IMAP"
+macro index S "<save-message>+personal/Spam<enter>"  "mark message as spam"
+macro index ,d \
+  "<tag-prefix><save-message>+personal/Trash<enter>" \
+"delete all"

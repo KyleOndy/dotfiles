@@ -1,0 +1,84 @@
+# vim: ft=cfg:
+
+Create Slave
+Expunge Both
+SyncState *
+
+IMAPAccount gmail
+Host imap.gmail.com
+User kyleondy@gmail.com
+PassCmd "pass show mbsync/kyleondy@gmail.com"
+SSLType IMAPS
+CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+IMAPStore gmail-remote
+Account gmail
+
+MaildirStore gmail-local
+# The trailing "/" is important
+Path ~/.mail/gmail/
+Inbox ~/.mail/gmail/Inbox
+
+Channel gmail-inbox
+Master :gmail-remote:INBOX
+Slave :gmail-local:Inbox
+
+Channel gmail-archive
+Master ":gmail-remote:[Gmail]/All Mail"
+Slave :gmail-local:Archive
+
+Channel gmail-drafts
+Master :gmail-remote:[Gmail]/Drafts
+Slave :gmail-local:Drafts
+
+Channel gmail-sent
+Master ":gmail-remote:[Gmail]/Sent Mail"
+Slave :gmail-local:Sent
+
+Channel gmail-spam
+Master :gmail-remote:[Gmail]/Spam
+Slave :gmail-local:Spam
+
+Channel gmail-trash
+Master :gmail-remote:[Gmail]/Trash
+Slave :gmail-local:Trash
+
+Channel gmail-rest
+Master :gmail-remote:
+Slave :gmail-local:
+Patterns * ![Gmail]* !Archive !Drafts !Sent !Spam !Trash
+
+Group gmail
+Channel gmail-inbox
+Channel gmail-archive
+Channel gmail-drafts
+Channel gmail-sent
+Channel gmail-spam
+Channel gmail-trash
+Channel gmail-rest
+
+
+
+
+
+IMAPAccount personal
+Host mail.ondy.me
+User kyle@ondy.me
+PassCmd "pass show mail.ondy.me/kyle@ondy.me"
+SSLType IMAPS
+CertificateFile /etc/ssl/certs/ca-certificates.crt
+
+IMAPStore personal-remote
+Account personal
+
+MaildirStore personal-local
+Path ~/.mail/personal/
+Inbox ~/.mail/personal/Inbox
+
+Channel personal-rest
+Master :personal-remote:
+Slave :personal-local:
+Patterns *
+
+Group personal
+Channel personal-rest
