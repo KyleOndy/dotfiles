@@ -2,7 +2,7 @@
 [user]
   email = kyle@ondy.me
   name = Kyle Ondy
-  signingkey = F871B092
+  signingkey = 491F91C9
 [core]
   editor = nvim
   autocrlf = input
