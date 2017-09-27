@@ -3,16 +3,16 @@
 # Account specific settings
 set realname      = 'Kyle Ondy'
 set from          = 'kyle@ondy.me'
-set mbox          = "+personal/Archives"
-set trash         = "+personal/Trash"
-set postponed     = "+personal/Drafts"
-set sendmail      = "msmtp -a personal"
+set mbox          = "+mxroute/Archives"
+set trash         = "+mxroute/Trash"
+set postponed     = "+mxroute/Drafts"
+set sendmail      = "msmtp -a mxroute"
 set sendmail_wait = 0
 
 macro index ,c "<change-folder>+gmail/Inbox<enter>" "change accounts"
-macro index ,s "<sync-mailbox><shell-escape>mbsync --pull-new --push personal<enter>" "sync mailbox and quick sync IMAP"
-macro index ,S "<sync-mailbox><shell-escape>mbsync personal<enter>" "sync mailbox and IMAP"
-macro index S "<save-message>+personal/Spam<enter>"  "mark message as spam"
+macro index ,s "<sync-mailbox><shell-escape>mbsync --pull-new --push mxroute<enter>" "sync mailbox and quick sync IMAP"
+macro index ,S "<sync-mailbox><shell-escape>mbsync mxroute<enter>" "sync mailbox and IMAP"
+macro index S "<save-message>+mxroute/Spam<enter>"  "mark message as spam"
 macro index ,d \
-  "<tag-prefix><save-message>+personal/Trash<enter>" \
+  "<tag-prefix><save-message>+mxroute/Trash<enter>" \
 "delete all"

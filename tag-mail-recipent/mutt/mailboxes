@@ -1,9 +1,10 @@
 # vim: ft=muttrc
 mailboxes "+-- personal -----------" \
-          +personal/Inbox \
-          +personal/Drafts \
-          +personal/Sent \
-          +personal/Trash \
+          +mxroute/Inbox \
+          +mxroute/Drafts \
+          +mxroute/Sent \
+          +mxroute/Trash \
+          +mxroute/Junk \
           "+-- gmail --------------" \
           +gmail/Inbox \
           +gmail/Archive \

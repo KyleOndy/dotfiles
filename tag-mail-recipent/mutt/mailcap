@@ -2,6 +2,6 @@
 application/octet-stream ; echo %s "can be anything..."                    ; copiousoutput
 text/html                ; /usr/bin/elinks -dump %s ; nametemplate=%s.html ; copiousoutput
 application/pdf          ; /usr/bin/zathura %s                             ; copiousoutput
-image/*                  ; /usr/bin/mirage %s                              ; copiousoutput
-audio/*                  ; /usr/bin/mplayer %s                             ; copiousoutput
-video/*                  ; /usr/bin/mplayer %s                             ; copiousoutput
+image/*                  ; /usr/bin/feh %s                              ; copiousoutput
+audio/*                  ; /usr/bin/mpv %s                             ; copiousoutput
+video/*                  ; /usr/bin/mpv %s                             ; copiousoutput

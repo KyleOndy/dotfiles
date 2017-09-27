@@ -56,12 +56,7 @@ hdr_order from: to: cc: date: subject:  # and in this order
 
 # Account Settings -----------------------------------
 # Default inbox
-set spoolfile = "+personal/Inbox"
-
-# Mailboxes to show in sidebar
-
-#set postponed = "+kyle-ondy.me/Drafts"
-#set record    = "+kyle-ondy.me/Sent"
+set spoolfile = "+mxroute/Inbox"
 
 # Index View Options ---------------------------------
 set date_format="%y-%m-%d %R"
