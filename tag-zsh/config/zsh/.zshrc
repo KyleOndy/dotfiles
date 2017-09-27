@@ -2,8 +2,12 @@
 
 
 # is the internet on fire status reports, if we have network
-if ping -q -c1 -W1 istheinternetonfire.com &> /dev/null; then
-  host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose -W80
+if ping -q -c1 -W1 8.8.8.8 &> /dev/null; then
+  if ping -q -c1 -W1 istheinternetonfire.com &> /dev/null; then
+    host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose -W80
+  else
+    cowsay -f moose istheinternetonfire.com seems to be down
+  fi
 else
   cowsay -f moose No internet connection detected
 fi
