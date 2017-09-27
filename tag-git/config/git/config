@@ -50,3 +50,5 @@
   wdiff = diff --color-words
 [gpg]
   program = gpg2
+[fetch]
+  prune = true
