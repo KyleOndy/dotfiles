@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+set euo pipefail
 
 printf "Updating sources...\n\t"
 sudo apt -qq update
