@@ -37,7 +37,6 @@ antigen apply
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
 [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
 
-# alias. Move to different file?
 alias :q='exit'
 alias :e='nvim'
 alias :E='nvim .'
