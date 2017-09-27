@@ -42,6 +42,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'hashivim/vim-hashicorp-tools'
       " show marks in gutter
       Plug 'kshenoy/vim-signature'
+      " another tpope plugin
+      Plug 'tpope/vim-commentary'
   " }
   " haskell {
       " hekp for haskell
