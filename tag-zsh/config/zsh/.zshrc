@@ -69,6 +69,8 @@ alias gpg=gpg2
 
 alias gst='git status'
 
+alias xc=xclip selection -primary $@
+
 # Bells
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
