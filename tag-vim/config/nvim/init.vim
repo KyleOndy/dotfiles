@@ -37,7 +37,7 @@ call plug#begin('~/.config/nvim/plugged')
       " autocompletion
       Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
       " tab completions
-      Plug 'ervandew/supertab'
+      " Plug 'ervandew/supertab'
       " haskicrop master bundle
       Plug 'hashivim/vim-hashicorp-tools'
       " show marks in gutter
