@@ -1,13 +1,13 @@
 # vim: ft=cfg:
 
-Create Slave
-Expunge Both
+Create Both
+Sync All
 SyncState *
 
 IMAPAccount gmail
 Host imap.gmail.com
 User kyleondy@gmail.com
-PassCmd "pass show mbsync/kyleondy@gmail.com"
+PassCmd "pass show email/kyleondy@gmail.com_mbsync"
 SSLType IMAPS
 CertificateFile /etc/ssl/certs/ca-certificates.crt
 
@@ -57,28 +57,43 @@ Channel gmail-spam
 Channel gmail-trash
 Channel gmail-rest
 
-
-
-
-
-IMAPAccount personal
-Host mail.ondy.me
+IMAPAccount mxroute
+Host london.mxroute.com
 User kyle@ondy.me
-PassCmd "pass show mail.ondy.me/kyle@ondy.me"
+PassCmd "pass show email/kyle@ondy.me"
 SSLType IMAPS
 CertificateFile /etc/ssl/certs/ca-certificates.crt
 
-IMAPStore personal-remote
-Account personal
+IMAPStore mxroute-remote
+Account mxroute
 
-MaildirStore personal-local
-Path ~/.mail/personal/
-Inbox ~/.mail/personal/Inbox
+MaildirStore mxroute-local
+Path ~/.mail/mxroute/
+Inbox ~/.mail/mxroute/Inbox
 
-Channel personal-rest
-Master :personal-remote:
-Slave :personal-local:
-Patterns *
+Channel mxroute-inbox
+Master :mxroute-remote:INBOX
+Slave  :mxroute-local:Inbox
 
-Group personal
-Channel personal-rest
+Channel mxroute-drafts
+Master :mxroute-remote:Drafts
+Slave  :mxroute-local:Drafts
+
+Channel mxroute-sent
+Master :mxroute-remote:Sent
+Slave  :mxroute-local:Sent
+
+Channel mxroute-trash
+Master :mxroute-remote:Trash
+Slave  :mxroute-local:Trash
+
+Channel mxroute-junk
+Master :mxroute-remote:Junk
+Slave  :mxroute-local:Junk
+
+Group mxroute
+Channel mxroute-inbox
+Channel mxroute-drafts
+Channel mxroute-sent
+Channel mxroute-trash
+Channel mxroute-junk

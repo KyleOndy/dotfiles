@@ -9,7 +9,7 @@ set trash         = "+gmail/Trash"
 set sendmail      = "msmtp -a gmail"
 set sendmail_wait = 0
 
-macro index ,c "<change-folder>+personal/Inbox<enter>" "change accounts"
+macro index ,c "<change-folder>+mxroute/Inbox<enter>" "change accounts"
 macro index ,s "<sync-mailbox><shell-escape>mbsync --pull-new --push gmail<enter>" "sync mailbox and quick sync IMAP"
 macro index ,S "<sync-mailbox><shell-escape>mbsync gmail<enter>" "sync mailbox and full sync IMAP"
 macro index S "<save-message>+gmail/Spam<enter>"  "mark message as spam"
