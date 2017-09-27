@@ -75,6 +75,9 @@ alias xc=xclip selection -primary $@
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
 unsetopt list_beep              # no bell on ambiguous completion
+if [ -n "$DISPLAY" ]; then
+  xset b off
+fi
 
 # look into history options
 setopt inc_append_history
