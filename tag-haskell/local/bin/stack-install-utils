@@ -8,6 +8,7 @@ stack install \
   hoogle \
   pandoc \
   pointfree \
+  ShellCheck \
   stylish-haskell
 
 hoogle generate
