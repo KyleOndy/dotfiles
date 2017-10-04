@@ -5,6 +5,7 @@ set realname      = 'Kyle Ondy'
 set from          = "kyleondy@gmail.com"
 set mbox          = "+gmail/Archive"
 set postponed     = "+gmail/Drafts"
+set record        = "+gmail/Sent"
 set trash         = "+gmail/Trash"
 set sendmail      = "msmtp -a gmail"
 set sendmail_wait = 0

@@ -6,6 +6,7 @@ set from          = 'kyle@ondy.me'
 set mbox          = "+mxroute/Archives"
 set trash         = "+mxroute/Trash"
 set postponed     = "+mxroute/Drafts"
+set record        = "+mxroute/Sent"
 set sendmail      = "msmtp -a mxroute"
 set sendmail_wait = 0
 
