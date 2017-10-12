@@ -36,7 +36,7 @@
 [merge]
   ff = false
 [push]
-  default = simple
+  default = current
   followTags = true
 [pull]
   rebase = true
