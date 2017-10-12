@@ -91,9 +91,15 @@ Channel mxroute-junk
 Master :mxroute-remote:Junk
 Slave  :mxroute-local:Junk
 
+Channel mxroute-rest
+Master :mxroute-remote:
+Slave :mxroute-local:
+Patterns * !INBOX !Drafts !Sent !Trash !Junk
+
 Group mxroute
 Channel mxroute-inbox
 Channel mxroute-drafts
 Channel mxroute-sent
 Channel mxroute-trash
 Channel mxroute-junk
+Channel mxroute-rest
