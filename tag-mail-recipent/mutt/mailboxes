@@ -1,6 +1,7 @@
 # vim: ft=muttrc
 mailboxes "+-- personal -----------" \
           +mxroute/Inbox \
+          +mxroute/Archive \
           +mxroute/Drafts \
           +mxroute/Sent \
           +mxroute/Trash \
