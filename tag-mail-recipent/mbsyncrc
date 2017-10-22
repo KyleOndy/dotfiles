@@ -87,9 +87,9 @@ Channel mxroute-trash
 Master :mxroute-remote:Trash
 Slave  :mxroute-local:Trash
 
-Channel mxroute-junk
-Master :mxroute-remote:Junk
-Slave  :mxroute-local:Junk
+Channel mxroute-spam
+Master :mxroute-remote:spam
+Slave  :mxroute-local:Spam
 
 Channel mxroute-archive
 Master :mxroute-remote:Archive
@@ -100,5 +100,5 @@ Channel mxroute-inbox
 Channel mxroute-drafts
 Channel mxroute-sent
 Channel mxroute-trash
-Channel mxroute-junk
+Channel mxroute-spam
 Channel mxroute-archive

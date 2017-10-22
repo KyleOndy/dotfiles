@@ -5,7 +5,7 @@ mailboxes "+-- personal -----------" \
           +mxroute/Drafts \
           +mxroute/Sent \
           +mxroute/Trash \
-          +mxroute/Junk \
+          +mxroute/Spam \
           "+-- gmail --------------" \
           +gmail/Inbox \
           +gmail/Archive \
