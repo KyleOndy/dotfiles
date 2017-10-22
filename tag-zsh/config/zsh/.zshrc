@@ -71,6 +71,8 @@ alias gst='git status'
 
 alias xc=xclip selection -primary $@
 
+alias sum='paste -sd+ - | bc'
+
 # Bells
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
