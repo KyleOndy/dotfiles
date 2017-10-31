@@ -13,6 +13,6 @@ sudo apt -qq -y autoremove
 export RCRC=~/.dotfiles/config/rcrc
 rcup -v
 
-nvim -c PlugUpgrade -c PlugUpdate -c quitall
+nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
 
 "$HOME/.local/bin/tarsnap-backup"
