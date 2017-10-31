@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cp "$HOME/.mbsyncrc" /tmp/mbsyncrc
+cp "$HOME/.msmtprc" /tmp/msmtprc
+GMAIL_PASS=$(pass show email/kyleondy@gmail.com_mbsync)
+sed -i -- "s|PassCmd.*kyleondy@gmail.com.*|Pass $GMAIL_PASS|g" /tmp/mbsyncrc
+
+MXROUTE_PASS=$(pass show email/kyle@ondy.me)
+sed -i -- "s|PassCmd.*kyle@ondy.me.*|Pass $MXROUTE_PASS|g" /tmp/mbsyncrc
+
+while true; do
+  mbsync -a -c /tmp/mbsyncrc
+  sleep 300
+done
