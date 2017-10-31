@@ -2,15 +2,17 @@
 
 
 # is the internet on fire status reports, if we have network
-if ping -q -c1 -W1 8.8.8.8 &> /dev/null; then
-  if ping -q -c1 -W1 istheinternetonfire.com &> /dev/null; then
-    host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"' | cowsay -f moose -W80
-  else
-    cowsay -f moose istheinternetonfire.com seems to be down
-  fi
-else
-  cowsay -f moose No internet connection detected
+HALF_HOUE=$(echo "$(date "+%Y%m%d%H%M") - ($(date +%M)%30)" | bc)
+
+MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"')
+if [[ ! -a "/tmp/$HALF_HOUE" && $? -eq 0 ]]; then
+  echo $MESSAGE > "/tmp/$HALF_HOUE"
 fi
+
+if [[ ! -a "/tmp/$HALF_HOUE" ]]; then
+  MESSAGE="Could not get txt record of istheinternetonfire.com"
+fi;
+cowsay "$MESSAGE"
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh
