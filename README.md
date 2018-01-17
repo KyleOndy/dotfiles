@@ -1,14 +1,20 @@
 These are my personal dot files.
 Feel free to use anything for inspiration or verbatim.
-I know I've used plenty of people for inspiration.
+I know I've used plenty of other people's for inspiration.
 
 ## Setup
 
-~~~.bash
-# need to verify`
-wget -o bootstrap.sh bootstrap.kyleondy.com
-bash bootstrap.sh
+Need [rcm](https://github.com/thoughtbot/rcm), a simple dotfile management tool built by [ThoughtBot](https://github.com/thoughtbot)
 
-# need to verify`
-curl -s bootstrap.kyleondy.com | bash
-~~~
+## Initial Setup
+
+```bash
+git clone https://github.com/kyleondy/dotfiles.git "$HOME/.dotfiles"
+RCRC=$HOME/.dotfiles/config/rcrc rcup -v
+```
+
+## Updating
+
+```bash
+update-system
+```
