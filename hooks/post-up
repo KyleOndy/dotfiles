@@ -17,7 +17,7 @@ pull_or_update() {
   local destination=$2
 
   if [ ! -d "$destination" ]; then
-    mkdir -p "$(dirname $destination)"
+    mkdir -p "$(dirname "$destination")"
     git clone https://github.com/"$repo" "$destination"
   else
     git -C "$destination" pull
