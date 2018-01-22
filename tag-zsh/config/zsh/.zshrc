@@ -39,8 +39,8 @@ EOBUNDLES
 antigen theme daveverwer
 antigen apply
 
-[[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
-[[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+[[ -f "$HOME/.fzf.zsh" ]] && source     "$HOME/.fzf.zsh"
 
 alias :q='exit'
 alias :e='nvim'
