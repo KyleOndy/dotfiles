@@ -79,6 +79,11 @@ alias xc=xclip selection -primary $@
 
 alias sum='paste -sd+ - | bc'
 
+alias v="amixer -q set Master $@ unmute"
+alias vu='amixer -q set Master 3+ unmute'
+alias vd='amixer -q set Master 3- unmute'
+alias vm='amixer -q set Master toggle'
+
 # Bells
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
