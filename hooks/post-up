@@ -33,6 +33,9 @@ pull_or_update "rbenv/rbenv" "$RBENV"
 (cd "$RBENV" && src/configure && make -C src) || true
 pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 
+# Jess's docker apps
+pull_or_update "jessfraz/dotfiles" "$HOME/.dotfiles-jessfraz"
+
 secure ~/.msmtprc ~/.config/gnupg
 
 [ -d ~/.mutt ] && mkdir -p ~/.mutt/temp
