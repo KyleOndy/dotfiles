@@ -42,7 +42,6 @@ antigen theme daveverwer
 antigen apply
 
 [[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
-[[ -f "$HOME/.dotfiles-jessfraz/.dockerfunc" ]] && source "$HOME/.dotfiles-jessfraz/.dockerfunc"
 [[ -f "$HOME/.fzf.zsh" ]] && source     "$HOME/.fzf.zsh"
 
 alias :q='exit'
