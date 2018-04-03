@@ -7,17 +7,12 @@ mkdir -p /tmp/messages
 # grab message every halfhour
 MESSAGE_FILE=/tmp/messages/$(echo "$(date "+%Y%m%d%H%M") - ($(date +%M)%30)" | bc)
 
-if [[ ! -a "$MESSAGE_FILE" && $? -eq 0 ]]; then
-  MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"')
+if [[ ! -a "$MESSAGE_FILE" ]]; then
+  # need to get a new message
+  MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"') || "Could not get txt record of istheinternetonfire.com"
   echo $MESSAGE > "$MESSAGE_FILE"
 fi
-
-if [[ ! -a "$MESSAGE_FILE" ]]; then
-  MESSAGE="Could not get txt record of istheinternetonfire.com"
-else:
-  MESSAGE=$(cat "$MESSAGE_FILE")
-fi;
-cowsay "$MESSAGE"
+cowsay < $MESSAGE_FILE
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh
