@@ -30,16 +30,6 @@ if [ -f /usr/bin/src-hilite-lesspipe.sh ]; then
   export LESSOPEN="| /usr/bin/src-hilite-lesspipe.sh %s"
 fi;
 
-# Colorful man pages
-# from http://pastie.org/pastes/206041/text
-#export LESS_TERMCAP_mb="(set_color -o red)"
-#export LESS_TERMCAP_md="(set_color -o red)"
-#export LESS_TERMCAP_me="(set_color normal)"
-#export LESS_TERMCAP_se="(set_color normal)"
-#export LESS_TERMCAP_so="(set_color -b blue -o yellow)"
-#export LESS_TERMCAP_ue="(set_color normal)"
-#export LESS_TERMCAP_us="(set_color -o green)"
-
 # No asnible cows
 export ANSIBLE_NOCOWS=1
 
