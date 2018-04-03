@@ -3,17 +3,19 @@
 
 # is the internet on fire status reports, if we have network
 mkdir -p /tmp/messages
-HALF_HOUE_FILE=/tmp/messages/$(echo "$(date "+%Y%m%d%H%M") - ($(date +%M)%30)" | bc)
 
-MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"')
-if [[ ! -a "$HALF_HOUE_FILE" && $? -eq 0 ]]; then
-  echo $MESSAGE > "$HALF_HOUE_FILE"
+# grab message every halfhour
+MESSAGE_FILE=/tmp/messages/$(echo "$(date "+%Y%m%d%H%M") - ($(date +%M)%30)" | bc)
+
+if [[ ! -a "$MESSAGE_FILE" && $? -eq 0 ]]; then
+  MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"')
+  echo $MESSAGE > "$MESSAGE_FILE"
 fi
 
-if [[ ! -a "$HALF_HOUE_FILE" ]]; then
+if [[ ! -a "$MESSAGE_FILE" ]]; then
   MESSAGE="Could not get txt record of istheinternetonfire.com"
 else:
-  MESSAGE=$(cat "$HALF_HOUE_FILE")
+  MESSAGE=$(cat "$MESSAGE_FILE")
 fi;
 cowsay "$MESSAGE"
 
