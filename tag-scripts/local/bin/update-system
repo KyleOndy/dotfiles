@@ -16,6 +16,6 @@ rcup -v
 nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
 
 # push password repo
-pass git push
+pass git push || true
 
 "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
