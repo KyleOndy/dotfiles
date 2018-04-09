@@ -10,6 +10,11 @@ sudo apt -qq -y dist-upgrade
 printf "Removing unneeded packages...\n\t"
 sudo apt -qq -y autoremove
 
+# update dotfiles before applying them
+pushd $DOTFILES
+git fetch --all && git pull
+popd
+
 export RCRC=~/.dotfiles/config/rcrc
 rcup -v
 
