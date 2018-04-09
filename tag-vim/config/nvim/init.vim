@@ -65,6 +65,9 @@ call plug#begin('~/.config/nvim/plugged')
   " golang {
       Plug 'fatih/vim-go', { 'for': 'go' }
   " }
+  " markdown {
+      Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
+  " }
 
 call plug#end()
 
