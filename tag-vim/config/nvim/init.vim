@@ -187,25 +187,10 @@ let mapleader="\<SPACE>"
   endif
   set sessionoptions-=options
 
-"  " Remove trailing spaces before saving text files
-"  " http://vim.wikia.com/wiki/Remove_trailing_spaces
-"  autocmd BufWritePre * :call StripTrailingWhitespace()
-"  function! StripTrailingWhitespace()
-"    if !&binary && &filetype != 'diff'
-"      normal mz
-"      normal Hmy
-"      if &filetype == 'mail'
-"  " Preserve space after e-mail signature separator
-"        %s/\(^--\)\@<!\s\+$//e
-"      else
-"        %s/\s\+$//e
-"      endif
-"      normal 'yz<Enter>
-"      normal `z
-"    endif
-"  endfunction
+  " commands
+  command! -nargs=0 -bar SiteDate execute "normal! a\<C-R>=strftime(\"%FT%TZ\")\<CR>"
 
-  " Diff options
+ " Diff options
   set diffopt+=iwhite
 
   " use jk to exit insert mode
