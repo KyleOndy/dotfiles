@@ -23,4 +23,10 @@ nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
 # push password repo
 pass git push || true
 
+# tmux plugins
+TPM_BIN="$HOME/.tmux/plugins/tpm/bin"
+$TPM_BIN/clean_plugins
+$TPM_BIN/install_plugins
+$TPM_BIN/update_plugins all
+
 "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
