@@ -242,7 +242,7 @@ let mapleader="\<SPACE>"
 " " Fugitive {
     nnoremap <Leader>gs :Gstatus<CR>
     nnoremap <Leader>gd :Gdiff<CR>
-    nnoremap <Leader>gx :Gcommit<CR>
+    nnoremap <Leader>gc :Gcommit<CR>
     nnoremap <Leader>gb :Gblame<CR>
     nnoremap <Leader>gL :exe ':!cd ' . expand('%:p:h') . '; git la'<CR>
     nnoremap <Leader>gl :exe ':!cd ' . expand('%:p:h') . '; git las'<CR>
