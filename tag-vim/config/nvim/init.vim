@@ -8,8 +8,6 @@ endif
 call plug#begin('~/.config/nvim/plugged')
 
   " core plugins {
-      " ctrl-p is a fuzzy file finder.
-      Plug 'ctrlpvim/ctrlp.vim'
       " airline is a better status line and a tab-bar for nvim.
       Plug 'bling/vim-airline'
       " airline themse
@@ -254,13 +252,17 @@ let mapleader="\<SPACE>"
     let g:airline_right_alt_sep = '|'
     let g:airline_theme= 'wombat'
   " }
-  " CtrlP {
+  " FZF {
+    " linewise completion
+    imap <c-x><c-l> <plug>(fzf-complete-line)
     " Open file menu
-    nnoremap <Leader>o :CtrlP<CR>
+    nnoremap <Leader>f :Files<CR>
+    " Open git tracked files (git ls-files)
+    nnoremap <Leader>o :GFiles<CR>
     " Open buffer menu
-    nnoremap <Leader>b :CtrlPBuffer<CR>
+    nnoremap <Leader>b :Buffers<CR>
     " Open most recently used files
-    nnoremap <Leader>f :CtrlPMRUFiles<CR>
+    nnoremap <Leader>c :Commits<CR>
   " }
  " NeoMake {
     " run neomake everytime a buffer is read or written
