@@ -12,7 +12,7 @@ sudo apt -qq -y autoremove
 
 # update dotfiles before applying them
 pushd $DOTFILES
-git fetch --all && git pull
+git fetch --all && git pull && pit push
 popd
 
 export RCRC=~/.dotfiles/config/rcrc
