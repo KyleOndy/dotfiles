@@ -159,6 +159,8 @@ let mapleader="\<SPACE>"
   autocmd FileType mail setlocal spell | setlocal tw=80
   autocmd FileType markdown setlocal spell
 
+  set updatetime=100
+
   " Remove special characters for filename
   set isfname-=:
   set isfname-==
