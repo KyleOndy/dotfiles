@@ -3,13 +3,6 @@ set -euo pipefail
 
 stack install \
   ghc-mod \
-  hdevtools \
   hfmt \
-  hlint \
-  hoogle \
-  pandoc \
-  pointfree \
-  ShellCheck \
-  stylish-haskell
-
-hoogle generate
+  hindent \
+  pointfree
