@@ -4,6 +4,7 @@ set -euo pipefail
 stack install \
   ghc-mod \
   hdevtools \
+  hfmt \
   hlint \
   hoogle \
   pandoc \
