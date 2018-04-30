@@ -42,6 +42,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'kshenoy/vim-signature'
       " another tpope plugin
       Plug 'tpope/vim-commentary'
+      " async linting
+      Plug 'w0rp/ale'
   " }
   " haskell {
       " hekp for haskell
@@ -51,7 +53,7 @@ call plug#begin('~/.config/nvim/plugged')
       " the power of ghc-mod
       Plug 'eagletmt/ghcmod-vim', { 'for': 'haskell' }
       " use ghc-mod for completion
-      Plug 'eagletmt/neco-ghc', { 'for': 'haskell' }
+      "Plug 'eagletmt/neco-ghc', { 'for': 'haskell' }
       " command execution
       Plug 'shougo/vimproc', { 'for': 'haskell', 'do': 'make' }
       " hdevtool support
@@ -262,6 +264,7 @@ let mapleader="\<SPACE>"
     let g:airline#extensions#tabline#left_alt_sep = '|'
     let g:airline#extensions#tabline#right_sep = ' '
     let g:airline#extensions#tabline#right_alt_sep = '|'
+    let g:airline#extensions#ale#enabled = 1
     let g:airline_left_sep = ' '
     let g:airline_left_alt_sep = '|'
     let g:airline_right_sep = ' '
