@@ -59,6 +59,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'shougo/vimproc', { 'for': 'haskell', 'do': 'make' }
       " hdevtool support
       Plug 'bitc/vim-hdevtools', { 'for': 'haskell' }
+      " lhs support
+      Plug 'wting/lhaskell.vim', { 'for': 'haskell' }
   " }
   " elm {
       Plug 'lambdatoast/elm.vim', { 'for': 'elm' }
