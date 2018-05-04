@@ -2,4 +2,4 @@
 
 # Gets the latest LTS version.
 
-curl -sL --compressed https://www.stackage.org | grep LTS | sed -n 's/.*\(LTS [0-9]*\.[0-9]* for GHC [0-9]*\.[0-9]*\.[0-9]*\).*$/\1/p' | column -t
+curl -sL --compressed https://s3.amazonaws.com/haddock.stackage.org/snapshots.json | jq -r '.[]'  | sort -Vr | uniq
