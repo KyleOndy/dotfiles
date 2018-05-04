@@ -12,8 +12,6 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'bling/vim-airline'
       " airline themse
       Plug 'vim-airline/vim-airline-themes'
-      " asynchronous :make using Neovim's job-control functionality
-      Plug 'benekastah/neomake'
       " my favorite color scheme
       Plug 'kyleondy/wombat256mod'
       " a Git wrapper so awesome, it should be illegal
@@ -42,6 +40,11 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'kshenoy/vim-signature'
       " another tpope plugin
       Plug 'tpope/vim-commentary'
+      " async linting
+      Plug 'w0rp/ale'
+  " }
+  " markdown {
+      Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
   " }
   " haskell {
       " hekp for haskell
@@ -51,7 +54,7 @@ call plug#begin('~/.config/nvim/plugged')
       " the power of ghc-mod
       Plug 'eagletmt/ghcmod-vim', { 'for': 'haskell' }
       " use ghc-mod for completion
-      Plug 'eagletmt/neco-ghc', { 'for': 'haskell' }
+      "Plug 'eagletmt/neco-ghc', { 'for': 'haskell' }
       " command execution
       Plug 'shougo/vimproc', { 'for': 'haskell', 'do': 'make' }
       " hdevtool support
@@ -154,6 +157,7 @@ let mapleader="\<SPACE>"
   endif
 
   set autoread            " If file updates, load automatically.
+  set hidden
 
   autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
   autocmd FileType mail setlocal spell | setlocal tw=80
@@ -236,6 +240,15 @@ let mapleader="\<SPACE>"
   nmap <silent> <leader>ev :e $MYVIMRC<CR>
   nmap <silent> <leader>sv :so $MYVIMRC<CR>
 
+  nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
+
+  nnoremap <silent> <leader>tt :terminal<CR>
+  nnoremap <silent> <leader>tv :vnew<CR>:terminal<CR>
+  nnoremap <silent> <leader>th :new<CR>:terminal<CR>
+  " Terminal settings
+  tnoremap <Leader><ESC> <C-\><C-n>
+  highlight TermCursor ctermfg=red guifg=red
+
   au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
   au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
 " }
@@ -262,6 +275,7 @@ let mapleader="\<SPACE>"
     let g:airline#extensions#tabline#left_alt_sep = '|'
     let g:airline#extensions#tabline#right_sep = ' '
     let g:airline#extensions#tabline#right_alt_sep = '|'
+    let g:airline#extensions#ale#enabled = 1
     let g:airline_left_sep = ' '
     let g:airline_left_alt_sep = '|'
     let g:airline_right_sep = ' '
@@ -279,12 +293,6 @@ let mapleader="\<SPACE>"
     nnoremap <Leader>b :Buffers<CR>
     " Open most recently used files
     nnoremap <Leader>c :Commits<CR>
-  " }
- " NeoMake {
-    " run neomake everytime a buffer is read or written
-    autocmd! BufReadPost,BufWritePost * Neomake
-    " open the error list, but don't move my cursor
-    let g:neomake_open_list = 2
   " }
   "vim-tmux-navigation {
     let g:tmux_navigator_no_mappings = 1
