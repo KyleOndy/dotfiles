@@ -61,5 +61,6 @@ path=(
   $HOME/.local/bin
   $GOPATH/bin
   $HOME/.rbenv/bin
+  $HOME/.yarn/bin
   $path
 )
