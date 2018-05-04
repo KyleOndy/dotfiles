@@ -11,7 +11,7 @@ printf "Removing unneeded packages...\n\t"
 sudo apt -qq -y autoremove
 
 # update dotfiles before applying them
-pushd $DOTFILES
+pushd "$DOTFILES"
 git fetch --all && git pull && git push
 popd
 
@@ -25,8 +25,8 @@ pass git push || true
 
 # tmux plugins
 TPM_BIN="$HOME/.tmux/plugins/tpm/bin"
-$TPM_BIN/clean_plugins
-$TPM_BIN/install_plugins
-$TPM_BIN/update_plugins all
+"$TPM_BIN/clean_plugins"
+"$TPM_BIN/install_plugins"
+"$TPM_BIN/update_plugins" all
 
 "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
