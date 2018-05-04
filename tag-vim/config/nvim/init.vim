@@ -194,7 +194,7 @@ let mapleader="\<SPACE>"
   set sessionoptions-=options
 
   " commands
-  command! -nargs=0 -bar SiteDate execute "normal! a\<C-R>=strftime(\"%FT%TZ\")\<CR>"
+  command! -nargs=0 -bar SiteDate execute "normal! A\<C-R>=strftime(\"%FT%TZ\")\<CR>"
 
  " Diff options
   set diffopt+=iwhite
