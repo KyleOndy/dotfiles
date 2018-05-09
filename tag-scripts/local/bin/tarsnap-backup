@@ -1,7 +1,6 @@
 #!/usr/bin/env sh
 
 sudo /usr/bin/tarsnap -c \
-  -v \
   -f "$(uname -n)-$(date +%Y-%m-%d_%H-%M-%S)" \
   --exclude "*/.mail/gmail/*" \
   --humanize-numbers \
