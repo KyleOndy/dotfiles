@@ -36,8 +36,7 @@ EOBUNDLES
 antigen theme daveverwer
 antigen apply
 
-[[ -f "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
-[[ -f "$HOME/.fzf.zsh" ]] && source     "$HOME/.fzf.zsh"
+[[ -f "$HOME/.fzf.zsh" ]] && source "$HOME/.fzf.zsh"
 
 alias :q='exit'
 alias :e='nvim'
@@ -94,3 +93,5 @@ setopt share_history
 
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
+
+[[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$HOME/.zshrc.local"
