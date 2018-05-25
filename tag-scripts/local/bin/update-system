@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+BACKUP=true
+
 function update_sources () {
   printf "Updating sources...\n\t"
   sudo apt -qq update
@@ -75,4 +77,7 @@ apply_dotfiles
 nvim_plug_update
 pass_update
 update_tmux
-tarsnap_backup
+
+if [ "$BACKUP" = true ]; then
+  tarsnap_backup
+fi
