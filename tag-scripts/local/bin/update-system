@@ -1,32 +1,78 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf "Updating sources...\n\t"
-sudo apt -qq update
+function update_sources () {
+  printf "Updating sources...\n\t"
+  sudo apt -qq update
+}
 
-printf "Ugrading packages...\n\t"
-sudo apt -qq -y dist-upgrade
+function update_packages () {
+  printf "Ugrading packages...\n\t"
+  sudo apt -qq -y dist-upgrade
+}
 
-printf "Removing unneeded packages...\n\t"
-sudo apt -qq -y autoremove
+function remove_packages () {
+  printf "Removing unneeded packages...\n\t"
+  sudo apt -qq -y autoremove
+}
 
-# update dotfiles before applying them
-pushd "$DOTFILES"
-git fetch --all && git pull && git push
-popd
+function update_dotfiles () {
+  # update dotfiles before applying them
+  pushd "$DOTFILES"
+  git fetch --all && git pull && git push
+  popd
+}
 
-export RCRC=~/.dotfiles/config/rcrc
-rcup
+function apply_dotfiles () {
+  export RCRC=~/.dotfiles/config/rcrc
+  rcup
+}
 
-nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
+function nvim_plug_update () {
+  nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
+}
 
-# push password repo
-( pass git pull && pass git push ) || true
+function pass_update () {
+  # push password repo
+  ( pass git pull && pass git push ) || true
+}
 
-# tmux plugins
-TPM_BIN="$HOME/.tmux/plugins/tpm/bin"
-"$TPM_BIN/clean_plugins"
-"$TPM_BIN/install_plugins"
-"$TPM_BIN/update_plugins" all
+function update_tmux () {
+  # tmux plugins
+  TPM_BIN="$HOME/.tmux/plugins/tpm/bin"
+  "$TPM_BIN/clean_plugins"
+  "$TPM_BIN/install_plugins"
+  "$TPM_BIN/update_plugins" all
+}
 
-"$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
+function tarsnap_backup () {
+  "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
+}
+
+# read args
+while test $# -gt 0; do
+  case "$1" in
+    -h|--help)
+      echo "Help!"
+      shift
+      ;;
+    --no-backup)
+      BACKUP=false
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+
+update_sources
+update_packages
+remove_packages
+update_dotfiles
+apply_dotfiles
+nvim_plug_update
+pass_update
+update_tmux
+tarsnap_backup
