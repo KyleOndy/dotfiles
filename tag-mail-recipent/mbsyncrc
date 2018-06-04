@@ -4,59 +4,6 @@ Create Both
 Sync All
 SyncState *
 
-IMAPAccount gmail
-Host imap.gmail.com
-User kyleondy@gmail.com
-PassCmd "pass show email/kyleondy@gmail.com_mbsync"
-SSLType IMAPS
-CertificateFile /etc/ssl/certs/ca-certificates.crt
-
-IMAPStore gmail-remote
-Account gmail
-
-MaildirStore gmail-local
-# The trailing "/" is important
-Path ~/.mail/gmail/
-Inbox ~/.mail/gmail/Inbox
-
-Channel gmail-inbox
-Master :gmail-remote:INBOX
-Slave :gmail-local:Inbox
-
-Channel gmail-archive
-Master ":gmail-remote:[Gmail]/All Mail"
-Slave :gmail-local:Archive
-
-Channel gmail-drafts
-Master :gmail-remote:[Gmail]/Drafts
-Slave :gmail-local:Drafts
-
-Channel gmail-sent
-Master ":gmail-remote:[Gmail]/Sent Mail"
-Slave :gmail-local:Sent
-
-Channel gmail-spam
-Master :gmail-remote:[Gmail]/Spam
-Slave :gmail-local:Spam
-
-Channel gmail-trash
-Master :gmail-remote:[Gmail]/Trash
-Slave :gmail-local:Trash
-
-Channel gmail-rest
-Master :gmail-remote:
-Slave :gmail-local:
-Patterns * ![Gmail]* !Archive !Drafts !Sent !Spam !Trash
-
-Group gmail
-Channel gmail-inbox
-Channel gmail-archive
-Channel gmail-drafts
-Channel gmail-sent
-Channel gmail-spam
-Channel gmail-trash
-Channel gmail-rest
-
 IMAPAccount mxroute
 Host london.mxroute.com
 User kyle@ondy.me
