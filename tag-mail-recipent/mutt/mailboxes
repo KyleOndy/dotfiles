@@ -6,5 +6,3 @@ mailboxes "+-- personal -----------" \
           +mxroute/Sent \
           +mxroute/Trash \
           +mxroute/Spam
-
-
