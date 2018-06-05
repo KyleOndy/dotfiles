@@ -6,3 +6,5 @@ image/*                  ; /usr/bin/feh %s                                      
 audio/*                  ; /usr/bin/mpv %s                                             ; copiousoutput
 video/*                  ; /usr/bin/mpv %s                                             ; copiousoutput
 text/plain               ; cat %s                                                      ; copiousoutput
+text/x-diff              ; vim -R %s
+text/x-patch             ; vim -R %s
