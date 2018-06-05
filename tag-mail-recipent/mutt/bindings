@@ -6,6 +6,7 @@ bind index,pager <down>   sidebar-next
 bind index,pager <up>     sidebar-prev
 bind index,pager <right>  sidebar-open
 
+bind attach,index g        noop
 bind attach,index gg       first-entry
 bind attach,index G        last-entry
 
@@ -15,6 +16,7 @@ bind index <space>  collapse-thread
 
 
 bind pager k  previous-line
+bind pager g  noop
 bind pager j  next-line
 bind pager gg top
 bind pager G  bottom
