@@ -1,7 +1,6 @@
 # I18n
 set charset       = utf-8
 set send_charset  = utf-8
-set signature        = ~/.mutt/signature     # my signature file
 
 # Paths ----------------------------------------------
 set folder           = ~/.mail               # where email is stored
