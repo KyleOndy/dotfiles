@@ -1,6 +1,6 @@
 # vim: ft=muttrc
 application/octet-stream ; echo %s "can be anything..."                                ; copiousoutput
-text/html                ; mv %s %s.html && qutebrowser %s.html >/dev/null 2>/dev/null ; needsterminal
+text/html                ; mv %s %s.html && firefox     %s.html >/dev/null 2>/dev/null ; needsterminal
 application/pdf          ; /usr/bin/zathura %s                                         ; copiousoutput
 image/*                  ; /usr/bin/feh %s                                             ; copiousoutput
 audio/*                  ; /usr/bin/mpv %s                                             ; copiousoutput
