@@ -35,8 +35,10 @@ function nvim_plug_update () {
 }
 
 function pass_update () {
-  # push password repo
-  ( pass git pull && pass git push ) || true
+  # pull any new changes (from all remotes)
+  git remote | xargs -L1 -I R git pull R master
+  # push any new changes (from all remotes)
+  git remote | xargs -L1 -I R git push R master
 }
 
 function update_tmux () {
