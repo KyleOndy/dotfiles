@@ -94,4 +94,4 @@ setopt share_history
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
 
-[[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+[[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
