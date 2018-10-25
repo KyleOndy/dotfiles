@@ -35,12 +35,15 @@ function nvim_plug_update () {
 }
 
 function pass_update () {
-  pushd "$HOME/.password-store"
-  # pull any new changes (from all remotes)
-  git remote | xargs -L1 -I R git pull R master
-  # push any new changes (from all remotes)
-  git remote | xargs -L1 -I R git push R master
-  popd
+  passstore="$HOME/.password-store"
+  if [ -d "$passstore" ]; then
+    pushd "$passstore"
+    # pull any new changes (from all remotes)
+    git remote | xargs -L1 -I R git pull R master
+    # push any new changes (from all remotes)
+    git remote | xargs -L1 -I R git push R master
+    popd
+  fi
 }
 
 function update_tmux () {
