@@ -55,6 +55,13 @@ function tarsnap_backup () {
   "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
 }
 
+function backup_goldencheetah () {
+  GC="$HOME/.goldencheetah"
+  if [ -d "$GC" ]; then
+    rsync -avrP "$GC" ~/Dropbox/goldencheetah
+  fi
+}
+
 # read args
 while test $# -gt 0; do
   case "$1" in
@@ -77,6 +84,7 @@ update_sources
 update_packages
 remove_packages
 update_dotfiles
+backup_goldencheetah
 apply_dotfiles
 nvim_plug_update
 pass_update
