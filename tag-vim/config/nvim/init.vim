@@ -316,3 +316,5 @@ let mapleader="\<SPACE>"
     let g:deoplete#enable_at_startup = 1
   " }
 " }
+"
+let g:python3_host_prog = '/home/kondy/.pyenv/versions/neovim3/bin/python'

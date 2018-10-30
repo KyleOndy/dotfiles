@@ -57,6 +57,7 @@ export TERMINAL="urxvt"
 # path
 typeset -U path
 path=(
+  $HOME/.pyenv/bin
   $HOME/.stack/bin
   $HOME/.local/bin
   $GOPATH/bin
