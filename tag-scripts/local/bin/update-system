@@ -55,7 +55,8 @@ function update_tmux () {
 }
 
 function tarsnap_backup () {
-  "$HOME/.local/bin/tarsnap-backup" || true # some firewalls block access
+  tarsnapper -c "$HOME/.config/tarsnap/tarsnap.conf make"
+  tarsnap --print-stats
 }
 
 function backup_goldencheetah () {
