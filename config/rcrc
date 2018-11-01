@@ -10,6 +10,7 @@ mail-sender
 rss
 scripts
 ssh
+tarsnap
 tmux
 vim
 weechat
