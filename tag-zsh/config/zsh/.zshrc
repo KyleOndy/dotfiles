@@ -79,6 +79,8 @@ alias vu='amixer -q set Master 3+ unmute'
 alias vd='amixer -q set Master 3- unmute'
 alias vm='amixer -q set Master toggle'
 
+alias http_server='docker run --rm -it -v $(pwd):/var/www:ro -p 8080:8080 trinitronx/python-simplehttpserver'
+
 # Bells
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
