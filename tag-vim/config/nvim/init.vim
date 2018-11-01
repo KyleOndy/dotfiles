@@ -262,6 +262,7 @@ let mapleader="\<SPACE>"
 " }
 
 " Plugin Settings {
+    let g:python3_host_prog = '/home/kondy/.pyenv/versions/neovim3/bin/python'
 " " Fugitive {
     nnoremap <Leader>gs :Gstatus<CR>
     nnoremap <Leader>gd :Gdiff<CR>
