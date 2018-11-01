@@ -55,7 +55,7 @@ function update_tmux () {
 }
 
 function tarsnap_backup () {
-  tarsnapper -c "$HOME/.config/tarsnap/tarsnap.conf make"
+  tarsnapper -c "$HOME/.config/tarsnap/tarsnap.conf" make
   tarsnap --print-stats
 }
 
