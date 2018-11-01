@@ -74,6 +74,9 @@ call plug#begin('~/.config/nvim/plugged')
   " json {
       Plug 'elzr/vim-json', { 'for': 'json' }
   " }
+  " jenkinsfile {
+      Plug 'martinda/Jenkinsfile-vim-syntax', { 'for': 'jenkinsfile' }
+  " }
 
 call plug#end()
 
