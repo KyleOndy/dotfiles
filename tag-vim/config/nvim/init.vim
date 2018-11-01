@@ -71,6 +71,9 @@ call plug#begin('~/.config/nvim/plugged')
   " markdown {
       Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
   " }
+  " json {
+      Plug 'elzr/vim-json', { 'for': 'json' }
+  " }
 
 call plug#end()
 
