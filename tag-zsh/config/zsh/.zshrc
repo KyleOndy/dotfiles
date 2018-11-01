@@ -94,7 +94,10 @@ setopt share_history
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
 
-eval "$(pyenv init -)"
-eval "$(pyenv virtualenv-init -)"
+# pyenv setup
+if command -v pyenv 1>/dev/null 2>&1; then
+  eval "$(pyenv init -)"
+  eval "$(pyenv virtualenv-init -)"
+fi
 
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
