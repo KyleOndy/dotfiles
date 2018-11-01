@@ -96,6 +96,9 @@ setopt share_history
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
 
+# Set python version via pyenv
+export PYENV_VERSION=3.7.1
+
 # pyenv setup
 if command -v pyenv 1>/dev/null 2>&1; then
   eval "$(pyenv init -)"
