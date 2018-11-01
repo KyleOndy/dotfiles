@@ -322,6 +322,7 @@ let mapleader="\<SPACE>"
   " deoplete {
     let g:deoplete#enable_at_startup = 1
   " }
+  " vim-json {
+    let g:vim_json_syntax_conceal = 0
+  " }
 " }
-"
-let g:python3_host_prog = '/home/kondy/.pyenv/versions/neovim3/bin/python'
