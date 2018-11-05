@@ -55,7 +55,9 @@ function update_tmux () {
 }
 
 function tarsnap_backup () {
-  tarsnapper -c "$HOME/.config/tarsnap/tarsnap.conf" make
+  # I had to do a little magic to get this working.
+  # I installed pyenv and tarsnapper under root
+  sudo -i tarsnapper -c "$HOME/.config/tarsnap/tarsnap.conf" make
   tarsnap --print-stats
 }
 
