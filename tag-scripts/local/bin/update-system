@@ -72,6 +72,10 @@ while test $# -gt 0; do
       BACKUP=false
       shift
       ;;
+    --backup)
+      BACKUP=false
+      shift
+      ;;
     *)
       break
       ;;
