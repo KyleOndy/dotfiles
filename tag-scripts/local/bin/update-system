@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BACKUP=true
+BACKUP=false
 
 function update_sources () {
   printf "Updating sources...\n\t"
