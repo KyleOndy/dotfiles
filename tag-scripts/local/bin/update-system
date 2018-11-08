@@ -22,7 +22,7 @@ function remove_packages () {
 function update_dotfiles () {
   # update dotfiles before applying them
   pushd "$DOTFILES"
-  git fetch --all && git pull && git push
+  git fetch --all && git pull
   if ! $READ_ONLY; then git push; fi
   popd
 }
