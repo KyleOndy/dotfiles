@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BACKUP=false
+READ_ONLY=false
 
 function update_sources () {
   printf "Updating sources...\n\t"
@@ -22,6 +23,7 @@ function update_dotfiles () {
   # update dotfiles before applying them
   pushd "$DOTFILES"
   git fetch --all && git pull && git push
+  if ! $READ_ONLY; then git push; fi
   popd
 }
 
@@ -41,7 +43,9 @@ function pass_update () {
     # pull any new changes (from all remotes)
     git remote | xargs -L1 -I R git pull R master
     # push any new changes (from all remotes)
-    git remote | xargs -L1 -I R git push R master
+    if ! $READ_ONLY; then
+      git remote | xargs -L1 -I R git push R master
+    fi
     popd
   fi
 }
@@ -74,6 +78,10 @@ while test $# -gt 0; do
       ;;
     --backup)
       BACKUP=false
+      shift
+      ;;
+    --read-only)
+      READ_ONLY=true
       shift
       ;;
     *)
