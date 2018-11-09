@@ -103,6 +103,9 @@ export SHELLCHECK_OPTS='-x'
 # Set python version via pyenv
 export PYENV_VERSION=3.7.1
 
+# let fzf use a tmux pane
+export FZF_TMUX=1
+
 # pyenv setup
 if command -v pyenv 1>/dev/null 2>&1; then
   eval "$(pyenv init -)"
