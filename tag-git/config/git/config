@@ -56,3 +56,5 @@
   program = gpg2
 [fetch]
   prune = true
+[advice]
+  ignoreHook = false
