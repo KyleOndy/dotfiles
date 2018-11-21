@@ -44,6 +44,11 @@ pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 echo "Updating TMux Plugin Manager"
 pull_or_update "tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm"
 
+# pyenv
+echo "Updating pyenv"
+pull_or_update "pyenv/pyenv.git" "$HOME/.pyenv"
+
+
 secure ~/.msmtprc ~/.config/gnupg
 
 [ -d ~/.mutt ] && mkdir -p ~/.mutt/temp
