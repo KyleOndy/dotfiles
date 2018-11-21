@@ -37,8 +37,8 @@ echo "Updating ruby-build plugin"
 pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 
 # Jess's docker apps
-echo "Updating JessFraz's dots"
-pull_or_update "jessfraz/dotfiles" "$HOME/.dotfiles-jessfraz"
+#echo "Updating JessFraz's dots"
+#pull_or_update "jessfraz/dotfiles" "$HOME/.dotfiles-jessfraz"
 
 # tmux plugin manager
 echo "Updating TMux Plugin Manager"
