@@ -25,7 +25,7 @@ pull_or_update() {
 }
 
 # Antigen. Zsh package maneger
-echo "Updating antiget"
+echo "Updating antigen"
 pull_or_update "zsh-users/antigen" "$HOME/.config/zsh/antigen"
 
 # Ruby Env
