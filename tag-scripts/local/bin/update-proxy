@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+PROXY="$1"
+
+apt_proxy_conf="/etc/apt/apt.conf.d/proxy"
+proxy_file="/etc/proxy"
+
+
+if [ -z "$PROXY" ]
+then
+  # no proy set, unset any exisiting proxy config
+
+  # Remove apt proxy config
+  sudo rm -v "$apt_proxy_conf"
+  # Remove the static proxy file
+  sudo rm -v "$proxy_file"
+else
+  # propogate new proxy address to exisiting config
+  echo "Writing $PROXY to $apt_proxy_conf"
+  echo 'Acquire::http::Proxy "http://proxy.local:3128";' | sudo tee "$apt_proxy_conf"
+
+  # add file to pull proxy info from
+  echo "Writing $PROXY to $proxy_file"
+  echo "$PROXY" | sudo tee "$proxy_file"
+
+  # don't need to remove this ever, just don't use it if not needed
+  echo "Setting proxy.local to $PROXY"
+  sudo sed -i.bak "s/.*proxy.local$/${PROXY} proxy.local/" /etc/hosts
+fi
