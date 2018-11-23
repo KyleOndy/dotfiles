@@ -81,9 +81,12 @@ alias v="amixer -q set Master $@ unmute"
 alias vu='amixer -q set Master 3+ unmute'
 alias vd='amixer -q set Master 3- unmute'
 alias vm='amixer -q set Master toggle'
-
-alias http_server='docker run --rm -it -v $(pwd):/var/www:ro -w /var/www -p 8000:8000 python:3-alpine python -m http.server'
 alias tar_backup='tarsnapper -c ~/.config/tarsnap/tarsnap.conf make'
+
+# docker commands
+# todo: move these to a seperate file to keep things tidy
+alias http_server='docker run --rm -it -v $(pwd):/var/www:ro -w /var/www -p 8000:8000 python:3-alpine python -m http.server'
+function function inspec { docker run -it --rm -e http_proxy=$PROXY -e http_proxy=$PROXY -v $(pwd):/share chef/inspec "$@"; }
 
 # Bells
 unsetopt beep                   # no bell on error
