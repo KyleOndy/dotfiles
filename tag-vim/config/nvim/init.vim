@@ -77,6 +77,9 @@ call plug#begin('~/.config/nvim/plugged')
   " jenkinsfile {
       Plug 'martinda/Jenkinsfile-vim-syntax', { 'for': 'jenkinsfile' }
   " }
+  " powershell {
+      Plug 'PProvost/vim-ps1', { 'for': 'powershell' }
+  " }
 
 call plug#end()
 
