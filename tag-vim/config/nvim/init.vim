@@ -253,6 +253,8 @@ let mapleader="\<SPACE>"
 
   nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
 
+  nnoremap <f5> :make test
+
   nnoremap <silent> <leader>tt :terminal<CR>
   nnoremap <silent> <leader>tv :vnew<CR>:terminal<CR>
   nnoremap <silent> <leader>th :new<CR>:terminal<CR>
