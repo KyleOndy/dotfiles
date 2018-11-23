@@ -12,9 +12,9 @@ then
   # no proy set, unset any exisiting proxy config
 
   # Remove apt proxy config
-  sudo rm -v "$apt_proxy_conf"
+  sudo rm -fv "$apt_proxy_conf"
   # Remove the static proxy file
-  sudo rm -v "$proxy_file"
+  sudo rm -fv "$proxy_file"
 else
   # propogate new proxy address to exisiting config
   echo "Writing $PROXY to $apt_proxy_conf"
@@ -28,3 +28,7 @@ else
   echo "Setting proxy.local to $PROXY"
   sudo sed -i.bak "s/.*proxy.local$/${PROXY} proxy.local/" /etc/hosts
 fi
+
+echo "======="
+echo "You may have to restart your shell for changes to take effect"
+echo "======="
