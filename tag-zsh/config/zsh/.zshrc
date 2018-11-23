@@ -1,5 +1,14 @@
 # .zshrc is for interactive shell configuration. You set options for the interactive shell there with the  setopt and unsetopt commands. You can also load shell modules, set your history options, change your prompt, set up zle and completion, et cetera. You also set any variables that are only used in the interactive shell (e.g. $LS_COLORS).
 
+# proxy setup. Sometimes you just have to deal with things
+# check if a system wide proxy as been set
+if [[ -a /etc/proxy ]]
+then
+  PROXY="http://proxy.local:3128"
+  export http_proxy=$PROXY
+  export https_proxy=$PROXY
+  export no_proxy=localhost,127.0.0.1,blackstone.com,169.254.169.254
+fi
 
 # is the internet on fire status reports, if we have network
 mkdir -p /tmp/messages
