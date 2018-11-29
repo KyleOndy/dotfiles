@@ -54,6 +54,9 @@ export RCRC="$XDG_CONFIG_HOME/rcrc"
 # userd for i3
 export TERMINAL="urxvt"
 
+# Helpful
+unsetopt AUTO_CD
+
 # path
 typeset -U path
 path=(
