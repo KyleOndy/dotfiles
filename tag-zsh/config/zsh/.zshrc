@@ -4,7 +4,7 @@
 # check if a system wide proxy as been set
 if [[ -a /etc/proxy ]]
 then
-  PROXY="http://proxy.local:3128"
+  PROXY="http://$(cat /etc/proxy):3128"
   export http_proxy=$PROXY
   export https_proxy=$PROXY
   export no_proxy=localhost,127.0.0.1,blackstone.com,169.254.169.254

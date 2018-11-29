@@ -18,7 +18,7 @@ then
 else
   # propogate new proxy address to exisiting config
   echo "Writing $PROXY to $apt_proxy_conf"
-  echo 'Acquire::http::Proxy "http://proxy.local:3128";' | sudo tee "$apt_proxy_conf"
+  echo "Acquire::http::Proxy \"http://$PROXY:3128\";" | sudo tee "$apt_proxy_conf"
 
   # add file to pull proxy info from
   echo "Writing $PROXY to $proxy_file"
