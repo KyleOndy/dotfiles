@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BACKUP=false
+PYTHON=false
 READ_ONLY=false
 
 function _echo () {
@@ -110,6 +111,19 @@ function tarsnap_backup () {
   sudo tarsnap --print-stats
 }
 
+function install_python_with_pyenv () {
+  function pyenv_install () {
+    _echo "(pyenv) installing: $1"
+    pyenv install --skip-existing "$1"
+  }
+
+  pyenv_install 2.7.15
+  pyenv_install 3.4.9
+  pyenv_install 3.5.6
+  pyenv_install 3.6.7
+  pyenv_install 3.7.1
+}
+
 function finish {
   if [ "$?" -ne '0' ]; then
     echo "UPDATE SCRIPT FAILED!"
@@ -137,6 +151,10 @@ while test $# -gt 0; do
       READ_ONLY=true
       shift
       ;;
+    --python)
+      PYTHON=true
+      shift
+      ;;
     *)
       break
       ;;
@@ -152,6 +170,10 @@ apply_dotfiles
 nvim_plug_update
 pass_update
 update_tmux
+
+if [ "$PYTHON" = true ]; then
+  install_python_with_pyenv
+fi
 
 if [ "$BACKUP" = true ]; then
   tarsnap_backup
