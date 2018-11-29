@@ -48,6 +48,10 @@ pull_or_update "tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm"
 echo "Updating pyenv"
 pull_or_update "pyenv/pyenv.git" "$HOME/.pyenv"
 
+# pyenv-virtualenv
+echo "Updating pyenv-virtualenv"
+pull_or_update "pyenv/pyenv-virtualenv" "$(pyenv root)/plugins/pyenv-virtualenv"
+
 
 secure ~/.msmtprc ~/.config/gnupg
 
