@@ -4,27 +4,55 @@ set -euo pipefail
 BACKUP=false
 READ_ONLY=false
 
+function _echo () {
+  # check if stdout is a terminal...
+  if test -t 1; then
+
+    # see if it supports colors...
+    ncolors=$(tput colors)
+
+    if test -n "$ncolors" && test "$ncolors" -ge 8; then
+      #bold="$(tput bold)"
+      #underline="$(tput smul)"
+      #standout="$(tput smso)"
+      normal="$(tput sgr0)"
+      #black="$(tput setaf 0)"
+      #red="$(tput setaf 1)"
+      green="$(tput setaf 2)"
+      #yellow="$(tput setaf 3)"
+      #blue="$(tput setaf 4)"
+      #magenta="$(tput setaf 5)"
+      #cyan="$(tput setaf 6)"
+      #white="$(tput setaf 7)"
+    fi
+  fi
+
+  echo "${green}### ${1} ###${normal}"
+}
+
 function update_sources () {
-  printf "Updating sources...\n\t"
+  _echo "apt update"
   sudo apt -qq update
 }
 
 function update_packages () {
-  printf "Ugrading packages...\n\t"
+  _echo "apt dist-upgrade"
   sudo apt -qq -y dist-upgrade
 }
 
 function remove_packages () {
-  printf "Removing unneeded packages...\n\t"
+  _echo "apt autoremove"
   sudo apt -qq -y autoremove
 }
 
 function update_dotfiles () {
   # update dotfiles before applying them
   pushd "$DOTFILES"
+  _echo "pulling dotfiles"
   git fetch --all
   git remote | xargs -L1 -I R git pull R master
   if ! $READ_ONLY; then
+    _echo "pushing dotfiles"
     git remote | xargs -L1 -I R git push R master
   fi
   popd
@@ -32,10 +60,12 @@ function update_dotfiles () {
 
 function apply_dotfiles () {
   export RCRC=~/.dotfiles/config/rcrc
+  _echo "applying dotfiles"
   rcup
 }
 
 function nvim_plug_update () {
+  _echo "Updating nvim plug"
   nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
 }
 
@@ -43,10 +73,12 @@ function pass_update () {
   passstore="$HOME/.password-store"
   if [ -d "$passstore" ]; then
     pushd "$passstore"
+    _echo "pulling new passwords"
     # pull any new changes (from all remotes)
     git remote | xargs -L1 -I R git pull R master
     # push any new changes (from all remotes)
     if ! $READ_ONLY; then
+      _echo "pushing new passwords"
       git remote | xargs -L1 -I R git push R master
     fi
     popd
@@ -56,6 +88,7 @@ function pass_update () {
 function update_tmux () {
   # tmux plugins
   TPM_BIN="$HOME/.tmux/plugins/tpm/bin"
+  _echo "updating tmux plugins"
   "$TPM_BIN/clean_plugins"
   "$TPM_BIN/install_plugins"
   "$TPM_BIN/update_plugins" all
@@ -64,10 +97,19 @@ function update_tmux () {
 function tarsnap_backup () {
   # I had to do a little magic to get this working.
   # I installed pyenv and tarsnapper under root
+  _echo "Running tarsnap"
   sudo -i tarsnapper -c "$HOME/.config/tarsnap/tarsnapper.conf" make
   sudo tarsnap --print-stats
 }
 
+function finish {
+  if [ "$?" -ne '0' ]; then
+    echo "UPDATE SCRIPT FAILED!"
+  fi
+}
+
+
+trap finish exit
 # read args
 while test $# -gt 0; do
   case "$1" in
