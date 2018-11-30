@@ -30,6 +30,16 @@ function _echo () {
   echo "${green}### ${1} ###${normal}"
 }
 
+function _git_pull_mater_all_remotes () {
+  git fetch --all
+  git remote | xargs -L1 -I R git pull R master
+}
+
+function _git_push_master_all_remotes () {
+    # do not try to push to any bundles
+    git remote | grep -v bundle | xargs -L1 -I R git push R master
+}
+
 function update_sources () {
   _echo "apt update"
   sudo apt -qq update
@@ -49,11 +59,10 @@ function update_dotfiles () {
   # update dotfiles before applying them
   pushd "$DOTFILES"
   _echo "pulling dotfiles"
-  git fetch --all
-  git remote | xargs -L1 -I R git pull R master
+  _git_pull_mater_all_remotes
   if ! $READ_ONLY; then
     _echo "pushing dotfiles"
-    git remote | xargs -L1 -I R git push R master
+    _git_push_master_all_remotes
   fi
   popd
 }
@@ -74,12 +83,11 @@ function pass_update () {
   if [ -d "$passstore" ]; then
     pushd "$passstore"
     _echo "pulling new passwords"
-    # pull any new changes (from all remotes)
-    git remote | xargs -L1 -I R git pull R master
+    _git_pull_mater_all_remotes
     # push any new changes (from all remotes)
     if ! $READ_ONLY; then
       _echo "pushing new passwords"
-      git remote | xargs -L1 -I R git push R master
+      _git_push_master_all_remotes
     fi
     popd
   fi
