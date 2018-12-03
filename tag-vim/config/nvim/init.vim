@@ -241,6 +241,8 @@ let mapleader="\<SPACE>"
 " Keybindings {
   " Save file
   nnoremap <Leader>w :w<CR>
+  " load
+  nnoremap <Leader>e :e<CR>
   "Copy and paste from system clipboard
   vmap <Leader>y "+y
   vmap <Leader>d "+d
