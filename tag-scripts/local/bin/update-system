@@ -117,8 +117,28 @@ function install_python_with_pyenv () {
     pyenv install --skip-existing "$1"
   }
 
+  _echo "(pyenv) ensuring prereqs installed"
+  # https://github.com/pyenv/pyenv/wiki/Common-build-problems#requirements
+  sudo apt install -qq -y \
+    build-essential \
+    curl \
+    libbz2-dev \
+    libffi-dev \
+    liblzma-dev \
+    libncurses5-dev \
+    libncursesw5-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libssl-dev \
+    llvm \
+    make \
+    tk-dev \
+    wget \
+    xz-utils \
+    zlib1g-dev
+
   pyenv_install 2.7.15
-  pyenv_install 3.4.9
+  #pyenv_install 3.4.9
   pyenv_install 3.5.6
   pyenv_install 3.6.7
   pyenv_install 3.7.1
