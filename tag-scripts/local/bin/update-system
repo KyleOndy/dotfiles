@@ -4,6 +4,7 @@ set -euo pipefail
 BACKUP=false
 PYTHON=false
 READ_ONLY=false
+CRON_JOBS=false
 
 function _echo () {
   # check if stdout is a terminal...
@@ -145,10 +146,10 @@ function install_python_with_pyenv () {
 }
 
 function update_cron () {
-  cp "$DOTFILES/cron-tasks/cron.hourly/*" /etc/cron.cron.hourly/
-  cp "$DOTFILES/cron-tasks/cron.daily/*" /etc/cron.daily/
-  cp "$DOTFILES/cron-tasks/cron.weekly/*" /etc/cron.weekly/
-  cp "$DOTFILES/cron-tasks/cron.monthly/*" /etc/cron.monthly/
+  sudo cp "$DOTFILES/cron-tasks/cron.hourly/*" /etc/cron.hourly/
+  sudo cp "$DOTFILES/cron-tasks/cron.daily/*" /etc/cron.daily/
+  sudo cp "$DOTFILES/cron-tasks/cron.weekly/*" /etc/cron.weekly/
+  sudo cp "$DOTFILES/cron-tasks/cron.monthly/*" /etc/cron.monthly/
 }
 
 function finish {
@@ -182,6 +183,10 @@ while test $# -gt 0; do
       PYTHON=true
       shift
       ;;
+    --cron)
+      CRON_JOBS=true
+      shift
+      ;;
     *)
       break
       ;;
@@ -197,7 +202,9 @@ apply_dotfiles
 nvim_plug_update
 pass_update
 update_tmux
-update_cron
+if [ "$CRON_JOBS" = true ]; then
+  update_cron
+fi
 
 if [ "$PYTHON" = true ]; then
   install_python_with_pyenv
