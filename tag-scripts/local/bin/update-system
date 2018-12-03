@@ -146,10 +146,10 @@ function install_python_with_pyenv () {
 }
 
 function update_cron () {
-  sudo cp "$DOTFILES/cron-tasks/cron.hourly/*" /etc/cron.hourly/
-  sudo cp "$DOTFILES/cron-tasks/cron.daily/*" /etc/cron.daily/
-  sudo cp "$DOTFILES/cron-tasks/cron.weekly/*" /etc/cron.weekly/
-  sudo cp "$DOTFILES/cron-tasks/cron.monthly/*" /etc/cron.monthly/
+  sudo ln --force --symbolic --verbose "$DOTFILES"/cron-tasks/cron.hourly/* /etc/cron.hourly/
+  sudo ln --force --symbolic --verbose "$DOTFILES"/cron-tasks/cron.daily/* /etc/cron.daily/
+  sudo ln --force --symbolic --verbose "$DOTFILES"/cron-tasks/cron.weekly/* /etc/cron.weekly/
+  sudo ln --force --symbolic --verbose "$DOTFILES"/cron-tasks/cron.monthly/* /etc/cron.monthly/
 }
 
 function finish {
