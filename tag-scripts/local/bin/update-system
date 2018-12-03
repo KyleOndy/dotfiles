@@ -144,6 +144,13 @@ function install_python_with_pyenv () {
   pyenv_install 3.7.1
 }
 
+function update_cron () {
+  cp "$DOTFILES/cron-tasks/cron.hourly/*" /etc/cron.cron.hourly/
+  cp "$DOTFILES/cron-tasks/cron.daily/*" /etc/cron.daily/
+  cp "$DOTFILES/cron-tasks/cron.weekly/*" /etc/cron.weekly/
+  cp "$DOTFILES/cron-tasks/cron.monthly/*" /etc/cron.monthly/
+}
+
 function finish {
   if [ "$?" -ne '0' ]; then
     echo "UPDATE SCRIPT FAILED!"
@@ -190,6 +197,7 @@ apply_dotfiles
 nvim_plug_update
 pass_update
 update_tmux
+update_cron
 
 if [ "$PYTHON" = true ]; then
   install_python_with_pyenv
