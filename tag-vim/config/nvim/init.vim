@@ -42,6 +42,8 @@ call plug#begin('~/.config/nvim/plugged')
       Plug 'tpope/vim-commentary'
       " async linting
       Plug 'w0rp/ale'
+      " formatting
+      Plug 'Chiel92/vim-autoformat'
   " }
   " markdown {
       Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
