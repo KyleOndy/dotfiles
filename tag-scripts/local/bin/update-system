@@ -38,8 +38,8 @@ function _git_pull_mater_all_remotes () {
 }
 
 function _git_push_master_all_remotes () {
-    # do not try to push to any bundles
-    git remote | grep -v bundle | xargs -L1 -I R git push R master
+    # do not try to push to any any remote starting with `pull_`
+    git remote | grep -v pull_ | xargs -L1 -I R git push R master
 }
 
 function update_sources () {
