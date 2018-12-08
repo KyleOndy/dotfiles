@@ -264,6 +264,7 @@ let mapleader="\<SPACE>"
   nnoremap <silent> <leader>th :new<CR>:terminal<CR>
   " Terminal settings
   tnoremap <Leader><ESC> <C-\><C-n>
+  tnoremap <Leader>jk <C-\><C-n>
   highlight TermCursor ctermfg=red guifg=red
 
   au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
