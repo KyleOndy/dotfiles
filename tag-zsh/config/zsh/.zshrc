@@ -8,7 +8,7 @@ bash /etc/cron.hourly/*
 # todo: this only handles work things. need to make more robust
 if [[ -a /tmp/proxy ]]
 then
-  PROXY="http://$(cat /etc/proxy):3128"
+  PROXY="http://$(cat /tmp/proxy):3128"
   export http_proxy=$PROXY
   export https_proxy=$PROXY
   export no_proxy=localhost,127.0.0.1,blackstone.com,169.254.169.254
