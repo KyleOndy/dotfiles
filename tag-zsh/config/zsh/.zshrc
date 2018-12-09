@@ -1,5 +1,8 @@
 # .zshrc is for interactive shell configuration. You set options for the interactive shell there with the  setopt and unsetopt commands. You can also load shell modules, set your history options, change your prompt, set up zle and completion, et cetera. You also set any variables that are only used in the interactive shell (e.g. $LS_COLORS).
 
+# first thing, fire off all hourly cron jobs. They have info I want to have
+bash /etc/cron.hourly/*
+
 # proxy setup. Sometimes you just have to deal with things
 # check if a system wide proxy as been set
 if [[ -a /etc/proxy ]]
