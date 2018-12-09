@@ -4,7 +4,7 @@ set -eo pipefail
 PROXY="$1"
 
 apt_proxy_conf="/etc/apt/apt.conf.d/proxy"
-proxy_file="/etc/proxy"
+proxy_file="/tmp/proxy"
 
 
 if [ -z "$PROXY" ]
@@ -22,7 +22,7 @@ else
 
   # add file to pull proxy info from
   echo "Writing $PROXY to $proxy_file"
-  echo "$PROXY" | sudo tee "$proxy_file"
+  echo "$PROXY" | tee "$proxy_file"
 
   # don't need to remove this ever, just don't use it if not needed
   echo "Setting proxy.local to $PROXY"
