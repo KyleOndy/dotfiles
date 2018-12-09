@@ -5,7 +5,8 @@ bash /etc/cron.hourly/*
 
 # proxy setup. Sometimes you just have to deal with things
 # check if a system wide proxy as been set
-if [[ -a /etc/proxy ]]
+# todo: this only handles work things. need to make more robust
+if [[ -a /tmp/proxy ]]
 then
   PROXY="http://$(cat /etc/proxy):3128"
   export http_proxy=$PROXY
