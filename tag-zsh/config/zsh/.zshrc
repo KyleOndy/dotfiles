@@ -94,6 +94,7 @@ alias v="amixer -q set Master $@ unmute"
 alias vu='amixer -q set Master 3+ unmute'
 alias vd='amixer -q set Master 3- unmute'
 alias vm='amixer -q set Master toggle'
+alias did="nvim +'normal Go' +'r!date' +'normal o' ~/did.txt"
 alias tar_backup='tarsnapper -c ~/.config/tarsnap/tarsnap.conf make'
 
 # docker commands
