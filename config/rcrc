@@ -1,6 +1,7 @@
 EXCLUDES='README.md LICENCE install.sh bootstrap.sh Makefile'
 SYMLINK_DIRS='zsh'
 TAGS='
+editorconfig
 git
 gnupg
 gui
