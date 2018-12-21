@@ -1,3 +1,7 @@
 #!/bin/sh
 
-curl -sL icanhazip.com -o /tmp/external-ip
+if [ -z "$http_proxy" ]; then
+  curl -sL icanhazip.com -o /tmp/external-ip
+else
+  curl --proxy "$http_proxy" -sL icanhazip.com -o /tmp/external-ip
+fi
