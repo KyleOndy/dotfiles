@@ -1,8 +1,21 @@
-" install vim-plug if not installed
-if empty(glob('~/.config/nvim/autoload/plug.vim'))
-  silent !curl -fLo ~/.config/nvim/autoload/plug.vim --create-dirs
+" vim:fdm=marker et ft=vim sts=2 sw=2 ts=2
+scriptencoding utf-8
+
+" Automatically download vim-plug, if not present
+if !filereadable(expand($XDG_CONFIG_HOME.'/nvim/autoload/plug.vim'))
+  echo 'vim-plug not installed, downloading'
+  !curl -fLo "$XDG_CONFIG_HOME/nvim/autoload/plug.vim" --create-dirs
     \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd VimEnter * PlugInstall
+  echo 'vim-plug downloaded, will install plugins once vim loads'
+  augroup VimPlugInstall
+    autocmd!
+    autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+  augroup END
+else
+  " Clear out install on enter
+  augroup VimPlugInstall
+    autocmd!
+  augroup END
 endif
 
 call plug#begin('~/.config/nvim/plugged')
