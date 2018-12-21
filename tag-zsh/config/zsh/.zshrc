@@ -6,10 +6,10 @@
 # todo: this only handles work things. need to make more robust
 if [[ -a /tmp/proxy ]]
 then
-  PROXY="http://$(cat /tmp/proxy):3128"
+  PROXY="$(cat /tmp/proxy)"
   export http_proxy=$PROXY
   export https_proxy=$PROXY
-  export no_proxy=localhost,127.0.0.1,blackstone.com,169.254.169.254
+  export no_proxy=localhost,127.0.0.1,169.254.169.254
 fi
 
 # is the internet on fire status reports, if we have network
