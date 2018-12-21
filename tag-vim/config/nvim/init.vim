@@ -18,45 +18,73 @@ else
   augroup END
 endif
 
-call plug#begin('~/.config/nvim/plugged')
-
-  " core plugins {
-      " airline is a better status line and a tab-bar for nvim.
+call plug#begin()
+  " core plugins (always loaded) {
+      " provides a nice status bar at the bottom of vim
       Plug 'bling/vim-airline'
-      " airline themse
+      " theme that status bar
       Plug 'vim-airline/vim-airline-themes'
       " my favorite color scheme
       Plug 'kyleondy/wombat256mod'
-      " a Git wrapper so awesome, it should be illegal
+      " visual guide for indent levels
+      Plug 'thaerkh/vim-indentguides'
+      " lots of nice git commands so we don't have to leave nvim
       Plug 'tpope/vim-fugitive'
-      " shows a git diff in the gutter
+      " shows a git diff in the gutter (+, -, ~)
       Plug 'airblade/vim-gitgutter'
       " honor .editorconfig files
       Plug 'editorconfig/editorconfig-vim'
-      " better tmux navigation
+      " seamlessly move between tmux and nvim
       Plug 'christoomey/vim-tmux-navigator'
-      " more tpope, surround
+      " easily add and change surrounding characters
       Plug 'tpope/vim-surround'
-      " ansible syntax
-      Plug 'pearofducks/ansible-vim'
       " fuzzy file finder
       Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --all' }
       " funzzy file finding in vim
       Plug 'junegunn/fzf.vim'
-      " autocompletion
-      Plug 'Shougo/deoplete.nvim', { 'do': ':UpdateRemotePlugins' }
-      " tab completions
-      " Plug 'ervandew/supertab'
-      " haskicrop master bundle
+      " intellisense engine for vim8 & neovim
+      " hopefully this code block will lesses as this project matures
+      function! PlugCoc(info) abort
+        if a:info.status ==? 'installed' || a:info.force
+          !yarn install
+          call coc#util#install_extension(join(get(s:, 'coc_extensions', [])))
+        elseif a:info.status ==? 'updated'
+          !yarn install
+          call coc#util#update()
+        endif
+        call PlugRemotePlugins(a:info)
+      endfunction
+
+      let s:coc_extensions = [
+      \   'coc-css',
+      \   'coc-rls',
+      \   'coc-html',
+      \   'coc-json',
+      \   'coc-pyls',
+      \   'coc-yaml',
+      \   'coc-emmet',
+      \   'coc-emoji',
+      \   'coc-vetur',
+      \   'coc-eslint',
+      \   'coc-prettier',
+      \   'coc-tsserver',
+      \   'coc-ultisnips'
+      \ ]
+      Plug 'neoclide/coc.nvim', {'do': function('PlugCoc')}
+      " haskicorp master bundle todo
       Plug 'hashivim/vim-hashicorp-tools'
       " show marks in gutter
       Plug 'kshenoy/vim-signature'
-      " another tpope plugin
+      " quick (un)comment code
       Plug 'tpope/vim-commentary'
-      " async linting
+      " test runner
+      Plug 'janko-m/vim-test'
+      " langauge server
+      Plug 'autozimu/LanguageClient-neovim', { 'branch': 'next', 'do': 'bash install.sh' }
+      " completion from other tmux windows
+      Plug 'wellle/tmux-complete.vim'
+      " Asynchronous linting/fixing for Vim and LSP integration
       Plug 'w0rp/ale'
-      " formatting
-      Plug 'Chiel92/vim-autoformat'
   " }
   " markdown {
       Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
@@ -95,6 +123,16 @@ call plug#begin('~/.config/nvim/plugged')
   " powershell {
       Plug 'PProvost/vim-ps1', { 'for': 'powershell' }
   " }
+  " ansible {
+      " ansible syntax
+      Plug 'pearofducks/ansible-vim', { 'for': 'ansible' }
+  " }
+  " puppet {
+      Plug 'rodjek/vim-puppet', { 'for': 'puppet' }
+  " }
+  " groovy {
+      Plug 'vim-scripts/groovyindent-unix', { 'for': 'groovy' }
+  " }
 
 call plug#end()
 
@@ -105,7 +143,7 @@ if has('syntax') && !exists('g:syntax_on')
   syntax enable
 endif
 
-" Map the leader key to ,
+" Map the leader key to space. Easy to reach with either hand.
 let mapleader="\<SPACE>"
 
 " General {
@@ -128,7 +166,8 @@ let mapleader="\<SPACE>"
   set gdefault            " Use 'g' flag by default with :s/foo/bar/.
   set magic               " Use 'magic' patterns (extended regular expressions).
 
-  " Use <C-L> to clear the highlighting of :set hlsearch.
+  " Use <C-L> to clear the highlighting of :set hlsearch. Muscle memory maps
+  " nicely to clearing a terminal.
   if maparg('<C-L>', 'n') ==# ''
     nnoremap <silent> <C-L> :nohlsearch<CR><C-L>
   endif
@@ -189,7 +228,7 @@ let mapleader="\<SPACE>"
   autocmd FileType mail setlocal spell | setlocal tw=80
   autocmd FileType markdown setlocal spell
 
-  set updatetime=100
+  set updatetime=100 " quicker updates
 
   " Remove special characters for filename
   set isfname-=:
@@ -270,21 +309,20 @@ let mapleader="\<SPACE>"
 
   nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
 
-  nnoremap <f5> :make test
-
-  nnoremap <silent> <leader>tt :terminal<CR>
-  nnoremap <silent> <leader>tv :vnew<CR>:terminal<CR>
-  nnoremap <silent> <leader>th :new<CR>:terminal<CR>
+  nnoremap <silent> <leader>tt :terminal<CR>            " new terminal
+  nnoremap <silent> <leader>tv :vnew<CR>:terminal<CR>   " new terminal in vertical split
+  nnoremap <silent> <leader>th :new<CR>:terminal<CR>    " new terminal in Horizontal split
   " Terminal settings
-  tnoremap <Leader><ESC> <C-\><C-n>
-  tnoremap <Leader>jk <C-\><C-n>
-  highlight TermCursor ctermfg=red guifg=red
+  tnoremap <Leader><ESC> <C-\><C-n>                     " escape terminal mode with leader esc
+  tnoremap <Leader>jk <C-\><C-n>                        " or escape with jk, just like insert mode
+  highlight TermCursor ctermfg=red guifg=red            " make the cursor red. Stands out more
 
-  au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>
-  au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR>
+  au FileType haskell nnoremap <buffer> <F1> :HdevtoolsType<CR>           " todo: remove this?
+  au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR> " todo: remove this?
 " }
 
 " Plugin Settings {
+    " assuming pyenv is installed and a virtualenv named neovim3 is setup
     let g:python3_host_prog = '/home/kondy/.pyenv/versions/neovim3/bin/python'
 " " Fugitive {
     nnoremap <Leader>gc :Gcommit<CR>
@@ -339,14 +377,24 @@ let mapleader="\<SPACE>"
     let g:haskellmode_completion_ghc = 1
     autocmd FileType haskell setlocal omnifunc=necoghc#omnifunc
   "}
-  " supertab {
-    inoremap <Nul> <c-r>=SuperTabAlternateCompletion("\<lt>c-x>\<lt>c-o>"<cr>
-    let g:SuperTabDefaultCompletionType = "<c-x><c-o>"
-  " }
-  " deoplete {
-    let g:deoplete#enable_at_startup = 1
-  " }
   " vim-json {
     let g:vim_json_syntax_conceal = 0
+  " }
+  " vim-test {
+    " these "Ctrl mappings" work well when Caps Lock is mapped to Ctrl
+    nnoremap <Leader>tn :TestNearest<CR>
+    nnoremap <Leader>tf :TestFile<CR>
+    nnoremap <Leader>ts :TestSuite<CR>
+    nnoremap <Leader>tl :TestLast<CR>
+    nnoremap <Leader>tg :TestVisit<CR>
+  " }
+  " LanguageClient {
+      let g:LanguageClient_autoStart = 1
+      let g:LanguageClient_serverCommands = {
+        \ 'python': ['/home/kondy/.pyenv/versions/neovim3/bin/pyls'],
+        \ }
+
+      nnoremap <F5> :call LanguageClient_contextMenu()<CR>
+      "inoremap <silent><expr> <C-x><C-o> coc#refresh()
   " }
 " }
