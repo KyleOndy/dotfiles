@@ -1,7 +1,8 @@
 #!/bin/sh
 
-if [ -z "$http_proxy" ]; then
-  curl -sL icanhazip.com -o /tmp/external-ip
+proxy=$(cat /tmp/proxy)
+if [ -z "$proxy" ]; then
+  curl --proxy "$proxy" -sL icanhazip.com -o /tmp/external-ip
 else
-  curl --proxy "$http_proxy" -sL icanhazip.com -o /tmp/external-ip
+  curl -sL icanhazip.com -o /tmp/external-ip
 fi
