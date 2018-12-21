@@ -13,7 +13,9 @@ then
 fi
 
 # is the internet on fire status reports, if we have network
-cowsay < ls -1 /tmp/messages -1 | sort -hr
+message_dir="/tmp/messages"
+mkdir -p "$message_dir"
+cowsay < "$message_dir/$(ls -1 $message_dir | sort -hr | head -n1)"
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh
