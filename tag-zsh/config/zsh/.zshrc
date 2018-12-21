@@ -13,17 +13,7 @@ then
 fi
 
 # is the internet on fire status reports, if we have network
-mkdir -p /tmp/messages
-
-# grab message every halfhour
-MESSAGE_FILE=/tmp/messages/$(echo "$(date "+%Y%m%d%H%M") - ($(date +%M)%30)" | bc)
-
-if [[ ! -a "$MESSAGE_FILE" ]]; then
-  # need to get a new message
-  MESSAGE=$(host -W1 -t txt istheinternetonfire.com | cut -f 2 -d '"') || "Could not get txt record of istheinternetonfire.com"
-  echo $MESSAGE > "$MESSAGE_FILE"
-fi
-cowsay < $MESSAGE_FILE
+cowsay < ls -1 /tmp/messages -1 | sort -hr
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh
