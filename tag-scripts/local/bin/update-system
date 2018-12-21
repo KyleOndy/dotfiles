@@ -158,14 +158,23 @@ function finish {
   fi
 }
 
+print_help() {
+  echo "Usgae:
+  --no-backup (Default) Do not run tarsnap
+  --backup              Run tarsnap backups
+  --read-only           Do not push anything
+  --python              Install python versions (pyenv)
+  --cron                Install cron jobs"
+}
+
 
 trap finish exit
 # read args
 while test $# -gt 0; do
   case "$1" in
     -h|--help)
-      echo "Help!"
-      shift
+      print_help
+      exit 0
       ;;
     --no-backup)
       BACKUP=false
@@ -188,6 +197,9 @@ while test $# -gt 0; do
       shift
       ;;
     *)
+      echo "unknown flag '$1'. Exiting"
+      print_help
+      exit 1
       break
       ;;
   esac
