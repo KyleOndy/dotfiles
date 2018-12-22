@@ -16,7 +16,7 @@ fi
 message_dir="/tmp/messages"
 mkdir -p "$message_dir"
 # print fortunes until we get a status update
-echo "$(fortune -e debian linux)" > "$message_dir/1"
+echo "$(fortune -e debian debian-hints linux)" > "$message_dir/1"
 cowsay < "$message_dir/$(ls -1 $message_dir | sort -hr | head -n1)"
 
 # Load plugins
