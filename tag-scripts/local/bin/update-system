@@ -75,16 +75,6 @@ function apply_dotfiles () {
   rcup
 }
 
-nvim_virtualenv_setup() {
-  pyenv virtualenv 3.7.0 neovim3
-  pyenv activate neovim3
-  pip install --upgrade \
-    flake8 \
-    neovim \
-    'python-language-server[all]'
-  sudo ln -s "$(pyenv which flake8)" ~/bin/flake8
-}
-
 function nvim_plug_update () {
   _echo "Updating nvim plug"
   nvim -c PlugUpgrade -c PlugClean -c PlugUpdate -c quitall
@@ -221,7 +211,6 @@ update_packages
 remove_packages
 update_dotfiles
 apply_dotfiles
-nvim_virtualenv_setup
 nvim_plug_update
 pass_update
 update_tmux
