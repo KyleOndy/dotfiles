@@ -26,8 +26,6 @@ call plug#begin()
       Plug 'vim-airline/vim-airline-themes'
       " my favorite color scheme
       Plug 'kyleondy/wombat256mod'
-      " visual guide for indent levels
-      Plug 'thaerkh/vim-indentguides'
       " lots of nice git commands so we don't have to leave nvim
       Plug 'tpope/vim-fugitive'
       " shows a git diff in the gutter (+, -, ~)
