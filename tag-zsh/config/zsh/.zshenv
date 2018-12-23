@@ -50,6 +50,7 @@ export LESSHISTFILE="$XDG_CACHE_HOME/lesshist"
 export NOTMUCH_CONFIG="$XDG_CONFIG_HOME/notmuchrc"
 export RCRC="$XDG_CONFIG_HOME/rcrc"
 
+#export PYTHONSTARTUP="$HOME/.pythonrc"
 
 # userd for i3
 export TERMINAL="urxvt"
