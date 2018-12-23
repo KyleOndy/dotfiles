@@ -115,7 +115,7 @@ function tarsnap_backup () {
 function install_python_with_pyenv () {
   function pyenv_install () {
     _echo "(pyenv) installing: $1"
-    pyenv install --skip-existing "$1"
+    "$HOME/.pyenv/bin/pyenv" install --skip-existing "$1"
   }
 
   _echo "(pyenv) ensuring prereqs installed"
