@@ -12,12 +12,18 @@ then
   export no_proxy=localhost,127.0.0.1,169.254.169.254
 fi
 
-# is the internet on fire status reports, if we have network
-message_dir="/tmp/messages"
-mkdir -p "$message_dir"
-# print fortunes until we get a status update
-echo "$(fortune -e debian debian-hints linux)" > "$message_dir/1"
-cowsay < "$message_dir/$(ls -1 $message_dir | sort -hr | head -n1)"
+if [ -z "$NO_MESSAGE" ]; then
+  message_dir="/tmp/messages"
+
+  message=$(fortune -e debian debian-hints linux)
+  # if the directory existis, and there is at least one file there
+  if [ -d "$message_dir" ] && [ "$(ls -A $message_dir)" ]; then
+    # set the message to the status message
+    message=$(cat "$message_dir/$(ls -1 $message_dir | sort -hr | head -n1)")
+  fi
+
+  cowsay "$message"
+fi
 
 # Load plugins
 source $ZDOTDIR/antigen/antigen.zsh
