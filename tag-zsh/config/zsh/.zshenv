@@ -64,7 +64,6 @@ path=(
   $HOME/.stack/bin
   $HOME/.local/bin
   $GOPATH/bin
-  $HOME/.rbenv/bin
   $HOME/.yarn/bin
   $path
 )

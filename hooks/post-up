@@ -29,16 +29,16 @@ echo "Updating antigen"
 pull_or_update "zsh-users/antigen" "$HOME/.config/zsh/antigen"
 
 # Ruby Env
-RBENV="$HOME/.rbenv"
-echo "Updating rbenv"
-pull_or_update "rbenv/rbenv" "$RBENV"
-(cd "$RBENV" && src/configure && make -C src) || true
-echo "Updating ruby-build plugin"
-pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 
 # Jess's docker apps
 #echo "Updating JessFraz's dots"
 #pull_or_update "jessfraz/dotfiles" "$HOME/.dotfiles-jessfraz"
+#RBENV="$HOME/.rbenv"
+#echo "Updating rbenv"
+#pull_or_update "rbenv/rbenv" "$RBENV"
+#(cd "$RBENV" && src/configure && make -C src) || true
+#echo "Updating ruby-build plugin"
+#pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 
 # tmux plugin manager
 echo "Updating TMux Plugin Manager"
