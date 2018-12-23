@@ -29,10 +29,6 @@ echo "Updating antigen"
 pull_or_update "zsh-users/antigen" "$HOME/.config/zsh/antigen"
 
 # Ruby Env
-
-# Jess's docker apps
-#echo "Updating JessFraz's dots"
-#pull_or_update "jessfraz/dotfiles" "$HOME/.dotfiles-jessfraz"
 #RBENV="$HOME/.rbenv"
 #echo "Updating rbenv"
 #pull_or_update "rbenv/rbenv" "$RBENV"
