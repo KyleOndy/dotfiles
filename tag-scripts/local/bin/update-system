@@ -112,6 +112,13 @@ function tarsnap_backup () {
   sudo tarsnap --print-stats
 }
 
+
+update_neovim() {
+  nvim_path="$HOME/.local/bin/nvim"
+  curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim.appimage --output "$nvim_path"
+  chmod +x "$nvim_path"
+}
+
 function install_python_with_pyenv () {
   function pyenv_install () {
     _echo "(pyenv) installing: $1"
@@ -207,6 +214,7 @@ update_packages
 remove_packages
 update_dotfiles
 apply_dotfiles
+update_neovim
 nvim_plug_update
 pass_update
 update_tmux
