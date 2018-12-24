@@ -109,6 +109,9 @@ setopt share_history
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
 
+# Set python version via pyenv
+export PYENV_VERSION=3.7.1
+
 export RBENV_VERSION=2.5.3
 
 # let fzf use a tmux pane
