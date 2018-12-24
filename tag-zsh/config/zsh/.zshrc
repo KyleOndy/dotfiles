@@ -117,5 +117,10 @@ export RBENV_VERSION=2.5.3
 # let fzf use a tmux pane
 export FZF_TMUX=1
 
+# pyenv setup
+if command -v pyenv 1>/dev/null 2>&1; then
+  eval "$(pyenv init -)"
+  eval "$(pyenv virtualenv-init -)"
+fi
 
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
