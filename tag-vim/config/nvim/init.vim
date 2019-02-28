@@ -320,7 +320,7 @@ let mapleader="\<SPACE>"
 
 " Plugin Settings {
     " assuming pyenv is installed and a virtualenv named neovim3 is setup
-    let g:python3_host_prog = '/home/kondy/.pyenv/versions/neovim3/bin/python'
+    let g:python3_host_prog = '/home/kondy/.pyenv/shims/python3'
 " " Fugitive {
     nnoremap <Leader>gc :Gcommit<CR>
     nnoremap <Leader>gs :Gstatus<CR>
@@ -388,7 +388,7 @@ let mapleader="\<SPACE>"
   " LanguageClient {
       let g:LanguageClient_autoStart = 1
       let g:LanguageClient_serverCommands = {
-        \ 'python': ['/home/kondy/.pyenv/versions/neovim3/bin/pyls'],
+        \ 'python': ['/home/kondy/.local/bin/pyls'],
         \ }
 
       nnoremap <F5> :call LanguageClient_contextMenu()<CR>
