@@ -5,25 +5,56 @@ set -eo pipefail
 PROXY="$1"
 
 apt_proxy_conf="/etc/apt/apt.conf.d/proxy"
-proxy_file="/tmp/proxy"
+proxy_file="/etc/proxy"
+docker_proxy_conf="/etc/systemd/system/docker.service.d/proxy.conf"
+
+
+remove_apt_proxy() {
+  # Remove apt proxy config
+  sudo rm -fv "$apt_proxy_conf"
+}
+
+add_apt_proxy() {
+  echo "Writing $PROXY to $apt_proxy_conf"
+  echo "Acquire::http::Proxy \"$PROXY\";" | sudo tee "$apt_proxy_conf"
+}
+
+remove_docker_proxy() {
+  sudo rm -fv "$docker_proxy_conf"
+  _docker_restart
+}
+
+add_docker_proxy() {
+  echo "[Service]" | sudo tee "$docker_proxy_conf"
+  echo "Environment=\"HTTP_PROXY=$PROXY\" \"HTTPS_PROXY=$PROXY\" \"NO_PROXY=localhost,127.0.0.1,blackstone.com,169.254.169.254,/var/run/docker.sock\"" | sudo tee -a "$docker_proxy_conf"
+  _docker_restart
+}
+
+_docker_restart() {
+  sudo systemctl stop docker
+  sudo systemctl daemon-reload
+  sudo systemctl start docker
+}
+
+
 
 
 if [ -z "$PROXY" ]
 then
-  # no proy set, unset any exisiting proxy config
-
-  # Remove apt proxy config
-  sudo rm -fv "$apt_proxy_conf"
   # Remove the static proxy file
   sudo rm -fv "$proxy_file"
+
+  remove_apt_proxy
+  remove_docker_proxy
 else
   # propogate new proxy address to exisiting config
-  echo "Writing $PROXY to $apt_proxy_conf"
-  echo "Acquire::http::Proxy \"$PROXY\";" | sudo tee "$apt_proxy_conf"
+  add_apt_proxy
+  add_docker_proxy
+
 
   # add file to pull proxy info from
   echo "Writing $PROXY to $proxy_file"
-  echo "$PROXY" | tee "$proxy_file"
+  echo "$PROXY" | sudo tee "$proxy_file"
 fi
 
 echo "======="
