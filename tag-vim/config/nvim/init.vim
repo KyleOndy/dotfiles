@@ -161,7 +161,6 @@ let mapleader="\<SPACE>"
   set ignorecase          " Make searching case insensitive
   set smartcase           " ... unless the query has capital letters.
   set incsearch           " Incremental search.
-  set gdefault            " Use 'g' flag by default with :s/foo/bar/.
   set magic               " Use 'magic' patterns (extended regular expressions).
 
   " Use <C-L> to clear the highlighting of :set hlsearch. Muscle memory maps
