@@ -350,6 +350,9 @@ let mapleader="\<SPACE>"
     let g:airline_right_alt_sep = '|'
     let g:airline_theme= 'wombat'
   " }
+  " Ale {
+    highlight ALEWarning ctermbg=DarkMagenta
+  " }
   " FZF {
     " linewise completion
     imap <c-x><c-l> <plug>(fzf-complete-line)
