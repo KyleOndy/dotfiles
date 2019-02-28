@@ -48,10 +48,37 @@
   autoStash = true
   stat = true
 [alias]
-  lg1 = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
-  lg2 = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
-  lg = !"git lg1"
-  wdiff = diff --color-words
+  # meta. for working with the alias
+  alias   = config --global --get-regexp ^alias
+  ec      = config --global -e
+
+  # save some keystokes.
+  s         = status
+  co        = checkout
+  cob       = checkout -b
+  cm        = commit -m
+  ap        = add -p
+  forgot    = commit --amend -C HEAD
+  wip       = commit -am "WIP"
+  undo      = reset HEAD~1 --mixed
+  amend     = commit -a --amend
+  recent    = branch --verbose --sort=-committerdate
+  sync      = !git fetch --all --prune && git rebase -p --autostash $1
+  save      = !git add -A && git commit -m 'SAVEPOINT'
+  ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
+  wdiff     = diff --color-words
+  upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+
+  # Delete the remote version of the current branch
+  unpublish = !git push origin :$(git branch-name)
+
+  # get info from the git log
+  lg1       = log --graph --abbrev-commit --decorate --date=relative --format=format:'%C(bold blue)%h%C(reset) - %C(bold green)(%ar)%C(reset) %C(white)%s%C(reset) %C(dim white)- %an%C(reset)%C(bold yellow)%d%C(reset)' --all
+  lg2       = log --graph --abbrev-commit --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(bold yellow)%d%C(reset)%n          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)' --all
+  lg        = !"git lg1"
+
+  # Grep the log
+  loggrep   = log -E -i --grep
 [gpg]
   program = gpg2
 [fetch]
