@@ -138,4 +138,6 @@ if command -v pipenv 1>/dev/null 2>&1; then
   eval "$(pipenv --completion)"
 fi
 
+source "$HOME/.sdkman/bin/sdkman-init.sh"
+
 [[ -f "$ZDOTDIR/.zshrc.local" ]] && source "$ZDOTDIR/.zshrc.local"
