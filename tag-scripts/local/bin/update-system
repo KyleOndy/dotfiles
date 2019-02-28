@@ -5,6 +5,8 @@ BACKUP=false
 PYTHON=false
 READ_ONLY=false
 CRON_JOBS=false
+UPDATE_DOTS=false
+UPDATE_PASS=false
 
 function _echo () {
   # check if stdout is a terminal...
@@ -167,6 +169,8 @@ print_help() {
   --backup              Run tarsnap backups
   --read-only           Do not push anything
   --python              Install python versions (pyenv)
+  --update-dots         Update dots git repo
+  --update-pass         Update passwords
   --cron                Install cron jobs"
 }
 
@@ -199,6 +203,14 @@ while test $# -gt 0; do
       CRON_JOBS=true
       shift
       ;;
+    --update-dots)
+      UPDATE_DOTS=true
+      shift
+      ;;
+    --update-pass)
+      UPDATE_PASS=true
+      shift
+      ;;
     *)
       echo "unknown flag '$1'. Exiting"
       print_help
@@ -212,11 +224,19 @@ done
 update_sources
 update_packages
 remove_packages
-update_dotfiles
+
+if "$UPDATE_DOTS"; then
+  update_dotfiles
+fi
+
 apply_dotfiles
 update_neovim
 nvim_plug_update
-pass_update
+
+if "$UPDATE_PASS"; then
+  pass_update
+fi
+
 update_tmux
 if [ "$CRON_JOBS" = true ]; then
   update_cron
