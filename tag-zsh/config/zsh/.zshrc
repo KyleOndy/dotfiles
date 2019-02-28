@@ -4,12 +4,19 @@
 # proxy setup. Sometimes you just have to deal with things
 # check if a system wide proxy as been set
 # todo: this only handles work things. need to make more robust
-if [[ -a /tmp/proxy ]]
+# todo: /etc seems like the wrong place for this.
+if [[ -a /etc/proxy ]]
 then
-  PROXY="$(cat /tmp/proxy)"
+  PROXY="$(cat /etc/proxy)"
   export http_proxy=$PROXY
   export https_proxy=$PROXY
   export no_proxy=localhost,127.0.0.1,169.254.169.254
+else
+  # if these are not explicilty unset the proxy vars will propogate to child
+  # shells sinec the `update-proxy` script does not remove them.
+  unset http_proxy
+  unset https_proxy
+  unset no_proxy
 fi
 
 if [ -z "$NO_MESSAGE" ]; then
