@@ -4,6 +4,7 @@
 
 message_dir="/tmp/messages"
 mkdir -p "$message_dir"
+sudo chown "$(whoami)" "$message_dir"
 
 # set to seconds since epoch
 seconds_since_epoch=$(date +%s)
