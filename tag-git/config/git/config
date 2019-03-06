@@ -49,7 +49,7 @@
   stat = true
 [alias]
   # meta. for working with the alias
-  alias    = config --global --get-regexp ^alias
+  alias    = ! git config --global --get-regexp ^alias | sort
   ec       = config --global -e
 
   # save some keystokes.
