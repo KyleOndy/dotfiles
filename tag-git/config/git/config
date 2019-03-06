@@ -57,6 +57,7 @@
   co        = checkout
   cob       = checkout -b
   cm        = commit --verbose
+  cmm       = commit -m
   ap        = add -p
   forgot    = commit --amend -C HEAD
   wip       = commit -am "WIP"
