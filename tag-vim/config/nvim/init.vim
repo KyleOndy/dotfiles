@@ -41,34 +41,7 @@ call plug#begin()
       " funzzy file finding in vim
       Plug 'junegunn/fzf.vim'
       " intellisense engine for vim8 & neovim
-      " hopefully this code block will lesses as this project matures
-      function! PlugCoc(info) abort
-        if a:info.status ==? 'installed' || a:info.force
-          !yarn install
-          call coc#util#install_extension(join(get(s:, 'coc_extensions', [])))
-        elseif a:info.status ==? 'updated'
-          !yarn install
-          call coc#util#update()
-        endif
-        call PlugRemotePlugins(a:info)
-      endfunction
-
-      let s:coc_extensions = [
-      \   'coc-css',
-      \   'coc-rls',
-      \   'coc-html',
-      \   'coc-json',
-      \   'coc-pyls',
-      \   'coc-yaml',
-      \   'coc-emmet',
-      \   'coc-emoji',
-      \   'coc-vetur',
-      \   'coc-eslint',
-      \   'coc-prettier',
-      \   'coc-tsserver',
-      \   'coc-ultisnips'
-      \ ]
-      Plug 'neoclide/coc.nvim', {'do': function('PlugCoc')}
+      Plug 'neoclide/coc.nvim', {'tag': '*', 'do': { -> coc#util#install()}}
       " haskicorp master bundle todo
       Plug 'hashivim/vim-hashicorp-tools'
       " show marks in gutter
