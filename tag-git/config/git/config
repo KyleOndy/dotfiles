@@ -64,7 +64,7 @@
   undo      = reset HEAD~1 --mixed
   amend     = commit -a --amend
   recent    = branch --verbose --sort=-committerdate
-  sync      = !git fetch --all --prune && git rebase -p --autostash $1
+  sync      = !git fetch --all --prune && git rebase -p --autostash
   save      = !git add -A && git commit -m 'SAVEPOINT'
   ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
   wdiff     = diff --color-words
