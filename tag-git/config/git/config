@@ -49,8 +49,8 @@
   stat = true
 [alias]
   # meta. for working with the alias
-  alias   = config --global --get-regexp ^alias
-  ec      = config --global -e
+  alias    = config --global --get-regexp ^alias
+  ec       = config --global -e
 
   # save some keystokes.
   s         = status
