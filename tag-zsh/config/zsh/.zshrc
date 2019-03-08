@@ -122,8 +122,6 @@ setopt share_history
 # let shellcheck follow files
 export SHELLCHECK_OPTS='-x'
 
-export RBENV_VERSION=2.5.3
-
 # let fzf use a tmux pane
 export FZF_TMUX=1
 
