@@ -303,8 +303,6 @@ let mapleader="\<SPACE>"
     nnoremap <Leader>gb :Gblame<CR>
     nnoremap <Leader>gL :exe ':!cd ' . expand('%:p:h') . '; git la'<CR>
     nnoremap <Leader>gl :exe ':!cd ' . expand('%:p:h') . '; git las'<CR>
-    nnoremap <Leader>gh :Silent Glog<CR>
-    nnoremap <Leader>gH :Silent Glog<CR>:set nofoldenable<CR>
     nnoremap <Leader>gr :Gread<CR>
     nnoremap <Leader>gw :Gwrite<CR>
     nnoremap <Leader>gp :Git push<CR>
