@@ -1,6 +1,6 @@
 #!/bin/sh
 
-proxy_path="/tmp/proxy"
+proxy_path="/etc/proxy"
 if [ -e "$proxy_path" ]; then
   proxy=$(cat $proxy_path)
   curl --proxy "$proxy" -sL icanhazip.com -o /tmp/external-ip
