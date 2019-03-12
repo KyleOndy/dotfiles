@@ -69,6 +69,7 @@
   ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
   wdiff     = diff --color-words
   upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
+  unstage   = reset HEAD .
 
   # Delete the remote version of the current branch
   unpublish = !git push origin :$(git branch-name)
