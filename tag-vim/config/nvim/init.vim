@@ -56,6 +56,8 @@ call plug#begin()
       Plug 'wellle/tmux-complete.vim'
       " Asynchronous linting/fixing for Vim and LSP integration
       Plug 'w0rp/ale'
+      " help you read complex code by showing diff level of parentheses in diff color
+      Plug 'luochen1990/rainbow'
   " }
   " markdown {
       Plug 'gabrielelana/vim-markdown', { 'for': 'markdown' }
@@ -369,5 +371,8 @@ let mapleader="\<SPACE>"
 
       nnoremap <F5> :call LanguageClient_contextMenu()<CR>
       "inoremap <silent><expr> <C-x><C-o> coc#refresh()
+  " }
+  " rainbow {
+      let g:rainbow_active = 1
   " }
 " }
