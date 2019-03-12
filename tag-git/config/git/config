@@ -62,7 +62,7 @@
   forgot    = commit --amend -C HEAD
   wip       = commit -am "WIP: " -m
   undo      = reset HEAD~1 --mixed
-  amend     = commit -a --amend
+  amend     = commit --amend
   recent    = branch --verbose --sort=-committerdate
   sync      = !git fetch --all --prune && git rebase -p --autostash
   save      = !git add -A && git commit -m 'SAVEPOINT'
