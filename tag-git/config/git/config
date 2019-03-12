@@ -71,6 +71,7 @@
   upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
   unstage   = reset HEAD .
   edit      = !nvim $(git diff --name-only)
+  track     = add -N
 
   # Delete the remote version of the current branch
   unpublish = !git push origin :$(git branch-name)
