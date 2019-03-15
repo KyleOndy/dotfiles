@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+diary_dir="$HOME/.diary"
+mkdir -p "$diary_dir"
+
+dte=$(date +%Y-%m-%d-%A)
+today_file="$diary_dir/$dte.md"
+
+cp --no-clobber "$diary_dir/template.daily" "$today_file"
+sed -i "s|{{date}}|$(date '+%A, %B %d, %Y')|" "$today_file"
+
+$EDITOR "$today_file"
