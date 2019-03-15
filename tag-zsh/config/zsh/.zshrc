@@ -89,8 +89,6 @@ alias ghci='stack exec -- ghci'
 
 alias gpg=gpg2
 
-alias gst='git status'
-
 alias xc=xclip selection -primary $@
 
 alias sum='paste -sd+ - | bc'
