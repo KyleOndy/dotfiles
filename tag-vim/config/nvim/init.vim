@@ -105,7 +105,7 @@ call plug#begin()
       Plug 'vim-scripts/groovyindent-unix', { 'for': 'groovy' }
   " }
   " terraform {
-      Plug 'hashivim/vim-terraform.git'
+      Plug 'hashivim/vim-terraform'
   " }
 
 call plug#end()
