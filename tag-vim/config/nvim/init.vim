@@ -42,8 +42,6 @@ call plug#begin()
       Plug 'junegunn/fzf.vim'
       " intellisense engine for vim8 & neovim
       Plug 'neoclide/coc.nvim', {'tag': '*', 'do': { -> coc#util#install()}}
-      " haskicorp master bundle todo
-      Plug 'hashivim/vim-hashicorp-tools'
       " show marks in gutter
       Plug 'kshenoy/vim-signature'
       " quick (un)comment code
