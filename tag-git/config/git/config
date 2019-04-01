@@ -4,6 +4,7 @@
   name = Kyle Ondy
   signingkey = 491F91C9
 [core]
+  # use the best editor of all time.
   editor = nvim
   autocrlf = input
   excludesfile = ~/.config/git/ignore
