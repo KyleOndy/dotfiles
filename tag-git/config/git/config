@@ -88,6 +88,11 @@
 
   # Grep the log
   loggrep   = log -E -i --grep
+
+  # when gpg-agent crashes on me, I can recover the commit with this alias. I
+  # _feel_ like there should be a better way to handle this, but it is better
+  # than nothing.
+  fix-commit = commit --edit --file=.git/COMMIT_EDITMSG
 [gpg]
   program = gpg2
 [fetch]
