@@ -34,6 +34,7 @@
 [diff]
   tool = vimdiff
   mnemonicprefix = true
+  algorithm = patience
 [difftool]
   prompt = false
 [merge]
