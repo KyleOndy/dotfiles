@@ -6,8 +6,6 @@
 [core]
   # use the best editor of all time.
   editor = nvim
-  autocrlf = input
-  excludesfile = ~/.config/git/ignore
 [commit]
   template = ~/.config/git/message.txt
   gpgSign = true
