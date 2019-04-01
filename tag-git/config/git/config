@@ -6,6 +6,9 @@
 [core]
   # use the best editor of all time.
   editor = nvim
+  # updates to <ref> are logged in $GIT_DIR/logs/<ref>. This information can be
+  # userd to determine the state of a repository at a point in history.
+  logAllRefUpdates = always
 [commit]
   template = ~/.config/git/message.txt
   gpgSign = true
