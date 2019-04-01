@@ -10,12 +10,13 @@
 # Once these MFA credentials are obtained the user is free to assume into any other
 # roles they have permissions to.
 # ------------------------------------------------------------------
-set -euo pipefail
+set -eo pipefail
 
 USAGE="Usage: ass-mfa <mfa-code>"
-
-if [ "$#" != 1 ]; then
-  echo "Must pass MFA code as only argument"
+code="$1"
+if [ -z "$1" ]; then
+  echo "MFA code:"
+  read -r code
 fi
 
 _configure() {
@@ -30,7 +31,7 @@ r_json=$(aws \
   get-session-token \
   --duration-seconds "$ten_hour_in_seconds" \
   --serial-number "$mfa_serial_number" \
-  --token-code "$1" | jq '.Credentials')
+  --token-code "$code" | jq '.Credentials')
 
 _configure "region" "us-east-1"
 _configure "aws_access_key_id" "$(echo "$r_json" | jq -r '.AccessKeyId')"
