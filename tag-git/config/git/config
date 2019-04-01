@@ -41,6 +41,7 @@
   ff = only
   tool = vimdiff
   branchdesc = true
+  log = true
   conflictstyle = diff3
 [mergetool "vimdiff"]
   cmd = nvim -d $LOCAL $REMOTE $MERGED -c '$wincmd w' -c 'wincmd J'
