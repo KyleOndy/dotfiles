@@ -9,7 +9,7 @@
   excludesfile = ~/.config/git/ignore
 [commit]
   template = ~/.config/git/message.txt
-  gpgSign = false
+  gpgSign = true
 [init]
   templatedir = ~/.config/git/template
 [color]
