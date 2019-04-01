@@ -2,7 +2,6 @@
 [user]
   email = kyle@ondy.me
   name = Kyle Ondy
-  email = kyle.ondy@blackstone.com
   # long signature of my personal gpg key
   signingkey = DB0E3C33491F91C9
 [core]
