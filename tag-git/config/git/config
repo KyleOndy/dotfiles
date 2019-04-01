@@ -12,6 +12,7 @@
 [commit]
   template = ~/.config/git/message.txt
   gpgSign = true
+  verbose = true
 [init]
   templatedir = ~/.config/git/template
 [color]
