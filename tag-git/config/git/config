@@ -11,91 +11,161 @@
   # userd to determine the state of a repository at a point in history.
   logAllRefUpdates = always
 [commit]
+  # template containing useful direction for writing good and helpful commit
+  # messages.
   template = ~/.config/git/message.txt
+  # signed commits don't _really_ help, because no one will ever verify them,
+  # but they give a fancy 'verified' badge in gitlab and github.
   gpgSign = true
+  # adding commit details to the commit message editor makes it much easier to
+  # write good commit messages, along with giving convenient autocomplete
+  # relating to the content of the commit.
   verbose = true
 [init]
+  # there is nothing of value in the template yet, but having the setting
+  # templated out lowers the friction when I'd like to add something.
   templatedir = ~/.config/git/template
 [color]
+  # let git decide when to be colorful.
   ui = auto
 [color "branch"]
+  # override the default colors to be consistent despite what color scheme the
+  # terminal has set. This lowers the cognitive load just a bit when quickly
+  # glancing at git branch.
   current = yellow bold
   local = green bold
   remote = cyan bold
 [color "diff"]
+  # override the default colors to be consistent despite what color scheme the
+  # terminal has set. This lowers the cognitive load just a bit when quickly
+  # glancing at git diff.
   meta = yellow bold
   frag = magenta bold
   old = red bold
   new = green bold
   whitespace = red reverse
 [color "status"]
+  # override the default colors to be consistent despite what color scheme the
+  # terminal has set. This lowers the cognitive load just a bit when quickly
+  # glancing at git status.
   added = green bold
   changed = yellow bold
   untracked = red bold
 [diff]
+  # use "vimdiff", defined later
   tool = vimdiff
+  # show prefix's during a diff that relate to the content being diffed. Help
+  # keep things straight in my head.
   mnemonicprefix = true
+  # use the patience algorithm. A little slower, but more human readable
+  # output.
   algorithm = patience
 [difftool]
+  # use "vimdiff", defined later
+  tool = vimdiff
+  # prompting before opening difftools is just one more key press getting in
+  # the way of the groove.
   prompt = false
 [merge]
+  # --ff-only by default, force a command line flag to be thrown otherwise.
+  # Keep the commits atomic and the history clean.
   ff = only
+  # use "vimdiff", defined later
   tool = vimdiff
+  # add branch description to merge commits
   branchdesc = true
+  # add additional git log information to merge commit.
   log = true
+  # show unmodified (original) copy of conflict along with the conflicted
+  # version.
   conflictstyle = diff3
 [mergetool "vimdiff"]
+  # use nvim as the merge / diff tool
   cmd = nvim -d $LOCAL $REMOTE $MERGED -c '$wincmd w' -c 'wincmd J'
 [push]
+  # makes pushing to remotes a bit easier, not having to specify the branch
+  # name if the remote has a matching name.
   default = current
+  # push the local tags upto the remote automagically.
   followTags = true
+  # not all remotes support signed pushes. This setting should ask if they do,
+  # and respect the remote's wishes.
   gpgSign = if-asked
 [pull]
+  # rebase when pulling, avoid merge commits at all costs.
   rebase = true
 [rebase]
+  # stash any pending changes in the work directory when rebaseing, and apply
+  # them when done. This can cause some strange merge conflict to be resolved
+  # locally, but the convince is worth it.
   autoStash = true
+  # show a diffstat of what changed since last rebase. Useful to keep track of
+  # things that are changing upstream.
   stat = true
 [alias]
-  # meta. for working with the alias
+  # show all currently configured alias, sorted.
   alias     = ! git config --global --get-regexp ^alias | sort
+  # open this config file in $EDITOR for easy editing.
   ec        = config --global -e
 
-  # save some keystokes.
-  s         = status
-  co        = checkout
-  cob       = checkout -b
-  cm        = commit --verbose
-  cmm       = commit -m
-  ap        = add -p
-  forgot    = commit --amend -C HEAD
-  wip       = commit -am "WIP: " -m
-  undo      = reset HEAD~1 --mixed
-  amend     = commit --amend
-  recent    = branch --verbose --sort=-committerdate
-  sync      = !git fetch --all --prune && git rebase -p --autostash
-  save      = !git add -A && git commit -m 'SAVEPOINT'
-  ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
-  wdiff     = diff --color-words
-  upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
-  unstage   = reset HEAD .
-  edit      = !nvim $(git diff --name-only)
-  track     = add -N
+  # the following alias are to save some keystokes when executing common
+  # commands.
 
+  # patch add
+  ap        = add -p
+  # track file, staging the file without any content
+  track     = add -N
+  # easy way to open commit in $EDITOR
+  cm        = commit
+  # reword the last commit
+  amend     = commit --amend
+  # add files to last commit, keeping message
+  forgot    = commit --amend -C HEAD
+  # quickly create a commit with a message on the command line.
+  cmm       = commit -m
+  # show diff with words highlighted.
+  wdiff     = diff --color-words
+  # quickly checkout a branch.
+  co        = checkout
+  # quickly checkout a new branch from current HEAD
+  cob       = checkout -b
+  # undo the last commit.
+  undo      = reset HEAD~1 --mixed
+  # unstate all pending changes
+  unstage   = reset HEAD .
+  # status is _just_ too long to type.
+  s         = status
+
+  # these are slightly more 'complex' alias to achieve things a single command
+  # doesn't.
+
+  # edit all files that are changed in the current working directory.
+  edit      = !nvim $(git diff --name-only)
+  # list all local branches, sorted by last commit date.
+  recent    = branch --verbose --sort=-committerdate
+  # pull down latest changes and rebase against default origin.
+  sync      = !git fetch --all --prune && git rebase -p --autostash
+  # add everyting to a commit to comeback to later
+  save      = !git add -A && git commit -m 'SAVEPOINT'
+  # like save, but probably not coming back, reset to last commit too.
+  ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
+  # show the upstream
+  upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
   # Delete the remote version of the current branch
   unpublish = !git push origin :$(git branch-name)
-
   # get info from the git log
   lg        = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
-
   # Grep the log
   loggrep   = log -E -i --grep
-
   # when gpg-agent crashes on me, I can recover the commit with this alias. I
   # _feel_ like there should be a better way to handle this, but it is better
   # than nothing.
   fix-commit = commit --edit --file=.git/COMMIT_EDITMSG
 [gpg]
+  # do not use `gpg`, always use `gpg2`.
   program = gpg2
 [fetch]
+  # prune automatically on fetches.
   prune = true
+  # prune tags additionally when fetching.
   pruneTags = true
