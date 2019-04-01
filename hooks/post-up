@@ -36,6 +36,10 @@ pull_or_update "zsh-users/antigen" "$HOME/.config/zsh/antigen"
 #echo "Updating ruby-build plugin"
 #pull_or_update "rbenv/ruby-build" "$RBENV/plugins/ruby-build"
 
+# z
+echo "Updating z"
+pull_or_update "rupa/z/" "$HOME/.src/z"
+
 # tmux plugin manager
 echo "Updating TMux Plugin Manager"
 pull_or_update "tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm"
