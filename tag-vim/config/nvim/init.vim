@@ -331,9 +331,9 @@ let mapleader="\<SPACE>"
     " linewise completion
     imap <c-x><c-l> <plug>(fzf-complete-line)
     " Open file menu
-    nnoremap <Leader>f :Files<CR>
+    nnoremap <Leader>o :Files<CR>
     " Open git tracked files (git ls-files)
-    nnoremap <Leader>o :GFiles<CR>
+    nnoremap <Leader>f :GFiles<CR>
     " Open buffer menu
     nnoremap <Leader>b :Buffers<CR>
     " Open most recently used files
