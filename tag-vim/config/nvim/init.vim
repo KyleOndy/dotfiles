@@ -197,10 +197,13 @@ let mapleader="\<SPACE>"
   set autoread            " If file updates, load automatically.
   set hidden
 
+  " wrap commit message at 72 chracters, set a colorcolumn at 50 chracters for
+  " the commit title.
   autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
   " mail width at 76 chracters to keep formatting when the message is quoted
   " by others
   autocmd FileType mail setlocal spell | setlocal tw=72
+  " enable spell check when writing markdown
   autocmd FileType markdown setlocal spell
 
   set updatetime=100 " quicker updates
