@@ -87,6 +87,7 @@ alias ghci='stack exec -- ghci'
 alias gpg=gpg2
 
 alias xc=xclip selection -primary $@
+alias t="$EDITOR ${XDG_DATA_HOME}/todo/todo.md"
 
 alias sum='paste -sd+ - | bc'
 
