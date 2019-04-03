@@ -198,7 +198,9 @@ let mapleader="\<SPACE>"
   set hidden
 
   autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
-  autocmd FileType mail setlocal spell | setlocal tw=80
+  " mail width at 76 chracters to keep formatting when the message is quoted
+  " by others
+  autocmd FileType mail setlocal spell | setlocal tw=72
   autocmd FileType markdown setlocal spell
 
   set updatetime=100 " quicker updates
