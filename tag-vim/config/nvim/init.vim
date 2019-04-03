@@ -205,6 +205,10 @@ let mapleader="\<SPACE>"
   autocmd FileType mail setlocal spell | setlocal tw=72
   " enable spell check when writing markdown
   autocmd FileType markdown setlocal spell
+  " typicaly literate haskell is going to be embeded into a webage, so keep a
+  " *hard* line length is critical to prevent users from having to scroll code
+  " blocks.
+  autocmd FileType lhaskell setlocal colorcolumn=72
 
   set updatetime=100 " quicker updates
 
