@@ -1,28 +1,36 @@
 These are my personal dot files.
 Feel free to use anything for inspiration or verbatim.
-I know I have used plenty of other people's dotfiles for inspiration.
+I know I have used _plenty_ of other people's dotfiles for inspiration.
+
+I have tried to keep each configuration file well documented to avoid duplicating any documentation here.
 
 ## Setup
 
-Need [rcm](https://github.com/thoughtbot/rcm), a simple dotfile management tool built by [ThoughtBot](https://github.com/thoughtbot)
+These dotfiles are managed with [rcm], a simple dotfile management tool built by [ThoughtBot].
 
 Other applications I assume that are installed:
 
-- zsh
 - cowsay
 - dnsutils
 - git
+- zsh
 
 ## Initial Setup
 
-On initial running, needs to set the `RCRC` variable as I use a nonstandard install location for `rcm` (defaults to `~/.rcrc`).
+The first run the `RCRC` variable needs to be set as I use a nonstandard install location for `rcm` (defaults to `~/.rcrc`).
 
 ```bash
 git clone https://github.com/kyleondy/dotfiles.git "$HOME/.dotfiles"
 RCRC=$HOME/.dotfiles/config/rcrc rcup -v
 ```
 
+The [post-up] script takes care of downloading or updating some external dependencies.
+
 ## Updating
 
-To update the entire system: `update-system`.
+To update the entire system: `update-system --help`.
 If only updating the dotfiles: `rcup`.
+
+[rcm]: https://github.com/thoughtbot/rcm
+[ThoughtBot]: https://github.com/thoughtbot
+[post-up]: ./hooks/post-up
