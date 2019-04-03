@@ -103,6 +103,8 @@ alias tar_backup='tarsnapper -c ~/.config/tarsnap/tarsnap.conf make'
 alias http_server='docker run --rm -it -v $(pwd):/var/www:ro -w /var/www -p 8000:8000 python:3-alpine python -m http.server'
 function function inspec { docker run -it --rm -e http_proxy=$PROXY -e http_proxy=$PROXY -v $(pwd):/share chef/inspec "$@"; }
 
+function cdtemp() { pushd $(mktemp --directory) }
+
 # Bells
 unsetopt beep                   # no bell on error
 unsetopt hist_beep              # no bell on error in history
