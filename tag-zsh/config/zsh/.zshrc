@@ -78,9 +78,6 @@ function treea4() { treea -L 4 $@ }
 function treea5() { treea -L 5 $@ }
 function treea6() { treea -L 6 $@ }
 
-alias t='tree'
-alias ta='treea'
-
 function bigdirs() { du -h --max-depth=1 $@ | sort -h }
 functions filecount() { du -a | cut -d/ -f2 | sort | uniq -c | sort -n }
 
