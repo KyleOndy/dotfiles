@@ -169,3 +169,5 @@
   prune = true
   # prune tags additionally when fetching.
   pruneTags = true
+[credential]
+  helper = store
