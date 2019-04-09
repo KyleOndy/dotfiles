@@ -25,6 +25,9 @@
   # there is nothing of value in the template yet, but having the template
   # wired up lowers the friction when I'd like to add something.
   templatedir = ~/.config/git/template
+[status]
+  # show the number of stashes at the bottom of the status message.
+  showStash = true
 [color]
   # let git decide when to be colorful.
   ui = auto
