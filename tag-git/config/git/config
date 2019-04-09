@@ -10,6 +10,11 @@
   # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
   # can be used to determine the state of a repository at a point in history.
   logAllRefUpdates = always
+[interactive]
+  # when in --patch mode, take your input without having to hit enter. Greatly
+  # speeds up the workflow.
+  # NOTE: this requires that perl module `Term:ReadKey` is available.
+  singleKey = true
 [commit]
   # template containing useful directions for writing pertinent and helpful
   # commit messages.
