@@ -7,12 +7,12 @@
 [core]
   # use the best editor of all time.
   editor = nvim
-  # updates to <ref> are logged in $GIT_DIR/logs/<ref>. This information can be
-  # userd to determine the state of a repository at a point in history.
+  # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
+  # can be used to determine the state of a repository at a point in history.
   logAllRefUpdates = always
 [commit]
-  # template containing useful direction for writing good and helpful commit
-  # messages.
+  # template containing useful directions for writing pertinent and helpful
+  # commit messages.
   template = ~/.config/git/message.txt
   # signed commits don't _really_ help, because no one will ever verify them,
   # but they give a fancy 'verified' badge in gitlab and github.
@@ -22,8 +22,8 @@
   # relating to the content of the commit.
   verbose = true
 [init]
-  # there is nothing of value in the template yet, but having the setting
-  # templated out lowers the friction when I'd like to add something.
+  # there is nothing of value in the template yet, but having the template
+  # wired up lowers the friction when I'd like to add something.
   templatedir = ~/.config/git/template
 [color]
   # let git decide when to be colorful.
@@ -52,9 +52,9 @@
   changed = yellow bold
   untracked = red bold
 [diff]
-  # use "vimdiff", defined later
+  # use "vimdiff", defined later at neovim
   tool = vimdiff
-  # show prefix's during a diff that relate to the content being diffed. Help
+  # show prefix's during a diff that relate to the content being diffed. Helps
   # keep things straight in my head.
   mnemonicprefix = true
   # use the patience algorithm. A little slower, but more human readable
@@ -86,10 +86,10 @@
   # makes pushing to remotes a bit easier, not having to specify the branch
   # name if the remote has a matching name.
   default = current
-  # push the local tags upto the remote automagically.
+  # push the local tags to the remote automagically.
   followTags = true
-  # not all remotes support signed pushes. This setting should ask if they do,
-  # and respect the remote's wishes.
+  # not all remotes support signed pushes. This setting should ask the remote
+  # if they are supported, and respect the remote's wishes.
   gpgSign = if-asked
 [pull]
   # rebase when pulling, avoid merge commits at all costs.
@@ -108,18 +108,18 @@
   # open this config file in $EDITOR for easy editing.
   ec        = config --global -e
 
-  # the following alias are to save some keystokes when executing common
+  # the following alias are to save some keystrokes when executing common
   # commands.
 
-  # patch add
+  # patch add. Easiest way to keep commits small.
   ap        = add -p
-  # track file, staging the file without any content
+  # track file, effectively staging the file without any content
   track     = add -N
   # easy way to open commit in $EDITOR
   cm        = commit
   # reword the last commit
   amend     = commit --amend
-  # add files to last commit, keeping message
+  # add staged changes to last commit, keeping that message
   forgot    = commit --amend -C HEAD
   # quickly create a commit with a message on the command line.
   cmm       = commit -m
@@ -143,9 +143,10 @@
   edit      = !nvim $(git diff --name-only)
   # list all local branches, sorted by last commit date.
   recent    = branch --verbose --sort=-committerdate
-  # pull down latest changes and rebase against default origin.
+  # pull down latest changes and rebase against default origin. This is run
+  # before starting any work on a branch.
   sync      = !git fetch --all --prune && git rebase -p --autostash
-  # add everyting to a commit to comeback to later
+  # add everything to a commit to comeback to later
   save      = !git add -A && git commit -m 'SAVEPOINT'
   # like save, but probably not coming back, reset to last commit too.
   ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
