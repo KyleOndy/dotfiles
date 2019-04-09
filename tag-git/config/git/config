@@ -158,7 +158,7 @@
   # Delete the remote version of the current branch
   unpublish = !git push origin :$(git branch-name)
   # get info from the git log
-  lg        = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
+  lg        = log --graph --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'
   # Grep the log
   loggrep   = log -E -i --grep
   # when gpg-agent crashes on me, I can recover the commit with this alias. I
