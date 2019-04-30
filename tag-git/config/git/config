@@ -168,8 +168,10 @@
   loggrep   = log -E -i --grep
   # when gpg-agent crashes on me, I can recover the commit with this alias. I
   # _feel_ like there should be a better way to handle this, but it is better
-  # than nothing.
-  fix-commit = commit --edit --file=.git/COMMIT_EDITMSG
+  # than nothing. This is set as a shell command so no matter how deep we are
+  # in the tree of this repository, the command is executed at the root on the
+  # repo so our file path is always correct.
+  fix-commit = ! git commit --edit --file=.git/COMMIT_EDITMSG
 [gpg]
   # do not use `gpg`, always use `gpg2`.
   program = gpg2
