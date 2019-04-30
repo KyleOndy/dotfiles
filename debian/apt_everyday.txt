@@ -30,6 +30,7 @@ rcm
 rsync
 scdaemon
 software-properties-common
+stylish-haskell
 sudo
 tmux
 tree
