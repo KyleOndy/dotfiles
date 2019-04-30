@@ -16,6 +16,7 @@ fortunes-bofh-excuses
 fortunes-debian-hints
 fortunes-min
 gnupg2
+graphviz
 htop
 iotop
 jq
