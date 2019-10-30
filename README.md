@@ -1,40 +1,50 @@
-# Kyle's Dots
+# Kyle's nix(os)-config and dots
 
-These are the dotfiles I use both for personal and the majority of my professional work.
-Feel free to use anything for inspiration or verbatim.
-I know I have used _plenty_ of other people's dotfiles for inspiration through out the years.
-Going forward I am trying to at minimum leave a note of attribution in a comment when the configuration is taken from somewhere other than a manpage.
+This repository is always in some form of evolution.
+I do try to keep `master` working as expected, but I make no promises, even to myself.
 
-To avoid redundant documentation, I strive to keep each configuration file well commented to negate the need for additional documentation.
-Some subfolders to have a `README` to further expand on topics not included within the configuration itself.
+## Overview
 
-## Setup
+I use [NixOS](https://nixos.org/) as my primary daily driver.
+To manage my user environment I use [home-manager](https://github.com/rycee/home-manager).
 
-These dotfiles are managed with [rcm], a simple dotfile management tool built by [ThoughtBot].
 
-These dotfiles are assumed to be applied in an environment with the following applications available.
+NixOS is a fully declarative operating system, so configuration is centralized and applied via the native Nix tooling and home-manager.
+This approach is different that configuration is not done with standard dotfiles.
+Dotfiles are generated artifacts from the build process.
 
-- cowsay
-- dnsutils
-- git
-- zsh
+I have not yet had the opportunity to cut all my configuration over yet, so some dotfiles are just linked through for now.
 
-### Initial Setup
+## Repository layout
 
-On the first run of `rcm`, the `RCRC` variable needs to be set as I use a nonstandard install location for `rcm` (defaults to `~/.rcrc`).
-
-```bash
-git clone https://github.com/kyleondy/dotfiles.git "$HOME/.dotfiles"
-RCRC=$HOME/.dotfiles/config/rcrc rcup -v
+```bah
+.
+├── grep.sh                   # to search just ./home and ./hosts
+├── home                      # contains home manager config
+│   ├── _dots_not_yet_in_nix/ # dotfiles that have not been converter or are not supported by home-manager
+│   ├── home.nix              # home.nix is the entrypoint to home-manager, and a catch all for configuraiton
+│   ├── *.nix                 # each `nix` file holds home-manager configuraiton
+│   ├── tag-*/                # dotfiles from `rcm` that I have not migrated yet
+├── home-manager/             # submodule of home-manager
+├── hosts                     # host configuration for NixOS
+│   ├── */                    # each subdirectotry hold a single machines configuration
+│   ├── _includes/            # nix configuraiton used by multipules hosts
+│   ├── README.md             # more detailed information about hosts
+├── Makefile                  # entrypoint to this repo. `make help` for more documentation
+├── nixpkgs/                  # submodule of nixpkgs
+└── README.md
 ```
 
-The [post-up] script takes care of downloading or updating some external dependencies.
+## Roadmap
 
-### Updating
+- migrate the rest of my dotfiles
+- document the process more completely in this README
+- Move any sensitive information out of this repository
+  - wifi psk
 
-To update the entire system: `update-system --help`.
-If only updating the dotfiles: `rcup`.
+## External Resources
 
-[rcm]: https://github.com/thoughtbot/rcm
-[ThoughtBot]: https://github.com/thoughtbot
-[post-up]: ./hooks/post-up
+These are other people's dotfiles and articles I found useful while setting my environment up.
+
+- [utdemir's dotfiles](https://github.com/utdemir/dotfiles)
+- https://github.com/terlar/nix-config

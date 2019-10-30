@@ -1,0 +1,7 @@
+# vim: ft=muttrc
+set crypt_use_gpgme=yes
+set pgp_sign_as = 0xDB0E3C33491F91C9
+set crypt_autosign                              # sign all outgoing messages
+set crypt_replyencrypt                          # encrypt replies to messages which are encrypted
+set crypt_replysignencrypted                    # encrypt and sign replies to encryped messages
+set pgp_good_sign="^gpg: Good signature from"
