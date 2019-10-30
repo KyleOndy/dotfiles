@@ -1,0 +1,9 @@
+# vim: ft=muttrc
+
+# Saner copy/move dialogs
+macro index C "<copy-message>?<toggle-mailboxes>" "copy a message to a mailbox"
+macro index M "<save-message>?<toggle-mailboxes>" "move a message to a mailbox"
+
+
+# Macros ---------------------------------------------
+macro index,pager S '<sync-mailbox><shell-escape>mbsync -a<enter>'

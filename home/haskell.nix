@@ -1,0 +1,2 @@
+# todo: add Haskell configuration
+{ }
