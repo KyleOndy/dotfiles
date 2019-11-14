@@ -66,6 +66,7 @@ switch-system: ## Switch to latest system config
 switch-system: switch-nixos
 switch-nixos: auto-env.nix check ## Switch to latest NixOS config
 	sudo -E nixos-rebuild switch
+	@echo "NixOS generation: $$(nix-env --list-generations | tail -1)"
 
 .PHONY: build-nixos build-home
 build-nixos: ## Build nixos configuration
