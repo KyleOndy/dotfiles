@@ -21,6 +21,7 @@
     ./haskell.nix
     #./mbsync.nix
     #./msmtp.nix
+    ./i3.nix
     ./neomutt.nix
     ./neovim.nix
     #./notmuch.nix
