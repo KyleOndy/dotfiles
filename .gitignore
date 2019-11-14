@@ -1,2 +1,3 @@
 # output of home-manager build
 result
+home/auto-env.nix
