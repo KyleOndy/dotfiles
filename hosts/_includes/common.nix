@@ -59,6 +59,12 @@
     # need to set this at the system level since i3 is started before I can login as a user and environment variables I set are within child processes.
     TERMINAL = "st";
   };
+
+  services.xserver = {
+    autorun = true;
+    windowManager.i3.enable = true;
+  };
+
   # Enable the OpenSSH daemon.
   services.openssh = { enable = true; };
   # Enable sound.
