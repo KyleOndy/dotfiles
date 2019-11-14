@@ -6,6 +6,7 @@ in {
   home.packages = with pkgs;
     [
       neomutt # MUA
+      urlview # easily open urls within emails
     ];
   xdg = {
     configFile."neomutt/neomuttrc".source = old_dots + /neomutt/neomuttrc;
