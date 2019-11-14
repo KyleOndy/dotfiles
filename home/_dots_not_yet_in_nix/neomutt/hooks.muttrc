@@ -1,0 +1,5 @@
+# vim: ft=muttrc
+folder-hook gmail/*       source ./accounts/gmail
+folder-hook mxroute/*    source ./accounts/personal
+
+source ./accounts/personal  # default account
