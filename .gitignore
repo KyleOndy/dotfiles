@@ -1,5 +1,2 @@
-tag-zsh/config/zsh/antigen
-tag-zsh/config/zsh/.zcompdump
-tag-zsh/config/zsh/.zshrc.local
-stack.yaml
-*.zwc
+# output of home-manager build
+result

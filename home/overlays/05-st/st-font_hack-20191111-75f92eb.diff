@@ -1,0 +1,25 @@
+From 5299034de32e3460e1d7245309ecb62efa0e5216 Mon Sep 17 00:00:00 2001
+From: Kyle Ondy <kyle@ondy.me>
+Date: Mon, 11 Nov 2019 09:06:57 -0500
+Subject: [PATCH] Use Hack font.
+
+---
+ config.def.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/config.def.h b/config.def.h
+index 0e01717..4d63a9a 100644
+--- a/config.def.h
++++ b/config.def.h
+@@ -5,7 +5,7 @@
+  *
+  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
+  */
+-static char *font = "Liberation Mono:pixelsize=12:antialias=true:autohint=true";
++static char *font = "Hack:pixelsize=13:antialias=true:autohint=true";
+ static int borderpx = 2;
+ 
+ /*
+-- 
+2.23.0
+
