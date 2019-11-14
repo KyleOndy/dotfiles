@@ -33,10 +33,6 @@
       default = "none";
       xterm.enable = false;
     };
-    windowManager.i3 = {
-      enable = true;
-      extraPackages = with pkgs; [ dmenu i3status i3lock i3blocks ];
-    };
   };
   # yubikey
   services.udev.packages = [ pkgs.yubikey-personalization ];
@@ -59,6 +55,7 @@
   # todo: will this work, or do I need to pass in explicit git hash?
   environment.etc."nixos/active".text = config.system.nixos.label;
   environment.sessionVariables = {
+    # todo: does this still hold?
     # need to set this at the system level since i3 is started before I can login as a user and environment variables I set are within child processes.
     TERMINAL = "st";
   };
