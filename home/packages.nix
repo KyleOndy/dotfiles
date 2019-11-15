@@ -16,6 +16,7 @@
     htop        # system diagnostics
     jq          # easy json formatting
     lesspipe    # auto piping into less
+    libreoffice # gettings things done
     mosh        # better ssh
     nixfmt      # formatter for nix files
     pass-otp    # pass + otp extension
