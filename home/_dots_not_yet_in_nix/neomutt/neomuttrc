@@ -30,10 +30,10 @@ set record        = "+ondy.org/Sent"
 set sendmail      = "msmtp"
 set sendmail_wait = 0
 
-macro index S "<save-message>+mxroute/Spam<enter>"  "mark message as spam"
-macro index,pager A "<save-message>=mxroute/Archive<enter>"     " move thread to archive"
+macro index S "<save-message>+ondy.org/Spam<enter>"  "mark message as spam"
+macro index,pager A "<save-message>=ondy.org/Archive<enter>"     " move thread to archive"
 macro index ,d \
-  "<tag-prefix><save-message>+mxroute/Trash<enter>" \
+  "<tag-prefix><save-message>+ondy.org/Trash<enter>" \
 "delete all"
 
 mailboxes +ondy.org/Inbox \
