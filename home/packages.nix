@@ -9,6 +9,7 @@
     cowsay      # cows keep me informed
     ctags       # for navigating within NeoVim
     dnsutils    # dig
+    dropbox-cli # dropbox and the cli to interact with it
     fortune     # fun tidbits
     fortune     # quotations
     ghc         # Glasgow Haskell compiler
