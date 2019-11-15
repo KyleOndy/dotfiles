@@ -4,6 +4,7 @@
   imports = [ # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./../_includes/common.nix
+    ./../_includes/docker.nix
     ./../_includes/kyle.nix
   ];
 
