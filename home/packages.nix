@@ -3,6 +3,7 @@
 
 {
   home.packages = with pkgs; [
+    ansible     # system administration automation
     awscli      # interacting with AWS
     cifs-utils  # todo: why do I need this?
     smbnetfs    # todo: why do I need this?
