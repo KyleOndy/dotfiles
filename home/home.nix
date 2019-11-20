@@ -16,6 +16,7 @@
     ./firefox.nix
     ./fonts.nix
     ./git.nix
+    ./go.nix
     ./gpg.nix
     ./gui.nix
     ./haskell.nix
