@@ -10,6 +10,7 @@
     cowsay      # cows keep me informed
     ctags       # for navigating within NeoVim
     dnsutils    # dig
+    docker-compose
     dropbox-cli # dropbox and the cli to interact with it
     fortune     # fun tidbits
     fortune     # quotations
