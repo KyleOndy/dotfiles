@@ -25,6 +25,7 @@
     pipenv      # python package management
     ranger      # cli file browser
     remmina     # remote desktop client
+    shellcheck  # linting bash scripts
     slack       # chat
     st          # lightweight terminal
     stack       # Haskell build tooling
