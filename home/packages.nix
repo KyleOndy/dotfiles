@@ -16,6 +16,7 @@
     fortune     # quotations
     ghc         # Glasgow Haskell compiler
     htop        # system diagnostics
+    jetbrains.idea-community
     jq          # easy json formatting
     lesspipe    # auto piping into less
     libreoffice # gettings things done
