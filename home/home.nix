@@ -11,6 +11,7 @@
     # Do not add it to git as the path's change depending on what host we are
     # on.
     ./auto-env.nix
+    ./emacs.nix
     ./email.nix
     ./env.nix
     ./firefox.nix
