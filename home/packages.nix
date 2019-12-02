@@ -27,6 +27,7 @@
     ranger      # cli file browser
     remmina     # remote desktop client
     shellcheck  # linting bash scripts
+    signal-desktop
     slack       # chat
     st          # lightweight terminal
     stack       # Haskell build tooling
