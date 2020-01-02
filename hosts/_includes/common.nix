@@ -17,20 +17,24 @@
 
   # Select internationalisation properties.
   i18n = {
-    consoleFont = "Lat2-Terminus16";
-    #consoleKeyMap = "us";
     defaultLocale = "en_US.UTF-8";
+  };
+  console = {
+    font = "Lat2-Terminus16";
+    #KeyMap = "us";
     # apply the X keymap to the console keymap, which affects virtual consoles
     # such as tty.
-    consoleUseXkbConfig = true;
+    useXkbConfig = true;
   };
 
   environment.pathsToLink = [ "/libexec" "/share/zsh" ];
   services.xserver = {
     enable = true;
     xkbOptions = "ctrl:nocaps"; # make caps lock a control key
+    displayManager = {
+      defaultSession = "none+i3";
+    };
     desktopManager = {
-      default = "none";
       xterm.enable = false;
     };
   };
