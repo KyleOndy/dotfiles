@@ -20,7 +20,7 @@
     preLVM = true;
   }];
 
-  networking= {
+  networking = {
     hostName = "alpha";
     #
     # The global useDHCP flag is deprecated, therefore explicitly set to false here.
@@ -29,16 +29,13 @@
     useDHCP = false;
     interfaces.enp0s31f6.useDHCP = true;
     interfaces.wlp4s0.useDHCP = true;
-    firewall = {
-      allowedTCPPorts = [ 80 443 ];
-    };
+    firewall = { allowedTCPPorts = [ 80 443 ]; };
   };
 
   hardware = { cpu.intel.updateMicrocode = true; };
 
   # no adhoc user managment
   users.mutableUsers = false;
-
 
   system.stateVersion = "19.09"; # Did you read the comment?
 
