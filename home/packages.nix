@@ -12,6 +12,7 @@
     dnsutils    # dig
     docker-compose
     dropbox-cli # dropbox and the cli to interact with it
+    file        # what type of file is this?
     fortune     # fun tidbits
     fortune     # quotations
     ghc         # Glasgow Haskell compiler
