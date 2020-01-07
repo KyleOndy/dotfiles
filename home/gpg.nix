@@ -5,14 +5,14 @@ let old_dots = import ./_dotfiles-dir.nix;
 in {
   home.packages = [
     pkgs.gnupg            # for email and git
-    pkgs.pinentry         # cli pin entry
+    pkgs.pinentry-curses  # cli pin entry
   ];
 
   services.gpg-agent = {
     enable = true;
     defaultCacheTtl = 1800;
     enableSshSupport = true;
-    extraConfig = "pinentry-program ${pkgs.pinentry}/bin/pinentry";
+    pinentryFlavor = "curses"; # emacs?
   };
 
   xdg = {
