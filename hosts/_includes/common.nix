@@ -71,5 +71,8 @@
     mediaKeys = { enable = true; };
   };
   hardware.pulseaudio.enable = true;
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot = {
+    cleanTmpDir = true;
+    kernelPackages = pkgs.linuxPackages_latest;
+  };
 }
