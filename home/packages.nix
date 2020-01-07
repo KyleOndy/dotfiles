@@ -20,6 +20,7 @@
     jq          # easy json formatting
     lesspipe    # auto piping into less
     libreoffice # gettings things done
+    lsof        # how is this not in the base system?
     mosh        # better ssh
     nixfmt      # formatter for nix files
     pass-otp    # pass + otp extension
