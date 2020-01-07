@@ -3,11 +3,10 @@
 let old_dots = import ./_dotfiles-dir.nix;
 
 in {
-  home.packages = with pkgs;
-    [
-      neomutt # MUA
-      urlview # easily open urls within emails
-    ];
+  home.packages = with pkgs; [
+    neomutt # MUA
+    urlview # easily open urls within emails
+  ];
   xdg = {
     configFile."neomutt/neomuttrc".source = old_dots + /neomutt/neomuttrc;
     configFile."neomutt/mutt-colors-solarized-dark-256.muttrc".source = old_dots
