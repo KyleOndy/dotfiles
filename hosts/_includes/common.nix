@@ -16,9 +16,7 @@
   ];
 
   # Select internationalisation properties.
-  i18n = {
-    defaultLocale = "en_US.UTF-8";
-  };
+  i18n = { defaultLocale = "en_US.UTF-8"; };
   console = {
     font = "Lat2-Terminus16";
     #KeyMap = "us";
@@ -31,12 +29,8 @@
   services.xserver = {
     enable = true;
     xkbOptions = "ctrl:nocaps"; # make caps lock a control key
-    displayManager = {
-      defaultSession = "none+i3";
-    };
-    desktopManager = {
-      xterm.enable = false;
-    };
+    displayManager = { defaultSession = "none+i3"; };
+    desktopManager = { xterm.enable = false; };
   };
   # yubikey
   services.udev.packages = [ pkgs.yubikey-personalization ];
