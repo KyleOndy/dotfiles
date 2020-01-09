@@ -25,7 +25,6 @@
     mosh        # better ssh
     nixfmt      # formatter for nix files
     pass-otp    # pass + otp extension
-    pipenv      # python package management
     ranger      # cli file browser
     remmina     # remote desktop client
     shellcheck  # linting bash scripts
