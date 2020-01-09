@@ -3,6 +3,8 @@
 
 {
   home.packages = with pkgs; [
+    my-scripts  # my personal scripts
+
     ansible     # system administration automation
     awscli      # interacting with AWS
     cifs-utils  # todo: why do I need this?

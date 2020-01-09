@@ -5,8 +5,6 @@
   # long signature of my personal gpg key
   signingkey = DB0E3C33491F91C9
 [core]
-  # use the best editor of all time.
-  editor = nvim
   # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
   # can be used to determine the state of a repository at a point in history.
   logAllRefUpdates = always
