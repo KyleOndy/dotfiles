@@ -31,7 +31,6 @@
     ./packages.nix
     ./python.nix
     ./rss.nix
-    ./scripts.nix
     ./tarsnap.nix
     ./tmux.nix
     ./weechat.nix
