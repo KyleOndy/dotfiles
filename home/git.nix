@@ -12,5 +12,9 @@ in {
     configFile."git/config".source = old_dots + /git/config;
     configFile."git/message.txt".source = old_dots + /git/message.txt;
   };
-}
 
+  home.packages = with pkgs;
+    [
+      gitAndTools.pre-commit # manage git precommit hooks
+    ];
+}
