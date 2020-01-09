@@ -1,13 +1,22 @@
 { pkgs, ... }:
 
-{
+# https://gitlab.com/rycee/configurations/blob/d6dcf6480e29588fd473bd5906cd226b49944019/user/emacs.nix
+
+let
+
+  nurNoPkgs = import (builtins.fetchTarball
+    "https://github.com/nix-community/NUR/archive/master.tar.gz") { };
+
+in {
+  imports = [ nurNoPkgs.repos.rycee.hmModules.emacs-init ];
+
+  services.emacs = { enable = true; };
   programs.emacs = {
     enable = true;
     package = pkgs.emacs;
-    extraPackages = epkgs:
-      with epkgs; [
-        # themes
-        epkgs.solarized-theme
+    init = {
+      enable = true;
+      recommendedGcSettings = true;
 
         # evil
         epkgs.evil
@@ -16,5 +25,5 @@
         epkgs.magit
       ];
   };
-}
 
+}
