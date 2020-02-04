@@ -1,8 +1,10 @@
 # settings that are not specific to the shell being used.
 { pkgs, ... }:
 
-let editor = "${pkgs.my-scripts}/bin/emacs.sh";
-in {
+let
+  editor = "${pkgs.my-scripts}/bin/emacs.sh";
+in
+{
   programs.fzf = {
     enable = true;
     enableZshIntegration = true;
