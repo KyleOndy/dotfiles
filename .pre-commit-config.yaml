@@ -1,0 +1,22 @@
+---
+repos:
+  - repo: https://github.com/yelp/detect-secrets
+    rev: v0.13.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*/tests/.*
+  - repo: https://github.com/nix-community/nixpkgs-fmt
+    rev: 7e55e931a06dde96328d6c46b480d1e783234b5f
+    hooks:
+      - id: nixpkgs-fmt
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.3.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.20.0
+    hooks:
+      - id: yamllint
