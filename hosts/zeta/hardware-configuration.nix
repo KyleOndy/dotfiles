@@ -4,13 +4,13 @@
 { config, lib, pkgs, ... }:
 
 {
-  imports = [ ];
+  imports = [];
 
   boot.initrd.availableKernelModules =
     [ "ata_piix" "mptspi" "uhci_hcd" "ehci_pci" "sd_mod" "sr_mod" ];
-  boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ ];
-  boot.extraModulePackages = [ ];
+  boot.initrd.kernelModules = [];
+  boot.kernelModules = [];
+  boot.extraModulePackages = [];
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/1e5cd062-bac6-4007-b995-36f7a52c9cfd";
@@ -18,7 +18,7 @@
   };
 
   swapDevices =
-    [{ device = "/dev/disk/by-uuid/73458e64-a553-4035-aa2f-2adbdab4ffcb"; }];
+    [ { device = "/dev/disk/by-uuid/73458e64-a553-4035-aa2f-2adbdab4ffcb"; } ];
 
   nix.maxJobs = lib.mkDefault 8;
 }

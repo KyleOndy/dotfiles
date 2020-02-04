@@ -18,4 +18,3 @@
     lockCmd = "/home/tuxinaut/.config/i3/i3-exit lock";
   };
 }
-

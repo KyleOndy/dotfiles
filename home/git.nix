@@ -1,8 +1,10 @@
 { pkgs, ... }:
 
-let old_dots = import ./_dotfiles-dir.nix;
+let
+  old_dots = import ./_dotfiles-dir.nix;
 
-in {
+in
+{
   programs.git = {
     enable = true;
     package = pkgs.gitAndTools.gitFull; # all the tools

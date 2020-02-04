@@ -1,9 +1,11 @@
 # todo: clean this whole file up. Been doing lots of hacking.
 { pkgs, ... }:
 
-let old_dots = import ./_dotfiles-dir.nix;
+let
+  old_dots = import ./_dotfiles-dir.nix;
 
-in {
+in
+{
   # todo: make a wrapper for neovim to not include these system wide?
   #home.packages = with pkgs; [
   #  # for linting in neovim
@@ -473,8 +475,8 @@ in {
       "     " Add status line support, for integration with other plugin, checkout `:h coc-status`
       "     " need to wrap in $ { ... }" to escape double single quotes.
       "     set statusline^=%{coc#status()}%{get(b:,'coc_current_function',${
-        "''"
-      })}
+    "''"
+    })}
 
       "     " Using CocList
       "     " Show all diagnostics
@@ -520,4 +522,3 @@ in {
     '';
   };
 }
-
