@@ -1,7 +1,0 @@
-set complete=stl
-set defsearch=duckduckgo
-set editor=nvim
-set suggestengines=duckduckgo
-source! /home/kondy/.vimperatorrc.local
-
-" vim: set ft=vimperator:

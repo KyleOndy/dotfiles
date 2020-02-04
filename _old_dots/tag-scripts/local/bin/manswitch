@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-
-USAGE="mangrep <application> <switch>"
-if [[ "$#" -ne "2" ]]; then
-  echo "Usage: $USAGE"
-else
-  man "$1" | less -p "^ +$2"
-fi

@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-rsync -arp --exclude '.notmuch' "$HOME/.mail" "$MAIL_BACKUP"

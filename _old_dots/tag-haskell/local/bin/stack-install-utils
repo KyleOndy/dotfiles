@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-stack install \
-  ghc-mod \
-  hfmt \
-  hindent \
-  pointfree
