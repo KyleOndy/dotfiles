@@ -156,8 +156,8 @@
   # before starting any work on a branch.
   sync      = !git fetch --all --prune && git rebase --rebase-merges --autostash
   # add everything to a commit to comeback to later
-  save      = !git add -A && git commit -m 'SAVEPOINT'
-  # like save, but probably not coming back, reset to last commit too.
+  wip       = !git add -A && git commit -m 'WIP: savepoint via alias.'
+  # like wip, but probably not coming back, reset to last commit too.
   ditch     = !git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard
   # show the upstream
   upstream  = rev-parse --abbrev-ref --symbolic-full-name @{upstream}
