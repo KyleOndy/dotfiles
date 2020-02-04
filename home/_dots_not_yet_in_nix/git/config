@@ -154,7 +154,7 @@
   recent    = branch --verbose --sort=-committerdate
   # pull down latest changes and rebase against default origin. This is run
   # before starting any work on a branch.
-  sync      = !git fetch --all --prune && git rebase -p --autostash
+  sync      = !git fetch --all --prune && git rebase --rebase-merges --autostash
   # add everything to a commit to comeback to later
   save      = !git add -A && git commit -m 'SAVEPOINT'
   # like save, but probably not coming back, reset to last commit too.
