@@ -40,20 +40,28 @@
   # import all the overlays that extend packages beyond their configurability
   # via nix or home-manager. Overlays are a nix file within the `overlay`
   # folder or a subfolder in `overlay` that contains a `default.nix`.
-  nixpkgs.overlays = let path = ./overlays;
-  in with builtins;
-  map (n: import (path + ("/" + n))) (filter (n:
-    match ".*\\.nix" n != null
-    || pathExists (path + ("/" + n + "/default.nix")))
-    (attrNames (readDir path)));
+  nixpkgs.overlays = let
+    path = ./overlays;
+  in
+    with builtins;
+    map (n: import (path + ("/" + n))) (
+      filter (
+        n:
+          match ".*\\.nix" n != null
+          || pathExists (path + ("/" + n + "/default.nix"))
+      )
+        (attrNames (readDir path))
+    );
 
   # todo: can this be pulled down with a git submodule?
   # the NUR is needed for adding extensions to firefox.
   nixpkgs.config.packageOverrides = pkgs: {
-    nur = import (builtins.fetchTarball
-      "https://github.com/nix-community/NUR/archive/master.tar.gz") {
-        inherit pkgs;
-      };
+    nur = import (
+      builtins.fetchTarball
+        "https://github.com/nix-community/NUR/archive/master.tar.gz"
+    ) {
+      inherit pkgs;
+    };
   };
 
   # let home-manager manage itself

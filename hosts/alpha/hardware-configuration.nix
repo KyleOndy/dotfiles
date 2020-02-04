@@ -10,7 +10,7 @@
     [ "xhci_pci" "ahci" "usb_storage" "usbhid" "sd_mod" "rtsx_pci_sdmmc" ];
   boot.initrd.kernelModules = [ "dm-snapshot" ];
   boot.kernelModules = [ "kvm-intel" ];
-  boot.extraModulePackages = [ ];
+  boot.extraModulePackages = [];
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/c632b3af-d31a-4a42-b931-60c43213708b";
@@ -23,7 +23,7 @@
   };
 
   swapDevices =
-    [{ device = "/dev/disk/by-uuid/22196aec-5593-49db-a820-0ba9e6bf77d9"; }];
+    [ { device = "/dev/disk/by-uuid/22196aec-5593-49db-a820-0ba9e6bf77d9"; } ];
 
   nix.maxJobs = lib.mkDefault 4;
 }

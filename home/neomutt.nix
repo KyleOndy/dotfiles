@@ -1,8 +1,10 @@
 { pkgs, ... }:
 
-let old_dots = import ./_dotfiles-dir.nix;
+let
+  old_dots = import ./_dotfiles-dir.nix;
 
-in {
+in
+{
   home.packages = with pkgs; [
     neomutt # MUA
     urlview # easily open urls within emails
@@ -10,11 +12,11 @@ in {
   xdg = {
     configFile."neomutt/neomuttrc".source = old_dots + /neomutt/neomuttrc;
     configFile."neomutt/mutt-colors-solarized-dark-256.muttrc".source = old_dots
-      + /neomutt/mutt-colors-solarized-dark-256.muttrc;
+    + /neomutt/mutt-colors-solarized-dark-256.muttrc;
     configFile."neomutt/bindings.muttrc".source = old_dots
-      + /neomutt/bindings.muttrc;
+    + /neomutt/bindings.muttrc;
     configFile."neomutt/macros.muttrc".source = old_dots
-      + /neomutt/macros.muttrc;
+    + /neomutt/macros.muttrc;
     configFile."neomutt/gpg.muttrc".source = old_dots + /neomutt/gpg.muttrc;
     configFile."neomutt/hooks.muttrc".source = old_dots + /neomutt/hooks.muttrc;
   };

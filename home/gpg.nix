@@ -1,11 +1,13 @@
 { pkgs, ... }:
 
-let old_dots = import ./_dotfiles-dir.nix;
+let
+  old_dots = import ./_dotfiles-dir.nix;
 
-in {
+in
+{
   home.packages = [
-    pkgs.gnupg            # for email and git
-    pkgs.pinentry-curses  # cli pin entry
+    pkgs.gnupg # for email and git
+    pkgs.pinentry-curses # cli pin entry
   ];
 
   services.gpg-agent = {

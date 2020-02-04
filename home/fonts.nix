@@ -10,7 +10,7 @@
     pkgs.fira-code
     pkgs.fira-code-symbols
     pkgs.fira-mono
-    pkgs.hack-font           # used in st
+    pkgs.hack-font # used in st
     pkgs.nanum-gothic-coding # fallback in spacemacs
     pkgs.hasklig
     pkgs.hermit
@@ -18,8 +18,7 @@
     pkgs.mononoki
     pkgs.raleway
     pkgs.roboto
-    pkgs.source-code-pro    # used in spacemacs
+    pkgs.source-code-pro # used in spacemacs
     pkgs.terminus_font
   ];
 }
-

@@ -1,7 +1,8 @@
 { config, pkgs, ... }:
 
 {
-  imports = [ # Include the results of the hardware scan.
+  imports = [
+    # Include the results of the hardware scan.
     ./hardware-configuration.nix
     ./../_includes/common.nix
     ./../_includes/docker.nix
@@ -107,4 +108,3 @@
     ''
   ];
 }
-

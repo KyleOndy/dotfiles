@@ -7,4 +7,3 @@
     powertop.enable = true;
   };
 }
-
