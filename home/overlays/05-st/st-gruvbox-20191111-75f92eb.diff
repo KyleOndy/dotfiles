@@ -15,7 +15,7 @@ index 0e01717..5b4e9ba 100644
 @@ -82,44 +82,39 @@ char *termname = "st-256color";
   */
  unsigned int tabspaces = 8;
- 
+
 -/* Terminal colors (16 first used in escape sequence) */
 +/*
 + * Terminal colors (16 first used in escape sequence)
@@ -64,8 +64,8 @@ index 0e01717..5b4e9ba 100644
 +  "#8ec07c",
 +  "#ebdbb2",
  };
- 
- 
+
+
 +
  /*
   * Default colors (colorname index)
@@ -78,9 +78,8 @@ index 0e01717..5b4e9ba 100644
 -static unsigned int defaultrcs = 257;
 +static unsigned int defaultcs = 15;
 +static unsigned int defaultrcs = 15;
- 
+
  /*
   * Default shape of cursor
--- 
+--
 2.23.0
-
