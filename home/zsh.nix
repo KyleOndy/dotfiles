@@ -47,6 +47,8 @@
       include () {
         [[ -f "$1" ]] && source "$1"
       }
+
+      include "$HOME/src/bxaws/bxaws"
     '';
   };
 }
