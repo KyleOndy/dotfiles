@@ -8,39 +8,50 @@
     ansible # system administration automation
     awscli # interacting with AWS
     cifs-utils # todo: why do I need this?
-    smbnetfs # todo: why do I need this?
     cowsay # cows keep me informed
     ctags # for navigating within NeoVim
+    direnv
     dnsutils # dig
     docker-compose
     dropbox-cli # dropbox and the cli to interact with it
     file # what type of file is this?
     fortune # fun tidbits
-    fortune # quotations
     ghc # Glasgow Haskell compiler
     htop # system diagnostics
+    ispell # spell checking
     jetbrains.idea-community
     jq # easy json formatting
     lesspipe # auto piping into less
     libreoffice # gettings things done
     lsof # how is this not in the base system?
+    ltrace # trace library calls
     mosh # better ssh
     nixfmt # formatter for nix files
+    nixpkgs-fmt # formatter for nix
     pass-otp # pass + otp extension
     ranger # cli file browser
     remmina # remote desktop client
     shellcheck # linting bash scripts
-    signal-desktop
     slack # chat
+    smbnetfs # todo: why do I need this?
     st # lightweight terminal
     stack # Haskell build tooling
     terraform # infrastructure as code
+    terraform-docs # auto documentaion generation
+    tflint # better terrafrom linter
     tree # directory listing
     unzip # unzip things
     weechat # IRC client
     wget # get a file from the internet
     xclip # copy something to the clipboard
+    xz # compression format
+    yq-go # like jq, but for yaml
     zathura # lightweight PDF viewer
+
+    #hashi tools
+    packer
+    terraform
+    vault
   ];
 
 }
