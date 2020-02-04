@@ -105,7 +105,7 @@ find-todo: ## return all work needed
 
 .PHONY: nixfmt
 nixfmt:
-	find ./home ./hosts -name "*.nix" | xargs nixfmt
+	find ./home ./hosts -name "*.nix" | xargs nixpkgs-fmt
 
 # todo: this is hacky. There is probably a better way.
 .PHONY: auto-env.nix
@@ -117,4 +117,4 @@ auto-env.nix:
 	echo "HOME_MANAGER_CONFIG = \"$(CURDIR)/home/home.nix\";" >> ./home/auto-env.nix
 	echo "NIX_PATH = \"nixpkgs=$(CURDIR)/nixpkgs:nixpkgs-overlays=$(CURDIR)/home/overlays:home-manager=$(CURDIR)/home-manager:nixos-config=$(NIXOS_CONFIG)\";" >> ./home/auto-env.nix
 	echo "}; }" >> ./home/auto-env.nix
-	nixfmt ./home/auto-env.nix
+	nixpkgs-fmt ./home/auto-env.nix
