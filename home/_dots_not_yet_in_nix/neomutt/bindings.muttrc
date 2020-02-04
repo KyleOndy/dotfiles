@@ -28,5 +28,3 @@ bind index p recall-message
 
 # View attachments properly.
 bind attach <return> view-mailcap
-
-
