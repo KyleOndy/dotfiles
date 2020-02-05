@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+# This is just a bandaid. I need to figure out why gpg keeps dying on me.
+sudo pkill gpg-agent
+sudo pkill pcscd
+sudo pkill scdaemon
+gpg-connect-agent reloadagent /bye
