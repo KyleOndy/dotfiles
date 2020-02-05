@@ -18,6 +18,7 @@
     file # what type of file is this?
     fortune # fun tidbits
     ghc # Glasgow Haskell compiler
+    go-jira # cli for interacting with Jira
     htop # system diagnostics
     ispell # spell checking
     jetbrains.idea-community
