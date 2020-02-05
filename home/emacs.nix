@@ -156,6 +156,12 @@ in
             ;; (g) binds for magit
             (define-key my-leader-map "gg" 'magit-status)
 
+            ;; (m) moving between windows
+            (define-key my-leader-map "mh" 'evil-window-left)
+            (define-key my-leader-map "mj" 'evil-window-down)
+            (define-key my-leader-map "mk" 'evil-window-up)
+            (define-key my-leader-map "ml" 'evil-window-right)
+
             (evil-mode 1)
           '';
         };
