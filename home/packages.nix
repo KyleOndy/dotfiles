@@ -25,6 +25,7 @@
     libreoffice # gettings things done
     lsof # how is this not in the base system?
     ltrace # trace library calls
+    manpages # developer documentation
     mosh # better ssh
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
