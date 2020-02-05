@@ -22,7 +22,7 @@
     jetbrains.idea-community
     jq # easy json formatting
     lesspipe # auto piping into less
-    libreoffice # gettings things done
+    libreoffice # getting things done
     lsof # how is this not in the base system?
     ltrace # trace library calls
     manpages # developer documentation
@@ -38,8 +38,8 @@
     st # lightweight terminal
     stack # Haskell build tooling
     terraform # infrastructure as code
-    terraform-docs # auto documentaion generation
-    tflint # better terrafrom linter
+    terraform-docs # auto documentation generation
+    tflint # better terraform linter
     tree # directory listing
     unzip # unzip things
     weechat # IRC client
