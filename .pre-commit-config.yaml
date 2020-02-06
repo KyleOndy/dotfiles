@@ -7,7 +7,7 @@ repos:
         args: ['--baseline', '.secrets.baseline']
         exclude: .*/tests/.*
   - repo: https://github.com/nix-community/nixpkgs-fmt
-    rev: 7e55e931a06dde96328d6c46b480d1e783234b5f
+    rev: v0.6.1
     hooks:
       - id: nixpkgs-fmt
   - repo: https://github.com/pre-commit/pre-commit-hooks
