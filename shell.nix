@@ -10,5 +10,6 @@ pkgs.mkShell {
     # https://pre-commit.com/
     pre-commit
     detect-secrets
+    shfmt
   ];
 }
