@@ -35,6 +35,7 @@
     ranger # cli file browser
     remmina # remote desktop client
     shellcheck # linting bash scripts
+    shfmt # shell (bash) formatting
     slack # chat
     smbnetfs # todo: why do I need this?
     st # lightweight terminal
