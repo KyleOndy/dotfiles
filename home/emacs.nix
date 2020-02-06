@@ -170,6 +170,10 @@ in
         # evil bindings everywhere
         #evil-collection = { enable = true; };
 
+        evil-surround = {
+          enable = true;
+        };
+
         flycheck = {
           enable = true;
           diminish = [ "flycheck-mode" ];
