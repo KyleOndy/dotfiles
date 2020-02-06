@@ -154,7 +154,7 @@ in
             (define-key my-leader-map "ob" 'counsel-buffer-or-recentf)
 
             ;; (g) binds for magit
-            (define-key my-leader-map "gg" 'magit-status)
+            (define-key my-leader-map "g" 'magit-status)
 
             ;; (m) moving between windows
             (define-key my-leader-map "mh" 'evil-window-left)
