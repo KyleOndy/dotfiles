@@ -22,7 +22,6 @@
     go-jira # cli for interacting with Jira
     htop # system diagnostics
     ispell # spell checking
-    jetbrains.idea-community
     jq # easy json formatting
     lesspipe # auto piping into less
     libreoffice # getting things done
