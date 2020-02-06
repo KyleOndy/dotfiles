@@ -7,6 +7,7 @@
 
     ansible # system administration automation
     awscli # interacting with AWS
+    bc # the classic calculator
     calcurse # cli calendar
     cifs-utils # todo: why do I need this?
     cowsay # cows keep me informed
