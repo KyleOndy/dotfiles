@@ -54,7 +54,7 @@ in
       vim-ps1
       vim-puppet
       vim-signature # show marks in gutter
-      vim-stylish-haskell
+      #vim-stylish-haskell
       vim-terraform
       vim-test # invoke test runner
       vim-tmux-navigator # move between nvim and tmux
