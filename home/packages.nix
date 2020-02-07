@@ -5,6 +5,7 @@
   home.packages = with pkgs; [
     my-scripts # my personal scripts
 
+    ag # A code-searching tool similar to ack, but faster
     ansible # system administration automation
     atop # system monitoring
     awscli # interacting with AWS
