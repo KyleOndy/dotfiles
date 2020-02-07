@@ -182,6 +182,7 @@ in
           config = ''
             ;; Only check buffer when mode is enabled or buffer is saved.
             (setq flycheck-check-syntax-automatically '(mode-enabled save))
+            (setq flycheck-highlighting-mode 'lines)
 
             ;; Enable flycheck in all eligible buffers.
             (global-flycheck-mode)
