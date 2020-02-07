@@ -168,7 +168,7 @@ in
 
         # todo: try and make this work
         # evil bindings everywhere
-        #evil-collection = { enable = true; };
+        evil-collection = { enable = true; };
 
         evil-surround = {
           enable = true;
