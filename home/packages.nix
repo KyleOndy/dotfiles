@@ -6,6 +6,7 @@
     my-scripts # my personal scripts
 
     ansible # system administration automation
+    atop # system monitoring
     awscli # interacting with AWS
     bc # the classic calculator
     calcurse # cli calendar
