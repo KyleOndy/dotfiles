@@ -162,6 +162,9 @@ in
             (define-key my-leader-map "mk" 'evil-window-up)
             (define-key my-leader-map "ml" 'evil-window-right)
 
+            ;; include the underbar (_) in searches with star (*)
+            (setq-default evil-symbol-word-search t)
+
             (evil-mode 1)
           '';
         };
