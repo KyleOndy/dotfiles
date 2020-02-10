@@ -59,6 +59,10 @@ in
 
         ;;; Lockfiles unfortunately cause more pain than benefit
         (setq create-lockfiles nil)
+
+        ;; let emacs "WORDS" act like vim "WORDS" and include underbar (_) as part of a WORD.
+        ;; This will include the underbar (_) in searches with star (*)
+        (modify-syntax-entry ?_ "w")
       '';
       usePackage = {
 
@@ -161,9 +165,6 @@ in
             (define-key my-leader-map "mj" 'evil-window-down)
             (define-key my-leader-map "mk" 'evil-window-up)
             (define-key my-leader-map "ml" 'evil-window-right)
-
-            ;; include the underbar (_) in searches with star (*)
-            (setq-default evil-symbol-word-search t)
 
             (evil-mode 1)
           '';
