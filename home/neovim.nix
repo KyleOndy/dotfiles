@@ -28,6 +28,7 @@ in
     # these plugins can be found in `nixpkgs/pkgs/misc/vim-plugins`.
     plugins = with pkgs.vimPlugins; [
       #LanguageClient-neovim   # offload launage specific autocompletes and lints
+      ack-vim # Run your favorite search tool from Vim, with an enhanced results list
       ale # linting of almost all languages
       ncm2 # awesome autocomplete plugin
       ncm2-bufword # completion from other buuffers
@@ -359,6 +360,12 @@ in
       " ## rainbow
       " -------------------------------------------------------------
       let g:rainbow_active = 1
+
+      " ## ack
+      " -------------------------------------------------------------
+      if executable('ag')
+        let g:ackprg = 'ag --vimgrep'
+      endif
 
       " ## terraform
       " -------------------------------------------------------------
