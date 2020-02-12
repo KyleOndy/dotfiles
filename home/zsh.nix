@@ -20,6 +20,7 @@
     shellAliases = {
       ":q" = "exit";
       ":e" = "$EDITOR";
+      cdtmp = "cd $(mktemp -d)";
       l = "ls";
       lsd = "ls -l $@ | grep '^d'";
       tree = "tree --dirsfirst -ChFQ $@";
