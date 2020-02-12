@@ -88,6 +88,8 @@
   # show unmodified (original) copy of conflict along with the conflicted
   # version.
   conflictstyle = diff3
+  # do not litter my working directry with *.orig files.
+  keepBackup = false
 [mergetool "vimdiff"]
   # use nvim as the merge / diff tool
   cmd = nvim -d $LOCAL $REMOTE $MERGED -c '$wincmd w' -c 'wincmd J'
