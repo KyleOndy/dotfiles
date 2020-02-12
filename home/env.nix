@@ -2,7 +2,7 @@
 { pkgs, ... }:
 
 let
-  editor = "${pkgs.my-scripts}/bin/emacs.sh";
+  editor = "nvim";
 in
 {
   programs.fzf = {
