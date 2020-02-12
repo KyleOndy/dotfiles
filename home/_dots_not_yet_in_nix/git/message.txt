@@ -1,4 +1,6 @@
 # If applied, this commit will _________.
+# |<----  Using a Maximum Of 50 Characters  ---->|
+
 # Start with one of the following verbs.
 # -----
 # Add = Create a capability e.g. feature, test, dependency.
