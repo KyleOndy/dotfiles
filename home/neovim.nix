@@ -352,6 +352,9 @@ in
         let g:ackprg = 'ag --vimgrep'
       endif
 
+      " automatically highlight the word we are seaching for
+      let g:ackhighlight = 1
+
       nnoremap <Leader>a :Ack<Space>
 
       " ## terraform
