@@ -352,6 +352,8 @@ in
         let g:ackprg = 'ag --vimgrep'
       endif
 
+      nnoremap <Leader>a :Ack<Space>
+
       " ## terraform
       " -------------------------------------------------------------
       let g:terraform_align=1
