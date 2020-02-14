@@ -35,7 +35,6 @@ in
       vim-fugitive # vim operations
       vim-gitgutter # show changes in gutter
       vim-hdevtools
-      vim-json
       vim-nix # nix configuration
       vim-ps1
       vim-puppet
@@ -322,10 +321,6 @@ in
       " -------------------------------------------------------------
       let g:haskellmode_completion_ghc = 1
       autocmd FileType haskell setlocal omnifunc=necoghc#omnifunc
-
-      " ## vim-json
-      " -------------------------------------------------------------
-      let g:vim_json_syntax_conceal = 0
 
       " ## vim-test
       " -------------------------------------------------------------
