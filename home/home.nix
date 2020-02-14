@@ -37,9 +37,9 @@
     ./zsh.nix
   ];
 
-  # import all the overlays that extend packages beyond their configurability
-  # via nix or home-manager. Overlays are a nix file within the `overlay`
-  # folder or a subfolder in `overlay` that contains a `default.nix`.
+  # import all the overlays that extend packages via nix or home-manager.
+  # Overlays are a nix file within the `overlay` folder or a sub folder in
+  # `overlay` that contains a `default.nix`.
   nixpkgs.overlays = let
     path = ./overlays;
   in
