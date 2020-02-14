@@ -261,6 +261,13 @@ in
       " ## general
       " -------------------------------------------------------------
 
+      " enable cursorline so we can color it
+      set cursorline
+      " Set the line number background coloring to dark gray
+      highlight CursorLineNr ctermbg=DarkGrey
+      " do not highlight the line itslef
+      highlight CursorLine ctermbg=NONE
+
       " ## fugitive
       " -------------------------------------------------------------
       nnoremap <Leader>gc :Gcommit<CR>
