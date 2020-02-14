@@ -42,6 +42,13 @@ I have not yet had the opportunity to cut all my configuration over yet, so some
 - Move any sensitive information out of this repository
   - wifi psk
 
+### ToDo
+
+- Add weechat
+- add rss (newsboat)
+- cleanup fonts
+- add tarsnap
+
 ## External Resources
 
 These are other people's dotfiles and articles I found useful while setting my environment up.

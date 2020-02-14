@@ -20,20 +20,13 @@
     ./git.nix
     ./go.nix
     ./gpg.nix
-    ./gui.nix
     ./haskell.nix
-    #./mbsync.nix
-    #./msmtp.nix
     ./i3.nix
     ./neomutt.nix
     ./neovim.nix
-    #./notmuch.nix
     ./packages.nix
     ./python.nix
-    ./rss.nix
-    ./tarsnap.nix
     ./tmux.nix
-    ./weechat.nix
     ./zsh.nix
   ];
 
