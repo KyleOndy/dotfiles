@@ -33,14 +33,6 @@
       notmuch.enable = true;
       primary = true;
       realName = "Kyle Ondy";
-      #signature = {
-      #  text = ''
-      #    Mit besten Wünschen
-      #    Ben Justus Bals
-      #    https://keybase.io/beb
-      #  '';
-      #  showSignature = "append";
-      #};
       passwordCommand = "pass show email/kyle@ondy.org";
       smtp = {
         host = "london.mxroute.com";
