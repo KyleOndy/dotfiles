@@ -12,15 +12,15 @@ in
     withPython3 = true;
     # these plugins can be found in `nixpkgs/pkgs/misc/vim-plugins`.
     plugins = with pkgs.vimPlugins; [
-      #LanguageClient-neovim   # offload launage specific autocompletes and lints
+      #LanguageClient-neovim   # offload language specific autocompletes and lints
       ack-vim # Run your favorite search tool from Vim, with an enhanced results list
       ale # linting of almost all languages
       ncm2 # awesome autocomplete plugin
-      ncm2-bufword # completion from other buuffers
+      ncm2-bufword # completion from other buffers
       ncm2-path # filepath completion
       ncm2-jedi # fast python completion (use ncm2 if you want type info or snippet support)
       nvim-yarp # dependency of ncm2
-      indentLine # visual identation lines
+      indentLine # visual indentation lines
       editorconfig-vim # respect editorconfig
       fzf-vim # fuzzy file finder
       ghcmod-vim
