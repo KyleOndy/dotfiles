@@ -55,6 +55,7 @@
     xz # compression format
     yq-go # like jq, but for yaml
     zathura # lightweight PDF viewer
+    zoom-us # video confrence
 
     #hashi tools
     packer
