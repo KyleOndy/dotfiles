@@ -17,6 +17,7 @@
     direnv
     dnsutils # dig
     docker-compose
+    dos2unix # windows line endings => unix
     dropbox-cli # dropbox and the cli to interact with it
     file # what type of file is this?
     fortune # fun tidbits
