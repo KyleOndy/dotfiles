@@ -34,6 +34,7 @@
     mosh # better ssh
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
+    nmap # network mapping and scanning
     pass-otp # pass + otp extension
     ranger # cli file browser
     remmina # remote desktop client
