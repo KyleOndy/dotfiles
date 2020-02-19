@@ -35,6 +35,7 @@
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
     nmap # network mapping and scanning
+    openvpn # covering my tracks
     pass-otp # pass + otp extension
     ranger # cli file browser
     remmina # remote desktop client
