@@ -18,16 +18,16 @@
       share = true; # let multiple ZSH session write to the history file
     };
     shellAliases = {
-      ":q" = "exit";
       ":e" = "$EDITOR";
+      ":q" = "exit";
       cdtmp = "cd $(mktemp -d)";
       l = "ls";
       lsd = "ls -l $@ | grep '^d'";
+      r = "ranger";
       tree = "tree --dirsfirst -ChFQ $@";
       tree1 = "tree -L 1 $@";
       tree2 = "tree -L 2 $@";
       tree3 = "tree -L 3 $@";
-      r = "ranger";
     };
     oh-my-zsh = {
       enable = true;
