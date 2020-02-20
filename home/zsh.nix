@@ -24,6 +24,7 @@
       l = "ls";
       lsd = "ls -l $@ | grep '^d'";
       r = "ranger";
+      src = "cd $HOME/src";
       tree = "tree --dirsfirst -ChFQ $@";
       tree1 = "tree -L 1 $@";
       tree2 = "tree -L 2 $@";
