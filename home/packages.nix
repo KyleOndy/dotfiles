@@ -44,6 +44,7 @@
     shfmt # shell (bash) formatting
     slack # chat
     smbnetfs # todo: why do I need this?
+    squashfsTools # create and unpack squashfs
     st # lightweight terminal
     stack # Haskell build tooling
     terraform # infrastructure as code
