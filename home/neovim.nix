@@ -20,7 +20,6 @@ in
       ncm2-path # filepath completion
       ncm2-jedi # fast python completion (use ncm2 if you want type info or snippet support)
       nvim-yarp # dependency of ncm2
-      indentLine # visual indentation lines
       editorconfig-vim # respect editorconfig
       fzf-vim # fuzzy file finder
       ghcmod-vim
