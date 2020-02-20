@@ -32,7 +32,10 @@
     useDHCP = false;
     interfaces.enp0s31f6.useDHCP = true;
     interfaces.wlp4s0.useDHCP = true;
-    firewall = { allowedTCPPorts = [ 80 443 ]; };
+    firewall = {
+      allowedTCPPorts = [ 80 443 8200 ];
+      allowedUDPPorts = [ 1900 ];
+    };
   };
 
   hardware = { cpu.intel.updateMicrocode = true; };
