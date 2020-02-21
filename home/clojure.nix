@@ -6,5 +6,8 @@
     pkgs.clojure
     pkgs.joker # linter
     pkgs.leiningen # build tooling
+
+    # try using IntelliJ  and cursive
+    pkgs.jetbrains.idea-community
   ];
 }
