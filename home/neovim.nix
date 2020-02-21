@@ -43,6 +43,13 @@ in
       vim-test # invoke test runner
       vim-tmux-navigator # move between nvim and tmux
       vimproc-vim
+
+      # clojure plugins
+      vim-clojure-highlight # Extend builtin syntax highlighting
+      vim-clojure-static # Meikel Brandmeyer's Clojure runtime files
+      vim-fireplace # Clojure REPL support
+      vim-sexp # Precision Editing for S-expressions
+      vim-sexp-mappings-for-regular-people # tpope to the resuce again
     ];
     extraConfig = ''
       " # neovim setup
@@ -367,6 +374,18 @@ in
       " -------------------------------------------------------------
       " I like to set my own leader bindings
       let g:elm_setup_keybindings = 0
+
+      " ## sexp
+      " -------------------------------------------------------------
+      " So I have become old and crank and refuse to relearn any custom
+      " commands and keybinds I've developed over the years. This plugin clobbers
+      " some of my exisitng workflow so I am going to disable _all_ the mapping
+      " and only reenebale what I want.
+      "
+      " I also use tpope's mappings for sexp which cover a great deal of my use.
+      " see `:help sexp-explicit-mappings` for more information.
+
+      let g:sexp_filetypes = ""
 
       " -------------------------------------------------------------
       " https://medium.com/@hanspinckaers/setting-up-vim-as-an-ide-for-python-773722142d1d
