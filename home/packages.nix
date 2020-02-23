@@ -38,6 +38,7 @@
     nmap # network mapping and scanning
     openvpn # covering my tracks
     pass-otp # pass + otp extension
+    pixz # parallel (de)compresser for xz
     ranger # cli file browser
     remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
