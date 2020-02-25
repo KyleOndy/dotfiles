@@ -31,6 +31,7 @@
     lsof # how is this not in the base system?
     ltrace # trace library calls
     manpages # developer documentation
+    molly-guard # prevent footguns from runing my day
     mosh # better ssh
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
