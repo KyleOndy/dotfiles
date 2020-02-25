@@ -244,6 +244,9 @@ in
 
       nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
 
+      " open the file and move to bottom
+      nmap <silent> <leader>en :e `note --vim`<CR>G
+
       " # work with terminal
       " -------------------------------------------------------------
       "
