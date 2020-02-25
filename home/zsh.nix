@@ -43,7 +43,7 @@
         "ssh-agent"
         "sudo"
       ];
-      theme = "dieter";
+      theme = "juanghurtado";
     };
     initExtra = ''
       include () {
