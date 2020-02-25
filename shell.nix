@@ -11,5 +11,6 @@ pkgs.mkShell {
     pre-commit
     detect-secrets
     shfmt
+    ruby
   ];
 }
