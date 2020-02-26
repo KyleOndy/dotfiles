@@ -36,7 +36,6 @@
         "colored-man-pages"
         "docker"
         "gitfast"
-        "gpg-agent"
         "pass"
         "pip"
         "rbenv"
