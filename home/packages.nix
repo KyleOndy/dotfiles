@@ -39,6 +39,7 @@
     openvpn # covering my tracks
     pass-otp # pass + otp extension
     pixz # parallel (de)compresser for xz
+    proselint # A linter for prose
     pv # pipe progress
     ranger # cli file browser
     steam # games
