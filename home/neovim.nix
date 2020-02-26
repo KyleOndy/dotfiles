@@ -316,9 +316,9 @@ in
       " <leader>o... for "open"
       imap <c-x><c-l> <plug>(fzf-complete-line)
       " Open file menu
-      nnoremap <Leader>oo :Files<CR>
+      nnoremap <Leader>of :Files<CR>
       " Open git tracked files (git ls-files)
-      nnoremap <Leader>of :GFiles<CR>
+      nnoremap <Leader>oo :GFiles<CR>
       " Open buffer menu
       nnoremap <Leader>ob :Buffers<CR>
       " Open most recently used files
