@@ -14,7 +14,7 @@ in
     enable = true;
     defaultCacheTtl = 1800;
     enableSshSupport = true;
-    pinentryFlavor = "curses"; # emacs?
+    pinentryFlavor = "curses";
   };
 
   xdg = {
