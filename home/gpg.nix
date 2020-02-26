@@ -5,9 +5,9 @@ let
 
 in
 {
-  home.packages = [
-    pkgs.gnupg # for email and git
-    pkgs.pinentry-curses # cli pin entry
+  home.packages = with pkgs; [
+    gnupg # for email and git
+    pinentry-curses # cli pin entry
   ];
 
   services.gpg-agent = {

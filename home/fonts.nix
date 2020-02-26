@@ -3,7 +3,7 @@
 {
   fonts.fontconfig.enable = true;
 
-  home.packages = [
-    pkgs.hack-font # used in st
+  home.packages = with pkgs; [
+    hack-font # used in st
   ];
 }
