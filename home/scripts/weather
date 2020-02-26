@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+curl "http://wttr.in/$1"
