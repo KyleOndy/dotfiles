@@ -39,6 +39,7 @@
     openvpn # covering my tracks
     pass-otp # pass + otp extension
     pixz # parallel (de)compresser for xz
+    pv # pipe progress
     ranger # cli file browser
     steam # games
     remmina # remote desktop client
