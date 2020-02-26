@@ -309,6 +309,7 @@ in
       " ## ale
       " -------------------------------------------------------------
       highlight ALEWarning ctermbg=DarkMagenta
+      let g:ale_linters = {'gitcommit': ['proselint']}
 
       " ## fzf
       " -------------------------------------------------------------
