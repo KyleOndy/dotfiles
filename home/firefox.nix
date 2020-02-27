@@ -11,6 +11,7 @@
         multi-account-containers
         privacy-badger
         umatrix
+        vim-vixen
       ];
     };
     browserpass = {
