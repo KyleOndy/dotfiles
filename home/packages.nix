@@ -44,6 +44,7 @@
     proselint # A linter for prose
     pv # pipe progress
     ranger # cli file browser
+    steam # games
     remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
     shellcheck # linting bash scripts
