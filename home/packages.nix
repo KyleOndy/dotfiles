@@ -40,6 +40,7 @@
     pass-otp # pass + otp extension
     pixz # parallel (de)compresser for xz
     ranger # cli file browser
+    steam # games
     remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
     shellcheck # linting bash scripts
