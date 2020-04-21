@@ -1,22 +1,38 @@
-# If applied, this commit will _________.
+# <type>: (If applied, this commit will...) <subject> (Max 50 char)
 # |<----  Using a Maximum Of 50 Characters  ---->|
 
-# Start with one of the following verbs.
-# -----
-# Add = Create a capability e.g. feature, test, dependency.
-# Cut = Remove a capability e.g. feature, test, dependency.
-# Fix = Fix an issue e.g. bug, typo, accident, misstatement.
-# Bump = Increase the version of something e.g. dependency.
-# Make = Change the build process, or tooling, or infra.
-# Start = Begin doing something; e.g. create a feature flag.
-# Stop = End doing something; e.g. remove a feature flag.
-# Refactor = A code change that MUST be just a refactoring.
-# Reformat = Refactor of formatting, e.g. omit whitespace.
-# Optimize = Refactor of performance, e.g. speed up code.
-# Document = Refactor of documentation, e.g. help files.
 
+# Explain why this change is being made
+# |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->|
 
-# Explain _why_ this change is being made as the first line.
-# Add additional detail as needed.
+# Provide links or keys to any relevant tickets, articles or other resources
+# Example: Github issue #23
 
-# Provide links to any relevant tickets, articles or other resources
+# --- COMMIT END ---
+# Type can be
+#    build    (Changes that affect the build system or external dependencies)
+#    chore    (Other changes that don't modify src or test files)
+#    ci       (Changes to our CI configuration files and scripts)
+#    config   (A change to configuration values)
+#    docs     (Documentation only changes)
+#    feat     (A new feature)
+#    fix      (A bug fix)
+#    perf     (A code change that improves performance)
+#    refactor (A code change that neither fixes a bug nor adds a feature)
+#    revert   (Reverts a previous commit)
+#    style    (Changes that do not affect the meaning of the code (white-space, etc)
+#    test     (Adding missing tests or correcting existing tests)
+# --------------------
+# Remember to
+#    Capitalize the subject line
+#    Use the imperative mood in the subject line
+#    Do not end the subject line with a period
+#    Separate subject from body with a blank line
+#    Use the body to explain what and why vs. how
+#    Can use multiple lines with "-" for bullet points in body
+# --------------------
+# For more information about this template, check out
+# https://gist.github.com/adeekshith/cd4c95a064977cdc6c50
+# --------------------
+# For more information about commit types, check out
+# https://www.conventionalcommits.org/en/v1.0.0/
