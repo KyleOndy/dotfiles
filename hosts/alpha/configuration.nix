@@ -44,6 +44,8 @@
   # no adhoc user managment
   users.mutableUsers = false;
 
+  virtualisation.docker.extraOptions = "--registry-mirror=http://unifi.lan.509ely.com:5000";
+
   system.stateVersion = "19.09"; # Did you read the comment?
 
   # steam
