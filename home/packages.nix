@@ -63,6 +63,7 @@
     wget # get a file from the internet
     xclip # copy something to the clipboard
     xz # compression format
+    youtube-dl # download videos from youtube and others
     yq-go # like jq, but for yaml
     zathura # lightweight PDF viewer
     zbar # barcode reader, mostly used to import OTP into pass
