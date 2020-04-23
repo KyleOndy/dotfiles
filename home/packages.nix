@@ -44,7 +44,6 @@
     proselint # A linter for prose
     pv # pipe progress
     ranger # cli file browser
-    steam # games
     remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
     shellcheck # linting bash scripts
@@ -54,6 +53,7 @@
     squashfsTools # create and unpack squashfs
     st # lightweight terminal
     stack # Haskell build tooling
+    steam # games
     terraform # infrastructure as code
     terraform-docs # auto documentation generation
     tflint # better terraform linter
