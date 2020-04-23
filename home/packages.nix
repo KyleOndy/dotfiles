@@ -24,6 +24,7 @@
     ghc # Glasgow Haskell compiler
     go-jira # cli for interacting with Jira
     htop # system diagnostics
+    inotify-tools # watch the file system for changes
     insomnia # rest client
     ispell # spell checking
     jq # easy json formatting
