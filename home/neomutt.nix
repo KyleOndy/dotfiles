@@ -19,5 +19,6 @@ in
     + /neomutt/macros.muttrc;
     configFile."neomutt/gpg.muttrc".source = old_dots + /neomutt/gpg.muttrc;
     configFile."neomutt/hooks.muttrc".source = old_dots + /neomutt/hooks.muttrc;
+    configFile."neomutt/mailcap.muttrc".source = old_dots + /neomutt/mailcap.muttrc;
   };
 }
