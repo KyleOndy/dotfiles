@@ -59,6 +59,7 @@
     tflint # better terraform linter
     tree # directory listing
     unzip # unzip things
+    virtmanager # manage KVM
     w3m # browse the web from the cli, like it was meant to be
     weechat # IRC client
     wget # get a file from the internet
