@@ -48,6 +48,9 @@
       include () {
         [[ -f "$1" ]] && source "$1"
       }
+
+      # shell hooks
+      eval "$(direnv hook zsh)"
     '';
   };
 }
