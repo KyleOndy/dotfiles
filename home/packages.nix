@@ -72,6 +72,7 @@
     zoom-us # video confrence
 
     #hashi tools
+    nomad
     packer
     terraform
     vault
