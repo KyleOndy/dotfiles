@@ -129,7 +129,7 @@
   # easy way to open commit in $EDITOR
   cm        = commit
   # reword the last commit
-  amend     = commit --amend
+  reword    = commit --amend
   # add staged changes to last commit, keeping that message
   forgot    = commit --amend -C HEAD
   # quickly create a commit with a message on the command line.
