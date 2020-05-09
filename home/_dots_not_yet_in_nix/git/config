@@ -177,6 +177,8 @@
   fix-commit = ! git commit --edit --file=.git/COMMIT_EDITMSG
   # easily follow the history of a single file
   file-history = log -p -M --follow --stat
+  # non-interactively apply the current staged files to a ref
+  amend-to = "!f() { git commit --fixup \"$1\" && GIT_SEQUENCE_EDITOR=true git rebase --interactive --autosquash \"$1^\";}; f"
 [gpg]
   # do not use `gpg`, always use `gpg2`.
   program = gpg2
