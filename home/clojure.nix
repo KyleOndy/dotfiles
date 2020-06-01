@@ -6,8 +6,5 @@
     clojure
     joker # linter
     leiningen # build tooling
-
-    # try using IntelliJ  and cursive
-    jetbrains.idea-community
   ];
 }
