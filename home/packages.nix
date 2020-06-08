@@ -35,6 +35,7 @@
     manpages # developer documentation
     molly-guard # prevent footguns from runing my day
     mosh # better ssh
+    niv # nix package pinning
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
     nmap # network mapping and scanning
