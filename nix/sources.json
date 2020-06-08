@@ -46,5 +46,17 @@
         "type": "tarball",
         "url": "https://github.com/NixOS/nixpkgs-channels/archive/029a5de08390bb03c3f44230b064fd1850c6658a.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "pre-commit-hooks.nix": {
+        "branch": "master",
+        "description": "Seamless integration of https://pre-commit.com git hooks with Nix.",
+        "homepage": "",
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "rev": "221f55b861e8c872e542c0d2e85073f7e5eb997d",
+        "sha256": "0xlb76x7km597vs6i5hhhk5w4iylay6sshlpaddb0mhgag97n5pg",
+        "type": "tarball",
+        "url": "https://github.com/cachix/pre-commit-hooks.nix/archive/221f55b861e8c872e542c0d2e85073f7e5eb997d.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
