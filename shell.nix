@@ -8,25 +8,14 @@ let
 in
 pkgs.mkShell {
   buildInputs = with pkgs; [
-    # for pure shell
     nix
     hm.home-manager
-
-    # for nixpkgs-fmt
-    nixpkgs-fmt
-    cargo
-
-    # pre-commit
-    # https://pre-commit.com/
-    pre-commit
-    detect-secrets
-    shfmt
-    ruby
   ];
   # if the system wide enviroemtn has been borked, or is being configured for
   # the first time, `nix-shell --pure` should be able to get you back up and
   # running. A little safety net.
   shellHook = ''
     export NIX_PATH=nixpkgs=${pkgs.path}
+    ${(import ./default.nix).pre-commit-check.shellHook}
   '';
 }
