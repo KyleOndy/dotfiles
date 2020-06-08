@@ -34,6 +34,7 @@ Another benefit is quickly bringing a new machine to my desired state.
 │   ├── README.md             # more detailed information about hosts
 ├── .editorconfig             # keeping the style sane
 ├── .envrc                    # automatically load shell.nix
+├── keyboard                  # ergodox_ez / qmk configuration
 ├── nix                       # dependency pinning with niv
 ├── make.sh                   # script to build / switch / update the system
 ├── default.nix               # needed for dependency pinning and pre-commit checks
