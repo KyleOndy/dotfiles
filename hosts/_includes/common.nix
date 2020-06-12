@@ -43,6 +43,10 @@
       enableSSHSupport = true;
     };
     mosh.enable = true;
+    less = {
+      enable = true;
+      envVariables = { LESS = "--quit-if-one-screen --RAW-CONTROL-CHARS --no-init"; };
+    };
   };
   # todo: will this work, or do I need to pass in explicit git hash?
   environment.etc."nixos/active".text = config.system.nixos.label;
