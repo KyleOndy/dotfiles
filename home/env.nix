@@ -5,9 +5,17 @@ let
   editor = "nvim";
 in
 {
-  programs.fzf = {
-    enable = true;
-    enableZshIntegration = true;
+  programs = {
+    bat = {
+      enable = true;
+      config = {
+        theme = "Solarized (dark)"; # todo: add gruvbox
+      };
+    };
+    fzf = {
+      enable = true;
+      enableZshIntegration = true;
+    };
   };
 
   home.sessionVariables = {
