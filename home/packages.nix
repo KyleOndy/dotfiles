@@ -9,7 +9,6 @@
     ansible # system administration automation
     atop # system monitoring
     awscli # interacting with AWS
-    bat # a better pager
     bc # the classic calculator
     calcurse # cli calendar
     cifs-utils # todo: why do I need this?
