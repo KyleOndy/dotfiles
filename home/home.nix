@@ -45,13 +45,8 @@ in
         (attrNames (readDir path))
     );
 
-  # todo: can this be pulled down with a git submodule?
-  # the NUR is needed for adding extensions to firefox.
   nixpkgs.config.packageOverrides = pkgs: {
-    nur = import (
-      builtins.fetchTarball
-        "https://github.com/nix-community/NUR/archive/master.tar.gz"
-    ) {
+    nur = import sources.NUR {
       inherit pkgs;
     };
   };
