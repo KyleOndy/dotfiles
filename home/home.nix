@@ -12,7 +12,6 @@ in
   # import each nix file into home-manager
   imports = [
     ./clojure.nix
-    ./emacs.nix
     ./email.nix
     ./env.nix
     ./firefox.nix
