@@ -53,6 +53,17 @@
       eval "$(direnv hook zsh)"
 
       # my quality of life functions
+
+      # less keystrokes for common actions
+      f() {
+        if [[ -f "$1" ]]; then
+          $EDITOR "$1"
+        elif [[ -d "$1" ]]; then
+          cd "$1" || exit 1
+          ls
+        fi
+      }
+
       fzf_pick_git_commit() {
         # I've already put a lot of time into my `git lg` alias an am very
         # familiar with how it looks. I am just reusing most of the logic here.
