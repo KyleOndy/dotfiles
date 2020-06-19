@@ -52,6 +52,12 @@
       # shell hooks
       eval "$(direnv hook zsh)"
 
+      # zsh tweaks not included in home-manager.
+      # todo: add these to home-manager and contribute upsteam
+
+      # reduce <ESC> key timeout in vim mode
+      export KEYTIMEOUT=1
+
       # my quality of life functions
 
       # less keystrokes for common actions
