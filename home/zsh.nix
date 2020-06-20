@@ -62,7 +62,9 @@
 
       # less keystrokes for common actions
       f() {
-        if [[ -f "$1" ]]; then
+        if [[ -z "$1" ]]; then
+          ls
+        elif [[ -f "$1" ]]; then
           $EDITOR "$1"
         elif [[ -d "$1" ]]; then
           cd "$1" || exit 1
