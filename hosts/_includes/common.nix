@@ -49,7 +49,7 @@
     };
   };
   # todo: will this work, or do I need to pass in explicit git hash?
-  environment.etc."nixos/active".text = config.system.nixos.label;
+  #environment.etc."nixos/active".text = config.system.nixos.label;
   environment.sessionVariables = {
     # todo: does this still hold?
     # need to set this at the system level since i3 is started before I can login as a user and environment variables I set are within child processes.
