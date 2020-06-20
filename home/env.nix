@@ -2,7 +2,7 @@
 { pkgs, ... }:
 
 let
-  editor = "nvim";
+  editor = "${pkgs.neovim}/bin/nvim";
 in
 {
   programs = {
