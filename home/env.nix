@@ -19,7 +19,7 @@ in
   };
 
   home.sessionVariables = {
-    DOTFILES = "/home/kyle/src/dotfiles";
+    DOTFILES = "${builtins.getEnv "HOME"}/src/dotfiles";
     # todo:
     EDITOR = editor;
     VISUAL = editor;
