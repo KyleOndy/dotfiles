@@ -33,7 +33,6 @@
     oh-my-zsh = {
       enable = true;
       plugins = [
-        "colored-man-pages"
         "docker"
         "gitfast"
         "pass"
