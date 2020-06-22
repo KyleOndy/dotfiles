@@ -3,7 +3,7 @@
 
 {
   home.packages = with pkgs; [
-    my-scripts # my personal scripts
+    my-scripts # personal scripts. See `scripts` and `overlay` folder
 
     ag # A code-searching tool similar to ack, but faster
     ansible # system administration automation
