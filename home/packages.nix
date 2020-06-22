@@ -55,9 +55,6 @@
     st # lightweight terminal
     stack # Haskell build tooling
     steam # games # todo: I should break this out into gaming.nix
-    terraform # infrastructure as code
-    terraform-docs # auto documentation generation
-    tflint # better terraform linter
     tree # directory listing
     unzip # unzip things
     virtmanager # manage KVM
@@ -72,10 +69,18 @@
     zbar # barcode reader, mostly used to import OTP into pass
     zoom-us # video confrence
 
-    #hashi tools
+    # hashi tools, first and third party
+    #
+    # I am not sure the value of having these randomly available on PATH. In
+    # any real use case they are going to be pinned within the project
+    # repository. It wouls still feel weird to not having hace them always
+    # available.
     nomad
     packer
-    terraform
+    terraform # infrastructure as code
+    terraform-docs # auto documentation generation
+    tflint # better terraform linter
+    tfsec #  static analysis of terraform
     vault
   ];
 
