@@ -6,6 +6,7 @@ in
   pre-commit-check = nix-pre-commit-hooks.run {
     src = ./.;
     hooks = {
+      nix-linter.enable = true;
       nixpkgs-fmt.enable = true;
       shellcheck.enable = true;
     };
