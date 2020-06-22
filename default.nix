@@ -10,6 +10,7 @@ in
       nixpkgs-fmt.enable = true;
       shellcheck.enable = true;
       terraform-format.enable = true;
+      yamllint.enable = true;
     };
   };
 }
