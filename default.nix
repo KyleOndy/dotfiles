@@ -9,6 +9,7 @@ in
       nix-linter.enable = true;
       nixpkgs-fmt.enable = true;
       shellcheck.enable = true;
+      terraform-format.enable = true;
     };
   };
 }
