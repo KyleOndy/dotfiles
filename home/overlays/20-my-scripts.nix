@@ -19,7 +19,7 @@ self: super: {
       homepage = https://github.com/kyleondy;
       license = licenses.mit;
       maintainers = with maintainers; [ kyleondy ];
-      platforms = platforms.linux;
+      platforms = platforms.linux ++ platforms.darwin;
     };
   };
 
