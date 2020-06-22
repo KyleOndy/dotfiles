@@ -41,6 +41,14 @@ Another benefit is quickly bringing a new machine to my desired state.
 └── shell.nix                 # setting up the project environment
 ```
 
+## Roadmap / Todo
+
+Some random thoughts on how to make things better
+
+- Don't switch NixOS configuration if no change.
+  Faster and no password needed.
+- Support nix-darwin (new work computer)
+
 ## External Resources
 
 These are other people's dotfiles and articles I found useful while setting my environment up.
