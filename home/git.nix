@@ -193,5 +193,6 @@ in
   home.packages = with pkgs;
     [
       gitAndTools.pre-commit # manage git precommit hooks
+      git-lfs
     ];
 }
