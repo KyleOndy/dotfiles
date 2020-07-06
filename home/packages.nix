@@ -49,7 +49,6 @@
     ripgrep # recursively searches directories for a regex pattern
     shellcheck # linting bash scripts
     shfmt # shell (bash) formatting
-    slack # chat
     smbnetfs # todo: why do I need this?
     squashfsTools # create and unpack squashfs
     st # lightweight terminal
