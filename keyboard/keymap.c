@@ -29,7 +29,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *   | CTRL |  Alt |      | LGui |LSft(()|                                       |RSft())|Ctrl|      |  Alt | Ctrl   |
  *   `-----------------------------------'                                       `-----------------------------------'
  *                                        ,-------------.       ,--------------.
- *                                        | BSpc | Del  |       | Del  |  BSpc |
+ *                                        |      |      |       |      |       |
  *                                 ,------|------|------|       |------+--------+------.
  *                                 |      |      |      |       |      |        |      |
  *                                 | Space|Enter |------|       |------| Enter  |Space |
@@ -44,7 +44,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   KC_ESC,   KC_Z,     KC_X,   KC_C,     KC_V,   KC_B,   KC_COMM,      KC_DOT,   KC_N,   KC_M,   KC_COMM,  KC_DOT,   KC_NO,    KC_SLSH,
   KC_LCTL,  KC_LALT,  KC_NO,  KC_LGUI,  KC_LSPO,                                       KC_RSPC, KC_RCTL,  KC_NO,    KC_RALT,  KC_RCTL,
 
-                                                KC_BSPC, KC_DEL,      KC_DEL, KC_BSPC,
+                                                KC_NO,    KC_NO,      KC_NO,   KC_NO,
                                                           KC_NO,      KC_NO,
                                       KC_SPC,   KC_ENT,   KC_LALT,    KC_RCTL, KC_ENT, KC_SPC
 
