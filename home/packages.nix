@@ -23,6 +23,7 @@
     fortune # fun tidbits
     ghc # Glasgow Haskell compiler
     go-jira # cli for interacting with Jira
+    golden-cheetah # cycling analytics
     htop # system diagnostics
     inotify-tools # watch the file system for changes
     insomnia # rest client
