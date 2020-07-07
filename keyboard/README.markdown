@@ -48,3 +48,7 @@ Here is a blank keymap to paste into `keymap.c` if I want to start over
  *                                 |      |      |      |       |      |        |      |
  *                                 `--------------------'       `----------------------'
 ```
+
+## Helpful links
+
+- [Full list of QMK keycodes](https://beta.docs.qmk.fm/using-qmk/simple-keycodes/keycodes)
