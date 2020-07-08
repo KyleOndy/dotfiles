@@ -31,7 +31,7 @@
       tree3 = "tree -L 3 $@";
     };
     oh-my-zsh = {
-      enable = true;
+      enable = false;
       plugins = [
         "docker"
         "gitfast"
