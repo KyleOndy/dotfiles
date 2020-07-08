@@ -90,6 +90,19 @@
       }
       zle -N _zle_pick_git_commit
       bindkey '^y' _zle_pick_git_commit
+
+      # todo: not sure this is the best way to instll the theme
+      mkdir -p "$HOME/.zfunctions"
+      fpath=( "$HOME/.zfunctions" $fpath )
+      ln -sf "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh" "$HOME/.zfunctions/prompt_spaceship_setup"
+      autoload -U promptinit; promptinit
+      prompt spaceship
+      export SPACESHIP_TIME_SHOW=true # show timestamps in prompt
+      eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
     '';
   };
+  home.packages = with pkgs;
+    [
+      spaceship-prompt # promt for zsh
+    ];
 }
