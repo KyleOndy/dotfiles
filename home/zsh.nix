@@ -30,19 +30,6 @@
       tree2 = "tree -L 2 $@";
       tree3 = "tree -L 3 $@";
     };
-    oh-my-zsh = {
-      enable = false;
-      plugins = [
-        "docker"
-        "gitfast"
-        "pass"
-        "pip"
-        "rbenv"
-        "ssh-agent"
-        "sudo"
-      ];
-      theme = "juanghurtado";
-    };
     initExtra = ''
       include () {
         [[ -f "$1" ]] && source "$1"
