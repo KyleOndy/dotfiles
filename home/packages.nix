@@ -79,6 +79,7 @@
     packer
     terraform # infrastructure as code
     terraform-docs # auto documentation generation
+    terragrunt # more tooling for tf
     tflint # better terraform linter
     tfsec #  static analysis of terraform
     vault
