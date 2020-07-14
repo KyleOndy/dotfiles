@@ -72,6 +72,9 @@
       bindkey "^[[A" history-beginning-search-backward
       bindkey "^[[B" history-beginning-search-forward
 
+      # match my binding for [neo]vim
+      bindkey -M viins 'jk' vi-cmd-mode
+
       # fancy git + fzf
       # todo: refactor this into its own script and just source it
       is_in_git_repo() {
