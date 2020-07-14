@@ -44,6 +44,10 @@
       # reduce <ESC> key timeout in vim mode
       export KEYTIMEOUT=50
 
+      # change the auto-completion color
+      # todo: there is probably a better way
+      export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
+
       # my quality of life functions
 
       # less keystrokes for common actions
