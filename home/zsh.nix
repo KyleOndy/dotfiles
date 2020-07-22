@@ -76,6 +76,9 @@
       bindkey "^[[A" history-beginning-search-backward
       bindkey "^[[B" history-beginning-search-forward
 
+      # I really want the vi binding to more vim like
+      bindkey -v '^?' backward-delete-char # allow backspace key to work as expected
+
       # match my binding for [neo]vim
       bindkey -M viins 'jk' vi-cmd-mode
 
