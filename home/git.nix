@@ -68,7 +68,6 @@ in
     };
     delta = {
       enable = true;
-      options = [ "--theme='Monokai Extended'" ];
     };
     signing = {
       # signed commits don't _really_ help, because no one will ever verify
