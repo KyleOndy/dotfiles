@@ -30,6 +30,7 @@
     insomnia # rest client
     ispell # spell checking
     jq # easy json formatting
+    k9s # stylish kubernetes management
     lesspipe # auto piping into less
     libreoffice # getting things done
     lsof # how is this not in the base system?
