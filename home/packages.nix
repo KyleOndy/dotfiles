@@ -43,7 +43,7 @@
     nixpkgs-fmt # formatter for nix
     nmap # network mapping and scanning
     openvpn # covering my tracks
-    pass-otp # pass + otp extension
+    (pass.withExtensions (ext: [ ext.pass-otp ])) # pass + otp extension
     passff-host # firefox plugin host extension
     pixz # parallel (de)compresser for xz
     proselint # A linter for prose
