@@ -79,6 +79,11 @@
       # I really want the vi binding to more vim like
       bindkey -v '^?' backward-delete-char # allow backspace key to work as expected
 
+      # open the commnad line in $EDITOR
+      autoload -z edit-command-line
+      zle -N edit-command-line
+      bindkey -M vicmd v edit-command-line
+
       # match my binding for [neo]vim
       bindkey -M viins 'jk' vi-cmd-mode
 
