@@ -72,6 +72,9 @@
       export SPACESHIP_TIME_SHOW=true # show timestamps in prompt
       eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
 
+      # nicer autocomplete selections
+      zstyle ':completion:*' menu select
+
       # easily cycle through history with up and down arrow
       bindkey "^[[A" history-beginning-search-backward
       bindkey "^[[B" history-beginning-search-forward
