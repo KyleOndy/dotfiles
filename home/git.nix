@@ -46,7 +46,7 @@ in
       # before starting any work on a branch.
       sync = "! git fetch --all --prune; git rebase --rebase-merges --autostash && git status";
       # add everything to a commit to comeback to later
-      wip = "! git add -A && git commit -m 'WIP: savepoint via alias.'";
+      wip = "! git add -A && git commit -m 'WIP: savepoint via alias.' -m 'No pre-commit hooks have been run' --no-verify --no-gpg-sign";
       # like wip, but probably not coming back, reset to last commit too.
       ditch = "! git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard";
       # show the upstream
