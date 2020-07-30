@@ -24,6 +24,8 @@ in
       forgot = "commit --amend -C HEAD";
       # quickly create a commit with a message on the command line.
       cmm = "commit -m";
+      # show to root directory of the git repo
+      root = "rev-parse --show-toplevel";
       # show diff with words highlighted.
       wdiff = "diff --color-words";
       # quickly checkout a branch.
