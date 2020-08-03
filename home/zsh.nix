@@ -181,7 +181,8 @@
         config_dir="$HOME/.kube/configs"
         # becuase at $WORK I use darwin, I don't have GNU find, and need to do
         # these shenanigans with `basename`.
-        kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | _fzf)
+        kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | sort |
+        _fzf --preview "bat --color=always "$config_dir/{}"")
         export KUBECONFIG="$config_dir/$kubeconfig"
       }
       zle -N fzf_pick_kube_config
