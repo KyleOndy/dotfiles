@@ -174,6 +174,18 @@
       }
       zle -N fzf_pick_aws_profile
       bindkey '^a^p' fzf_pick_aws_profile
+
+      # easily export which kube config I want. I can't break things if I can
+      # not connect to the cluster.
+      fzf_pick_kube_config() {
+        config_dir="$HOME/.kube/configs"
+        # becuase at $WORK I use darwin, I don't have GNU find, and need to do
+        # these shenanigans with `basename`.
+        kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | _fzf)
+        export KUBECONFIG="$config_dir/$kubeconfig"
+      }
+      zle -N fzf_pick_kube_config
+      bindkey '^k^k' fzf_pick_kube_config
     '';
   };
   home.packages = with pkgs;
