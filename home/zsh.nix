@@ -167,6 +167,13 @@
       }
       zle -N fzf-git-branch-widget
       bindkey '^g^b' fzf-git-branch-widget
+
+      fzf_pick_aws_profile() {
+        aws_profile=$(grep '[.*]' "$HOME/.aws/credentials" | cut -c 2- | rev | cut -c 2- | rev | _fzf)
+        export AWS_PROFILE="$aws_profile"
+      }
+      zle -N fzf_pick_aws_profile
+      bindkey '^a^p' fzf_pick_aws_profile
     '';
   };
   home.packages = with pkgs;
