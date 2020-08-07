@@ -19,6 +19,7 @@
     docker-compose
     dos2unix # windows line endings => unix
     dropbox-cli # dropbox and the cli to interact with it
+    entr # run arbitrary commands when files change
     fd # an easier to use `find`
     file # what type of file is this?
     fortune # fun tidbits
