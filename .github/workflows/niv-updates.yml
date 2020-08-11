@@ -1,0 +1,29 @@
+---
+name: Automated niv-managed dependency updates
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # run this every day at 4:00am
+    - cron: '0 4 * * *'
+jobs:
+  niv-updater:
+    name: 'Create PRs for niv-managed dependencies'
+    runs-on: ubuntu-latest
+    steps:
+      # notice there is no checkout step
+      - name: niv-updater-action
+        uses: knl/niv-updater-action@v5
+        # env:
+        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          labels: |
+            documentation
+            good first issue
+          # Let's not show merges in the changelog
+          show_merges: false
+          # Have some prefix and a suffix. Use '|' to keep newlines
+          message_prefix: |
+            ## Motivation
+
+            Dependencies should be up to date.
+          title_prefix: "feat:"
