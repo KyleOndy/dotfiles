@@ -92,6 +92,10 @@
 
       setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
 
+      # this is bound to '\ec' (alt-c) by defaul, but I really like having this
+      # shortcut available on a control key combo
+      bindkey '^e' fzf-cd-widget
+
       # fancy git + fzf
       # todo: refactor this into its own script and just source it
       is_in_git_repo() {
