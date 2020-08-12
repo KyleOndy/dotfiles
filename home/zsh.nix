@@ -90,6 +90,8 @@
       # match my binding for [neo]vim
       bindkey -M viins 'jk' vi-cmd-mode
 
+      setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
+
       # fancy git + fzf
       # todo: refactor this into its own script and just source it
       is_in_git_repo() {
