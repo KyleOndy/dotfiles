@@ -40,6 +40,8 @@ in
       s = "status";
       # show what files are ignored by the .gitignore
       ignored = "ls-files . --ignored --exclude-standard --others";
+      # show what files are currently untracked
+      untracked = "ls-files . --exclude-standard --others";
       # edit all files that are changed in the current working directory.
       edit = "! $EDITOR $(git diff --name-only)";
       # list all local branches, sorted by last commit date.
