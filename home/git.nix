@@ -38,6 +38,8 @@ in
       unstage = "reset HEAD";
       # status is _just_ too long to type.
       s = "status";
+      # show what files are ignored by the .gitignore
+      ignored = "ls-files . --ignored --exclude-standard --others";
       # edit all files that are changed in the current working directory.
       edit = "! $EDITOR $(git diff --name-only)";
       # list all local branches, sorted by last commit date.
