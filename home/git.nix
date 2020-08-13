@@ -42,6 +42,8 @@ in
       ignored = "ls-files . --ignored --exclude-standard --others";
       # show what files are currently untracked
       untracked = "ls-files . --exclude-standard --others";
+      # a hacky, and not gaurented way, to print the url of the webui of a repo.
+      url = "! git config remote.origin.url | cut -d@ -f2 | tr : /";
       # edit all files that are changed in the current working directory.
       edit = "! $EDITOR $(git diff --name-only)";
       # list all local branches, sorted by last commit date.
