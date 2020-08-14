@@ -73,7 +73,7 @@
       eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
 
       # nicer autocomplete selections
-      zstyle ':completion:*' menu select
+      zstyle ':completion:*' menu select # use arrows to navigate autocomplete results
 
       # easily cycle through history with up and down arrow
       bindkey "^[[A" history-beginning-search-backward
