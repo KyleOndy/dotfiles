@@ -74,6 +74,7 @@
 
       # nicer autocomplete selections
       zstyle ':completion:*' menu select # use arrows to navigate autocomplete results
+      zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # lowers match uppers
 
       # easily cycle through history with up and down arrow
       bindkey "^[[A" history-beginning-search-backward
