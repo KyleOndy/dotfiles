@@ -41,7 +41,6 @@ function retry() {
       sleep "$sleep_time"
       i=$((i+1))
       sleep_time=$((sleep_time * 2))
-      $COMMAND
     done
 
     if [ "$i" -eq "$MAX_RETRIES" ]
