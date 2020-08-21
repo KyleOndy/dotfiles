@@ -8,7 +8,7 @@
     ag # A code-searching tool similar to ack, but faster
     ansible # system administration automation
     atop # system monitoring
-    awscli # interacting with AWS
+    awscli2 # interacting with AWS
     bc # the classic calculator
     calcurse # cli calendar
     cifs-utils # todo: why do I need this?
