@@ -224,6 +224,17 @@ in
       " Toggle between normal and relative numbering.
       nnoremap <leader>r :call NumberToggle()<cr>
 
+      " WordWrap toggle
+      function! WrapToggle()
+        if(&wrap == 1)
+          set nowrap
+        else
+          set wrap
+        enfif
+      endfunc
+
+      nnoremap <leader>s :call WrapToggle()<cr>
+
       " # keybindings
       " -------------------------------------------------------------
 
