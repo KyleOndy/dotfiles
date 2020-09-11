@@ -81,7 +81,7 @@
     # any real use case they are going to be pinned within the project
     # repository. It wouls still feel weird to not having hace them always
     # available.
-    nomad
+    nomad_0_12
     packer
     terraform # infrastructure as code
     terraform-docs # auto documentation generation
