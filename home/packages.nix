@@ -27,6 +27,7 @@
     ghc # Glasgow Haskell compiler
     go-jira # cli for interacting with Jira
     golden-cheetah # cycling analytics
+    gron # make JSON greppable
     htop # system diagnostics
     inotify-tools # watch the file system for changes
     insomnia # rest client
