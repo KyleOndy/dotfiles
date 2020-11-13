@@ -17,6 +17,7 @@
       ncm2-jedi # fast python completion (use ncm2 if you want type info or snippet support)
       nvim-yarp # dependency of ncm2
       editorconfig-vim # respect editorconfig
+      float-preview-nvim # prettier previews
       fzf-vim # fuzzy file finder
       ghcmod-vim
       gruvbox # color scheme
@@ -24,9 +25,10 @@
       rainbow # easier matching of parans
       surround # easy wrapping
       tmux-complete-vim # completion from tmux windows
+      jedi-vim # jedi for python
       vim-airline # status bar
       vim-airline-themes # status bar themes
-      jedi-vim # jedi for python
+      vim-clap # interactive finder and dispatcher,
       vim-fugitive # vim operations
       vim-gitgutter # show changes in gutter
       vim-hdevtools
@@ -420,6 +422,10 @@
       let g:jedi#show_call_signatures = "1"
 
       " -------------------------------------------------------------
+      " float preview
+      " let g:float_preview#docked = 0
+      " let g:float_preview#max_width = 80
+      " let g:float_preview#max_height = 40
     '';
   };
 }
