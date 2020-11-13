@@ -1,10 +1,6 @@
 # todo: clean this whole file up. Been doing lots of hacking.
 { pkgs, ... }:
 
-let
-  old_dots = import ./_dotfiles-dir.nix;
-
-in
 {
   programs.neovim = {
     enable = true;
