@@ -14,7 +14,7 @@ in
     bat = {
       enable = true;
       config = {
-        theme = "Solarized (dark)"; # todo: add gruvbox
+        theme = "gruvbox";
       };
     };
     fzf = {
