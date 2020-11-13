@@ -1,10 +1,9 @@
 { ... }:
 let
   sources = import ../nix/sources.nix;
-  home-manager = import sources.home-manager {};
+  home-manager = import sources.home-manager { };
 in
-
-  # This is the entrypoint for home-manager. This file should mainly be to import
+# This is the entrypoint for home-manager. This file should mainly be to import
   # other more specific files
 
 {
@@ -32,16 +31,18 @@ in
   # import all the overlays that extend packages via nix or home-manager.
   # Overlays are a nix file within the `overlay` folder or a sub folder in
   # `overlay` that contains a `default.nix`.
-  nixpkgs.overlays = let
-    path = ./overlays;
-  in
+  nixpkgs.overlays =
+    let
+      path = ./overlays;
+    in
     with builtins;
     map (n: import (path + ("/" + n))) (
-      filter (
-        n:
+      filter
+        (
+          n:
           match ".*\\.nix" n != null
           || pathExists (path + ("/" + n + "/default.nix"))
-      )
+        )
         (attrNames (readDir path))
     );
 
