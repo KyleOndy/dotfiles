@@ -13,16 +13,5 @@ jobs:
       # notice there is no checkout step
       - name: niv-updater-action
         uses: knl/niv-updater-action@v5
-        # env:
-        #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          labels: |
-            documentation
-            good first issue
-          # Let's not show merges in the changelog
-          show_merges: false
-          # Have some prefix and a suffix. Use '|' to keep newlines
-          message_prefix: |
-            ## Motivation
-
-            Dependencies should be up to date.
+        env:
+          GITHUB_TOKEN: ${{ secrets.NIV_GITHUB_TOKEN }}
