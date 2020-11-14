@@ -1,6 +1,6 @@
 # This is a catchall for configuration items that are common across all
 # machines and at this time do not make sense to break out into their own file.
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   # Set your time zone.
@@ -74,15 +74,15 @@
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
-  nix = {
-    distributedBuilds = true;
-    buildMachines = [
-      {
-        hostName = "eu.nixbuild.net";
-        system = "x86_64-linux";
-        maxJobs = 100;
-        supportedFeatures = [ "benchmark" "big-parallel" ];
-      }
-    ];
-  };
+  #nix = {
+  #  distributedBuilds = true;
+  #  buildMachines = [
+  #    {
+  #      hostName = "eu.nixbuild.net";
+  #      system = "x86_64-linux";
+  #      maxJobs = 100;
+  #      supportedFeatures = [ "benchmark" "big-parallel" ];
+  #    }
+  #  ];
+  #};
 }
