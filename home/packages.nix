@@ -19,7 +19,6 @@
     dnsutils # dig
     docker-compose
     dos2unix # windows line endings => unix
-    dropbox-cli # dropbox and the cli to interact with it
     entr # run arbitrary commands when files change
     envsubst
     fd # an easier to use `find`

@@ -1,6 +1,5 @@
 # settings that are not specific to the shell being used.
 { pkgs, ... }:
-
 let
   # todo: I would like to do something like `${pkgs.neovim}/bin/nvim";`, but
   # that is the system neovim binary without my configuration. If I run
@@ -21,6 +20,10 @@ in
       enable = true;
       enableZshIntegration = true;
     };
+  };
+
+  services = {
+    dropbox.enable = true;
   };
 
   home.sessionVariables = {
