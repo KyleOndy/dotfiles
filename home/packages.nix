@@ -53,7 +53,6 @@
     pixz # parallel (de)compresser for xz
     proselint # A linter for prose
     pv # pipe progress
-    qutebrowser # browser without leaving the keyboard
     ranger # cli file browser
     remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
