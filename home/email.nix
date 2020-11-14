@@ -3,7 +3,7 @@
 # accounts at one.
 #
 # I need to look into solutions to this, but set up my main account for now.
-{ pkgs, ... }:
+{ ... }:
 
 {
   programs.mbsync.enable = true;
