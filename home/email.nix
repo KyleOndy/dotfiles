@@ -13,7 +13,7 @@
     hooks = { preNew = "mbsync --all"; };
   };
   accounts.email = {
-    maildirBasePath = "./mail";
+    maildirBasePath = "mail";
     accounts.kyle_at_ondy_org = {
       address = "kyle@ondy.org";
       maildir.path = "ondy.org";
