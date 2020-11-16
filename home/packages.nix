@@ -45,6 +45,7 @@
     niv # nix package pinning
     nixfmt # formatter for nix files
     nixpkgs-fmt # formatter for nix
+    nixpkgs-review # easily dev on nixpkgs
     nmap # network mapping and scanning
     openvpn # covering my tracks
     (pass.withExtensions (ext: [ ext.pass-otp ])) # pass + otp extension
