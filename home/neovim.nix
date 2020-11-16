@@ -4,18 +4,20 @@
 {
   programs.neovim = {
     enable = true;
+    package = pkgs.neovim-nightly;
     withNodeJs = true; # enable node provider
     withPython3 = true;
     # these plugins can be found in `nixpkgs/pkgs/misc/vim-plugins`.
     plugins = with pkgs.vimPlugins; [
-      #LanguageClient-neovim   # offload language specific autocompletes and lints
+      # general language agnostic plugins
+      nvim-treesitter
+      nvim-lspconfig
+      tmux-complete-vim
+      vim-signify
+      git-messenger-vim
+
       ack-vim # Run your favorite search tool from Vim, with an enhanced results list
       ale # linting of almost all languages
-      ncm2 # awesome autocomplete plugin
-      ncm2-bufword # completion from other buffers
-      ncm2-path # filepath completion
-      ncm2-jedi # fast python completion (use ncm2 if you want type info or snippet support)
-      nvim-yarp # dependency of ncm2
       editorconfig-vim # respect editorconfig
       float-preview-nvim # prettier previews
       fzf-vim # fuzzy file finder
@@ -29,14 +31,12 @@
       vim-airline # status bar
       vim-airline-themes # status bar themes
       vim-clap # interactive finder and dispatcher,
-      vim-fugitive # vim operations
-      vim-gitgutter # show changes in gutter
       vim-hdevtools
       vim-nix # nix configuration
+      vim-polyglot # A collection of language packs for Vim.
       vim-ps1
       vim-puppet
       vim-signature # show marks in gutter
-      #vim-stylish-haskell
       vim-terraform
       vim-test # invoke test runner
       vim-tmux-navigator # move between nvim and tmux
@@ -47,7 +47,7 @@
       vim-clojure-static # Meikel Brandmeyer's Clojure runtime files
       vim-fireplace # Clojure REPL support
       vim-sexp # Precision Editing for S-expressions
-      vim-sexp-mappings-for-regular-people # tpope to the resuce again
+      vim-sexp-mappings-for-regular-people # tpope to the rescue again
     ];
     extraConfig = ''
       " # neovim setup
@@ -56,6 +56,9 @@
       " clobber other applications control sequences. Need to be mindful of tmux's
       " leader since neovim is very often run within a tmux session.
       let mapleader="\<SPACE>"
+
+      " 'Ex mode is fucking dumb' --sircmpwm
+      nnoremap Q <Nop>
 
       " set the prefered color scheme.
       colorscheme gruvbox
@@ -67,10 +70,17 @@
       set complete-=i
       " try and guess where the next line should be indented.
       set smartindent
-      " do notconsider octal (leading 0) as a number.
+      " do not consider octal (leading 0) as a number.
       set nrformats-=octal
       " greatly decraase the default (1000ms) timeout to wait for a mapped sequence to complete (<esc> sequences).
       set ttimeoutlen=100
+
+      " I never use backups
+      set nobackup
+      set nowritebackup
+
+      " Give more space for displaying messages. Useful for diagnostics
+      set cmdheight=2
 
       " # search settings
       " -------------------------------------------------------------
@@ -160,7 +170,12 @@
       " blocks.
       autocmd FileType lhaskell setlocal colorcolumn=72
 
-      set updatetime=100 " quicker updates
+      set updatetime=250 " quicker updates
+
+      " Don't pass messages to |ins-completion-menu|.
+      set shortmess+=c
+      " merge signcolumn and number column into one
+      " set signcolumn=number # todo: need nvim >= 0.5
 
       " Remove special characters for filename
       set isfname-=:
@@ -206,65 +221,11 @@
       inoremap <C-E> <End>
       inoremap <C-A> <Home>
 
-      " # gui options
-      " -------------------------------------------------------------
 
-      " Relative numbering
-      function! NumberToggle()
-        if(&relativenumber == 1)
-          set norelativenumber
-          set number
-        else
-          set relativenumber
-        endif
-      endfunc
-
-      " Toggle between normal and relative numbering.
-      nnoremap <leader>r :call NumberToggle()<cr>
-
-      " WordWrap toggle
-      function! WrapToggle()
-        if(&wrap == 1)
-          set nowrap
-        else
-          set wrap
-        enfif
-      endfunc
-
-      nnoremap <leader>s :call WrapToggle()<cr>
-
-      " # keybindings
-      " -------------------------------------------------------------
-
-      " Save file
-      nnoremap <Leader>w :w<CR>
-      " load
-      nnoremap <Leader>e :e<CR>
-      "Copy and paste from system clipboard
-      vmap <Leader>y "+y
-      vmap <Leader>d "+d
-      nmap <Leader>p "+p
-      nmap <Leader>P "+P
-      vmap <Leader>p "+p
-      vmap <Leader>P "+P
-
-      " Quickly edit/reload the vimrc file
-      nmap <silent> <leader>ev :e $DOTFILES/home/neovim.nix<CR>
-
-      nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
-
-      " open the file and move to bottom
-      nmap <silent> <leader>en :e `note --vim`<CR>G
 
       " # work with terminal
       " -------------------------------------------------------------
       "
-      nnoremap <silent> <leader>tt :terminal<CR>            " new terminal
-      nnoremap <silent> <leader>tv :vnew<CR>:terminal<CR>   " new terminal in vertical split
-      nnoremap <silent> <leader>th :new<CR>:terminal<CR>    " new terminal in Horizontal split
-      " Terminal settings
-      tnoremap <Leader><ESC> <C-\><C-n>                     " escape terminal mode with leader esc
-      tnoremap <Leader>jk <C-\><C-n>                        " or escape with jk, just like insert mode
       highlight TermCursor ctermfg=red guifg=red            " make the cursor red. Stands out more
 
       " file specific settings
@@ -285,20 +246,6 @@
       highlight CursorLineNr ctermbg=DarkGrey
       " do not highlight the line itslef
       highlight CursorLine ctermbg=NONE
-
-      " ## fugitive
-      " -------------------------------------------------------------
-      nnoremap <Leader>gc :Gcommit<CR>
-      nnoremap <Leader>gs :Gstatus<CR>
-      nnoremap <Leader>gd :Gdiff<CR>
-      nnoremap <Leader>gb :Gblame<CR>
-      nnoremap <Leader>gL :exe ':!cd ' . expand('%:p:h') . '; git la'<CR>
-      nnoremap <Leader>gl :exe ':!cd ' . expand('%:p:h') . '; git las'<CR>
-      nnoremap <Leader>gr :Gread<CR>
-      nnoremap <Leader>gw :Gwrite<CR>
-      nnoremap <Leader>gp :Git push<CR>
-      nnoremap <Leader>g- :silent! Git stash<CR>:e<CR>
-      nnoremap <Leader>g+ :silent! Git stash pop<CR>:e<CR>
 
       " ## airline
       " -------------------------------------------------------------
@@ -323,16 +270,7 @@
       " ## fzf
       " -------------------------------------------------------------
       " linewise completion
-      " <leader>o... for "open"
       imap <c-x><c-l> <plug>(fzf-complete-line)
-      " Open file menu
-      nnoremap <Leader>of :Files<CR>
-      " Open git tracked files (git ls-files)
-      nnoremap <Leader>oo :GFiles<CR>
-      " Open buffer menu
-      nnoremap <Leader>ob :Buffers<CR>
-      " Open most recently used files
-      nnoremap <Leader>oc :Commits<CR>
 
       " ## vim-tmux-navigation
       " -------------------------------------------------------------
@@ -350,12 +288,6 @@
 
       " ## vim-test
       " -------------------------------------------------------------
-      " these "Ctrl mappings" work well when Caps Lock is mapped to Ctrl
-      nnoremap <Leader>tn :TestNearest<CR>
-      nnoremap <Leader>tf :TestFile<CR>
-      nnoremap <Leader>ts :TestSuite<CR>
-      nnoremap <Leader>tl :TestLast<CR>
-      nnoremap <Leader>tg :TestVisit<CR>
 
       " ## languageclient
       " -------------------------------------------------------------
@@ -376,7 +308,6 @@
       " automatically highlight the word we are seaching for
       let g:ackhighlight = 1
 
-      nnoremap <Leader>a :Ack<Space>
 
       " ## terraform
       " -------------------------------------------------------------
@@ -401,31 +332,115 @@
       let g:sexp_filetypes = ""
 
       " -------------------------------------------------------------
-      " https://medium.com/@hanspinckaers/setting-up-vim-as-an-ide-for-python-773722142d1d
-      " ncm2 settings
-      autocmd BufEnter * call ncm2#enable_for_buffer()
-      set completeopt=menuone,noselect,noinsert
-      set shortmess+=c
-      inoremap <c-c> <ESC>
-      " make it fast
-      let ncm2#popup_delay = 5
-      " let ncm2#complete_length = [[1, 1]]
-      " Use new fuzzy based matches
-      let g:ncm2#matcher = 'substrfuzzy'
-      " Disable Jedi-vim autocompletion and enable call-signatures options
-      " let g:jedi#auto_initialization = 1
-      " let g:jedi#completions_enabled = 0
-      " let g:jedi#auto_vim_configuration = 0
-      " let g:jedi#smart_auto_mappings = 0
-      " let g:jedi#popup_on_dot = 0
-      " let g:jedi#completions_command = ""
-      let g:jedi#show_call_signatures = "1"
+      " treesitter
+      lua <<EOF
+      require'nvim-treesitter.configs'.setup {
+        ensure_installed = "maintained", -- one of "all", "maintained" (parsers with maintainers), or a list of languages
+        highlight = {
+          enable = true,              -- false will disable the whole extension
+        },
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = "gnn",
+            node_incremental = "grn",
+            scope_incremental = "grc",
+            node_decremental = "grm",
+          },
+        },
+        {
+          indent = {
+            enable = ture
+          }
+        }
+      }
+      EOF
 
       " -------------------------------------------------------------
-      " float preview
-      " let g:float_preview#docked = 0
-      " let g:float_preview#max_width = 80
-      " let g:float_preview#max_height = 40
+      let g:git_messenger_always_into_popup = v:true " easier to look at the diff
+
+
+      " -------------------------------------------------------------
+      " general key mappings.
+      " I assign most letters to a broder group of functions, and assign leader
+      " mapping within those. Some keys are bound to a single command.
+
+      " top level bindings
+      nmap <Leader>w :w<CR>
+
+      " (o) is for opening
+      nmap <leader>o? :map <leader>o<cr>
+      nmap <Leader>ob :Buffers<CR>
+      nmap <Leader>oc :Commits<CR>
+      nmap <Leader>of :Files<CR>
+      nmap <Leader>oo :GFiles<CR>
+
+      " (s) is for search
+      nmap <leader>s? :map <leader>s<cr>
+      nmap <Leader>ss :Ack<Space>
+
+      " (g) is for git
+      nmap <leader>g? :map <leader>g<cr>
+      nmap <leader>gd :SignifyDiff<cr>
+      nmap <leader>gj <plug>(signify-next-hunk)
+      nmap <leader>gp :SignifyHunkDiff<cr>
+      nmap <leader>gu :SignifyHunkUndo<cr>
+      nmap <leader>gk <plug>(signify-prev-hunk)
+
+      " (e) is for edit
+      nmap <leader>e? :map <leader>g<cr>
+      nmap <silent> <leader>ev :e $DOTFILES/home/neovim.nix<CR>
+      nmap <silent> <leader>et :e $HOME/src/todo/todo.txt<CR>
+      nmap <silent> <leader>en :e `note --vim`<CR>G
+
+      " (t) is for test / terminal / toggle
+      nmap <leader>t? :map <leader>t<cr>
+      nmap <Leader>tf :TestFile<CR>
+      nmap <Leader>tg :TestVisit<CR>
+      nmap <Leader>tl :TestLast<CR>
+      nmap <Leader>tn :TestNearest<CR>
+      nmap <Leader>ts :TestSuite<CR>
+      nmap <leader>tr :call NumberToggle()<cr>
+      nmap <leader>ts :call WrapToggle()<cr>
+      nmap <silent> <leader>th :new<CR>:terminal<CR>
+      nmap <silent> <leader>tt :terminal<CR>
+      nmap <silent> <leader>tv :vnew<CR>:terminal<CR>
+
+      " mode specific mappings
+
+      " escape terminl mode
+      tnoremap <leader><ESC> <C-\><C-n>
+      tnoremap <leader>jk <C-\><C-n>
+
+      "Copy and paste from system clipboard
+      vmap <Leader>y "+y
+      vmap <Leader>d "+d
+      nmap <Leader>p "+p
+      nmap <Leader>P "+P
+      vmap <Leader>p "+p
+      vmap <Leader>P "+P
+
+      " -------------------------------------------------------------
+      " helper functions
+
+      function! NumberToggle()
+        if(&relativenumber == 1)
+          set norelativenumber
+          set number
+        else
+          set relativenumber
+        endif
+      endfunc
+
+      " WordWrap toggle
+      function! WrapToggle()
+        if(&wrap == 1)
+          set nowrap
+        else
+          set wrap
+        enfif
+      endfunc
+
     '';
   };
 }
