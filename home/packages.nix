@@ -70,6 +70,7 @@
     weechat # IRC client
     wget # get a file from the internet
     xclip # copy something to the clipboard
+    xlsx2csv # useful for bash automation of buissness flows
     xz # compression format
     youtube-dl # download videos from youtube and others
     yq-go # like jq, but for yaml
