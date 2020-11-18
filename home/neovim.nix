@@ -36,6 +36,7 @@
       vim-polyglot # A collection of language packs for Vim.
       vim-ps1
       vim-puppet
+      vim-rooter # changes the working directory to the project root 
       vim-signature # show marks in gutter
       vim-terraform
       vim-test # invoke test runner
