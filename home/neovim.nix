@@ -378,7 +378,7 @@
 
       " (s) is for search
       nmap <leader>s? :map <leader>s<cr>
-      nmap <Leader>ss :Ack<Space>
+      nmap <Leader>sa :Ack<Space>
 
       " (g) is for git
       nmap <leader>g? :map <leader>g<cr>
