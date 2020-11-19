@@ -25,6 +25,7 @@
     file # what type of file is this?
     fortune # fun tidbits
     ghc # Glasgow Haskell compiler
+    glances # system monitor
     go-jira # cli for interacting with Jira
     golden-cheetah # cycling analytics
     gron # make JSON greppable
