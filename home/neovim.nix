@@ -12,6 +12,10 @@
       # general language agnostic plugins
       nvim-treesitter
       nvim-lspconfig
+      completion-nvim
+      diagnostic-nvim
+      completion-treesitter
+
       tmux-complete-vim
       vim-signify
       git-messenger-vim
@@ -357,9 +361,19 @@
       }
       EOF
 
-      " -------------------------------------------------------------
-      let g:git_messenger_always_into_popup = v:true " easier to look at the diff
-
+      lua <<EOF
+      local nvim_lsp = require('nvim_lsp')
+      local on_attach = function(_, bufnr)
+        require('diagnostic').on_attach()
+        require('completion').on_attach()
+      end
+      local servers = {'jsonls', 'pyls_ms', 'vimls', 'clangd', 'tsserver', 'cssls', 'html'}
+      for _, lsp in ipairs(servers) do
+        nvim_lsp[lsp].setup {
+          on_attach = on_attach,
+        }
+      end
+      EOF
 
       " -------------------------------------------------------------
       " general key mappings.
