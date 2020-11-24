@@ -362,14 +362,14 @@
       EOF
 
       lua <<EOF
-      local nvim_lsp = require('nvim_lsp')
+      local lspconfig = require('lspconfig')
       local on_attach = function(_, bufnr)
         require('diagnostic').on_attach()
         require('completion').on_attach()
       end
       local servers = {'jsonls', 'pyls_ms', 'vimls', 'clangd', 'tsserver', 'cssls', 'html'}
       for _, lsp in ipairs(servers) do
-        nvim_lsp[lsp].setup {
+        lspconfig[lsp].setup {
           on_attach = on_attach,
         }
       end
