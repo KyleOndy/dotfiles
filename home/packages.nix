@@ -78,7 +78,6 @@
     yq-go # like jq, but for yaml
     zathura # lightweight PDF viewer
     zbar # barcode reader, mostly used to import OTP into pass
-    zoom-us # video confrence
 
     # hashi tools, first and third party
     #
