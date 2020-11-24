@@ -74,15 +74,16 @@
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
-  #nix = {
-  #  distributedBuilds = true;
-  #  buildMachines = [
-  #    {
-  #      hostName = "eu.nixbuild.net";
-  #      system = "x86_64-linux";
-  #      maxJobs = 100;
-  #      supportedFeatures = [ "benchmark" "big-parallel" ];
-  #    }
-  #  ];
-  #};
+  nix = {
+    distributedBuilds = true;
+    buildMachines = [
+      {
+        hostName = "tau.lan.509ely.com";
+        sshUser = "root"; # todo: make a build user
+        system = "x86_64-linux";
+        maxJobs = 6;
+        supportedFeatures = [ "benchmark" "big-parallel" ];
+      }
+    ];
+  };
 }
