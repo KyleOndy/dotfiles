@@ -12,6 +12,7 @@ in
   imports = [
     ./clojure.nix
     ./email.nix
+    ./emacs.nix
     ./env.nix
     ./firefox.nix
     ./fonts.nix
