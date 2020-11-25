@@ -10,5 +10,6 @@
 
   home.packages = with pkgs; [
     hack-font # used in st
+    iosevka
   ];
 }
