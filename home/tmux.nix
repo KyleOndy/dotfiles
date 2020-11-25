@@ -120,7 +120,6 @@
     keyMode = "vi";
     shortcut = "space"; # <ctrl> + <space> for leader
     plugins = with pkgs; [
-      { plugin = tmuxPlugins.online-status; }
       { plugin = tmuxPlugins.fzf-tmux-url; }
     ];
   };
