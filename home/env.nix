@@ -7,6 +7,7 @@ let
   # `/nix/store/...-home-manager-path/bin/nvim`. I need to do a bit of digging
   # to figure out how to source that path.
   editor = "nvim";
+  dotfiles = "${builtins.getEnv "HOME"}/src/dotfiles";
 in
 {
   programs = {
@@ -27,7 +28,7 @@ in
   };
 
   home.sessionVariables = {
-    DOTFILES = "${builtins.getEnv "HOME"}/src/dotfiles";
+    DOTFILES = dotfiles;
     # todo:
     EDITOR = editor;
     VISUAL = editor;
