@@ -7,6 +7,10 @@
     python-language-server
     ag # A code-searching tool similar to ack, but faster
     ansible # system administration automation
+    aspell # spell check
+    aspellDicts.en
+    aspellDicts.en-computers
+    aspellDicts.en-science
     atop # system monitoring
     awscli2 # interacting with AWS
     babashka # a Clojure babushka for the grey areas of Bash
