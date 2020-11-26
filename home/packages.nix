@@ -17,6 +17,7 @@
     bc # the classic calculator
     calcurse # cli calendar
     cifs-utils # todo: why do I need this?
+    cmake
     cowsay # cows keep me informed
     ctags # for navigating within NeoVim
     direnv
