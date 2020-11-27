@@ -26,15 +26,21 @@
   };
 
   environment.pathsToLink = [ "/libexec" "/share/zsh" ];
-  services.xserver = {
-    enable = true;
-    xkbOptions = "ctrl:nocaps"; # make caps lock a control key
-    displayManager = { defaultSession = "none+i3"; };
-    desktopManager = { xterm.enable = false; };
+  services = {
+    xserver = {
+      enable = true;
+      xkbOptions = "ctrl:nocaps"; # make caps lock a control key
+      displayManager = { defaultSession = "none+i3"; };
+      desktopManager = { xterm.enable = false; };
+    };
+    udev.packages = [ pkgs.yubikey-personalization ];
+    pcscd.enable = true;
+    openssh.enable = true;
+    xserver = {
+      autorun = true;
+      windowManager.i3.enable = true;
+    };
   };
-  # yubikey
-  services.udev.packages = [ pkgs.yubikey-personalization ];
-  services.pcscd.enable = true;
 
   programs = {
     ssh.startAgent = false;
@@ -56,13 +62,6 @@
     TERMINAL = "st";
   };
 
-  services.xserver = {
-    autorun = true;
-    windowManager.i3.enable = true;
-  };
-
-  # Enable the OpenSSH daemon.
-  services.openssh = { enable = true; };
   # Enable sound.
   sound = {
     enable = true;
