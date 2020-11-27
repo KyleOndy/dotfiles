@@ -41,6 +41,7 @@
       windowManager.i3.enable = true;
     };
     fstrim.enable = true;
+    printing.enable = true;
   };
 
   programs = {
