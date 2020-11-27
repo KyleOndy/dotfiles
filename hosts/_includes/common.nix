@@ -40,6 +40,7 @@
       autorun = true;
       windowManager.i3.enable = true;
     };
+    fstrim.enable = true;
   };
 
   programs = {
