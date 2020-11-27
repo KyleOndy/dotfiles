@@ -71,6 +71,7 @@
   hardware.pulseaudio.enable = true;
   boot = {
     cleanTmpDir = true;
+    tmpOnTmpfs = true;
     kernelPackages = pkgs.linuxPackages_latest;
   };
 
