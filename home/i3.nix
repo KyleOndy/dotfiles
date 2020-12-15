@@ -16,6 +16,13 @@
           "XF86MonBrightnessUp" = "exec brightnessctl set 4%+";
           #"${modifier}+Shift+x" = "exec systemctl suspend";
         };
+        startup = [
+          {
+            command = "exec i3-msg workspace 1";
+            always = true;
+            notification = false;
+          }
+        ];
       };
     };
   };
