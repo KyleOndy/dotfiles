@@ -109,7 +109,7 @@
       # system load
       set-option -ga status-right "[ #(cat /proc/loadavg | awk '{ print $1, $2, $3}') ]"
       # local time
-      set-option -ga status-right "#[fg=colour246,bg=colour239] %Y-%m-%d  %H:%M"
+      set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M"
       set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
       # host name
       set-option -ga status-right "#[fg=colour237, bg=colour248] #h "
