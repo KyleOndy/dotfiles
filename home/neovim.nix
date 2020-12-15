@@ -12,9 +12,13 @@
       # general language agnostic plugins
       nvim-treesitter
       nvim-lspconfig
-      completion-nvim
-      diagnostic-nvim
-      completion-treesitter
+      #completion-nvim
+      #diagnostic-nvim
+      #completion-treesitter
+      deoplete-nvim
+      deoplete-dictionary
+
+      # autocomplete
 
       tmux-complete-vim
       vim-signify
@@ -30,6 +34,7 @@
       haskell-vim
       rainbow # easier matching of parans
       surround # easy wrapping
+      vim-easymotion # move easier
       tmux-complete-vim # completion from tmux windows
       jedi-vim # jedi for python
       vim-airline # status bar
@@ -41,13 +46,17 @@
       vim-ps1
       vim-puppet
       vim-rooter # changes the working directory to the project root
+      vim-startify # some helpful links on the start screen
       vim-signature # show marks in gutter
       vim-terraform
       vim-test # invoke test runner
       vim-tmux-navigator # move between nvim and tmux
       vimproc-vim
+      auto-pairs
 
       # clojure plugins
+      vim-dispatch
+      conjure # magic clojure
       vim-clojure-highlight # Extend builtin syntax highlighting
       vim-clojure-static # Meikel Brandmeyer's Clojure runtime files
       vim-fireplace # Clojure REPL support
