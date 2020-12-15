@@ -104,8 +104,10 @@
 
       # left most solid arrow
       set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
+      # volume
+      set-option -ga status-right "#[fg=colour246,bg=colour239] v:#(amixer sget Master | awk -F"[][]" '/Left:/ { print $2 }')  "
       # system load
-      set-option -ga status-right "#[fg=colour246,bg=colour239] [ #(cat /proc/loadavg | awk '{ print $1, $2, $3}') ]"
+      set-option -ga status-right "[ #(cat /proc/loadavg | awk '{ print $1, $2, $3}') ]"
       # local time
       set-option -ga status-right "#[fg=colour246,bg=colour239] %Y-%m-%d  %H:%M"
       set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
