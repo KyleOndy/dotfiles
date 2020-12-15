@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ lib, ... }:
 
 {
   xsession = {
@@ -8,6 +8,14 @@
       config = {
         modifier = "Mod4"; # super
         workspaceAutoBackAndForth = true;
+        keybindings = lib.mkOptionDefault {
+          "XF86AudioMute" = "exec amixer set Master toggle";
+          "XF86AudioLowerVolume" = "exec amixer set Master 4%-";
+          "XF86AudioRaiseVolume" = "exec amixer set Master 4%+";
+          "XF86MonBrightnessDown" = "exec brightnessctl set 4%-";
+          "XF86MonBrightnessUp" = "exec brightnessctl set 4%+";
+          #"${modifier}+Shift+x" = "exec systemctl suspend";
+        };
       };
     };
   };
