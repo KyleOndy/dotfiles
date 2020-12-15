@@ -5,6 +5,8 @@
 " leader since neovim is very often run within a tmux session.
 let mapleader="\<SPACE>"
 
+let maplocalleader=","
+
 " 'Ex mode is fucking dumb' --sircmpwm
 nnoremap Q <Nop>
 
