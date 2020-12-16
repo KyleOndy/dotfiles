@@ -42,7 +42,6 @@
       jedi-vim # jedi for python
       vim-airline # status bar
       vim-airline-themes # status bar themes
-      vim-clap # interactive finder and dispatcher,
       vim-hdevtools
       vim-nix # nix configuration
       vim-polyglot # A collection of language packs for Vim.
