@@ -17,8 +17,11 @@
       #completion-treesitter
       deoplete-nvim
       deoplete-dictionary
+      deoplete-lsp
 
       # autocomplete
+
+      vista-vim
 
       tmux-complete-vim
       vim-signify

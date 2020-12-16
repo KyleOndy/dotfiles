@@ -1,33 +1,85 @@
+" --------------------------------------------------------------------------
+"        _ __   ___  _____   _(_)_ __ ___
+"       | '_ \ / _ \/ _ \ \ / / | '_ ` _ \
+"       | | | |  __/ (_) \ V /| | | | | | |
+"       |_| |_|\___|\___/ \_/ |_|_| |_| |_|
+"
+" Below is the magic that powers my day to day work.
+"
+" I have intentionally chosen to leave this as a single file for simplicity.
+"
+" todo:
+"       - find / build a function/plugin to lookup word in dictionary
+"       - looking into vim's 'thesaurus' command
+"       - can I control the order items appear in the auto-complete buffer?
+"
+" --------------------------------------------------------------------------
 " # neovim setup
 " -------------------------------------------------------------
+
 " Map the leader key to space. Easy to reach with either hand and shouldn't
 " clobber other applications control sequences. Need to be mindful of tmux's
-" leader since neovim is very often run within a tmux session.
+" leader (currently <C-Space>) since neovim is very often run within a
+" tmux session.
 let mapleader="\<SPACE>"
 
+" I didn't really have a strong first choice for localleader, so I chose `,`
+" arbitrarily. localleader is used to have different implementations for a
+" function depending on file type.
 let maplocalleader=","
 
 " 'Ex mode is fucking dumb' --sircmpwm
+" I have never intentionally entered Ex mode, make it a NOP.
 nnoremap Q <Nop>
 
-" set the prefered color scheme.
+" I really like dark and warm color schemes. I used to rock a fork of
+" Wombat256 [1]. Gruvbox [2] is 90% of where I want to be, and its available
+" for everything via the contrib repo [3]. Given that, I've learned to live
+" with almost perfect due to the amount of work it would take to make my own
+" color scheme.
+"
+" [1] https://github.com/KyleOndy/wombat256mod
+" [2] https://github.com/morhetz/gruvbox
+" [3] https://github.com/morhetz/gruvbox-contrib
 colorscheme gruvbox
 set background=dark
 
 " Allow backspace over everything in insert mode.
+"     indent - allow backspacing over autoindent
+"     eol    - allow backspacing over line breaks (join lines)
+"     start  - allow backspacing over the start of insert
 set backspace=indent,eol,start
-" todo: what does removing `i` do?
-set complete-=i
-" try and guess where the next line should be indented.
+
+" allow completions from; .      - current buffer
+"                         w      - buffer from other windows
+"                         b      - loaded buffers in the buffer list
+"                         u      - unloaded buffers in the buffer list
+"                         kspell - current active spell check dict
+set complete=.,w,b,u,t,kspell
+
+" make a best guess for where the tabstop should be when starting a new line.
 set smartindent
-" do not consider octal (leading 0) as a number.
+
+" do not consider octal (leading 0) as a number. I tend to justify columns
+" with leading zeros, and rarely (never>) work with octal numbers.
 set nrformats-=octal
-" greatly decraase the default (1000ms) timeout to wait for a mapped sequence to complete (<esc> sequences).
+
+" greatly decrease the default (1000ms) timeout to wait for a mapped sequence
+" to complete (<esc> sequences).
 set ttimeoutlen=100
 
-" I never use backups
+"  I don’t really want Vim to litter my filesystem with all of these piles of
+"  nervous energy. --Lee Phillips
+"  https://lee-phillips.org/badvim/
+"
+"  The above link has a much better explanation, but using backup files can
+"  write your changes to an unexpected inode, causing inotify (and the like)
+"  to not work as expected.
 set nobackup
 set nowritebackup
+set nobackup
+set noundofile
+set noswapfile
 
 " Give more space for displaying messages. Useful for diagnostics
 set cmdheight=2
@@ -37,24 +89,27 @@ set cmdheight=2
 
 " Highlight search results. Makes it easy to see all the matches.
 set hlsearch
+
 " Make searching case insensitive ...
 set ignorecase
+
 " ... unless the query has capital letters.
 set smartcase
+
 " jump to the first current match
 set incsearch
+
 " Use 'magic' patterns (extended regular expressions).
 set magic
 
 " Use <C-L> to clear the highlighting of :set hlsearch. Muscle memory maps
 " nicely to clearing a terminal.
 nnoremap <silent> <C-L> :nohlsearch<CR><C-L>
-" }
 
 " # formattings
 " -------------------------------------------------------------
 set showcmd             " Show (partial) command in status line.
-set showmatch           " hlighlight matching brackets.
+set showmatch           " highlight matching brackets.
 set showmode            " Show current mode.
 set ruler               " Show the line and column numbers of the cursor.
 set number              " Show the line numbers on the left side.
@@ -64,7 +119,7 @@ set expandtab           " Insert spaces when TAB is pressed.
 set tabstop=2           " Render TABs using this many spaces.
 set shiftwidth=2        " Indentation amount for < and > commands.
 
-set noerrorbells        " No beeps. Noone like terminal bells.
+set noerrorbells        " No beeps. No one like terminal bells.
 set modeline            " Enable modeline.
 set linespace=0         " Set line-spacing to minimum.
 set nojoinspaces        " Prevents inserting two spaces after punctuation on a join (J)
@@ -82,29 +137,34 @@ endif
 set display+=lastline
 set nostartofline       " Do not jump to first character with page commands.
 
-" Tell Vim which characters to show for expanded TABs,
-" trailing whitespace, and end-of-lines. VERY useful!
-if &listchars ==# 'eol:$'
-  set listchars=tab:>\ ,trail:-,extends:>,precedes:<,nbsp:+
-endif
+" explicitly show the start of a wrapped line
+set showbreak=↪\
+" explicitly show these characters
 set list                " Show problematic characters.
+set listchars=tab:→\ ,eol:↲,nbsp:␣,trail:•,extends:›,precedes:‹
 
+set colorcolumn=72
+
+" todo: is this still needed?
 " Also highlight all tabs and trailing whitespace characters.
-highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
-match ExtraWhitespace /\s\+$\|\t/
+" highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
+" match ExtraWhitespace /\s\+$\|\t/
 
 
 " # file configuration
 " -------------------------------------------------------------
 
-if has('path_extra')
-  setglobal tags-=./tags tags^=./tags;
-endif
+" todo: I should learn how to use tabs
+"if has('path_extra')
+"  setglobal tags-=./tags tags^=./tags;
+"endif
 
 set autoread            " If file updates, load automatically.
 set hidden
 
-" wrap commit message at 72 chracters, set a colorcolumn at 50 chracters for
+" todo: move these filetype declaration into own file?
+
+" wrap commit message at 72 characters, set a colorcolumn at 50 chracters for
 " the commit title.
 autocmd FileType gitcommit setlocal spell | setlocal tw=72 | setlocal colorcolumn=50
 
@@ -115,55 +175,29 @@ autocmd FileType mail setlocal spell | setlocal tw=72
 " enable spell check when writing markdown
 autocmd FileType markdown setlocal spell
 
-" typicaly literate haskell is going to be embeded into a webage, so keep a
-" *hard* line length is critical to prevent users from having to scroll code
-" blocks.
-autocmd FileType lhaskell setlocal colorcolumn=72
-
 set updatetime=250 " quicker updates
 
 " Don't pass messages to |ins-completion-menu|.
 set shortmess+=c
-" merge signcolumn and number column into one
-" set signcolumn=number # todo: need nvim >= 0.5
-
+"
 " Remove special characters for filename
 set isfname-=:
 set isfname-==
 set isfname-=+
 
-if &history < 1000
-  set history=1000      " Number of lines in command history.
-endif
-if &tabpagemax < 50
-  set tabpagemax=50     " Maximum tab pages.
-endif
-
-if &undolevels < 200
-  set undolevels=200    " Number of undo levels.
-endif
+set history=1000      " Number of lines in command history.
+set tabpagemax=50     " Maximum tab pages.
 
 " Path/file expansion in colon-mode.
 set wildmenu
 set wildmode=list:longest
 set wildchar=<TAB>
 
-if !empty(&viminfo)
-  set viminfo^=!        " Write a viminfo file with registers.
-endif
-set sessionoptions-=options
-
 " commands
 command! -nargs=0 -bar SiteDate execute "normal! A\<C-R>=strftime(\"%FT%TZ\")\<CR>"
 
-" Diff options
-set diffopt+=iwhite
-
 " use jk to exit insert mode. Escape key is a far reach.
 inoremap jk <Esc>`^
-"Enter to go to EOF and backspace to go to start
-nnoremap <CR> G
-nnoremap <BS> gg
 " Stop cursor from jumping over wrapped lines
 nnoremap j gj
 nnoremap k gk
@@ -171,12 +205,11 @@ nnoremap k gk
 inoremap <C-E> <End>
 inoremap <C-A> <Home>
 
-
-
 " # work with terminal
 " -------------------------------------------------------------
 "
-highlight TermCursor ctermfg=red guifg=red            " make the cursor red. Stands out more
+" make the cursor red. Stands out more
+highlight TermCursor ctermfg=red guifg=red
 
 " file specific settings
 " -------------------------------------------------------------
@@ -193,7 +226,8 @@ au FileType haskell nnoremap <buffer> <silent> <F2> :HdevtoolsClear<CR> " todo: 
 " enable cursorline so we can color it
 set cursorline
 " Set the line number background coloring to dark gray
-highlight CursorLineNr ctermbg=DarkGrey
+"highlight CursorLineNr ctermbg=DarkGrey
+highlight CursorLineNr ctermbg=DarkRed
 " do not highlight the line itslef
 highlight CursorLine ctermbg=NONE
 
@@ -223,7 +257,7 @@ let g:ale_linters = {
 " ## fzf
 " -------------------------------------------------------------
 " linewise completion
-imap <c-x><c-l> <plug>(fzf-complete-line)
+"imap <c-x><c-l> <plug>(fzf-complete-line)
 
 " ## vim-tmux-navigation
 " -------------------------------------------------------------
@@ -413,6 +447,8 @@ let g:webdevicons_enable_startify = 1
 
 " Search in project configuration
 let g:clap_provider_grep_delay = 50
+let g:clap_layout = { 'relative': 'editor' }
+let g:clap_theme = 'nord'
 let g:clap_provider_grep_opts = '-H --no-heading --vimgrep --smart-case --hidden -g "!.git/"'
 
 nnoremap <leader>*  :Clap grep ++query=<cword><cr>

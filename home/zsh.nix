@@ -23,6 +23,7 @@
       cdtmp = "cd $(mktemp -d)";
       l = "ls";
       lsd = "ls -l $@ | grep '^d'";
+      llr = "ll --color=auto -t | head";
       r = "ranger";
       src = "cd $HOME/src";
       tree = "tree --dirsfirst -ChFQ $@";
