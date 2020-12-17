@@ -141,14 +141,14 @@ set nostartofline       " Do not jump to first character with page commands.
 set showbreak=↪\
 " explicitly show these characters
 set list                " Show problematic characters.
-set listchars=tab:→\ ,eol:↲,nbsp:␣,trail:•,extends:›,precedes:‹
+set listchars=tab:→\ ,nbsp:␣,trail:•,extends:›,precedes:‹
 
 set colorcolumn=72
 
-" todo: is this still needed?
-" Also highlight all tabs and trailing whitespace characters.
-" highlight ExtraWhitespace ctermbg=darkgreen guibg=darkgreen
-" match ExtraWhitespace /\s\+$\|\t/
+" Highlight all tabs and trailing whitespace characters is an very noticeable
+" color.
+highlight ExtraWhitespace ctermbg=darkgreen
+match ExtraWhitespace /\s\+$\|\t/
 
 
 " # file configuration
@@ -209,7 +209,7 @@ inoremap <C-A> <Home>
 " -------------------------------------------------------------
 "
 " make the cursor red. Stands out more
-highlight TermCursor ctermfg=red guifg=red
+highlight TermCursor ctermfg=red
 
 " file specific settings
 " -------------------------------------------------------------
@@ -321,26 +321,24 @@ let g:sexp_filetypes = ""
 " -------------------------------------------------------------
 " treesitter
 lua <<EOF
-require'nvim-treesitter.configs'.setup {
-  ensure_installed = "maintained", -- one of "all", "maintained" (parsers with maintainers), or a list of languages
-  highlight = {
-    enable = true,              -- false will disable the whole extension
-  },
-  incremental_selection = {
-    enable = true,
-    keymaps = {
-      init_selection = "gnn",
-      node_incremental = "grn",
-      scope_incremental = "grc",
-      node_decremental = "grm",
-    },
-  },
-  {
-    indent = {
-      enable = ture
+    require'nvim-treesitter.configs'.setup {
+        highlight = {
+          enable = true,
+        },
+        indent = {
+          enable = true,
+        },
+        incremental_selection = {
+          enable = true,
+          keymaps = {
+            init_selection = "gnn",
+            node_incremental = "grn",
+            scope_incremental = "grc",
+            node_decremental = "grm",
+          },
+        },
+      ensure_installed = 'all'
     }
-  }
-}
 EOF
 
 lua <<EOF
@@ -349,7 +347,24 @@ local on_attach = function(_, bufnr)
   require('diagnostic').on_attach()
   require('completion').on_attach()
 end
-local servers = {'jsonls', 'pyls_ms', 'vimls', 'clangd', 'tsserver', 'cssls', 'html'}
+local servers = {
+  'bashls',
+  'clangd',
+  'clojure_lsp',
+  'cssls',
+  'diagnosticls',
+  'dockerls',
+  'ghcide',
+  'gopls',
+  'html',
+  'jsonls',
+  'omnisharp',
+  'pyls_ms',
+  'terraformls',
+  'tsserver',
+  -- 'vimls', -- no nix package
+  'yamlls',
+}
 for _, lsp in ipairs(servers) do
   lspconfig[lsp].setup {
     on_attach = on_attach,
@@ -446,78 +461,78 @@ endfunc
 let g:webdevicons_enable_startify = 1
 
 " Completion configuration
-let g:deoplete#enable_at_startup = 1
-call deoplete#custom#option('keyword_patterns', {'clojure': '[\w!$%&*+/:<=>?@\^_~\-\.#]*'})
-set completeopt-=preview
+" let g:deoplete#enable_at_startup = 1
+" call deoplete#custom#option('keyword_patterns', {'clojure': '[\w!$%&*+/:<=>?@\^_~\-\.#]*'})
+" set completeopt-=preview
+"
+" let g:float_preview#docked = 0
+" let g:float_preview#max_width = 80
+" let g:float_preview#max_height = 40
 
-let g:float_preview#docked = 0
-let g:float_preview#max_width = 80
-let g:float_preview#max_height = 40
 
-
-""""""""""""""""""""""""
-"  THIS IS A CATEGORY  "
-""""""""""""""""""""""""
-" https://vi.stackexchange.com/a/6608
-"" Autofolding .vimrc
-" see http://vimcasts.org/episodes/writing-a-custom-fold-expression/
-""" defines a foldlevel for each line of code
-function! VimFolds(lnum)
-  let s:thisline = getline(a:lnum)
-  if match(s:thisline, '^"" ') >= 0
-    return '>2'
-  endif
-  if match(s:thisline, '^""" ') >= 0
-    return '>3'
-  endif
-  let s:two_following_lines = 0
-  if line(a:lnum) + 2 <= line('$')
-    let s:line_1_after = getline(a:lnum+1)
-    let s:line_2_after = getline(a:lnum+2)
-    let s:two_following_lines = 1
-  endif
-  if !s:two_following_lines
-      return '='
-    endif
-  else
-    if (match(s:thisline, '^"""""') >= 0) &&
-       \ (match(s:line_1_after, '^"  ') >= 0) &&
-       \ (match(s:line_2_after, '^""""') >= 0)
-      return '>1'
-    else
-      return '='
-    endif
-  endif
-endfunction
-
-""" defines a foldtext
-function! VimFoldText()
-  " handle special case of normal comment first
-  let s:info = '('.string(v:foldend-v:foldstart).' l)'
-  if v:foldlevel == 1
-    let s:line = ' ◇ '.getline(v:foldstart+1)[3:-2]
-  elseif v:foldlevel == 2
-    let s:line = '   ●  '.getline(v:foldstart)[3:]
-  elseif v:foldlevel == 3
-    let s:line = '     ▪ '.getline(v:foldstart)[4:]
-  endif
-  if strwidth(s:line) > 80 - len(s:info) - 3
-    return s:line[:79-len(s:info)-3+len(s:line)-strwidth(s:line)].'...'.s:info
-  else
-    return s:line.repeat(' ', 80 - strwidth(s:line) - len(s:info)).s:info
-  endif
-endfunction
-
-""" set foldsettings automatically for vim files
-augroup fold_vimrc
-  autocmd!
-  autocmd FileType vim
-                   \ setlocal foldmethod=expr |
-                   \ setlocal foldexpr=VimFolds(v:lnum) |
-                   \ setlocal foldtext=VimFoldText() |
-     "              \ set foldcolumn=2 foldminlines=2
-   augroup END
-
-" Toggle folds
-nnoremap <silent> <leader>f @=(foldlevel('.')?'za':"\<Space>")<CR>
-vnoremap <leader>f zf
+" """"""""""""""""""""""""
+" "  THIS IS A CATEGORY  "
+" """"""""""""""""""""""""
+" " https://vi.stackexchange.com/a/6608
+" "" Autofolding .vimrc
+" " see http://vimcasts.org/episodes/writing-a-custom-fold-expression/
+" """ defines a foldlevel for each line of code
+" function! VimFolds(lnum)
+"   let s:thisline = getline(a:lnum)
+"   if match(s:thisline, '^"" ') >= 0
+"     return '>2'
+"   endif
+"   if match(s:thisline, '^""" ') >= 0
+"     return '>3'
+"   endif
+"   let s:two_following_lines = 0
+"   if line(a:lnum) + 2 <= line('$')
+"     let s:line_1_after = getline(a:lnum+1)
+"     let s:line_2_after = getline(a:lnum+2)
+"     let s:two_following_lines = 1
+"   endif
+"   if !s:two_following_lines
+"       return '='
+"     endif
+"   else
+"     if (match(s:thisline, '^"""""') >= 0) &&
+"        \ (match(s:line_1_after, '^"  ') >= 0) &&
+"        \ (match(s:line_2_after, '^""""') >= 0)
+"       return '>1'
+"     else
+"       return '='
+"     endif
+"   endif
+" endfunction
+"
+" """ defines a foldtext
+" function! VimFoldText()
+"   " handle special case of normal comment first
+"   let s:info = '('.string(v:foldend-v:foldstart).' l)'
+"   if v:foldlevel == 1
+"     let s:line = ' ◇ '.getline(v:foldstart+1)[3:-2]
+"   elseif v:foldlevel == 2
+"     let s:line = '   ●  '.getline(v:foldstart)[3:]
+"   elseif v:foldlevel == 3
+"     let s:line = '     ▪ '.getline(v:foldstart)[4:]
+"   endif
+"   if strwidth(s:line) > 80 - len(s:info) - 3
+"     return s:line[:79-len(s:info)-3+len(s:line)-strwidth(s:line)].'...'.s:info
+"   else
+"     return s:line.repeat(' ', 80 - strwidth(s:line) - len(s:info)).s:info
+"   endif
+" endfunction
+"
+" """ set foldsettings automatically for vim files
+" augroup fold_vimrc
+"   autocmd!
+"   autocmd FileType vim
+"                    \ setlocal foldmethod=expr |
+"                    \ setlocal foldexpr=VimFolds(v:lnum) |
+"                    \ setlocal foldtext=VimFoldText() |
+"      "              \ set foldcolumn=2 foldminlines=2
+"    augroup END
+"
+" " Toggle folds
+" nnoremap <silent> <leader>f @=(foldlevel('.')?'za':"\<Space>")<CR>
+" vnoremap <leader>f zf

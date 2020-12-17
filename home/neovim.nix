@@ -2,6 +2,11 @@
 { pkgs, ... }:
 
 {
+  # language servers
+  home.packages = with pkgs; [
+    terraform-ls
+  ];
+
   programs.neovim = {
     enable = true;
     package = pkgs.neovim-nightly;
@@ -12,14 +17,15 @@
       # general language agnostic plugins
       nvim-treesitter
       nvim-lspconfig
-      #completion-nvim
-      #diagnostic-nvim
-      #completion-treesitter
-      deoplete-nvim
-      deoplete-dictionary
-      deoplete-lsp
+      completion-nvim
+      diagnostic-nvim
+      completion-treesitter
+      #deoplete-nvim
+      #deoplete-dictionary
+      #deoplete-lsp
 
       # autocomplete
+
 
       vista-vim
 
