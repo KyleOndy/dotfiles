@@ -5,6 +5,14 @@
   # language servers
   home.packages = with pkgs; [
     terraform-ls
+    clojure-lsp
+
+    python-language-server
+    dotnet-netcore
+
+    # Node packages do not appear when running `nix search`. Use
+    # `nix-env -qaPA nixos.nodePackages` to view them.`
+    nodePackages.bash-language-server
   ];
 
   programs.neovim = {
@@ -18,7 +26,6 @@
       nvim-treesitter
       nvim-lspconfig
       completion-nvim
-      diagnostic-nvim
       completion-treesitter
       #deoplete-nvim
       #deoplete-dictionary

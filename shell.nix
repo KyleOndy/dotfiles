@@ -3,16 +3,16 @@
 {}:
 let
   sources = import ./nix/sources.nix;
-  pkgs = import sources.nixpkgs {};
-  hm = import sources.home-manager {};
+  pkgs = import sources.nixpkgs { };
+  hm = import sources.home-manager { };
 in
 pkgs.mkShell {
   buildInputs = with pkgs; [
-    nix
+    #nix
     hm.home-manager
 
     # for flashing keyboard firmwares
-    teensy-loader-cli
+    #teensy-loader-cli
   ];
   # if the system wide enviroemtn has been borked, or is being configured for
   # the first time, `nix-shell --pure` should be able to get you back up and
