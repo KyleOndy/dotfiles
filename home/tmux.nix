@@ -20,6 +20,9 @@
       # Enable mouse mode (tmux 2.1 and above)
       set -g mouse on
 
+      # allow tmux to act sensibly
+      set -g default-terminal "tmux-256color"
+
       # ----------------------
       # Status Bar
       # -----------------------
