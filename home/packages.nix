@@ -4,7 +4,6 @@
 {
   home.packages = with pkgs; [
     my-scripts # personal scripts. See `scripts` and `overlay` folder
-    python-language-server
     ag # A code-searching tool similar to ack, but faster
     ansible # system administration automation
     aspell # spell check

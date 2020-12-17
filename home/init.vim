@@ -344,7 +344,6 @@ EOF
 lua <<EOF
 local lspconfig = require('lspconfig')
 local on_attach = function(_, bufnr)
-  require('diagnostic').on_attach()
   require('completion').on_attach()
 end
 local servers = {
