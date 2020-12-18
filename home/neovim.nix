@@ -27,16 +27,16 @@
       nvim-lspconfig
       completion-nvim
       completion-treesitter
-      #deoplete-nvim
-      #deoplete-dictionary
-      #deoplete-lsp
+      vim-which-key
+
+      # debugging
+      nvim-dap # todo: learn how to use this
+      nvim-dap-virtual-text # todo: learn how to use this
 
       # autocomplete
-
-
       vista-vim
 
-      tmux-complete-vim
+      #tmux-complete-vim
       vim-signify
       git-messenger-vim
 
