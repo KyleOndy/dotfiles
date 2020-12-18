@@ -5,7 +5,7 @@
     enable = true;
     clock24 = true; # use 24 hour clock
     escapeTime = 0;
-    terminal = "tmux-256color";
+    terminal = "screen-256color";
     sensibleOnTop = false; # do not inject other configuration
     extraConfig = ''
       # do not allow tmux to rename windows

@@ -377,6 +377,8 @@ EOF
 " mapping within those. Some keys are bound to a single command.
 
 " top level bindings
+nnoremap <silent> <leader> :WhichKey '<Space>'<CR>
+nnoremap <silent> <localleader> :<c-u>WhichKey  ','<CR>
 nmap <Leader>w :w<CR>
 
 " (o) is for opening
