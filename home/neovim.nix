@@ -67,7 +67,6 @@
       vim-test # invoke test runner
       vim-tmux-navigator # move between nvim and tmux
       vimproc-vim
-      auto-pairs
 
       # clojure plugins
       vim-dispatch
