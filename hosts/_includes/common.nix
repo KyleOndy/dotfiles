@@ -81,9 +81,9 @@
     buildMachines = [
       {
         hostName = "tau.lan.509ely.com";
-        sshUser = "root"; # todo: make a build user
         system = "x86_64-linux";
         maxJobs = 6;
+        speedFactor = 10; # prefer this builder
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
       {
