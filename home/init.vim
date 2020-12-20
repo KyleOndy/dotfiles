@@ -425,6 +425,7 @@ nmap <silent> <leader>tv :vnew<CR>:terminal<CR>
 " escape terminl mode
 tnoremap <leader><ESC> <C-\><C-n>
 tnoremap <leader>jk <C-\><C-n>
+tnoremap jk <C-\><C-n>
 
 "Copy and paste from system clipboard
 vmap <Leader>y "+y
