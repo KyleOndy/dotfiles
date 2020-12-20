@@ -26,7 +26,6 @@
       nvim-treesitter
       nvim-lspconfig
       completion-nvim
-      completion-treesitter
       vim-which-key
 
       # debugging
@@ -34,6 +33,14 @@
       nvim-dap-virtual-text # todo: learn how to use this
 
       # autocomplete
+      completion-treesitter
+      # https://github.com/steelsojka/completion-buffers
+      # https://github.com/albertoCaroM/completion-tmux
+      # https://github.com/kristijanhusak/completion-tags
+      # https://github.com/aca/completion-tabnine
+      # https://github.com/kristijanhusak/vim-dadbod-completion
+
+
       vista-vim
 
       #tmux-complete-vim
