@@ -34,16 +34,13 @@
 
       # autocomplete
       completion-treesitter
-      # https://github.com/steelsojka/completion-buffers
-      # https://github.com/albertoCaroM/completion-tmux
+      completion-buffers
       # https://github.com/kristijanhusak/completion-tags
-      # https://github.com/aca/completion-tabnine
       # https://github.com/kristijanhusak/vim-dadbod-completion
 
 
       vista-vim
-
-      #tmux-complete-vim
+      tmux-complete-vim # todo: replace with https://github.com/albertoCaroM/completion-tmux
       vim-signify
       git-messenger-vim
 
