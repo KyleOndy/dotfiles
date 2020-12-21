@@ -422,6 +422,7 @@ nmap <leader>ts :call WrapToggle()<cr>
 nmap <silent> <leader>th :new<CR>:terminal<CR>
 nmap <silent> <leader>tt :terminal<CR>
 nmap <silent> <leader>tv :vnew<CR>:terminal<CR>
+nmap <silent> <leader>tb :enew<CR>:terminal<CR>
 
 " mode specific mappings
 
