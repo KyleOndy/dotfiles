@@ -27,6 +27,9 @@
       nvim-lspconfig
       completion-nvim
       vim-which-key
+      nvim-treesitter-context
+      nvim-treesitter-refactor
+      nvim-treesitter-textobjects
 
       # debugging
       nvim-dap # todo: learn how to use this
@@ -52,7 +55,7 @@
       ghcmod-vim
       gruvbox # color scheme
       haskell-vim
-      rainbow # easier matching of parans
+      nvim-ts-rainbow # TreeSitter rainbow parens
       surround # easy wrapping
       vim-easymotion # move easier
       tmux-complete-vim # completion from tmux windows
