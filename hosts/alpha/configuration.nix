@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   imports = [
@@ -23,6 +23,8 @@
       preLVM = true;
     };
   };
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+
 
   networking = {
     hostName = "alpha";

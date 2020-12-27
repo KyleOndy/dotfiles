@@ -81,7 +81,7 @@
     buildMachines = [
       {
         hostName = "tau.lan.509ely.com";
-        system = "x86_64-linux";
+        systems = [ "x86_64-linux" "aarch64-linux" ];
         maxJobs = 6;
         speedFactor = 10; # prefer this builder
         supportedFeatures = [ "benchmark" "big-parallel" ];
@@ -93,5 +93,8 @@
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
     ];
+    extraOptions = ''
+      builders-use-substitutes = true
+    '';
   };
 }
