@@ -2,59 +2,26 @@
   description = "NixOS configuration";
 
   inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager = {
-      url = "github:rycee/home-manager";
-      inputs = {
-        nixpkgs = {
-          follows = "nixpkgs";
-        };
-      };
+      url = "github:nix-community/home-manager/master";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
-    nixpkgs = {
-      url = "github:nixos/nixpkgs/nixos-unstable";
-    };
+    neovim-nightly-overlay.url = "github:mjlbach/neovim-nightly-overlay";
   };
 
- outputs = { self, home-manager, nixpkgs }:
-    let
-      pkgs = (import nixpkgs) {
+
+  outputs = { self, ... }@inputs: {
+    nixosConfigurations."${(import ./user.nix).hostname}" =
+      inputs.nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
+        modules = [
+          ./hosts/alpha/configuration.nix
+          ./hosts/alpha/hardware-configuration.nix
+          inputs.home-manager.nixosModules.home-manager
+          #inputs.nixos-hardware.nixosModules.lenovo-thinkpad-t480s
+          { nixpkgs.overlays = [ inputs.neovim-nightly-overlay.overlay ]; }
+        ];
       };
-
-      targets = map (pkgs.lib.removeSuffix ".nix") (
-        pkgs.lib.attrNames (
-          pkgs.lib.filterAttrs
-            (_: entryType: entryType == "regular")
-            (builtins.readDir ./hosts)
-        )
-      );
-
-      build-target = target: {
-        name = target;
-
-        value = nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-
-          modules = [
-            home-manager.nixosModules.home-manager
-            (import (./targets + "/${target}/configuration.nix"))
-            (import (./targets + "/${target}/hardware-configuration.nix"))
-          ];
-        };
-      };
-
-    in
-    {
-      nixosConfigurations = builtins.listToAttrs (
-        pkgs.lib.flatten (
-          map
-            (
-              target: [
-                (build-target target)
-              ]
-            )
-            targets
-        )
-      );
-    };
+  };
 }
