@@ -77,6 +77,7 @@
   };
 
   nix = {
+    package = pkgs.nixFlakes;
     distributedBuilds = true;
     buildMachines = [
       {
@@ -95,6 +96,7 @@
     ];
     extraOptions = ''
       builders-use-substitutes = true
+      experimental-features = nix-command flakes
     '';
   };
 }
