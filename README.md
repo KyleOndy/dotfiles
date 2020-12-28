@@ -56,3 +56,20 @@ This list is in lexicographical order.
 
 - [Terje Larsen's (terlar) dotfiles](https://github.com/terlar/nix-config)
 - [Utku Demir's (utdemir) dotfiles](https://github.com/utdemir/dotfiles)
+
+    ---------
+
+hosts / profiles / users / roles / packags
+
+home-infra and dotfils combined?
+
+Keep as much as possible in the home-manager layer. I do use other OS. Darwin at work.
+various other linux boxes at work
+
+nixos specfific
+- hardware
+- create users
+- system services
+- build machines
+
+

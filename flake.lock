@@ -1,5 +1,52 @@
 {
   "nodes": {
+    "flake-compat": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1606424373,
+        "narHash": "sha256-oq8d4//CJOrVj+EcOaSXvMebvuTkmBJuT5tzlfewUnQ=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "99f1c2157fba4bfe6211a321fd0ee43199025dbf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1605370193,
+        "narHash": "sha256-YyMTf3URDL/otKdKgtoMChu4vfVL3vCMkRqpGifhUn0=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "5021eac20303a61fafe17224c087f5519baed54d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "gitignore": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1594969032,
+        "narHash": "sha256-nbZfz02QoVe1yYK7EtCV7wMi4VdHzZEoPg20ZSDo9to=",
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "rev": "c4662e662462e7bf3c2a968483478a665d00e717",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "gitignore.nix",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -9,18 +56,74 @@
       "locked": {
         "lastModified": 1609081855,
         "narHash": "sha256-wxTOLR1BSMojbJ8N2pIsaf6+AD4WZNeCSP34OKiJfvE=",
-        "owner": "rycee",
+        "owner": "nix-community",
         "repo": "home-manager",
         "rev": "5263fe459413a411e51355bfae5b5673b481dbe3",
         "type": "github"
       },
       "original": {
-        "owner": "rycee",
+        "owner": "nix-community",
+        "ref": "master",
         "repo": "home-manager",
         "type": "github"
       }
     },
+    "neovim-nightly": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1609107271,
+        "narHash": "sha256-SBfrZuv82euOBZQ83CxRsM7/eHQpzezAhz064Nqg/fo=",
+        "owner": "neovim",
+        "repo": "neovim",
+        "rev": "a58c5509d94f01f4a4edd6b4784f8d00b70af5b3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "neovim",
+        "repo": "neovim",
+        "type": "github"
+      }
+    },
+    "neovim-nightly-overlay": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "flake-utils": "flake-utils",
+        "gitignore": "gitignore",
+        "neovim-nightly": "neovim-nightly",
+        "nixpkgs": "nixpkgs",
+        "pre-commit-hooks": "pre-commit-hooks"
+      },
+      "locked": {
+        "lastModified": 1609143303,
+        "narHash": "sha256-H3sGOokM5FH7uAQEzmWURQc36c52pcSNTRGguw5H6Ms=",
+        "owner": "mjlbach",
+        "repo": "neovim-nightly-overlay",
+        "rev": "e807a8f33867cc890c81995fe5b504a7bdb5d857",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mjlbach",
+        "repo": "neovim-nightly-overlay",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
+      "locked": {
+        "lastModified": 1609123981,
+        "narHash": "sha256-GI5YPztAY0u2uaCjUelb+HGznkah8TmHitLhbfN3/7g=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "a6eab7f4fa3c7840d47ef1c3bc6a1e312b3bf8d0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
       "locked": {
         "lastModified": 1609079092,
         "narHash": "sha256-KhyKfxBHtZlAgudpZ0EJVzeuqROjKfVOwj8j0cuhU50=",
@@ -36,10 +139,27 @@
         "type": "github"
       }
     },
+    "pre-commit-hooks": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1608206889,
+        "narHash": "sha256-DSgtmqIzGFNbDXnuEUiQWVOuKCyUnyFJxXMG/P3YFLA=",
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "rev": "d16e007e6bd263ba5899a9a425d76a78906570cd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cachix",
+        "repo": "pre-commit-hooks.nix",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "home-manager": "home-manager",
-        "nixpkgs": "nixpkgs"
+        "neovim-nightly-overlay": "neovim-nightly-overlay",
+        "nixpkgs": "nixpkgs_2"
       }
     }
   },
