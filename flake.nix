@@ -7,7 +7,7 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    neovim-nightly-overlay.url = "github:mjlbach/neovim-nightly-overlay";
+    #neovim-nightly-overlay.url = "github:mjlbach/neovim-nightly-overlay";
   };
 
 
@@ -20,7 +20,7 @@
           ./hosts/alpha/hardware-configuration.nix
           inputs.home-manager.nixosModules.home-manager
           #inputs.nixos-hardware.nixosModules.lenovo-thinkpad-t480s
-          { nixpkgs.overlays = [ inputs.neovim-nightly-overlay.overlay ]; }
+          #{ nixpkgs.overlays = [ inputs.neovim-nightly-overlay.overlay ]; }
         ];
       };
   };
