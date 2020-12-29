@@ -12,6 +12,12 @@
     ./../_includes/wifi_networks.nix
   ];
 
+  nixpkgs = {
+    config = {
+      allowUnfree = true;
+    };
+  };
+
   # Use the systemd-boot EFI boot loader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -36,7 +42,7 @@
     interfaces.enp0s31f6.useDHCP = true;
     interfaces.wlp4s0.useDHCP = true;
     firewall = {
-      allowedTCPPorts = [ 80 443 8200 ];
+      allowedTCPPorts = [ 80 443 8000 8080 8200 ];
       allowedUDPPorts = [ 1900 ];
     };
   };
