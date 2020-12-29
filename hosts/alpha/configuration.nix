@@ -47,7 +47,10 @@
     };
   };
 
-  hardware = { cpu.intel.updateMicrocode = true; };
+  hardware = {
+    enableAllFirmware = true;
+    cpu.intel.updateMicrocode = true;
+  };
 
   # no adhoc user managment
   users.mutableUsers = false;

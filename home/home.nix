@@ -1,6 +1,5 @@
 { config, pkgs, ... }:
 {
-  #nixpkgs.config.allowUnfree = true;
   # import each nix file into home-manager
   imports = [
     ./clojure.nix
