@@ -78,6 +78,17 @@
 
   nix = {
     package = pkgs.nixFlakes;
+    trustedUsers = [ "root" "kyle" ];
+    autoOptimiseStore = true;
+    nixPath = [
+      "nixpkgs=${pkgs.path}"
+    ];
+    gc.automatic = true;
+    optimise.automatic = true;
+    extraOptions = ''
+      builders-use-substitutes = true
+      experimental-features = nix-command flakes
+    '';
     distributedBuilds = true;
     buildMachines = [
       {
@@ -115,9 +126,5 @@
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
     ];
-    extraOptions = ''
-      builders-use-substitutes = true
-      experimental-features = nix-command flakes
-    '';
   };
 }

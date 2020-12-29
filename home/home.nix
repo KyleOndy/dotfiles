@@ -40,17 +40,9 @@
         (attrNames (readDir path))
     );
 
-  nixpkgs.config.packageOverrides = pkgs: {
-    nur = import sources.NUR {
-      inherit pkgs;
-    };
-  };
-
   programs = {
     home-manager = {
       enable = true;
-      # this uses the pinned version of home-manager
-      path = "${home-manager.path}";
     };
     lesspipe.enable = true;
   };
