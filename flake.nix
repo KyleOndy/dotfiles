@@ -25,7 +25,29 @@
             nixpkgs.overlays = [
               inputs.neovim-nightly-overlay.overlay
               inputs.nur.overlay
-            ];
+            ] ++
+
+            #    # import all the overlays that extend packages via nix or home-manager.
+            #    # Overlays are a nix file within the `overlay` folder or a sub folder in
+            #    # `overlay` that contains a `default.nix`.
+            (
+              let
+                path = ./home/overlays;
+              in
+              with builtins;
+              map (n: import (path + ("/" + n))) (
+                filter
+                  (
+                    n:
+                    match ".*\\.nix" n != null
+                      || pathExists (path + ("/" + n + "/default.nix"))
+                  )
+                  (attrNames (readDir path))
+              )
+            );
+
+
+
           }
         ];
       };
