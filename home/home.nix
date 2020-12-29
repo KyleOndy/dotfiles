@@ -1,13 +1,6 @@
-{ ... }:
-let
-  sources = import ../nix/sources.nix;
-  home-manager = import sources.home-manager { };
-in
-# This is the entrypoint for home-manager. This file should mainly be to import
-  # other more specific files
-
+{ config, pkgs, ... }:
 {
-  nixpkgs.config.allowUnfree = true;
+  #nixpkgs.config.allowUnfree = true;
   # import each nix file into home-manager
   imports = [
     ./clojure.nix

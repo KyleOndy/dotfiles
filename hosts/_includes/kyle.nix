@@ -21,6 +21,10 @@
   # build everything with `./make.sh`. This uses `nix build` under the hood and
   # give much cleaner output to stdout than `nixos-rebuild` or `home-manager
   # build`. Vanity, but its true.
-  home-manager.users.kyle = args: import ../../home/home.nix (args // { inherit pkgs; });
+  home-manager = {
+    useGlobalPkgs = true;
+    useUserPackages = true;
+    users.kyle = args: import ../../home/home.nix (args // { inherit pkgs; });
+  };
 
 }
