@@ -102,27 +102,28 @@
         hostName = "w1.dmz.509ely.com";
         systems = [ "x86_64-linux" "aarch64-linux" ];
         maxJobs = 1;
-        speedFactor = 1;
+        speedFactor = 5;
         supportedFeatures = [ ];
       }
       {
         hostName = "w2.dmz.509ely.com";
         systems = [ "x86_64-linux" "aarch64-linux" ];
         maxJobs = 1;
-        speedFactor = 1;
+        speedFactor = 5;
         supportedFeatures = [ ];
       }
       {
         hostName = "w3.dmz.509ely.com";
         systems = [ "x86_64-linux" "aarch64-linux" ];
         maxJobs = 1;
-        speedFactor = 1;
+        speedFactor = 5;
         supportedFeatures = [ ];
       }
       {
         hostName = "eu.nixbuild.net";
         system = "x86_64-linux";
         maxJobs = 100;
+        speedFactor = 1;
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
     ];
