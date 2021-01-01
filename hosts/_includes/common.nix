@@ -83,7 +83,6 @@
     nixPath = [
       "nixpkgs=${pkgs.path}"
     ];
-    gc.automatic = true;
     optimise.automatic = true;
     extraOptions = ''
       builders-use-substitutes = true
