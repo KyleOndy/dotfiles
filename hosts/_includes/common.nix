@@ -118,13 +118,13 @@
         speedFactor = 5;
         supportedFeatures = [ ];
       }
-      {
-        hostName = "eu.nixbuild.net";
-        system = "x86_64-linux";
-        maxJobs = 100;
-        speedFactor = 1;
-        supportedFeatures = [ "benchmark" "big-parallel" ];
-      }
+      #{
+      #  hostName = "eu.nixbuild.net";
+      #  system = "x86_64-linux";
+      #  maxJobs = 100;
+      #  speedFactor = 1;
+      #  supportedFeatures = [ "benchmark" "big-parallel" ];
+      #}
     ];
   };
 }
