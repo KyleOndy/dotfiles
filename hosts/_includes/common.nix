@@ -77,7 +77,7 @@
   };
 
   nix = {
-    package = pkgs.nixFlakes;
+    package = pkgs.nixUnstable;
     trustedUsers = [ "root" "kyle" ];
     autoOptimiseStore = true;
     nixPath = [
