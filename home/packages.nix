@@ -71,6 +71,7 @@
     st # lightweight terminal
     stack # Haskell build tooling
     steam # games # todo: I should break this out into gaming.nix
+    step-cli # working with CAs
     tree # directory listing
     unzip # unzip things
     virtmanager # manage KVM
