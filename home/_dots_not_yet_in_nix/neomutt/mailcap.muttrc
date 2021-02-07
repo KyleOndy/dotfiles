@@ -1,10 +1,10 @@
 # vim: ft=muttrc
-application/octet-stream ; echo %s "can be anything..."                                ; copiousoutput
-text/html                ; mv %s %s.html && firefox     %s.html >/dev/null 2>/dev/null ; needsterminal
-application/pdf          ; /usr/bin/zathura %s                                         ; copiousoutput
-image/*                  ; /usr/bin/feh %s                                             ; copiousoutput
-audio/*                  ; /usr/bin/mpv %s                                             ; copiousoutput
-video/*                  ; /usr/bin/mpv %s                                             ; copiousoutput
-text/plain               ; cat %s                                                      ; copiousoutput
+application/octet-stream ; echo %s "can be anything..."
+text/html                ; lynx %s
+application/pdf          ; /usr/bin/zathura %s
+image/*                  ; /usr/bin/feh %s
+audio/*                  ; /usr/bin/mpv %s
+video/*                  ; /usr/bin/mpv %s
+text/plain               ; cat %s                       ; copiousoutput
 text/x-diff              ; vim -R %s
 text/x-patch             ; vim -R %s
