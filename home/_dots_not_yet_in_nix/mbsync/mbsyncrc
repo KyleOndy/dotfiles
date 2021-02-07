@@ -19,28 +19,28 @@ Path ~/.mail/mxroute/
 Inbox ~/.mail/mxroute/Inbox
 
 Channel mxroute-inbox
-Master :mxroute-remote:INBOX
-Slave  :mxroute-local:Inbox
+Far :mxroute-remote:INBOX
+Near  :mxroute-local:Inbox
 
 Channel mxroute-drafts
-Master :mxroute-remote:Drafts
-Slave  :mxroute-local:Drafts
+Far :mxroute-remote:Drafts
+Near  :mxroute-local:Drafts
 
 Channel mxroute-sent
-Master :mxroute-remote:Sent
-Slave  :mxroute-local:Sent
+Far :mxroute-remote:Sent
+Near  :mxroute-local:Sent
 
 Channel mxroute-trash
-Master :mxroute-remote:Trash
-Slave  :mxroute-local:Trash
+Far :mxroute-remote:Trash
+Near  :mxroute-local:Trash
 
 Channel mxroute-spam
-Master :mxroute-remote:spam
-Slave  :mxroute-local:Spam
+Far :mxroute-remote:spam
+Near  :mxroute-local:Spam
 
 Channel mxroute-archive
-Master :mxroute-remote:Archive
-Slave  :mxroute-local:Archive
+Far :mxroute-remote:Archive
+Near  :mxroute-local:Archive
 
 Group mxroute
 Channel mxroute-inbox
