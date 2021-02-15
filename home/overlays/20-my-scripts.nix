@@ -6,7 +6,7 @@ self: super: {
 
     src = ./../scripts;
 
-    buildInputs = [];
+    buildInputs = [ ];
 
     installPhase = ''
       mkdir -p $out/bin
@@ -14,7 +14,7 @@ self: super: {
           -exec cp -pL {} $out/bin \;
     '';
 
-    meta = with stdenv.lib; {
+    meta = with pkgs.lib; {
       description = "Kyle Ondy's various scripts";
       homepage = https://github.com/kyleondy;
       license = licenses.mit;
