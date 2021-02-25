@@ -89,15 +89,8 @@
 
     # hashi tools, first and third party
     #
-    # I am not sure the value of having these randomly available on PATH. In
-    # any real use case they are going to be pinned within the project
-    # repository. It wouls still feel weird to not having hace them always
-    # available.
-    nomad_0_12
-    packer
-    terraform # infrastructure as code
+    # use asdf to manage versions of hashicorp tools
     terraform-docs # auto documentation generation
-    terragrunt # more tooling for tf
     tflint # better terraform linter
     tfsec #  static analysis of terraform
     vault
