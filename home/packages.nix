@@ -45,6 +45,7 @@
     libreoffice # getting things done
     lsof # how is this not in the base system?
     ltrace # trace library calls
+    lz4
     manpages # developer documentation
     molly-guard # prevent footguns from runing my day
     mosh # better ssh
