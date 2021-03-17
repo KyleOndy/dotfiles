@@ -14,7 +14,7 @@ in
     bat = {
       enable = true;
       config = {
-        theme = "gruvbox";
+        theme = "gruvbox-dark";
       };
     };
     fzf = {
