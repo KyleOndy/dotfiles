@@ -90,13 +90,20 @@
     zbar # barcode reader, mostly used to import OTP into pass
     zoom-us # pandemic life
 
-    # hashi tools, first and third party
-    #
-    # use asdf to manage versions of hashicorp tools
+    # hashi tools, first and third party. The first party tooling is managed
+    # via overlays
+    # hashicorp tools
+    consul
+    nomad
+    packer
+    terraform
+    vagrant
+    vault
+
+    # hashi-related
     terraform-docs # auto documentation generation
     tflint # better terraform linter
     tfsec #  static analysis of terraform
-    vault
   ];
 
 }
