@@ -96,7 +96,7 @@
     consul
     nomad
     packer
-    terraform
+    terraform_0_14
     vagrant
     vault
 
