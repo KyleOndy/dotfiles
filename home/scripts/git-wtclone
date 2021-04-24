@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -Ee
+
+# clone and setups a repo for use with my git worktree workflow
+
+# todo: check the git is new enough
+# tood: document _why_ I do this
+# todo: allow passing second argument to set directory name
+
+project_name=$(echo "$1" | rev | cut -d'.' -f2 | cut -d '/' -f1 | rev)
+echo "$project_name"
+
+mkdir "$project_name"
+cd "$project_name"
+git clone --separate-git-dir=.bare "$1" master
