@@ -8,9 +8,11 @@ in
     enable = true;
     package = pkgs.gitAndTools.gitFull; # all the tools
     aliases = {
-      # show all currently configured alias, sorted. Sometimes I forget what
-      # I've configured.
-      alias = "! git config --global --get-regexp ^alias | sort";
+      # Sometimes I forget what I've configured. Show all currently configured
+      # alias, sorted. To make it a bit prettier I output this in column
+      # format, abusing the `#` character assuming the octothorpe will not
+      # appear in my alias.
+      alias = "! git config --get-regexp ^alias | sed 's/alias\.//'  | sed 's/ /#/' | column -s'#' -t";
       # patch add. Easiest way to keep commits small.
       ap = "add -p";
       # track file, effectively staging the file without any content
