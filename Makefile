@@ -36,6 +36,10 @@ info:
 	@echo "Current generation's largest dependencies:"
 	@du -shc $(shell nix-store -qR "$(shell realpath /var/run/current-system)") | sort -hr | head -n 11
 
+.PHONY: iso
+iso: ## build install media with my customizations
+	nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage -I nixos-config=iso.nix
+
 .PHONY: cleanup
 cleanup:
 	sudo nix-collect-garbage --delete-older-than 31d
