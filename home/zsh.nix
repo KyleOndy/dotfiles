@@ -105,7 +105,7 @@
       }
 
       _fzf() {
-        fzf "$@" --border
+        fzf "$@" --multi --ansi --border
       }
 
       fzf_pick_git_commit() {
@@ -115,7 +115,7 @@
         # I force `--color` becuase git will output this without color by
         # default.
         git log --color --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' |
-        _fzf --ansi --no-sort --reverse --multi \
+        _fzf --no-sort --reverse \
           --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES |
         grep -o "[a-f0-9]\{7,\}"
       }
@@ -123,7 +123,7 @@
       fzf_pick_git_tag() {
         is_in_git_repo || return
         git tag --sort -version:refname |
-        _fzf --multi --preview-window right:70% \
+        _fzf --preview-window right:70% \
           --preview 'git show --color=always {} | head -'$LINES
       }
 
@@ -138,7 +138,7 @@
       fzf_pick_git_branch() {
         is_in_git_repo || return
         git branch -a --color=always | grep -v '/HEAD\s' | sort |
-        _fzf --ansi --multi --tac --preview-window right:70% \
+        _fzf  --tac --preview-window right:70% \
           --preview 'git log --oneline --graph --date=short --color=always --pretty="format:%C(auto)%cd %h%d %s" $(sed s/^..// <<< {} | cut -d" " -f1) | head -'$LINES |
         sed 's/^..//' | cut -d' ' -f1 |
         sed 's#^remotes/##'
