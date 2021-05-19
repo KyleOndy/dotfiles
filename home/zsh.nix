@@ -21,10 +21,8 @@
       ":e" = "$EDITOR";
       ":q" = "exit";
       cdtmp = "cd $(mktemp -d)";
-      l = "ls";
       lsd = "ls -l $@ | grep '^d'";
       llr = "ll --color=auto -t | head";
-      r = "ranger";
       src = "cd $HOME/src";
       tree = "tree --dirsfirst -ChFQ $@";
       tree1 = "tree -L 1 $@";
@@ -50,19 +48,6 @@
       export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
 
       # my quality of life functions
-
-      # less keystrokes for common actions
-      f() {
-        if [[ -z "$1" ]]; then
-          ls
-        elif [[ -f "$1" ]]; then
-          $EDITOR "$1"
-        elif [[ -d "$1" ]]; then
-          cd "$1" || exit 1
-          ls
-        fi
-      }
-
 
       # todo: not sure this is the best way to instll the theme
       mkdir -p "$HOME/.zfunctions"
