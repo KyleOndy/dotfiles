@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+set -Ee
+
+print_usage() {
+  echo "$0 <what are you doing>"
+  echo "$0 log <description"
+  echo "$0 work <ticket number>"
+}
+
+create_switch_to_workspace() {
+  ticket=$1
+  existing=$(tmux list-windows -F "#I,#W" | grep "$ticket" || true)
+  if [ -z "$existing" ]; then
+    project="$(echo "$ticket" | cut -d'-' -f1)"
+    w_id=$(tmux new-window -n "$ticket" -P -F "#I" -c "${foundry_dir}/${project}/${ticket}")
+  else
+    w_id="$(echo "$existing" | cut -d',' -f1)"
+  fi
+  tmux select-window -t "$w_id"
+}
+
+work_on() {
+  ticket=${1^^}
+  project="$(echo "$ticket" | cut -d'-' -f1)"
+  pushd "$foundry_dir"
+
+  mkdir -p "./$project/$ticket"
+
+  if ! [ -f "./$project/$ticket/README.md" ]; then
+cat <<- EOF > "./$project/$ticket/README.md"
+# $ticket
+
+[Jira ticket for $ticket](https://jira.paigeai.net/browse/$ticket)
+EOF
+  fi
+  create_switch_to_workspace "$ticket"
+
+  #SLACK_CLI_TOKEN="$(pass show paigeai.slack.com/user_token )" slack status edit "Working on $ticket" :hammer_and_wrench:
+  #git checkout -b "$ticket" || git checkout "$ticket"
+}
+
+log() {
+  tracking_dir="${foundry_dir}/.tracking"
+  mkdir -p "$tracking_dir"
+  echo "$@" > "${tracking_dir}/$(date +%s)"
+}
+
+## ENTRYPOINT
+foundry_dir=${FOUNDRY_DATA:-$XDG_DATA_HOME}
+[[ -d "$foundry_dir" ]] || mkdir -p "$foundry_dir"
+
+
+case "$1" in
+  "w"|"work"|"workon")
+    shift
+
+    # assuming ticket is the form of PROJ-###
+    work_on "$@"
+    log "$@"
+    ;;
+  "l"|"log")
+    shift
+    log "$@"
+    ;;
+  "o"|"ops"|"adhoc")
+    shift
+    if [ -z "$1" ]; then
+      t_stamp=$(date +%s)
+      work_on "ADHOC-$t_stamp"
+    else
+      work_on "ADHOC-$1"
+    fi
+    ;;
+  "c"|"commit")
+    shift
+    # todo: this makes so many assumptions
+    git cmm "$(basename "$PWD"):" -e
+    ;;
+  *)
+    log "$@"
+    ;;
+esac
