@@ -32,6 +32,26 @@ switch: build
 update:
 	nix flake update
 
+.PHONY: update/nixpkgs
+update/nixpkgs:
+	nix flake lock --update-input nixpkgs
+
+.PHONY: update/home-manager
+update/home-manager:
+	nix flake lock --update-input home-manager
+
+.PHONY: update/neovim-nightly
+update/neovim-nightly:
+	nix flake lock --update-input neovim-nightly-overlay
+
+.PHONY: update/nur
+update/nur:
+	nix flake lock --update-input nur
+
+.PHONY: update/pre-commit-hooks
+update/pre-commit-hooks:
+	nix flake lock --update-input pre-commit-hooks
+
 .PHONY: check
 check:
 	nix flake check
