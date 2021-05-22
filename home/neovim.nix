@@ -56,7 +56,7 @@
       gruvbox # color scheme
       haskell-vim
       nvim-ts-rainbow # TreeSitter rainbow parens
-      surround # easy wrapping
+      vim-surround # easy wrapping
       vim-easymotion # move easier
       tmux-complete-vim # completion from tmux windows
       jedi-vim # jedi for python

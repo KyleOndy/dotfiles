@@ -5,9 +5,22 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    neovim-nightly-overlay.url = "github:mjlbach/neovim-nightly-overlay";
-    nur.url = github:nix-community/NUR;
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    neovim-nightly-overlay = {
+      url = "github:mjlbach/neovim-nightly-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    flake-compat = {
+      url = "github:edolstra/flake-compat";
+      flake = false;
+    };
+    pre-commit-hooks = {
+      url = "github:cachix/pre-commit-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, ... }@inputs:
