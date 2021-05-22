@@ -24,6 +24,22 @@
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, ... }@inputs:
+    let
+      overlays = [ inputs.neovim-nightly-overlay.overlay inputs.nur.overlay ] ++
+        # import all the overlays that extend packages via nix or home-manager.
+        # Overlays are a nix file within the `overlay` folder or a sub folder
+        # in `overlay` that contains a `default.nix`.
+        (
+          let path = ./home/overlays;
+          in
+          with builtins;
+          map (n: import (path + ("/" + n))) (filter
+            (n:
+              match ".*\\.nix" n != null
+                || pathExists (path + ("/" + n + "/default.nix")))
+            (attrNames (readDir path)))
+        );
+    in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachDefaultSystem
       (system: {
@@ -52,28 +68,7 @@
             ./hosts/alpha/hardware-configuration.nix
             inputs.home-manager.nixosModules.home-manager
             {
-              nixpkgs.overlays = [
-                inputs.neovim-nightly-overlay.overlay
-                inputs.nur.overlay
-              ] ++
-              # import all the overlays that extend packages via nix or
-              # home-manager. Overlays are a nix file within the `overlay` folder
-              # or a sub folder in `overlay` that contains a `default.nix`.
-              (
-                let
-                  path = ./home/overlays;
-                in
-                with builtins;
-                map (n: import (path + ("/" + n))) (
-                  filter
-                    (
-                      n:
-                      match ".*\\.nix" n != null
-                      || pathExists (path + ("/" + n + "/default.nix"))
-                    )
-                    (attrNames (readDir path))
-                )
-              );
+              nixpkgs.overlays = overlays;
             }
           ];
         };
