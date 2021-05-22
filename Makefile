@@ -14,6 +14,11 @@ endif
 
 .PHONY: build
 build:
+	@# hack: todo: there appears to be some issues where the first build command
+	@#              doesn't build everything, but the second invocation does. To be
+	@#              safe, until I get to dig into it, just build it all twice.
+	@#              Due to this, pipe STDOUT out of the first build to /dev/null
+	@$(REBUILD) build --flake . > /dev/null
 	$(REBUILD) build --flake .
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
