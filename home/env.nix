@@ -17,11 +17,6 @@ in
         theme = "gruvbox-dark";
       };
     };
-    fzf = {
-      enable = true;
-      enableZshIntegration = true;
-    };
-  };
 
   services = {
     dropbox.enable = true;
