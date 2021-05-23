@@ -44,6 +44,7 @@
     };
     terminal = {
       email.enable = true;
+      dropbox.enable = true;
     };
   };
 
