@@ -1,6 +1,6 @@
 # this is the config for my own user.
 #
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   users.users.kyle = {
@@ -16,15 +16,4 @@
       "ecdsa-sha2-nistp384 AAAAE2VjZHNhLXNoYTItbmlzdHAzODQAAAAIbmlzdHAzODQAAABhBCY48p/4M/8CcfQgq/4J/bYRflVQ2MFovineycMxsEorlW50oOm1SJ8nn2qAAE75bxgbqbmFPBNdV1JUx/9DAnTITqw13lKdb09M2c59NQN6LjaL1SUbboiSxiwv6hHtAg== JuiceSSH"
     ];
   };
-  # todo: do not hardcode pahts?
-  # setting the path here avoid the need to set HOME_MANAGER_PATH and we can
-  # build everything with `./make.sh`. This uses `nix build` under the hood and
-  # give much cleaner output to stdout than `nixos-rebuild` or `home-manager
-  # build`. Vanity, but its true.
-  home-manager = {
-    useGlobalPkgs = true;
-    useUserPackages = true;
-    users.kyle = args: import ../../home/home.nix (args // { inherit pkgs; });
-  };
-
 }

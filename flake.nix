@@ -69,6 +69,11 @@
             inputs.home-manager.nixosModules.home-manager
             {
               nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                users.kyle = import ./hosts/alpha/home.nix;
+              };
             }
           ];
         };
