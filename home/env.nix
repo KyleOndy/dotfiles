@@ -18,9 +18,6 @@ in
       };
     };
 
-  services = {
-    dropbox.enable = true;
-  };
 
   home.sessionVariables = {
     DOTFILES = dotfiles;
