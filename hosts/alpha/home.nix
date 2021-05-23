@@ -16,7 +16,6 @@
     ./../../home/neovim.nix
     ./../../home/packages.nix
     ./../../home/tmux.nix
-    ./../../home/zsh.nix
   ];
 
 
@@ -41,6 +40,9 @@
     dev = {
       clojure.enable = true;
       python.enable = true;
+    };
+    shell = {
+      zsh.enable = true;
     };
   };
 
