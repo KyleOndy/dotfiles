@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 {
   # import each nix file into home-manager
   imports = [
