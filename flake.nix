@@ -39,6 +39,35 @@
                 || pathExists (path + ("/" + n + "/default.nix")))
             (attrNames (readDir path)))
         );
+
+      # I am sure this is ugly to experienced nix users, and might break in all
+      # kinds of unexpected ways. This was my first actual function written in
+      # nix, and I never really figured out the repl, this is what I ended up
+      # with.
+      #
+      # This function takes a path, and returns a list of every file under it.
+      #
+      # TODO:
+      #   - filter by .nix
+      #   - handles readDir's `symlink` and `unknown` types
+      #   - is there a better way than (path + ("/" + path))?
+      #   - can this be moved into a library and sourced over inline?
+      foundryModules =
+        let
+          lib = inputs.nixpkgs.lib;
+          getNixFilesRec = path:
+            let
+              contents = builtins.readDir path;
+              files = builtins.attrNames (lib.filterAttrs (_: v: v == "regular") contents);
+              dirs = builtins.attrNames (lib.filterAttrs (_: v: v == "directory") contents);
+            in
+            # return the path of all files found in this directory
+            (map (p: path + ("/" + p)) files)
+            ++
+            # pass each directory into this function again
+            (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
+        in
+        getNixFilesRec ./modules;
     in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachDefaultSystem
@@ -72,6 +101,7 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
+                sharedModules = foundryModules;
                 users.kyle = import ./hosts/alpha/home.nix;
               };
             }
