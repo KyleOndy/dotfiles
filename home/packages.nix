@@ -20,7 +20,6 @@
     cowsay # cows keep me informed
     ctags # for navigating within NeoVim
     direnv
-    discord # am I cool now?
     dnsutils # dig
     docker-compose
     dos2unix # windows line endings => unix

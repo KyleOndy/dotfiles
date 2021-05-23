@@ -34,6 +34,11 @@
 
   foundry = {
     # foundry is the namespace I've given to my internal modules
+    desktop = {
+      apps = {
+        discord.enable = true;
+      };
+    };
     dev = {
       clojure.enable = true;
     };
