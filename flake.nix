@@ -25,10 +25,10 @@
   };
   outputs = { self, ... }@inputs:
     let
+      # import all the overlays that extend packages via nix or home-manager.
+      # Overlays are a nix file within the `overlay` folder or a sub folder in
+      # `overlay` that contains a `default.nix`.
       overlays = [ inputs.neovim-nightly-overlay.overlay inputs.nur.overlay ] ++
-        # import all the overlays that extend packages via nix or home-manager.
-        # Overlays are a nix file within the `overlay` folder or a sub folder
-        # in `overlay` that contains a `default.nix`.
         (
           let path = ./home/overlays;
           in
