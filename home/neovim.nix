@@ -5,7 +5,6 @@
   # language servers
   home.packages = with pkgs; [
     terraform-ls
-    clojure-lsp
 
     python-language-server
     dotnet-netcore
@@ -74,14 +73,6 @@
       vim-tmux-navigator # move between nvim and tmux
       vimproc-vim
 
-      # clojure plugins
-      vim-dispatch
-      conjure # magic clojure
-      vim-clojure-highlight # Extend builtin syntax highlighting
-      vim-clojure-static # Meikel Brandmeyer's Clojure runtime files
-      vim-fireplace # Clojure REPL support
-      vim-sexp # Precision Editing for S-expressions
-      vim-sexp-mappings-for-regular-people # tpope to the rescue again
     ];
     extraConfig = builtins.readFile ./init.vim;
   };

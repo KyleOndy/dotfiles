@@ -12,7 +12,6 @@
     aspellDicts.en-science
     atop # system monitoring
     awscli2 # interacting with AWS
-    babashka # a Clojure babushka for the grey areas of Bash
     bc # the classic calculator
     calcurse # cli calendar
     cifs-utils # todo: why do I need this?
