@@ -15,7 +15,6 @@
     ./../../home/neomutt.nix
     ./../../home/neovim.nix
     ./../../home/packages.nix
-    ./../../home/python.nix
     ./../../home/tmux.nix
     ./../../home/zsh.nix
   ];
@@ -41,6 +40,7 @@
     };
     dev = {
       clojure.enable = true;
+      python.enable = true;
     };
   };
 
