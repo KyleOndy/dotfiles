@@ -6,7 +6,6 @@
   home.packages = with pkgs; [
     terraform-ls
 
-    python-language-server
     dotnet-netcore
 
     # Node packages do not appear when running `nix search`. Use
@@ -58,7 +57,6 @@
       vim-surround # easy wrapping
       vim-easymotion # move easier
       tmux-complete-vim # completion from tmux windows
-      jedi-vim # jedi for python
       vim-airline # status bar
       vim-airline-themes # status bar themes
       vim-hdevtools
