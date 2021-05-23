@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/clojure.nix
     ./../../home/email.nix
     ./../../home/emacs.nix
     ./../../home/env.nix
@@ -31,6 +30,13 @@
 
   services = {
     lorri.enable = true;
+  };
+
+  foundry = {
+    # foundry is the namespace I've given to my internal modules
+    dev = {
+      clojure.enable = true;
+    };
   };
 
 }
