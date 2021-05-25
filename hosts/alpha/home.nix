@@ -11,7 +11,6 @@
     ./../../home/i3.nix
     ./../../home/neovim.nix
     ./../../home/packages.nix
-    ./../../home/tmux.nix
   ];
 
 
