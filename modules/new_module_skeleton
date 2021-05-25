@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -e
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+module_path="$1"
+
+path_to_string() {
+  # drop `.nix`
+  echo "$1" | rev | cut -c5- | rev | sed -e 's|/|.|g'
+}
+
+module_string=$(path_to_string "$module_path")
+
+mkdir -p "$(dirname "$module_path")"
+cat << EOF > "${SCRIPT_DIR}/${module_path}"
+{ lib, pkgs, config, ... }:
+with lib;
+let cfg = config.foundry.$module_string;
+in
+{
+  options.foundry.$module_string = {
+    enable = mkEnableOption "todo";
+  };
+
+  config = mkIf cfg.enable {
+    # stuff goes here
+  };
+}
+EOF
