@@ -614,18 +614,7 @@ in
 
   python = { home.packages = [ pkgs.nodePackages.pyright ]; };
 
-
-  nix = {
-    programs.neovim = {
-      plugins = with pkgs.vimPlugins;
-        [
-          vim-nix # https://github.com/LnL7/vim-nix
-        ];
-    };
-  };
-
-  nix
-    python
+  python
 
     };
     }
