@@ -18,26 +18,5 @@ in
         theme = "gruvbox-dark";
       };
     };
-    fzf = {
-      enable = true;
-      enableZshIntegration = true;
-    };
-  };
-
-  home.sessionVariables = {
-    DOTFILES = dotfiles;
-    FOUNDRY_DATA = "${homeDir}/src/foundry";
-    # todo:
-    EDITOR = editor;
-    VISUAL = editor;
-    # $HOME/wip_scripts is where I put scripts that are not ready for inclsion
-    # in the source contro repo. I try hard to not let scripts sit there for
-    # too long.
-    # todo: shoudn't `my-scripts` be on path already?
-    PATH = "$PATH:${pkgs.my-scripts}/bin:$HOME/wip_scripts";
-    # this allows the rest of the system to default to the packages I use in my
-    # dotfiles.
-    NIX_PATH = "nixpkgs=${pkgs.path}";
-    MANPAGER = "${pkgs.bash}/bin/bash -c 'col -bx | ${pkgs.bat}/bin/bat -l man -p'";
   };
 }
