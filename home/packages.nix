@@ -87,17 +87,6 @@
     # hashi tools, first and third party. The first party tooling is managed
     # via overlays
     # hashicorp tools
-    consul
-    nomad
-    packer
-    terraform_0_14
-    vagrant
-    vault
-
-    # hashi-related
-    terraform-docs # auto documentation generation
-    tflint # better terraform linter
-    tfsec #  static analysis of terraform
   ];
 
 }

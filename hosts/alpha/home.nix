@@ -47,6 +47,7 @@
       clojure.enable = true;
       python.enable = true;
       dotnet.enable = true;
+      hashicorp.enable = true;
       #terraform.enable = true;
       #git.enable = true;
       #haskell.enable = true;
