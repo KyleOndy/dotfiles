@@ -9,7 +9,6 @@
     ./../../home/gpg.nix
     ./../../home/haskell.nix
     ./../../home/i3.nix
-    ./../../home/neovim.nix
     ./../../home/packages.nix
   ];
 
@@ -63,6 +62,9 @@
       email.enable = true;
       dropbox.enable = true;
       tmux.enable = true;
+      editors = {
+        neovim.enable = true;
+      };
     };
   };
 
