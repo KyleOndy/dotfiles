@@ -611,10 +611,4 @@ in
       '';
     };
   };
-
-  python = { home.packages = [ pkgs.nodePackages.pyright ]; };
-
-  python
-
-    };
-    }
+}
