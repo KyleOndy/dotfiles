@@ -4,8 +4,10 @@ HOSTNAME=$(shell hostname)
 # this is my naive approach to supporting multiple systems.
 ifeq ($(UNAME), Linux)
 	REBUILD := nixos-rebuild
+	SWITCH := sudo $(REBUILD)
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild
+	SWITCH := sudo $(REBUILD)
 else
 	# todo: this will need to be addressed when I try to extend this repository
 	#       to a WSL, or any machine that isn't NixOS or nix-darwin.
@@ -14,6 +16,9 @@ endif
 
 .PHONY: build
 build:
+	@# tood: not sure why I need to remove the result symlink for the
+	@#       diff-closures command to show anything
+	@rm -f result
 	@# hack: todo: there appears to be some issues where the first build command
 	@#              doesn't build everything, but the second invocation does. To be
 	@#              safe, until I get to dig into it, just build it all twice.
@@ -25,7 +30,7 @@ build:
 .PHONY: switch
 switch: git-status build
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
-	sudo $(REBUILD) switch --flake .
+	$(SWITCH) switch --flake .
 
 # todo: add targets to update a single dependencies instead of blindly updating
 #       them all.
