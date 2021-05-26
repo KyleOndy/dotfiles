@@ -23,7 +23,8 @@ build:
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
 .PHONY: switch
-switch: build
+switch: git-status build
+	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
 	sudo $(REBUILD) switch --flake .
 
 # todo: add targets to update a single dependencies instead of blindly updating
@@ -69,3 +70,13 @@ iso: ## build install media with my customizations
 cleanup:
 	sudo nix-collect-garbage --delete-older-than 31d
 	sudo nix store optimise
+
+# https://kgolding.co.uk/snippets/makefile-check-git-status/
+.PHONY: git-status
+git-status:
+	@status=$$(git status --porcelain); \
+	if [ ! -z "$${status}" ]; \
+	then \
+		echo "Error - working directory is dirty. Commit those changes!"; \
+		exit 1; \
+	fi
