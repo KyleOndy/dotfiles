@@ -1,9 +1,6 @@
 { lib, pkgs, config, ... }:
 with lib;
-let
-  cfg = config.foundry.dev.python;
-  python-packages = python-packages: with python-packages; [ virtualenv ];
-  system-python-with-packages = pkgs.python3.withPackages python-packages;
+let cfg = config.foundry.dev.python;
 in
 {
   options.foundry.dev.python = {
@@ -11,14 +8,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ system-python-with-packages ];
-
-    programs.neovim = {
-      plugins = with pkgs.vimPlugins; [
-        {
-          plugin = jedi-vim;
-        }
-      ];
-    };
+    home.packages = [ pkgs.nodePackages.pyright ];
   };
 }
