@@ -4,7 +4,7 @@ let cfg = config.foundry.dev.dotnet;
 in
 {
   options.foundry.dev.dotnet = {
-    enable = mkEnableOption "todo";
+    enable = mkEnableOption "dotnet";
   };
 
   config = mkIf cfg.enable {
