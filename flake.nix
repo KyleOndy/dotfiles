@@ -109,5 +109,6 @@
             }
           ];
         };
+      alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
     };
 }
