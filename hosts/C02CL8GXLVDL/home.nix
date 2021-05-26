@@ -3,12 +3,7 @@
   # import each nix file into home-manager
   imports = [
     ./../../home/env.nix
-    ./../../home/fonts.nix
     ./../../home/git.nix
-    #./../../home/go.nix
-    #./../../home/gpg.nix
-    #./../../home/haskell.nix
-    #./../../home/i3.nix
     ./../../home/packages.nix
   ];
 
