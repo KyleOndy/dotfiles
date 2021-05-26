@@ -7,8 +7,8 @@ in
     enable = mkEnableOption "dropbox";
   };
   config = mkIf cfg.enable {
-    services = {
-      dropbox.enable = true;
-    };
+    #services = {
+    #  dropbox.enable = true;
+    #};
   };
 }

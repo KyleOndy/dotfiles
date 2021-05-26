@@ -1,6 +1,9 @@
 # this file is for packages the don't need an entire file for configuration.
-{ pkgs, ... }:
-
+{ pkgs, lib, ... }:
+let
+  inherit (pkgs) stdenv;
+  inherit (lib) optionals;
+in
 {
   home.packages = with pkgs; [
     my-scripts # personal scripts. See `scripts` and `overlay` folder
@@ -10,11 +13,8 @@
     aspellDicts.en
     aspellDicts.en-computers
     aspellDicts.en-science
-    atop # system monitoring
     awscli2 # interacting with AWS
     bc # the classic calculator
-    calcurse # cli calendar
-    cifs-utils # todo: why do I need this?
     clang
     cmake
     cowsay # cows keep me informed
@@ -31,20 +31,16 @@
     ghc # Glasgow Haskell compiler
     glances # system monitor
     go-jira # cli for interacting with Jira
-    golden-cheetah # cycling analytics
     gron # make JSON greppable
     htop # system diagnostics
-    inotify-tools # watch the file system for changes
-    insomnia # rest client
     ispell # spell checking
     jq # easy json formatting
     k9s # stylish kubernetes management
+    kubectx
     lesspipe # auto piping into less
     lsof # how is this not in the base system?
-    ltrace # trace library calls
     lz4
     manpages # developer documentation
-    molly-guard # prevent footguns from runing my day
     mosh # better ssh
     ncspot # cursors spotify client
     niv # nix package pinning
@@ -58,21 +54,17 @@
     pixz # parallel (de)compresser for xz
     proselint # A linter for prose
     pv # pipe progress
-    qemu-utils
-    qemu_full
     ranger # cli file browser
-    remmina # remote desktop client
     ripgrep # recursively searches directories for a regex pattern
     shellcheck # linting bash scripts
     shfmt # shell (bash) formatting
     slack-cli # bash based cli for interacting with slack
-    smbnetfs # todo: why do I need this?
     squashfsTools # create and unpack squashfs
+    st # lightweight terminal
     stack # Haskell build tooling
     step-cli # working with CAs
     tree # directory listing
     unzip # unzip things
-    virtmanager # manage KVM
     w3m # browse the web from the cli, like it was meant to be
     weechat # IRC client
     wget # get a file from the internet
@@ -81,12 +73,35 @@
     xz # compression format
     youtube-dl # download videos from youtube and others
     yq-go # like jq, but for yaml
+    zathura # lightweight PDF viewer
     zbar # barcode reader, mostly used to import OTP into pass
-    zoom-us # pandemic life
+    bash_5 # want my modern bash
+    coreutils-full
+    findutils
+    lorri
+    watch
+  ]
 
-    # hashi tools, first and third party. The first party tooling is managed
-    # via overlays
-    # hashicorp tools
+  ++ optionals stdenv.isLinux [
+    atop # system monitoring
+    babashka # a Clojure babushka for the grey areas of Bash
+    calcurse # cli calendar
+    cifs-utils # todo: why do I need this?
+    discord # am I cool now?
+    golden-cheetah # cycling analytics
+    inotify-tools # watch the file system for changes
+    insomnia # rest client
+    ltrace # trace library calls
+    molly-guard # prevent footguns from runing my day
+    qemu-utils
+    qemu_full
+    remmina # remote desktop client
+    smbnetfs # todo: why do I need this?
+    steam # games # todo: I should break this out into gaming.nix
+    virtmanager # manage KVM
+    zoom-us # pandemic life
   ];
 
+  #++ optionals stdenv.isDarwin
+  #[];
 }

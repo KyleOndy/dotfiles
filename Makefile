@@ -18,8 +18,8 @@ build:
 	@#              doesn't build everything, but the second invocation does. To be
 	@#              safe, until I get to dig into it, just build it all twice.
 	@#              Due to this, pipe STDOUT out of the first build to /dev/null
-	@nix build .#alpha > /dev/null
-	nix build .#alpha
+	@nix build .#$(HOSTNAME) > /dev/null
+	nix build .#$(HOSTNAME)
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
 .PHONY: switch

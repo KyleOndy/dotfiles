@@ -21,6 +21,10 @@
       url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-darwin = {
+      url = "github:LnL7/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-utils.url = "github:numtide/flake-utils";
   };
   outputs = { self, ... }@inputs:
@@ -109,6 +113,23 @@
             }
           ];
         };
+      darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
+        modules = [
+          ./hosts/C02CL8GXLVDL/configuration.nix
+          inputs.home-manager.darwinModule
+          {
+            nixpkgs.overlays = overlays;
+            #users.nix.configureBuildUsers = true; # todo: doc: why?
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              sharedModules = foundryModules;
+              users."kyle.ondy" = import ./hosts/C02CL8GXLVDL/home.nix;
+            };
+          }
+        ];
+      };
       alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
+      C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
     };
 }
