@@ -51,7 +51,7 @@
       #terraform.enable = true;
       #git.enable = true;
       #haskell.enable = true;
-      #nix.enable = true;
+      nix.enable = true;
       #powershell.enable = true;
       #puppet.enable = true;
       #go.enable = true;
