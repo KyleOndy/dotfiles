@@ -97,41 +97,51 @@ in
           # the `completion-nvim` plugin is configued as part of
           # `nvim-lspconfig` below.
           plugin = completion-nvim;
+          config = ''
+            lua <<CFG
+              require'lspconfig'.clojure_lsp.setup{on_attach=require'completion'.on_attach}
+            CFG
+          '';
         }
         {
           # https://github.com/neovim/nvim-lspconfig
           plugin = nvim-lspconfig;
           config = ''
             lua <<CFG
-              local lspconfig = require('lspconfig')
-              local on_attach = function(_, bufnr)
-                require('completion').on_attach()
-              end
-              local servers = {
-                'bashls',
-                'clangd',
-                'clojure_lsp',
-                'cssls',
-                'diagnosticls',
-                'dockerls',
-                'ghcide',
-                'gopls',
-                'html',
-                'jsonls',
-                'omnisharp',
-                'pyright',
-                'terraformls',
-                'tsserver',
-                -- 'vimls', -- no nix package
-                'yamlls',
-              }
-              for _, lsp in ipairs(servers) do
-                lspconfig[lsp].setup {
-                  on_attach = on_attach,
-                }
-              end
+              require'lspconfig'.clojure_lsp.setup{}
             CFG
           '';
+          #config = ''
+          #  lua <<CFG
+          #    local lspconfig = require('lspconfig')
+          #    local on_attach = function(_, bufnr)
+          #      require('completion').on_attach()
+          #    end
+          #    local servers = {
+          #      'bashls',
+          #      'clangd',
+          #      'clojure_lsp',
+          #      'cssls',
+          #      'diagnosticls',
+          #      'dockerls',
+          #      'ghcide',
+          #      'gopls',
+          #      'html',
+          #      'jsonls',
+          #      'omnisharp',
+          #      'pyright',
+          #      'terraformls',
+          #      'tsserver',
+          #      -- 'vimls', -- no nix package
+          #      'yamlls',
+          #    }
+          #    for _, lsp in ipairs(servers) do
+          #      lspconfig[lsp].setup {
+          #        on_attach = on_attach,
+          #      }
+          #    end
+          #  CFG
+          #'';
         }
 
 
