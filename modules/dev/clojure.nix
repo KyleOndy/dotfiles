@@ -45,6 +45,7 @@ in
 
         # https://github.com/radenling/vim-dispatch-neovim
         # this is needed for vim-jackin
+        { plugin = vim-dispatch; }
         { plugin = vim-dispatch-neovim; }
 
         # https://github.com/guns/vim-sexp
