@@ -30,11 +30,9 @@ in
 
     programs.neovim = {
       plugins = with pkgs.vimPlugins; [
-        {
-          # https://github.com/Olical/conjure
-          # "conversational software development"
-          plugin = conjure;
-        }
+        # https://github.com/Olical/conjure
+        # "conversational software development"
+        { plugin = conjure; }
 
         # todo: does LSP + TreeSitter made is not needed?
         #{
@@ -42,23 +40,20 @@ in
         #  plugin= vim-clojure-highlight;
         #}
 
-        # todo: do I need this? Why?
-        #{
-        #  # https://github.com/radenling/vim-dispatch-neovim
-        #  plugin = vim-dispatch-neovim;
-        #}
+        # https://github.com/clojure-vim/vim-jack-in
+        { plugin = vim-jack-in; }
 
-        {
-          # https://github.com/guns/vim-sexp
-          # Precision Editing for S-expressions
-          plugin = vim-sexp;
-        }
+        # https://github.com/radenling/vim-dispatch-neovim
+        # this is needed for vim-jackin
+        { plugin = vim-dispatch-neovim; }
 
-        {
-          # https://github.com/tpope/vim-sexp-mappings-for-regular-people
-          # tpope to the rescue again
-          plugin = vim-sexp-mappings-for-regular-people;
-        }
+        # https://github.com/guns/vim-sexp
+        # Precision Editing for S-expressions
+        { plugin = vim-sexp; }
+
+        # https://github.com/tpope/vim-sexp-mappings-for-regular-people
+        # tpope to the rescue again
+        { plugin = vim-sexp-mappings-for-regular-people; }
       ];
     };
   };
