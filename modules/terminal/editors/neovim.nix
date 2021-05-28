@@ -341,6 +341,16 @@ in
           plugin = vim-rhubarb;
         }
 
+        # https://github.com/folke/which-key.nvim
+        {
+          plugin = which-key-nvim;
+          config = ''
+            lua <<CFG
+              require("which-key").setup { }
+            CFG
+          '';
+        }
+
         # still need original gruvbox for the airline theme until gruvbox-nvim
         # supports its.
         #
