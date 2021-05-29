@@ -170,6 +170,8 @@ in
           '';
         }
 
+        { plugin = aniseed; }
+
         {
           # https://github.com/dense-analysis/ale
           plugin = ale; # linting of almost all languages
