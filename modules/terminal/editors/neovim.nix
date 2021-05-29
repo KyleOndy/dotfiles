@@ -158,6 +158,19 @@ in
         git-messenger-vim
 
         {
+          plugin = vim-easymotion;
+          config = ''
+            let g:EasyMotion_do_mapping = 0 " Disable default mappings
+            nmap <leader>jj <Plug>(easymotion-overwin-f2)
+            let g:EasyMotion_smartcase = 1
+
+            " JK motions: Line motions
+            " map <Leader>sj <Plug>(easymotion-j)
+            " map <Leader>sk <Plug>(easymotion-k)
+          '';
+        }
+
+        {
           # https://github.com/dense-analysis/ale
           plugin = ale; # linting of almost all languages
           # I'm not sure how to split the config for plugins that span
