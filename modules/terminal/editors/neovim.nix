@@ -337,7 +337,10 @@ in
           config = ''
             lua <<CFG
             require('gitsigns').setup {
-              current_line_blame = true,
+              -- there is some colorscheme issue with this. The "virtual text"
+              -- is not in the subtle color, its stark white. Running
+              -- `:colorscheme gruvbox` fixes it, but that is annyotinh.
+              current_line_blame = false,
             }
             CFG
           '';
