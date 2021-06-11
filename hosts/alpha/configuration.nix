@@ -45,6 +45,7 @@
       allowedTCPPorts = [ 80 443 8000 8080 8200 ];
       allowedUDPPorts = [ 1900 ];
     };
+    wireless.interfaces = [ "wlp4s0" ];
   };
 
   hardware = {
