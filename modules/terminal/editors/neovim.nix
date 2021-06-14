@@ -281,18 +281,7 @@ in
                 file_sorter =  require'telescope.sorters'.get_fzy_sorter,
               }
             CFG
-            " Find files using Telescope command-line sugar.
-            nnoremap <leader>ob <cmd>Telescope buffers<cr>
-            nnoremap <leader>of <cmd>Telescope find_files<cr>
-            nnoremap <leader>od <cmd>Telescope file_browser<cr>
-
-            nnoremap <leader>oo <cmd>Telescope git_files<cr>
-            nnoremap <leader>op <cmd>Telescope man_pages<cr>
-            nnoremap <leader>om <cmd>Telescope marks<cr>
-
-            nnoremap <leader>ss <cmd>Telescope live_grep<cr>
-            nnoremap <leader>sa <cmd>Telescope grep_string<cr>
-            nnoremap <leader>s/ <cmd>Telescope current_buffer_fuzzy_find<cr>
+            " todo: add leader bindings back
           '';
         }
         {
@@ -335,9 +324,7 @@ in
           # https://github.com/tpope/vim-fugitive
           plugin = vim-fugitive;
           config = ''
-            nmap <Leader>gg :tab Git<CR>
-            nmap <Leader>gb :GBrowse<CR>
-            vmap <Leader>gb :GBrowse<CR> " goes to line number!
+            " todo: add leader bindings back
           '';
         }
         {
@@ -608,6 +595,27 @@ in
         nmap <Leader>du :diffupdate<CR>
         nmap <Leader>dh :diffget //2<CR>
         nmap <Leader>dl :diffget //3<CR>
+
+        " Plugin kepmaps
+        " these are temparary, until nixos + neovim plugin config get sorted
+        " ==> telescope
+        " Find files using Telescope command-line sugar.
+        nnoremap <leader>ob <cmd>Telescope buffers<cr>
+        nnoremap <leader>of <cmd>Telescope find_files<cr>
+        nnoremap <leader>od <cmd>Telescope file_browser<cr>
+
+        nnoremap <leader>oo <cmd>Telescope git_files<cr>
+        nnoremap <leader>op <cmd>Telescope man_pages<cr>
+        nnoremap <leader>om <cmd>Telescope marks<cr>
+
+        nnoremap <leader>ss <cmd>Telescope live_grep<cr>
+        nnoremap <leader>sa <cmd>Telescope grep_string<cr>
+        nnoremap <leader>s/ <cmd>Telescope current_buffer_fuzzy_find<cr>
+
+        " ==> fugitive
+        nmap <Leader>gg :tab Git<CR>
+        nmap <Leader>gb :GBrowse<CR>
+        vmap <Leader>gb :GBrowse<CR> " goes to line number!
       '';
     };
   };
