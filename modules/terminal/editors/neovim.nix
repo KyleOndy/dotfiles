@@ -97,51 +97,58 @@ in
           # the `completion-nvim` plugin is configued as part of
           # `nvim-lspconfig` below.
           plugin = completion-nvim;
-          config = ''
-            lua <<CFG
-              require'lspconfig'.clojure_lsp.setup{on_attach=require'completion'.on_attach}
-            CFG
-          '';
+          #config = ''
+          #  lua <<CFG
+          #    require'lspconfig'.clojure_lsp.setup{on_attach=require'completion'.on_attach}
+          #  CFG
+          #'';
         }
         {
           # https://github.com/neovim/nvim-lspconfig
           plugin = nvim-lspconfig;
-          config = ''
-            lua <<CFG
-              require'lspconfig'.clojure_lsp.setup{}
-            CFG
-          '';
           #config = ''
           #  lua <<CFG
-          #    local lspconfig = require('lspconfig')
-          #    local on_attach = function(_, bufnr)
-          #      require('completion').on_attach()
-          #    end
-          #    local servers = {
-          #      'bashls',
-          #      'clangd',
-          #      'clojure_lsp',
-          #      'cssls',
-          #      'diagnosticls',
-          #      'dockerls',
-          #      'ghcide',
-          #      'gopls',
-          #      'html',
-          #      'jsonls',
-          #      'omnisharp',
-          #      'pyright',
-          #      'terraformls',
-          #      'tsserver',
-          #      -- 'vimls', -- no nix package
-          #      'yamlls',
-          #    }
-          #    for _, lsp in ipairs(servers) do
-          #      lspconfig[lsp].setup {
-          #        on_attach = on_attach,
-          #      }
-          #    end
+          #    require'lspconfig'.clojure_lsp.setup{}
           #  CFG
           #'';
+          config = ''
+            lua <<CFG
+              local nvim_lsp = require('lspconfig')
+              local on_attach = function(client, bufnr)
+                require('completion').on_attach()
+                buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+                -- todo: add mappings
+              end
+              local servers = {
+                'bashls',
+                'clangd',
+                'clojure_lsp',
+                'cssls',
+                'diagnosticls',
+                'dockerls',
+                'ghcide',
+                'gopls',
+                'html',
+                'jsonls',
+                'omnisharp',
+                'pyright',
+                'terraformls',
+                'tsserver',
+                -- 'vimls', -- no nix package
+                'yamlls',
+              }
+              for _, lsp in ipairs(servers) do
+                nvim_lsp[lsp].setup {
+                  on_attach = on_attach,
+                }
+              end
+            CFG
+
+            " Completion
+            let g:completion_matching_strategy_list = ['exact', 'substring', 'fuzzy']
+            inoremap <expr> <Tab>   pumvisible() ? "\<C-n>" : "\<Tab>"
+            inoremap <expr> <S-Tab> pumvisible() ? "\<C-p>" : "\<S-Tab>"
+          '';
         }
 
 
