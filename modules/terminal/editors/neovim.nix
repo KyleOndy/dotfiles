@@ -116,7 +116,7 @@ in
               local nvim_lsp = require('lspconfig')
               local on_attach = function(client, bufnr)
                 require('completion').on_attach()
-                buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
+                -- buf_set_option('omnifunc', 'v:lua.vim.lsp.omnifunc')
                 -- todo: add mappings
               end
               local servers = {
