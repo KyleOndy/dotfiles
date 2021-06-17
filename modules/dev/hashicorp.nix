@@ -12,7 +12,7 @@ in
       consul
       nomad
       packer
-      terraform_0_15
+      terraform_1_0_0
       vagrant
       vault
 
