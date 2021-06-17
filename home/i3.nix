@@ -1,6 +1,7 @@
-{ lib, ... }:
+{ lib, pkgs, ... }:
 
 {
+  home.packages = with pkgs; [ brightnessctl ];
   xsession = {
     enable = true;
     windowManager.i3 = {
