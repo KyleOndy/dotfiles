@@ -4,6 +4,7 @@
   imports = [
     ./../../home/env.nix
     ./../../home/git.nix
+    ./../../home/gpg.nix
     ./../../home/packages.nix
   ];
 
@@ -41,7 +42,10 @@
     terminal = {
       tmux.enable = true;
       gpg = {
-        enable = true;
+        # todo: need to fix on darwin
+        #     [I] ➜ gpg --card-status
+        #     gpg: Fatal: can't create directory '/var/empty/.gnupg': Operation not permitted
+        enable = false;
         service = false; # no service on darwin
       };
       editors = {
