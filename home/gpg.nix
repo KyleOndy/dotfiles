@@ -10,7 +10,7 @@ in
   ];
 
   services.gpg-agent = {
-    enable = true;
+    enable = false;
     defaultCacheTtl = 1800;
     enableSshSupport = true;
     pinentryFlavor = "curses";
