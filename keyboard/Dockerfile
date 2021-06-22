@@ -1,4 +1,4 @@
-FROM debian:buster
+FROM ubuntu:focal
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -16,6 +16,7 @@ RUN apt-get update \
       python3 \
       python3-pip \
       python3-setuptools \
+      sudo \
       unzip \
       wget \
       zip \
@@ -27,11 +28,12 @@ WORKDIR /qmk_firmware
 # updated though as `master` is not a change to the Dockerfile
 ARG QMK_RELEASE=master
 # todo: pin to a known version of qmk_firmware?
-RUN pip3 install qmk
+RUN python3 -m pip install qmk
 RUN git clone https://github.com/qmk/qmk_firmware.git . \
  && git checkout $QMK_RELEASE \
  && mkdir -p qmk_firmware/keyboards/ergodox_ez/keymaps/kyleondy \
  && make git-submodule
 
+RUN util/qmk_install.sh
 CMD make ergodox_ez:kyleondy \
  && cp ergodox_ez_kyleondy.hex keyboards/ergodox_ez/keymaps/kyleondy
