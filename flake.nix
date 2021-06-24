@@ -61,9 +61,10 @@
               contents = builtins.readDir path;
               files = builtins.attrNames (lib.filterAttrs (_: v: v == "regular") contents);
               dirs = builtins.attrNames (lib.filterAttrs (_: v: v == "directory") contents);
+              nixFiles = lib.filter (p: lib.hasSuffix ".nix" p) files;
             in
             # return the path of all files found in this directory
-            (map (p: path + ("/" + p)) files)
+            (map (p: path + ("/" + p)) nixFiles)
             ++
             # pass each directory into this function again
             (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
