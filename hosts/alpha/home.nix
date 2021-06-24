@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/emacs.nix
     ./../../home/env.nix
     ./../../home/fonts.nix
     ./../../home/git.nix
