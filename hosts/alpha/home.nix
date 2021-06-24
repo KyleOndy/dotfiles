@@ -48,4 +48,14 @@
     };
   };
 
+  # the following configuration should be moved into a module, I am just not sure where it fits right now, so dropping it inline.
+  home.sessionVariables = {
+    DOTFILES = "$HOME/src/dotfiles";
+    EDITOR = "nvim";
+    VISUAL = "nvim";
+    # this allows the rest of the nix tooling to use the same nixpkgs that I
+    # have set in the flake.
+    NIX_PATH = "nixpkgs=${pkgs.path}";
+    MANPAGER = "${pkgs.bash}/bin/bash -c 'col -bx | ${pkgs.bat}/bin/bat -l man -p'";
+  };
 }
