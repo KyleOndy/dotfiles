@@ -31,6 +31,9 @@
       apps = {
         discord.enable = true;
       };
+      browsers = {
+        firefox.enable = true;
+      };
     };
     dev = {
       clojure.enable = true;
