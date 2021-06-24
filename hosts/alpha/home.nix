@@ -4,7 +4,6 @@
   imports = [
     ./../../home/emacs.nix
     ./../../home/env.nix
-    ./../../home/firefox.nix
     ./../../home/fonts.nix
     ./../../home/git.nix
     ./../../home/go.nix
