@@ -1,6 +1,8 @@
 { lib, pkgs, config, ... }:
 with lib;
-let cfg = config.foundry.terminal.email;
+let
+  cfg = config.foundry.terminal.email;
+  old_dots = ../../home/_dots_not_yet_in_nix;
 in
 {
   options.foundry.terminal.email = {
