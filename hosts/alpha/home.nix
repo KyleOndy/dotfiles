@@ -36,10 +36,22 @@
     dev = {
       clojure.enable = true;
       python.enable = true;
+      #dotnet.enable = true;
+      #terraform.enable = true;
+      #git.enable = true;
+      #haskell.enable = true;
+      #nix.enable = true;
+      #powershell.enable = true;
+      #puppet.enable = true;
+      #go.enable = true;
     };
     shell = {
       zsh.enable = true;
     };
+    #editors = {
+    #  neovim.enable = true;
+    #  emacs.enable = false;
+    #};
     terminal = {
       email.enable = true;
       dropbox.enable = true;
