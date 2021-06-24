@@ -40,6 +40,9 @@
       media = {
         documents.enable = true;
       };
+      term = {
+        st.enable = true;
+      };
     };
     dev = {
       clojure.enable = true;
