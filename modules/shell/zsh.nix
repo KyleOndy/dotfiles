@@ -169,6 +169,20 @@ in
               _files # autocomplete filenames as well
           }
           compdef _bb_tasks bb
+          '' +
+
+          # The double single quote `''` is to escape the `${` character
+          # combination that nix wants to replace with a variable. Its not some
+          # fancy bash trick. In the bash source, the double quotes does not
+          # appear.
+          ''
+          # PS$ is used when command printing (`set -x`) it turned on. The will
+          # print the scripts, function, and line number.
+          #
+          # see `man bash` for available expansions
+          # https://news.ycombinator.com/item?id=27617128
+          #
+          export PS4='+ ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L${LINENO:-}:   '
         '';
       };
       fzf = {
