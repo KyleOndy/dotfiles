@@ -17,17 +17,5 @@ in
         theme = "gruvbox-dark";
       };
     };
-
-
-  home.sessionVariables = {
-    DOTFILES = dotfiles;
-    EDITOR = editor;
-    VISUAL = editor;
-    # todo: shouldn't my-scripts be on path already?
-    PATH = "$PATH:${pkgs.my-scripts}/bin";
-    # this allows the rest of the nix tooling to use the same nixpkgs that I
-    # have set in the flake.
-    NIX_PATH = "nixpkgs=${pkgs.path}";
-    MANPAGER = "${pkgs.bash}/bin/bash -c 'col -bx | ${pkgs.bat}/bin/bat -l man -p'";
   };
 }
