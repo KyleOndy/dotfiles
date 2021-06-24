@@ -59,10 +59,6 @@
     shell = {
       zsh.enable = true;
     };
-    #editors = {
-    #  neovim.enable = true;
-    #  emacs.enable = false;
-    #};
     terminal = {
       email.enable = true;
       dropbox.enable = true;
