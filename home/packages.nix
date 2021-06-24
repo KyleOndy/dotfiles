@@ -40,7 +40,6 @@
     jq # easy json formatting
     k9s # stylish kubernetes management
     lesspipe # auto piping into less
-    libreoffice # getting things done
     lsof # how is this not in the base system?
     ltrace # trace library calls
     lz4
@@ -84,7 +83,6 @@
     xz # compression format
     youtube-dl # download videos from youtube and others
     yq-go # like jq, but for yaml
-    zathura # lightweight PDF viewer
     zbar # barcode reader, mostly used to import OTP into pass
     zoom-us # pandemic life
 
