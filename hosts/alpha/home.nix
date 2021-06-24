@@ -57,6 +57,7 @@
     };
     shell = {
       zsh.enable = true;
+      bash.enable = true;
     };
     terminal = {
       email.enable = true;
