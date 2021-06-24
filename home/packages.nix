@@ -68,7 +68,6 @@
     slack-cli # bash based cli for interacting with slack
     smbnetfs # todo: why do I need this?
     squashfsTools # create and unpack squashfs
-    st # lightweight terminal
     stack # Haskell build tooling
     step-cli # working with CAs
     tree # directory listing
