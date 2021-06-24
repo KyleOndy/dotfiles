@@ -37,6 +37,9 @@
       gaming = {
         steam.enable = true;
       };
+      media = {
+        documents.enable = true;
+      };
     };
     dev = {
       clojure.enable = true;
