@@ -30,7 +30,8 @@
       # `overlay` that contains a `default.nix`.
       overlays = [ inputs.neovim-nightly-overlay.overlay inputs.nur.overlay ] ++
         (
-          let path = ./home/overlays;
+          # todo: move overlays to modules
+          let path = ./overlays;
           in
           with builtins;
           map (n: import (path + ("/" + n))) (filter

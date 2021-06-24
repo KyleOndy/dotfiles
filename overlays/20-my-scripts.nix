@@ -4,6 +4,7 @@ self: super: {
   my-scripts = with self; stdenv.mkDerivation {
     name = "my-scripts";
 
+    # todo: don't hardcode this
     src = ./../scripts;
 
     buildInputs = [ ];
