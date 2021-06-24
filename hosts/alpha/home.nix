@@ -34,6 +34,9 @@
       browsers = {
         firefox.enable = true;
       };
+      gaming = {
+        steam.enable = true;
+      };
     };
     dev = {
       clojure.enable = true;
