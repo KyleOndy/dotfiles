@@ -66,6 +66,7 @@
     terminal = {
       email.enable = true;
       dropbox.enable = true;
+      tmux.enable = true;
     };
   };
 
