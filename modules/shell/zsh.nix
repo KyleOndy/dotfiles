@@ -50,14 +50,7 @@ in
           # todo: there is probably a better way
           export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
           # my quality of life functions
-          # todo: not sure this is the best way to instll the theme
-          mkdir -p "$HOME/.zfunctions"
-          fpath=( "$HOME/.zfunctions" $fpath )
-          ln -sf "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh" "$HOME/.zfunctions/prompt_spaceship_setup"
-          autoload -U promptinit; promptinit
-          prompt spaceship
-          export SPACESHIP_TIME_SHOW=true # show timestamps in prompt
-          eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
+
           # nicer autocomplete selections
           zstyle ':completion:*' menu select # use arrows to navigate autocomplete results
           zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # lowers match uppers
@@ -169,6 +162,30 @@ in
             _files # autocomplete filenames as well
           }
           compdef _bb_tasks bb
+
+          # spaceship config
+          # todo: not sure this is the best way to instll the theme
+          mkdir -p "$HOME/.zfunctions"
+          fpath=( "$HOME/.zfunctions" $fpath )
+          ln -sf "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh" "$HOME/.zfunctions/prompt_spaceship_setup"
+          autoload -U promptinit; promptinit
+          prompt spaceship
+          eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
+          # Here are some symbols I'd love to use somewhere
+          #  U+2615   HOT BEVERAGE          ☕
+          #  U+2620   SKULL AND CROSSBONES  ☠
+          #  U+2622   RADIOACTIVE SIGN      ☢
+          export SPACESHIP_CHAR_SYMBOL='λ '
+          export SPACESHIP_CHAR_SYMBOL_ROOT='☢ '
+          export SPACESHIP_TIME_SHOW=true
+          export SPACESHIP_KUBECTL_SHOW=true
+          export SPACESHIP_KUBECTL_VERSION_SHOW=false # don't care what version
+          export SPACESHIP_KUBECONTEXT_COLOR_GROUPS=(
+            # red if namespace is "kube-system"
+            green  dev
+            yellow staging
+            red    prod
+          )
         '' +
 
         # The double single quote `''` is to escape the `${` character
