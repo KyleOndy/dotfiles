@@ -114,8 +114,15 @@ in
         set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
         # volume
         set-option -ga status-right "#[fg=colour246,bg=colour239] v:#(amixer sget Master | awk -F"[][]" '/Left:/ { print $2 }')  "
-        # system load
-        set-option -ga status-right "[ #(cat /proc/loadavg | awk '{ print $1, $2, $3}') ]"
+
+        # system load.
+        #   This has been tested on debian, OSX, and darwin, and seems to work
+        #   across all systems
+        #   - the uptime command on darwin has an extra field with a ':'
+        #     character, so reverse the string under the assumption that the
+        #     load is the last part of the output.
+        #   - the xargs is to strip a leading whitespace
+        set-option -ga status-right "[ #(uptime | rev | cut -d':' -f1 | rev | xargs | sed -e 's/,//g') ]"
         # local time
         set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M"
         set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
