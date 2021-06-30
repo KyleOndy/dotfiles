@@ -14,7 +14,6 @@ in
         enableCompletion = true;
         enableAutosuggestions = true;
         autocd = false; # I can't stand when ZSH Decided to change my directory
-        defaultKeymap = "viins";
         history = {
           extended = true; # save timestamps
           ignoreDups = false; # log all commands
@@ -41,6 +40,22 @@ in
         # fancy bash trick. In the bash source, the double quotes do not
         # appear.
         initExtra = ''
+          # do this early, so I can overwrite settings as I want.
+          source ${pkgs.zsh-vi-mode}/zsh-vi-mode.plugin.zsh
+          # Only changing the escape key to `jk` in insert mode, we still
+          # keep using the default keybindings `^[` in other modes
+          ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+
+          zvm_after_init() {
+            # White ZVM is super nifty, and better than the built in vi mode,
+            # it does clobber some key bindings; here we source FZF to get
+            # those bindings back.
+            #
+            # https://github.com/jeffreytse/zsh-vi-mode/issues/24
+            source "${pkgs.fzf}/share/fzf/key-bindings.zsh"
+            source "${pkgs.fzf}/share/fzf/completion.zsh"
+          }
+
           include () {
             [[ -f "$1" ]] && source "$1"
           }
