@@ -36,6 +36,10 @@ in
           tree2 = "tree -L 2 $@";
           tree3 = "tree -L 3 $@";
         };
+        # The double single quote `''` is to escape the `${` character
+        # combination that nix wants to replace with a variable. Its not some
+        # fancy bash trick. In the bash source, the double quotes do not
+        # appear.
         initExtra = ''
           include () {
             [[ -f "$1" ]] && source "$1"
@@ -193,20 +197,13 @@ in
               # todo: refactor colors to a general funciton
               RED='\033[0;31m'
               NC='\033[0m' # No Color
-              >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead.''${NC}"
-              >&2 echo "''${RED}If you really want to --force, call the git binary directly. Exiting''${NC}"
+              >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
+              >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
               exit 1
             else
               command git "$@"
             fi
           }
-        '' +
-
-        # The double single quote `''` is to escape the `${` character
-        # combination that nix wants to replace with a variable. Its not some
-        # fancy bash trick. In the bash source, the double quotes does not
-        # appear.
-        ''
           # PS$ is used when command printing (`set -x`) it turned on. The will
           # print the scripts, function, and line number.
           #
