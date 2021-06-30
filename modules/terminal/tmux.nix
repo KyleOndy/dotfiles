@@ -21,8 +21,9 @@ in
         # set scrollback history to 10000 (10k)
         set -g history-limit 10000
 
-        # reload ~/.tmux.conf using PREFIX r
-        bind r source-file ~/.tmux.conf \; display "Reloaded!"
+        # reload tmux.conf using PREFIX r
+        # todo: get this path from some source of truth
+        bind r source-file ~/.config/tmux/tmux.conf \; display "Reloaded!"
 
         # Enable mouse mode (tmux 2.1 and above)
         set -g mouse on
