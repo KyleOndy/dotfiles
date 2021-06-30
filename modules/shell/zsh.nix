@@ -186,6 +186,20 @@ in
             yellow staging
             red    prod
           )
+
+          git() {
+            if [[ $@ == *'push -f'* || $@ == *'push --force'* ]]; then
+              # write to stderr
+              # todo: refactor colors to a general funciton
+              RED='\033[0;31m'
+              NC='\033[0m' # No Color
+              >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead.''${NC}"
+              >&2 echo "''${RED}If you really want to --force, call the git binary directly. Exiting''${NC}"
+              exit 1
+            else
+              command git "$@"
+            fi
+          }
         '' +
 
         # The double single quote `''` is to escape the `${` character
