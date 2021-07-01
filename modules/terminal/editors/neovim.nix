@@ -168,12 +168,9 @@ in
           plugin = vim-easymotion;
           config = ''
             let g:EasyMotion_do_mapping = 0 " Disable default mappings
-            nmap <leader>jj <Plug>(easymotion-overwin-f2)
             let g:EasyMotion_smartcase = 1
 
-            " JK motions: Line motions
-            " map <Leader>sj <Plug>(easymotion-j)
-            " map <Leader>sk <Plug>(easymotion-k)
+            " todo: add leader bindings back
           '';
         }
 
@@ -661,6 +658,12 @@ in
         nmap <Leader>gg :tab Git<CR>
         nmap <Leader>gb :GBrowse<CR>
         vmap <Leader>gb :GBrowse<CR> " goes to line number!
+
+        " ==> EasyMotion
+        " JK motions: Line motions
+        " map <Leader>sj <Plug>(easymotion-j)
+        " map <Leader>sk <Plug>(easymotion-k)
+        nmap <leader>ff <Plug>(easymotion-overwin-f2)
       '';
     };
   };
