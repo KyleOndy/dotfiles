@@ -56,9 +56,6 @@ in
             source "${pkgs.fzf}/share/fzf/completion.zsh"
           }
 
-          include () {
-            [[ -f "$1" ]] && source "$1"
-          }
           # shell hooks
           eval "$(direnv hook zsh)"
           # zsh tweaks not included in home-manager.
