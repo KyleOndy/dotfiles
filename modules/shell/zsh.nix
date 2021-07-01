@@ -70,21 +70,15 @@ in
           # nicer autocomplete selections
           zstyle ':completion:*' menu select # use arrows to navigate autocomplete results
           zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # lowers match uppers
-          # easily cycle through history with up and down arrow
-          bindkey "^[[A" history-beginning-search-backward
-          bindkey "^[[B" history-beginning-search-forward
           # I really want the vi binding to more vim like
-          bindkey -v '^?' backward-delete-char # allow backspace key to work as expected
+          # bindkey -v '^?' backward-delete-char # allow backspace key to work as expected
           # open the commnad line in $EDITOR
-          autoload -z edit-command-line
-          zle -N edit-command-line
-          bindkey -M vicmd v edit-command-line
+          #autoload -z edit-command-line
+          #zle -N edit-command-line
+          #bindkey -M vicmd v edit-command-line
           # match my binding for [neo]vim
-          bindkey -M viins 'jk' vi-cmd-mode
+          #bindkey -M viins 'jk' vi-cmd-mode
           setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
-          # this is bound to '\ec' (alt-c) by defaul, but I really like having this
-          # shortcut available on a control key combo
-          bindkey '^e' fzf-cd-widget
           # fancy git + fzf
           # todo: refactor this into its own script and just source it
           is_in_git_repo() {
@@ -135,29 +129,19 @@ in
           fzf-git-commit-widget() {
               LBUFFER+=$(fzf_pick_git_commit | join-lines)
           }
-          zle -N fzf-git-commit-widget
-          bindkey '^g^g' fzf-git-commit-widget
           fzf-git-tag-widget() {
               LBUFFER+=$(fzf_pick_git_tag | join-lines)
           }
-          zle -N fzf-git-tag-widget
-          bindkey '^g^t' fzf-git-tag-widget
           fzf-git-remote-widget() {
               LBUFFER+=$(fzf_pick_git_remote | join-lines)
           }
-          zle -N fzf-git-remote-widget
-          bindkey '^g^r' fzf-git-remote-widget
           fzf-git-branch-widget() {
               LBUFFER+=$(fzf_pick_git_branch | join-lines)
           }
-          zle -N fzf-git-branch-widget
-          bindkey '^g^b' fzf-git-branch-widget
           fzf_pick_aws_profile() {
             aws_profile=$(grep '\[profile .*\]' "$HOME/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
             export AWS_PROFILE="$aws_profile"
           }
-          zle -N fzf_pick_aws_profile
-          bindkey '^a^p' fzf_pick_aws_profile
           # easily export which kube config I want. I can't break things if I can
           # not connect to the cluster.
           fzf_pick_kube_config() {
@@ -168,8 +152,40 @@ in
             _fzf --preview "bat --color=always "$config_dir/{}"")
             export KUBECONFIG="$config_dir/$kubeconfig"
           }
-          zle -N fzf_pick_kube_config
-          bindkey '^k^k' fzf_pick_kube_config
+
+          function zvm_after_lazy_keybindings() {
+            # this is not how keys and commands are bound in vanilla ZSH, this
+            # pattern is due to ZVM.
+            zvm_define_widget fzf-git-commit-widget
+            zle -N fzf-git-commit-widget
+            zvm_define_widget fzf-git-tag-widget
+            zle -N fzf-git-tag-widget
+            zvm_define_widget fzf-git-remote-widget
+            zle -N fzf-git-remote-widget
+            zvm_define_widget fzf-git-branch-widget
+            zle -N fzf-git-branch-widget
+            zvm_define_widget fzf_pick_aws_profile
+            zle -N fzf_pick_aws_profile
+            zvm_define_widget fzf_pick_kube_config
+            zle -N fzf_pick_kube_config
+
+            # easily cycle through history with up and down arrow
+            zvm_bindkey viins "^[[A" history-beginning-search-backward
+            zvm_bindkey viins "^[[B" history-beginning-search-forward
+
+            # g is for git
+            zvm_bindkey viins '^[g^[g' fzf-git-commit-widget
+            zvm_bindkey viins '^[g^[t' fzf-git-tag-widget
+            zvm_bindkey viins '^[g^[r' fzf-git-remote-widget
+            zvm_bindkey viins '^[g^[b' fzf-git-branch-widget
+
+            # p is for profile
+            zvm_bindkey viins '^[p^[a' fzf_pick_aws_profile
+            zvm_bindkey vicmd '^[p^[a' fzf_pick_aws_profile
+            zvm_bindkey viins '^[p^[k' fzf_pick_kube_config
+            zvm_bindkey vicmd '^[p^[k' fzf_pick_kube_config
+          }
+
 
           # https://book.babashka.org/#_terminal_tab_completion
           _bb_tasks() {
