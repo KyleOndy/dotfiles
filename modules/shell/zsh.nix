@@ -126,16 +126,16 @@ in
               echo -n "''${(q)item} "
             done
           }
-          fzf-git-commit-widget() {
+          fzf_git_commit_widget() {
               LBUFFER+=$(fzf_pick_git_commit | join-lines)
           }
-          fzf-git-tag-widget() {
+          fzf_git_tag_widget() {
               LBUFFER+=$(fzf_pick_git_tag | join-lines)
           }
-          fzf-git-remote-widget() {
+          fzf_git_remote_widget() {
               LBUFFER+=$(fzf_pick_git_remote | join-lines)
           }
-          fzf-git-branch-widget() {
+          fzf_git_branch_widget() {
               LBUFFER+=$(fzf_pick_git_branch | join-lines)
           }
           fzf_pick_aws_profile() {
@@ -153,39 +153,34 @@ in
             export KUBECONFIG="$config_dir/$kubeconfig"
           }
 
-          function zvm_after_lazy_keybindings() {
-            # this is not how keys and commands are bound in vanilla ZSH, this
-            # pattern is due to ZVM.
-            zvm_define_widget fzf-git-commit-widget
-            zle -N fzf-git-commit-widget
-            zvm_define_widget fzf-git-tag-widget
-            zle -N fzf-git-tag-widget
-            zvm_define_widget fzf-git-remote-widget
-            zle -N fzf-git-remote-widget
-            zvm_define_widget fzf-git-branch-widget
-            zle -N fzf-git-branch-widget
-            zvm_define_widget fzf_pick_aws_profile
-            zle -N fzf_pick_aws_profile
-            zvm_define_widget fzf_pick_kube_config
-            zle -N fzf_pick_kube_config
+          # this is not how keys and commands are bound in vanilla ZSH, this
+          # pattern is due to ZVM.
+          zvm_define_widget fzf_git_commit_widget
+          zvm_define_widget fzf_git_tag_widget
+          zvm_define_widget fzf_git_remote_widget
+          zvm_define_widget fzf_git_branch_widget
+          zvm_define_widget fzf_pick_aws_profile
+          zvm_define_widget fzf_pick_kube_config
 
-            # easily cycle through history with up and down arrow
-            zvm_bindkey viins "^[[A" history-beginning-search-backward
-            zvm_bindkey viins "^[[B" history-beginning-search-forward
+          # easily cycle through history with up and down arrow
+          zvm_bindkey viins "^[[A" history-beginning-search-backward
+          zvm_bindkey viins "^[[B" history-beginning-search-forward
+          # overwrite defaul bindigns
+          zvm_bindkey viins "^P" history-beginning-search-backward
+          zvm_bindkey viins "^N" history-beginning-search-forward
 
-            # g is for git
-            zvm_bindkey viins '^[g^[g' fzf-git-commit-widget
-            zvm_bindkey viins '^[g^[t' fzf-git-tag-widget
-            zvm_bindkey viins '^[g^[r' fzf-git-remote-widget
-            zvm_bindkey viins '^[g^[b' fzf-git-branch-widget
+          # g is for git
+          zvm_bindkey viins '^[g^[g' fzf_git_commit_widget
+          zvm_bindkey viins '^[g^[t' fzf_git_tag_widget
+          zvm_bindkey viins '^[g^[r' fzf_git_remote_widget
+          zvm_bindkey viins '^[g^[b' fzf_git_branch_widget
 
-            # p is for profile
-            zvm_bindkey viins '^[p^[a' fzf_pick_aws_profile
-            zvm_bindkey vicmd '^[p^[a' fzf_pick_aws_profile
-            zvm_bindkey viins '^[p^[k' fzf_pick_kube_config
-            zvm_bindkey vicmd '^[p^[k' fzf_pick_kube_config
-          }
-
+          # p is for profile
+          zvm_bindkey viins '^[p^[a' fzf_pick_aws_profile
+          zvm_bindkey vicmd '^[p^[a' fzf_pick_aws_profile
+          # pk for kube is obvious, but the k binding is used to go down a pane
+          zvm_bindkey viins '^[p^[z' fzf_pick_kube_config
+          zvm_bindkey vicmd '^[p^[z' fzf_pick_kube_config
 
           # https://book.babashka.org/#_terminal_tab_completion
           _bb_tasks() {
