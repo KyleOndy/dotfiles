@@ -13,8 +13,7 @@ in
     home.packages = [ pkgs.tree-sitter ];
     programs.neovim = {
       enable = true;
-      # will go back to the pkg on unstable once v0.5.x is released
-      package = pkgs.neovim-nightly;
+      #package = pkgs.neovim;
       withNodeJs = true; # enable node provider # todo: need this?
       withPython3 = true; # todo: need this?
       plugins = with pkgs.vimPlugins; [
