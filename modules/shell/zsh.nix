@@ -215,11 +215,18 @@ in
           )
 
           git() {
-            if [[ $@ == *'push -f'* || $@ == *'push --force'* ]]; then
-              # write to stderr
+            # this regex checks (hopefully) the following cases:
+            #   push --force
+            #   push -f
+            #   push --foo --force
+            #   push --foo -f
+            #   push --force --foo
+            #   push --f --foo
+            if echo $@ | rg --quiet 'push .*(-f|--force)( |$)'; then
               # todo: refactor colors to a general funciton
               RED='\033[0;31m'
               NC='\033[0m' # No Color
+              # write to stderr
               >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
               >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
               return 1
