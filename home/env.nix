@@ -18,5 +18,12 @@ in
         theme = "gruvbox-dark";
       };
     };
+    direnv = {
+      enable = true;
+      nix-direnv = {
+        enable = true;
+        enableFlakes = true;
+      };
+    };
   };
 }
