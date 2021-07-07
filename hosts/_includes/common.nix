@@ -87,6 +87,8 @@
     extraOptions = ''
       builders-use-substitutes = true
       experimental-features = nix-command flakes
+      keep-outputs = true
+      keep-derivations = true
     '';
     distributedBuilds = true;
     buildMachines = [
