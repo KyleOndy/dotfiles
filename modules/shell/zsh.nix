@@ -222,7 +222,7 @@ in
               NC='\033[0m' # No Color
               >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
               >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
-              exit 1
+              return 1
             else
               command git "$@"
             fi
