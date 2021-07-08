@@ -82,10 +82,10 @@ in
           # fancy git + fzf
           # todo: refactor this into its own script and just source it
           is_in_git_repo() {
-            git rev-parse HEAD > /dev/null 2>&1
+            ${pkgs.git}/bin/git rev-parse HEAD > /dev/null 2>&1
           }
           _fzf() {
-            fzf "$@" --multi --ansi --border
+            ${pkgs.fzf}/bin/fzf "$@" --multi --ansi --border
           }
           fzf_pick_git_commit() {
             is_in_git_repo || return
@@ -93,29 +93,29 @@ in
             # familiar with how it looks. I am just reusing most of the logic here.
             # I force `--color` becuase git will output this without color by
             # default.
-            git log --color --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' |
+            ${pkgs.git}/bin/git log --color --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' |
             _fzf --no-sort --reverse \
-              --preview 'grep -o "[a-f0-9]\{7,\}" <<< {} | xargs git show --color=always | head -'$LINES |
+              --preview '${pkgs.gnugrep}/bin/grep -o "[a-f0-9]\{7,\}" <<< {} | ${pkgs.findutils}/bin/xargs ${pkgs.git}/bin/git show --color=always | head -'$LINES |
             grep -o "[a-f0-9]\{7,\}"
           }
           fzf_pick_git_tag() {
             is_in_git_repo || return
-            git tag --sort -version:refname |
+            ${pkgs.git}/bin/git tag --sort -version:refname |
             _fzf --preview-window right:70% \
-              --preview 'git show --color=always {} | head -'$LINES
+              --preview '${pkgs.git}/bin/git show --color=always {} | head -'$LINES
           }
           fzf_pick_git_remote() {
             is_in_git_repo || return
-            git remote -v | awk '{print $1 "\t" $2}' | uniq |
+            ${pkgs.git}/bin/git remote -v | ${pkgs.gawk}/bin/awk '{print $1 "\t" $2}' | uniq |
             _fzf --tac \
-              --preview 'git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" {1} | head -200' |
+              --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" {1} | head -200' |
             cut -d$'\t' -f1
           }
           fzf_pick_git_branch() {
             is_in_git_repo || return
-            git branch -a --color=always | grep -v '/HEAD\s' | sort |
+            ${pkgs.git}/bin/git branch -a --color=always | grep -v '/HEAD\s' | sort |
             _fzf  --tac --preview-window right:70% \
-              --preview 'git log --oneline --graph --date=short --color=always --pretty="format:%C(auto)%cd %h%d %s" $(sed s/^..// <<< {} | cut -d" " -f1) | head -'$LINES |
+              --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --color=always --pretty="format:%C(auto)%cd %h%d %s" $(sed s/^..// <<< {} | cut -d" " -f1) | head -'$LINES |
             sed 's/^..//' | cut -d' ' -f1 |
             sed 's#^remotes/##'
           }
@@ -222,7 +222,7 @@ in
             #   push --foo -f
             #   push --force --foo
             #   push --f --foo
-            if echo $@ | rg --quiet 'push .*(-f|--force)( |$)'; then
+            if echo $@ | ${pkgs.ripgrep}/bin/rg --quiet 'push .*(-f|--force)( |$)'; then
               # todo: refactor colors to a general funciton
               RED='\033[0;31m'
               NC='\033[0m' # No Color
@@ -231,7 +231,7 @@ in
               >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
               return 1
             else
-              command git "$@"
+              ${pkgs.git}/bin/git "$@"
             fi
           }
           # PS$ is used when command printing (`set -x`) it turned on. The will
