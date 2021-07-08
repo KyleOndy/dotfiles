@@ -13,7 +13,6 @@ in
     home.packages = [ pkgs.tree-sitter ];
     programs.neovim = {
       enable = true;
-      #package = pkgs.neovim;
       withNodeJs = true; # enable node provider # todo: need this?
       withPython3 = true; # todo: need this?
       plugins = with pkgs.vimPlugins; [

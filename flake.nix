@@ -1,12 +1,8 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
     home-manager = {
       url = "github:nix-community/home-manager/master";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    neovim-nightly-overlay = {
-      url = "github:mjlbach/neovim-nightly-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nur = {
@@ -32,7 +28,7 @@
       # import all the overlays that extend packages via nix or home-manager.
       # Overlays are a nix file within the `overlay` folder or a sub folder in
       # `overlay` that contains a `default.nix`.
-      overlays = [ inputs.neovim-nightly-overlay.overlay inputs.nur.overlay ] ++
+      overlays = [ inputs.nur.overlay ] ++
         (
           # todo: move overlays to modules
           let path = ./overlays;
