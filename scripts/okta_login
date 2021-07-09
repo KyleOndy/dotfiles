@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+wait_for_key() {
+  while true
+  do
+    if read -r -t 10 -n 1; then
+      break
+  else
+    echo "waiting for a keypress"
+  fi
+  done
+}
+
+echo "kyle.ondy@paige.ai" | pbcopy
+echo "Copied username to clipboard"
+sleep 4
+
+pass show -c microsoft.com/kyle.ondy@paige.ai
+echo "Copied password"
+sleep 2
+
+pass otp -c paige.okta.com/kyle.ondy@paige.ai
+echo "copied OTP"
