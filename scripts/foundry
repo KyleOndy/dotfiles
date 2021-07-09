@@ -26,11 +26,52 @@ work_on() {
 
   mkdir -p "./$project/$ticket"
 
+  # todo: move these into templte files
   if ! [ -f "./$project/$ticket/README.md" ]; then
 cat <<- EOF > "./$project/$ticket/README.md"
 # $ticket
 
 [Jira ticket for $ticket](https://jira.paigeai.net/browse/$ticket)
+EOF
+  fi
+  if ! [ -f "./$project/$ticket/flake.nix" ]; then
+cat <<- EOF > "./$project/$ticket/flake.nix"
+{
+  description = "$ticket";
+
+  inputs.flake-utils.url = "github:numtide/flake-utils";
+
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem
+      (system:
+        let pkgs = nixpkgs.legacyPackages.\${system}; in
+        {
+          devShell = import ./shell.nix { inherit pkgs; };
+        }
+      );
+}
+EOF
+  fi
+  if ! [ -f "./$project/$ticket/shell.nix" ]; then
+cat <<- EOF > "./$project/$ticket/shell.nix"
+{ pkgs ? import <nixpkgs> { } }:
+with pkgs;
+mkShell {
+  buildInputs = [
+    # ...
+  ];
+
+  shellHook = ''
+    # ...
+  '';
+}
+EOF
+  fi
+  if ! [ -f "./$project/$ticket/.envrc" ]; then
+cat <<- EOF > "./$project/$ticket/.envrc"
+# this uses, and assumeds the nix-direnv [1] is configured in your enviroemnt
+# [1]: https://github.com/nix-community/nix-direnv
+use nix
 EOF
   fi
   create_switch_to_workspace "$ticket"
