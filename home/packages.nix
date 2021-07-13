@@ -56,6 +56,7 @@ in
     pv # pipe progress
     ranger # cli file browser
     ripgrep # recursively searches directories for a regex pattern
+    rsync # use an upto date one, not whatever ships with the OS
     shellcheck # linting bash scripts
     shfmt # shell (bash) formatting
     slack-cli # bash based cli for interacting with slack
