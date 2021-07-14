@@ -101,8 +101,9 @@ in
     steam # games # todo: I should break this out into gaming.nix
     virtmanager # manage KVM
     zoom-us # pandemic life
-  ];
+  ]
 
-  #++ optionals stdenv.isDarwin
-  #[];
+  ++ optionals stdenv.isDarwin [
+    octo # octopus cli
+  ];
 }
