@@ -23,7 +23,7 @@
   foundry = {
     # foundry is the namespace I've given to my internal modules
     dev = {
-      clojure.enable = false; # todo: want true
+      clojure.enable = true;
       python.enable = true;
       dotnet.enable = true;
       hashicorp.enable = true;
