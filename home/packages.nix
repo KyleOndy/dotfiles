@@ -36,6 +36,7 @@ in
     ispell # spell checking
     jq # easy json formatting
     k9s # stylish kubernetes management
+    kubectl
     kubectx
     lesspipe # auto piping into less
     lsof # how is this not in the base system?
