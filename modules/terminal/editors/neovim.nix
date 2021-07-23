@@ -10,7 +10,9 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ pkgs.tree-sitter ];
+    home.packages = with pkgs; [
+      tree-sitter
+    ];
     programs.neovim = {
       enable = true;
       withNodeJs = true; # enable node provider # todo: need this?
