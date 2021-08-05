@@ -423,6 +423,13 @@ in
             " autocmd BufEnter * colorscheme gruvbox
           '';
         }
+
+        {
+          # https://github.com/vim-test/vim-test
+          plugin = vim-test;
+          config = ''
+          '';
+        }
       ];
 
       # lots of config... This is the balance of the configuration that does
@@ -664,6 +671,13 @@ in
         " map <Leader>sj <Plug>(easymotion-j)
         " map <Leader>sk <Plug>(easymotion-k)
         nmap <leader>ff <Plug>(easymotion-overwin-f2)
+
+        " ==> VimTest
+        nmap <silent> <leader>tn :TestNearest<CR>
+        nmap <silent> <leader>tf :TestFile<CR>
+        nmap <silent> <leader>ts :TestSuite<CR>
+        nmap <silent> <leader>tl :TestLast<CR>
+        nmap <silent> <leader>tg :TestVisit<CR>
       '';
     };
   };
