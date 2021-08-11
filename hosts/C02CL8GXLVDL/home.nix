@@ -48,6 +48,7 @@
         enable = false;
         service = false; # no service on darwin
       };
+      pass.enable = true;
       editors = {
         neovim.enable = true;
       };

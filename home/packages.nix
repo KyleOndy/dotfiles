@@ -50,8 +50,6 @@ in
     nixpkgs-review # easily dev on nixpkgs
     nmap # network mapping and scanning
     openvpn # covering my tracks
-    (pass.withExtensions (ext: [ ext.pass-otp ])) # pass + otp extension
-    passff-host # firefox plugin host extension
     pixz # parallel (de)compresser for xz
     proselint # A linter for prose
     pv # pipe progress

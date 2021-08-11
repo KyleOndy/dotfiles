@@ -67,6 +67,7 @@
       editors = {
         neovim.enable = true;
       };
+      pass.enable = true;
     };
   };
 
