@@ -1,6 +1,6 @@
 # vim: ft=muttrc
 application/octet-stream ; echo %s "can be anything..."
-text/html                ; lynx %s
+text/html                ; firefox %s
 application/pdf          ; /usr/bin/zathura %s
 image/*                  ; /usr/bin/feh %s
 audio/*                  ; /usr/bin/mpv %s
