@@ -16,7 +16,7 @@ in
         autocd = false; # I can't stand when ZSH Decided to change my directory
         history = {
           extended = true; # save timestamps
-          ignoreDups = false; # log all commands
+          ignoreDups = true;
           save = 10000; # lots of history. Internal history list
           size = 100000; # lots of history. Save to file.
           share = true; # let multiple ZSH session write to the history file
