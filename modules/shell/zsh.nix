@@ -258,6 +258,12 @@ in
       fzf = {
         enable = true;
         enableZshIntegration = true;
+        defaultOptions = [
+          "--no-height --no-reverse"
+        ];
+        historyWidgetOptions = [
+          "--preview 'echo {}' --preview-window down:3"
+        ];
       };
     };
     home.packages = with pkgs;
