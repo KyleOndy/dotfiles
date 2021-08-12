@@ -11,6 +11,7 @@ in
     programs.password-store = {
       enable = true;
       package = pkgs.pass.withExtensions (ext: [ ext.pass-otp ]);
+      settings = { PASSWORD_STORE_DIR = "$HOME/.password-store"; };
     };
 
     home.packages = with pkgs; [
