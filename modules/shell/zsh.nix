@@ -17,8 +17,8 @@ in
         history = {
           extended = true; # save timestamps
           ignoreDups = true;
-          save = 10000; # lots of history. Internal history list
-          size = 100000; # lots of history. Save to file.
+          save = 1000000; # lots of history. Internal history list
+          size = 1000000; # lots of history. Save to file.
           share = true; # let multiple ZSH session write to the history file
         };
         shellAliases = {
