@@ -45,6 +45,9 @@ in
           # Only changing the escape key to `jk` in insert mode, we still
           # keep using the default keybindings `^[` in other modes
           ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+          # I never _intend_ or _expect_ to start in normal mode and it throws
+          # me off every time.
+          ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
 
           zvm_after_init() {
             # White ZVM is super nifty, and better than the built in vi mode,
