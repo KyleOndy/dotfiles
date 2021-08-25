@@ -11,7 +11,7 @@ self: super: {
 
     installPhase = ''
       mkdir -p $out/bin
-      find . -maxdepth 1 \( -type f -o -type l \) -executable \
+      find . \( -type f -o -type l \) -executable \
           -exec cp -pL {} $out/bin \;
     '';
 
