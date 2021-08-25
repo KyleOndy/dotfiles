@@ -14,8 +14,13 @@ else
 	(echo "Unsupported file system: $(UNAME)"; exit 1)
 endif
 
+.PHONY: help
+help: ## Show this help
+	@egrep -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-26s\033[0m %s\n", $$1, $$2}'
+
+
 .PHONY: build
-build:
+build: ## Build currently defined configuration
 	@# tood: not sure why I need to remove the result symlink for the
 	@#       diff-closures command to show anything
 	@rm -f result
@@ -28,38 +33,38 @@ build:
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
 .PHONY: switch
-switch: git-status build
+switch: git-status build ## Switch the system to the defined state
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
 	$(SWITCH) switch --flake .
 
 # todo: add targets to update a single dependencies instead of blindly updating
 #       them all.
 .PHONY: update
-update:
+update: ## Update all flake soruces
 	nix flake update
 
 .PHONY: update/nixpkgs
-update/nixpkgs:
+update/nixpkgs: ## Updage just nixpkgs source
 	nix flake lock --update-input nixpkgs
 
 .PHONY: update/home-manager
-update/home-manager:
+update/home-manager: ## Update just home-manager source
 	nix flake lock --update-input home-manager
 
 .PHONY: update/nur
-update/nur:
+update/nur: ## Update just the nur source
 	nix flake lock --update-input nur
 
 .PHONY: update/pre-commit-hooks
-update/pre-commit-hooks:
+update/pre-commit-hooks: ## Update just the pre-commit-hooks source
 	nix flake lock --update-input pre-commit-hooks
 
 .PHONY: check
-check:
+check: ## Run nix checks
 	nix flake check
 
 .PHONY: info
-info:
+info: ## Print information about the system
 	@echo "Current generation's largest dependencies:"
 	@du -shc $(shell nix-store -qR "$(shell realpath /var/run/current-system)") | sort -hr | head -n 11
 
@@ -68,7 +73,7 @@ iso: ## build install media with my customizations
 	nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage -I nixos-config=iso.nix
 
 .PHONY: cleanup
-cleanup:
+cleanup: ## Cleanup and reduce diskspace of current system
 	sudo nix-collect-garbage --delete-older-than 31d
 	sudo nix store optimise
 
