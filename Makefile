@@ -46,10 +46,6 @@ update/nixpkgs:
 update/home-manager:
 	nix flake lock --update-input home-manager
 
-.PHONY: update/neovim-nightly
-update/neovim-nightly:
-	nix flake lock --update-input neovim-nightly-overlay
-
 .PHONY: update/nur
 update/nur:
 	nix flake lock --update-input nur
