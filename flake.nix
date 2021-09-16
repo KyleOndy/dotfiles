@@ -110,6 +110,7 @@
           ];
         };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
+        system = "x86_64-darwin";
         modules = [
           ./hosts/C02CL8GXLVDL/configuration.nix
           inputs.home-manager.darwinModule
