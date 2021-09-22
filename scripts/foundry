@@ -2,9 +2,11 @@
 set -Ee
 
 print_usage() {
-  echo "$0 <what are you doing>"
-  echo "$0 log <description"
-  echo "$0 work <ticket number>"
+  echo "$0                 print this usage message"
+  echo "$0 c|commit        open $EDITOR with commit template"
+  echo "$0 l|log           add to log file"
+  echo "$0 o|ops|adhoc     work on unplanned ticket"
+  echo "$0 w|work|workon   switch to ticket folder"
 }
 
 create_switch_to_workspace() {
@@ -92,6 +94,9 @@ foundry_dir=${FOUNDRY_DATA:-$XDG_DATA_HOME}
 
 
 case "$1" in
+  "")
+    print_usage
+    ;;
   "w"|"work"|"workon")
     shift
 
@@ -118,6 +123,6 @@ case "$1" in
     git cmm "$(basename "$PWD"):" -e
     ;;
   *)
-    log "$@"
+    print_usage
     ;;
 esac
