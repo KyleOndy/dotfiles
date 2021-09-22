@@ -88,6 +88,23 @@ log() {
   echo "$@" > "${tracking_dir}/$(date +%s)"
 }
 
+open_todo() {
+  todo_dir="${foundry_dir}/todo"
+  mkdir -p "$todo_dir"
+
+  # if today's entry doesn't exist, open both the last entry and a new entry
+  # for today. This way I can move over tasks that still need to be done to
+  # today.
+  today=$(date '+%Y-%m-%d')
+  t_file="${todo_dir}/${today}.md"
+  if [ -f "$t_file" ]; then
+    nvim "$t_file"
+  else
+    last_file="$(find "$todo_dir" | sort | tail -n1)"
+    nvim -o "$last_file" "$t_file"
+  fi
+}
+
 ## ENTRYPOINT
 foundry_dir=${FOUNDRY_DATA:-$XDG_DATA_HOME}
 [[ -d "$foundry_dir" ]] || mkdir -p "$foundry_dir"
@@ -116,6 +133,10 @@ case "$1" in
     else
       work_on "ADHOC-$1"
     fi
+    ;;
+  "t"|"todo")
+    shift
+    open_todo
     ;;
   "c"|"commit")
     shift
