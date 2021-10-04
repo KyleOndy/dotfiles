@@ -33,6 +33,8 @@ in
       co = "checkout";
       # quickly checkout a new branch from current HEAD
       cob = "checkout -b";
+      # see what is currently staged
+      cdiff = "diff --cached";
       # undo the last commit.
       undo = "reset HEAD~1 --mixed";
       # unstate all pending changes
