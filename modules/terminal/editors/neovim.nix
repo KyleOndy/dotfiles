@@ -328,6 +328,9 @@ in
             CONFIG
           '';
         }
+        # extend telescope
+        telescope-symbols-nvim
+
         # these two plugins are required by telescope.
         plenary-nvim
         popup-nvim
