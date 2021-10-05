@@ -658,6 +658,8 @@ in
         " these are temparary, until nixos + neovim plugin config get sorted
         " ==> telescope
         " Find files using Telescope command-line sugar.
+
+        " open / move to
         nnoremap <leader>ob <cmd>Telescope buffers<cr>
         nnoremap <leader>of <cmd>Telescope find_files<cr>
         nnoremap <leader>od <cmd>Telescope file_browser<cr>
@@ -666,6 +668,7 @@ in
         nnoremap <leader>op <cmd>Telescope man_pages<cr>
         nnoremap <leader>om <cmd>Telescope marks<cr>
 
+        " search
         nnoremap <leader>ss <cmd>Telescope live_grep<cr>
         nnoremap <leader>sa <cmd>Telescope grep_string<cr>
         nnoremap <leader>s/ <cmd>Telescope current_buffer_fuzzy_find<cr>
