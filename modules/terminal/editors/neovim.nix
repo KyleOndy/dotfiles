@@ -673,6 +673,9 @@ in
         nnoremap <leader>sa <cmd>Telescope grep_string<cr>
         nnoremap <leader>s/ <cmd>Telescope current_buffer_fuzzy_find<cr>
 
+        " insert
+        nnoremap <leader>is <cmd>Telescope symbols<cr>
+
         " ==> fugitive
         nmap <Leader>gg :tab Git<CR>
         nmap <Leader>gb :GBrowse<CR>
