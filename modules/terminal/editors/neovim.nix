@@ -19,8 +19,13 @@ in
       withPython3 = true; # todo: need this?
       plugins = with pkgs.vimPlugins; [
         {
+          # Installing tree-sitter via neovims built in tooling is not a great
+          # idea within nix, and not very reproducible. Luckily, we can install
+          # all the grammars like everything else.
+          #
           # https://github.com/nvim-treesitter/nvim-treesitter
-          plugin = nvim-treesitter;
+          # https://nixos.org/manual/nixpkgs/unstable/#managing-plugins-with-vim-packages
+          plugin = nvim-treesitter.withPlugins (plugins: pkgs.tree-sitter.allGrammars);
           config = ''
             lua <<CFG
               require'nvim-treesitter.configs'.setup {
