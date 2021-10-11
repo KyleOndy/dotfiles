@@ -12,7 +12,12 @@
   boot.extraModulePackages = [ config.boot.kernelPackages.broadcom_sta ];
 
   # programs that should be available in the installer
-  environment.systemPackages = with pkgs; [ neovim git ];
+  environment.systemPackages = with pkgs; [
+    bat
+    git
+    neovim
+    rsync
+];
 
   # Enable SSH in the boot process.
   systemd.services.sshd.wantedBy = pkgs.lib.mkForce [ "multi-user.target" ];
