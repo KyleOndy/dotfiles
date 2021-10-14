@@ -72,7 +72,7 @@
         getNixFilesRec ./modules;
     in
     # this allows us to get the propper `system` whereever we are running
-    inputs.flake-utils.lib.eachDefaultSystem
+    inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
       (system: {
         checks = {
           pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run {
