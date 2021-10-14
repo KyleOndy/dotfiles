@@ -266,9 +266,5 @@ in
         ];
       };
     };
-    home.packages = with pkgs;
-      [
-        spaceship-prompt # promt for zsh
-      ];
   };
 }
