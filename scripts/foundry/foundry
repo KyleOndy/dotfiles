@@ -7,6 +7,7 @@ print_usage() {
   echo "$0 l|log           add to log file"
   echo "$0 o|ops|adhoc     work on unplanned ticket"
   echo "$0 w|work|workon   switch to ticket folder"
+  echo "$0 dir             print directory of foundry work directory"
 }
 
 create_switch_to_workspace() {
@@ -105,6 +106,10 @@ open_todo() {
   fi
 }
 
+print_dir() {
+  tmux display-message -p '#W'
+}
+
 ## ENTRYPOINT
 foundry_dir=${FOUNDRY_DATA:-$XDG_DATA_HOME}
 [[ -d "$foundry_dir" ]] || mkdir -p "$foundry_dir"
@@ -142,6 +147,9 @@ case "$1" in
     shift
     # todo: this makes so many assumptions
     git cmm "$(basename "$PWD"):" -e
+    ;;
+  "dir")
+    print_dir
     ;;
   *)
     print_usage
