@@ -55,6 +55,10 @@ update/home-manager: ## Update just home-manager source
 update/nur: ## Update just the nur source
 	nix flake lock --update-input nur
 
+.PHONY: update/nix-darwin
+update/nix-darwin: ## Update just the nur source
+	nix flake lock --update-input nix-darwin
+
 .PHONY: update/pre-commit-hooks
 update/pre-commit-hooks: ## Update just the pre-commit-hooks source
 	nix flake lock --update-input pre-commit-hooks
