@@ -240,6 +240,7 @@ in
             exit_code     # Exit code section
             char          # Prompt character
           )
+          export SPACESHIP_GIT_STATUS_SHOW=false
 
           git() {
             # this regex checks (hopefully) the following cases:
