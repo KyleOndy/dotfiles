@@ -439,6 +439,12 @@ in
           config = ''
           '';
         }
+
+        {
+          # https://github.com/jamessan/vim-gnupg
+          plugin = vim-gnupg;
+          config = '''';
+        }
       ];
 
       # lots of config... This is the balance of the configuration that does
