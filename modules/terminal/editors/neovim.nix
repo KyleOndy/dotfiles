@@ -13,7 +13,7 @@ in
     home.packages = with pkgs; [
       tree-sitter
 
-      nodePackages.yaml-language-server
+      yaml-language-server
     ];
     programs.neovim = {
       enable = true;
