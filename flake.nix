@@ -28,18 +28,12 @@
       # import all the overlays that extend packages via nix or home-manager.
       # Overlays are a nix file within the `overlay` folder or a sub folder in
       # `overlay` that contains a `default.nix`.
-      overlays = [ inputs.nur.overlay ] ++
-        (
-          # todo: move overlays to modules
-          let path = ./overlays;
-          in
-          with builtins;
-          map (n: import (path + ("/" + n))) (filter
-            (n:
-              match ".*\\.nix" n != null
-                || pathExists (path + ("/" + n + "/default.nix")))
-            (attrNames (readDir path)))
-        );
+      overlays = [
+        inputs.nur.overlay
+        (import ./pkgs)
+        (import ./overlays/st)
+      ];
+
 
       # I am sure this is ugly to experienced nix users, and might break in all
       # kinds of unexpected ways. This was my first actual function written in
