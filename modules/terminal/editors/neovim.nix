@@ -13,6 +13,8 @@ in
     home.packages = with pkgs; [
       tree-sitter
 
+      # language servers
+      gopls
       yaml-language-server
     ];
     programs.neovim = {
