@@ -12,6 +12,8 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
       tree-sitter
+
+      nodePackages.yaml-language-server
     ];
     programs.neovim = {
       enable = true;
