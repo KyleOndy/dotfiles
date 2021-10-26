@@ -15,6 +15,7 @@ in
 
       # language servers
       gopls
+      vscode-ls
       yaml-language-server
     ];
     programs.neovim = {
