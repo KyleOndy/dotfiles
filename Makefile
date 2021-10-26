@@ -24,11 +24,6 @@ build: ## Build currently defined configuration
 	@# tood: not sure why I need to remove the result symlink for the
 	@#       diff-closures command to show anything
 	@rm -f result
-	@# hack: todo: there appears to be some issues where the first build command
-	@#              doesn't build everything, but the second invocation does. To be
-	@#              safe, until I get to dig into it, just build it all twice.
-	@#              Due to this, pipe STDOUT out of the first build to /dev/null
-	@nix build .#$(HOSTNAME) --keep-going > /dev/null
 	nix build .#$(HOSTNAME) --keep-going
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
