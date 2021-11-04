@@ -28,6 +28,8 @@ in
         # Enable mouse mode (tmux 2.1 and above)
         set -g mouse on
 
+        set-option -g focus-events on
+
         # ----------------------
         # Status Bar
         # -----------------------
