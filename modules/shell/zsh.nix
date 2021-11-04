@@ -293,6 +293,7 @@ in
               # write to stderr
               >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
               >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
+              >&2 echo "''${RED}    ${pkgs.git}/bin/git''${NC}"
               return 1
             else
               ${pkgs.git}/bin/git "$@"
