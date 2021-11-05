@@ -103,6 +103,24 @@
             }
           ];
         };
+        xi = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./hosts/xi/configuration.nix
+            #./hosts/xi/hardware-configuration.nix
+            inputs.home-manager.nixosModules.home-manager
+            {
+              nixpkgs.overlays = overlays;
+              # todo: some service user
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = foundryModules;
+                users.kyle = import ./users/kyle/ssh.nix;
+              };
+            }
+          ];
+        };
       };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
@@ -122,6 +140,7 @@
         ];
       };
       alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
+      xi = self.nixosConfigurations.xi.config.system.build.toplevel;
       C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
     };
 }
