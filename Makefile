@@ -32,11 +32,14 @@ switch: git-status build ## Switch the system to the defined state
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
 	$(SWITCH) switch --flake .
 
-# forward ports:
-# QEMU_NET_OPTS="hostfwd=tcp::8080-:8080 ./result/bin/run-nixos-vm
 .PHONY: vm
 vm: ## build qemu vm
 	$(REBUILD) build-vm --flake .#$(HOSTNAME)
+
+# port forward: QEMU_NET_OPTS="hostfwd=tcp::8080-:8080"
+.PHONY: run-vm
+run-vm:
+	./result/bin/run-$(HOSTNAME)-vm
 
 # todo: add targets to update a single dependencies instead of blindly updating
 #       them all.
