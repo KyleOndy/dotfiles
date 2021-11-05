@@ -85,8 +85,8 @@
         };
       })
     // {
-      nixosConfigurations.alpha =
-        inputs.nixpkgs.lib.nixosSystem {
+      nixosConfigurations = {
+        alpha = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             ./hosts/alpha/configuration.nix
@@ -103,6 +103,7 @@
             }
           ];
         };
+      };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
         modules = [
