@@ -5,30 +5,30 @@ All machines are named as a Greek letter.
 The letter itself has no meaning in relation to machine function.
 Its is an arbitrary choice when I configure a new machine.
 
-## Alpha
+## [Alpha]
 
 My daily driver laptop.
 Currently a Lenevo T560.
 
-## Beta
+## Sigma
 
-KVM guest running under one of my Unraid systems.
-Nothing special about this machine.
-The plan is to use this as a build host as it has access to more powerful hardware.
+Temporary host running various services. Will be replaced with a new system in
+the near future.
 
-## Zeta
+## Tau
 
-VMware workstation guest used at work.
+VM running under HyperV on my main desktop. Main purpose is a build server
+since its got lots of RAM of spare CPU cycles.
 
-## Greek Letters
+### Greek Letters
 
 ```text
 - [X] alpha
-- [X] beta
+- [ ] beta
 - [ ] gamma
 - [ ] delta
 - [ ] epsilon
-- [X] zeta
+- [ ] zeta
 - [ ] eta
 - [ ] theta
 - [ ] iota
@@ -38,7 +38,7 @@ VMware workstation guest used at work.
 - [ ] nu
 - [ ] xi
 - [ ] omicron
-- [X] pi      # unraid server
+- [ ] pi
 - [ ] rho
 - [ ] sigma
 - [ ] tau
@@ -48,3 +48,11 @@ VMware workstation guest used at work.
 - [ ] psi
 - [ ] omega
 ```
+
+## [C02CL8GXLVDL]
+
+Macbook pro for work. Managed as best I can with [nix-darwin].
+
+[nix-darwin]: https://github.com/LnL7/nix-darwin
+[alpha]: ./alpha
+[c02cl8gxlvdl]: ./C02CL8GXLVDL
