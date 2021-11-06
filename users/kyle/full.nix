@@ -6,7 +6,7 @@
     ./../../home/fonts.nix
     ./../../home/git.nix
     ./../../home/go.nix
-    #./../../home/gpg.nix
+    #.../..//home/gpg.nix
     ./../../home/haskell.nix
     ./../../home/i3.nix
     ./../../home/packages.nix

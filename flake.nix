@@ -98,7 +98,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = foundryModules;
-                users.kyle = import ./hosts/alpha/home.nix;
+                users.kyle = import ./users/kyle/full.nix;
               };
             }
           ];
@@ -115,7 +115,7 @@
               useGlobalPkgs = true;
               useUserPackages = true;
               sharedModules = foundryModules;
-              users."kyle.ondy" = import ./hosts/C02CL8GXLVDL/home.nix;
+              users."kyle.ondy" = import ./users/kyle/ssh.nix;
             };
           }
         ];
