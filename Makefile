@@ -27,6 +27,10 @@ build: ## Build currently defined configuration
 	nix build .#$(HOSTNAME) --keep-going
 	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
 
+.PHONY: build-quiet
+build-quiet: ## Like `build`, without a diff of result -> current system
+	nix build .#$(HOSTNAME) --keep-going
+
 .PHONY: switch
 switch: git-status build ## Switch the system to the defined state
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
