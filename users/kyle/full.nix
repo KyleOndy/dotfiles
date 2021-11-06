@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/haskell.nix
     ./../../home/i3.nix
     ./../../home/packages.nix
   ];
@@ -47,6 +46,7 @@
       python.enable = true;
       dotnet.enable = true;
       hashicorp.enable = true;
+      haskell.enable = true;
       #terraform.enable = true;
       git.enable = true;
       #haskell.enable = true;
