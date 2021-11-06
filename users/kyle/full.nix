@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/fonts.nix
     ./../../home/git.nix
     ./../../home/go.nix
     #.../..//home/gpg.nix
@@ -31,6 +30,9 @@
       };
       browsers = {
         firefox.enable = true;
+      };
+      fonts = {
+        hack.enable = true;
       };
       gaming = {
         steam.enable = true;
