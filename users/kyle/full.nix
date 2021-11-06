@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/env.nix
     ./../../home/fonts.nix
     ./../../home/git.nix
     ./../../home/go.nix
@@ -44,6 +43,7 @@
       };
     };
     dev = {
+      enable = true;
       clojure.enable = true;
       python.enable = true;
       dotnet.enable = true;
