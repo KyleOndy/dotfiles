@@ -1,11 +1,5 @@
 { pkgs, ... }:
 {
-  # import each nix file into home-manager
-  imports = [
-    ./../../home/packages.nix
-  ];
-
-
   programs = {
     home-manager = {
       enable = true;
