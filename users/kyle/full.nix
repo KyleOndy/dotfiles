@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/i3.nix
     ./../../home/packages.nix
   ];
 
@@ -39,6 +38,7 @@
       term = {
         st.enable = true;
       };
+      wm.i3.enable = true;
     };
     dev = {
       enable = true;
