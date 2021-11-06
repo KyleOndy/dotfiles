@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    #.../..//home/gpg.nix
     ./../../home/haskell.nix
     ./../../home/i3.nix
     ./../../home/packages.nix
