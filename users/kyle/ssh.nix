@@ -2,7 +2,6 @@
 {
   # import each nix file into home-manager
   imports = [
-    ./../../home/git.nix
     ./../../home/gpg.nix
     ./../../home/packages.nix
   ];
@@ -28,7 +27,7 @@
       dotnet.enable = true;
       hashicorp.enable = true;
       #terraform.enable = true;
-      #git.enable = true;
+      git.enable = true;
       #haskell.enable = true;
       nix.enable = true;
       #powershell.enable = true;
