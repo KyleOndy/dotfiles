@@ -91,6 +91,16 @@
           modules = [
             ./hosts/alpha/configuration.nix
             ./hosts/alpha/hardware-configuration.nix
+
+            ./users/kyle.nix # todo: some service user
+
+            # todo: refactor these into something else
+            ./hosts/_includes/common.nix
+            ./hosts/_includes/docker.nix
+            ./hosts/_includes/kvm.nix
+            ./hosts/_includes/laptop.nix
+            ./hosts/_includes/wifi_networks.nix
+
             inputs.home-manager.nixosModules.home-manager
             {
               nixpkgs.overlays = overlays;
@@ -107,12 +117,14 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/xi/configuration.nix
-            ./users/kyle.nix
-            #./hosts/xi/hardware-configuration.nix
+            ./users/kyle.nix # todo: some service user
+
+            # todo: refactor these into something else
+            ./hosts/_includes/common.nix
+
             inputs.home-manager.nixosModules.home-manager
             {
               nixpkgs.overlays = overlays;
-              # todo: some service user
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
