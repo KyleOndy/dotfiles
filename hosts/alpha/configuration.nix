@@ -7,7 +7,7 @@
     ./../_includes/common.nix
     ./../_includes/docker.nix
     ./../_includes/kvm.nix
-    ./../_includes/kyle.nix
+    ../../../users/kyle.nix
     ./../_includes/laptop.nix
     ./../_includes/wifi_networks.nix
   ];

@@ -259,7 +259,7 @@ in
             # http://zsh.sourceforge.net/Doc/Release/Shell-Grammar.html#Aliasing
             local 'timetrack_status'
 
-            [[ -z $FOUNDRY_DATA ]] && return
+            [[ -f $FOUNDRY_DATA/.tracking ]] && return
             # todo: check if tracking file exsits
 
             most_recent_tracking_file=$(${pkgs.fd}/bin/fd --type=file . $FOUNDRY_DATA/.tracking | sort | tail -n1)

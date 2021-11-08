@@ -98,7 +98,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = foundryModules;
-                users.kyle = import ./users/kyle/full.nix;
+                users.kyle = import ./profiles/full.nix;
               };
             }
           ];
@@ -107,6 +107,7 @@
           system = "x86_64-linux";
           modules = [
             ./hosts/xi/configuration.nix
+            ./users/kyle.nix
             #./hosts/xi/hardware-configuration.nix
             inputs.home-manager.nixosModules.home-manager
             {
@@ -116,7 +117,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = foundryModules;
-                users.kyle = import ./users/kyle/ssh.nix;
+                users.kyle = import ./profiles/ssh.nix;
               };
             }
           ];
@@ -134,7 +135,7 @@
               useGlobalPkgs = true;
               useUserPackages = true;
               sharedModules = foundryModules;
-              users."kyle.ondy" = import ./users/kyle/ssh.nix;
+              users."kyle.ondy" = import ./profiles/ssh.nix;
             };
           }
         ];
