@@ -4,8 +4,6 @@ This project is designed for the Ergodox EZ which uses the [qmk](https://github.
 
 ## Goals
 
-
-
 =======
 
 This ergodox-ez is my first split keyboard.

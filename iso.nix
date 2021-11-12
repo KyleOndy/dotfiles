@@ -17,7 +17,7 @@
     git
     neovim
     rsync
-];
+  ];
 
   # Enable SSH in the boot process.
   systemd.services.sshd.wantedBy = pkgs.lib.mkForce [ "multi-user.target" ];
