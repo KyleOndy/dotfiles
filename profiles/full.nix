@@ -11,7 +11,7 @@
     lorri.enable = true;
   };
 
-  foundry = {
+  hmFoundry = {
     # foundry is the namespace I've given to my internal modules
     desktop = {
       apps = {

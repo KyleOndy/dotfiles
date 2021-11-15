@@ -47,7 +47,7 @@
       #   - handles readDir's `symlink` and `unknown` types
       #   - is there a better way than (path + ("/" + path))?
       #   - can this be moved into a library and sourced over inline?
-      foundryModules =
+      getModules = path:
         let
           lib = inputs.nixpkgs.lib;
           getNixFilesRec = path:
@@ -63,7 +63,9 @@
             # pass each directory into this function again
             (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
         in
-        getNixFilesRec ./modules;
+        getNixFilesRec path;
+
+      hmModules = getModules ./modules/hm_modules;
     in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
@@ -107,7 +109,7 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                sharedModules = foundryModules;
+                sharedModules = hmModules;
                 users.kyle = import ./profiles/full.nix;
               };
             }
@@ -128,7 +130,7 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                sharedModules = foundryModules;
+                sharedModules = hmModules;
                 users.kyle = import ./profiles/ssh.nix;
               };
             }
@@ -146,7 +148,7 @@
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
-              sharedModules = foundryModules;
+              sharedModules = hmModules;
               users."kyle.ondy" = import ./profiles/ssh.nix;
             };
           }
