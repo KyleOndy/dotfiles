@@ -1,7 +1,9 @@
 # todo: contribute this back upstream to nixpkgs
 { stdenv, fetchFromGitHub }:
-stdenv.mkDerivation {
+
+stdenv.mkDerivation rec {
   name = "zsh-vi-mode";
+  version = "0.8.5";
 
   # fetchFromGitHub is a build support function that fetches a GitHub
   # repository and extracts into a directory; so we can use it
@@ -9,8 +11,8 @@ stdenv.mkDerivation {
   src = fetchFromGitHub {
     owner = "jeffreytse";
     repo = "zsh-vi-mode";
-    rev = "b612d16b0873917a034076793914ade9b4ef3635";
-    sha256 = "tlAgsIHHZPnk6NznOdzvLHlB1J2FkwCuGLlGHzR06Jg=";
+    rev = "v${version}";
+    sha256 = "EOYqHh0rcgoi26eopm6FTl81ehak5kXMmzNcnJDH8/E=";
   };
 
   # This overrides the shell code that is run during the installPhase.
@@ -22,4 +24,3 @@ stdenv.mkDerivation {
     cp *.zsh $out/
   '';
 }
-
