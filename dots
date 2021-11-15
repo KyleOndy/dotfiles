@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -e
+
+_log() {
+  GREEN='\033[0;32m'
+  #RED='\033[0;31m'
+  #YELLOW='\033[0;33m'
+  NC='\033[0m' # No Color
+  printf "${GREEN}==> %s${NC}\n" "$*"
+}
+
+_start() {
+  _log "Start: $*"
+}
+
+_finish() {
+  _log "Done:  $*"
+}
+
+if [[ "$1" == "--deploy" ]]; then
+  deploy=true
+  shift
+fi
+
+for host in "$@"; do
+  rm -f result
+
+  _start "Buidling $host"
+  # todo: still need to figure out why I need to do this twice
+  nix build .#"$host" --keep-going
+  nix build .#"$host"
+  _finish "Buidling $host"
+  # todo: still need to figure out why I need to do this twice
+
+
+  _start "Copying closures to $host"
+  result_closure=$(readlink -f ./result)
+  nix-copy-closure --to "$host" -s "$result_closure"
+  _finish "Copying closures to $host"
+
+  ssh "$host" -- nix store diff-closures /var/run/current-system "$result_closure"
+
+  if [[ "$deploy" == "true" ]]; then
+    _start "Deployign $host"
+    ssh "$host" -- sudo nix-env --profile /nix/var/nix/profiles/system --set "$result_closure"
+    ssh "$host" -- sudo "$result_closure/bin/switch-to-configuration switch"
+    _finish "Deployign $host"
+  fi
+done
+
+_log "Done with all hosts"
