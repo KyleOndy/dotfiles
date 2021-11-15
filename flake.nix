@@ -124,12 +124,29 @@
           inputs.home-manager.darwinModule
           {
             nixpkgs.overlays = overlays;
-            #users.nix.configureBuildUsers = true; # todo: doc: why?
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
               sharedModules = hmModules;
-              users."kyle.ondy" = import ./profiles/ssh.nix;
+              users."kyle.ondy" = {
+                imports = [ ./profiles/ssh.nix ];
+
+                # darwin overrides. This is ripe for refactoring. Declaring
+                # this in the flake so it is very clear what is happening.
+                services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
+                hmFoundry = inputs.nixpkgs.lib.mkForce {
+                  terminal = {
+                    email.enable = false;
+                    gpg = {
+                      # todo: need to fix on darwin
+                      #     [I] ➜ gpg --card-status
+                      #     gpg: Fatal: can't create directory '/var/empty/.gnupg': Operation not permitted
+                      enable = false;
+                      service = false; # no service on darwin
+                    };
+                  };
+                };
+              };
             };
           }
         ];

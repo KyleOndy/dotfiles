@@ -8,7 +8,7 @@
   };
 
   services = {
-    #lorri.enable = true;
+    lorri.enable = true;
   };
 
   hmFoundry = {
@@ -19,27 +19,20 @@
       python.enable = true;
       dotnet.enable = true;
       hashicorp.enable = true;
-      #terraform.enable = true;
       git.enable = true;
-      #haskell.enable = true;
+      haskell.enable = true;
       nix.enable = true;
-      #powershell.enable = true;
-      #puppet.enable = true;
-      #go.enable = true;
+      go.enable = false;
     };
     shell = {
       zsh.enable = true;
       bash.enable = true;
     };
     terminal = {
+      email.enable = true;
+      dropbox.enable = true;
       tmux.enable = true;
-      gpg = {
-        # todo: need to fix on darwin
-        #     [I] ➜ gpg --card-status
-        #     gpg: Fatal: can't create directory '/var/empty/.gnupg': Operation not permitted
-        enable = false;
-        service = false; # no service on darwin
-      };
+      gpg.enable = true;
       pass.enable = true;
       editors = {
         neovim.enable = true;
