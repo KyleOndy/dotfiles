@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+# allow us to SSH with a local version controlled ssh_config file
+
+SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+ssh_config="${SCRIPT_DIR}/../.ssh_config"
+
+/run/current-system/sw/bin/ssh -F "$ssh_config"  "$@"
