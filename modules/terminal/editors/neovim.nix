@@ -224,11 +224,15 @@ in
                   disabled_filetypes = {}
                 },
                 sections = {
-                  lualine_a = {'mode'},
-                  lualine_b = {'filename'},
-                  lualine_c = {'branch'},
-                  lualine_d = {'diagnostics',  sources={'nvim_lsp'}},
-                  lualine_x = {'encoding', 'fileformat', 'filetype'},
+                  lualine_a = {"mode"},
+                  lualine_b = {"branch", "diff"},
+                  lualine_c = {"filename"},
+                  lualine_x = {
+                    {"diagnostics", sources = {"nvim_lsp"}},
+                    "encoding",
+                    "fileformat",
+                    "filetype"
+                  },
                   lualine_y = {'progress'},
                   lualine_z = {'location'}
                 },
