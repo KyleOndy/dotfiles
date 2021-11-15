@@ -12,3 +12,8 @@ The [hm_modules](./hm_modules) directory is for modules that leverage
 configuration.
 
 [home-manager]: https://github.com/nix-community/home-manager
+
+## System
+
+The [system_modules](./system_modules) directory is for modules applied to a
+system level.

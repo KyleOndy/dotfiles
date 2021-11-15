@@ -66,6 +66,7 @@
         getNixFilesRec path;
 
       hmModules = getModules ./modules/hm_modules;
+      systemModules = getModules ./modules/system_modules;
     in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
@@ -90,7 +91,7 @@
       nixosConfigurations = {
         alpha = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = [
+          modules = systemModules ++ [
             ./hosts/alpha/configuration.nix
             ./hosts/alpha/hardware-configuration.nix
 
@@ -117,7 +118,7 @@
         };
         xi = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = [
+          modules = systemModules ++ [
             ./hosts/xi/configuration.nix
             ./users/kyle.nix # todo: some service user
 
@@ -139,7 +140,7 @@
       };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
-        modules = [
+        modules = systemModules ++ [
           ./hosts/C02CL8GXLVDL/configuration.nix
           inputs.home-manager.darwinModule
           {
