@@ -116,6 +116,13 @@
             }
           ];
         };
+        util_lan = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = systemModules ++ [
+            ./hosts/util_lan/configuration.nix
+            { systemFoundry.deployment_target.enable = true; }
+          ];
+        };
       };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
@@ -153,5 +160,6 @@
       };
       alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
       C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
+      util_lan = self.nixosConfigurations.util_lan.config.system.build.toplevel;
     };
 }
