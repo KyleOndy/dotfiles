@@ -93,9 +93,10 @@
     distributedBuilds = true;
     buildMachines = [
       {
-        hostName = "tau.lan.509ely.com";
+        hostName = "util.lan.509ely.com";
+        sshUser = "svc.deploy";
         systems = [ "x86_64-linux" "aarch64-linux" ];
-        maxJobs = 6;
+        maxJobs = 1;
         speedFactor = 10; # prefer this builder
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
