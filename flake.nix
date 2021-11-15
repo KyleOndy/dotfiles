@@ -106,6 +106,7 @@
 
             inputs.home-manager.nixosModules.home-manager
             {
+              systemFoundry.deployment_target.enable = true;
               nixpkgs.overlays = overlays;
               home-manager = {
                 useGlobalPkgs = true;

@@ -75,31 +75,4 @@
     tmpOnTmpfs = false;
     kernelPackages = pkgs.linuxPackages_latest;
   };
-
-  nix = {
-    package = pkgs.nixUnstable;
-    trustedUsers = [ "root" "kyle" ];
-    autoOptimiseStore = true;
-    nixPath = [
-      "nixpkgs=${pkgs.path}"
-    ];
-    optimise.automatic = true;
-    extraOptions = ''
-      builders-use-substitutes = true
-      experimental-features = nix-command flakes
-      keep-outputs = true
-      keep-derivations = true
-    '';
-    distributedBuilds = true;
-    buildMachines = [
-      {
-        hostName = "util.lan.509ely.com";
-        sshUser = "svc.deploy";
-        systems = [ "x86_64-linux" "aarch64-linux" ];
-        maxJobs = 1;
-        speedFactor = 10; # prefer this builder
-        supportedFeatures = [ "benchmark" "big-parallel" ];
-      }
-    ];
-  };
 }
