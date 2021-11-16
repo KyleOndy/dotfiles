@@ -23,18 +23,18 @@ if [[ "$1" == "--deploy" ]]; then
 fi
 
 for host in "$@"; do
-  rm -f result
+  result_path="./results/${host}"
 
   _start "Buidling $host"
   # todo: still need to figure out why I need to do this twice
-  nix build .#"$host" --keep-going
-  nix build .#"$host"
+  nix build .#"$host" --keep-going --out-link "$result_path"
+  nix build .#"$host" --out-link "$result_path"
   _finish "Buidling $host"
   # todo: still need to figure out why I need to do this twice
 
 
   _start "Copying closures to $host"
-  result_closure=$(readlink -f ./result)
+  result_closure=$(readlink -f "$result_path")
   nix-copy-closure --to "$host" -s "$result_closure"
   _finish "Copying closures to $host"
 
