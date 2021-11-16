@@ -50,7 +50,7 @@ in
             {
               url = "https://unifi.apps.lan.509ely.com";
               user = "admin";
-              pass = "/var/src/secrets/unifi";
+              pass = "/var/secrets/unifi";
               save_dpi = true;
             }
           ];
@@ -72,7 +72,7 @@ in
       port = 2342;
       addr = "127.0.0.1";
       security = {
-        adminPassword = "hunter2";
+        adminPasswordFile = /var/secrets/grafana_admin_pass;
       };
       provision = {
         enable = true;
@@ -183,7 +183,7 @@ in
       certs = {
         "${grafana_domain}" = {
           dnsProvider = "namecheap";
-          credentialsFile = "/var/src/secrets/namecheap";
+          credentialsFile = "/var/secrets/namecheap";
           extraDomainNames = [ ];
         };
       };
