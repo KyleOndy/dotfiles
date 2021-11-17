@@ -71,8 +71,8 @@
         "unifi.apps.lan.509ely.com" = "10.24.89.10";
       };
       cnameRecords = {
-        "unifi" = "unifi.apps.lan.509ely.com";
-        "nzbget.apps.lan.509ely.com" = "util.lan.509ely.com";
+        #"unifi" = "unifi.apps.lan.509ely.com";
+        #"nzbget.apps.lan.509ely.com" = "util.lan.509ely.com";
       };
       domainRecords = {
         "dmz.509ely.com" = "10.25.89.53";
