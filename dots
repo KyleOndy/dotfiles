@@ -38,7 +38,9 @@ for host in "$@"; do
   nix-copy-closure --to "$host" -s "$result_closure"
   _finish "Copying closures to $host"
 
-  ssh "$host" -- nix store diff-closures /var/run/current-system "$result_closure"
+  if [ -z "$BOOTSTRAP" ]; then
+    ssh "$host" -- nix store diff-closures /var/run/current-system "$result_closure"
+  fi
 
   if [[ "$deploy" == "true" ]]; then
     _start "Deployign $host"
