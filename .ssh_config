@@ -13,3 +13,6 @@ Host m1
 Host m2
   Hostname m2.dmz.509ely.com
   User svc.deploy
+Host m3
+  Hostname m3.dmz.509ely.com
+  User svc.deploy
