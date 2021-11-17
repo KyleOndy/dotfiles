@@ -48,6 +48,7 @@ in
       permitRootLogin = "no";
     };
 
+    nixpkgs.config.allowUnfree = true;
     nix = {
       package = pkgs.nixStable; # was nixUnstable
       nixPath = [
