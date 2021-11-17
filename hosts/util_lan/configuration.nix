@@ -35,13 +35,6 @@
     }];
   };
 
-  users = {
-    defaultUserShell = pkgs.bash_5;
-    mutableUsers = false;
-    users.root = {
-      password = "hunter2";
-    };
-  };
 
   # Assuming this is installed on top of the disk image.
   fileSystems = {
