@@ -87,5 +87,9 @@ in
         email = "kyle@ondy.org";
       };
     };
+    sops = {
+      # this semms suspect
+      defaultSopsFile = ./../../secrets/secrets.yaml;
+    };
   };
 }

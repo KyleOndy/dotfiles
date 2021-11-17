@@ -22,6 +22,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
+    sops-nix.url = "github:Mic92/sops-nix";
   };
   outputs = { self, ... }@inputs:
     let
@@ -79,7 +80,6 @@
               nixpkgs-fmt.enable = true;
               prettier.enable = true;
               shellcheck.enable = true;
-              yamllint.enable = true;
             };
           };
         };
@@ -104,6 +104,7 @@
             ./hosts/_includes/laptop.nix
             ./hosts/_includes/wifi_networks.nix
 
+            inputs.sops-nix.nixosModules.sops
             inputs.home-manager.nixosModules.home-manager
             {
               systemFoundry.deployment_target.enable = true;
@@ -121,6 +122,7 @@
           system = "aarch64-linux";
           modules = systemModules ++ [
             ./hosts/util_lan/configuration.nix
+            inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
         };
@@ -128,6 +130,7 @@
           system = "x86_64-linux";
           modules = systemModules ++ [
             ./hosts/util_dmz/configuration.nix
+            inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
         };

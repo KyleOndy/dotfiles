@@ -178,7 +178,7 @@
       "star.apps.dmz.509ely.com" = {
         # todo: make *
         dnsProvider = "namecheap";
-        credentialsFile = "/var/src/secrets/namecheap";
+        credentialsFile = config.sops.secrets.namecheap.path;
         extraDomainNames = [
           "nzbget.apps.dmz.509ely.com"
           "nzbhydra.apps.dmz.509ely.com"
@@ -201,6 +201,12 @@
     "jellyfin"
   ];
   users.users.nginx.extraGroups = [ "acme" ];
+  sops.secrets = {
+    namecheap = {
+      owner = "acme";
+      group = "acme";
+    };
+  };
 
   systemFoundry = {
     dnsServer = {

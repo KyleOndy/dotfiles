@@ -1,0 +1,20 @@
+---
+keys:
+  # user keys
+  - &kyle 3C799D26057B64E6D907B0ACDB0E3C33491F91C9 # yubikey
+
+  # machine keys
+  - &alpha age1w7yw9mttzn5e0ldzrfl8ku422e5ydymr0wy6lp8msxvg8eehlpmq94sw4w
+  - &util_lan age1cdn7466t4cgepfl8jzlee8g8v4qjwjyg4v9pytz3fa4hfk4wy39spwtqde
+  - &util_dmz age1phk0n3yddcdw82ueukh5qm3jfeqr62gn0qh9nv0x8tafhkg6p4nqzex90x
+  # command to add a new age key for a new host
+  # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
+creation_rules:
+  - path_regex: secrets/[^/]+\.yaml$
+    key_groups:
+      - age:
+          - *alpha
+          - *util_lan
+          - *util_dmz
+        pgp:
+          - *kyle
