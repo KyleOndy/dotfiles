@@ -124,6 +124,13 @@
             { systemFoundry.deployment_target.enable = true; }
           ];
         };
+        util_dmz = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = systemModules ++ [
+            ./hosts/util_dmz/configuration.nix
+            { systemFoundry.deployment_target.enable = true; }
+          ];
+        };
       };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
@@ -161,6 +168,7 @@
       };
       alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
       C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
+      util_dmz = self.nixosConfigurations.util_dmz.config.system.build.toplevel;
       util_lan = self.nixosConfigurations.util_lan.config.system.build.toplevel;
     };
 }
