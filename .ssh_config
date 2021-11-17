@@ -6,3 +6,7 @@ Host util_lan
 Host util_dmz
   Hostname util.dmz.509ely.com
   User svc.deploy
+
+Host m1
+  Hostname m1.dmz.509ely.com
+  User svc.deploy
