@@ -73,6 +73,9 @@
 
   services = {
     nzbhydra2 = {
+      # currently all config is done via the web.
+      # todo: setup some kind of autoamted downloading of backup zip
+      # todo: auth, right now wide open
       enable = true;
     };
     radarr = {
