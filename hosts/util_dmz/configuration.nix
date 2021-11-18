@@ -33,18 +33,45 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "21.11"; # Did you read the comment?
 
-  ## todo: refactor into moudles
+  systemFoundry.services.nzbget = {
+    enable = true;
+    configFile = config.sops.secrets."nzbget/config".path;
+    group = "media";
+    settings = {
+      # server config
+      "Server1.Active" = "yes";
+      "Server1.Name" = "supernews";
+      "Server1.Level" = "0";
+      "Server1.Optional" = "no";
+      "Server1.Group" = "0";
+      "Server1.Host" = "news.supernews.com";
+      "Server1.Port" = "443";
+      "Server1.JoinGroup" = "no";
+      "Server1.Encryption" = "yes";
+      "Server1.Connections" = "20";
+      "Server1.Retention" = "0";
+      "Server1.IpVersion" = "auto";
 
+      # auth and things
+      ControlIP = "127.0.0.1";
+      ControlPort = "6789";
+      ControlUsername = "admin";
+      RestrictedUsername = "svc.nzb";
+
+      # categories
+      "Category1.Name" = "Movies";
+      "Category2.Name" = "Series";
+      # todo: caching settings
+      # todo: schedule
+    };
+  };
+
+  sops.secrets."nzbget/config" = {
+    owner = config.services.nzbget.user;
+    group = "media"; # todo: fix this hardcoded value
+  };
 
   services = {
-    nzbget = {
-      enable = true;
-      settings = {
-        MainDir = "/srv/media/nzbget";
-        #ControlUsername = "kyle";
-        #ControlPassword = "hunter2";
-      };
-    };
     nzbhydra2 = {
       enable = true;
     };
