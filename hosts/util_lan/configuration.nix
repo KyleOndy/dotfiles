@@ -75,22 +75,21 @@
         # tood: these won't be needed if these hosts do dhcp
         "util.lan.509ely.com" = "10.24.89.53";
 
+        # todo
+        "unifi.apps.lan.509ely.com" = "10.24.89.10";
+
         # monitoring
-        "prometheus.apps.lan.509ely.com" = "10.24.89.53";
-        "grafana.apps.lan.509ely.com" = "10.24.89.53";
+        "prometheus.apps.lan.509ely.com" = "10.24.89.5";
+        "grafana.apps.lan.509ely.com" = "10.24.89.5";
 
         # media server to deprecate
-        "jellyfin.apps.lan.509ely.com" = "10.24.89.10";
-        "nzbget.apps.lan.509ely.com" = "10.24.89.10";
-        "nzbhydra.apps.lan.509ely.com" = "10.24.89.10";
-        "radarr.apps.lan.509ely.com" = "10.24.89.10";
-        "sonarr.apps.lan.509ely.com" = "10.24.89.10";
-        "unifi.apps.lan.509ely.com" = "10.24.89.10";
+        "jellyfin.apps.lan.509ely.com" = "10.24.89.5";
+        "nzbget.apps.lan.509ely.com" = "10.24.89.5";
+        "nzbhydra.apps.lan.509ely.com" = "10.24.89.5";
+        "radarr.apps.lan.509ely.com" = "10.24.89.5";
+        "sonarr.apps.lan.509ely.com" = "10.24.89.5";
       };
-      cnameRecords = {
-        #"unifi" = "unifi.apps.lan.509ely.com";
-        #"nzbget.apps.lan.509ely.com" = "util.lan.509ely.com";
-      };
+      cnameRecords = { };
       domainRecords = {
         "dmz.509ely.com" = "10.25.89.53";
       };
