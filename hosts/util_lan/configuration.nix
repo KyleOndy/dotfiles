@@ -94,9 +94,5 @@
         "dmz.509ely.com" = "10.25.89.53";
       };
     };
-    monitoring = {
-      enable = true;
-    };
   };
 }
-
