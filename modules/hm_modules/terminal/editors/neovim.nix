@@ -33,7 +33,8 @@ in
           plugin = nvim-treesitter.withPlugins (plugins: pkgs.tree-sitter.allGrammars);
           config = ''
             lua <<CFG
-              require'nvim-treesitter.configs'.setup {
+              require 'nvim-treesitter.install'.compilers = { 'clang++'}
+              require 'nvim-treesitter.configs'.setup {
                 highlight = {
                   enable = true,
                 },
@@ -227,8 +228,9 @@ in
                   lualine_a = {"mode"},
                   lualine_b = {"branch", "diff"},
                   lualine_c = {"filename"},
+                  -- future: enable "nvim_lsp" as source
                   lualine_x = {
-                    {"diagnostics", sources = {"nvim_lsp"}},
+                    {"diagnostics", sources = { "nvim_diagnostic", "ale" }},
                     "encoding",
                     "fileformat",
                     "filetype"
@@ -712,6 +714,27 @@ in
         " ==> Workree
         nmap <silent> <leader>ww :lua require('telescope').extensions.git_worktree.git_worktrees()<cr>
         nmap <silent> <leader>wc :lua require('telescope').extensions.git_worktree.create_git_worktree()<cr>
+
+        "lua <<CFG
+        "  require 'nvim-treesitter.install'.compilers = { 'clang++'}
+        "  require 'nvim-treesitter.configs'.setup {
+        "    highlight = {
+        "      enable = true,
+        "    },
+        "    indent = {
+        "      enable = true,
+        "    },
+        "    incremental_selection = {
+        "      enable = true,
+        "      keymaps = {
+        "        init_selection = "gnn",
+        "        node_incremental = "grn",
+        "        scope_incremental = "grc",
+        "        node_decremental = "grm"
+        "      }
+        "    }
+        "  }
+        "CFG
       '';
     };
   };
