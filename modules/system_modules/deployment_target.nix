@@ -16,10 +16,13 @@ in
   config = mkIf cfg.enable {
 
     environment.systemPackages = with pkgs; [
+      bat # better cat
       dnsutils # for dig
+      fd # better find
       git # working this repos locally
       glances # general monitoring
       htop # lighter weight general monitoring
+      mosh # persistent ssh like shell
       neovim # file editing
       ripgrep # finding files
       rsync # syncing files
