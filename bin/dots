@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
+dir="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 _log() {
   GREEN='\033[0;32m'
   #RED='\033[0;31m'
@@ -21,6 +23,10 @@ if [[ "$1" == "--deploy" ]]; then
   deploy=true
   shift
 fi
+
+# work out of the root dir
+# tood: cd $(git root)
+cd "$dir/../" || exit 1
 
 for host in "$@"; do
   result_path="./results/${host}"
@@ -43,10 +49,10 @@ for host in "$@"; do
   fi
 
   if [[ "$deploy" == "true" ]]; then
-    _start "Deployign $host"
+    _start "Deploying $host"
     ssh "$host" -- sudo nix-env --profile /nix/var/nix/profiles/system --set "$result_closure"
     ssh "$host" -- sudo "$result_closure/bin/switch-to-configuration switch"
-    _finish "Deployign $host"
+    _finish "Deploying $host"
   fi
 done
 
