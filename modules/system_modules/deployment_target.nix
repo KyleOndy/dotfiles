@@ -42,9 +42,11 @@ in
         ];
       };
     };
-    services.openssh = {
-      enable = true;
-      permitRootLogin = "no";
+    services = {
+      openssh = {
+        enable = true;
+        permitRootLogin = "no";
+      };
     };
 
     nixpkgs.config.allowUnfree = true;
