@@ -87,12 +87,57 @@ in
       acme = {
         # so I do not need to set it in every module
         acceptTerms = true;
-        email = "kyle@ondy.org";
+        defaults = {
+          email = "kyle@ondy.org";
+          dnsProvider = "namecheap";
+          credentialsFile = config.sops.secrets.namecheap.path;
+        };
       };
     };
+    # todo: fix: need to create an acme user and group do get the deploy
+    #            working in alpha
+    users.users.acme = {
+      isSystemUser = true;
+      group = "acme";
+    };
+    # /fix
+    users.groups.acme = { };
     sops = {
       # this file path _feels_ suspect, but works
       defaultSopsFile = ./../../secrets/secrets.yaml;
     };
+    services = {
+      # all nodes should export basic metrics
+      prometheus = {
+        # todo: add auth
+        exporters = {
+          node = {
+            enable = true;
+            enabledCollectors = [ "systemd" ];
+            listenAddress = "127.0.0.1";
+            port = 9002;
+            openFirewall = false;
+          };
+        };
+      };
+    };
+    networking.firewall.allowedTCPPorts = [
+      80 # http
+      443 # http
+    ];
+    networking.firewall.enable = false;
+    services.nginx = {
+      enable = true;
+      # todo: return a more bare page
+      virtualHosts."default".default = true;
+      # todo: can I pass in the full domain name here?
+      # todo: add basic auth
+    };
+    # todo: add in old stuff
+    #systemFoundry.nginxReverseProxy = {
+    #  enable = true;
+    #  domainName = "${config.networking.hostName}.*";
+    #  proxyPass = "http://127.0.0.1:9002/metrics";
+    #};
   };
 }
