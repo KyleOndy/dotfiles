@@ -70,20 +70,13 @@ in
         min-free = ${toString (100 * 1024 * 1024)}
         max-free = ${toString (1024 * 1024 * 1024)}
       '';
+      distributedBuilds = true;
       buildMachines = [
         {
-          hostName = "util.lan.509ely.com";
+          hostName = "tiger.lan.509ely.com";
           sshUser = "svc.deploy";
-          systems = [ "aarch64-linux" ];
-          maxJobs = 1;
-          speedFactor = 10; # prefer this builder
-          supportedFeatures = [ "benchmark" "big-parallel" ];
-        }
-        {
-          hostName = "util.dmz.509ely.com";
-          sshUser = "svc.deploy";
-          systems = [ "x86_64-linux" ];
-          maxJobs = 1;
+          systems = [ "x86_64-linux" "aarch64-linux" ];
+          maxJobs = 8;
           speedFactor = 10; # prefer this builder
           supportedFeatures = [ "benchmark" "big-parallel" ];
         }
