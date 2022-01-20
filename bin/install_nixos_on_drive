@@ -1,0 +1,39 @@
+#!/run/current-system/sw/bin/env nix-shell
+#!nix-shell -i bash -p gptfdisk
+# shellcheck shell=bash
+# vi: ft=bash
+set -eu
+
+abort() {
+  echo "this script be REAL DANGEROUS. Edit this script to remove this function call."
+  exit 1
+}
+
+abort
+
+# ASSUMPTIONS:
+#   - Install like th NixOS guide
+#   - Boot, data, and swap partitions
+install_device=${DEVICE:-"/dev/nvme0n1"}
+swap_size=${SWAP_SIZE:-"8GiB"}
+
+_partition() {
+  parted ${install_device} -- $*
+}
+
+_partition mklabel gpt
+_partition mkpart primary 512MiB -${swap_size}
+_partition mkpart primary linux-swap -${swap_size} 100%
+_partition mkpart ESP fat32 1MiB 512MiB
+_partition set 3 esp on
+
+# todo: this only works for nvme drives
+mkfs.ext4 -L nixos "${install_device}p1"
+mkswap -L swap "${install_device}p2"
+mkfs.fat -F 32 -n boot "${install_device}p3"
+
+mount /dev/disk/by-label/nixos /mnt
+mkdir -p /mnt/boot
+mount /dev/disk/by-label/boot /mnt/boot
+swapon "${install_device}p2"
+nixos-generate-config --root /mnt
