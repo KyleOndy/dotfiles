@@ -7,6 +7,7 @@ keys:
   - &alpha age1w7yw9mttzn5e0ldzrfl8ku422e5ydymr0wy6lp8msxvg8eehlpmq94sw4w
   - &util_lan age1cdn7466t4cgepfl8jzlee8g8v4qjwjyg4v9pytz3fa4hfk4wy39spwtqde
   - &util_dmz age1phk0n3yddcdw82ueukh5qm3jfeqr62gn0qh9nv0x8tafhkg6p4nqzex90x
+  - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
 creation_rules:
@@ -16,5 +17,6 @@ creation_rules:
           - *alpha
           - *util_lan
           - *util_dmz
+          - *tiger
         pgp:
           - *kyle
