@@ -21,82 +21,42 @@ in
             port = 9002;
           };
         };
+        listenAddress = "127.0.0.1";
+        # todo: some kind of mapAttrs to cut down on copy/paste
+        # todo: https tagets
         scrapeConfigs = [
           {
-            job_name = "util";
+            job_name = "hosts";
             static_configs = [{
-              targets = [ "127.0.0.1:${toString config.services.prometheus.exporters.node.port}" ];
+              targets = [
+                "alpha.lan.509ely.com"
+                "util.lan.509ely.com"
+              ];
             }];
           }
         ];
       };
       grafana = {
         enable = true;
-        domain = grafana_domain;
+        domain = "grafana.apps.lan.509ely.com";
         port = 2342;
         addr = "127.0.0.1";
         security = {
-          adminPasswordFile = /var/secrets/grafana_admin_pass;
+          adminPasswordFile = config.sops.secrets.grafana_admin_pass.path;
+        };
+        provision = {
+          enable = true;
+          datasources = [
+            {
+              type = "prometheus";
+              isDefault = true;
+              name = "Prometheus";
+              url = "http://127.0.0.1:9001";
+            }
+          ];
         };
       };
-
-      loki = {
-        enable = true;
-        configuration = {
-          auth_enabled = false;
-          server = {
-            http_listen_port = 3100;
-            grpc_listen_port = 9096;
-          };
-          common = {
-            path_prefix = "/tmp/loki";
-            "storage" = {
-              "filesystem" = {
-                "chunks_directory" = "/tmp/loki/chunks";
-                "rules_directory" = "/tmp/loki/rules";
-              };
-            };
-            "replication_factor" = 1;
-            "ring" = {
-              "instance_addr" = "127.0.0.1";
-              "kvstore" = {
-                "store" = "inmemory";
-              };
-            };
-          };
-          "schema_config" = {
-            "configs" = [
-              {
-                "from" = "2020-10-24";
-                "store" = "boltdb-shipper";
-                "object_store" = "filesystem";
-                "schema" = "v11";
-                "index" = {
-                  "prefix" = "index_";
-                  "period" = "24h";
-                };
-              }
-            ];
-          };
-          "ruler" = {
-            "alertmanager_url" = "http://localhost:9093";
-          };
-        };
-      };
-
-      systemd.services.promtail = {
-        description = "Promtail service for Loki";
-        wantedBy = [ "multi-user.target" ];
-
-        serviceConfig = {
-          ExecStart = ''
-            ${pkgs.grafana-loki}/bin/promtail --config.file ${promtailConfig}
-          '';
-        };
-      };
-
-      # nginx reverse proxy
-      services.nginx = {
+      nginx = {
         enable = true;
         recommendedGzipSettings = true;
         recommendedOptimisation = true;
@@ -115,32 +75,27 @@ in
       };
     };
 
-    # NEED this for certs to work. East to overlook!
-    users.users.nginx.extraGroups = [ "acme" ];
-
     networking.firewall.allowedTCPPorts = [ 80 443 config.services.grafana.port ];
-    networking.firewall.allowedUDPPorts = [ 80 443 config.services.grafana.port ];
-
     security.acme = {
-      email = "kyle@ondy.org";
-      acceptTerms = true;
       certs = {
-        "${grafana_domain}" = {
+        "${config.services.grafana.domain}" = {
           dnsProvider = "namecheap";
           credentialsFile = config.sops.secrets.namecheap.path;
           extraDomainNames = [ ];
         };
       };
     };
-
+    # todo: where is a better place to put this?
+    # NEED this for certs to work. East to overlook!
+    users.users.nginx.extraGroups = [ "acme" ];
     sops.secrets = {
+      namecheap = {
+        owner = "acme";
+        group = "acme";
+      };
       grafana_admin_pass = {
         owner = "grafana";
         group = "grafana";
-      };
-      unifi = {
-        owner = "unifi-poller";
-        group = "unifi-poller";
       };
     };
   };
