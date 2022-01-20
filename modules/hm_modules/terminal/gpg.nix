@@ -17,9 +17,16 @@ in
       gnupg # for email and git
       pinentry-curses # cli pin entry
     ];
+    home.sessionVariables =
+      {
+        GNUPGHOME = "$HOME/.gnupg";
+      };
 
     programs.gpg = {
       enable = true;
+      scdaemonSettings = {
+        disable-ccid = true;
+      };
     };
 
     services.gpg-agent = {
