@@ -1,0 +1,5 @@
+- new lumber racks
+- Get rid of overflow storage on floor
+  - get rid of scrap.
+- Move yard tools into shed
+- Clean shed
