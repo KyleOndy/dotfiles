@@ -1,9 +1,9 @@
 # Hosts
 
 This is a description of the machines I manage with NixOS.
-All machines are named as a Greek letter.
-The letter itself has no meaning in relation to machine function.
-Its is an arbitrary choice when I configure a new machine.
+
+Going forward machines are named after animals. The specific animal has little
+bearing on the function of the machine.
 
 ## [Alpha]
 
@@ -17,37 +17,29 @@ the near future.
 
 ## Tau
 
-VM running under HyperV on my main desktop. Main purpose is a build server
-since its got lots of RAM of spare CPU cycles.
+## Tiger (Future)
 
-### Greek Letters
+Catchall host.
 
-```text
-- [X] alpha
-- [ ] beta
-- [ ] gamma
-- [ ] delta
-- [ ] epsilon
-- [ ] zeta
-- [ ] eta
-- [ ] theta
-- [ ] iota
-- [ ] kappa
-- [ ] lambda
-- [ ] mu
-- [ ] nu
-- [ ] xi
-- [ ] omicron
-- [ ] pi
-- [ ] rho
-- [ ] sigma
-- [ ] tau
-- [ ] upsilon
-- [ ] phi
-- [ ] chi
-- [ ] psi
-- [ ] omega
-```
+- ZFS
+- Media management
+- Nix build hosts, x86_64-linux and aarch-64-linux via emulation.
+
+## Cat (Future)
+
+Utility host on trusted lan.
+
+- DNS
+
+## Dog (Future)
+
+Utility host on DMZ
+
+- DNS
+
+## Leming{1,2,3}
+
+- DMZ homelab hosts, typically in some kind of cluster
 
 ## [C02CL8GXLVDL]
 
