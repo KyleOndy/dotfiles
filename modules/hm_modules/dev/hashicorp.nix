@@ -9,10 +9,10 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
-      consul
+      #consul # borken on osx?
       nomad
-      packer
-      terraform_1_0_0
+      #packer # packer broke on osx
+      terraform_1
       vagrant
       vault
 
