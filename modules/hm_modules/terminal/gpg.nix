@@ -12,19 +12,28 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = with pkgs; [
-      # todo: this should be covered by the programs block
-      gnupg # for email and git
-      pinentry-curses # cli pin entry
-    ];
-    home.sessionVariables =
-      {
-        GNUPGHOME = "$HOME/.gnupg";
-      };
+    home.packages = with pkgs; [ pinentry-curses ]; # cli pin entry
+    home.sessionVariables = { GNUPGHOME = "$HOME/.gnupg"; };
 
     programs.gpg = {
       enable = true;
+      settings = {
+        # Disable inclusion of the version string in ASCII armored output
+        no-emit-version = true;
+        # Disable comment string in clear text signatures and ASCII armored messages
+        no-comments = true;
+        # Display long key IDs
+        keyid-format = "0xlong";
+        # List all keys (or the specified ones) along with their fingerprints
+        with-fingerprint = true;
+        # Display the calculated validity of user IDs during key listings
+        list-options = "show-uid-validity";
+        verify-options = "show-uid-validity";
+      };
       scdaemonSettings = {
+        verbose = true;
+        debug-level = "basic";
+        log-file = "~/.gnupg/scdaemon.log";
         disable-ccid = true;
       };
     };

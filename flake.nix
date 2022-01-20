@@ -188,10 +188,7 @@
                   terminal = {
                     email.enable = false;
                     gpg = {
-                      # todo: need to fix on darwin
-                      #     [I] ➜ gpg --card-status
-                      #     gpg: Fatal: can't create directory '/var/empty/.gnupg': Operation not permitted
-                      enable = false;
+                      enable = true;
                       service = false; # no service on darwin
                     };
                   };
