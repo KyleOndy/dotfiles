@@ -31,8 +31,15 @@
     interfaces.enp0s31f6.useDHCP = true;
     interfaces.wlp4s0.useDHCP = true;
     firewall = {
-      allowedTCPPorts = [ 80 443 8000 8080 8200 ];
-      allowedUDPPorts = [ 1900 ];
+      allowedTCPPorts = [
+        80 # HTTP
+        8080 # whatever I feel like
+        64172 # pixiecore
+      ];
+      allowedUDPPorts = [
+        67 # dhcp: pixiecore
+        69 # dhcp: pixcore
+      ];
     };
     wireless.interfaces = [ "wlp4s0" ];
   };
