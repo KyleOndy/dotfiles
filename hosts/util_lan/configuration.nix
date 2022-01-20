@@ -13,6 +13,7 @@
       # Some gui programs need this
       "cma=128M"
     ];
+    supportedFilesystems = [ "zfs" ];
   };
 
   boot.loader.raspberryPi = {
@@ -27,6 +28,7 @@
 
   networking = {
     hostName = "util";
+    hostId = "3d0638ea";
     defaultGateway = "10.24.89.1";
     nameservers = [ "10.24.89.1" ]; # todo: set to localhost?
     interfaces.eth0.ipv4.addresses = [{
@@ -42,6 +44,21 @@
       device = "/dev/disk/by-label/NIXOS_SD";
       fsType = "ext4";
       options = [ "noatime" ];
+    };
+    "/mnt/media" = {
+      device = "storage/media";
+      fsType = "zfs";
+      #options = [ "zfsutil" ]; # why?
+    };
+    "/mnt/backups" = {
+      device = "storage/backups";
+      fsType = "zfs";
+      #options = [ "zfsutil" ]; # why?
+    };
+    "/mnt/scratch" = {
+      device = "storage/scratch";
+      fsType = "zfs";
+      #options = [ "zfsutil" ]; # why?
     };
   };
 
