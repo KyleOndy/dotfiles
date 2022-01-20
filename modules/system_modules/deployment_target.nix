@@ -47,6 +47,9 @@ in
         enable = true;
         permitRootLogin = "no";
       };
+      logind.extraConfig = ''
+        RuntimeDirectorySize=8G
+      '';
     };
 
     nixpkgs.config.allowUnfree = true;
