@@ -712,27 +712,6 @@ in
         " ==> Workree
         nmap <silent> <leader>ww :lua require('telescope').extensions.git_worktree.git_worktrees()<cr>
         nmap <silent> <leader>wc :lua require('telescope').extensions.git_worktree.create_git_worktree()<cr>
-
-        "lua <<CFG
-        "  require 'nvim-treesitter.install'.compilers = { 'clang++'}
-        "  require 'nvim-treesitter.configs'.setup {
-        "    highlight = {
-        "      enable = true,
-        "    },
-        "    indent = {
-        "      enable = true,
-        "    },
-        "    incremental_selection = {
-        "      enable = true,
-        "      keymaps = {
-        "        init_selection = "gnn",
-        "        node_incremental = "grn",
-        "        scope_incremental = "grc",
-        "        node_decremental = "grm"
-        "      }
-        "    }
-        "  }
-        "CFG
       '';
     };
   };
