@@ -91,13 +91,13 @@
       "locked": {
         "lastModified": 1641940451,
         "narHash": "sha256-Xhr5/G4Fx5+8zVxbDT9u0GueRDvXr/eBf+mRhNgEZ5M=",
-        "owner": "lesquembre",
+        "owner": "jlesquembre",
         "repo": "nixpkgs",
         "rev": "b70734ae8ca8a0c625f40305357ea217da25d823",
         "type": "github"
       },
       "original": {
-        "owner": "lesquembre",
+        "owner": "jlesquembre",
         "repo": "nixpkgs",
         "rev": "b70734ae8ca8a0c625f40305357ea217da25d823",
         "type": "github"

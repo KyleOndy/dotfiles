@@ -4,7 +4,7 @@
     # pinning the current head of the `tree-sitter-markdown` branch, I want to
     # be explicit. I don't like the idea of the branch changing on blindly
     # taking the changes.
-    nixpkg-treesitter-patchs.url = "github:lesquembre/nixpkgs/b70734ae8ca8a0c625f40305357ea217da25d823";
+    nixpkg-treesitter-patchs.url = "github:jlesquembre/nixpkgs/b70734ae8ca8a0c625f40305357ea217da25d823";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
