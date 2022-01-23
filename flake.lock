@@ -89,17 +89,17 @@
     },
     "nixpkg-treesitter-patchs": {
       "locked": {
-        "lastModified": 1641940451,
-        "narHash": "sha256-Xhr5/G4Fx5+8zVxbDT9u0GueRDvXr/eBf+mRhNgEZ5M=",
+        "lastModified": 1642880196,
+        "narHash": "sha256-gWoWt3BJv/fdf6uSIOqL6emaGsfqbq1Qfz8TkiIrRfg=",
         "owner": "jlesquembre",
         "repo": "nixpkgs",
-        "rev": "b70734ae8ca8a0c625f40305357ea217da25d823",
+        "rev": "732498886cdb13cf5c19ff6261e71a15a23678ad",
         "type": "github"
       },
       "original": {
         "owner": "jlesquembre",
         "repo": "nixpkgs",
-        "rev": "b70734ae8ca8a0c625f40305357ea217da25d823",
+        "rev": "732498886cdb13cf5c19ff6261e71a15a23678ad",
         "type": "github"
       }
     },
