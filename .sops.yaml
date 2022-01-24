@@ -11,7 +11,7 @@ keys:
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
 creation_rules:
-  - path_regex: secrets/[^/]+\.yaml$
+  - path_regex: nix/secrets/[^/]+\.yaml$
     key_groups:
       - age:
           - *alpha

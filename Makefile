@@ -82,7 +82,7 @@ info: ## Print information about the system
 
 .PHONY: iso
 iso: ## build install media with my customizations
-	nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage -I nixos-config=iso.nix
+	nix-build '<nixpkgs/nixos>' -A config.system.build.isoImage -I nixos-config=nix/iso.nix
 
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system

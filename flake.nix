@@ -35,8 +35,8 @@
       # `overlay` that contains a `default.nix`.
       overlays = [
         inputs.nur.overlay
-        (import ./pkgs)
-        (import ./overlays/st)
+        (import ./nix/pkgs)
+        (import ./nix/overlays/st)
         (final: prev: {
           nixpkgs-treesitter-patchs = import inputs.nixpkg-treesitter-patchs { system = final.system; };
         })
@@ -73,8 +73,8 @@
         in
         getNixFilesRec path;
 
-      hmModules = getModules ./modules/hm_modules;
-      systemModules = getModules ./modules/system_modules;
+      hmModules = getModules ./nix/modules/hm_modules;
+      systemModules = getModules ./nix/modules/system_modules;
     in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
@@ -99,17 +99,17 @@
         alpha = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/alpha/configuration.nix
-            ./hosts/alpha/hardware-configuration.nix
+            ./nix/hosts/alpha/configuration.nix
+            ./nix/hosts/alpha/hardware-configuration.nix
 
-            ./users/kyle.nix # todo: some service user
+            ./nix/users/kyle.nix # todo: some service user
 
             # todo: refactor these into something else
-            ./hosts/_includes/common.nix
-            ./hosts/_includes/docker.nix
-            ./hosts/_includes/kvm.nix
-            ./hosts/_includes/laptop.nix
-            ./hosts/_includes/wifi_networks.nix
+            ./nix/hosts/_includes/common.nix
+            ./nix/hosts/_includes/docker.nix
+            ./nix/hosts/_includes/kvm.nix
+            ./nix/hosts/_includes/laptop.nix
+            ./nix/hosts/_includes/wifi_networks.nix
 
             inputs.sops-nix.nixosModules.sops
             inputs.home-manager.nixosModules.home-manager
@@ -120,7 +120,7 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = hmModules;
-                users.kyle = import ./profiles/full.nix;
+                users.kyle = import ./nix/profiles/full.nix;
               };
             }
           ];
@@ -128,7 +128,7 @@
         util_lan = inputs.nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
           modules = systemModules ++ [
-            ./hosts/util_lan/configuration.nix
+            ./nix/hosts/util_lan/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -136,7 +136,7 @@
         util_dmz = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/util_dmz/configuration.nix
+            ./nix/hosts/util_dmz/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -144,7 +144,7 @@
         m1 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/m1/configuration.nix
+            ./nix/hosts/m1/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -152,7 +152,7 @@
         m2 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/m2/configuration.nix
+            ./nix/hosts/m2/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -160,7 +160,7 @@
         m3 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/m3/configuration.nix
+            ./nix/hosts/m3/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -168,7 +168,7 @@
         tiger = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = systemModules ++ [
-            ./hosts/tiger/configuration.nix
+            ./nix/hosts/tiger/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
           ];
@@ -177,7 +177,7 @@
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";
         modules = [
-          ./hosts/C02CL8GXLVDL/configuration.nix
+          ./nix/hosts/C02CL8GXLVDL/configuration.nix
           inputs.home-manager.darwinModule
           {
             nixpkgs.overlays = overlays;
@@ -186,7 +186,7 @@
               useUserPackages = true;
               sharedModules = hmModules;
               users."kyle.ondy" = {
-                imports = [ ./profiles/ssh.nix ];
+                imports = [ ./nix/profiles/ssh.nix ];
 
                 # darwin overrides. This is ripe for refactoring. Declaring
                 # this in the flake so it is very clear what is happening.
