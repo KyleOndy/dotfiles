@@ -1,7 +1,17 @@
+# nix
 result
 results/
+
+# direnv
 .direnv/
+
+# precommit
 /.pre-commit-config.yaml
+
+# VMs
 *.qcow2
+
+# terraform
 .terraform.lock.hcl
+.terraform/
 terraform.tfstate.backup
