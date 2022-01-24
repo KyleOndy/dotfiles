@@ -67,7 +67,7 @@
         getNixFilesRec path;
 
       hmModules = getModules ./nix/modules/hm_modules;
-      systemModules = getModules ./nix/modules/system_modules;
+      nixModules = getModules ./nix/modules/nix_modules;
     in
     # this allows us to get the propper `system` whereever we are running
     inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
@@ -91,7 +91,7 @@
       nixosConfigurations = {
         alpha = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/alpha/configuration.nix
             ./nix/hosts/alpha/hardware-configuration.nix
 
@@ -120,7 +120,7 @@
         };
         util_lan = inputs.nixpkgs.lib.nixosSystem {
           system = "aarch64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/util_lan/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
@@ -128,7 +128,7 @@
         };
         util_dmz = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/util_dmz/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
@@ -136,7 +136,7 @@
         };
         m1 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/m1/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
@@ -144,7 +144,7 @@
         };
         m2 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/m2/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
@@ -152,7 +152,7 @@
         };
         m3 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/m3/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
@@ -160,7 +160,7 @@
         };
         tiger = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
-          modules = systemModules ++ [
+          modules = nixModules ++ [
             ./nix/hosts/tiger/configuration.nix
             inputs.sops-nix.nixosModules.sops
             { systemFoundry.deployment_target.enable = true; }
