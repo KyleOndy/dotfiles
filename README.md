@@ -64,6 +64,7 @@ more detail.
 - **[keyboard/](./keyboard/)**: QMK config for my kepboards
 - **[nix/](./nix/)**: configuration for Nix and NixOS
 - **[notes/](./notes/)**: less structured documentation
+- **[tf/](./tf/)**: terraform code
 
 ## Roadmap / Todo
 
