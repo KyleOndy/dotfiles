@@ -23,6 +23,9 @@ in
 
       # for neovim
       terraform-ls
+
+      # helpers
+      terragrunt
     ];
     programs.neovim = {
       plugins = with pkgs.vimPlugins; [{

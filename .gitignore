@@ -3,3 +3,5 @@ results/
 .direnv/
 /.pre-commit-config.yaml
 *.qcow2
+.terraform.lock.hcl
+terraform.tfstate.backup
