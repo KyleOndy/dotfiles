@@ -65,6 +65,11 @@ more detail.
 - **[nix/](./nix/)**: configuration for Nix and NixOS
 - **[notes/](./notes/)**: less structured documentation
 
+## Roadmap / Todo
+
+- look into [nvd](https://gitlab.com/khumba/nvd) as a replacement for `nix-diff`.
+- cleanup old comments that are no longer valid throughout code base
+
 ## External Resources
 
 These are other people's dotfiles and articles I found useful while setting my environment up.
