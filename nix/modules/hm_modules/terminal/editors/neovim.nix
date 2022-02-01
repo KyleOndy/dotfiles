@@ -28,7 +28,7 @@ in
           #
           # https://github.com/nvim-treesitter/nvim-treesitter
           # https://nixos.org/manual/nixpkgs/unstable/#managing-plugins-with-vim-packages
-          plugin = nvim-treesitter.withPlugins (plugins: pkgs.nixpkgs-treesitter-patchs.tree-sitter.allGrammars);
+          plugin = nvim-treesitter.withPlugins (plugins: pkgs.tree-sitter.allGrammars);
           config = ''
             lua <<CFG
               require 'nvim-treesitter.install'.compilers = { 'clang++'}

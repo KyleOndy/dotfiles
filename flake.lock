@@ -18,11 +18,11 @@
     },
     "flake-utils": {
       "locked": {
-        "lastModified": 1638122382,
-        "narHash": "sha256-sQzZzAbvKEqN9s0bzWuYmRaA03v40gaJ4+iL1LXjaeI=",
+        "lastModified": 1642700792,
+        "narHash": "sha256-XqHrk7hFb+zBvRg6Ghl+AZDq03ov6OshJLiSWOoX5es=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "74f7e4319258e287b0f9cb95426c9853b282730b",
+        "rev": "846b2ae0fc4cc943637d3d1def4454213e203cba",
         "type": "github"
       },
       "original": {
@@ -53,11 +53,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1642676973,
-        "narHash": "sha256-bLQ6n0pXYaIuNSyJnm30JGCfjmuTi59qAmj8S2ExDXI=",
+        "lastModified": 1643579427,
+        "narHash": "sha256-tV4M4+Aqd/3ZjEz1Q07j89KIlkt1oFH34RzpBkUeO/0=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "7eb5106548eaab99ebeb21c87f93092de54fe931",
+        "rev": "a52aed72c84a2a10102a92397339fa01fc0fe9cf",
         "type": "github"
       },
       "original": {
@@ -87,29 +87,13 @@
         "type": "github"
       }
     },
-    "nixpkg-treesitter-patchs": {
-      "locked": {
-        "lastModified": 1642880196,
-        "narHash": "sha256-gWoWt3BJv/fdf6uSIOqL6emaGsfqbq1Qfz8TkiIrRfg=",
-        "owner": "jlesquembre",
-        "repo": "nixpkgs",
-        "rev": "732498886cdb13cf5c19ff6261e71a15a23678ad",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jlesquembre",
-        "repo": "nixpkgs",
-        "rev": "732498886cdb13cf5c19ff6261e71a15a23678ad",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1642648262,
-        "narHash": "sha256-8uAsEFTGhgIqCo3OQU0Z3HyeNb35kCiroY9eGA/+cwQ=",
+        "lastModified": 1643788632,
+        "narHash": "sha256-cXetzRvPyMHynNmJYAhcMm2cfV6l6Ey+dSAhSnAKdOE=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "d4cb356679379b4aec5e53b6cd820869b2d919dd",
+        "rev": "f85152d72d3bc4676cd4486b578afef8d9fd7f28",
         "type": "github"
       },
       "original": {
@@ -137,11 +121,11 @@
     },
     "nur": {
       "locked": {
-        "lastModified": 1642686974,
-        "narHash": "sha256-AlaW8A9v/XI68uOgAyO9A3VfVWOViwaWw5Ml+kK/YVg=",
+        "lastModified": 1643712485,
+        "narHash": "sha256-Vd/dX23gtAdiTrBcC2Tjg/WD+m+mZiWzN4vL+5g5FCQ=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "f2e0caeb38299935eb588c446ae4264c607c240e",
+        "rev": "93c47b0b5f3547ebab375bc69091b2a2d14374da",
         "type": "github"
       },
       "original": {
@@ -177,7 +161,6 @@
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
-        "nixpkg-treesitter-patchs": "nixpkg-treesitter-patchs",
         "nixpkgs": "nixpkgs",
         "nur": "nur",
         "pre-commit-hooks": "pre-commit-hooks",
@@ -189,11 +172,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1641374494,
-        "narHash": "sha256-a56G6Um43+0+n+yNYhRCh/mSvDdRVzQHSKcFaDEB9/8=",
+        "lastModified": 1643003126,
+        "narHash": "sha256-JO5WrnP6+5qN3isdmm9VmjzvCM64UElgGnql7vEGjKU=",
         "owner": "Mic92",
         "repo": "sops-nix",
-        "rev": "7edb4b080023ef12f39262a3aa7aab31015a7a0e",
+        "rev": "c86068ac9a317f235be24a468206f874ba00f8d0",
         "type": "github"
       },
       "original": {
