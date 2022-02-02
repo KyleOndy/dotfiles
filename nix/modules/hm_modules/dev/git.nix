@@ -259,6 +259,7 @@ in
 
     home.packages = with pkgs;
       [
+        git-crypt
         git-lfs
         gitAndTools.pre-commit # manage git precommit hooks
       ];
