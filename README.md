@@ -69,6 +69,9 @@ more detail.
 
 - look into [nvd](https://gitlab.com/khumba/nvd) as a replacement for `nix-diff`.
 - cleanup old comments that are no longer valid throughout code base
+- use [git worktrees] so large builds do not prevent me from working on other code changes
+
+[git worktrees]: https://git-scm.com/docs/git-worktree
 
 ## External Resources
 
