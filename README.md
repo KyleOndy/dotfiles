@@ -27,7 +27,7 @@ I use [terraform] to manage any infrastructure within [AWS].
 
 ## Goals
 
-### Complete configuraiton
+### Complete configuration
 
 To define configuration for everything that plugs into a wall in this single
 repository.
@@ -61,18 +61,60 @@ more detail.
 
 - **[bin/](./bin/)**: scripts used in the management of this repo
 - **[docs/](./docs/)**: detailed documentation on specific topics
-- **[keyboard/](./keyboard/)**: QMK config for my kepboards
+- **[keyboard/](./keyboard/)**: QMK config for my keyboards
 - **[nix/](./nix/)**: configuration for Nix and NixOS
 - **[notes/](./notes/)**: less structured documentation
 - **[tf/](./tf/)**: terraform code
 
 ## Roadmap / Todo
 
+This is a running list things that I would like to do in the future, when I
+have time. They are in no specific order, nor are they encompassing.
+
+### General
+
 - look into [nvd](https://gitlab.com/khumba/nvd) as a replacement for `nix-diff`.
 - cleanup old comments that are no longer valid throughout code base
 - use [git worktrees] so large builds do not prevent me from working on other code changes
 
 [git worktrees]: https://git-scm.com/docs/git-worktree
+
+### Infrastructure
+
+These are related to hosts opposed to dot files.
+
+#### Bootstapping
+
+- Be able to run `make netboot` and build a netboot image, and server it via [pixicore]
+- write instructions, and script, on how to install NixOS on hardware
+- Look into [Graham Christensen]'s work with [nix-netboot-serve] (pxe on
+  demand). Possibly combine with [erase your darlings].
+
+[pixiecore]: https://github.com/danderson/netboot/tree/master/pixiecore
+[graham christensen]: https://twitter.com/grhmc
+[nix-netboot-serve]: https://github.com/DeterminateSystems/nix-netboot-serve
+[erase your darlings]: https://grahamc.com/blog/erase-your-darlings
+
+#### Services
+
+- Move tiger to DMZ. Lets me easily server content to internet, build host, apps, binary cache, etc.
+  - IMPLICATION: will need backup ZFS server to PULL from this server since tiget can't reach out to it
+- serve things under `apps.ondy.org`
+- host under `apps.509ely.com`
+  - setup wildcard `*.apps.509ely.com` to DDNS address of home
+    - `sonarr.apps.509ely.com`
+    - `radarr.apps.509ely.com`
+    - `nzbget.apps.509ely.com`
+    - `nzbhydra2.apps.509ely.com`
+    - `jellyfin.apps.509ely.com`
+    - `git.apps.509ely.com`
+    - `concourse.apps.509ely.com`
+    - `hydra.apps.509ely.com`
+- setup vanity urls for `<foo>.ondy.org` as desired in TF
+  - git.ondy.org
+  - jellyfin.ondy.org
+  - nixcache.ondy.org
+  - ci.ondy.org
 
 ## External Resources
 
