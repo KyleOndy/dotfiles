@@ -517,6 +517,8 @@ in
         " Give more space for displaying messages. Useful for diagnostics
         set cmdheight=2
 
+        set spellfile=~/.config/nvim/spell/en.utf-8.add,~/.config/nvim/spell/shared.en.utf-8.add
+
         " # search settings
         " -------------------------------------------------------------
 
@@ -714,5 +716,36 @@ in
         nmap <silent> <leader>wc :lua require('telescope').extensions.git_worktree.create_git_worktree()<cr>
       '';
     };
+    xdg.configFile."nvim/spell/shared.en.utf-8.add".text = ''
+      AWS
+      Clojure
+      darwin
+      fixup
+      initramfs
+      inline
+      inode
+      inotify
+      MUA
+      Neovim
+      netboot
+      NixOS
+      nixpkgs
+      nvme
+      pixicore
+      pkgs
+      plugin
+      plugins
+      precommit
+      pxe
+      ramroot
+      rebase
+      Reusability
+      sd
+      Terraform
+      todo
+      urls
+      vim
+      zsh
+    '';
   };
 }
