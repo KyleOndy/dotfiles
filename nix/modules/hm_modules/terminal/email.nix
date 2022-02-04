@@ -62,6 +62,11 @@ in
         set folder           = ~/mail
         set mailcap_path     = ~/.config/neomutt/mailcap.muttrc
 
+        # -- Caching --
+        set header_cache_backend  = lmdb
+        set header_cache          = ~/.mutt/cache/headers
+        set message_cachedir      = ~/.mutt/cache/bodies
+
         # -- Mailboxes --
         set realname      = 'Kyle Ondy'
         set from          = 'kyle@ondy.org'
