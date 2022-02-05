@@ -87,6 +87,9 @@
         "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
         "radarr.apps.dmz.509ely.com" = "10.25.89.5";
         "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
+
+        # apps
+        "gitea.apps.dmz.509ely.com" = "10.25.89.5";
       };
       cnameRecords = { };
       domainRecords = {

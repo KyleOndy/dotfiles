@@ -104,6 +104,10 @@ in
         group = mediaGroup;
         domainName = "nzbget.${domain}";
       };
+      gitea = {
+        enable = true;
+        domainName = "gitea.${domain}";
+      };
       # todo: spin up a dmz_util server and move this
       dnsServer = {
         enable = true;
