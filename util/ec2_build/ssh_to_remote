@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -e
+
+_get_json_value() {
+  echo "$1" | jq -r ".$2.value"
+}
+output_json="$(terraform output -json)"
+host=$(_get_json_value "$output_json" "ec2_dns")
+keypair=$(_get_json_value "$output_json" "keypair")
+
+_ssh() {
+  ssh \
+    -i "$keypair.key" \
+    -o UserKnownHostsFile=/dev/null \
+    -o StrictHostKeyChecking=no \
+    "root@$host" "$*"
+}
+
+#_ssh
+host_key=$(_ssh base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub)
+
+cd ../.. # this is ugly
+nix build .#util_lan -j0 --builders "ssh://${host}?ssh-key=$(realpath "scratch/${keypair}.key") aarch64-linux 8 2 10 benchmark,big-parallel - $host_key"
+
