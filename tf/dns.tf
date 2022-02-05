@@ -10,6 +10,14 @@ resource "aws_route53_record" "ondy_org_apps_star_cname" {
   records = ["home.509ely.com"]
 }
 
+resource "aws_route53_record" "ondy_org_git" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "git.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  records = ["home.509ely.com"]
+}
+
 resource "aws_route53_record" "org_ondy_mx" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "ondy.org"
