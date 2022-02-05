@@ -16,8 +16,9 @@ Host m2
 Host m3
   Hostname m3.dmz.509ely.com
   User svc.deploy
-Host tiger
-  Hostname tiger.lan.509ely.com
+Host tiger tiger.dmz.509ely.com
+  Hostname tiger.dmz.509ely.com
   User svc.deploy
+  Port 2332
   #UserKnownHostsFile /dev/null
   #StrictHostKeyChecking no

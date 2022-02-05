@@ -83,11 +83,11 @@
         "grafana.apps.lan.509ely.com" = "10.24.89.5";
 
         # media server to deprecate
-        "jellyfin.apps.lan.509ely.com" = "10.24.89.5";
-        "nzbget.apps.lan.509ely.com" = "10.24.89.5";
-        "nzbhydra.apps.lan.509ely.com" = "10.24.89.5";
-        "radarr.apps.lan.509ely.com" = "10.24.89.5";
-        "sonarr.apps.lan.509ely.com" = "10.24.89.5";
+        "jellyfin.apps.dmz.509ely.com" = "10.25.89.5";
+        "nzbget.apps.dmz.509ely.com" = "10.25.89.5";
+        "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
+        "radarr.apps.dmz.509ely.com" = "10.25.89.5";
+        "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
       };
       cnameRecords = { };
       domainRecords = {

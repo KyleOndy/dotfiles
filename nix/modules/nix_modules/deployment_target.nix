@@ -76,7 +76,7 @@ in
       distributedBuilds = true;
       buildMachines = [
         {
-          hostName = "tiger.lan.509ely.com";
+          hostName = "tiger.dmz.509ely.com";
           sshUser = "svc.deploy";
           systems = [ "x86_64-linux" "aarch64-linux" ];
           maxJobs = 8;

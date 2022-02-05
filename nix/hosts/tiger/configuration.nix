@@ -35,6 +35,7 @@ in
     nix-serve = {
       enable = true;
     };
+    openssh.ports = [ 2332 ];
   };
 
 
@@ -76,7 +77,7 @@ in
   ];
   systemFoundry =
     let
-      domain = "apps.lan.509ely.com";
+      domain = "apps.dmz.509ely.com";
     in
     {
       sonarr = {
