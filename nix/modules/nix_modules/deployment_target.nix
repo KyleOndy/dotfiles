@@ -55,9 +55,11 @@ in
     nixpkgs.config.allowUnfree = true;
     nix = {
       package = pkgs.nixStable;
-      trustedUsers = [ "root" "@wheel" ]; # todo: security issue?
+      settings = {
+        trusted-users = [ "root" "@wheel" ]; # todo: security issue?
+        auto-optimise-store = true;
+      };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
-      autoOptimiseStore = true;
       gc = {
         automatic = true;
         dates = "weekly";
