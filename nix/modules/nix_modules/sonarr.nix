@@ -36,8 +36,9 @@ in
           default = false;
           description = "Enable backup moving";
         };
-        options.desinationPath = mkOption {
+        options.destinationPath = mkOption {
           type = types.path;
+          default = "/var/backups/sonarr";
           description = "Specifies the directory backups will be moved too.";
         };
       };
@@ -61,14 +62,14 @@ in
       proxyPass = "http://127.0.0.1:8989";
     };
 
-    #systemd.services.sonarr-backup = {
-    #  startAt = "*-*-* 03:00:00";
-    #  path = [ pkgs.coreutils ];
-    #  script = ''
-    #    cp -rn ${config.services.sonarr.dataDir}/backups ${cfg.backup.desinationPath}
-    #  '';
-    #  #serviceConfig.User = "XXXX";
-    #};
+    systemd.services.sonarr-backup = mkIf cfg.backup.enable {
+      startAt = "*-*-* *:00:00";
+      path = [ pkgs.coreutils ];
+      script = ''
+        mkdir -p ${cfg.backup.destinationPath}
+        cp -rn ${config.services.sonarr.dataDir}/Backups ${cfg.backup.destinationPath}/
+      '';
+    };
 
   };
 }
