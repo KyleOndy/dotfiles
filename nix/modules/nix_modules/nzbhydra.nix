@@ -12,6 +12,22 @@ in
       type = types.str;
       description = "Domain to server nzbhydra2 under";
     };
+    backup = mkOption {
+      default = { };
+      description = "Move the backups somewhere";
+      type = types.submodule {
+        options.enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Enable backup moving";
+        };
+        options.destinationPath = mkOption {
+          type = types.path;
+          default = "/var/backups/sonarr";
+          description = "Specifies the directory backups will be moved too.";
+        };
+      };
+    };
   };
 
   config = mkIf cfg.enable {
@@ -27,6 +43,14 @@ in
     systemFoundry.nginxReverseProxy."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:5076";
+    };
+    systemd.services.nzbhydra2-backup = mkIf cfg.backup.enable {
+      startAt = "*-*-* *:00:00";
+      path = [ pkgs.coreutils ];
+      script = ''
+        mkdir -p ${cfg.backup.destinationPath}
+        cp -rn ${config.services.nzbhydra2.dataDir}/backup/ ${cfg.backup.destinationPath}/
+      '';
     };
   };
 }
