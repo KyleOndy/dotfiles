@@ -78,35 +78,60 @@ in
   systemFoundry =
     let
       domain = "apps.dmz.509ely.com";
+      backup_path = "/mnt/backups/apps";
     in
     {
       sonarr = {
         enable = true;
         group = mediaGroup;
         domainName = "sonarr.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/sonarr/";
+        };
       };
       radarr = {
         enable = true;
         group = mediaGroup;
         domainName = "radarr.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/radarr/";
+        };
       };
       jellyfin = {
         enable = true;
         group = mediaGroup;
         domainName = "jellyfin.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/jellyfin/";
+        };
       };
       nzbhydra2 = {
         enable = true;
         domainName = "nzbhydra.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/nzbhydra2/";
+        };
       };
       nzbget = {
         enable = true;
         group = mediaGroup;
         domainName = "nzbget.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/nzbget/";
+        };
       };
       gitea = {
         enable = true;
         domainName = "gitea.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/gitea/";
+        };
       };
       # todo: spin up a dmz_util server and move this
       dnsServer = {
