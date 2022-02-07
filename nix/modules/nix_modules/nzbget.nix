@@ -1,6 +1,11 @@
 { lib, pkgs, config, ... }:
 with lib;
-let cfg = config.systemFoundry.nzbget;
+let
+  cfg = config.systemFoundry.nzbget;
+
+  # todo: don't know how to get this progamaticlly from the nzbget service,
+  #       so hardcoding it here.
+  stateDir = "/var/lib/nzbget";
 in
 {
   # todo: submodules?
@@ -27,6 +32,22 @@ in
       default = "nzbget";
       description = "User to server nzbget under";
     };
+    backup = mkOption {
+      default = { };
+      description = "Move the backups somewhere";
+      type = types.submodule {
+        options.enable = mkOption {
+          type = types.bool;
+          default = false;
+          description = "Enable backup moving";
+        };
+        options.destinationPath = mkOption {
+          type = types.path;
+          default = "/var/backups/nzbget";
+          description = "Specifies the directory backups will be moved too.";
+        };
+      };
+    };
   };
 
   config = mkIf cfg.enable {
@@ -44,6 +65,13 @@ in
     systemFoundry.nginxReverseProxy."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:6789";
+    };
+    systemd.services.nzbget-backup = mkIf cfg.backup.enable {
+      startAt = "*-*-* *:00:00";
+      path = [ pkgs.coreutils ];
+      script = ''
+        mkdir -p ${cfg.backup.destinationPath}
+        cp -rn ${stateDir}/nzbget.conf ${cfg.backup.destinationPath}/nzbget-$(date +%Y-%m-%d).conf'';
     };
   };
 }
