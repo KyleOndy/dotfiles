@@ -20,5 +20,3 @@ Host tiger tiger.dmz.509ely.com
   Hostname tiger.dmz.509ely.com
   User svc.deploy
   Port 2332
-  #UserKnownHostsFile /dev/null
-  #StrictHostKeyChecking no
