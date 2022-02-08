@@ -74,9 +74,6 @@
         # tood: these won't be needed if these hosts do dhcp
         "util.lan.509ely.com" = "10.24.89.53";
 
-        # todo
-        "unifi.apps.lan.509ely.com" = "10.24.89.10";
-
         # monitoring
         "prometheus.apps.lan.509ely.com" = "10.24.89.5";
         "grafana.apps.lan.509ely.com" = "10.24.89.5";
