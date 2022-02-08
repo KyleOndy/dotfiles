@@ -90,7 +90,7 @@
       };
       cnameRecords = { };
       domainRecords = {
-        "dmz.509ely.com" = "10.25.89.53";
+        "dmz.509ely.com" = "10.25.89.5";
       };
     };
   };
