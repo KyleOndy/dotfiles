@@ -33,53 +33,6 @@
   # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
   system.stateVersion = "21.11"; # Did you read the comment?
 
-  services = {
-    unifi = {
-      enable = true;
-      unifiPackage = pkgs.unifiStable;
-    };
-    nginx = {
-      enable = true;
-      recommendedGzipSettings = true;
-      recommendedOptimisation = true;
-      recommendedProxySettings = true;
-      recommendedTlsSettings = true;
-      # other Nginx options
-
-      virtualHosts."unifi.apps.dmz.509ely.com" = {
-        enableACME = false;
-        forceSSL = true;
-        sslCertificate = "/var/lib/acme/star.apps.dmz.509ely.com/cert.pem";
-        sslCertificateKey = "/var/lib/acme/star.apps.dmz.509ely.com/key.pem";
-        locations."/" = {
-          proxyPass = "https://127.0.0.1:8443";
-          extraConfig =
-            "proxy_ssl_verify off;" +
-
-            # for uploading and restoring backups
-            "client_max_body_size 100M;" +
-            # required when the target is also TLS server with multiple hosts
-            #
-            #"proxy_ssl_server_name on;" +
-            # required when the server wants to use HTTP Authentication
-            "proxy_pass_header Authorization;"
-          ;
-        };
-      };
-    };
-  };
-  security.acme = {
-    certs = {
-      "star.apps.dmz.509ely.com" = {
-        # todo: make *
-        dnsProvider = "namecheap";
-        credentialsFile = config.sops.secrets.namecheap.path;
-        extraDomainNames = [
-          "unifi.apps.dmz.509ely.com"
-        ];
-      };
-    };
-  };
   networking.firewall = {
     allowedTCPPorts = [ 80 443 ];
   };
