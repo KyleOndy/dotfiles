@@ -76,6 +76,7 @@ have time. They are in no specific order, nor are they encompassing.
 - look into [nvd](https://gitlab.com/khumba/nvd) as a replacement for `nix-diff`.
 - cleanup old comments that are no longer valid throughout code base
 - use [git worktrees] so large builds do not prevent me from working on other code changes
+- automatically backup unifi console
 
 [git worktrees]: https://git-scm.com/docs/git-worktree
 
