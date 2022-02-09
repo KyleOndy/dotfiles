@@ -30,10 +30,7 @@
     hostId = "3d0638ea";
     defaultGateway = "10.24.89.1";
     nameservers = [ "10.24.89.1" ]; # todo: set to localhost?
-    interfaces.eth0.ipv4.addresses = [{
-      address = "10.24.89.53";
-      prefixLength = 24;
-    }];
+    interfaces.eth0.useDHCP = true;
   };
 
 
