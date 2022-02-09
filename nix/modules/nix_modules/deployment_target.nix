@@ -74,6 +74,8 @@ in
         # these two options prevent nix-shells' from being GCed.
         keep-derivations = true
         keep-outputs = true
+
+        binary-caches = https://nix-cache.apps.dmz.509ely.com/ https://cache.nixos.org/
       '';
       distributedBuilds = true;
       buildMachines = [
