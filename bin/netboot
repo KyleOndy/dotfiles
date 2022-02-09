@@ -1,12 +1,10 @@
 #!/run/current-system/sw/bin/env nix-shell
 #!nix-shell -i bash -p pixiecore
 # shellcheck shell=bash
+# vi: ft=bash
 set -ex
 
 results_dir=./result
-
-# zfs-kernel-2.1.1-5.15.3  is marked as broken, refusing to evaluate.
-export NIXPKGS_ALLOW_BROKEN=1
 
 rm "$results_dir"
 nix-build netboot.nix
