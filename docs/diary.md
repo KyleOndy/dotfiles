@@ -105,3 +105,11 @@ index 911b01b..beaca75 100644
              lua <<CFG
                require 'nvim-treesitter.install'.compilers = { 'clang++'}
 ```
+
+---
+
+Feb 09 03:25:11 tiger acme-nix-cache.apps.dmz.509ely.com-start[155152]: [nix-cache.apps.dmz.509ely.com] [nix-cache.apps.dmz.509ely.com] acme: error presenting token: namecheap: Invalid request IP: 98.109.144.222 [1011150]
+
+Your public IP has changed, update the whitelist in Namecheap.
+
+https://ap.www.namecheap.com/settings/tools/apiaccess/whitelisted-ips
