@@ -203,8 +203,8 @@
       m1 = self.nixosConfigurations.m1.config.system.build.toplevel;
       m2 = self.nixosConfigurations.m2.config.system.build.toplevel;
       m3 = self.nixosConfigurations.m3.config.system.build.toplevel;
+      tiger = self.nixosConfigurations.tiger.config.system.build.toplevel;
       util_dmz = self.nixosConfigurations.util_dmz.config.system.build.toplevel;
       util_lan = self.nixosConfigurations.util_lan.config.system.build.toplevel;
-      tiger = self.nixosConfigurations.tiger.config.system.build.toplevel;
     };
 }
