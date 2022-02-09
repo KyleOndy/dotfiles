@@ -153,7 +153,7 @@ in
           "nix-cache.apps.dmz.509ely.com" = "10.25.89.5";
         };
         domainRecords = {
-          "lan.509ely.com" = "10.25.89.1"; # need for routing back
+          "lan.509ely.com" = "10.25.89.1";
         };
       };
     };

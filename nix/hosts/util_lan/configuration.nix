@@ -71,26 +71,16 @@
 
       upstreamDnsServers = [ "10.24.89.1" ];
       aRecords = {
-        # tood: these won't be needed if these hosts do dhcp
-        "util.lan.509ely.com" = "10.24.89.53";
+        "util.lan.509ely.com" = "10.24.89.53"; # why?
 
         # monitoring
         "prometheus.apps.lan.509ely.com" = "10.24.89.5";
         "grafana.apps.lan.509ely.com" = "10.24.89.5";
-
-        # media server to deprecate
-        "jellyfin.apps.dmz.509ely.com" = "10.25.89.5";
-        "nzbget.apps.dmz.509ely.com" = "10.25.89.5";
-        "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
-        "radarr.apps.dmz.509ely.com" = "10.25.89.5";
-        "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
-
-        # apps
-        "gitea.apps.dmz.509ely.com" = "10.25.89.5";
       };
       cnameRecords = { };
       domainRecords = {
         "dmz.509ely.com" = "10.25.89.5";
+        "apps.dmz.509ely.com" = "10.25.89.5";
       };
     };
   };
