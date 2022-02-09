@@ -134,6 +134,10 @@ in
           destinationPath = "${backup_path}/gitea/";
         };
       };
+      binary_cache = {
+        enable = true;
+        domainName = "nix-cache.${domain}";
+      };
       # todo: spin up a dmz_util server and move this
       dnsServer = {
         enable = true;
@@ -146,6 +150,7 @@ in
           "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
           "radarr.apps.dmz.509ely.com" = "10.25.89.5";
           "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
+          "nix-cache.apps.dmz.509ely.com" = "10.25.89.5";
         };
         domainRecords = {
           "lan.509ely.com" = "10.25.89.1"; # need for routing back
