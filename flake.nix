@@ -134,6 +134,14 @@
             { systemFoundry.deployment_target.enable = true; }
           ];
         };
+        reverse_proxy = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/reverse_proxy/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            { systemFoundry.deployment_target.enable = true; }
+          ];
+        };
         m1 = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = nixModules ++ [
@@ -203,6 +211,7 @@
       m1 = self.nixosConfigurations.m1.config.system.build.toplevel;
       m2 = self.nixosConfigurations.m2.config.system.build.toplevel;
       m3 = self.nixosConfigurations.m3.config.system.build.toplevel;
+      rp = self.nixosConfigurations.reverse_proxy.config.system.build.toplevel;
       tiger = self.nixosConfigurations.tiger.config.system.build.toplevel;
       util_dmz = self.nixosConfigurations.util_dmz.config.system.build.toplevel;
       util_lan = self.nixosConfigurations.util_lan.config.system.build.toplevel;
