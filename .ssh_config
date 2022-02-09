@@ -1,22 +1,46 @@
 # vim: ft=sshconfig
 
+# RaspberryPi util nodes
 Host util_lan
+  # 10.24.89.53
   Hostname util.lan.509ely.com
   User svc.deploy
 Host util_dmz
+  # 10.25.89.53
   Hostname util.dmz.509ely.com
   User svc.deploy
 
-Host m1
-  Hostname m1.dmz.509ely.com
-  User svc.deploy
-Host m2
-  Hostname m2.dmz.509ely.com
-  User svc.deploy
-Host m3
-  Hostname m3.dmz.509ely.com
-  User svc.deploy
+Host reverse_proxy rp
+  # 10.25.89.10
+  #Hostname rp.dmz.509ely.com
+  Hostname 10.25.89.10
+  #User svc.deploy
+  User root
+
+# Big server
 Host tiger tiger.dmz.509ely.com
+  # 10.25.89.5
   Hostname tiger.dmz.509ely.com
   User svc.deploy
   Port 2332
+
+# WORKER NODES
+# sigma   00:1e:06:45:28:5c
+# sigma   00:1e:06:45:28:5d
+# xi      00:1e:06:45:2e:ec
+
+Host w1
+  # 10.25.89.11
+  # 10.25.89.12
+  Hostname w1.dmz.509ely.com
+  User svc.deploy
+Host w2
+  # 10.25.89.21
+  # 10.25.89.22
+  Hostname w2.dmz.509ely.com
+  User svc.deploy
+Host w3
+  # 10.25.89.31
+  # 10.25.89.32
+  Hostname w3.dmz.509ely.com
+  User svc.deploy
