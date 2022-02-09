@@ -77,6 +77,7 @@ have time. They are in no specific order, nor are they encompassing.
 - cleanup old comments that are no longer valid throughout code base
 - use [git worktrees] so large builds do not prevent me from working on other code changes
 - automatically backup unifi console
+- [setup apcupsd to shutdown homelab and tiger. Just leave up network gear util_lan after ~90 seconds of outage](https://brendonmatheson.com/2020/03/21/automated-remote-host-shutdown-with-apcupsd.html)
 
 [git worktrees]: https://git-scm.com/docs/git-worktree
 
