@@ -54,7 +54,7 @@ in
 
     nixpkgs.config.allowUnfree = true;
     nix = {
-      package = pkgs.nixStable;
+      package = pkgs.nixUnstable;
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
         auto-optimise-store = true;
