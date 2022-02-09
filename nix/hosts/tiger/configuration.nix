@@ -129,7 +129,8 @@ in
         enable = true;
         domainName = "gitea.${domain}";
         backup = {
-          enable = true;
+          # todo: backups were chewing through diskspace with mirrored repos
+          enable = false;
           destinationPath = "${backup_path}/gitea/";
         };
       };
