@@ -38,9 +38,12 @@ for host in "$@"; do
   _finish "Buidling $host"
   # todo: still need to figure out why I need to do this twice
 
+  result_closure=$(readlink -f "$result_path")
+  _start "Copying closures to binary_cache"
+  nix-copy-closure --to "tiger.dmz.509ely.com" -s "$result_closure"
+  _finish "Copying closures to binary_cache"
 
   _start "Copying closures to $host"
-  result_closure=$(readlink -f "$result_path")
   nix-copy-closure --to "$host" -s "$result_closure"
   _finish "Copying closures to $host"
 
