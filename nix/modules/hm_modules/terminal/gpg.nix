@@ -41,7 +41,7 @@ in
     services.gpg-agent = {
       enable = cfg.service;
       defaultCacheTtl = 1800;
-      enableSshSupport = true;
+      enableSshSupport = false;
       pinentryFlavor = "curses";
     };
   };
