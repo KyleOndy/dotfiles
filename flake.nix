@@ -154,8 +154,19 @@
           system = "x86_64-linux";
           modules = nixModules ++ [
             ./nix/hosts/tiger/configuration.nix
+            ./nix/users/kyle.nix
             inputs.sops-nix.nixosModules.sops
-            { systemFoundry.deployment_target.enable = true; }
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry.deployment_target.enable = true;
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
           ];
         };
       };
