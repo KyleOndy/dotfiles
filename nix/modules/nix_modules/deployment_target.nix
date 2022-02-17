@@ -28,6 +28,7 @@ in
       rsync # syncing files
     ];
 
+
     users = {
       defaultUserShell = pkgs.bash_5;
       mutableUsers = false;

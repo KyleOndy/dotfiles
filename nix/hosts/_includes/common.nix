@@ -1,6 +1,6 @@
 # This is a catchall for configuration items that are common across all
 # machines and at this time do not make sense to break out into their own file.
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
   # Set your time zone.
@@ -81,7 +81,11 @@
   hardware.pulseaudio.enable = true;
   boot = {
     cleanTmpDir = true;
-    tmpOnTmpfs = false;
+    tmpOnTmpfs = true;
     kernelPackages = pkgs.linuxPackages_latest;
+    extraModulePackages = with config.boot.kernelPackages; [
+      perf
+      systemtap
+    ];
   };
 }
