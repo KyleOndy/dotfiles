@@ -52,6 +52,9 @@ in
         RuntimeDirectorySize=8G
       '';
     };
+    programs = {
+      systemtap.enable = true;
+    };
 
     nixpkgs.config.allowUnfree = true;
     nix = {
