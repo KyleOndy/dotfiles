@@ -13,6 +13,7 @@
     gnumake # to apply dotfiles
     rsync # to sync from other machines
     neovim # to edit files with
+    config.boot.kernelPackages.perf
   ];
 
   # Select internationalisation properties.
