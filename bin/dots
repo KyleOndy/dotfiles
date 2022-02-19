@@ -33,8 +33,8 @@ for host in "$@"; do
 
   _start "Buidling $host"
   # todo: still need to figure out why I need to do this twice
-  nix build .#"$host" --keep-going --out-link "$result_path"
-  nix build .#"$host" --out-link "$result_path"
+  nix build ".#nixosConfigurations.${host}.config.system.build.toplevel" --keep-going --out-link "$result_path"
+  nix build ".#nixosConfigurations.${host}.config.system.build.toplevel" --out-link "$result_path"
   _finish "Buidling $host"
   # todo: still need to figure out why I need to do this twice
 

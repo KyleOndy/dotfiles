@@ -177,12 +177,6 @@
           }
         ];
       };
-      alpha = self.nixosConfigurations.alpha.config.system.build.toplevel;
       C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
-      rp = self.nixosConfigurations.reverse_proxy.config.system.build.toplevel;
-      tiger = self.nixosConfigurations.tiger.config.system.build.toplevel;
-      util_dmz = self.nixosConfigurations.util_dmz.config.system.build.toplevel;
-      util_lan = self.nixosConfigurations.util_lan.config.system.build.toplevel;
-      w2 = self.nixosConfigurations.w2.config.system.build.toplevel;
     };
 }
