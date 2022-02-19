@@ -126,30 +126,6 @@
             { systemFoundry.deployment_target.enable = true; }
           ];
         };
-        util_dmz = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/util_dmz/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            { systemFoundry.deployment_target.enable = true; }
-          ];
-        };
-        reverse_proxy = inputs.nixpkgs.lib.nixosSystem {
-          system = "aarch64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/reverse_proxy/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            { systemFoundry.deployment_target.enable = true; }
-          ];
-        };
-        w2 = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/w2/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            { systemFoundry.deployment_target.enable = true; }
-          ];
-        };
         tiger = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = nixModules ++ [
