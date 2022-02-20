@@ -169,7 +169,6 @@ download_all() {
   download "c/kombilife/videos"           # Kombi Life
   download "user/LastWeekTonight/videos"  # LastWeekTonight
   archive  "c/kaptainkristian/videos"     # kaptainkristian
-  download "c/NightsAroundaTable/videos"  # Nights Around a Table
   download "c/ScammerPayback/videos"
   download "c/lockpickinglawyer/videos"
 
