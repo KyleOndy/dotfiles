@@ -178,6 +178,7 @@ download_all() {
   download "c/JoeExoticTV/videos"             # JoeExoticTV
   download "c/OliverCaldwell/videos"          # Oliver Caldwell
   download "c/ippsec/videos"                  # IppSec (Hack the box)
+  download "c/STOKfredrik/videos"             # STÖK
 
   ## programming
   download "c/AdamJames-tv/videos"            # Adam James (Clojure)
