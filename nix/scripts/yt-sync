@@ -177,6 +177,7 @@ download_all() {
   download "c/DeathWearsBunnySlippers/videos" # Death Wears Bunny Slippers
   download "c/JoeExoticTV/videos"             # JoeExoticTV
   download "c/OliverCaldwell/videos"          # Oliver Caldwell
+  download "c/ippsec/videos"                  # IppSec (Hack the box)
 
   ## programming
   download "c/AdamJames-tv/videos"            # Adam James (Clojure)
