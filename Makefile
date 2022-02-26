@@ -37,6 +37,12 @@ build-all:
 		jq -r '.nixosConfigurations | keys[]' | \
 		xargs -t -- dots
 
+.PHONY: deploy-all
+deploy-all:
+	@nix flake show --json | \
+		jq -r '.nixosConfigurations | keys[]' | \
+		xargs -t -- dots --deploy
+
 .PHONY: switch
 switch: git-status build ## Switch the system to the defined state
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
