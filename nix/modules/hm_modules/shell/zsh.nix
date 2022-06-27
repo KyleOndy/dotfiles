@@ -312,7 +312,7 @@ in
           # see `man bash` for available expansions
           # https://news.ycombinator.com/item?id=27617128
           #
-          export PS4='+ ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L${LINENO:-}:   '
+          export PS4='+ ''$(date "+%s.%N"): ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
 
           # todo: set this up on just paige macbook
           # how to setup zsh completion with multiple repositores
