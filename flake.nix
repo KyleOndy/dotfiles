@@ -24,6 +24,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
     nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
+    radarr_fix.url = "github:GoogleBot42/nixpkgs/4cc6fa7005d421865840a315d649951c4206d725";
   };
   outputs = { self, ... }@inputs:
     let
@@ -33,7 +34,12 @@
       overlays = [
         inputs.nur.overlay
         (import ./nix/pkgs)
+        # TODO: how do I have multiple overlays?
         (import ./nix/overlays/st)
+        (final: prev: {
+          #radarr_fix = import inputs.radarr_fix { system = final.system; };
+          radarr = inputs.radarr_fix.legacyPackages.x86_64-linux.radarr;
+        })
       ];
 
 
