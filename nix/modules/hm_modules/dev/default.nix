@@ -115,7 +115,6 @@ in
       insomnia # rest client
       ltrace # trace library calls
       molly-guard # prevent footguns from runing my day
-      qemu-utils
       qemu_full
       remmina # remote desktop client
       smbnetfs # todo: why do I need this?
