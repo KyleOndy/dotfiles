@@ -5,10 +5,12 @@ keys:
 
   # machine keys
   - &alpha age1w7yw9mttzn5e0ldzrfl8ku422e5ydymr0wy6lp8msxvg8eehlpmq94sw4w
+  - &dmz_rp age1vn4kvzknrq3c0zrfsk83prhgtq4lpzg5c369rm4ng45rkmygvfcsmtxd7c
   - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
   - &util_dmz age1phk0n3yddcdw82ueukh5qm3jfeqr62gn0qh9nv0x8tafhkg6p4nqzex90x
   - &util_lan age1cdn7466t4cgepfl8jzlee8g8v4qjwjyg4v9pytz3fa4hfk4wy39spwtqde
   - &w2 age107v965q8vzmct6c99le7uz7g7f52qlnyz0kk37w62r0j2r3vm95sa48tpq
+
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
   # sops -r updatekeys ./nix/secrets/secrets.yaml
@@ -17,6 +19,7 @@ creation_rules:
     key_groups:
       - age:
           - *alpha
+          - *dmz_rp
           - *tiger
           - *util_dmz
           - *util_lan

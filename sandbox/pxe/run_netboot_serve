@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -ex
+
+root_dir="nix-netboot-serve"
+gc_root="${root_dir}/gc-roots"
+profiles_root="${root_dir}/profiles"
+configurations_root="${root_dir}/configurations"
+cpio_cache="${root_dir}/cpio-cache"
+
+# https://github.com/DeterminateSystems/nix-netboot-serve#usage
+mkdir -p $gc_root $profiles_root $configurations_root $cpio_cache
+nix run github:DeterminateSystems/nix-netboot-serve -- \
+  --gc-root-dir $gc_root \
+  --config-dir $configurations_root \
+  --profile-dir $profiles_root \
+  --cpio-cache-dir $cpio_cache \
+  --listen 127.0.0.1:3030

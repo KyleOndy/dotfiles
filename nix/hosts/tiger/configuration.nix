@@ -139,6 +139,11 @@ in
         enable = true;
         domainName = "nix-cache.${domain}";
       };
+      pixiecore = {
+        enable = true;
+        apiAddress = "http://localhost:3031"; # todo: reference api config
+        listenPort = 3032;
+      };
       nixNetbootServe = {
         enable = true;
         gcRootDir = "${service_root}/nix-netboot-serve/gc-roots";
@@ -148,6 +153,9 @@ in
         cpioCacheDir = "${service_root}/nix-netboot-serve/cpio-cache";
         listenHost = "127.0.0.1"; # todo: localhost doesn't work
         listenPort = 3030;
+      };
+      pxe-api = {
+        enable = false;
       };
       # todo: spin up a dmz_util server and move this
       dnsServer = {

@@ -162,6 +162,25 @@
             }
           ];
         };
+        dmz-rp = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/dmz-rp/configuration.nix
+            ./nix/users/kyle.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry.deployment_target.enable = true;
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
       };
       darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
         system = "x86_64-darwin";

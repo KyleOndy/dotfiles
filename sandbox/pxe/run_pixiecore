@@ -1,0 +1,5 @@
+#! /usr/bin/env nix-shell
+# shellcheck shell=bash
+#! nix-shell -i bash -p pixiecore
+
+sudo pixiecore api http://localhost:3031 -p 3032

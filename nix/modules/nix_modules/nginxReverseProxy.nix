@@ -12,12 +12,6 @@ in
         enable = mkEnableOption ''
           Create an nginx reverse proxy with optional cers
         '';
-        #domainName = mkOption {
-        #  type = types.str;
-        #  description = ''
-        #    Specifies the domian name that will be provisioned.
-        #  '';
-        #};
         location = mkOption {
           type = types.str;
           default = "/";
@@ -80,6 +74,10 @@ in
                 "proxy_pass_header Authorization;"
               ;
             };
+            extraConfig = ''
+              access_log /var/log/nginx/${name}.access;
+              error_log /var/log/nginx/${name}.error error;
+            '';
           })
           sites;
       };

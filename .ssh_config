@@ -39,8 +39,9 @@ Host w2
   # 10.25.89.22
   Hostname w2.dmz.509ely.com
   User svc.deploy
-Host w3
+Host dmz-rp dmz-rp.dmz.509ely.com
   # 10.25.89.31
   # 10.25.89.32
-  Hostname w3.dmz.509ely.com
+  Hostname 10.25.89.8
+  Hostname dmz-rp.dmz.509ely.com
   User svc.deploy
