@@ -2,10 +2,11 @@
 { lib, stdenv, fetchurl, pkgs }:
 
 stdenv.mkDerivation {
-  name = "my-scripts";
+  pname = "my-scripts";
+  version = "20220226";
 
   # todo: don't hardcode this
-  src = ./../../scripts;
+  src = ./scripts;
 
   buildInputs = [ ];
 

@@ -171,6 +171,7 @@ download_all() {
   archive  "c/kaptainkristian/videos"     # kaptainkristian
   download "c/ScammerPayback/videos"
   download "c/lockpickinglawyer/videos"
+  download "c/DudeDad/videos"
 
   ## tech
   download "c/DeathWearsBunnySlippers/videos" # Death Wears Bunny Slippers
