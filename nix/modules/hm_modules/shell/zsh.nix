@@ -314,14 +314,13 @@ in
           #
           export PS4='+ ''$(date "+%s.%N"): ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
 
-          # todo: set this up on just paige macbook
-          # how to setup zsh completion with multiple repositores
-          # https://github.com/zx2c4/password-store/blob/3dd14690c7c81ac80e32e942cf5976732faf0fb3/src/completion/pass.zsh-completion#L12-L18
-          compdef _pass paigepass
-          zstyle ':completion::complete:paigepass::' prefix "$HOME/.paige-passwords"
-          paigepass() {
-            PASSWORD_STORE_DIR=$HOME/.paige-passwords pass $@
-          }
+          # completion
+          # TODO: not sure of the implications here. Just copying verbatim from
+          # https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-completion.html#cli-command-completion-linux
+          autoload bashcompinit && bashcompinit
+          autoload -Uz compinit && compinit
+          complete -C "${pkgs.awscli2}/bin/aws_completer" aws
+          source <(${pkgs.kubectl}/bin/kubectl completion zsh)
         '';
       };
       fzf = {
