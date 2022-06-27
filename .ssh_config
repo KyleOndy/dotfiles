@@ -1,5 +1,7 @@
 # vim: ft=sshconfig
 
+Include ~/.ssh/config
+
 # RaspberryPi util nodes
 Host util_lan
   # 10.24.89.53
