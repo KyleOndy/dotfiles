@@ -333,6 +333,7 @@ in
           "--preview 'echo {}' --preview-window down:3"
         ];
       };
+      dircolors.enable = true;
     };
   };
 }
