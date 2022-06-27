@@ -16,6 +16,7 @@
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-utils.follows = "flake-utils"; # upstream is broken with aarch64-darwin
     };
     nix-darwin = {
       url = "github:LnL7/nix-darwin";
