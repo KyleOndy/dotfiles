@@ -60,7 +60,7 @@ in
           plugin = vim-sexp;
           config = ''
             " Disable mapping hooks
-            let g:sexp_filetypes = ""
+            let g:sexp_filetypes = "clojure,scheme,lisp,timl,fennel,janet"
           '';
         }
 
