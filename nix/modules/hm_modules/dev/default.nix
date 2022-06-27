@@ -63,7 +63,6 @@ in
       lorri
       lsof # how is this not in the base system?
       lz4
-      makemkv
       man-pages # developer documentation
       mosh # better ssh
       my-scripts # personal scripts. See `scripts` and `overlay` folder
@@ -102,6 +101,8 @@ in
       #zbar # barcode reader, mostly used to import OTP into pass # todo: BROKEN
     ]
 
+    # in reality isLinux == isNixos for me. I don't run nix on any linux
+    # machines currently.
     ++ optionals stdenv.isLinux [
       atop # system monitoring
       babashka # a Clojure babushka for the grey areas of Bash
@@ -112,6 +113,7 @@ in
       inotify-tools # watch the file system for changes
       insomnia # rest client
       ltrace # trace library calls
+      makemkv # rip DVDs
       molly-guard # prevent footguns from runing my day
       qemu_full
       remmina # remote desktop client
