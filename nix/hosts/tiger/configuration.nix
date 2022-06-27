@@ -108,6 +108,7 @@ in
     config.systemFoundry.radarr.user
     config.systemFoundry.sonarr.user
     "svc.deploy" # todo
+    "kyle"
   ];
   systemFoundry =
     let
