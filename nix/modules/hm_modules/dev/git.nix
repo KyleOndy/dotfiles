@@ -5,6 +5,11 @@ in
 {
   options.hmFoundry.dev.git = {
     enable = mkEnableOption "todo";
+    userEmail = mkOption {
+      type = types.str;
+      default = "kyle@ondy.org"; # todo: get this from some source of truth?
+      description = "Default email set in git config.";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -102,7 +107,7 @@ in
         key = "DB0E3C33491F91C9"; # pragma: allowlist secret
         signByDefault = true;
       };
-      userEmail = "kyle@ondy.org";
+      userEmail = cfg.userEmail;
       userName = "Kyle Ondy";
 
       # things that home-manager doesn't explictly handle
