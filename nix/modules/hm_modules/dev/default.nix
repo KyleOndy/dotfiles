@@ -50,7 +50,6 @@ in
       file # what type of file is this?
       findutils
       fortune # fun tidbits
-      ghc # Glasgow Haskell compiler
       glances # system monitor
       go-jira # cli for interacting with Jira
       gron # make JSON greppable
@@ -87,7 +86,6 @@ in
       slack-cli # bash based cli for interacting with slack
       sops # secret management
       squashfsTools # create and unpack squashfs
-      stack # Haskell build tooling
       step-cli # working with CAs
       tree # directory listing
       unzip # unzip things
