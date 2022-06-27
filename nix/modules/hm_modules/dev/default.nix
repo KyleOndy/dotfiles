@@ -64,7 +64,7 @@ in
       lorri
       lsof # how is this not in the base system?
       lz4
-      manpages # developer documentation
+      man-pages # developer documentation
       mosh # better ssh
       my-scripts # personal scripts. See `scripts` and `overlay` folder
       ncspot # cursors spotify client
