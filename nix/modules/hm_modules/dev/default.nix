@@ -41,7 +41,7 @@ in
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
       direnv
-      dnsutils # dig
+      #dnsutils # dig # BROKEN on darwin
       docker-compose
       dos2unix # windows line endings => unix
       entr # run arbitrary commands when files change
