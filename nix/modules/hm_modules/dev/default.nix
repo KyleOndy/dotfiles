@@ -75,6 +75,7 @@ in
       nmap # network mapping and scanning
       openvpn # covering my tracks
       pixz # parallel (de)compresser for xz
+      postgresql # _the_ DB
       proselint # A linter for prose
       pv # pipe progress
       ranger # cli file browser
