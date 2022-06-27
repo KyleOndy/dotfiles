@@ -7,7 +7,7 @@ ifeq ($(UNAME), Linux)
 	SWITCH := sudo $(REBUILD)
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild
-	SWITCH := sudo $(REBUILD)
+	SWITCH := $(REBUILD)
 else
 	# todo: this will need to be addressed when I try to extend this repository
 	#       to a WSL, or any machine that isn't NixOS or nix-darwin.
