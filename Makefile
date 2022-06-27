@@ -21,11 +21,11 @@ help: ## Show this help
 
 .PHONY: build
 build: ## Build currently defined configuration
-	@# tood: not sure why I need to remove the result symlink for the
-	@#       diff-closures command to show anything
-	@rm -f result
-	nix build .#$(HOSTNAME) --keep-going
-	nix store diff-closures /var/run/current-system $(shell readlink -f ./result)
+	dots $(HOSTNAME)
+
+.PHONY: deploy
+deploy: ## deploy currently defined configuration
+	dots --deploy $(HOSTNAME)
 
 .PHONY: build-quiet
 build-quiet: ## Like `build`, without a diff of result -> current system
