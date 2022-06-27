@@ -1,5 +1,5 @@
 DOCKER_IMAGE=ergodox_ez:kyleondy
-QMK_RELEASE=0.13.12
+QMK_RELEASE=0.17.0
 
 .PHONY: build-docker
 build-docker:
