@@ -18,6 +18,7 @@ in
     services = {
       nix-serve = {
         enable = true;
+        secretKeyFile = "/var/nix-cache-priv.pem";
       };
     };
     systemFoundry.nginxReverseProxy."${cfg.domainName}" = {

@@ -62,6 +62,12 @@ in
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
         auto-optimise-store = true;
+        substituters = [
+          "https://nix-cache.apps.dmz.509ely.com/ https://cache.nixos.org/"
+        ];
+        trusted-public-keys = [
+          "nix-cache.apps.dmz.509ely.com:Bzb2HeKGk7TCQ67EIHjyuNx+XRT6s+H0CZWF002T95g="
+        ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
       gc = {
@@ -79,7 +85,6 @@ in
         keep-derivations = true
         keep-outputs = true
 
-        binary-caches = https://nix-cache.apps.dmz.509ely.com/ https://cache.nixos.org/
       '';
       distributedBuilds = true;
       buildMachines = [
