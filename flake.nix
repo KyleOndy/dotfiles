@@ -87,6 +87,7 @@
               nixpkgs-fmt.enable = true;
               prettier.enable = true;
               shellcheck.enable = true;
+              stylua.enable = true;
             };
           };
         };
