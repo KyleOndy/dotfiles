@@ -14,6 +14,13 @@ in
     programs.notmuch = {
       enable = true;
       hooks = { preNew = "mbsync --all"; };
+      new.tags = [ "new" ];
+      hooks = {
+        postNew = ''
+          # retag all "new" messages "inbox" and "unread"
+          notmuch tag +inbox +unread -new -- tag:new
+        '';
+      };
     };
     accounts.email = {
       maildirBasePath = "mail";
@@ -68,15 +75,16 @@ in
         set message_cachedir      = ~/.mutt/cache/bodies
 
         # -- Mailboxes --
-        set realname      = 'Kyle Ondy'
-        set from          = 'kyle@ondy.org'
-        set spoolfile     = "+ondy.org/Inbox"
-        set mbox          = "+ondy.org/Inbox"
-        set trash         = "+ondy.org/Trash"
-        set postponed     = "+ondy.org/Drafts"
-        set record        = "+ondy.org/Sent"
-        set sendmail      = "msmtp"
-        set sendmail_wait = 0
+        set realname          = 'Kyle Ondy'
+        set from              = 'kyle@ondy.org'
+        set spoolfile         = "+ondy.org/Inbox"
+        set virtual_spoolfile = yes
+        set mbox              = "+ondy.org/Inbox"
+        set trash             = "+ondy.org/Trash"
+        set postponed         = "+ondy.org/Drafts"
+        set record            = "+ondy.org/Sent"
+        set sendmail          = "msmtp"
+        set sendmail_wait     = 0
 
         macro index S "<save-message>+ondy.org/Spam<enter>"
         macro index,pager A "<save-message>=ondy.org/Archive<enter>"
@@ -91,6 +99,11 @@ in
                   +ondy.org/Trash \
                   +ondy.org/Junk \
                   +ondy.org/spam
+
+        virtual-mailboxes "inbox" "notmuch://?query=tag:inbox"
+        virtual-mailboxes "archive" "notmuch://?query=tag:archive"
+        virtual-mailboxes "sent" "notmuch://?query=tag:sent"
+        virtual-mailboxes "newsletters" "notmuch://?query=tag:newsletters"
 
         # -- Basic Options --
         set wait_key = no        # shut up, mutt
