@@ -1,6 +1,7 @@
 { config, pkgs, ... }:
 let
   mediaGroup = "media";
+  service_root = "/var/lib";
 in
 {
   imports = [ ./hardware-configuration.nix ];
@@ -137,6 +138,16 @@ in
       binary_cache = {
         enable = true;
         domainName = "nix-cache.${domain}";
+      };
+      nixNetbootServe = {
+        enable = true;
+        gcRootDir = "${service_root}/nix-netboot-serve/gc-roots";
+        # todo: point to dotfiles?
+        configurationDir = "${service_root}/nix-netboot-serve/configurations";
+        profileDir = "${service_root}/nix-netboot-serve/profiles";
+        cpioCacheDir = "${service_root}/nix-netboot-serve/cpio-cache";
+        listenHost = "127.0.0.1"; # todo: localhost doesn't work
+        listenPort = 3030;
       };
       # todo: spin up a dmz_util server and move this
       dnsServer = {

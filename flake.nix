@@ -23,6 +23,7 @@
     };
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
+    nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
   };
   outputs = { self, ... }@inputs:
     let
@@ -132,6 +133,7 @@
             ./nix/hosts/tiger/configuration.nix
             ./nix/users/kyle.nix
             inputs.sops-nix.nixosModules.sops
+            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
             inputs.home-manager.nixosModules.home-manager
             {
               systemFoundry.deployment_target.enable = true;
