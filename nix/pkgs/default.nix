@@ -1,7 +1,7 @@
 self: super: {
   concourse = super.callPackage ./concourse { };
-  mutt-gruvbox = super.callPackage ./mutt-gruvbox { };
   mutt-colors-solarized = super.callPackage ./mutt-colors-solarized { };
+  mutt-gruvbox = super.callPackage ./mutt-gruvbox { };
   my-scripts = super.callPackage ./my-scripts { };
   octo = super.callPackage ./octo { };
   pxe-api = super.callPackage ./pxe-api { };
