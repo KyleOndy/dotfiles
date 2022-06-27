@@ -147,8 +147,8 @@ in
           ui = "auto";
         };
         diff = {
-          # use "vimdiff", defined later at neovim
-          tool = "vimdiff";
+          # use "nvimdiff", defined later at neovim
+          tool = "nvimdiff";
           # show prefix's during a diff that relate to the content being diffed. Helps
           # keep things straight in my head.
           mnemonicprefix = "true";
@@ -157,18 +157,26 @@ in
           algorithm = "patience";
         };
         difftool = {
-          # use "vimdiff", defined later
-          tool = "vimdiff";
+          # use "nvimdiff", defined later
+          tool = "nvimdiff";
           # prompting before opening difftools is just one more key press getting in
           # the way of the groove.
           prompt = "false";
+        };
+        mergetool = {
+          # prompting before opening difftools is just one more key press getting in
+          # the way of the groove.
+          prompt = "false";
+          nvimdiff = {
+            cmd = "nvim -d \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\" -c 'wincmd w' -c 'wincmd J'";
+          };
         };
         merge = {
           # --ff-only by default, force a command line flag to be thrown otherwise.
           # Keep the commits atomic and the history clean.
           ff = "only";
-          # use "vimdiff", defined later
-          tool = "vimdiff";
+          # use "nvimdiff", defined later
+          tool = "nvimdiff";
           # add branch description to merge commits
           branchdesc = "true";
           # add additional git log information to merge commit.
