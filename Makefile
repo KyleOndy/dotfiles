@@ -18,35 +18,35 @@ endif
 help: ## Show this help
 	@egrep -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-26s\033[0m %s\n", $$1, $$2}'
 
-
 .PHONY: build
-build: ## Build currently defined configuration
-	dots $(HOSTNAME)
-
-.PHONY: deploy
-deploy: ## deploy currently defined configuration
-	dots --deploy $(HOSTNAME)
-
-.PHONY: build-quiet
-build-quiet: ## Like `build`, without a diff of result -> current system
-	nix build .#$(HOSTNAME) --keep-going
+build: ## Buld single host
+		dots $(HOSTNAME)
 
 .PHONY: build-all
-build-all:
+build-all: # Build all defined hosts
 	@nix flake show --json | \
 		jq -r '.nixosConfigurations | keys[]' | \
 		xargs -t -- dots
 
+.PHONY: deploy
+deploy: ## Deploy currently defined configuration
+	dots --deploy $(HOSTNAME)
+
 .PHONY: deploy-all
-deploy-all:
+deploy-all: ## Deploy all defined hosts
 	@nix flake show --json | \
 		jq -r '.nixosConfigurations | keys[]' | \
 		xargs -t -- dots --deploy
 
-.PHONY: switch
-switch: git-status build ## Switch the system to the defined state
+.PHONY: build-darwin
+build-darwin: ## Build darwin system
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
-	$(SWITCH) switch --flake .
+	$(REBUILD) build --flake .#$(HOSTNAME)
+
+.PHONY: switch-darwin
+switch-darwin: git-status build-darwin ## Switch darwin system to the defined state
+	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
+	$(SWITCH) switch --flake .#$(HOSTNAME)
 
 .PHONY: vm
 vm: ## build qemu vm
