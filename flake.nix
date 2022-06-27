@@ -78,7 +78,7 @@
       nixModules = getModules ./nix/modules/nix_modules;
     in
     # this allows us to get the propper `system` whereever we are running
-    inputs.flake-utils.lib.eachSystem [ "x86_64-darwin" "x86_64-linux" ]
+    inputs.flake-utils.lib.eachSystem [ "aarch64-darwin" "x86_64-linux" ]
       (system: {
         checks = {
           pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run {
@@ -183,24 +183,31 @@
           ];
         };
       };
-      darwinConfigurations.C02CL8GXLVDL = inputs.nix-darwin.lib.darwinSystem {
-        system = "x86_64-darwin";
+      darwinConfigurations.kyle-mbp = inputs.nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
         modules = [
-          ./nix/hosts/C02CL8GXLVDL/configuration.nix
+          ./nix/hosts/kyle-mbp/configuration.nix
           inputs.home-manager.darwinModule
           {
             nixpkgs.overlays = overlays;
+            users.users.kyle.home = "/Users/kyle";
             home-manager = {
               useGlobalPkgs = true;
               useUserPackages = true;
               sharedModules = hmModules;
-              users."kyle.ondy" = {
+              users.kyle = {
                 imports = [ ./nix/profiles/ssh.nix ];
 
                 # darwin overrides. This is ripe for refactoring. Declaring
                 # this in the flake so it is very clear what is happening.
                 services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
                 hmFoundry = inputs.nixpkgs.lib.mkForce {
+                  dev = {
+                    # todo: overriding the git emaill like this is hacky.
+                    #       Should pass in as a param somewhere else?
+                    git.userEmail = "kyle@grata.com";
+                    clojure.enable = false; # babashka broken on m1
+                  };
                   terminal = {
                     email.enable = false;
                     gpg = {
@@ -214,6 +221,6 @@
           }
         ];
       };
-      C02CL8GXLVDL = self.darwinConfigurations.C02CL8GXLVDL.system;
+      kyle-mbp = self.darwinConfigurations.kyle-mbp.system;
     };
 }

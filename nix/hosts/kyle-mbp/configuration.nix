@@ -25,6 +25,7 @@
     extraOptions = ''
       builders-use-substitutes = true
       experimental-features = nix-command flakes
+      build-users-group = nixbld # todo: this was in nix.conf by default
     '';
   };
   nixpkgs = {

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -e
+
+if [ "$#" -ne 1 ] ||  ! [ -f "$1" ]; then
+  echo "usage: $0 <flattened_kube_config>"
+  exit 1
+fi
+
+export KUBECONFIG="$1"
+
+for context in $(kubectl config get-contexts --output name); do
+  kubectl --context "$context" config view --minify --flatten > "$HOME/.kube/configs/$context"
+done
+
+chmod 600 "$HOME/.kube/configs/*"
