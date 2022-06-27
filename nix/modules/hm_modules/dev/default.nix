@@ -59,6 +59,7 @@ in
       k9s # stylish kubernetes management
       kubectl
       kubectx
+      kubernetes-helm # helm
       lesspipe # auto piping into less
       lorri
       lsof # how is this not in the base system?
