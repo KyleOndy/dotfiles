@@ -27,7 +27,6 @@ in
       };
     };
     home.packages = with pkgs; [
-      my-scripts # personal scripts. See `scripts` and `overlay` folder
       ag # A code-searching tool similar to ack, but faster
       age # better encryption
       aspell # spell check
@@ -35,9 +34,11 @@ in
       aspellDicts.en-computers
       aspellDicts.en-science
       awscli2 # interacting with AWS
+      bash_5 # want my modern bash
       bc # the classic calculator
       clang
       cmake
+      coreutils-full
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
       direnv
@@ -48,6 +49,7 @@ in
       envsubst
       fd # an easier to use `find`
       file # what type of file is this?
+      findutils
       fortune # fun tidbits
       ghc # Glasgow Haskell compiler
       glances # system monitor
@@ -60,10 +62,12 @@ in
       kubectl
       kubectx
       lesspipe # auto piping into less
+      lorri
       lsof # how is this not in the base system?
       lz4
       manpages # developer documentation
       mosh # better ssh
+      my-scripts # personal scripts. See `scripts` and `overlay` folder
       ncspot # cursors spotify client
       niv # nix package pinning
       nixfmt # formatter for nix files
@@ -88,19 +92,14 @@ in
       unzip # unzip things
       w3m # browse the web from the cli, like it was meant to be
       #weechat # IRC client
+      watch
       wget # get a file from the internet
       xclip # copy something to the clipboard
       xlsx2csv # useful for bash automation of buissness flows
       xz # compression format
       youtube-dl # download videos from youtube and others
       yq-go # like jq, but for yaml
-      zathura # lightweight PDF viewer
-      zbar # barcode reader, mostly used to import OTP into pass
-      bash_5 # want my modern bash
-      coreutils-full
-      findutils
-      lorri
-      watch
+      #zbar # barcode reader, mostly used to import OTP into pass # todo: BROKEN
     ]
 
     ++ optionals stdenv.isLinux [
