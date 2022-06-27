@@ -1,6 +1,12 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
+    # pyopenssl is currently marked broekn in nixpkgs. This is the last commit
+    # that is working. I can not seem to get NIXPKGS_ALLOW_BROKEN environment
+    # variable to work.
+    #
+    # https://github.com/NixOS/nixpkgs/issues/175875
+    # https://github.com/NixOS/nixpkgs/commit/292269900315d5b952a99ec95aa4ccfc099952e0
+    nixpkgs.url = "github:nixos/nixpkgs/292269900315d5b952a99ec95aa4ccfc099952e0";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -82,7 +88,7 @@
               nixpkgs-fmt.enable = true;
               prettier.enable = true;
               shellcheck.enable = true;
-              stylua.enable = true;
+              #stylua.enable = true;
               pkg_version = {
                 enable = true;
                 name = "pkg-version-bump";
