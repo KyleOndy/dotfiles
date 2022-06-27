@@ -30,6 +30,9 @@ in
 
     programs.neovim = {
       plugins = with pkgs.vimPlugins; [
+        # https://github.com/Olical/aniseed
+        { plugin = aniseed; }
+
         # https://github.com/Olical/conjure
         # "conversational software development"
         { plugin = conjure; }
