@@ -1,31 +1,70 @@
 #!/usr/bin/env bash
 set -Ee
 
+
+readonly FOUNDRY_DIR=${FOUNDRY_DATA:-$XDG_DATA_HOME}
+readonly FOUNDRY_LOG_DIR="${FOUNDRY_DIR}/logs"
+
 print_usage() {
-  echo "$0                 print this usage message"
-  echo "$0 c|commit        open $EDITOR with commit template"
-  echo "$0 l|log           add to log file"
-  echo "$0 o|ops|adhoc     work on unplanned ticket"
-  echo "$0 w|work|workon   switch to ticket folder"
-  echo "$0 dir             print directory of foundry work directory"
+  cat << EOF
+usage of $(basename "$0"):
+
+    c|commit        open $EDITOR with commit template
+    c|commit <msg>  write commit with message
+
+    l|log           open todays log file
+    l|log <date>  open log of specified date
+
+    o|ops|adhoc     work on unplanned ticket
+
+    w|work|workon   switch to ticket folder
+
+    dir             print directory of foundry work directory
+EOF
 }
 
-create_switch_to_workspace() {
-  ticket=$1
-  existing=$(tmux list-windows -F "#I,#W" | grep "$ticket" || true)
-  if [ -z "$existing" ]; then
-    project="$(echo "$ticket" | cut -d'-' -f1)"
-    w_id=$(tmux new-window -n "$ticket" -P -F "#I" -c "${foundry_dir}/${project}/${ticket}")
+#######################################
+# Creates if needed, and switches to a tmux window with the given name
+# Arguments:
+#   Name of the tmux window
+#   Working directory to set in new window
+#######################################
+function create_and_switch_to_tmux_window() {
+  local window_name="$1"
+  local working_dir="$2"
+  local window_information
+  local tmux_args
+  local window_id
+
+  window_information=$(tmux list-windows -F "#I,#W" | \
+    rg --regexp "[\d]+,${window_name}" || true)
+
+  if [[ -z "${window_information}" ]]; then
+    tmux_args=(
+      new-window          # create new window
+      -n "${window_name}" # named
+      -P                  # print info about window to stdout
+      -F "#I"             # print just window ID
+      -d                  # don't switch to window
+      -c "${working_dir}" # set working directory
+    )
+
+    # set working directory if passed
+    [[ -z "${working_dir}" ]] && tmux_args+=( -c "${working_dir}")
+
+    window_id=$(tmux "${tmux_args[@]}")
   else
-    w_id="$(echo "$existing" | cut -d',' -f1)"
+    window_id="$(echo "${window_information}" | cut -d',' -f1)"
   fi
-  tmux select-window -t "$w_id"
+  tmux select-window -t "$window_id"
 }
 
 work_on() {
-  ticket=${1^^}
+  local ticket=${1^^}
+  local project
+
   project="$(echo "$ticket" | cut -d'-' -f1)"
-  pushd "$foundry_dir"
+  pushd "$FOUNDRY_DIR"
 
   mkdir -p "./$project/$ticket"
 
@@ -34,7 +73,7 @@ work_on() {
 cat <<- EOF > "./$project/$ticket/README.md"
 # $ticket
 
-[Jira ticket for $ticket](https://jira.paigeai.net/browse/$ticket)
+[Jira ticket for $ticket](https://grataio.atlassian.net/browse/$ticket)
 EOF
   fi
   if ! [ -f "./$project/$ticket/flake.nix" ]; then
@@ -77,20 +116,39 @@ cat <<- EOF > "./$project/$ticket/.envrc"
 use nix
 EOF
   fi
-  create_switch_to_workspace "$ticket"
+  create_and_switch_to_tmux_window "${ticket}"
 
   #SLACK_CLI_TOKEN="$(pass show paigeai.slack.com/user_token )" slack status edit "Working on $ticket" :hammer_and_wrench:
   #git checkout -b "$ticket" || git checkout "$ticket"
 }
 
 log() {
-  tracking_dir="${foundry_dir}/.tracking"
-  mkdir -p "$tracking_dir"
-  echo "$@" > "${tracking_dir}/$(date +%s)"
+  local dte="$*"
+  local date_format="+%Y-%m-%d"
+  local date_string
+  local log_file
+
+
+  date_string=$(date "${date_format}" --date "${dte}")
+  log_file="${FOUNDRY_LOG_DIR}/${date_string}.md"
+
+  [[ -d "${FOUNDRY_LOG_DIR}" ]] || mkdir "${FOUNDRY_LOG_DIR}"
+
+  if [[ ! -f "${log_file}" ]]; then
+    # TODO: copy some template file
+    echo "# ${date_string}" > "${log_file}"
+  fi
+  if [[ "${EDITOR}" == "nvim" ]]; then
+    printf "\n\n" >> "${log_file}"
+    nvim "${log_file}" -c "startinsert" +
+  else
+    $EDITOR "${log_file}"
+  fi
+
 }
 
 open_todo() {
-  todo_dir="${foundry_dir}/todo"
+  todo_dir="${FOUNDRY_DIR}/todo"
   mkdir -p "$todo_dir"
 
   # if today's entry doesn't exist, open both the last entry and a new entry
@@ -107,12 +165,12 @@ open_todo() {
 }
 
 print_dir() {
+  # TODO: check some ENVVAR to see if we are in a work directory
   tmux display-message -p '#W'
 }
 
 ## ENTRYPOINT
-foundry_dir=${FOUNDRY_DATA:-$XDG_DATA_HOME}
-[[ -d "$foundry_dir" ]] || mkdir -p "$foundry_dir"
+[[ -d "$FOUNDRY_DIR" ]] || mkdir -p "$FOUNDRY_DIR"
 
 
 case "$1" in
@@ -124,7 +182,7 @@ case "$1" in
 
     # assuming ticket is the form of PROJ-###
     work_on "$@"
-    log "$@"
+    #log "$@"
     ;;
   "l"|"log")
     shift
