@@ -88,6 +88,14 @@
               prettier.enable = true;
               shellcheck.enable = true;
               stylua.enable = true;
+              pkg_version = {
+                enable = true;
+                name = "pkg-version-bump";
+                entry = "bin/pre-commit-update-version";
+                files = "^nix/pkgs/.*?/default\.nix$";
+                language = "script";
+                pass_filenames = true;
+              };
             };
           };
         };

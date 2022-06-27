@@ -1,0 +1,25 @@
+#! /usr/bin/env nix-shell
+# shellcheck shell=bash
+#! nix-shell -i bash -p ripgrep
+# vi: ft=bash
+set -e
+
+for f in "$@"; do
+  # todo: what are the changes this matches some other non-version stirng?
+  current_version="$(rg --only-matching "\d{8}\.\d+" "$f" || true)"
+  #[[ -z $current_version ]] && exit 0
+
+  pkg_date=$(echo "$current_version" | cut -d'.' -f1)
+  pkg_count=$(echo "$current_version" | cut -d'.' -f2)
+
+  todays_date="$(date +%Y%m%d)"
+
+  if [[ $pkg_date == "$todays_date" ]]; then
+    ((pkg_count++))
+    new_version="${pkg_date}.${pkg_count}"
+  else
+    new_version="${todays_date}.1"
+  fi
+
+  sed --in-place -E "s/(version = \")[[:digit:]]{8}\.[[:digit:]](\")/\1$new_version\2/" "$f"
+done
