@@ -1,7 +1,8 @@
 { lib, stdenv, fetchurl }:
 
 stdenv.mkDerivation rec {
-  name = "mutt-gruvbox";
+  pname = "mutt-gruvbox";
+  version = "20220226";
 
   src = fetchGit {
     url = "https://git.sthu.org/repos/mutt-gruvbox.git";

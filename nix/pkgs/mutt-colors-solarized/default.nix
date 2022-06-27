@@ -3,7 +3,8 @@
 # out of convience since I only need one of the themes.
 
 stdenv.mkDerivation rec {
-  name = "mutt-colors-solarized";
+  pname = "mutt-colors-solarized";
+  version = "20220226";
 
   src = fetchGit {
     url = "https://github.com/altercation/solarized";
