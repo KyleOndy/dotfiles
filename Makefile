@@ -1,5 +1,5 @@
 UNAME := $(shell uname)
-HOSTNAME=$(shell hostname)
+HOSTNAME=$(shell hostname -s)
 
 # this is my naive approach to supporting multiple systems.
 ifeq ($(UNAME), Linux)
