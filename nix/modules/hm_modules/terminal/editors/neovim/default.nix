@@ -246,10 +246,9 @@ in
         # https://github.com/folke/which-key.nvim
         {
           plugin = which-key-nvim;
+          type = "lua";
           config = ''
-            lua <<CFG
-              require("which-key").setup { }
-            CFG
+            require("which-key").setup { }
           '';
         }
 
