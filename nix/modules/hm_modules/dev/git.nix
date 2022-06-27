@@ -211,6 +211,9 @@ in
         credential = {
           helper = "store";
         };
+        advice = {
+          skippedCherryPicks = "false";
+        };
       };
     };
     xdg = {
