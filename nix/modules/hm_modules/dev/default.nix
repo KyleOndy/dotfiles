@@ -27,7 +27,6 @@ in
       };
     };
     home.packages = with pkgs; [
-      ag # A code-searching tool similar to ack, but faster
       age # better encryption
       aspell # spell check
       aspellDicts.en
@@ -83,6 +82,7 @@ in
       rsync # use an upto date one, not whatever ships with the OS
       shellcheck # linting bash scripts
       shfmt # shell (bash) formatting
+      silver-searcher # (ag) A code-searching tool similar to ack, but faster
       slack-cli # bash based cli for interacting with slack
       sops # secret management
       squashfsTools # create and unpack squashfs
