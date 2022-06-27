@@ -37,6 +37,39 @@ in
       enable = true;
     };
     openssh.ports = [ 2332 ];
+    samba = {
+      enable = true;
+      openFirewall = true;
+      shares = {
+        backups = {
+          path = "/mnt/backups"; # todo: reference directly?
+          browseable = "yes";
+          "read only" = "no";
+          "guest ok" = "no";
+          "valid_users" = "svc.backup";
+          "create mask" = "0644";
+          "directory mask" = "0755";
+          # todo: force sounds bad
+          "force user" = "svc.backup";
+          "force group" = "svc.backup";
+          #"force user" = "svc.backup";
+          #"write list" = "
+        };
+      };
+    };
+  };
+  users = {
+    # for backup reasons
+    users."svc.backup" = {
+      isSystemUser = true;
+      group = "svc.backup";
+      # todo: change and store with SOP
+      hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
+    };
+    groups."svc.backup".members = [
+      "svc.backup"
+      "kyle"
+    ];
   };
 
 
