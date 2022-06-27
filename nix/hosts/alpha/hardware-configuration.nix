@@ -10,6 +10,7 @@
       "nbd"
       "rtsx_pci_sdmmc"
       "sd_mod"
+      "sg"
       "usb_storage"
       "usbhid"
       "xhci_pci"
