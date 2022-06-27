@@ -41,14 +41,17 @@
   };
 
   # the following configuration should be moved into a module, I am just not sure where it fits right now, so dropping it inline.
-  home.sessionVariables = {
-    DOTFILES = "$HOME/src/dotfiles";
-    FOUNDRY_DATA = "$HOME/src/foundry";
-    EDITOR = "nvim";
-    VISUAL = "nvim";
-    # this allows the rest of the nix tooling to use the same nixpkgs that I
-    # have set in the flake.
-    NIX_PATH = "nixpkgs=${pkgs.path}";
-    MANPAGER = "${pkgs.neovim}/bin/nvim +Man! -- ";
+  home = {
+    sessionVariables = {
+      DOTFILES = "$HOME/src/dotfiles";
+      FOUNDRY_DATA = "$HOME/src/foundry";
+      EDITOR = "nvim";
+      VISUAL = "nvim";
+      # this allows the rest of the nix tooling to use the same nixpkgs that I
+      # have set in the flake.
+      NIX_PATH = "nixpkgs=${pkgs.path}";
+      MANPAGER = "${pkgs.neovim}/bin/nvim +Man! -- ";
+    };
+    stateVersion = "18.09";
   };
 }
