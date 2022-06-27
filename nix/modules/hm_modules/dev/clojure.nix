@@ -35,13 +35,16 @@ in
 
         # https://github.com/Olical/conjure
         # "conversational software development"
-        { plugin = conjure; }
+        {
+          plugin = conjure;
+          config = ''
+            let g:conjure#mapping#doc_word = "K"
 
-        # todo: does LSP + TreeSitter made is not needed?
-        #{
-        #  # Extend builtin syntax highlighting
-        #  plugin= vim-clojure-highlight;
-        #}
+            " todo: why these?
+            let g:conjure#client#clojure#nrepl#eval#auto_require = 0
+            let g:conjure#client#clojure#nrepl#connection#auto_repl#enabled = 0
+          '';
+        }
 
         # https://github.com/clojure-vim/vim-jack-in
         { plugin = vim-jack-in; }
