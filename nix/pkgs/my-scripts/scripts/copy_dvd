@@ -1,0 +1,18 @@
+#! /usr/bin/env nix-shell
+# shellcheck shell=bash
+#! nix-shell -i bash -p makemkv
+set -ex
+
+main() {
+  if [[ $# -ne 1 ]]; then
+    echo "usage: $0 <out_dir>"
+    exit 1
+  fi
+  local out_dir=$1
+
+  sudo modprobe sg
+  mkdir -p $out_dir
+  makemkvcon --robot mkv disc:0 all $out_dir
+}
+
+main $@
