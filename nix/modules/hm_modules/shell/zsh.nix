@@ -299,6 +299,11 @@ in
               ${pkgs.git}/bin/git "$@"
             fi
           }
+
+          # tmux-fzf config
+          # https://github.com/sainnhe/tmux-fzf
+          export TMUX_FZF_ORDER="window|session|pane|command|keybinding"
+
           # PS$ is used when command printing (`set -x`) it turned on. The will
           # print the scripts, function, and line number.
           #

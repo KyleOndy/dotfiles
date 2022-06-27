@@ -135,11 +135,19 @@ in
 
         set-window-option -g window-status-current-format "#[fg=colour237, bg=colour214, nobold, noitalics, nounderscore]#[fg=colour239, bg=colour214] #I #[fg=colour239, bg=colour214, bold] #W #[fg=colour214, bg=colour237, nobold, noitalics, nounderscore]"
         set-window-option -g window-status-format "#[fg=colour237,bg=colour239,noitalics]#[fg=colour223,bg=colour239] #I #[fg=colour223, bg=colour239] #W #[fg=colour239, bg=colour237, noitalics]"
+
+        # ----------------------
+        # tmux-fzf
+        # -----------------------
+
+        # make it way easier to get to this functionality
+        TMUX_FZF_LAUNCH_KEY="j"
       '';
       keyMode = "vi";
       shortcut = "space"; # <ctrl> + <space> for leader
       plugins = with pkgs; [
         { plugin = tmuxPlugins.fzf-tmux-url; }
+        { plugin = tmuxPlugins.tmux-fzf; }
       ];
     };
   };
