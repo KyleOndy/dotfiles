@@ -28,46 +28,51 @@ in
       clojure-lsp
     ];
 
-    programs.neovim = {
-      plugins = with pkgs.vimPlugins; [
-        # https://github.com/Olical/aniseed
-        { plugin = aniseed; }
+    programs = {
+      java = {
+        enable = true;
+      };
+      neovim = {
+        plugins = with pkgs.vimPlugins; [
+          # https://github.com/Olical/aniseed
+          { plugin = aniseed; }
 
-        # https://github.com/Olical/conjure
-        # "conversational software development"
-        {
-          plugin = conjure;
-          config = ''
-            let g:conjure#mapping#doc_word = "K"
+          # https://github.com/Olical/conjure
+          # "conversational software development"
+          {
+            plugin = conjure;
+            config = ''
+              let g:conjure#mapping#doc_word = "K"
 
-            " todo: why these?
-            let g:conjure#client#clojure#nrepl#eval#auto_require = 0
-            let g:conjure#client#clojure#nrepl#connection#auto_repl#enabled = 0
-          '';
-        }
+              " todo: why these?
+              let g:conjure#client#clojure#nrepl#eval#auto_require = 0
+              let g:conjure#client#clojure#nrepl#connection#auto_repl#enabled = 0
+            '';
+          }
 
-        # https://github.com/clojure-vim/vim-jack-in
-        { plugin = vim-jack-in; }
+          # https://github.com/clojure-vim/vim-jack-in
+          { plugin = vim-jack-in; }
 
-        # https://github.com/radenling/vim-dispatch-neovim
-        # this is needed for vim-jackin
-        { plugin = vim-dispatch; }
-        { plugin = vim-dispatch-neovim; }
+          # https://github.com/radenling/vim-dispatch-neovim
+          # this is needed for vim-jackin
+          { plugin = vim-dispatch; }
+          { plugin = vim-dispatch-neovim; }
 
-        # https://github.com/guns/vim-sexp
-        # Precision Editing for S-expressions
-        {
-          plugin = vim-sexp;
-          config = ''
-            " set no deafult bindings
-            let g:sexp_filetypes = ""
-          '';
-        }
+          # https://github.com/guns/vim-sexp
+          # Precision Editing for S-expressions
+          {
+            plugin = vim-sexp;
+            config = ''
+              " set no deafult bindings
+              let g:sexp_filetypes = ""
+            '';
+          }
 
-        # https://github.com/tpope/vim-sexp-mappings-for-regular-people
-        # tpope to the rescue again
-        #{ plugin = vim-sexp-mappings-for-regular-people; }
-      ];
+          # https://github.com/tpope/vim-sexp-mappings-for-regular-people
+          # tpope to the rescue again
+          #{ plugin = vim-sexp-mappings-for-regular-people; }
+        ];
+      };
     };
   };
 }
