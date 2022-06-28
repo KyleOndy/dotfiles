@@ -219,7 +219,8 @@ vmap <Leader>p "+p
 vmap <Leader>P "+P
 
 " todo: enable only in mergetool?
-nmap <Leader>dv :Gvdiffsplit!<CR>
-nmap <Leader>du :diffupdate<CR>
-nmap <Leader>dh :diffget //2<CR>
-nmap <Leader>dl :diffget //3<CR>
+" todo: enable diff bindings
+" nmap <Leader>dv :Gvdiffsplit!<CR>
+" nmap <Leader>du :diffupdate<CR>
+" nmap <Leader>dh :diffget //2<CR>
+" nmap <Leader>dl :diffget //3<CR>

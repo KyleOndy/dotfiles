@@ -52,6 +52,41 @@ in
         }
 
         {
+          # https://github.com/nvim-telescope/telescope.nvim
+          plugin = telescope-nvim;
+          type = "lua";
+          config = ''
+            require('telescope').setup{
+              file_sorter =  require'telescope.sorters'.get_fzy_sorter,
+            }
+
+            require("which-key").register({
+              ["<leader>o"] = {
+                name = "+open",
+                b = { "<cmd>Telescope buffers<cr>", "Open Buffer" },
+                d = { "<cmd>Telescope file_browser<cr>", "Open File Browser" },
+                f = { "<cmd>Telescope find_files<cr>", "Open File" },
+                k = { "<cmd>Telescope keymaps<cr>", "Open Keymaps" },
+                m = { "<cmd>Telescope marks<cr>", "Open Marks" },
+                n = { "<cmd>enew<cr>", "New File" },
+                o = { "<cmd>Telescope git_files<cr>", "Open Git Files" },
+                p = { "<cmd>Telescope man_pages<cr>", "Open Man Pages" },
+                r = { "<cmd>Telescope oldfiles<cr>", "Open Recent File" },
+                t = { "<cmd>Telescope help_tags<cr>", "Open Tags" },
+              },
+              ["<leader>s"] = {
+                ["/"] = { "<cmd>Telescope current_buffer_fuzzy_find<cr>", "Search buffer"},
+                a     = { "<cmd>Telescope grep_string<cr>", "Search word under cursor"},
+                s     = { "<cmd>Telescope live_grep<cr>", "Search Live Grep"},
+              },
+              ["<leader>i"] = {
+                s = { "<cmd>Telescope symbols<cr>", "Insert symbol" },
+              }
+            })
+          '';
+        }
+
+        {
           # Installing tree-sitter via neovims built in tooling is not a great
           # idea within nix, and not very reproducible. Luckily, we can install
           # all the grammars like everything else.
@@ -79,11 +114,50 @@ in
         # https://github.com/romgrk/nvim-treesitter-context
         nvim-treesitter-context
 
-        # https://github.com/mfussenegger/nvim-dap
-        nvim-dap # todo: learn how to use this
+        {
+          # https://github.com/mfussenegger/nvim-dap
+          plugin = nvim-dap; # todo: learn how to use this
+          type = "lua";
+          config = builtins.readFile ./config/dap.lua;
+        }
 
-        # https://github.com/theHamsta/nvim-dap-virtual-text
-        nvim-dap-virtual-text # todo: learn how to use this
+        {
+          # https://github.com/rcarriga/nvim-dap-ui
+          plugin = nvim-dap-ui;
+          type = "lua";
+          config = ''
+            require("dapui").setup()
+
+            local dap, dapui = require("dap"), require("dapui")
+            dap.listeners.after.event_initialized["dapui_config"] = function()
+              dapui.open()
+            end
+            dap.listeners.before.event_terminated["dapui_config"] = function()
+              dapui.close()
+            end
+            dap.listeners.before.event_exited["dapui_config"] = function()
+              dapui.close()
+            end
+          '';
+        }
+
+        {
+          # https://github.com/nvim-telescope/telescope-dap.nvim
+          plugin = telescope-dap-nvim;
+          type = "lua";
+          config = ''
+            require('telescope').load_extension('dap')
+          '';
+        }
+
+        {
+          # https://github.com/theHamsta/nvim-dap-virtual-text
+          plugin = nvim-dap-virtual-text;
+          type = "lua";
+          config = ''
+            require("nvim-dap-virtual-text").setup()
+          '';
+        }
 
         # https://github.com/rhysd/git-messenger.vim
         git-messenger-vim
@@ -156,40 +230,6 @@ in
           '';
         }
 
-        {
-          # https://github.com/nvim-telescope/telescope.nvim
-          plugin = telescope-nvim;
-          type = "lua";
-          config = ''
-            require('telescope').setup{
-              file_sorter =  require'telescope.sorters'.get_fzy_sorter,
-            }
-
-            require("which-key").register({
-              ["<leader>o"] = {
-                name = "+open",
-                b = { "<cmd>Telescope buffers<cr>", "Open Buffer" },
-                d = { "<cmd>Telescope file_browser<cr>", "Open File Browser" },
-                f = { "<cmd>Telescope find_files<cr>", "Open File" },
-                k = { "<cmd>Telescope keymaps<cr>", "Open Keymaps" },
-                m = { "<cmd>Telescope marks<cr>", "Open Marks" },
-                n = { "<cmd>enew<cr>", "New File" },
-                o = { "<cmd>Telescope git_files<cr>", "Open Git Files" },
-                p = { "<cmd>Telescope man_pages<cr>", "Open Man Pages" },
-                r = { "<cmd>Telescope oldfiles<cr>", "Open Recent File" },
-                t = { "<cmd>Telescope help_tags<cr>", "Open Tags" },
-              },
-              ["<leader>s"] = {
-                ["/"] = { "<cmd>Telescope current_buffer_fuzzy_find<cr>", "Search buffer"},
-                a     = { "<cmd>Telescope grep_string<cr>", "Search word under cursor"},
-                s     = { "<cmd>Telescope live_grep<cr>", "Search Live Grep"},
-              },
-              ["<leader>i"] = {
-                s = { "<cmd>Telescope symbols<cr>", "Insert symbol" },
-              }
-            })
-          '';
-        }
         {
           # https://github.com/nvim-telescope/telescope-fzy-native.nvim
           plugin = telescope-fzy-native-nvim;
