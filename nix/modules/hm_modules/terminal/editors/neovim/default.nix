@@ -159,31 +159,35 @@ in
         {
           # https://github.com/nvim-telescope/telescope.nvim
           plugin = telescope-nvim;
+          type = "lua";
           config = ''
-            lua <<CFG
-              require('telescope').setup{
-                file_sorter =  require'telescope.sorters'.get_fzy_sorter,
+            require('telescope').setup{
+              file_sorter =  require'telescope.sorters'.get_fzy_sorter,
+            }
+
+            require("which-key").register({
+              ["<leader>o"] = {
+                name = "+open",
+                b = { "<cmd>Telescope buffers<cr>", "Open Buffer" },
+                d = { "<cmd>Telescope file_browser<cr>", "Open File Browser" },
+                f = { "<cmd>Telescope find_files<cr>", "Open File" },
+                k = { "<cmd>Telescope keymaps<cr>", "Open Keymaps" },
+                m = { "<cmd>Telescope marks<cr>", "Open Marks" },
+                n = { "<cmd>enew<cr>", "New File" },
+                o = { "<cmd>Telescope git_files<cr>", "Open Git Files" },
+                p = { "<cmd>Telescope man_pages<cr>", "Open Man Pages" },
+                r = { "<cmd>Telescope oldfiles<cr>", "Open Recent File" },
+                t = { "<cmd>Telescope help_tags<cr>", "Open Tags" },
+              },
+              ["<leader>s"] = {
+                ["/"] = { "<cmd>Telescope current_buffer_fuzzy_find<cr>", "Search buffer"},
+                a     = { "<cmd>Telescope grep_string<cr>", "Search word under cursor"},
+                s     = { "<cmd>Telescope live_grep<cr>", "Search Live Grep"},
+              },
+              ["<leader>i"] = {
+                s = { "<cmd>Telescope symbols<cr>", "Insert symbol" },
               }
-            CFG
-            " Find files using Telescope command-line sugar.
-
-            " open / move to
-            nnoremap <leader>ob <cmd>Telescope buffers<cr>
-            nnoremap <leader>of <cmd>Telescope find_files<cr>
-            nnoremap <leader>od <cmd>Telescope file_browser<cr>
-            nnoremap <leader>ot <cmd>Telescope help_tags<cr>
-
-            nnoremap <leader>oo <cmd>Telescope git_files<cr>
-            nnoremap <leader>op <cmd>Telescope man_pages<cr>
-            nnoremap <leader>om <cmd>Telescope marks<cr>
-
-            " search
-            nnoremap <leader>ss <cmd>Telescope live_grep<cr>
-            nnoremap <leader>sa <cmd>Telescope grep_string<cr>
-            nnoremap <leader>s/ <cmd>Telescope current_buffer_fuzzy_find<cr>
-
-            " insert
-            nnoremap <leader>is <cmd>Telescope symbols<cr>
+            })
           '';
         }
         {
