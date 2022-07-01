@@ -64,7 +64,6 @@ in
               ["<leader>o"] = {
                 name = "+open",
                 b = { "<cmd>Telescope buffers<cr>", "Open Buffer" },
-                d = { "<cmd>Telescope file_browser<cr>", "Open File Browser" },
                 f = { "<cmd>Telescope find_files<cr>", "Open File" },
                 k = { "<cmd>Telescope keymaps<cr>", "Open Keymaps" },
                 m = { "<cmd>Telescope marks<cr>", "Open Marks" },
