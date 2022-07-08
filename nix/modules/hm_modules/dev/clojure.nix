@@ -53,6 +53,9 @@ in
           # https://github.com/clojure-vim/vim-jack-in
           { plugin = vim-jack-in; }
 
+          # cmp completion for conjure
+          { plugin = cmp-conjure; }
+
           # https://github.com/radenling/vim-dispatch-neovim
           # this is needed for vim-jackin
           { plugin = vim-dispatch; }

@@ -177,7 +177,6 @@ in
         { plugin = cmp-buffer; }
         { plugin = cmp-cmdline-history; }
         { plugin = cmp-cmdline; }
-        { plugin = cmp-conjure; }
         { plugin = cmp-dictionary; }
         { plugin = cmp-nvim-lsp; }
         { plugin = cmp-rg; }
