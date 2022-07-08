@@ -1,7 +1,7 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/staging-next";
-    #nixpkgs.url = "github:nixos/nixpkgs/master";
+    #nixpkgs.url = "github:nixos/nixpkgs/staging-next";
+    nixpkgs.url = "github:nixos/nixpkgs/master";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -201,7 +201,6 @@
                     # todo: overriding the git emaill like this is hacky.
                     #       Should pass in as a param somewhere else?
                     git.userEmail = "kyle@grata.com";
-                    clojure.enable = false; # babashka broken on m1
                   };
                   terminal = {
                     email.enable = false;
