@@ -314,6 +314,22 @@ in
           #
           export PS4='+ ''$(date "+%s.%N"): ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
 
+
+          assume_aws_role() {
+            local role_arn=$1
+            response=$(aws sts assume-role --role-arn "$role_arn" --role-session-name todo)
+            export AWS_ACCESS_KEY_ID=$(echo "$response" | jq -r '.Credentials.AccessKeyId')
+            export AWS_SECRET_ACCESS_KEY=$(echo "$response" | jq -r '.Credentials.SecretAccessKey')
+            export AWS_SESSION_TOKEN=$(echo "$response" | jq -r '.Credentials.SessionToken')
+          }
+
+          reset_aws_envvars() {
+            unset AWS_ACCESS_KEY_ID
+            unset AWS_REGION
+            unset AWS_SECRET_ACCESS_KEY
+            unset AWS_SESSION_TOKEN
+          }
+
           # completion
           # TODO: not sure of the implications here. Just copying verbatim from
           # https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-completion.html#cli-command-completion-linux
