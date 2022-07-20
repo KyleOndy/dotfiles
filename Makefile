@@ -41,7 +41,7 @@ deploy-all: ## Deploy all defined hosts
 .PHONY: build-darwin
 build-darwin: ## Build darwin system
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
-	$(REBUILD) build --flake .#$(HOSTNAME)
+	$(REBUILD) build --flake .#$(HOSTNAME) --keep-going
 
 .PHONY: switch-darwin
 switch-darwin: git-status build-darwin ## Switch darwin system to the defined state
