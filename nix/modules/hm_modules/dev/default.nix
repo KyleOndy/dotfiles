@@ -29,6 +29,7 @@ in
     home.packages = with pkgs; [
       act # run github actions locally
       age # better encryption
+      ansible # config management
       aspell # spell check
       aspellDicts.en
       aspellDicts.en-computers
