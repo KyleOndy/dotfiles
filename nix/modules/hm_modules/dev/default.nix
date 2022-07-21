@@ -55,6 +55,7 @@ in
       glances # system monitor
       go-jira # cli for interacting with Jira
       gron # make JSON greppable
+      htmlq # like jq, but for HTML
       htop # system diagnostics
       ispell # spell checking
       jq # easy json formatting
