@@ -27,6 +27,7 @@ in
       };
     };
     home.packages = with pkgs; [
+      act # run github actions locally
       age # better encryption
       aspell # spell check
       aspellDicts.en
