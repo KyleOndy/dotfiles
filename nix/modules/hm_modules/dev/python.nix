@@ -3,8 +3,12 @@ with lib;
 let
   cfg = config.hmFoundry.dev.python;
   python-packages = python-packages: with python-packages; [
-    debugpy # dap implementation
     virtualenv
+  ]
+  ++ optionals (!stdenv.isDarwin) [
+    # TOOD: packages below _should_ work on darwin, I just need to fix them and
+    #       contribute upstream.
+    debugpy # dap implementation
   ];
   system-python-with-packages = pkgs.python3.withPackages python-packages;
 in
