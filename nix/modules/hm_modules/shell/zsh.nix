@@ -24,11 +24,11 @@ in
         shellAliases = {
           ":e" = "$EDITOR";
           ":q" = "exit";
-          f = "foundry";
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
-          lsd = "ls -l $@ | grep '^d'";
+          f = "foundry";
           llr = "ll --color=auto -t | head";
+          lsd = "ls -l $@ | grep '^d'";
           src = "cd $HOME/src";
           tree = "tree --dirsfirst -ChFQ $@";
           tree1 = "tree -L 1 $@";
