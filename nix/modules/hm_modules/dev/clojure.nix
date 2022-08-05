@@ -26,6 +26,9 @@ in
 
       # https://github.com/clojure-lsp/clojure-lsp
       clojure-lsp
+
+      # https://github.com/babashka/neil#nix
+      neil # A CLI to add common aliases and features to deps.edn-based projects.
     ];
 
     programs = {
