@@ -40,6 +40,10 @@ in
           path = "home/kyle/lightroom";
           devices = [ "alpha" "omega" ];
         };
+        "synced_scratch" = {
+          path = "home/kyle/synced_scratch";
+          devices = [ "alpha" "omega" ];
+        };
       };
     };
   };
