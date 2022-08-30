@@ -121,7 +121,6 @@
                   syncthing = {
                     # TODO: better place for this
                     enable = true;
-                    #dataDir = /home/kyle/syncthing;
                   };
                 };
               nixpkgs.overlays = overlays;
@@ -153,7 +152,14 @@
               inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
               inputs.home-manager.nixosModules.home-manager
               {
-                systemFoundry.deployment_target.enable = true;
+                systemFoundry =
+                  {
+                    deployment_target.enable = true;
+                    syncthing = {
+                      # TODO: better place for this
+                      enable = true;
+                    };
+                  };
                 nixpkgs.overlays = overlays;
                 home-manager = {
                   useGlobalPkgs = true;
