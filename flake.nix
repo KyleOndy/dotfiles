@@ -118,6 +118,11 @@
               systemFoundry =
                 {
                   deployment_target.enable = true;
+                  syncthing = {
+                    # TODO: better place for this
+                    enable = true;
+                    #dataDir = /home/kyle/syncthing;
+                  };
                 };
               nixpkgs.overlays = overlays;
               home-manager = {
