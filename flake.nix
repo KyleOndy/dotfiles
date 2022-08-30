@@ -115,7 +115,10 @@
             inputs.sops-nix.nixosModules.sops
             inputs.home-manager.nixosModules.home-manager
             {
-              systemFoundry.deployment_target.enable = true;
+              systemFoundry =
+                {
+                  deployment_target.enable = true;
+                };
               nixpkgs.overlays = overlays;
               home-manager = {
                 useGlobalPkgs = true;
@@ -126,92 +129,96 @@
             }
           ];
         };
-        util_lan = inputs.nixpkgs.lib.nixosSystem {
-          system = "aarch64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/util_lan/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            { systemFoundry.deployment_target.enable = true; }
-          ];
-        };
-        tiger = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/tiger/configuration.nix
-            ./nix/users/kyle.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry.deployment_target.enable = true;
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules;
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
-          ];
-        };
-        dmz-rp = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/dmz-rp/configuration.nix
-            ./nix/users/kyle.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry.deployment_target.enable = true;
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules;
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
-          ];
-        };
-      };
-      darwinConfigurations.kyle-mbp = inputs.nix-darwin.lib.darwinSystem {
-        system = "aarch64-darwin";
-        modules = [
-          ./nix/hosts/kyle-mbp/configuration.nix
-          inputs.home-manager.darwinModule
+        util_lan = inputs.nixpkgs.lib.nixosSystem
           {
-            nixpkgs.overlays = overlays;
-            users.users.kyle.home = "/Users/kyle";
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              sharedModules = hmModules;
-              users.kyle = {
-                imports = [ ./nix/profiles/ssh.nix ];
+            system = "aarch64-linux";
+            modules = nixModules ++ [
+              ./nix/hosts/util_lan/configuration.nix
+              inputs.sops-nix.nixosModules.sops
+              { systemFoundry.deployment_target.enable = true; }
+            ];
+          };
+        tiger = inputs.nixpkgs.lib.nixosSystem
+          {
+            system = "x86_64-linux";
+            modules = nixModules ++ [
+              ./nix/hosts/tiger/configuration.nix
+              ./nix/users/kyle.nix
+              inputs.sops-nix.nixosModules.sops
+              inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
+              inputs.home-manager.nixosModules.home-manager
+              {
+                systemFoundry.deployment_target.enable = true;
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  sharedModules = hmModules;
+                  users.kyle = import ./nix/profiles/ssh.nix;
+                };
+              }
+            ];
+          };
+        dmz-rp = inputs.nixpkgs.lib.nixosSystem
+          {
+            system = "x86_64-linux";
+            modules = nixModules ++ [
+              ./nix/hosts/dmz-rp/configuration.nix
+              ./nix/users/kyle.nix
+              inputs.sops-nix.nixosModules.sops
+              inputs.home-manager.nixosModules.home-manager
+              {
+                systemFoundry.deployment_target.enable = true;
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  sharedModules = hmModules;
+                  users.kyle = import ./nix/profiles/ssh.nix;
+                };
+              }
+            ];
+          };
+      };
+      darwinConfigurations.kyle-mbp = inputs.nix-darwin.lib.darwinSystem
+        {
+          system = "aarch64-darwin";
+          modules = [
+            ./nix/hosts/kyle-mbp/configuration.nix
+            inputs.home-manager.darwinModule
+            {
+              nixpkgs.overlays = overlays;
+              users.users.kyle.home = "/Users/kyle";
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = {
+                  imports = [ ./nix/profiles/ssh.nix ];
 
-                # darwin overrides. This is ripe for refactoring. Declaring
-                # this in the flake so it is very clear what is happening.
-                services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
-                hmFoundry = inputs.nixpkgs.lib.mkForce {
-                  dev = {
-                    # todo: overriding the git emaill like this is hacky.
-                    #       Should pass in as a param somewhere else?
-                    git.userEmail = "kyle@grata.com";
-                  };
-                  terminal = {
-                    email.enable = false;
-                    dropbox.enable = false;
-                    gpg = {
-                      enable = true;
-                      service = false; # no service on darwin
+                  # darwin overrides. This is ripe for refactoring. Declaring
+                  # this in the flake so it is very clear what is happening.
+                  services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
+                  hmFoundry = inputs.nixpkgs.lib.mkForce {
+                    dev = {
+                      # todo: overriding the git emaill like this is hacky.
+                      #       Should pass in as a param somewhere else?
+                      git.userEmail = "kyle@grata.com";
+                    };
+                    terminal = {
+                      email.enable = false;
+                      dropbox.enable = false;
+                      gpg = {
+                        enable = true;
+                        service = false; # no service on darwin
+                      };
                     };
                   };
                 };
               };
-            };
-          }
-        ];
-      };
+            }
+          ];
+        };
       kyle-mbp = self.darwinConfigurations.kyle-mbp.system;
     };
 }
