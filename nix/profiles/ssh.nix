@@ -5,6 +5,65 @@
       enable = true;
     };
     lesspipe.enable = true;
+    ssh = {
+      enable = true;
+      extraConfig = ''
+        IdentitiesOnly yes
+      '';
+
+      matchBlocks = {
+        "util" = {
+          hostname = "10.25.89.4";
+          user = "pi";
+        };
+        "w" = {
+          hostname = "10.25.89.6";
+          user = "root";
+        };
+        "w1" = {
+          hostname = "w1.dmz.509ely.com";
+          user = "root";
+        };
+        "w2" = {
+          hostname = "w2.dmz.509ely.com";
+          user = "root";
+        };
+        "w3" = {
+          hostname = "w3.dmz.509ely.com";
+          user = "root";
+        };
+        "m1" = {
+          hostname = "m1.dmz.509ely.com";
+          user = "root";
+        };
+        "m2" = {
+          hostname = "m2.dmz.509ely.com";
+          user = "root";
+        };
+        "m3" = {
+          hostname = "m3.dmz.509ely.com";
+          user = "root";
+        };
+        "eu.nixbuild.net beta.nixbuild.net" = {
+          extraOptions = {
+            PubkeyAcceptedKeyTypes = "ssh-ed25519";
+          };
+          identityFile = "~/.ssh/nixbuild";
+        };
+        "*.compute-1.amazonaws.com" = {
+          extraOptions = {
+            UserKnownHostsFile = "/dev/null";
+            StrictHostKeyChecking = "no";
+          };
+        };
+        "tiger tiger.dmz.509ely.com" = {
+          # 10.25.89.5
+          hostname = "tiger.dmz.509ely.com";
+          user = "svc.deploy";
+          port = 2332;
+        };
+      };
+    };
   };
 
   services = {
