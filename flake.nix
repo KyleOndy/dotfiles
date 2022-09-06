@@ -5,10 +5,7 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nur = {
-      url = "github:nix-community/NUR";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    nur.url = github:nix-community/NUR;
     flake-compat = {
       url = "github:edolstra/flake-compat";
       flake = false;
