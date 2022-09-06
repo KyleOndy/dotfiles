@@ -44,6 +44,10 @@ build-darwin: ## Build darwin system
 	$(REBUILD) build --flake .#$(HOSTNAME) --keep-going
 	nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result)
 
+.PHONY: diff-system
+diff-system: ## Print system diff without color
+	@nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result) |  sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
+
 .PHONY: switch-darwin
 switch-darwin: git-status build-darwin ## Switch darwin system to the defined state
 	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
