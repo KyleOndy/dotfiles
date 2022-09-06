@@ -41,11 +41,26 @@ in
         setw -g monitor-activity on
         set -g visual-activity on
 
-        # better tmux/vim navigation
-        bind -n M-h run "(tmux display-message -p '#{pane_current_command}' | grep -iq vim && tmux send-keys M-h) || tmux select-pane -L"
-        bind -n M-j run "(tmux display-message -p '#{pane_current_command}' | grep -iq vim && tmux send-keys M-j) || tmux select-pane -D"
-        bind -n M-k run "(tmux display-message -p '#{pane_current_command}' | grep -iq vim && tmux send-keys M-k) || tmux select-pane -U"
-        bind -n M-l run "(tmux display-message -p '#{pane_current_command}' | grep -iq vim && tmux send-keys M-l) || tmux select-pane -R"
+        # better tmux/vim navigation with smart pane switching with awareness
+        # of Vim splits.
+        # See: https://github.com/christoomey/vim-tmux-navigator
+        is_vim="ps -o state= -o comm= -t '#{pane_tty}' \
+            | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|n?vim?x?)(diff)?$'"
+        bind-key -n 'M-h' if-shell "$is_vim" 'send-keys M-h'  'select-pane -L'
+        bind-key -n 'M-j' if-shell "$is_vim" 'send-keys M-j'  'select-pane -D'
+        bind-key -n 'M-k' if-shell "$is_vim" 'send-keys M-k'  'select-pane -U'
+        bind-key -n 'M-l' if-shell "$is_vim" 'send-keys M-l'  'select-pane -R'
+        tmux_version='$(tmux -V | sed -En "s/^tmux ([0-9]+(.[0-9]+)?).*/\1/p")'
+        if-shell -b '[ "$(echo "$tmux_version < 3.0" | bc)" = 1 ]' \
+            "bind-key -n 'C-\\' if-shell \"$is_vim\" 'send-keys C-\\'  'select-pane -l'"
+        if-shell -b '[ "$(echo "$tmux_version >= 3.0" | bc)" = 1 ]' \
+            "bind-key -n 'C-\\' if-shell \"$is_vim\" 'send-keys C-\\\\'  'select-pane -l'"
+
+        bind-key -T copy-mode-vi 'M-h' select-pane -L
+        bind-key -T copy-mode-vi 'M-j' select-pane -D
+        bind-key -T copy-mode-vi 'M-k' select-pane -U
+        bind-key -T copy-mode-vi 'M-l' select-pane -R
+        bind-key -T copy-mode-vi 'M-\' select-pane -l
 
         # open a new split or window in the current directory
         bind '"' split-window -c "#{pane_current_path}"
