@@ -46,6 +46,17 @@
           error_log /var/log/nginx/git.error error;
         '';
       };
+      "nix-cache.apps.ondy.org" = {
+        enableACME = true;
+        forceSSL = true;
+        locations."/" = {
+          proxyPass = "https://nix-cache.apps.dmz.509ely.com";
+        };
+        extraConfig = ''
+          access_log /var/log/nginx/nix-cache.access;
+          error_log /var/log/nginx/nix-cache.error error;
+        '';
+      };
     };
   };
 }
