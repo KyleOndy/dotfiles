@@ -109,7 +109,7 @@
       # this allows the rest of the nix tooling to use the same nixpkgs that I
       # have set in the flake.
       NIX_PATH = "nixpkgs=${pkgs.path}";
-      MANPAGER = "${pkgs.neovim}/bin/nvim +Man! -- ";
+      MANPAGER = "nvim +Man! -- ";
     };
     stateVersion = "18.09";
   };
