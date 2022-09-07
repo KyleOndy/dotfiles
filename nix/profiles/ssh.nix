@@ -62,6 +62,9 @@
           user = "svc.deploy";
           port = 2332;
         };
+        "dino" = {
+          user = "svc.deploy";
+        };
       };
     };
   };

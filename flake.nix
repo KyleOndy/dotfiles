@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
+    nixos-hardware.url = github:NixOS/nixos-hardware/master;
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -102,6 +103,43 @@
           modules = nixModules ++ [
             ./nix/hosts/alpha/configuration.nix
             ./nix/hosts/alpha/hardware-configuration.nix
+
+            ./nix/users/kyle.nix # todo: some service user
+
+            # todo: refactor these into something else
+            ./nix/hosts/_includes/common.nix
+            ./nix/hosts/_includes/docker.nix
+            ./nix/hosts/_includes/kvm.nix
+            ./nix/hosts/_includes/laptop.nix
+            ./nix/hosts/_includes/wifi_networks.nix
+
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry =
+                {
+                  deployment_target.enable = true;
+                  syncthing = {
+                    # TODO: better place for this
+                    enable = true;
+                  };
+                };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/full.nix;
+              };
+            }
+          ];
+        };
+        dino = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            inputs.nixos-hardware.nixosModules.framework
+            ./nix/hosts/dino/configuration.nix
+            ./nix/hosts/dino/hardware-configuration.nix
 
             ./nix/users/kyle.nix # todo: some service user
 

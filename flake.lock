@@ -110,6 +110,22 @@
         "type": "github"
       }
     },
+    "nixos-hardware": {
+      "locked": {
+        "lastModified": 1662458987,
+        "narHash": "sha256-hcDwRlsXZMp2Er3vQk1JEUZWhBPLVC9vTT4xHvhpcE0=",
+        "owner": "NixOS",
+        "repo": "nixos-hardware",
+        "rev": "504b32caf83986b7e6b9c79c1c13008f83290f19",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "master",
+        "repo": "nixos-hardware",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1655567057,
@@ -235,6 +251,7 @@
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
         "nix-netboot-serve": "nix-netboot-serve",
+        "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_3",
         "nur": "nur",
         "pre-commit-hooks": "pre-commit-hooks",
