@@ -40,15 +40,15 @@ for host in "$@"; do
 
   result_closure=$(readlink -f "$result_path")
   _start "Copying closures to binary_cache"
-  nix-copy-closure --to "tiger.dmz.509ely.com" -s "$result_closure"
+  nix-copy-closure --to "tiger.dmz.509ely.com" -s "$result_closure" || true
   _finish "Copying closures to binary_cache"
 
   _start "Copying closures to $host"
-  nix-copy-closure --to "$host" -s "$result_closure"
+  nix-copy-closure --to "$host" -s "$result_closure" || true
   _finish "Copying closures to $host"
 
   if [ -z "$BOOTSTRAP" ]; then
-    ssh "$host" -- nix store diff-closures /var/run/current-system "$result_closure"
+    ssh "$host" -- nix store diff-closures /var/run/current-system "$result_closure" || true
   fi
 
   if [[ "$deploy" == "true" ]]; then
