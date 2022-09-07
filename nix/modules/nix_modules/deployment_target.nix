@@ -66,7 +66,7 @@ in
           "https://nix-cache.apps.dmz.509ely.com/ https://cache.nixos.org/"
         ];
         trusted-public-keys = [
-          "nix-cache.apps.dmz.509ely.com:Bzb2HeKGk7TCQ67EIHjyuNx+XRT6s+H0CZWF002T95g="
+          "nix-cache.apps.ondy.org:/5iSJmTNKqfexRJluuGN81/eda003lqunAWs8DomDG4="
         ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
