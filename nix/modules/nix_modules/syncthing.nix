@@ -28,7 +28,12 @@ in
       folders = {
         "testdir" = {
           path = "home/kyle/syncthing/test_sync_dir";
-          devices = [ "alpha" "omega" ];
+          devices = [
+            "alpha"
+            "omega"
+            "sharptooth"
+            "tiger"
+          ];
           #versioning = {
           #  type = "staggered";
           #  params = {
@@ -39,11 +44,20 @@ in
         };
         "lightroom_catalog" = {
           path = "home/kyle/lightroom";
-          devices = [ "alpha" "omega" ];
+          devices = [
+            "omega"
+            "sharptooth"
+            "tiger"
+          ];
         };
         "synced_scratch" = {
           path = "home/kyle/synced_scratch";
-          devices = [ "alpha" "omega" ];
+          devices = [
+            "alpha"
+            "omega"
+            "sharptooth"
+            "tiger"
+          ];
         };
       };
     };
