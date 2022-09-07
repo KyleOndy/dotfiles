@@ -75,13 +75,12 @@ in
         dates = "weekly";
         options = "--delete-older-than 30d";
       };
-      # Free up to 1GiB whenever there is less than 100MiB left.
       extraOptions = ''
         builders-use-substitutes = true
         experimental-features = nix-command flakes
-        min-free = ${toString (100 * 1024 * 1024)}
-        max-free = ${toString (1024 * 1024 * 1024)}
-        # these two options prevent nix-shells' from being GCed.
+        min-free = ${toString (1 * 1024 * 1024 * 1024)}
+        max-free = ${toString (25 * 1024 * 1024 * 1024)}
+        # these two options prevent nix-shells from being GCed.
         keep-derivations = true
         keep-outputs = true
 
