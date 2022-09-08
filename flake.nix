@@ -155,15 +155,14 @@
             inputs.sops-nix.nixosModules.sops
             inputs.home-manager.nixosModules.home-manager
             {
-              systemFoundry =
-                {
-                  users.kyle.enable = true;
-                  deployment_target.enable = true;
-                  syncthing = {
-                    # TODO: better place for this
-                    enable = true;
-                  };
+              systemFoundry = {
+                users.kyle.enable = true;
+                deployment_target.enable = true;
+                syncthing = {
+                  # TODO: better place for this
+                  enable = true;
                 };
+              };
               nixpkgs.overlays = overlays;
               home-manager = {
                 useGlobalPkgs = true;
