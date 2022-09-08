@@ -27,22 +27,6 @@ in
         "sharptooth" = { id = "Y7N4CUM-QTVMTPL-KB4M4WC-7ZCVHGQ-REOJ7A4-ZHFPRMK-HLTUUQW-HPCZQQR"; };
       };
       folders = {
-        "testdir" = {
-          path = "home/kyle/syncthing/test_sync_dir";
-          devices = [
-            "alpha"
-            "omega"
-            "sharptooth"
-            "tiger"
-          ];
-          #versioning = {
-          #  type = "staggered";
-          #  params = {
-          #    cleanInterval = "3600"; # 1 hour
-          #    maxAge = "15768000"; # 180 days
-          #  };
-          #};
-        };
         "lightroom_catalog" = {
           path = "home/kyle/lightroom";
           devices = [
