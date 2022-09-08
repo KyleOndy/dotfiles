@@ -8,18 +8,25 @@
     };
     nur.url = github:nix-community/NUR;
     flake-compat = {
+      # TODO: can this be removed?
       url = "github:edolstra/flake-compat";
       flake = false;
     };
     pre-commit-hooks = {
       url = "github:cachix/pre-commit-hooks.nix";
+
+      # TODO: still need this?
       inputs.nixpkgs.follows = "nixpkgs";
+
+      # TODO: is this still the case?
       inputs.flake-utils.follows = "flake-utils"; # upstream is broken with aarch64-darwin
     };
     nix-darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # TODO: need this still?
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
     nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
@@ -27,14 +34,11 @@
   outputs = { self, ... }@inputs:
     let
       # import all the overlays that extend packages via nix or home-manager.
-      # Overlays are a nix file within the `overlay` folder or a sub folder in
-      # `overlay` that contains a `default.nix`.
       overlays = [
         inputs.nur.overlay
         (import ./nix/pkgs)
         (import ./nix/overlays/st)
       ];
-
 
       # I am sure this is ugly to experienced nix users, and might break in all
       # kinds of unexpected ways. This was my first actual function written in

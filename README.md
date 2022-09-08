@@ -25,6 +25,44 @@ I use [terraform] to manage any infrastructure within [AWS].
 [terraform]: https://www.terraform.io/
 [aws]: https://aws.amazon.com/
 
+## Structure
+
+My use cases:
+
+Multiple node types
+
+- laptop
+- server
+- VM
+
+Multiple architectures
+
+- x86_64
+- aarch64-darwin
+- ARM
+
+Multiple roles
+
+- personal
+- work
+
+Trying to not nest configuration files deeply. Ex, `flake.nix` imports
+`foo.nix` which import `bar.nix` which uses `bazz.nix`. Try to keep everything
+two layers deep. `flake.nix` can reference a file, but that file should not
+reference any deeper.
+
+Nodes have
+
+- system configuration irrespective of a user
+- zero or more users, with their own config
+- the same user on node1 and node2 may have different configurations
+
+Users can have "roles".
+
+- Gaming
+- Dev
+- Document creation
+
 ## Goals
 
 ### Complete configuration

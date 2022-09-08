@@ -6,6 +6,7 @@
     };
     lesspipe.enable = true;
     ssh = {
+      # TODO: move to SSH module
       enable = true;
       extraConfig = ''
         IdentitiesOnly yes
