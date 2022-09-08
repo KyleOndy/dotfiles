@@ -186,7 +186,14 @@
             modules = nixModules ++ [
               ./nix/hosts/util_lan/configuration.nix
               inputs.sops-nix.nixosModules.sops
-              { systemFoundry.deployment_target.enable = true; }
+              {
+                systemFoundry.deployment_target.enable = true;
+                # TMP
+                nix.extraOptions = ''
+                  experimental-features = nix-command flakes
+                '';
+                # END TMP
+              }
             ];
           };
         tiger = inputs.nixpkgs.lib.nixosSystem
