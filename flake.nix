@@ -163,6 +163,13 @@
                   enable = true;
                 };
               };
+              # TODO: overwriting for testing pourposes
+              services = {
+                xserver.displayManager.sddm.enable = true;
+                xserver.desktopManager.plasma5.enable = true;
+                power-profiles-daemon.enable = false; # am using tlp
+              };
+
               nixpkgs.overlays = overlays;
               home-manager = {
                 useGlobalPkgs = true;
