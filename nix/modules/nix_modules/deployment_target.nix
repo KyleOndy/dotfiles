@@ -9,25 +9,22 @@ in
       made about the target node.
 
       This is also a kind of catch all when I want to unilaterally deploy
-      something out to all managed nodes.
+      something out to all managed nodes. I try to keep this as minimal as I
+      can, just enough to get connectivity to deploy the rest of the
+      configuration. Due to this, some of the configuration in here will de
+      duplicated by other modules.
+
+      This only gets applied to NixOS nodes.
     '';
   };
 
   config = mkIf cfg.enable {
 
     environment.systemPackages = with pkgs; [
-      bat # better cat
-      dnsutils # for dig
-      fd # better find
       git # working this repos locally
-      glances # general monitoring
-      htop # lighter weight general monitoring
-      mosh # persistent ssh like shell
       neovim # file editing
-      ripgrep # finding files
       rsync # syncing files
     ];
-
 
     users = {
       defaultUserShell = pkgs.bash_5;
@@ -48,12 +45,10 @@ in
         enable = true;
         permitRootLogin = "no";
       };
+      # TODO: do I still need RuntimeDirectorySize?
       logind.extraConfig = ''
         RuntimeDirectorySize=8G
       '';
-    };
-    programs = {
-      systemtap.enable = true;
     };
 
     nixpkgs.config.allowUnfree = true;
@@ -70,36 +65,42 @@ in
         ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
-      gc = {
-        automatic = true;
-        dates = "weekly";
-        options = "--delete-older-than 30d";
-      };
-      extraOptions = ''
-        builders-use-substitutes = true
-        experimental-features = nix-command flakes
-        min-free = ${toString (1 * 1024 * 1024 * 1024)}
-        max-free = ${toString (25 * 1024 * 1024 * 1024)}
-        # these two options prevent nix-shells from being GCed.
-        keep-derivations = true
-        keep-outputs = true
+    };
+    security.sudo.wheelNeedsPassword = false;
 
-      '';
-      distributedBuilds = true;
-      buildMachines = [
-        {
-          hostName = "tiger.dmz.509ely.com";
-          sshUser = "svc.deploy";
-          systems = [ "x86_64-linux" "aarch64-linux" ];
-          maxJobs = 8;
-          speedFactor = 10; # prefer this builder
-          supportedFeatures = [ "benchmark" "big-parallel" ];
-        }
-      ];
+    # this file path _feels_ suspect, but works
+    sops.defaultSopsFile = ./../../secrets/secrets.yaml;
+
+    networking.firewall.allowedTCPPorts = [
+      # TODO: I don't think we need these ports open
+      # 80 # http
+      # 443 # http
+    ];
+    networking.firewall.enable = false; # TODO: why is this not true?
+    #services.nginx = {
+    #  enable = true;
+    #  # todo: return a more bare page
+    #  virtualHosts."default".default = true;
+    #  # todo: can I pass in the full domain name here?
+    #  # todo: add basic auth
+    #};
+    # todo: add in old stuff
+    #systemFoundry.nginxReverseProxy = {
+    #  enable = true;
+    #  domainName = "${config.networking.hostName}.*";
+    #  proxyPass = "http://127.0.0.1:9002/metrics";
+    #};
+
+    #######################################################################
+    # TODO: refactor out below configuration into more generic modules
+    #######################################################################
+    programs = {
+      # TODO: why?
+      systemtap.enable = true;
     };
     security = {
-      sudo.wheelNeedsPassword = false;
       acme = {
+        # TODO: acme being here feels very wrong
         # so I do not need to set it in every module
         acceptTerms = true;
         defaults = {
@@ -117,42 +118,5 @@ in
     };
     # /fix
     users.groups.acme = { };
-    sops = {
-      # this file path _feels_ suspect, but works
-      defaultSopsFile = ./../../secrets/secrets.yaml;
-    };
-    services = {
-      # all nodes should export basic metrics
-      prometheus = {
-        # todo: add auth
-        exporters = {
-          node = {
-            enable = true;
-            enabledCollectors = [ "systemd" ];
-            listenAddress = "127.0.0.1";
-            port = 9002;
-            openFirewall = false;
-          };
-        };
-      };
-    };
-    networking.firewall.allowedTCPPorts = [
-      80 # http
-      443 # http
-    ];
-    networking.firewall.enable = false;
-    services.nginx = {
-      enable = true;
-      # todo: return a more bare page
-      virtualHosts."default".default = true;
-      # todo: can I pass in the full domain name here?
-      # todo: add basic auth
-    };
-    # todo: add in old stuff
-    #systemFoundry.nginxReverseProxy = {
-    #  enable = true;
-    #  domainName = "${config.networking.hostName}.*";
-    #  proxyPass = "http://127.0.0.1:9002/metrics";
-    #};
   };
 }

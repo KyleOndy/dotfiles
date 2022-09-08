@@ -94,4 +94,45 @@
       systemtap
     ];
   };
+  nix = {
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 35d";
+    };
+    settings = {
+      auto-optimise-store = true;
+      substituters = [
+        "https://nix-cache.apps.dmz.509ely.com/"
+        "https://cache.nixos.org/"
+      ];
+      trusted-public-keys = [
+        "nix-cache.apps.ondy.org:/5iSJmTNKqfexRJluuGN81/eda003lqunAWs8DomDG4="
+        # older keys below?
+        "nixcache.apps.lan.509ely.com:wTIDrO+kLXss4B/ghnFJxe+jmhGuo4P6h/ciFiTYceuVqihwl0/DRypxCkKUI3UKVjjyLyVs3MYfYb3oTT0ICw=="
+        "nixcache.apps.lan.509ely.com:DzQXpLrskbsiuVIHneS//gegRTCnpSzRU77ILeOJfhre5FipK6P2q+EmPk0vpBwWO3j8lBEiC8J2O38bBTUxDA=="
+      ];
+    };
+    buildMachines = [
+      {
+        hostName = "tiger.dmz.509ely.com";
+        sshUser = "svc.deploy";
+        systems = [ "x86_64-linux" "aarch64-linux" ];
+        maxJobs = 8;
+        speedFactor = 10; # prefer this builder
+        supportedFeatures = [ "benchmark" "big-parallel" ];
+      }
+    ];
+    extraOptions = ''
+      builders-use-substitutes = true
+      experimental-features = nix-command flakes
+      min-free = ${toString (1 * 1024 * 1024 * 1024)}
+      max-free = ${toString (25 * 1024 * 1024 * 1024)}
+      # these two options prevent nix-shells from being GCed.
+      keep-derivations = true
+      keep-outputs = true
+
+    '';
+    distributedBuilds = true;
+  };
 }
