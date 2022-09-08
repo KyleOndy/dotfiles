@@ -6,4 +6,7 @@
     # Enable PowerTop auto-tuning
     powertop.enable = true;
   };
+  services.tlp = {
+    enable = true;
+  };
 }
