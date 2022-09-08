@@ -145,8 +145,6 @@
             ./nix/hosts/dino/configuration.nix
             ./nix/hosts/dino/hardware-configuration.nix
 
-            ./nix/users/kyle.nix # todo: some service user
-
             # todo: refactor these into something else
             ./nix/hosts/_includes/common.nix
             ./nix/hosts/_includes/docker.nix
@@ -159,6 +157,7 @@
             {
               systemFoundry =
                 {
+                  users.kyle.enable = true;
                   deployment_target.enable = true;
                   syncthing = {
                     # TODO: better place for this
