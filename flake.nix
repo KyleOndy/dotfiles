@@ -166,7 +166,10 @@
               # TODO: overwriting for testing pourposes
               services = {
                 xserver = {
-                  displayManager.sddm.enable = true;
+                  displayManager = {
+                    sddm.enable = true;
+                    defaultSession = "plasmawayland";
+                  };
                   desktopManager.plasma5.enable = true;
                 };
                 power-profiles-daemon.enable = false; # am using tlp
