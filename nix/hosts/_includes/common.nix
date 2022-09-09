@@ -31,7 +31,7 @@
     xserver = {
       enable = true;
       xkbOptions = "ctrl:nocaps"; # make caps lock a control key
-      displayManager = { defaultSession = "none+i3"; };
+      #displayManager = { defaultSession = "none+i3"; };
       desktopManager = { xterm.enable = false; };
     };
     udev = {
