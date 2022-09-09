@@ -180,7 +180,13 @@
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = hmModules;
-                users.kyle = import ./nix/profiles/full.nix;
+                users.kyle = {
+                  imports = [ ./nix/profiles/full.nix ];
+
+                  hmFoundry = {
+                    desktop.browsers.qutebrowser.enable = true;
+                  };
+                };
               };
             }
           ];
