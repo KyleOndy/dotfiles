@@ -186,7 +186,28 @@
                   hmFoundry = {
                     desktop.browsers.qutebrowser.enable = true;
                   };
+
+
+                  programs = {
+                    foot = {
+                      enable = true;
+                      settings = {
+                        main = {
+                          font = "Hack:size=7";
+                          dpi-aware = "yes";
+                        };
+                        cursor = {
+                          blink = "yes";
+                        };
+                        mouse = {
+                          hide-when-typing = "yes";
+                        };
+                      };
+                    };
+                  };
                 };
+
+
               };
             }
           ];
