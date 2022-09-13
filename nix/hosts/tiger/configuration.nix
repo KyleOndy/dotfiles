@@ -99,6 +99,11 @@ in
       fsType = "zfs";
       neededForBoot = false;
     };
+    "/mnt/photos" = {
+      device = "storage/photos";
+      fsType = "zfs";
+      neededForBoot = false;
+    };
   };
 
   # media managment
