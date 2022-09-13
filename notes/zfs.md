@@ -63,3 +63,6 @@ usage of datasets:
 ```
 
 [svc.deploy@tiger:/mnt/scratch-big/unraid-media]$ rsync -arvhzP svc.deploy@util.lan.509ely.com:/mnt/scratch/unrad_copy/media/ .
+
+[I] λ sudo !!
+sudo zfs create -o mountpoint=legacy storage/photos
