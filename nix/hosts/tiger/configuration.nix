@@ -39,6 +39,20 @@ in
     openssh.ports = [ 2332 ];
     samba = {
       enable = true;
+      securityType = "user";
+      extraConfig = ''
+        workgroup = WORKGROUP
+        server string = tiger
+        netbios name = tiger
+        security = user
+        #use sendfile = yes
+        #max protocol = smb2
+        # note: localhost is the ipv6 localhost ::1
+        hosts allow = 10.24.89. 127.0.0.1 localhost
+        hosts deny = 0.0.0.0/0
+        guest account = nobody
+        #map to guest = bad user
+      '';
       openFirewall = true;
       shares = {
         backups = {
@@ -46,14 +60,20 @@ in
           browseable = "yes";
           "read only" = "no";
           "guest ok" = "no";
-          "valid_users" = "svc.backup";
           "create mask" = "0644";
           "directory mask" = "0755";
-          # todo: force sounds bad
-          "force user" = "svc.backup";
-          "force group" = "svc.backup";
-          #"force user" = "svc.backup";
-          #"write list" = "
+          "force user" = "kyle";
+          #"force group" = "groupname";
+        };
+        photos = {
+          path = "/mnt/photos";
+          browseable = "yes";
+          "read only" = "no";
+          "guest ok" = "no";
+          "create mask" = "0644";
+          "directory mask" = "0755";
+          "force user" = "kyle";
+          #"force group" = "groupname";
         };
       };
     };
