@@ -88,6 +88,10 @@ update/nix-darwin: ## Update just the nur source
 update/pre-commit-hooks: ## Update just the pre-commit-hooks source
 	nix flake lock --update-input pre-commit-hooks
 
+.PHONY: update/nixos-hardware
+update/nixos-hardware: ## Update just the pre-commit-hooks source
+	nix flake lock --update-input nixos-hardware
+
 .PHONY: check
 check: ## Run nix checks
 	nix flake check
