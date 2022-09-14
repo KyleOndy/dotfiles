@@ -12,6 +12,7 @@
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
   services.fwupd.enable = true;
+  hardware.video.hidpi.enable = true;
 
   networking.hostName = "dino"; # Define your hostname.
   networking.wireless.enable = true;
