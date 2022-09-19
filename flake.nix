@@ -281,20 +281,20 @@
             ];
           };
       };
-      darwinConfigurations.kyle-mbp = inputs.nix-darwin.lib.darwinSystem
+      darwinConfigurations.DCP40KQJX6 = inputs.nix-darwin.lib.darwinSystem
         {
           system = "aarch64-darwin";
           modules = [
-            ./nix/hosts/kyle-mbp/configuration.nix
+            ./nix/hosts/DCP40KQJX6/configuration.nix
             inputs.home-manager.darwinModule
             {
               nixpkgs.overlays = overlays;
-              users.users.kyle.home = "/Users/kyle";
+              users.users."kyle.ondy".home = "/Users/kyle.ondy"; # TODO: need this?
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
                 sharedModules = hmModules;
-                users.kyle = {
+                users."kyle.ondy" = {
                   imports = [ ./nix/profiles/ssh.nix ];
 
                   # darwin overrides. This is ripe for refactoring. Declaring
@@ -304,7 +304,7 @@
                     dev = {
                       # todo: overriding the git emaill like this is hacky.
                       #       Should pass in as a param somewhere else?
-                      git.userEmail = "kyle@grata.com";
+                      git.userEmail = "kyle.ondy@sentinelone.com";
                     };
                     terminal = {
                       email.enable = false;
@@ -319,6 +319,6 @@
             }
           ];
         };
-      kyle-mbp = self.darwinConfigurations.kyle-mbp.system;
+      DCP40KQJX6 = self.darwinConfigurations.DCP40KQJX6.system;
     };
 }
