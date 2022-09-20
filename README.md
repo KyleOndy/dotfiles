@@ -7,6 +7,20 @@ This repository is always in some form of evolution. I do try to keep `main` in
 a working state for people who happen to stumble upon this repo. I make no
 promises however, even to myself.
 
+## Setup
+
+```
+# install nix
+git clone https://github.com/kyleondy/dotfiles.git ~/src/dotfiles
+cd ~/src/dotfiles
+nix-shell -p direnv
+direnv allow
+make deploy
+
+# post setup
+git clone git@github.com:/kyleondy/password-store.git ~/.password-store
+```
+
 ## Tooling
 
 I use [NixOS] as my operating system whenever possible. To manage my user
