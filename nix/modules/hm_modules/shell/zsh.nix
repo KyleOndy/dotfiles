@@ -418,6 +418,20 @@ in
           autoload -Uz compinit && compinit
           complete -C "${pkgs.awscli2}/bin/aws_completer" aws
           source <(${pkgs.kubectl}/bin/kubectl completion zsh)
+
+          # Yucky homebrew. Don't like mixing it with nix, but its work stuff,
+          # so can't push back too hard.
+
+          _include () {
+            [[ -f "$1" ]] && source "$1"
+          }
+
+          # TODO: rip out all evals
+          if [[ -f /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+          fi
+
+          _include /opt/homebrew/opt/asdf/libexec/asdf.sh
         '';
       };
       fzf = {
