@@ -173,6 +173,7 @@
                   desktopManager.plasma5.enable = true;
                 };
                 power-profiles-daemon.enable = false; # am using tlp
+                mullvad-vpn.enable = true;
               };
 
               nixpkgs.overlays = overlays;
