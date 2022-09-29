@@ -21,12 +21,14 @@
   nix = {
     package = pkgs.nixUnstable;
     nixPath = [ "nixpkgs=${pkgs.path}" ];
-    trustedUsers = [ "kyle.ondy" ];
     extraOptions = ''
       builders-use-substitutes = true
       experimental-features = nix-command flakes
       build-users-group = nixbld # todo: this was in nix.conf by default
     '';
+    settings = {
+      trusted-users = [ "kyle.ondy" ];
+    };
   };
   nixpkgs = {
     config = {

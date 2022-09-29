@@ -20,10 +20,12 @@
   services.openssh.enable = true;
   nix = {
     package = pkgs.nixStable;
-    trustedUsers = [ "root" "@wheel" ]; # todo: security issue?
     extraOptions = ''
       experimental-features = nix-command flakes
     '';
+    settings = {
+      trusted-users = [ "root" "@wheel" ]; # todo: security issue?
+    };
   };
   security.sudo.wheelNeedsPassword = false;
 }
