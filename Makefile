@@ -1,13 +1,20 @@
 UNAME := $(shell uname)
 HOSTNAME=$(shell hostname -s)
+ALLOW_BROKEN=false
+
+# I don't like to do this, but sometimes I just need to move ahead
+ifeq ($(ALLOW_BROKEN), true)
+	export NIXPKGS_ALLOW_BROKEN=1
+	IMPURE=--impure
+endif
 
 # this is my naive approach to supporting multiple systems.
 ifeq ($(UNAME), Linux)
-	REBUILD := nixos-rebuild
-	SWITCH := sudo $(REBUILD)
+	REBUILD := nixos-rebuild $(IMPURE)
+	SWITCH := sudo $(REBUILD) $(IMPURE)
 else ifeq ($(UNAME), Darwin)
-	REBUILD := darwin-rebuild
-	SWITCH := $(REBUILD)
+	REBUILD := darwin-rebuild $(IMPURE)
+	SWITCH := $(REBUILD) $(IMPURE)
 else
 	# todo: this will need to be addressed when I try to extend this repository
 	#       to a WSL, or any machine that isn't NixOS or nix-darwin.
