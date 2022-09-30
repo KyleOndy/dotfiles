@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -e
+
+_check() {
+  local msg=$1
+  local app=$2
+
+  echo "$msg"
+  if [[ -n "$app" ]]; then
+    "$app"
+  fi
+
+  read -n 1 -s -r -p "Press any key to confirm"
+  echo
+}
+
+_check "Is zscaler connected?"
+_check "Is camera on and set to record?"
+_check "Is camera connected as usb3?" "/Applications/Camera Hub.app/Contents/MacOS/Camera Hub"
