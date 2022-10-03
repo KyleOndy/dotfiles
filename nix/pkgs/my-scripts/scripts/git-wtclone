@@ -3,13 +3,39 @@ set -Ee
 
 # clone and setups a repo for use with my git worktree workflow
 
-# todo: check the git is new enough
-# tood: document _why_ I do this
-# todo: allow passing second argument to set directory name
+get_default_branch() {
+  local url=$1
+  # asusmptions abound!
+  head_commit=$(git ls-remote "$url" HEAD | cut -f1)
+  branches_on_head=$(git ls-remote "$url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
+  branch_count=$(echo "$branches_on_head" | wc -l)
 
-project_name=$(echo "$1" | rev | cut -d'.' -f2 | cut -d '/' -f1 | rev)
-echo "$project_name"
+  default_branch="main"
+  if [[ $branch_count -eq 0 ]]; then
+    echo "Uh oh! Can't determined default branch"
+    exit 1
+  elif [[ $branch_count -eq 1 ]]; then
+    default_branch=$branches_on_head
+  else
+    if echo "$branches_on_head" | grep --quiet "main"; then
+      default_branch="main"
+    elif echo "$branches_on_head" | grep --quiet "master"; then
+      default_branch="master"
+    else
+      # yolo
+      default_branch=$(echo "$branches_on_head" | head -n1)
+    fi
+  fi
 
-mkdir "$project_name"
-cd "$project_name"
-git clone --separate-git-dir=.bare "$1" master
+  echo "$default_branch"
+
+}
+
+url=$1
+basename=${url##*/}
+name=${2:-${basename%.*}}
+default_branch=$(get_default_branch "$url")
+
+mkdir "$name"
+cd "$name"
+git clone "$url" "$default_branch"
