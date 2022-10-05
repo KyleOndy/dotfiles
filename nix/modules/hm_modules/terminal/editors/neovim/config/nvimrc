@@ -183,7 +183,6 @@ nnoremap k gk
 " Make HOME and END behave like shell
 inoremap <C-E> <End>
 inoremap <C-A> <Home>
-nmap <Leader>w :w<CR>
 
 " # work with terminal
 " make the cursor red. Stands out more
