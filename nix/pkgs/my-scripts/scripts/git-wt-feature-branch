@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -Ee
+
+# easily create a new feature branch with my worktree flow
+
+
+if [[ $# -ne 2 ]]; then
+  echo "usage: $0 <feature branch name> <base>"
+  echo
+  echo "note: branch name and path will be the same"
+  exit 1
+fi
+
+branch_name=$1
+base_branch=$2
+
+git worktree add -b "$branch_name" "$branch_name" "$base_branch"
