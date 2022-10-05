@@ -38,6 +38,7 @@ in
       bc # the classic calculator
       clang
       cmake
+      cookiecutter
       coreutils-full
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
