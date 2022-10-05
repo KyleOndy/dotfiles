@@ -105,7 +105,7 @@ in
       xz # compression format
       youtube-dl # download videos from youtube and others
       yq-go # like jq, but for yaml
-      #zbar # barcode reader, mostly used to import OTP into pass # todo: BROKEN
+      zbar # barcode reader, mostly used to import OTP into pass
     ]
 
     # in reality isLinux == isNixos for me. I don't run nix on any linux
