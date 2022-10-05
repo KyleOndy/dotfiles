@@ -38,4 +38,9 @@ default_branch=$(get_default_branch "$url")
 
 mkdir "$name"
 cd "$name"
-git clone "$url" "$default_branch"
+#git clone "$url" "$default_branch"
+#
+git clone --bare "$url" .bare
+echo "gitdir: ./.bare" > .git
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git worktree add "$default_branch" "$default_branch"

@@ -51,17 +51,6 @@ in
         # status is _just_ too long to type.
         s = "status";
 
-        # WORK TREE ALIAS. Some (most?) of this is pretty tightly couped to my
-        # specific workflow. Also worth looking in bin/git-* for scripts that are
-        # helpful too.
-
-        # `worktree` is a lot to type, make it easier
-        wt = "!git --git-dir=.bare worktree";
-        # fetch upstream info. If this doesn't shell out (`!`) you get the
-        # following error:
-        #    fatal: alias 'wts' changes environment variables.
-        #    You can use '!git' in the alias to do this
-        wts = "!git --git-dir=.bare fetch --all";
         # show what files are ignored by the .gitignore
         ignored = "ls-files . --ignored --exclude-standard --others";
         # show what files are currently untracked
