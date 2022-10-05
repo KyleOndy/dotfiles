@@ -247,15 +247,8 @@ in
         {
           # https://github.com/ThePrimeagen/git-worktree.nvim
           plugin = git-worktree-nvim;
-          config = ''
-            lua <<CFG
-            require("git-worktree").setup({})
-            require("telescope").load_extension("git_worktree")
-            CFG
-
-            nmap <silent> <leader>ww :lua require('telescope').extensions.git_worktree.git_worktrees()<cr>
-            nmap <silent> <leader>wc :lua require('telescope').extensions.git_worktree.create_git_worktree()<cr>
-          '';
+          type = "lua";
+          config = builtins.readFile ./config/git-worktree.lua;
         }
 
         {
