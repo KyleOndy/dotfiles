@@ -133,6 +133,10 @@ have time. They are in no specific order, nor are they encompassing.
 
 [git worktrees]: https://git-scm.com/docs/git-worktree
 
+#### ZSH
+
+- Look into caching with [evalcache](https://github.com/mroth/evalcache)
+
 ### Infrastructure
 
 These are related to hosts opposed to dot files.
