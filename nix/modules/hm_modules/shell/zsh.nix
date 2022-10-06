@@ -74,15 +74,9 @@ in
           # nicer autocomplete selections
           zstyle ':completion:*' menu select # use arrows to navigate autocomplete results
           zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # lowers match uppers
-          # I really want the vi binding to more vim like
-          # bindkey -v '^?' backward-delete-char # allow backspace key to work as expected
-          # open the commnad line in $EDITOR
-          #autoload -z edit-command-line
-          #zle -N edit-command-line
-          #bindkey -M vicmd v edit-command-line
-          # match my binding for [neo]vim
-          #bindkey -M viins 'jk' vi-cmd-mode
+
           setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
+
           # fancy git + fzf
           # todo: refactor this into its own script and just source it
           is_in_git_repo() {
@@ -102,12 +96,14 @@ in
               --preview '${pkgs.gnugrep}/bin/grep -o "[a-f0-9]\{7,\}" <<< {} | ${pkgs.findutils}/bin/xargs ${pkgs.git}/bin/git show --color=always | head -'$LINES |
             grep -o "[a-f0-9]\{7,\}"
           }
+
           fzf_pick_git_tag() {
             is_in_git_repo || return
             ${pkgs.git}/bin/git tag --sort -version:refname |
             _fzf --preview-window right:70% \
               --preview '${pkgs.git}/bin/git show --color=always {} | head -'$LINES
           }
+
           fzf_pick_git_remote() {
             is_in_git_repo || return
             ${pkgs.git}/bin/git remote -v | ${pkgs.gawk}/bin/awk '{print $1 "\t" $2}' | uniq |
@@ -115,6 +111,7 @@ in
               --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" {1} | head -200' |
             cut -d$'\t' -f1
           }
+
           fzf_pick_git_branch() {
             is_in_git_repo || return
             ${pkgs.git}/bin/git branch -a --color=always | grep -v '/HEAD\s' | sort |
@@ -123,6 +120,7 @@ in
             sed 's/^..//' | cut -d' ' -f1 |
             sed 's#^remotes/##'
           }
+
           # A helper function to join multi-line output from fzf
           join-lines() {
             local item
@@ -130,22 +128,28 @@ in
               echo -n "''${(q)item} "
             done
           }
+
           fzf_git_commit_widget() {
               LBUFFER+=$(fzf_pick_git_commit | join-lines)
           }
+
           fzf_git_tag_widget() {
               LBUFFER+=$(fzf_pick_git_tag | join-lines)
           }
+
           fzf_git_remote_widget() {
               LBUFFER+=$(fzf_pick_git_remote | join-lines)
           }
+
           fzf_git_branch_widget() {
               LBUFFER+=$(fzf_pick_git_branch | join-lines)
           }
+
           fzf_pick_aws_profile() {
             aws_profile=$(grep '\[profile .*\]' "$HOME/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
             export AWS_PROFILE="$aws_profile"
           }
+
           # easily export which kube config I want. I can't break things if I can
           # not connect to the cluster.
           fzf_pick_kube_config() {
