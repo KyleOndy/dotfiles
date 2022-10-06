@@ -35,7 +35,7 @@ in
       aspellDicts.en-computers
       aspellDicts.en-science
       awscli2 # interacting with AWS
-      bash_5 # want my modern bash
+      bash # want my modern bash
       bc # the classic calculator
       clang
       cmake

@@ -27,7 +27,7 @@ in
     ];
 
     users = {
-      defaultUserShell = pkgs.bash_5;
+      defaultUserShell = pkgs.bash;
       mutableUsers = false;
       users."svc.deploy" = {
         isNormalUser = true;

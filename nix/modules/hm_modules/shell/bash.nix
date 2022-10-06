@@ -9,7 +9,7 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
-      bash_5
+      bash
 
       # Node packages do not appear when running `nix search`. Use
       # `nix-env -qaPA nixos.nodePackages` to view them.`
