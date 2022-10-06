@@ -211,18 +211,10 @@ in
           export SPACESHIP_TIME_SHOW=true
           export SPACESHIP_KUBECTL_SHOW=true
           export SPACESHIP_KUBECTL_VERSION_SHOW=false # don't care what version
-          export SPACESHIP_TIMETRACK_PREFIX="for "
-          export SPACESHIP_KUBECONTEXT_COLOR_GROUPS=(
-            # red if namespace is "kube-system"
-            green  dev
-            yellow staging
-            red    prod
-          )
           export SPACESHIP_PROMPT_ORDER=(
             time          # Time stamps section
             user          # Username section
             dir           # Current directory section
-            timetrack     # What am I working on
             host          # Hostname section
             git           # Git section (git_branch + git_status)
             golang        # Go section
@@ -244,40 +236,6 @@ in
             char          # Prompt character
           )
           export SPACESHIP_GIT_STATUS_SHOW=false
-
-          SPACESHIP_TIMETRACK_SHOW="''${SPACESHIP_TIMETRACK_SHOW=true}"
-          SPACESHIP_TIMETRACK_PREFIX="''${SPACESHIP_TIMETRACK_PREFIX="$SPACESHIP_PROMPT_DEFAULT_PREFIX"}"
-          SPACESHIP_TIMETRACK_SUFFIX="''${SPACESHIP_TIMETRACK_SUFFIX="$SPACESHIP_PROMPT_DEFAULT_SUFFIX"}"
-          SPACESHIP_TIMETRACK_SYMBOL="''${SPACESHIP_TIMETRACK_SYMBOL="🛠️  "}"
-          SPACESHIP_TIMETRACK_COLOR="''${SPACESHIP_TIMETRACK_COLOR="white"}"
-
-          # todo: add this to foundry's contrib and source it
-          spaceship_timetrack() {
-            [[ $SPACESHIP_TIMETRACK == false ]] && return
-
-            # Use quotes around unassigned local variables to prevent
-            # getting replaced by global aliases
-            # http://zsh.sourceforge.net/Doc/Release/Shell-Grammar.html#Aliasing
-            local 'timetrack_status'
-
-            [[ -d $FOUNDRY_DATA/.tracking ]] || return
-            # todo: check if tracking file exsits
-
-            most_recent_tracking_file=$(${pkgs.fd}/bin/fd --type=file . $FOUNDRY_DATA/.tracking | sort | tail -n1)
-            [[ -f $most_recent_tracking_file ]] || return
-            most_recent_tracking_timestamp=$(basename $most_recent_tracking_file)
-            timetrack_status=$(cat $most_recent_tracking_file)
-
-            # Exit section if variable is empty
-            [[ -z $timetrack_status ]] && return
-
-            # Display foobar section
-            spaceship::section \
-              "$SPACESHIP_TIMETRACK_COLOR" \
-              "$SPACESHIP_TIMETRACK_PREFIX" \
-              "$SPACESHIP_TIMETRACK_SYMBOL$timetrack_status" \
-              "$SPACESHIP_TIMETRACK_SUFFIX"
-          }
 
           git() {
             # this regex checks (hopefully) the following cases:
