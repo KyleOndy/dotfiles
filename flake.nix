@@ -300,6 +300,17 @@
                   # darwin overrides. This is ripe for refactoring. Declaring
                   # this in the flake so it is very clear what is happening.
                   services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
+                  # TODO: need a better / clearer way to override these
+                  #       depnding on WORK|PERSONAL profile
+                  programs.ssh.matchBlocks = {
+                    "personal-github" = {
+                      hostname = "github.com";
+                      extraOptions = {
+                        PreferredAuthentications = "publickey";
+                        IdentityFile = "~/.ssh/personal_ed25519";
+                      };
+                    };
+                  };
                   hmFoundry = inputs.nixpkgs.lib.mkForce {
                     dev = {
                       # todo: overriding the git emaill like this is hacky.
