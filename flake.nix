@@ -141,7 +141,7 @@
         dino = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = nixModules ++ [
-            inputs.nixos-hardware.nixosModules.framework
+            inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
             ./nix/hosts/dino/configuration.nix
             ./nix/hosts/dino/hardware-configuration.nix
 
