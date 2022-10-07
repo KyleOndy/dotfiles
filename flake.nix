@@ -185,7 +185,10 @@
                   imports = [ ./nix/profiles/full.nix ];
 
                   hmFoundry = {
-                    desktop.browsers.qutebrowser.enable = true;
+                    desktop = {
+                      browsers.qutebrowser.enable = true;
+                      wm.i3.enable = inputs.nixpkgs.lib.mkForce false;
+                    };
                   };
 
 
