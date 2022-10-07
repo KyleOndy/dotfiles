@@ -286,7 +286,7 @@
           system = "aarch64-darwin";
           modules = [
             ./nix/hosts/DCP40KQJX6/configuration.nix
-            inputs.home-manager.darwinModule
+            inputs.home-manager.darwinModules.home-manager
             {
               nixpkgs.overlays = overlays;
               users.users."kyle.ondy".home = "/Users/kyle.ondy"; # TODO: need this?
