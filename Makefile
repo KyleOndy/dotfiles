@@ -20,7 +20,8 @@ help: ## Show this help
 
 .PHONY: build
 build: ## Buld single host
-		dots $(HOSTNAME)
+	$(REBUILD) --flake .#$(HOSTNAME) build
+	nix store diff-closures /var/run/current-system "$(shell readlink -f ./result)"
 
 .PHONY: build-all
 build-all: # Build all defined hosts
@@ -30,7 +31,7 @@ build-all: # Build all defined hosts
 
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
-	dots --deploy $(HOSTNAME)
+	$(SWITCH) --flake .#$(HOSTNAME) switch
 
 .PHONY: deploy-all
 deploy-all: ## Deploy all defined hosts
