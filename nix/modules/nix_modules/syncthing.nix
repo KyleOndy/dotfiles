@@ -28,7 +28,7 @@ in
       };
       folders = {
         "lightroom_catalog" = {
-          path = "home/kyle/lightroom";
+          path = "~/lightroom";
           devices = [
             "omega"
             "sharptooth"
@@ -36,7 +36,7 @@ in
           ];
         };
         "synced_scratch" = {
-          path = "home/kyle/synced_scratch";
+          path = "~/synced_scratch";
           devices = [
             "alpha"
             "dino"
