@@ -92,6 +92,7 @@ download_all() {
   download "c/JoyOfBike/videos"                       # joy of bikes
   download "c/minskcyclingclub/videos"                # jMinsk Cycling Club
   download "c/PhilGaimonshow/videos"                  # Phil Gaimon
+  download "c/RIFIANBOY/videos"                       # RIFIANBOY
 
   ## photography
   download "c/AdamGibbsPhotography/videos"    # Adam Gibbs
