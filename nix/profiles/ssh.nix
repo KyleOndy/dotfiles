@@ -93,7 +93,7 @@
     };
     terminal = {
       email.enable = true;
-      dropbox.enable = true;
+      dropbox.enable = false;
       tmux.enable = true;
       gpg.enable = true;
       pass.enable = true;
