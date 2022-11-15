@@ -308,7 +308,6 @@
                     };
                     terminal = {
                       email.enable = false;
-                      dropbox.enable = false;
                       gpg = {
                         enable = true;
                         service = false; # no service on darwin
