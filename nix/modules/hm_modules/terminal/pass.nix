@@ -16,6 +16,8 @@ in
 
     home.packages = with pkgs; [
       passff-host # firefox plugin host extension
+    ]
+    ++ optionals stdenv.isLinux [
       wl-clipboard # needed since upgrading
     ];
   };
