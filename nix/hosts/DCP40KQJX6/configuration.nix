@@ -7,20 +7,16 @@
     vim
     (nerdfonts.override {
       fonts = [
-        "Hack"
+        "Hack" # TODO: is this not handeled by other font configuration?
       ];
     })
   ];
-
-  #imports = [
-  #  ../../home/lorri.nix # on Darwin this is system, not home-manager
-  #];
 
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
   nix = {
     package = pkgs.nixUnstable;
-    nixPath = [ "nixpkgs=${pkgs.path}" ];
+    nixPath = [ "nixpkgs=${pkgs.path}" ]; # todo: this is actaully bad, right?
     extraOptions = ''
       builders-use-substitutes = true
       experimental-features = nix-command flakes

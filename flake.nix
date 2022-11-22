@@ -295,36 +295,10 @@
                 useUserPackages = true;
                 sharedModules = hmModules;
                 users."kyle.ondy" = {
-                  imports = [ ./nix/profiles/ssh.nix ];
-
-                  # darwin overrides. This is ripe for refactoring. Declaring
-                  # this in the flake so it is very clear what is happening.
-                  services.lorri.enable = inputs.nixpkgs.lib.mkForce false;
-                  # TODO: need a better / clearer way to override these
-                  #       depnding on WORK|PERSONAL profile
-                  programs.ssh.matchBlocks = {
-                    "personal-github" = {
-                      hostname = "github.com";
-                      extraOptions = {
-                        PreferredAuthentications = "publickey";
-                        IdentityFile = "~/.ssh/personal_ed25519";
-                      };
-                    };
-                  };
-                  hmFoundry = inputs.nixpkgs.lib.mkForce {
-                    dev = {
-                      # todo: overriding the git emaill like this is hacky.
-                      #       Should pass in as a param somewhere else?
-                      git.userEmail = "kyle.ondy@sentinelone.com";
-                    };
-                    terminal = {
-                      email.enable = false;
-                      gpg = {
-                        enable = true;
-                        service = false; # no service on darwin
-                      };
-                    };
-                  };
+                  imports = [
+                    ./nix/profiles/ssh.nix
+                    ./nix/profiles/s1.nix
+                  ];
                 };
               };
             }
