@@ -295,10 +295,7 @@
                 useUserPackages = true;
                 sharedModules = hmModules;
                 users."kyle.ondy" = {
-                  imports = [
-                    ./nix/profiles/ssh.nix
-                    ./nix/profiles/s1.nix
-                  ];
+                  imports = [ ./nix/profiles/s1.nix ];
                 };
               };
             }

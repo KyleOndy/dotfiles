@@ -7,7 +7,7 @@ in
     enable = mkEnableOption "todo";
     userEmail = mkOption {
       type = types.str;
-      default = "kyle@ondy.org"; # todo: get this from some source of truth?
+      default = "kyle@ondy.org"; # TODO: remove default and set explicitly
       description = "Default email set in git config.";
     };
   };
