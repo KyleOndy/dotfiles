@@ -56,6 +56,8 @@ in
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
 
+        clientMaxBodySize = "64m";
+
         virtualHosts = lib.attrsets.mapAttrs
           (name: cfg: {
             enableACME = false;
