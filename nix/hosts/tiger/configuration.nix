@@ -39,10 +39,20 @@ in
     };
     zfs = {
       autoScrub.enable = true;
-
-      # todo: figure out my plan. There is `sanoid` which looks worth digging
-      #       into.
       autoSnapshot.enable = false;
+    };
+    sanoid = {
+      enable = true;
+      datasets = {
+        "storage/backups" = {
+          autosnap = true;
+          autoprune = true;
+          hourly = 4;
+          daily = 31;
+          monthly = 24;
+          yearly = 10;
+        };
+      };
     };
     nix-serve = {
       enable = true;
