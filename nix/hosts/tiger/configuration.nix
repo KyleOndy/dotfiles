@@ -26,6 +26,17 @@ in
   };
 
   services = {
+    apcupsd = {
+      enable = true;
+      # if power doesn't come on in 15 seconds, shutdown to preseve network
+      # stack.
+      # TODO: add hooks to shutdown POE pis
+      configText = ''
+        UPSTYPE usb
+        NISIP 127.0.0.1
+        TIMEOUT 15
+      '';
+    };
     zfs = {
       autoScrub.enable = true;
 
