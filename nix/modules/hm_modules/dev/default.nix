@@ -53,6 +53,7 @@ in
       findutils
       fortune # fun tidbits
       glances # system monitor
+      gnused # sed
       go-jira # cli for interacting with Jira
       google-cloud-sdk # gcloud
       gron # make JSON greppable
