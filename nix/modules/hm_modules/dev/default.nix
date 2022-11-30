@@ -54,8 +54,8 @@ in
       fortune # fun tidbits
       glances # system monitor
       go-jira # cli for interacting with Jira
-      gron # make JSON greppable
       google-cloud-sdk # gcloud
+      gron # make JSON greppable
       htmlq # like jq, but for HTML
       htop # system diagnostics
       ispell # spell checking
