@@ -78,6 +78,19 @@ in
 
           setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
 
+          find_up() {
+            local ec=1
+            local p=$(pwd)
+            while [[ "$p" != "" ]]; do
+              if [[ -e "$p/$1" ]]; then
+                echo "$p/$1"
+                ec=0
+              fi
+              p=''${p%/*}
+            done
+            return $ec
+          }
+
           # fancy git + fzf
           # todo: refactor this into its own script and just source it
           is_in_git_repo() {
@@ -85,6 +98,19 @@ in
           }
           _fzf() {
             ${pkgs.fzf}/bin/fzf "$@" --multi --ansi --border
+          }
+          fzf_pick_git_worktree() {
+            is_in_git_repo || return
+            # this will break if a worktree name has a newline, didn't want to deal with null terminators
+            worktree=$(
+              ${pkgs.git}/bin/git worktree list | ${pkgs.fzf}/bin/fzf \
+                --prompt="Switch Worktree: " \
+                --height 40% --reverse \
+                --preview-window down \
+                --preview 'git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" --color=always "$(echo {} | rg -v --regexp ".bare" | sed -E "s/^.*\[(.+)\]$/\1/g")"' | \
+                awk '{print $1}'
+            )
+            cd "$worktree" || return
           }
           fzf_pick_git_commit() {
             is_in_git_repo || return
@@ -130,6 +156,15 @@ in
             done
           }
 
+          fzf_git_switch_worktree_widget() {
+            fzf_pick_git_worktree
+            local precmd
+            for precmd in $precmd_functions; do
+              $precmd
+            done
+            zle reset-prompt
+          }
+
           fzf_git_commit_widget() {
               LBUFFER+=$(fzf_pick_git_commit | join-lines)
           }
@@ -164,6 +199,7 @@ in
 
           # this is not how keys and commands are bound in vanilla ZSH, this
           # pattern is due to ZVM.
+          zvm_define_widget fzf_git_switch_worktree_widget
           zvm_define_widget fzf_git_commit_widget
           zvm_define_widget fzf_git_tag_widget
           zvm_define_widget fzf_git_remote_widget
@@ -179,6 +215,7 @@ in
           zvm_bindkey viins "^N" history-beginning-search-forward
 
           # g is for git
+          zvm_bindkey viins '^[g^[w' fzf_git_switch_worktree_widget
           zvm_bindkey viins '^[g^[g' fzf_git_commit_widget
           zvm_bindkey viins '^[g^[t' fzf_git_tag_widget
           zvm_bindkey viins '^[g^[r' fzf_git_remote_widget
@@ -216,11 +253,13 @@ in
           export SPACESHIP_TIME_SHOW=true
           export SPACESHIP_KUBECTL_SHOW=true
           export SPACESHIP_KUBECTL_VERSION_SHOW=false # don't care what version
+          export SPACESHIP_WTROOT_PREFIX="for "
           export SPACESHIP_PROMPT_ORDER=(
             time          # Time stamps section
             user          # Username section
             dir           # Current directory section
             host          # Hostname section
+            wtroot        # hacky homegrown worktree root
             git           # Git section (git_branch + git_status)
             golang        # Go section
             rust          # Rust section
@@ -241,6 +280,26 @@ in
             char          # Prompt character
           )
           export SPACESHIP_GIT_STATUS_SHOW=false
+
+          SPACESHIP_WTROOT_SHOW="''${SPACESHIP_WTROOT_SHOW=true}"
+          SPACESHIP_WTROOT_PREFIX="''${SPACESHIP_WTROOT_PREFIX="$SPACESHIP_PROMPT_DEFAULT_PREFIX"}"
+          SPACESHIP_WTROOT_SUFFIX="''${SPACESHIP_WTROOT_SUFFIX=$SPACESHIP_PROMPT_DEFAULT_SUFFIX}"
+          SPACESHIP_WTROOT_SYMBOL="''${SPACESHIP_WTROOT_SYMBOL=" "}"
+          SPACESHIP_WTROOT_COLOR="''${SPACESHIP_WTROOT_COLOR="yellow"}"
+
+          spaceship_wtroot() {
+            [[ $PACESHIP_WTROOT == false ]] && return
+            # todo: if not git; bail
+
+            results=$(find_up .bare | head -n1)
+            [[ -z "$results" ]] && return
+            result=$(basename $(dirname $(echo "$results" | head -n1)))
+            spaceship::section \
+              "$SPACESHIP_WTROOT_COLOR" \
+              "$SPACESHIP_WTROOT_PREFIX" \
+              "$SPACESHIP_WTROOT_SYMBOL$result" \
+              "$SPACESHIP_WTROOT_SUFFIX"
+          }
 
           git() {
             # this regex checks (hopefully) the following cases:
