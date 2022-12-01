@@ -187,7 +187,11 @@ in
 
           fzf_pick_aws_profile() {
             aws_profile=$(grep '\[profile .*\]' "$HOME/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
-            export AWS_PROFILE="$aws_profile"
+            if [[ -z "$aws_profile" ]]; then
+              unset AWS_PROFILE
+            else
+              export AWS_PROFILE="$aws_profile"
+            fi
             _reset_prompt
           }
 
@@ -199,7 +203,12 @@ in
             # these shenanigans with `basename`.
             kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | sort |
             _fzf --preview "bat --color=always "$config_dir/{}"")
-            export KUBECONFIG="$config_dir/$kubeconfig"
+
+            if [[ -z "$kubeconfig" ]]; then
+              unset KUBECONFIG
+            else
+              export KUBECONFIG="$config_dir/$kubeconfig"
+            fi
             _reset_prompt
           }
 
