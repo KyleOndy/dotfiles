@@ -50,6 +50,8 @@ in
         unstage = "reset HEAD";
         # status is _just_ too long to type.
         s = "status";
+        # same with fetch
+        f = "fetch";
 
         # show what files are ignored by the .gitignore
         ignored = "ls-files . --ignored --exclude-standard --others";
