@@ -188,6 +188,7 @@ in
           fzf_pick_aws_profile() {
             aws_profile=$(grep '\[profile .*\]' "$HOME/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
             export AWS_PROFILE="$aws_profile"
+            _reset_prompt
           }
 
           # easily export which kube config I want. I can't break things if I can
@@ -199,6 +200,7 @@ in
             kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | sort |
             _fzf --preview "bat --color=always "$config_dir/{}"")
             export KUBECONFIG="$config_dir/$kubeconfig"
+            _reset_prompt
           }
 
           # this is not how keys and commands are bound in vanilla ZSH, this
