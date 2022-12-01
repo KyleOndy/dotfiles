@@ -156,13 +156,17 @@ in
             done
           }
 
-          fzf_git_switch_worktree_widget() {
-            fzf_pick_git_worktree
+          _reset_prompt() {
             local precmd
             for precmd in $precmd_functions; do
               $precmd
             done
             zle reset-prompt
+          }
+
+          fzf_git_switch_worktree_widget() {
+            fzf_pick_git_worktree
+            _reset_prompt
           }
 
           fzf_git_commit_widget() {
