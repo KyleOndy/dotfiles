@@ -92,6 +92,9 @@ in
         # active window title colors
         set-window-option -g window-status-current-style bg=red,fg=colour237 # fg=bg1
 
+        # active window background. Make it _just a bit_ lighter
+        set-window-option -g window-active-style bg=colour237
+
         # pane border
         set-option -g pane-active-border-style fg=colour250 #fg2
         set-option -g pane-border-style fg=colour237 #bg1
