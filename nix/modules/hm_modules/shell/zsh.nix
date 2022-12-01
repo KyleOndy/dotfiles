@@ -27,6 +27,7 @@ in
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
           f = "foundry";
+          g = "git";
           k = "kubectl";
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
