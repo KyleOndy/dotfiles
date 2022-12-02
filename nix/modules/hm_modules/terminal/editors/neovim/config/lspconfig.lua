@@ -40,7 +40,7 @@ local servers = {
 	"clangd",
 	"clojure_lsp",
 	"cssls",
-	"diagnosticls",
+	--"diagnosticls",
 	"dockerls",
 	-- 'ghcide',
 	"gopls",
