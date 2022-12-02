@@ -6,27 +6,13 @@
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nur.url = "github:nix-community/NUR";
-    flake-compat = {
-      # TODO: can this be removed?
-      url = "github:edolstra/flake-compat";
-      flake = false;
-    };
-    pre-commit-hooks = {
-      url = "github:cachix/pre-commit-hooks.nix";
-
-      # TODO: still need this?
-      inputs.nixpkgs.follows = "nixpkgs";
-
-      # TODO: is this still the case?
-      inputs.flake-utils.follows = "flake-utils"; # upstream is broken with aarch64-darwin
-    };
     nix-darwin = {
       url = "github:LnL7/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # TODO: need this still?
+    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    nur.url = "github:nix-community/NUR";
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
     nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
