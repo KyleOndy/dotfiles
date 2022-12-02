@@ -1,6 +1,7 @@
 #! /usr/bin/env nix-shell
 # shellcheck shell=bash
 #! nix-shell -i bash -p makemkv
+# vi: ft=bash
 set -ex
 
 main() {

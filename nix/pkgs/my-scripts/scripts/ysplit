@@ -1,5 +1,6 @@
 #! /usr/bin/env nix-shell
 #! nix-shell -i python3 -p python3 python3Packages.ruamel-yaml
+# vi: ft=python
 """
 This script will decompose local or remote concatenated YAML files into separate local files.
 Usage:

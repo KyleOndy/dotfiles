@@ -1,5 +1,6 @@
 #! /usr/bin/env nix-shell
 #! nix-shell -i python3 -p python310 python310Packages.flask python310Packages.requests
+# vi: ft=python
 
 from flask import Flask, abort
 import json
