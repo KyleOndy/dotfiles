@@ -57,12 +57,6 @@ in
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
         auto-optimise-store = true;
-        substituters = [
-          "https://nix-cache.apps.dmz.509ely.com/ https://cache.nixos.org/"
-        ];
-        trusted-public-keys = [
-          "nix-cache.apps.ondy.org:/5iSJmTNKqfexRJluuGN81/eda003lqunAWs8DomDG4="
-        ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
       extraOptions = ''

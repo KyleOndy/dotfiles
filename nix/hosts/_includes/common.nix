@@ -102,16 +102,6 @@
     };
     settings = {
       auto-optimise-store = true;
-      substituters = [
-        "https://cache.nixos.org/"
-        #"https://nix-cache.apps.dmz.509ely.com/"
-      ];
-      trusted-public-keys = [
-        "nix-cache.apps.ondy.org:/5iSJmTNKqfexRJluuGN81/eda003lqunAWs8DomDG4="
-        # older keys below?
-        "nixcache.apps.lan.509ely.com:wTIDrO+kLXss4B/ghnFJxe+jmhGuo4P6h/ciFiTYceuVqihwl0/DRypxCkKUI3UKVjjyLyVs3MYfYb3oTT0ICw=="
-        "nixcache.apps.lan.509ely.com:DzQXpLrskbsiuVIHneS//gegRTCnpSzRU77ILeOJfhre5FipK6P2q+EmPk0vpBwWO3j8lBEiC8J2O38bBTUxDA=="
-      ];
     };
     buildMachines = [
       {
