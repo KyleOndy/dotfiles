@@ -21,6 +21,9 @@ in
           size = 1000000; # lots of history. Save to file.
           share = true; # let multiple ZSH session write to the history file
         };
+        sessionVariables = {
+          ZVM_VI_EDITOR = "$EDITOR";
+        };
         shellAliases = {
           ":e" = "$EDITOR";
           ":q" = "exit";
