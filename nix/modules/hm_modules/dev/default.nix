@@ -116,7 +116,6 @@ in
       babashka # a Clojure babushka for the grey areas of Bash
       calcurse # cli calendar
       cifs-utils # todo: why do I need this?
-      discord # am I cool now?
       golden-cheetah # cycling analytics
       inotify-tools # watch the file system for changes
       insomnia # rest client
