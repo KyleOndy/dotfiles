@@ -124,7 +124,6 @@ in
       qemu_full
       remmina # remote desktop client
       smbnetfs # todo: why do I need this?
-      steam # games # todo: I should break this out into gaming.nix
       virt-manager # manage KVM
       zoom-us # pandemic life
     ]
