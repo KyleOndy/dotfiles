@@ -118,7 +118,6 @@ in
       cifs-utils # todo: why do I need this?
       golden-cheetah # cycling analytics
       inotify-tools # watch the file system for changes
-      insomnia # rest client
       ltrace # trace library calls
       makemkv # rip DVDs
       molly-guard # prevent footguns from runing my day
