@@ -282,7 +282,6 @@ in
             golang        # Go section
             rust          # Rust section
             haskell       # Haskell Stack section
-            docker        # Docker section
             aws           # Amazon Web Services section
             venv          # virtualenv section
             pyenv         # Pyenv section
