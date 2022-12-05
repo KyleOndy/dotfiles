@@ -4,22 +4,30 @@ set -Ee
 # easily create a new feature branch with my worktree flow
 
 
-if [[ $# -ne 2 ]]; then
-  echo "usage: $0 <feature branch name> <base>"
+if [[ $# -lt 2 ]]; then
+  echo "usage: $0 <jira ticket> <name> <base>"
   echo
-  echo "note: branch name and path will be the same"
+  # TODO: generalize this for use on personal projects
+  echo "Opinionated script to ease create of feature branches working at S1"
+  echo "note: branch name and path will not be the same"
+  echo "path will be   <ticket>/<name>"
+  echo "branch will be <ticket>-<name>"
+  echo "if <base> is not given origin/master is assumed"
   exit 1
 fi
 
-branch_name=$1
-base_branch=$2
+ticket="$1"
+name="$2"
+base_branch=${3:-"origin/master"}
 
-# handle if we try to create a new feature branch while we are in another w>orktree
+# handle if we try to create a new feature branch while we are in another woorktree
 # HACK HACK FRAGILE!
 wt_root=$(git worktree list --porcelain | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2)
-feature_path="${wt_root}/${branch_name}"
 
-git worktree add -b "$branch_name" "$feature_path" "$base_branch"
+feature_path="${wt_root}/${ticket}/${name}"
+
+git fetch
+git worktree add -b "${ticket}-${name}" "$feature_path" "$base_branch"
 RED='\033[0;31m'
 NC='\033[0m' # No Color
->&2 echo -e "${RED}Remember to switch to ${branch_name} to start working on it${NC}"
+>&2 echo -e "${RED}Remember to switch to ${ticket}/${name} to start working on it${NC}"
