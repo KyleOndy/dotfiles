@@ -336,6 +336,14 @@ in
           plugin = vim-gnupg;
           config = '''';
         }
+
+        {
+          # https://github.com/towolf/vim-helm
+          plugin = vim-helm;
+          config = ''
+            autocmd FileType helm lua vim.diagnostic.disable(0)
+          '';
+        }
       ];
 
       # See the comment for the first plugin as to why this is not configured.
