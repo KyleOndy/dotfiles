@@ -269,6 +269,7 @@ in
           config = ''
             nmap <Leader>gg :tab Git<CR>
             nmap <Leader>gb :GBrowse<CR>
+            nmap <Leader>gp :Git push<CR>
             vmap <Leader>gb :GBrowse<CR> " goes to line number!
           '';
         }
