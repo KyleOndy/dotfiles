@@ -308,8 +308,20 @@ in
             [[ $PACESHIP_WTROOT == false ]] && return
             # todo: if not git; bail
 
-            results=$(find_up .bare | head -n1)
+            # TODO: should set SPACESHIP_GIT_SHOW to some original value
+            results=$(find_up .bare | head -n1) || SPACESHIP_GIT_SHOW=true
             [[ -z "$results" ]] && return
+
+            # HACKS ON HACKS
+            #                 if we are in a "root" of a worktree, but not in a
+            #                 checked-out worktree, we don't want spaceship to
+            #                 display the git status or we always get the
+            #                 `fatal: this operation must be run in a work
+            #                 tree` error which is really annyoing. So turn of
+            #                 spaceship's git prompt iif we are "between"
+            #                 `.bare` and a checked out worktree.
+            git rev-parse --show-toplevel > /dev/null 2>&1 || SPACESHIP_GIT_SHOW=false
+
             result=$(basename $(dirname $(echo "$results" | head -n1)))
             spaceship::section \
               "$SPACESHIP_WTROOT_COLOR" \
