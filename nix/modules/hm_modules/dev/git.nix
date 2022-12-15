@@ -192,6 +192,9 @@ in
           # not all remotes support signed pushes. This setting should ask the remote
           # if they are supported, and respect the remote's wishes.
           gpgSign = "if-asked";
+          # when pushing in a central workflow, like every job, automtically
+          # set `--set-upstream`.
+          autoSetupRemote = "true";
         };
         pull = {
           # rebase when pulling, avoid merge commits at all costs.
