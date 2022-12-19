@@ -367,7 +367,7 @@ in
           # see `man bash` for available expansions
           # https://news.ycombinator.com/item?id=27617128
           #
-          export PS4='+ ''$(date "+%s.%N"): ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
+          export PS4='+ %D{%s.%6.}: %x @ %I: (%N):    '
 
 
           assume_aws_role() {

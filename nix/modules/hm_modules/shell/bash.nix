@@ -15,5 +15,11 @@ in
       # `nix-env -qaPA nixos.nodePackages` to view them.`
       nodePackages.bash-language-server
     ];
+    programs.bash = {
+      enable = true;
+      initExtra = ''
+        export PS4='+ %D{%s.%6.}: ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
+      '';
+    };
   };
 }
