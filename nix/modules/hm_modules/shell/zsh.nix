@@ -264,7 +264,6 @@ in
           )
           autoload -U promptinit; promptinit
           prompt spaceship
-          eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
           # Here are some symbols I'd love to use somewhere
           #  U+2615   HOT BEVERAGE          ☕
           #  U+2620   SKULL AND CROSSBONES  ☠
@@ -287,14 +286,13 @@ in
             haskell       # Haskell Stack section
             aws           # Amazon Web Services section
             venv          # virtualenv section
-            pyenv         # Pyenv section
+            python        # python section
             dotnet        # .NET section
             kubectl       # Kubectl context section
             terraform     # Terraform workspace section
             exec_time     # Execution time
             line_sep      # Line break
             battery       # Battery level and status
-            vi_mode       # Vi-mode indicator
             jobs          # Background jobs indicator
             exit_code     # Exit code section
             char          # Prompt character
@@ -329,11 +327,12 @@ in
             ${pkgs.git}/bin/git rev-parse --show-toplevel > /dev/null 2>&1 || SPACESHIP_GIT_SHOW=false
 
             result=$(basename $(dirname $(echo "$results" | head -n1)))
-            spaceship::section \
-              "$SPACESHIP_WTROOT_COLOR" \
-              "$SPACESHIP_WTROOT_PREFIX" \
-              "$SPACESHIP_WTROOT_SYMBOL$result" \
-              "$SPACESHIP_WTROOT_SUFFIX"
+            spaceship::section::v4 \
+              --color  "$SPACESHIP_WTROOT_COLOR" \
+              --prefix "$SPACESHIP_WTROOT_PREFIX" \
+              --suffix "$SPACESHIP_WTROOT_SUFFIX" \
+              --symbol "$SPACESHIP_WTROOT_SYMBOL" \
+              "$result"
           }
 
           git() {
