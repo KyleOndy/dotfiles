@@ -305,12 +305,15 @@ in
           SPACESHIP_WTROOT_COLOR="''${SPACESHIP_WTROOT_COLOR="yellow"}"
 
           spaceship_wtroot() {
-            [[ $PACESHIP_WTROOT == false ]] && return
+            [[ $SPACESHIP_WTROOT_SHOW == false ]] && return
             # todo: if not git; bail
 
             # TODO: should set SPACESHIP_GIT_SHOW to some original value
-            results=$(find_up .bare | head -n1) || SPACESHIP_GIT_SHOW=true
-            [[ -z "$results" ]] && return
+            results=$(find_up .bare | head -n1)
+            if [[ -z "$results" ]]; then
+              SPACESHIP_GIT_SHOW=true
+              return
+            fi
 
             # HACKS ON HACKS
             #                 if we are in a "root" of a worktree, but not in a
@@ -320,7 +323,7 @@ in
             #                 tree` error which is really annyoing. So turn of
             #                 spaceship's git prompt iif we are "between"
             #                 `.bare` and a checked out worktree.
-            git rev-parse --show-toplevel > /dev/null 2>&1 || SPACESHIP_GIT_SHOW=false
+            ${pkgs.git}/bin/git rev-parse --show-toplevel > /dev/null 2>&1 || SPACESHIP_GIT_SHOW=false
 
             result=$(basename $(dirname $(echo "$results" | head -n1)))
             spaceship::section \
