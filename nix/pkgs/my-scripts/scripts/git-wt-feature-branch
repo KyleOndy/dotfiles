@@ -16,7 +16,7 @@ if [[ $# -lt 2 ]]; then
   exit 1
 fi
 
-ticket="$1"
+ticket="${1^^}"
 name="$2"
 base_branch=${3:-"origin/master"}
 
