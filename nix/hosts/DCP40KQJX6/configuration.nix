@@ -35,6 +35,14 @@
   # Create /etc/bashrc that loads the nix-darwin environment.
   programs.zsh.enable = true; # default shell on catalina
 
+  launchd.user.agents.docker-desktop-kubeconfig = {
+    # this is bash by default
+    command = "rg --quiet --fixed-strings docker-desktop ~/.kube/config && mv ~/.kube/config ~/.kube/configs/docker-desktop";
+    #serviceConfig = {
+    #  StartInterval = 60;
+    #};
+  };
+
   # Used for backwards compatibility, please read the changelog before changing.
   # $ darwin-rebuild changelog
   system = {
