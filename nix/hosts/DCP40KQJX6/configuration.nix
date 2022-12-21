@@ -38,6 +38,12 @@
   # Used for backwards compatibility, please read the changelog before changing.
   # $ darwin-rebuild changelog
   system = {
+    defaults = {
+      dock = {
+        autohide = true;
+        orientation = "bottom";
+      };
+    };
     stateVersion = 4;
   };
 }
