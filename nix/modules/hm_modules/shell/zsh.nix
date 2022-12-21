@@ -106,7 +106,7 @@ in
             is_in_git_repo || return
             # this will break if a worktree name has a newline, didn't want to deal with null terminators
             worktree=$(
-              ${pkgs.git}/bin/git worktree list | ${pkgs.fzf}/bin/fzf \
+              ${pkgs.git}/bin/git worktree list | rg --invert-match '\(bare\)$'| ${pkgs.fzf}/bin/fzf \
                 --prompt="Switch Worktree: " \
                 --height 40% --reverse \
                 --preview-window down \
