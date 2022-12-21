@@ -58,6 +58,7 @@ in
       go-jira # cli for interacting with Jira
       google-cloud-sdk # gcloud
       gron # make JSON greppable
+      grpcurl # like curl, but for gRPC
       htmlq # like jq, but for HTML
       htop # system diagnostics
       ispell # spell checking
