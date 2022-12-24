@@ -216,7 +216,7 @@ in
         };
       };
       binary_cache = {
-        enable = true;
+        enable = false;
         domainName = "nix-cache.${domain}";
       };
       pixiecore = {
