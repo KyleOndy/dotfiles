@@ -16,6 +16,7 @@
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
     nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
+    deploy-rs.url = "github:serokell/deploy-rs";
   };
   outputs = { self, ... }@inputs:
     let
@@ -63,24 +64,26 @@
     inputs.flake-utils.lib.eachSystem [ "aarch64-darwin" "x86_64-linux" ]
       (system: {
         checks = {
-          pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run {
-            src = ./.;
-            hooks = {
-              black.enable = true;
-              nixpkgs-fmt.enable = true;
-              prettier.enable = true;
-              shellcheck.enable = true;
-              stylua.enable = true;
-              pkg_version = {
-                enable = true;
-                name = "pkg-version-bump";
-                entry = "bin/pre-commit-update-version";
-                files = "^nix/pkgs/.*?/default\.nix$";
-                language = "script";
-                pass_filenames = true;
+          pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run
+            {
+              src = ./.;
+              hooks = {
+                black.enable = true;
+                nixpkgs-fmt.enable = true;
+                prettier.enable = true;
+                shellcheck.enable = true;
+                stylua.enable = true;
+                pkg_version = {
+                  enable = false;
+                  name = "pkg-version-bump";
+                  entry = "bin/pre-commit-update-version";
+                  files = "^nix/pkgs/.*?/default\.nix$";
+                  language = "script";
+                  pass_filenames = true;
+                };
               };
-            };
-          };
+            }
+          // builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
         };
         devShell = inputs.nixpkgs.legacyPackages.${system}.mkShell {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
@@ -300,5 +303,33 @@
           ];
         };
       DCP40KQJX6 = self.darwinConfigurations.DCP40KQJX6.system;
+
+      # deploy-rs
+      deploy.nodes = {
+        dino = {
+          hostname = "dino";
+          profiles.system = {
+            sshUser = "svc.deploy";
+            user = "root";
+            path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.dino;
+          };
+        };
+        tiger = {
+          hostname = "tiger";
+          profiles.system = {
+            sshUser = "svc.deploy";
+            user = "root";
+            path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
+          };
+        };
+        util_lan = {
+          hostname = "util.lan.509ely.com";
+          profiles.system = {
+            sshUser = "svc.deploy";
+            user = "root";
+            path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.util_lan;
+          };
+        };
+      };
     };
 }
