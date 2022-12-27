@@ -100,10 +100,11 @@ in
                   +ondy.org/Junk \
                   +ondy.org/spam
 
-        virtual-mailboxes "inbox" "notmuch://?query=tag:inbox"
-        virtual-mailboxes "archive" "notmuch://?query=tag:archive"
-        virtual-mailboxes "sent" "notmuch://?query=tag:sent"
-        virtual-mailboxes "newsletters" "notmuch://?query=tag:newsletters"
+        # TODO: figure out notmuch and workflow
+        # virtual-mailboxes "inbox" "notmuch://?query=tag:inbox"
+        # virtual-mailboxes "archive" "notmuch://?query=tag:archive"
+        # virtual-mailboxes "sent" "notmuch://?query=tag:sent"
+        # virtual-mailboxes "newsletters" "notmuch://?query=tag:newsletters"
 
         # -- Basic Options --
         set wait_key = no        # shut up, mutt

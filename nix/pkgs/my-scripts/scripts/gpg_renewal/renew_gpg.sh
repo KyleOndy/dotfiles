@@ -26,6 +26,9 @@ gpg --armor --export-secret-keys $KEYID > "$GNUPGHOME/$dte/secret.key"
 gpg --armor --export-secret-subkeys $KEYID > "$GNUPGHOME/$dte/secret_sub.key"
 gpg --armor --export $KEYID > "$GNUPGHOME/$dte/public.key"
 
+# TODO: make this noninteracitve
+gpg --generate-revocation "$KEYID" > "${GNUPGHOME}/${dte}/revocation.key"
+
 gpg --list-key "$KEYID"
 echo "GNUPGHOME: $GNUPGHOME"
 echo "EXPORTED (to be backed up):  $GNUPGHOME/$dte"
