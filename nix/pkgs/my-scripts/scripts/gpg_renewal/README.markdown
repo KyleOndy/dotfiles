@@ -11,19 +11,8 @@ export g=<location of GPG backups>
 ./renew_gpg.sh $g
 k=<EXPORTED value from last script>
 
-# just using the new public key on a computer without touching the yubikey
-# seemed to work. Is this expected?
-
-# for each yubikey
-./send_to_yubi.sh $k
-
 ./upload-key.sh
-
-<generate public key>
-<backup keys>
-
-## after key looks good, in fresh normal term
-./upload-key.sh
+# backup keys to usb
 ```
 
 ## todo
