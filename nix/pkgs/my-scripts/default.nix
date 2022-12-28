@@ -6,14 +6,18 @@ stdenv.mkDerivation {
   version = "20220226";
 
   # todo: don't hardcode this
-  src = ./scripts;
+  src = ./.;
 
   buildInputs = [ ];
 
   installPhase = ''
     mkdir -p $out/bin
-    find . \( -type f -o -type l \) -executable \
+    find ./scripts \( -type f -o -type l \) -executable \
         -exec cp -pL {} $out/bin \;
+
+    mkdir -p $out/share/zsh/site-functions
+    find ./completions \( -type f -o -type l \) \
+        -exec cp -pL {} $out/share/zsh/site-functions \;
   '';
 
   meta = with pkgs.lib; {

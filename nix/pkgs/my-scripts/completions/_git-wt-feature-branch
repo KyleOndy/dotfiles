@@ -1,0 +1,28 @@
+#compdef git-wt-feature-branch
+# vi: ft=zsh
+
+# TODO:
+#       - read the docs on what this all does, lots of copy and paste
+#       - add descrption of what this command does, aka. git wt-f<TAB> will
+#         show a description of this script
+#       - make the second argument show its help text
+
+_jira_tickets() {
+  jira list --template list --query 'project = "PLAT" and resolution=unresolved and assignee=currentuser() and  sprint in openSprints ()' | \
+    sed -E "s|:\s*|\\\:'|" | \
+    sed -E "s|$|'|"
+}
+
+_git_branches() {
+  git --no-pager branch -a --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
+    sed -E 's|"|'"'"'|g' | \
+    sed -E 's|\t|"|g'
+}
+
+main() {
+  _arguments "1: :(($(_jira_tickets)))" \
+    "2: :( )" \
+    "3: :(($(_git_branches)))"
+}
+
+main "$@"
