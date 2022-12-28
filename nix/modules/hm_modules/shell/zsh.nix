@@ -257,8 +257,11 @@ in
           # spaceship config
           # todo: not sure this is the best way to instll the theme
           mkdir -p "$HOME/.zfunctions"
-          fpath=( "$HOME/.zfunctions" $fpath )
-          ln -sf "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh" "$HOME/.zfunctions/prompt_spaceship_setup"
+          fpath=(
+            "$HOME/.zfunctions"
+            "${pkgs.nixpkgs-spaceship.spaceship-prompt}/lib/spaceship-prompt/"
+            $fpath
+          )
           autoload -U promptinit; promptinit
           prompt spaceship
           eval spaceship_vi_mode_enable # https://github.com/denysdovhan/spaceship-prompt/issues/799
