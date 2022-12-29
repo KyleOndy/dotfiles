@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+
+get_worktree_projects() {
+  for dir in "$root_dir/"*; do
+    if [[ -d "${dir}/.bare" ]]; then
+      echo "$dir"
+    fi
+  done
+}
+
+update_project_branch() {
+  local project="$1"
+  local branch="$2"
+  branch_folder="${project}/${branch}"
+  if [[ -d "$branch_folder" ]]; then
+    git -C "$branch_folder" sync
+  fi
+}
+
+main() {
+  projects=$(get_worktree_projects)
+  for project in $projects; do
+    echo "==> $project"
+    update_project_branch "$project" "master"
+    update_project_branch "$project" "main"
+  done
+}
+
+root_dir=${1:-"$HOME/src"}
+main "$@"
