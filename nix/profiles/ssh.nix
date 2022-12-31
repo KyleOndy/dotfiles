@@ -114,8 +114,8 @@
       NIX_PATH = "nixpkgs=${pkgs.path}";
       MANPAGER = "nvim +Man! -- ";
 
-      # even if we aren't using GPG, we need this set before trying to use the
-      # GPG module. Race condition I need to fix later.
+      # TODO: even if we aren't using GPG, we need this set before trying to
+      #       use the GPG module. Race condition I need to fix later.
       GNUPGHOME = "$HOME/.gnupg";
     };
     stateVersion = "18.09";
