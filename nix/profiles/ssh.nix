@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, config, ... }:
 {
   programs = {
     home-manager = {
@@ -105,8 +105,8 @@
   # the following configuration should be moved into a module, I am just not sure where it fits right now, so dropping it inline.
   home = {
     sessionVariables = {
-      DOTFILES = "$HOME/src/dotfiles";
-      FOUNDRY_DATA = "$HOME/src/foundry";
+      DOTFILES = "${config.home.homeDirectory}/src/dotfiles";
+      FOUNDRY_DATA = "${config.home.homeDirectory}/src/foundry";
       EDITOR = "nvim";
       VISUAL = "nvim";
       # this allows the rest of the nix tooling to use the same nixpkgs that I
@@ -116,7 +116,7 @@
 
       # TODO: even if we aren't using GPG, we need this set before trying to
       #       use the GPG module. Race condition I need to fix later.
-      GNUPGHOME = "$HOME/.gnupg";
+      GNUPGHOME = "${config.home.homeDirectory}/.gnupg";
     };
     stateVersion = "18.09";
   };

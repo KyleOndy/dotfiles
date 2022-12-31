@@ -14,7 +14,7 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [ pinentry-curses ]; # cli pin entry
     # TODO: see note in ssh.nix
-    #home.sessionVariables = { GNUPGHOME = "$HOME/.gnupg"; };
+    #home.sessionVariables = { GNUPGHOME = "${config.home.homeDirectory}/.gnupg"; };
 
     programs.gpg = {
       enable = true;

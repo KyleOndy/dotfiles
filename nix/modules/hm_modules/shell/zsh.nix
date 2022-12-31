@@ -34,7 +34,7 @@ in
           k = "kubectl";
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
-          src = "cd $HOME/src";
+          src = "cd ${config.home.homeDirectory}/src";
           tree = "tree --dirsfirst -ChFQ $@";
           tree1 = "tree -L 1 $@";
           tree2 = "tree -L 2 $@";
@@ -189,7 +189,7 @@ in
           }
 
           fzf_pick_aws_profile() {
-            aws_profile=$(grep '\[profile .*\]' "$HOME/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
+            aws_profile=$(grep '\[profile .*\]' "${config.home.homeDirectory}/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
             if [[ -z "$aws_profile" ]]; then
               unset AWS_PROFILE
             else
@@ -201,7 +201,7 @@ in
           # easily export which kube config I want. I can't break things if I can
           # not connect to the cluster.
           fzf_pick_kube_config() {
-            config_dir="$HOME/.kube/configs"
+            config_dir="${config.home.homeDirectory}/.kube/configs"
             # becuase at $WORK I use darwin, I don't have GNU find, and need to do
             # these shenanigans with `basename`.
             kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | sort |
@@ -256,9 +256,9 @@ in
 
           # spaceship config
           # todo: not sure this is the best way to instll the theme
-          mkdir -p "$HOME/.zfunctions"
+          mkdir -p "${config.home.homeDirectory}/.zfunctions"
           fpath=(
-            "$HOME/.zfunctions"
+            "${config.home.homeDirectory}/.zfunctions"
             "${pkgs.spaceship-prompt}/lib/spaceship-prompt/"
             $fpath
           )
