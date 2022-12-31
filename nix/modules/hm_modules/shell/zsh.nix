@@ -259,7 +259,7 @@ in
           mkdir -p "$HOME/.zfunctions"
           fpath=(
             "$HOME/.zfunctions"
-            "${pkgs.nixpkgs-spaceship.spaceship-prompt}/lib/spaceship-prompt/"
+            "${pkgs.spaceship-prompt}/lib/spaceship-prompt/"
             $fpath
           )
           autoload -U promptinit; promptinit
