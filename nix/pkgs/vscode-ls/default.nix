@@ -18,38 +18,27 @@ stdenv.mkDerivation rec {
   buildInputs = [ unzip ];
   nativeBuildInputs = [ makeWrapper ];
 
-  unpackPhase = ''
-    # making some serious assumptions
-    if [[ $src == *.tar.gz ]]; then
-      tar -xzf $src
-    elif [[ $src == *.zip ]]; then
-      unzip $src
-    else
-      echo "Unknown format"
-      exit 1
-    fi
-  '';
-
   buildPhase = null;
 
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out/extensions
 
-    cd "Visual Studio Code.app/Contents/Resources" || cd ./VSCode-linux-x64/resources/
+    cp -r "resources/app/extensions/node_modules" $out/extensions/node_modules
+    cp -r "resources/app/extensions/css-language-features" $out/extensions/css-ls
+    cp -r "resources/app/extensions/json-language-features" $out/extensions/json-ls
+    cp -r "resources/app/extensions/html-language-features" $out/extensions/html-ls
 
-    cp -r "app/extensions/node_modules" $out/extensions/node_modules
-    cp -r "app/extensions/css-language-features" $out/extensions/css-ls
-    cp -r "app/extensions/json-language-features" $out/extensions/json-ls
-    cp -r "app/extensions/html-language-features" $out/extensions/html-ls
-
-    makeWrapper '${nodejs_latest}/bin/node' "$out/bin/vscode-css-language-server" \
+    makeWrapper ${nodejs_latest}/bin/node "$out/bin/vscode-css-language-server" \
       --add-flags "$out/extensions/css-ls/server/dist/node/cssServerMain.js"
 
-    makeWrapper '${nodejs_latest}/bin/node' "$out/bin/vscode-json-language-server" \
+    makeWrapper ${nodejs_latest}/bin/node "$out/bin/vscode-json-language-server" \
       --add-flags "$out/extensions/json-ls/server/dist/node/jsonServerMain.js"
 
-    makeWrapper '${nodejs_latest}/bin/node' "$out/bin/vscode-html-language-server" \
+    makeWrapper ${nodejs_latest}/bin/node "$out/bin/vscode-html-language-server" \
       --add-flags "$out/extensions/html-ls/server/dist/node/htmlServerMain.js"
+    runHook postInstall
   '';
 
   meta = with lib; {
