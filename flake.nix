@@ -208,8 +208,20 @@
             modules = nixModules ++ [
               ./nix/hosts/util_lan/configuration.nix
               inputs.sops-nix.nixosModules.sops
+              inputs.home-manager.nixosModules.home-manager
               {
-                systemFoundry.deployment_target.enable = true;
+                systemFoundry = {
+                  deployment_target.enable = true;
+                  users.kyle.enable = true;
+                };
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  sharedModules = hmModules;
+                  users.kyle = import ./nix/profiles/ssh.nix;
+                };
+
                 # TMP
                 nix.extraOptions = ''
                   experimental-features = nix-command flakes
