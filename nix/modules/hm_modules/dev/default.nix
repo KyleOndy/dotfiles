@@ -42,6 +42,7 @@ in
       coreutils-full
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
+      curl # get whatever random files / pgp keys I need
       direnv
       dnsutils # dig
       docker-compose
