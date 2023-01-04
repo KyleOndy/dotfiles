@@ -46,12 +46,6 @@ deploy-all: ## Deploy all defined hosts
 		jq -r '.nixosConfigurations | keys[]' | \
 		xargs -t -- dots --deploy
 
-.PHONY: build-darwin
-build-darwin: ## Build darwin system
-	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
-	$(REBUILD) build --flake .#$(HOSTNAME) --keep-going
-	nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result)
-
 .PHONY: diff-system
 diff-system: ## Print system diff without color
 	@nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result) |  sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
