@@ -27,7 +27,7 @@ help: ## Show this help
 
 .PHONY: build
 build: ## Buld single host
-	$(REBUILD) --flake .#$(HOSTNAME) build
+	$(REBUILD) --flake .#$(HOSTNAME) build --keep-going
 	nix store diff-closures /var/run/current-system "$(shell readlink -f ./result)"
 
 .PHONY: build-all
