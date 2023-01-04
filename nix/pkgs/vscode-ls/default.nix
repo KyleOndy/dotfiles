@@ -25,6 +25,11 @@ stdenv.mkDerivation rec {
 
     mkdir -p $out/extensions
 
+    # on darwin-aarch64 vscode is unpackaged differently, and everything is
+    # under the `Contents` directory. There is probably a better way to do
+    # this.
+    cd ./Contents || true
+
     cp -r "resources/app/extensions/node_modules" $out/extensions/node_modules
     cp -r "resources/app/extensions/css-language-features" $out/extensions/css-ls
     cp -r "resources/app/extensions/json-language-features" $out/extensions/json-ls
