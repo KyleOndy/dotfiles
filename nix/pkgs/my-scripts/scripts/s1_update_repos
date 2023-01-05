@@ -14,7 +14,8 @@ update_project_branch() {
   local branch="$2"
   branch_folder="${project}/${branch}"
   if [[ -d "$branch_folder" ]]; then
-    git -C "$branch_folder" sync
+    git -C "$branch_folder" fetch --quiet
+    git -C "$branch_folder" pull --quiet
   fi
 }
 
