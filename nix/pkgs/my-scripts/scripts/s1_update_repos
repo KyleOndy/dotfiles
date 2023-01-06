@@ -19,12 +19,23 @@ update_project_branch() {
   fi
 }
 
+install_precommit() {
+  local project="$1"
+  local branch="$2"
+  branch_folder="${project}/${branch}"
+  if [[ -d "$branch_folder" ]]; then
+    pre-commit install || ture
+  fi
+}
+
 main() {
   projects=$(get_worktree_projects)
   for project in $projects; do
     echo "==> $project"
     update_project_branch "$project" "master"
     update_project_branch "$project" "main"
+    # other nice to haves
+    install_precommit "$project" "main"
   done
 }
 
