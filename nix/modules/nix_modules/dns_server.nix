@@ -122,6 +122,7 @@ in
         -O \
         --output-dir $(dirname ${cfg.blacklist.path}) \
         ${cfg.blacklist.source}
+        echo "Downloaded blocklist"
       '';
 
     };
