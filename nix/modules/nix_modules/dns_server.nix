@@ -71,38 +71,37 @@ in
       enable = true;
       servers = cfg.upstreamDnsServers;
       extraConfig = ''
+          ${optionalString (cfg.aRecords != {}) ''
+          ${builtins.concatStringsSep "\n"
+                (builtins.attrValues (builtins.mapAttrs
+                  (n: v: "address=/${n}/${v}")
+                  cfg.aRecords
+                )
+                )}
+        ''}
 
-      ${optionalString (cfg.aRecords != {}) ''
-      ${builtins.concatStringsSep "\n"
-            (builtins.attrValues (builtins.mapAttrs
-              (n: v: "address=/${n}/${v}")
-              cfg.aRecords
-            )
-            )}
-    ''}
+          ${optionalString (cfg.cnameRecords != {}) ''
+          ${builtins.concatStringsSep "\n"
+                (builtins.attrValues (builtins.mapAttrs
+                (n: v: "cname=${n},${v}")
+                cfg.cnameRecords
+                )
+                )}
+        ''}
+          ${optionalString (cfg.domainRecords != {}) ''
+          ${builtins.concatStringsSep "\n"
+                (builtins.attrValues (builtins.mapAttrs
+                (n: v: "server=/${n}/${v}")
+                cfg.domainRecords
+                )
+                )}
+        ''}
 
-      ${optionalString (cfg.cnameRecords != {}) ''
-      ${builtins.concatStringsSep "\n"
-            (builtins.attrValues (builtins.mapAttrs
-            (n: v: "cname=${n},${v}")
-            cfg.cnameRecords
-            )
-            )}
-    ''}
-      ${optionalString (cfg.domainRecords != {}) ''
-      ${builtins.concatStringsSep "\n"
-            (builtins.attrValues (builtins.mapAttrs
-            (n: v: "server=/${n}/${v}")
-            cfg.domainRecords
-            )
-            )}
-    ''}
-
-      ${optionalString cfg.blacklist.enable ''
-            conf-file=${cfg.blacklist.path}
-      ''
-    }
-        '';
+          ${optionalString cfg.blacklist.enable ''
+                conf-file=${cfg.blacklist.path}
+          ''
+        }
+      '';
     };
 
 
