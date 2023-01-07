@@ -71,6 +71,9 @@ in
       enable = true;
       servers = cfg.upstreamDnsServers;
       extraConfig = ''
+          log-queries
+          log-async=25
+
           ${optionalString (cfg.aRecords != {}) ''
           ${builtins.concatStringsSep "\n"
                 (builtins.attrValues (builtins.mapAttrs
