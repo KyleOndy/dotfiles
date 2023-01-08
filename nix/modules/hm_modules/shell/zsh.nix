@@ -255,15 +255,9 @@ in
           compdef _bb_tasks bb
 
           # spaceship config
-          # todo: not sure this is the best way to instll the theme
-          mkdir -p "${config.home.homeDirectory}/.zfunctions"
-          fpath=(
-            "${config.home.homeDirectory}/.zfunctions"
-            "${pkgs.spaceship-prompt}/lib/spaceship-prompt/"
-            $fpath
-          )
-          autoload -U promptinit; promptinit
-          prompt spaceship
+          # TODO: is there a better way to soruce this?
+          source "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh"
+
           # Here are some symbols I'd love to use somewhere
           #  U+2615   HOT BEVERAGE          ☕
           #  U+2620   SKULL AND CROSSBONES  ☠
