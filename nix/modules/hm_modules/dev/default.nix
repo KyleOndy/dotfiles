@@ -127,7 +127,6 @@ in
       remmina # remote desktop client
       smbnetfs # todo: why do I need this?
       virt-manager # manage KVM
-      zoom-us # pandemic life
     ]
 
     ++ optionals stdenv.isDarwin [
