@@ -122,7 +122,6 @@ in
       golden-cheetah # cycling analytics
       inotify-tools # watch the file system for changes
       ltrace # trace library calls
-      makemkv # rip DVDs
       molly-guard # prevent footguns from runing my day
       qemu_full
       remmina # remote desktop client
