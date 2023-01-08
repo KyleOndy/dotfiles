@@ -257,6 +257,7 @@ in
           # spaceship config
           # TODO: is there a better way to soruce this?
           source "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh"
+          export SPACESHIP_PROMPT_ASYNC=false # https://github.com/spaceship-prompt/spaceship-prompt/issues/1193
 
           # Here are some symbols I'd love to use somewhere
           #  U+2615   HOT BEVERAGE          ☕
