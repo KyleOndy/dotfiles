@@ -112,10 +112,6 @@
               systemFoundry =
                 {
                   deployment_target.enable = true;
-                  syncthing = {
-                    # TODO: better place for this
-                    enable = true;
-                  };
                 };
               nixpkgs.overlays = overlays;
               home-manager = {
@@ -147,10 +143,6 @@
               systemFoundry = {
                 users.kyle.enable = true;
                 deployment_target.enable = true;
-                syncthing = {
-                  # TODO: better place for this
-                  enable = true;
-                };
               };
               # TODO: overwriting for testing pourposes
               services = {
@@ -246,10 +238,6 @@
                 systemFoundry =
                   {
                     deployment_target.enable = true;
-                    syncthing = {
-                      # TODO: better place for this
-                      enable = true;
-                    };
                   };
                 nixpkgs.overlays = overlays;
                 home-manager = {
