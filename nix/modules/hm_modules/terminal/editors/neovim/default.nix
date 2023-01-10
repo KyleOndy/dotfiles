@@ -378,6 +378,14 @@ in
             }
           '';
         }
+
+        {
+          plugin = nvim-highlight-colors;
+          type = "lua";
+          config = ''
+            require('nvim-highlight-colors').setup {}
+          '';
+        }
       ];
 
       # See the comment for the first plugin as to why this is not configured.
