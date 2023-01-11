@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# TODO: I'm starting to copy and paste the same pattern for these functions. I
+#       should probably abstract it into some kind of function.
 
 get_worktree_projects() {
   for dir in "$root_dir/"*; do
@@ -28,6 +30,15 @@ install_precommit() {
   fi
 }
 
+set_git_commit_template() {
+  local project="$1"
+  local branch="$2"
+  branch_folder="${project}/${branch}"
+  if [[ -f "${branch_folder}/.github/pull_request_template.md" ]]; then
+    git -C "$branch_folder" config commit.template .github/pull_request_template.md
+  fi
+}
+
 main() {
   projects=$(get_worktree_projects)
   for project in $projects; do
@@ -36,6 +47,7 @@ main() {
     update_project_branch "$project" "main"
     # other nice to haves
     install_precommit "$project" "main"
+    set_git_commit_template "$project" "main"
   done
 }
 
