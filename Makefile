@@ -40,6 +40,14 @@ build-all: # Build all defined hosts
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) --flake .#$(HOSTNAME) switch
 
+.PHONY: deploy-rs
+deploy-rs:
+	deploy -- .#$(HOSTNAME)
+
+.PHONY: deploy-rs-all
+deploy-rs-all:
+	deploy -- .
+
 .PHONY: deploy-all
 deploy-all: ## Deploy all defined hosts
 	@nix flake show --json | \
