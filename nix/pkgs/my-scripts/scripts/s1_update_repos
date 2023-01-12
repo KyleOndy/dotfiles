@@ -26,6 +26,7 @@ install_precommit() {
   local branch="$2"
   branch_folder="${project}/${branch}"
   if [[ -d "$branch_folder" ]]; then
+    printf "\t"
     pre-commit install || ture
   fi
 }
@@ -36,6 +37,7 @@ set_git_commit_template() {
   branch_folder="${project}/${branch}"
   if [[ -f "${branch_folder}/.github/pull_request_template.md" ]]; then
     git -C "$branch_folder" config commit.template .github/pull_request_template.md
+    printf "\tset commit template to pull_request_template\n"
   fi
 }
 
@@ -46,7 +48,9 @@ main() {
     update_project_branch "$project" "master"
     update_project_branch "$project" "main"
     # other nice to haves
+    install_precommit "$project" "master"
     install_precommit "$project" "main"
+    set_git_commit_template "$project" "master"
     set_git_commit_template "$project" "main"
   done
 }
