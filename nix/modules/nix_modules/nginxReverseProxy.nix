@@ -60,12 +60,12 @@ in
 
         virtualHosts = lib.attrsets.mapAttrs
           (name: cfg: {
-            enableACME = false;
+            enableACME = mkIf cfg.provisionCert true;
             forceSSL = true;
 
             # todo: should I make the path configurable?
-            sslCertificate = "/var/lib/acme/${name}/cert.pem";
-            sslCertificateKey = "/var/lib/acme/${name}/key.pem";
+            sslCertificate = ! mkif cfg.provisionCert "/var/lib/acme/${name}/cert.pem";
+            sslCertificateKey = ! mkif cfg.provisionCert "/var/lib/acme/${name}/key.pem";
             locations."/" = {
               proxyPass = cfg.proxyPass;
               # todo: these may need to be configurable
@@ -83,7 +83,7 @@ in
           })
           sites;
       };
-      security.acme = {
+      security.acme = ! mkif cfg.provisionCert {
         certs = mapAttrs
           (name: cfg: { extraDomainNames = cfg.extraDomainNames; })
           sites;
