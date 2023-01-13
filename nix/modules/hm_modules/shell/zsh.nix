@@ -29,6 +29,7 @@ in
           ":q" = "exit";
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
+          cdg = "cd $(git root)";
           f = "foundry";
           g = "git";
           k = "kubectl";
