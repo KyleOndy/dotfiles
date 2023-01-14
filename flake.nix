@@ -265,6 +265,17 @@
               }
             ];
           };
+        iso = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            ./nix/iso.nix
+            "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+            #inputs.sops-nix.nixosModules.sops
+            #{
+            #  nixpkgs.overlays = overlays;
+            #}
+          ];
+        };
       };
       darwinConfigurations.DCP40KQJX6 = inputs.nix-darwin.lib.darwinSystem
         {
