@@ -147,26 +147,27 @@ in
             forceSSL = true;
 
             # todo: should I make the path configurable?
-            sslCertificate = ! mkif cfg.provisionCert "/var/lib/acme/${name}/cert.pem";
-            sslCertificateKey = ! mkif cfg.provisionCert "/var/lib/acme/${name}/key.pem";
+            sslCertificate = "/var/lib/acme/${name}/cert.pem";
+            sslCertificateKey = "/var/lib/acme/${name}/key.pem";
             locations."/" = {
               proxyPass = cfg.proxyPass;
               # todo: these may need to be configurable
-              extraConfig =
+              extraConfig = ''
                 # required when the target is also TLS server with multiple hosts
-                #"proxy_ssl_server_name on;" +
+                proxy_ssl_server_name on;
                 # required when the server wants to use HTTP Authentication
-                "proxy_pass_header Authorization;"
-              ;
+                proxy_pass_header Authorization;
+                proxy_ssl_verify on;
+              '';
             };
             extraConfig = ''
-              access_log /var/log/nginx/${name}.access;
+              access_log /var/log/nginx/${name}.access upstreamlog;
               error_log /var/log/nginx/${name}.error error;
             '';
           })
           sites;
       };
-      security.acme = ! mkif cfg.provisionCert {
+      security.acme = {
         certs = mapAttrs
           (name: cfg: { extraDomainNames = cfg.extraDomainNames; })
           sites;
