@@ -66,6 +66,7 @@ in
       enable = true;
       proxyPass = "http://127.0.0.1:6789";
     };
+    networking.firewall.allowedTCPPorts = [ 6789 ];
     systemd.services.nzbget-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
       path = [ pkgs.coreutils ];
