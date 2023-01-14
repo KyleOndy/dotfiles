@@ -46,7 +46,6 @@ in
           type = "tar.gz";
           interval = "hourly";
         };
-        httpAddress = "127.0.0.1";
       };
     };
 
@@ -55,6 +54,7 @@ in
       #proxyPass = "http://${config.services.gitea.httpAddress}:${toString config.services.gitea.httpPort}";
       proxyPass = "http://127.0.0.1:3000";
     };
+    networking.firewall.allowedTCPPorts = [ 3000 ];
     systemd.services.gitea-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
       path = [ pkgs.coreutils ];
