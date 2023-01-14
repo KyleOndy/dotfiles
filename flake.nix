@@ -216,12 +216,6 @@
                   sharedModules = hmModules;
                   users.kyle = import ./nix/profiles/ssh.nix;
                 };
-
-                # TMP
-                nix.extraOptions = ''
-                  experimental-features = nix-command flakes
-                '';
-                # END TMP
               }
             ];
           };
