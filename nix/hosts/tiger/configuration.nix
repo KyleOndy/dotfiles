@@ -207,7 +207,7 @@ in
         };
       };
       gitea = {
-        enable = false;
+        enable = true;
         domainName = "gitea.${domain}";
         backup = {
           # todo: backups were chewing through diskspace with mirrored repos
