@@ -249,16 +249,18 @@
               }
             ];
           };
-        dmz-rp = inputs.nixpkgs.lib.nixosSystem
+        dmz_rp = inputs.nixpkgs.lib.nixosSystem
           {
-            system = "x86_64-linux";
+            system = "aarch64-linux";
             modules = nixModules ++ [
-              ./nix/hosts/dmz-rp/configuration.nix
-              ./nix/users/kyle.nix
+              ./nix/hosts/dmz_rp/configuration.nix
               inputs.sops-nix.nixosModules.sops
               inputs.home-manager.nixosModules.home-manager
               {
-                systemFoundry.deployment_target.enable = true;
+                systemFoundry = {
+                  deployment_target.enable = true;
+                  users.kyle.enable = true;
+                };
                 nixpkgs.overlays = overlays;
                 home-manager = {
                   useGlobalPkgs = true;
@@ -316,6 +318,14 @@
             sshUser = "svc.deploy";
             user = "root";
             path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.util_lan;
+          };
+        };
+        dmz_rp = {
+          hostname = "10.25.89.10"; # "rp.dmz.509ely.com";
+          profiles.system = {
+            sshUser = "svc.deploy";
+            user = "root";
+            path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.dmz_rp;
           };
         };
       };
