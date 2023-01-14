@@ -220,12 +220,12 @@ in
         domainName = "nix-cache.${domain}";
       };
       pixiecore = {
-        enable = true;
+        enable = false;
         apiAddress = "http://localhost:3031"; # todo: reference api config
         listenPort = 3032;
       };
       nixNetbootServe = {
-        enable = true;
+        enable = false;
         gcRootDir = "${service_root}/nix-netboot-serve/gc-roots";
         # todo: point to dotfiles?
         configurationDir = "${service_root}/nix-netboot-serve/configurations";
