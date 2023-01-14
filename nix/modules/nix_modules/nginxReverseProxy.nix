@@ -26,7 +26,7 @@ in
         };
         provisionCert = mkOption {
           type = types.bool;
-          default = true;
+          default = false;
           description = ''
             provision a cert for this reverse proxy
           '';
@@ -60,7 +60,7 @@ in
 
         virtualHosts = lib.attrsets.mapAttrs
           (name: cfg: {
-            enableACME = mkIf cfg.provisionCert true;
+            enableACME = cfg.provisionCert;
             forceSSL = true;
 
             # todo: should I make the path configurable?
