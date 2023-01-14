@@ -37,6 +37,7 @@ in
         # currently all config is done via the web.
         # todo: setup some kind of autoamted downloading of backup zip
         enable = true;
+        openFirewall = true;
       };
     };
 
