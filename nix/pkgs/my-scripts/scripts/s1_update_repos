@@ -26,8 +26,10 @@ install_precommit() {
   local branch="$2"
   branch_folder="${project}/${branch}"
   if [[ -d "$branch_folder" ]]; then
+    pushd "$branch_folder" > /dev/null || exit 1
     printf "\t"
-    pre-commit install || ture
+    pre-commit install || true
+    popd > /dev/null || exit 1
   fi
 }
 
