@@ -28,7 +28,7 @@ install_precommit() {
   if [[ -d "$branch_folder" ]]; then
     pushd "$branch_folder" > /dev/null || exit 1
     printf "\t"
-    pre-commit install || true
+    pre-commit install --allow-missing-config || true
     popd > /dev/null || exit 1
   fi
 }
