@@ -13,7 +13,7 @@ in
       nomad
       #packer # packer broke on osx
       terraform_1
-      vagrant
+      #vagrant # broke
       vault
 
       # hashi-related

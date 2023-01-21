@@ -14,7 +14,6 @@ in
         extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           # todo: these are not enabled by default
           browserpass
-          https-everywhere
           multi-account-containers
           privacy-badger
           umatrix
