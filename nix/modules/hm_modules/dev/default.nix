@@ -84,6 +84,7 @@ in
       nixpkgs-review # easily dev on nixpkgs
       nmap # network mapping and scanning
       openvpn # covering my tracks
+      parallel # name says it all
       pixz # parallel (de)compresser for xz
       postgresql # _the_ DB
       proselint # A linter for prose
