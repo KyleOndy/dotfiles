@@ -67,6 +67,13 @@ in
   };
 
   config = mkIf cfg.enable {
+    # dnsmasq wasn't working until I re-ran nixos-rebuild switch
+    # https://serverfault.com/a/907603
+    systemd.services.dnsmasq = {
+      after = [ "network-online.target" "network.target" "systemd-resolved.service" ];
+      wants = [ "network-online.target" ];
+    };
+
     services.dnsmasq = {
       enable = true;
       servers = cfg.upstreamDnsServers;
