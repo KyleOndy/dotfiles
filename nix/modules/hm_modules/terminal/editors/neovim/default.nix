@@ -360,8 +360,8 @@ in
             vim.cmd [[highlight IndentBlanklineIndent6 guifg=#689d6a gui=nocombine]]
 
             vim.opt.list = true
-            vim.opt.listchars:append "space:⋅"
-            vim.opt.listchars:append "eol:↴"
+            -- vim.opt.listchars:append "space:⋅"
+            -- vim.opt.listchars:append "eol:↴"
 
             require("indent_blankline").setup {
                 space_char_blankline = " ",
