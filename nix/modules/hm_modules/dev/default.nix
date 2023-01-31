@@ -50,6 +50,7 @@ in
       dos2unix # windows line endings => unix
       entr # run arbitrary commands when files change
       envsubst
+      exiftool # work with exif data
       fd # an easier to use `find`
       file # what type of file is this?
       findutils
