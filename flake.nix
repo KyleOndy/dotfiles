@@ -157,8 +157,6 @@
                       wm.i3.enable = inputs.nixpkgs.lib.mkForce false;
                     };
                   };
-
-
                   programs = {
                     foot = {
                       enable = true;
@@ -177,35 +175,76 @@
                     };
                   };
                 };
-
-
               };
             }
           ];
         };
-        #util_lan = inputs.nixpkgs.lib.nixosSystem
-        #  {
-        #    system = "aarch64-linux";
-        #    modules = nixModules ++ [
-        #      inputs.nixos-hardware.nixosModules."raspberry-pi-4"
-        #      ./nix/hosts/util_lan/configuration.nix
-        #      inputs.sops-nix.nixosModules.sops
-        #      inputs.home-manager.nixosModules.home-manager
-        #      {
-        #        systemFoundry = {
-        #          deployment_target.enable = true;
-        #          users.kyle.enable = true;
-        #        };
-        #        nixpkgs.overlays = overlays;
-        #        home-manager = {
-        #          useGlobalPkgs = true;
-        #          useUserPackages = true;
-        #          sharedModules = hmModules;
-        #          users.kyle = import ./nix/profiles/ssh.nix;
-        #        };
-        #      }
-        #    ];
-        #  };
+        pi1 = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = nixModules ++ [
+            inputs.nixos-hardware.nixosModules."raspberry-pi-4"
+            ./nix/hosts/pi1/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
+        pi2 = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = nixModules ++ [
+            inputs.nixos-hardware.nixosModules."raspberry-pi-4"
+            ./nix/hosts/pi2/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
+        pi3 = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = nixModules ++ [
+            inputs.nixos-hardware.nixosModules."raspberry-pi-4"
+            ./nix/hosts/pi3/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
         tiger = inputs.nixpkgs.lib.nixosSystem
           {
             system = "x86_64-linux";
@@ -230,28 +269,6 @@
               }
             ];
           };
-        #dmz_rp = inputs.nixpkgs.lib.nixosSystem
-        #  {
-        #    system = "aarch64-linux";
-        #    modules = nixModules ++ [
-        #      ./nix/hosts/dmz_rp/configuration.nix
-        #      inputs.sops-nix.nixosModules.sops
-        #      inputs.home-manager.nixosModules.home-manager
-        #      {
-        #        systemFoundry = {
-        #          deployment_target.enable = true;
-        #          users.kyle.enable = true;
-        #        };
-        #        nixpkgs.overlays = overlays;
-        #        home-manager = {
-        #          useGlobalPkgs = true;
-        #          useUserPackages = true;
-        #          sharedModules = hmModules;
-        #          users.kyle = import ./nix/profiles/ssh.nix;
-        #        };
-        #      }
-        #    ];
-        #  };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -273,72 +290,69 @@
             ./nix/hosts/bootstrap.nix
           ];
         };
-        #w1 = inputs.nixpkgs.lib.nixosSystem {
-        #  system = "x86_64-linux";
-        #  modules = nixModules ++ [
-        #    ./nix/hosts/w1/configuration.nix
-        #    inputs.sops-nix.nixosModules.sops
-        #    inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-        #    inputs.home-manager.nixosModules.home-manager
-        #    {
-        #      nixpkgs.overlays = overlays;
-        #      systemFoundry = {
-        #        deployment_target.enable = true;
-        #        users.kyle.enable = true;
-        #      };
-        #      home-manager = {
-        #        useGlobalPkgs = true;
-        #        useUserPackages = true;
-        #        sharedModules = hmModules;
-        #        users.kyle = import ./nix/profiles/ssh.nix;
-        #      };
-        #    }
-        #  ];
-        #};
-        #w2 = inputs.nixpkgs.lib.nixosSystem {
-        #  system = "x86_64-linux";
-        #  modules = nixModules ++ [
-        #    ./nix/hosts/w2/configuration.nix
-        #    inputs.sops-nix.nixosModules.sops
-        #    inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-        #    inputs.home-manager.nixosModules.home-manager
-        #    {
-        #      nixpkgs.overlays = overlays;
-        #      systemFoundry = {
-        #        deployment_target.enable = true;
-        #        users.kyle.enable = true;
-        #      };
-        #      home-manager = {
-        #        useGlobalPkgs = true;
-        #        useUserPackages = true;
-        #        sharedModules = hmModules;
-        #        users.kyle = import ./nix/profiles/ssh.nix;
-        #      };
-        #    }
-        #  ];
-        #};
-        #w3 = inputs.nixpkgs.lib.nixosSystem {
-        #  system = "x86_64-linux";
-        #  modules = nixModules ++ [
-        #    ./nix/hosts/w3/configuration.nix
-        #    inputs.sops-nix.nixosModules.sops
-        #    inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-        #    inputs.home-manager.nixosModules.home-manager
-        #    {
-        #      nixpkgs.overlays = overlays;
-        #      systemFoundry = {
-        #        deployment_target.enable = true;
-        #        users.kyle.enable = true;
-        #      };
-        #      home-manager = {
-        #        useGlobalPkgs = true;
-        #        useUserPackages = true;
-        #        sharedModules = hmModules;
-        #        users.kyle = import ./nix/profiles/ssh.nix;
-        #      };
-        #    }
-        #  ];
-        #};
+        w1 = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/w1/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              nixpkgs.overlays = overlays;
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
+        w2 = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/w2/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              nixpkgs.overlays = overlays;
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
+        w3 = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/w3/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              nixpkgs.overlays = overlays;
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules;
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
       };
       darwinConfigurations.DCP40KQJX6 = inputs.nix-darwin.lib.darwinSystem
         {
@@ -390,47 +404,57 @@
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
             };
           };
-          #util_lan = {
-          #  #hostname = "util.lan.509ely.com";
-          #  hostname = "10.24.89.53";
-          #  profiles.system = {
-          #    sshUser = "svc.deploy";
-          #    user = "root";
-          #    path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.util_lan;
-          #  };
-          #};
-          #dmz_rp = {
-          #  hostname = "10.25.89.10"; # "rp.dmz.509ely.com";
-          #  profiles.system = {
-          #    sshUser = "svc.deploy";
-          #    user = "root";
-          #    path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.dmz_rp;
-          #  };
-          #};
-          #w1 = {
-          #  hostname = "w1.dmz.509ely.com";
-          #  profiles.system = {
-          #    sshUser = "svc.deploy";
-          #    user = "root";
-          #    path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w1;
-          #  };
-          #};
-          #w2 = {
-          #  hostname = "w2.dmz.509ely.com";
-          #  profiles.system = {
-          #    sshUser = "svc.deploy";
-          #    user = "root";
-          #    path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w2;
-          #  };
-          #};
-          #w3 = {
-          #  hostname = "w3.dmz.509ely.com";
-          #  profiles.system = {
-          #    sshUser = "svc.deploy";
-          #    user = "root";
-          #    path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w3;
-          #  };
-          #};
+          pi1 = {
+            #hostname = "pi1.dmz.509ely.com";
+            hostname = "10.25.89.179";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi1;
+            };
+          };
+          pi2 = {
+            #hostname = "pi2.dmz.509ely.com";
+            hostname = "10.25.89.154";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi2;
+            };
+          };
+          pi3 = {
+            #hostname = "pi3.dmz.509ely.com";
+            hostname = "10.25.89.227";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi3;
+            };
+          };
+          w1 = {
+            hostname = "w1.dmz.509ely.com";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w1;
+            };
+          };
+          w2 = {
+            hostname = "w2.dmz.509ely.com";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w2;
+            };
+          };
+          w3 = {
+            hostname = "w3.dmz.509ely.com";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.w3;
+            };
+          };
         };
       };
     };
