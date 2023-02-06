@@ -1,62 +1,47 @@
-{ pkgs, ... }:
+{ config, pkgs, ... }:
 
 {
-  nixpkgs = {
-    config = {
-      allowUnfree = true;
+  imports = [ ./hardware-configuration.nix ];
+
+  boot = {
+    supportedFilesystems = [ "zfs" ];
+    loader = {
+      systemd-boot.enable = true;
+      efi.canTouchEfiVariables = true;
     };
   };
-
-  # Use the systemd-boot EFI boot loader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
-  boot.initrd.luks.devices = {
-    root = {
-      name = "root";
-      device = "/dev/sda2";
-      preLVM = true;
-    };
-  };
-  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
-
-
   networking = {
     hostName = "alpha";
-    #
-    # The global useDHCP flag is deprecated, therefore explicitly set to false here.
-    # Per-interface useDHCP will be mandatory in the future, so this generated config
-    # replicates the default behaviour.
-    useDHCP = false;
-    interfaces.enp0s31f6.useDHCP = true;
-    interfaces.wlp4s0.useDHCP = true;
-    firewall = {
-      allowedTCPPorts = [
-        80 # HTTP
-        8080 # whatever I feel like
-        64172 # pixiecore
-      ];
-      allowedUDPPorts = [
-        67 # dhcp: pixiecore
-        69 # dhcp: pixcore
-      ];
+    hostId = "3d7631ea";
+    #defaultGateway = "10.24.89.1";
+    #nameservers = [ "10.24.89.1" ]; # todo: set to localhost?
+  };
+  # don't sleep with lid closed
+  services.logind = {
+    lidSwitch = "ignore";
+    lidSwitchDocked = "ignore";
+  };
+  system.stateVersion = "23.05";
+
+  # TODO: add ZFS filesystems
+  systemFoundry = {
+    dnsServer = {
+      enable = true;
+      blacklist.enable = true;
+
+      upstreamDnsServers = [ "10.24.89.1" ];
+      aRecords = {
+        "util.lan.509ely.com" = "10.24.89.53"; # why?
+
+        # monitoring
+        "prometheus.apps.lan.509ely.com" = "10.24.89.5";
+        "grafana.apps.lan.509ely.com" = "10.24.89.5";
+      };
+      cnameRecords = { };
+      domainRecords = {
+        "dmz.509ely.com" = "10.25.89.5";
+        "apps.dmz.509ely.com" = "10.25.89.5";
+      };
     };
-    wireless.interfaces = [ "wlp4s0" ];
   };
-
-  hardware = {
-    enableAllFirmware = true;
-    cpu.intel.updateMicrocode = true;
-  };
-
-  # no adhoc user managment
-  users.mutableUsers = false;
-
-  system.stateVersion = "19.09"; # Did you read the comment?
-
-  # steam
-  hardware.opengl.driSupport32Bit = true;
-  hardware.opengl.extraPackages32 = with pkgs.pkgsi686Linux; [ libva ];
-  hardware.pulseaudio.support32Bit = true;
-
 }

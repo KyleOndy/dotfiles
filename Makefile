@@ -115,6 +115,10 @@ info: ## Print information about the system
 iso: ## build install media with my customizations
 	nix build .#nixosConfigurations.iso.config.system.build.isoImage
 
+.PHONY: sdcard
+sdcard: ## build install media with my customizations
+	nix build .#nixosConfigurations.sd_card.config.system.build.sdImage
+
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system
 	sudo nix-collect-garbage --delete-older-than 31d

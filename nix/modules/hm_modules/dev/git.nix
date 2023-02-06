@@ -271,7 +271,7 @@ in
       [
         git-crypt
         git-lfs
-        gitAndTools.pre-commit # manage git precommit hooks
+        pre-commit
       ];
   };
 }
