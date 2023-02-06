@@ -22,6 +22,7 @@ in
 
     environment.systemPackages = with pkgs; [
       git # working this repos locally
+      molly-guard # prevent footguns from runing my day
       neovim # file editing
       rsync # syncing files
     ];
