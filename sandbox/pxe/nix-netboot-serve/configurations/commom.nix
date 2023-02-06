@@ -18,7 +18,7 @@
   };
   services.openssh = {
     enable = true;
-    permitRootLogin = "yes";
+    settings.permitRootLogin = "yes";
   };
   users.users.root = {
     password = "hunter2";

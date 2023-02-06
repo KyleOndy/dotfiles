@@ -44,7 +44,7 @@ in
     services = {
       openssh = {
         enable = true;
-        permitRootLogin = "no";
+        settings.permitRootLogin = "no";
       };
       # TODO: do I still need RuntimeDirectorySize?
       logind.extraConfig = ''

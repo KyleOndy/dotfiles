@@ -36,15 +36,17 @@ in
       gitea = {
         enable = true;
         appName = "git.ondy.org";
-        #cookieSecure = true;
-        cookieSecure = false;
-        disableRegistration = true;
         domain = "${cfg.domainName}";
         rootUrl = "https://${cfg.domainName}/";
         dump = mkIf cfg.backup.enable {
           enable = true;
           type = "tar.gz";
           interval = "hourly";
+        };
+        settings = {
+          service = {
+            DISABLE_REGISTRATION = true;
+          };
         };
       };
     };
