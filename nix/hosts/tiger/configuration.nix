@@ -185,7 +185,7 @@ in
         group = mediaGroup;
         domainName = "jellyfin.${domain}";
         backup = {
-          enable = true;
+          enable = false; # not worth it, easy to set back up
           destinationPath = "${backup_path}/jellyfin/";
         };
       };
