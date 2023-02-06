@@ -351,39 +351,31 @@ in
           plugin = indent-blankline-nvim;
           type = "lua";
           config = ''
-            vim.opt.termguicolors = true
-            vim.cmd [[highlight IndentBlanklineIndent1 guifg=#cc241d gui=nocombine]]
-            vim.cmd [[highlight IndentBlanklineIndent2 guifg=#d79921 gui=nocombine]]
-            vim.cmd [[highlight IndentBlanklineIndent3 guifg=#458588 gui=nocombine]]
-            vim.cmd [[highlight IndentBlanklineIndent4 guifg=#98971a gui=nocombine]]
-            vim.cmd [[highlight IndentBlanklineIndent5 guifg=#b16286 gui=nocombine]]
-            vim.cmd [[highlight IndentBlanklineIndent6 guifg=#689d6a gui=nocombine]]
+            --vim.opt.termguicolors = true
+            --vim.cmd [[highlight IndentBlanklineIndent1 guifg=#cc241d gui=nocombine]]
+            --vim.cmd [[highlight IndentBlanklineIndent2 guifg=#d79921 gui=nocombine]]
+            --vim.cmd [[highlight IndentBlanklineIndent3 guifg=#458588 gui=nocombine]]
+            --vim.cmd [[highlight IndentBlanklineIndent4 guifg=#98971a gui=nocombine]]
+            --vim.cmd [[highlight IndentBlanklineIndent5 guifg=#b16286 gui=nocombine]]
+            --vim.cmd [[highlight IndentBlanklineIndent6 guifg=#689d6a gui=nocombine]]
 
-            vim.opt.list = true
-            -- vim.opt.listchars:append "space:⋅"
-            -- vim.opt.listchars:append "eol:↴"
+            --vim.opt.list = true
+            ---- vim.opt.listchars:append "space:⋅"
+            ---- vim.opt.listchars:append "eol:↴"
 
-            require("indent_blankline").setup {
-                space_char_blankline = " ",
-                show_current_context = false,
-                show_current_context_start = false,
-                char_highlight_list = {
-                    "IndentBlanklineIndent1",
-                    "IndentBlanklineIndent2",
-                    "IndentBlanklineIndent3",
-                    "IndentBlanklineIndent4",
-                    "IndentBlanklineIndent5",
-                    "IndentBlanklineIndent6",
-                },
-            }
-          '';
-        }
-
-        {
-          plugin = nvim-highlight-colors;
-          type = "lua";
-          config = ''
-            require('nvim-highlight-colors').setup {}
+            --require("indent_blankline").setup {
+            --    space_char_blankline = " ",
+            --    show_current_context = false,
+            --    show_current_context_start = false,
+            --    char_highlight_list = {
+            --        "IndentBlanklineIndent1",
+            --        "IndentBlanklineIndent2",
+            --        "IndentBlanklineIndent3",
+            --        "IndentBlanklineIndent4",
+            --        "IndentBlanklineIndent5",
+            --        "IndentBlanklineIndent6",
+            --    },
+            --}
           '';
         }
       ];
