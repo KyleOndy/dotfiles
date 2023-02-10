@@ -8,18 +8,21 @@
 #       - make the second argument show its help text
 
 _jira_tickets() {
+  # TODO: gonna need to fix this
   jira list --template list --query 'project = "PLAT" and resolution=unresolved and assignee=currentuser() and  sprint in openSprints ()' | \
     sed -E "s|:\s*|\\\:'|" | \
     sed -E "s|$|'|"
 }
 
 _git_branches() {
+  # TODO: gonna need to fix this
   git --no-pager branch -a --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
     sed -E 's|"|'"'"'|g' | \
     sed -E 's|\t|"|g'
 }
 
 main() {
+  # TODO: gonna need to fix this
   _arguments "1: :(($(_jira_tickets)))" \
     "2: :( )" \
     "3: :(($(_git_branches)))"

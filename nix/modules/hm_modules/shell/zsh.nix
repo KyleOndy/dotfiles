@@ -357,8 +357,6 @@ in
           # https://github.com/sainnhe/tmux-fzf
           export TMUX_FZF_ORDER="window|session|pane|command|keybinding"
 
-          eval "$(jira --completion-script-zsh)"
-
           # PS$ is used when command printing (`set -x`) it turned on. The will
           # print the scripts, function, and line number.
           #
