@@ -271,9 +271,6 @@ in
       [
         git-crypt
         git-lfs
-      ]
-      ++ optionals (! stdenv.isAarch64) [
-        # TODO: pre-commit seems to be broken on aarch64 right now.
         pre-commit
       ];
   };
