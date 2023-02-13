@@ -5,7 +5,7 @@
     # TODO: this commit breaks building docs?
     # https://github.com/nix-community/home-manager/commit/2827b5306462d91edec16a3d069b2d6e54c3079f
     home-manager = {
-      url = "github:nix-community/home-manager/176e455371a8371586e8a3ff0d56ee9f3ca2324e";
+      url = "github:nix-community/home-manager";
       # packages installed via home-manager use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
