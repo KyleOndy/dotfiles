@@ -11,7 +11,7 @@ in
     programs = {
       firefox = {
         enable = true;
-        profiles.default.extensions = with pkgs.nur.repos.rycee.firefox-addons; [
+        extensions = with pkgs.nur.repos.rycee.firefox-addons; [
           # todo: these are not enabled by default
           browserpass
           multi-account-containers

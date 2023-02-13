@@ -2,7 +2,9 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
-    home-manager.url = "github:nix-community/home-manager/master";
+    # TODO: this commit breaks building docs?
+    # https://github.com/nix-community/home-manager/commit/2827b5306462d91edec16a3d069b2d6e54c3079f
+    home-manager.url = "github:nix-community/home-manager/176e455371a8371586e8a3ff0d56ee9f3ca2324e";
     nix-darwin.url = "github:LnL7/nix-darwin";
     pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
     nur.url = "github:nix-community/NUR";
