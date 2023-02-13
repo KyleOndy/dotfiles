@@ -2,7 +2,7 @@
 set -e
 
 nixpkgs_master="$HOME/src/nixpkgs/master"
-hostname=util_lan
+hostname=$(hostname)
 step=100
 i=${step}
 
@@ -15,8 +15,7 @@ for commit in $(git -C "$nixpkgs_master" log --oneline --pretty=format:%H); do
 
   git --no-pager -C "$nixpkgs_master" show "$commit"
   sed -i -E "s|(nixpkgs.url = \"github:nixos/nixpkgs/).*(\";)|\1${commit}\2|" flake.nix
-  nixos-rebuild --flake .#${hostname} build && \
-    nixos-rebuild --flake .#dino build && exit 0
+  make HOSTNAME="$hostname" build && exit 0
   echo
   echo "= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = "
   echo
