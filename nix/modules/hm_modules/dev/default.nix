@@ -86,6 +86,7 @@ in
       nmap # network mapping and scanning
       openvpn # covering my tracks
       parallel # name says it all
+      pciutils # lspci
       pixz # parallel (de)compresser for xz
       postgresql # _the_ DB
       proselint # A linter for prose
