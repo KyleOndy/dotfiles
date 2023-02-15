@@ -270,6 +270,26 @@ in
     ];
   };
 
+  # TODO: move to module if it works and I like it
+  systemd.services.nix-update-and-build = {
+    startAt = "*-*-* 04:00:00"; # 4am
+    path = with pkgs; [
+      bash
+      git
+      gnumake
+      jq
+      nix
+      nixos-rebuild
+    ];
+    script = ''
+      cd $(mktemp -d)
+      git clone https://github.com/kyleondy/dotfiles.git .
+      for host in $(nix flake show --json | jq -r '.nixosConfigurations | keys[]'); do
+        nice -n19 make HOSTNAME="$host" build
+      done
+    '';
+  };
+
   system.stateVersion = "21.11"; # Did you read the comment?
 }
 
