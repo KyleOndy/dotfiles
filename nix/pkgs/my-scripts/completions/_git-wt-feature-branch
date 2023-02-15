@@ -8,9 +8,12 @@
 #       - make the second argument show its help text
 
 _jira_tickets() {
-  # TODO: gonna need to fix this
-  jira list --template list --query 'project = "PLAT" and resolution=unresolved and assignee=currentuser() and  sprint in openSprints ()' | \
-    sed -E "s|:\s*|\\\:'|" | \
+  # the format here is descibed in the zsh compeltion man page
+  # each item needs to have the following format
+  #     PLAT-1234\:'[Foo]: do things'
+  #     PLAT-2345\:'foobar'
+  jira sprint list --current -a$(jira me) --plain --no-headers --columns key,summary | \
+    sed -E "s|\t|\\\:'|" | \
     sed -E "s|$|'|"
 }
 
