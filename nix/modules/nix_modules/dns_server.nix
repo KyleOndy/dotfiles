@@ -76,42 +76,34 @@ in
 
     services.dnsmasq = {
       enable = true;
-      servers = cfg.upstreamDnsServers;
-      extraConfig = ''
-          log-queries
-          log-async=25
+      settings = {
+        log-async = 25;
+        log-queries = true;
 
-          ${optionalString (cfg.aRecords != {}) ''
-          ${builtins.concatStringsSep "\n"
-                (builtins.attrValues (builtins.mapAttrs
-                  (n: v: "address=/${n}/${v}")
-                  cfg.aRecords
-                )
-                )}
-        ''}
+        # TODO: check that conf-file does what I expect
+        conf-file = optional cfg.blacklist.enable cfg.blacklist.path;
 
-          ${optionalString (cfg.cnameRecords != {}) ''
-          ${builtins.concatStringsSep "\n"
-                (builtins.attrValues (builtins.mapAttrs
-                (n: v: "cname=${n},${v}")
-                cfg.cnameRecords
-                )
-                )}
-        ''}
-          ${optionalString (cfg.domainRecords != {}) ''
-          ${builtins.concatStringsSep "\n"
-                (builtins.attrValues (builtins.mapAttrs
-                (n: v: "server=/${n}/${v}")
-                cfg.domainRecords
-                )
-                )}
-        ''}
+        address = optionals (cfg.aRecords != { }) (
+          (builtins.attrValues (builtins.mapAttrs
+            (n: v: "/${n}/${v}")
+            cfg.aRecords
+          ))
+        );
 
-          ${optionalString cfg.blacklist.enable ''
-                conf-file=${cfg.blacklist.path}
-          ''
-        }
-      '';
+        cname = optionals (cfg.cnameRecords != { }) (
+          (builtins.attrValues (builtins.mapAttrs
+            (n: v: "${n},${v}")
+            cfg.cnameRecords
+          ))
+        );
+
+        server = optionals (cfg.domainRecords != { }) (
+          (builtins.attrValues (builtins.mapAttrs
+            (n: v: "/${n}/${v}")
+            cfg.domainRecords
+          ))
+        );
+      };
     };
 
 
@@ -123,6 +115,8 @@ in
       touch ${cfg.blacklist.path}
     '';
 
+    # TODO: dnsmasq needs to be restarted to use this list. systemd's `PartOf`
+    #       annotation looks promising
     systemd.services.dnsmasq_blocklist = {
       startAt = "*-*-* 02:00:00";
       script = ''
