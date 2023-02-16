@@ -6,50 +6,43 @@
     };
     lesspipe.enable = true;
     ssh = {
-      # TODO: move to SSH module
       enable = true;
       extraConfig = ''
         IdentitiesOnly yes
       '';
 
       matchBlocks = {
-        "util" = {
-          hostname = "10.25.89.4";
-          user = "pi";
-        };
         "w" = {
-          hostname = "10.25.89.6";
-          user = "root";
+          hostname = "10.25.89.9"; # floating IP
+          user = "kyle";
+          extraOptions = {
+            UserKnownHostsFile = "/dev/null";
+            StrictHostKeyChecking = "no";
+          };
         };
         "w1" = {
           hostname = "w1.dmz.509ely.com";
-          user = "root";
+          user = "kyle";
         };
         "w2" = {
           hostname = "w2.dmz.509ely.com";
-          user = "root";
+          user = "kyle";
         };
         "w3" = {
           hostname = "w3.dmz.509ely.com";
-          user = "root";
+          user = "kyle";
         };
-        "m1" = {
-          hostname = "m1.dmz.509ely.com";
-          user = "root";
+        "pi1" = {
+          hostname = "pi.dmz.509ely.com";
+          user = "kyle";
         };
-        "m2" = {
-          hostname = "m2.dmz.509ely.com";
-          user = "root";
+        "pi2" = {
+          hostname = "pi2.dmz.509ely.com";
+          user = "kyle";
         };
-        "m3" = {
-          hostname = "m3.dmz.509ely.com";
-          user = "root";
-        };
-        "eu.nixbuild.net beta.nixbuild.net" = {
-          extraOptions = {
-            PubkeyAcceptedKeyTypes = "ssh-ed25519";
-          };
-          identityFile = "~/.ssh/nixbuild";
+        "pi3" = {
+          hostname = "pi3.dmz.509ely.com";
+          user = "kyle";
         };
         "*.compute-1.amazonaws.com" = {
           extraOptions = {
@@ -60,11 +53,16 @@
         "tiger tiger.dmz.509ely.com" = {
           # 10.25.89.5
           hostname = "tiger.dmz.509ely.com";
-          user = "svc.deploy";
+          user = "kyle";
           port = 2332;
         };
         "dino" = {
-          user = "svc.deploy";
+          hostname = "dino.lan.509ely.com";
+          user = "kyle";
+        };
+        "alpha" = {
+          hostname = "alpha.lan.509ely.com";
+          user = "kyle";
         };
       };
     };
