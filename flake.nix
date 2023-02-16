@@ -260,7 +260,6 @@
             system = "x86_64-linux";
             modules = nixModules ++ [
               ./nix/hosts/tiger/configuration.nix
-              ./nix/users/kyle.nix
               inputs.sops-nix.nixosModules.sops
               inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
               inputs.home-manager.nixosModules.home-manager
@@ -268,6 +267,7 @@
                 systemFoundry =
                   {
                     deployment_target.enable = true;
+                    users.kyle.enable = true;
                   };
                 nixpkgs.overlays = overlays;
                 home-manager = {
