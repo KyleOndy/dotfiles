@@ -12,7 +12,7 @@ _jira_tickets() {
   # each item needs to have the following format
   #     PLAT-1234\:'[Foo]: do things'
   #     PLAT-2345\:'foobar'
-  jira sprint list --current -a$(jira me) --plain --no-headers --columns key,summary | \
+  jira sprint list --current -a$(jira me) -s~Done --plain --no-headers --columns key,summary | \
     sed -E "s|\t|\\\:'|" | \
     sed -E "s|$|'|"
 }
