@@ -415,8 +415,7 @@
             };
           };
           pi1 = {
-            #hostname = "pi1.dmz.509ely.com";
-            hostname = "10.25.89.179";
+            hostname = "pi1.dmz.509ely.com";
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
@@ -424,8 +423,7 @@
             };
           };
           pi2 = {
-            #hostname = "pi2.dmz.509ely.com";
-            hostname = "10.25.89.154";
+            hostname = "pi2.dmz.509ely.com";
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
@@ -433,8 +431,7 @@
             };
           };
           pi3 = {
-            #hostname = "pi3.dmz.509ely.com";
-            hostname = "10.25.89.227";
+            hostname = "pi3.dmz.509ely.com";
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
