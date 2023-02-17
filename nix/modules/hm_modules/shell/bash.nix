@@ -18,7 +18,9 @@ in
     programs.bash = {
       enable = true;
       initExtra = ''
-        export PS4='+ %D{%s.%6.}: ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}:   '
+      '';
+      bashrcExtra = ''
+        export PS4='+ \D{%s}: ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}: '
       '';
     };
   };
