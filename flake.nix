@@ -296,6 +296,7 @@
             "${inputs.nixpkgs-raspberrypi}/nixos/modules/installer/sd-card/sd-image-aarch64-new-kernel-installer.nix"
             {
               nixpkgs.config.allowUnsupportedSystem = true;
+              system.stateVersion = "23.05";
             }
             ./nix/hosts/bootstrap.nix
           ];
