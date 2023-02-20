@@ -35,12 +35,14 @@
   # Create /etc/bashrc that loads the nix-darwin environment.
   programs.zsh.enable = true; # default shell on catalina
 
-  launchd.user.agents.docker-desktop-kubeconfig = {
-    command = "bash -c '${pkgs.ripgrep}/bin/rg --quiet --fixed-strings docker-desktop $HOME/.kube/config && mv $HOME/.kube/config $HOME/.kube/configs/docker-desktop'";
-    serviceConfig = {
-      StartInterval = 60;
-      ProcessType = "Background";
-      WatchPaths = [ "/Users/kyle.ondy/.kube/config" ]; # TODO: hardcoded user
+  launchd.user.agents = {
+    docker-desktop-kubeconfig = {
+      command = "bash -c '${pkgs.ripgrep}/bin/rg --quiet --fixed-strings docker-desktop $HOME/.kube/config && mv $HOME/.kube/config $HOME/.kube/configs/docker-desktop'";
+      serviceConfig = {
+        StartInterval = 60;
+        ProcessType = "Background";
+        WatchPaths = [ "/Users/kyle.ondy/.kube/config" ]; # TODO: hardcoded user
+      };
     };
   };
 
