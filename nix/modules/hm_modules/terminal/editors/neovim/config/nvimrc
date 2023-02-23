@@ -153,10 +153,6 @@ autocmd FileType mail setlocal spell | setlocal tw=72
 " enable spell check when writing markdown
 autocmd FileType markdown setlocal spell
 
-" HACK! I need to learn the right way to do this. NixOS is loading the
-" colorscheme after init.vim, so these get overrideen. checkout
-" :scriptnames
-
 set updatetime=250 " quicker updates
 
 " Don't pass messages to |ins-completion-menu|.
