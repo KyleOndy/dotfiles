@@ -57,6 +57,7 @@ in
       package = pkgs.nixUnstable;
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
+        trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.509ely.com" ];
         auto-optimise-store = true;
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
