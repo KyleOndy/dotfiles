@@ -490,13 +490,6 @@ in
           fi
 
           _include /opt/homebrew/opt/asdf/libexec/asdf.sh
-
-          # TODO: work things, need to conditionally include?
-
-          # Tells programs using the AWS SDK to use the .aws/config file, and cause it to use the credential-process setting.
-          #export AWS_SDK_LOAD_CONFIG=1
-          # Sets the keychain aws-vault uses to your default login keychain.
-          export AWS_VAULT_KEYCHAIN_NAME=login
         '';
       };
       fzf = {
