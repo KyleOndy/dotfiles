@@ -54,6 +54,7 @@ main() {
     install_precommit "$project" "main"
     set_git_commit_template "$project" "master"
     set_git_commit_template "$project" "main"
+    sleep 60 # to not set off our alerts
   done
 }
 
