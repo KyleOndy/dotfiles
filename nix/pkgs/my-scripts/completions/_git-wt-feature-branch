@@ -17,6 +17,23 @@ _jira_tickets() {
     sed -E "s|$|'|"
 }
 
+
+_jira_tickets_cached() {
+  # TODO: it this a horrifc idea?
+  #cache=${XDG_CACHE_HOME:-$HOME/.cache}
+  cache="${TMPDIR}/jira-tickets"
+
+  # ASSUME: only one file returned
+  cached_file=$(fd --absolute-path --changed-within=30s jira-tickets "$TMPDIR")
+  if [[ -z "$cached_file" ]]; then
+    _jira_tickets | tee "$cache"
+  else
+    cat "$cached_file"
+  fi
+
+}
+
+
 _git_branches() {
   # TODO: gonna need to fix this
   git --no-pager branch -a --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
@@ -26,7 +43,7 @@ _git_branches() {
 
 main() {
   # TODO: gonna need to fix this
-  _arguments "1: :(($(_jira_tickets)))" \
+  _arguments "1: :(($(_jira_tickets_cached)))" \
     "2: :( )" \
     "3: :(($(_git_branches)))"
 }
