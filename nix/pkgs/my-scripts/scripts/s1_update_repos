@@ -43,6 +43,11 @@ set_git_commit_template() {
   fi
 }
 
+cleanup_empty_dirs() {
+  local project="$1"
+  fd --type=d --max-depth=1 . "$project" -X rmdir
+}
+
 main() {
   projects=$(get_worktree_projects)
   for project in $projects; do
@@ -54,6 +59,7 @@ main() {
     install_precommit "$project" "main"
     set_git_commit_template "$project" "master"
     set_git_commit_template "$project" "main"
+    cleanup_empty_dirs "$project"
     sleep 60 # to not set off our alerts
   done
 }
