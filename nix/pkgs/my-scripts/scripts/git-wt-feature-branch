@@ -2,6 +2,7 @@
 set -Ee
 
 # easily create a new feature branch with my worktree flow
+# TODO: convert into a functio that lives in zshrc so I can cd into the worktree
 
 
 if [[ $# -lt 2 ]]; then
