@@ -19,8 +19,10 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
-      system-python-with-packages
       nodePackages.pyright
+      poetry
+      ruff
+      system-python-with-packages
     ];
     programs.neovim = {
       plugins = [
