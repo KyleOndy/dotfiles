@@ -59,6 +59,7 @@ in
       glooctl # cli for gloo (kubernetes)
       gnumake # make
       gnused # sed
+      groff # man pages
       #(google-cloud-sdk.withExtraComponents [ google-cloud-sdk.components.gke-gcloud-auth-plugin ]) #gcloud # can not get this to play nice with the new gke auth plugin
       gron # make JSON greppable
       grpcurl # like curl, but for gRPC
