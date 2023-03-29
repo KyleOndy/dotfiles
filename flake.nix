@@ -365,27 +365,6 @@
           ];
         };
       };
-      darwinConfigurations.DCP40KQJX6 = inputs.nix-darwin.lib.darwinSystem
-        {
-          system = "aarch64-darwin";
-          modules = [
-            ./nix/hosts/DCP40KQJX6/configuration.nix
-            inputs.home-manager.darwinModules.home-manager
-            {
-              nixpkgs.overlays = overlays;
-              users.users."kyle.ondy".home = "/Users/kyle.ondy"; # TODO: need this?
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules;
-                users."kyle.ondy" = {
-                  imports = [ ./nix/profiles/s1.nix ];
-                };
-              };
-            }
-          ];
-        };
-      DCP40KQJX6 = self.darwinConfigurations.DCP40KQJX6.system;
 
       # deploy-rs
       deploy = {
