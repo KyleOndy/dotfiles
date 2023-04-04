@@ -30,6 +30,7 @@ in
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
           cdg = "cd $(git root)";
+          e = "sort -u | xargs --no-run-if-empty -- $EDITOR --";
           f = "foundry";
           g = "git";
           k = "kubectl";
