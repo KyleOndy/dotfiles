@@ -334,6 +334,9 @@ in
           }
 
           git() {
+            # TODO: add more sanity checks for me locally
+            #   - if in a worktree project, don't allow checking out a branch if on master or main
+
             # this regex checks (hopefully) the following cases:
             #   push --force
             #   push -f
