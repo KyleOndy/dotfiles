@@ -37,6 +37,7 @@ in
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
           src = "cd ${config.home.homeDirectory}/src";
+          src_grep = "fd --type=f --full-path --regex '(/master/|/main/)' --print0 . ${config.home.homeDirectory}/src/ | xargs --null -- rg \"$@\" --";
           tree = "tree --dirsfirst -ChFQ $@";
           tree1 = "tree -L 1 $@";
           tree2 = "tree -L 2 $@";
