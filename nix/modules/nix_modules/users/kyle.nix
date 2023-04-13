@@ -10,6 +10,9 @@ in
   };
 
   config = mkIf cfg.enable {
+    programs = {
+      zsh.enable = true;
+    };
     users.users.kyle = {
       isNormalUser = true;
       extraGroups = [ "audio" "docker" "wheel" ]; # Enable ‘sudo’ for the user.
