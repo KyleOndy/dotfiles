@@ -168,6 +168,9 @@ in
           nvimdiff = {
             cmd = "nvim -d \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\" -c 'wincmd w' -c 'wincmd J'";
           };
+          fugitive = {
+            cmd = "nvim -f -c \"Gvdiffsplit!\" \"$MERGED\"";
+          };
         };
         merge = {
           # --ff-only by default, force a command line flag to be thrown otherwise.
