@@ -178,8 +178,8 @@ in
           # --ff-only by default, force a command line flag to be thrown otherwise.
           # Keep the commits atomic and the history clean.
           ff = "only";
-          # use "nvimdiff", defined later
-          tool = "nvimdiff";
+          # use "fugitive", defined above
+          tool = "fugitive";
           # add branch description to merge commits
           branchdesc = "true";
           # add additional git log information to merge commit.
