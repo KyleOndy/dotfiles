@@ -165,6 +165,8 @@ in
           # prompting before opening difftools is just one more key press getting in
           # the way of the groove.
           prompt = "false";
+          # do not litter my working directry with *.orig files.
+          keepBackup = "false";
           nvimdiff = {
             cmd = "nvim -d \"$BASE\" \"$LOCAL\" \"$REMOTE\" \"$MERGED\" -c 'wincmd w' -c 'wincmd J'";
           };
@@ -185,8 +187,6 @@ in
           # show unmodified (original) copy of conflict along with the conflicted
           # version.
           conflictstyle = "diff3";
-          # do not litter my working directry with *.orig files.
-          keepBackup = "false";
         };
         push = {
           # makes pushing to remotes a bit easier, not having to specify the branch
