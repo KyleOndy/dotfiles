@@ -86,8 +86,10 @@
   };
   hardware.pulseaudio.enable = true;
   boot = {
-    cleanTmpDir = true;
-    tmpOnTmpfs = true;
+    tmp = {
+      cleanOnBoot = true;
+      useTmpfs = true;
+    };
     kernelPackages = pkgs.linuxPackages_latest;
     extraModulePackages = with config.boot.kernelPackages; [
       perf
