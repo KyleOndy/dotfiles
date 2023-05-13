@@ -56,7 +56,7 @@ in
         recommendedProxySettings = true;
         recommendedTlsSettings = true;
 
-        clientMaxBodySize = "64m";
+        clientMaxBodySize = "512m";
 
         commonHttpConfig = ''
           log_format upstreamlog '[$time_local] $remote_addr - $remote_user - $server_name to: $upstream_addr: $request upstream_response_time $upstream_response_time msec $msec request_time $request_time';
