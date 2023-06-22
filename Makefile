@@ -1,10 +1,16 @@
 UNAME := $(shell uname)
 HOSTNAME=$(shell hostname -s)
 ALLOW_BROKEN=false
+ALLOW_UNSUPPORTED=false
 
 # I don't like to do this, but sometimes I just need to move ahead
 ifeq ($(ALLOW_BROKEN), true)
 	export NIXPKGS_ALLOW_BROKEN=1
+	IMPURE=--impure
+endif
+
+ifeq ($(ALLOW_UNSUPPORTED), true)
+	export NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM=1
 	IMPURE=--impure
 endif
 
