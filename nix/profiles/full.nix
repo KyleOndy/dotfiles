@@ -15,7 +15,10 @@
       };
       fonts.hack.enable = true;
       gaming.steam.enable = true;
-      media.documents.enable = true;
+      media = {
+        documents.enable = true;
+        makemkv.enable = true;
+      };
       term.st.enable = true;
       wm.i3.enable = true;
     };
