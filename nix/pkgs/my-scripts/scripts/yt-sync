@@ -1,8 +1,8 @@
 #! /usr/bin/env nix-shell
 # shellcheck shell=bash
-#! nix-shell -i bash -p rsync python ffmpeg yt-dlp
+#! nix-shell -i bash -p rsync python3 ffmpeg yt-dlp
 # vi: ft=bash
-set -e
+#set -e # script will bail when a channel has a premeier
 
 common_args=(
     # todo: XDG data
@@ -20,11 +20,12 @@ common_args=(
 )
 
 download_args=(
-    --playlist-end 50 \
+    --playlist-end 25 \
 )
 
 archive_args=(
-    --playlist-end 200 \
+    # TODO: bump this up higer
+    --playlist-end 75 \
 )
 
 download() {
@@ -40,45 +41,7 @@ archive() {
 
 
 download_all() {
-  # bikes
-  download "c/BehindTheBarriersTV/videos"             # BehindTheBarriersTV
-  download "c/SethsBikeHacks/videos"                  # Berm Peak
-  download "c/BermPeakExpress/videos"                 # Berm Peak Express
-  download "user/cosmocatalano/videos"                # Cosmo Catalano
-  download "c/CXHairs/videos"                         # CXHAIRS
-  download "c/SkillsWithPhil/videos"                  # Skills With Phil
-  download "c/TheRedster/videos"                      # The Redster
-  download "c/BackyardTrailBuilds/videos"             # Backyard Trail Build
 
-  # adventure
-  download "channel/UCTOm073TDj-j2MBhOsLVhhQ/videos"  # 3 Strings Productions
-  download "channel/UCpKtpV_J3rKybMGFCOomyrA/videos"  # Adam Reke
-  download "channel/UCTDfCOQuFqIsGBxgzJ4S1lQ/videos"  # Andy Houseman
-  download "channel/UCKktVJh3QwiHp03xXurWZgQ/videos"  # Climber Dad
-  archive  "channel/UCB2Wj_dIz5rtxf7oxdsrfYA/videos"  # Extra Mediocre
-  download "c/DanTurnerbouldering/videos"             # Dcolinfurze
-  download "c/DavidLamaOfficial/videos"               # David Lama
-  download "user/AlpinismeENSA/videos"                # ENSA Chamonix
-  download "c/FirstPersonBeta-Climbing/videos"        # FirstPersonBeta
-  download "channel/UC76yDkvZY_NNo9vSw8PH8MA/videos"  # Global Mike Reid
-  download "channel/UCWNjFXrebIzHHgicLkpc1vA/videos"  # Ian Holmes
-  download "channel/UCOWL-gwpS-59Wx5P1FqQTEA/videos"  # Jacob Cook
-  download "channel/UCM7LE_jF_dySHMIN4HG4dUQ/videos"  # Jacon Mayer
-  download "user/journeytoalpinism/videos"            # Journey to Alpinism
-  download "c/LouderThan11/videos"                    # Louder Than Eleven
-  download "/user/MazamasICS/videos"                  # MazamasICS
-  archive  "c/MediocreAmateur/videos"                 # Mediocre Amateur
-  download "c/mikebarter387/videos"                   # mikebarter387
-  download "channel/UC3IA14gW7y7ETBKnTPpAvcQ/videos"  # Nate Kenney
-  download "c/NateMurphy/videos"                      # Nate Murphy
-  archive  "c/NorthEastAlpineStart/videos"            # Northeast Alpine Start
-  archive  "c/RobBusack/videos"                       # Rob Busack
-  download "user/walterrossini/videos"                # Walter Rossini
-  download "c/BertrandDelapierre-films/videos"        # Bertrand Delapierre
-  download "c/ChaseMountains/videos"                  # Chase mountains
-  download "channel/UCEca1Ux_W3bwzXROI8BPrAw/videos"  # Gene Walker
-  download "c/IronTazz/videos"                        # Iron Tazz
-  archive  "channel/UChadVGrq5B1DvOnvN4sb4QA/videos" # SIET, School for International Expedition Training
 
   ## cycling
   download "c/DylanJohnsonCycling/videos"             # Dylan Johnson
@@ -86,147 +49,45 @@ download_all() {
   download "c/TheVeganCyclist/videos"                 # The Vegan Cyclist
   download "channel/UCFlT34jR2eye2OfAA48enMQ/videos"  # Valley Preferred Cycling Center
   download "user/sportscientist/videos"               # Stephen Seiler
-  download "c/PREEMTV/videos"
   archive  "channel/UCEiB7dUaQJfVkAIpVY2fiwA/videos"  # black line coaching
   download "c/DannyMacAskill/videos"                  # Danny MacAskill
   download "c/cosmocatalano-howtheracewaswon/videos"  # How the race was won
   download "c/JoyOfBike/videos"                       # joy of bikes
-  download "c/minskcyclingclub/videos"                # jMinsk Cycling Club
-  download "c/PhilGaimonshow/videos"                  # Phil Gaimon
-  download "c/RIFIANBOY/videos"                       # RIFIANBOY
-
-  ## photography
-  download "c/AdamGibbsPhotography/videos"    # Adam Gibbs
-  download "c/AlynWallace/videos"             # Alyn Wallace
-  download "c/AndyMumford/videos"             # Andy Mumford
-  download "c/BenHorne/videos"                # Ben Horne
-  download "c/BrendanvanSon/videos"           # Brendan archive  Son
-  download "c/ChristopheVanBiesen/videos"     # Christophe Van Biesen
-  download "c/DaveMorrow/videos"              # Dave Morrow
-  download "c/FindingMiddleEarth/videos"      # Finding Middle Earth
-  download "c/fjhphoto/videos"                # FJH Photography
-  download "user/fototripper/videos"          # fototripper
-  download "c/fujiguys/videos"                # Fuji Guys Channel
-  download "c/JamesPopsysPhoto/videos"        # James Popsys
-  download "c/JamesRBurnsVLOG/videos"         # James R Burns
-  download "c/jamiewindsor/videos"            # Jamie Windsor
-  download "c/JoshuaCrippsPhotography/videos" # Joshua Cripps Photography
-  archive  "c/LonelySpeck/videos"             # Lonely Speck
-  download "c/MadsPeterIversen/videos"        # Mads Peter Iversen
-  download "c/MannyOrtiz/videos"              # Manny Ortiz
-  download "c/MarkDenneyPhoto/videos"         # Mark Denney
-  download "c/mattdayphoto/videos"            # Matt Day
-  download "channel/UC0OAxQSiiygh1HO3Yq-l3CA/videos" # Michael Goh
-  download "shainblum/videos"                 # Michael Shainblum
-  download "c/MikeBrowne/videos"              # Mike Browne
-  download "c/MortenHilmer/videos"            # Morten Hilmer
-  download "c/nickcarverphoto/videos"         # Nick Carver
-  download "c/NickPagePhotography/videos"     # Nick Page
-  download "c/NigelDanson/videos"             # Nigel Danson
-  download "c/PeterMcKinnon/videos"           # Peter McKinnon
-  download "c/phlearn/videos"                 # PHLEARN
-  download "c/SeanBagshaw/videos"             # Sean Bagshaw
-  download "user/seantuckermerge"             # Sean Tucker
-  download "user/theartofphotography"         # The Art of Photography
-  download "c/ThomasHeatonPhoto/videos"       # Thomas Heaton
-  download "c/OmarGonzalezPhotography/videos" # Omar Gonzalez Photography
-  download "c/robhallphoto/videos"            # Robert Hall Photography
-  download "c/SteveMattheis/videos"           # Steve Mattheis
+  download "/@chadweberg1/videos"                     # Chad Weberg
+  download "@DirtyTeethMTB/videos"                    # "Dirty Teeth MTB"
+  download "@jasperverkuijl/videos"                   # "Jasper Verkuijl"
+  download "@nerocoaching/videos"                     # "Jesse Coyle"
+  download "@joe.nation/videos"                       # "Joe Nation"
+  download "@joshibbett/videos"                       # "josh ibbett"
+  download "@sofianeshl/videos"                       # "Sofiane Sehili"
+  download "@TENTISTHENEWRENT/videos"                 # "TENT IS THE NEW RENT"
 
   ## science
-  archive "c/3blue1brown/videos"           # 3Blue1Brown
+  #archive "c/3blue1brown/videos"            # 3Blue1Brown
+  download "c/3blue1brown/videos"            # 3Blue1Brown
   download "c/halfasinteresting/videos"     # Half As Interesting
-  archive  "c/Wendoverproductions/videos"   # Wendover Productions
-  archive "c/Extremities/videos"           # c/Extremities/videos
+  download "c/Wendoverproductions/videos"   # Wendover Productions
 
   ## maker
   download "c/tested/videos"                    # Adam Savage’s Tested
-  download "c/Fixthisbuildthat/videos"          # Fix This Build That
-  download "c/IBuildItScrapBin/videos"          # I build it scrap bin
-  download "c/Bourbonmothdecor/videos"          # Burbon Moth Woodworking
-  download "c/JayBates/videos"                  # Jay Bates
-  download "c/MyGarageWoodshop/videos"          # My Garage Workshop
-  download "c/knecht105/videos"                 # WoodWorkWeb
-  download "c/DIYBuilds1/videos"                # DIY Builds
-  archive "c/KatzMosesWoodworkingShop/videos"  # Jonathan Katz-Moses
-  download "thewoodwhisperer/videos"            # TheWoodWhisperer
-  download "c/JohnHeisz/videos"                 # John Heisz (I build it ca)
-  download "c/IBuildIt/videos"                  # John Heisz (speakers and such)
   download "c/StuffMadeHere/videos"             # Stuff Made Here
   download "/c/StuffMadeHere2/videos"           # Stuff Made Here 2
-  download "c/chrisfix/videos"                  # chris fix
-  download "c/colinfurze/videos"                # colinfurze
-  download "c/DIYMontreal/videos"               # DIY Montreal
-  download "c/dslrvideoshooter/videos"          # DSLR video shooter
-  download "c/izzyswan/videos"                  # Izzy Swan
-  download "c/KeithsTestGarage/videos"          # Keith's Test Garage
-  archive  "c/UnderDunnOfficial/videos"         # Under Dunn
 
-  ## food
-  download "c/AltonBrown/videos" # AltonBrown
-
-  ## entertainment (other)
-  download "c/CaptainDisillusion/videos"  # Captain Disillusion
-  download "user/IFockingHateThat"        # IFHT Films
-  download "c/kombilife/videos"           # Kombi Life
-  download "user/LastWeekTonight/videos"  # LastWeekTonight
+  # entertainment
   archive  "c/kaptainkristian/videos"     # kaptainkristian
-  download "c/ScammerPayback/videos"
-  download "c/lockpickinglawyer/videos"
-  download "c/DudeDad/videos"
-
-  ## tech
-  download "c/DeathWearsBunnySlippers/videos" # Death Wears Bunny Slippers
-  download "c/JoeExoticTV/videos"             # JoeExoticTV
-  download "c/OliverCaldwell/videos"          # Oliver Caldwell
-  download "c/ippsec/videos"                  # IppSec (Hack the box)
-  download "c/STOKfredrik/videos"             # STÖK
-
-  ## programming
-  download "c/AdamJames-tv/videos"            # Adam James (Clojure)
-  download "user/ClojureTV/videos"            # clojureTv
-  download "c/ThePrimeagen/videos"
-
-  ## commerical
-  download "user/EddieBauerNW/videos"                 # Eddie Bauer
-  download "channel/UCDsVC_ewpcEW_AQcO-H-RDQ/videos"  # Jane Street
-  download "c/outdoorresearch/videos"                 # Outdoor Research
-  download "c/patagonia/videos"                       # Patagonia
-  download "petzl/videos"                             # Petzl Sport
-  download "c/TheNorthFace/videos"                    # The North Face
-  download "c/WoodworkersSourcecom/videos"            # WoodworkersSourcecom
-
   archive "c/everyframeapainting/videos"
   archive "c/smartereveryday/videos"
   archive "c/PracticalEngineeringChannel/videos"
-
-  ## todo: sort for convience
-  download "channel/UCAL3JXZSzSm8AlZyD3nQdBA/videos"  # Primitive Technology
-  download "c/raphafilms/videos"                      # Rapha Films
   download "c/SampsonBoatCo/videos"                   # Sampson Boat Co
-  download "user/stevinmarin/videos"                  # Steve Ramsey
-  download "c/StumpyNubs/videos"                      # Stumpy Nubs
-  download "c/ThoughtbotVideo/videos"                 # thoughtbot
+  download "c/ShubaMusic/videos"
+  download "@GxAce/videos"              # "GxAce"
+
+  # tech
+  download "c/AdamJames-tv/videos"            # Adam James (Clojure)
+  download "user/ClojureTV/videos"            # clojureTv
   download "c/Tsoding/videos"                         # Tsoding
   download "c/tutoriaLinux/videos"                    # tutoriaLinux
-  download "c/Vox/videos"                             # Vox
-  download "c/ZebraCorner/videos"                     # Zebra Corner
-  download "c/EurovisionSongContest/videos"           # eurovisiion
-  download "c/JimBrowning/videos"                     # Jim Browning
-  download "c/FeelingPeckish/videos"                  # Julie Nolke
   archive  "c/KRAZAM/videos"                          # KRAZAM
-  download "c/MarkRober/videos"                       # Mark Rober
-  download "c/MatthewEncina/videos"                   # Matthew Encina
-  download "c/mythicalbits/videos"                    # Mythical Bits
-  archive  "user/Cruxfilmsclimbing/videos"            #  Neil Gresham Climbing Masterclass - Crux Films
-  download "c/RyanGeorge/videos"
-  download "c/ryanknorrtv/videos"
-  download "c/ShubaMusic/videos"
-  download "user/sportscientist/videos" #  Stephen Seiler
-  download "c/jamesprigioni/videos" #  The Gardening Channel With James Prigioni
-  download "c/ThePrimeagen/videos"
-  download "c/UnnecessaryInventions/videos"
-  download "user/Gravsports/videos"
 }
 
 download_all
