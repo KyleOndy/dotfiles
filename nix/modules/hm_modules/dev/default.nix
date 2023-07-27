@@ -111,8 +111,8 @@ in
       xclip # copy something to the clipboard
       xlsx2csv # useful for bash automation of buissness flows
       xz # compression format
-      youtube-dl # download videos from youtube and others
       yq-go # like jq, but for yaml
+      yt-dlp # download videos from youtube and others
       zbar # barcode reader, mostly used to import OTP into pass
     ]
 
