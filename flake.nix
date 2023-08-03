@@ -2,8 +2,6 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/a7d630d216e1e5f244b1ce3606a1769810d6b9bf";
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
-    # TODO: this commit breaks building docs?
-    # https://github.com/nix-community/home-manager/commit/2827b5306462d91edec16a3d069b2d6e54c3079f
     home-manager = {
       url = "github:nix-community/home-manager";
       # packages installed via home-manager use my nixpkgs
