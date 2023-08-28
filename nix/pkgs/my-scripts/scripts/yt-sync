@@ -61,6 +61,9 @@ download_all() {
   download "@joshibbett/videos"                       # "josh ibbett"
   download "@sofianeshl/videos"                       # "Sofiane Sehili"
   download "@TENTISTHENEWRENT/videos"                 # "TENT IS THE NEW RENT"
+  download  "@JackScottkeogh/videos"                  # Jack Keogh
+  downlaod "@PaulComponentEngineering/videos"         # Paul Components
+
 
   ## science
   #archive "c/3blue1brown/videos"            # 3Blue1Brown
