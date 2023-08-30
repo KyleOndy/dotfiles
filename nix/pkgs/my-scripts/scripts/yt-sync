@@ -63,6 +63,9 @@ download_all() {
   download "@TENTISTHENEWRENT/videos"                 # "TENT IS THE NEW RENT"
   download  "@JackScottkeogh/videos"                  # Jack Keogh
   downlaod "@PaulComponentEngineering/videos"         # Paul Components
+  download "@TurnCycling/videos"
+  download "@duzer/videos"
+  download "@KeepSmilingAdventures/videos"
 
 
   ## science
