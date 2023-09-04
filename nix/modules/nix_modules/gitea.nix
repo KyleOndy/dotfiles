@@ -36,8 +36,12 @@ in
       gitea = {
         enable = true;
         appName = "git.ondy.org";
-        domain = "${cfg.domainName}";
-        rootUrl = "https://${cfg.domainName}/";
+        settings = {
+          server = {
+            DOMAIN = "${cfg.domainName}";
+            ROOTURL = "https://${cfg.domainName}/";
+          };
+        };
         dump = mkIf cfg.backup.enable {
           enable = true;
           type = "tar.gz";
