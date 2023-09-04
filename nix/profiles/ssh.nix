@@ -12,26 +12,6 @@
       '';
 
       matchBlocks = {
-        "w" = {
-          hostname = "10.25.89.9"; # floating IP
-          user = "kyle";
-          extraOptions = {
-            UserKnownHostsFile = "/dev/null";
-            StrictHostKeyChecking = "no";
-          };
-        };
-        "w1" = {
-          hostname = "w1.dmz.509ely.com";
-          user = "kyle";
-        };
-        "w2" = {
-          hostname = "w2.dmz.509ely.com";
-          user = "kyle";
-        };
-        "w3" = {
-          hostname = "w3.dmz.509ely.com";
-          user = "kyle";
-        };
         "pi1" = {
           hostname = "pi.dmz.509ely.com";
           user = "kyle";
