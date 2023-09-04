@@ -87,7 +87,7 @@ in
         # easily follow the history of a single file
         file-history = "log -p -M --follow --stat";
         # easily fixup to latest commit
-        fixup = "git commit --fixup=HEAD";
+        fixup = "commit --fixup=HEAD";
         # non-interactively apply the current staged files to a ref
         amend-to = "! f() { git commit --fixup \"$1\" && GIT_SEQUENCE_EDITOR=true git rebase --interactive --autosquash \"$1^\";}; f";
       };
