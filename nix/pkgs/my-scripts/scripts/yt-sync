@@ -75,7 +75,6 @@ download_all() {
   download "c/Wendoverproductions/videos"   # Wendover Productions
 
   ## maker
-  download "c/tested/videos"                    # Adam Savage’s Tested
   download "c/StuffMadeHere/videos"             # Stuff Made Here
   download "/c/StuffMadeHere2/videos"           # Stuff Made Here 2
 
