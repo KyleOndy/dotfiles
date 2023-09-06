@@ -272,6 +272,7 @@ in
 
   # TODO: move to module if it works and I like it
   systemd.services.nix-update-and-build = {
+    enable = false;
     startAt = "*-*-* 04:00:00"; # 4am
     path = with pkgs; [
       bash
