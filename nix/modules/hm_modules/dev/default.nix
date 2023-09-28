@@ -104,6 +104,7 @@ in
       tree # directory listing
       unzip # unzip things
       viddy # Modern watch command.
+      vlc # watch things
       w3m # browse the web from the cli, like it was meant to be
       #weechat # IRC client
       watch
