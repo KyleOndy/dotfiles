@@ -44,7 +44,6 @@ cmp.setup({
     -- { name = 'luasnip' },
     { name = "nvim_lsp" },
     { name = "cmdline-history" },
-    { name = "cmdline" },
     { name = "conjure" },
     { name = "dictionary" },
     { name = "nvim-lsp" },
