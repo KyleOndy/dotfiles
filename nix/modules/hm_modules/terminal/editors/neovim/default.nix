@@ -378,6 +378,15 @@ in
             --}
           '';
         }
+
+        {
+          # https://github.com/chentoast/marks.nvim
+          plugin = marks-nvim;
+          type = "lua";
+          config = ''
+            require'marks'.setup {};
+          '';
+        }
       ];
 
       # See the comment for the first plugin as to why this is not configured.
