@@ -52,6 +52,7 @@ in
       envsubst
       exiftool # work with exif data
       fd # an easier to use `find`
+      ffmpeg # video utilities
       file # what type of file is this?
       findutils
       fortune # fun tidbits
