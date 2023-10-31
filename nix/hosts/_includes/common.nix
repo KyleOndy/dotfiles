@@ -135,4 +135,11 @@
       cores = 2;
     };
   };
+
+  # TODO: fonts should go somewhere else
+  fonts.packages = with pkgs; [
+    gyre-fonts
+    textfonts
+  ];
+
 }
