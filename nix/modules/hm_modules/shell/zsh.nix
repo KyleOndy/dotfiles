@@ -33,6 +33,7 @@ in
           e = "sort -u | xargs --no-run-if-empty -- $EDITOR --";
           f = "foundry";
           g = "git";
+          j = "bat --language=json $@";
           k = "kubectl";
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
@@ -42,6 +43,7 @@ in
           tree1 = "tree -L 1 $@";
           tree2 = "tree -L 2 $@";
           tree3 = "tree -L 3 $@";
+          y = "bat --language yaml $@";
         };
         # The double single quote `''` is to escape the `${` character
         # combination that nix wants to replace with a variable. Its not some
