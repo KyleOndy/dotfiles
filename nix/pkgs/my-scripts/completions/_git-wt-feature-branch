@@ -7,12 +7,14 @@
 #         show a description of this script
 #       - make the second argument show its help text
 
+SPRINT_ID="670" # hard coded
+
 _jira_tickets() {
   # the format here is descibed in the zsh compeltion man page
   # each item needs to have the following format
   #     PLAT-1234\:'[Foo]: do things'
   #     PLAT-2345\:'foobar'
-  jira sprint list --current -a$(jira me) -s~Done --plain --no-headers --columns key,summary | \
+  jira sprint list "${SPRINT_ID}" -a$(jira me) -s~Done --plain --no-headers --columns key,summary | \
     sed -E "s|\t|\\\:'|" | \
     sed -E "s|$|'|"
 }
