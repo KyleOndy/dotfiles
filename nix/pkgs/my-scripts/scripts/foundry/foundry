@@ -59,7 +59,20 @@ function create_and_switch_to_tmux_window() {
   tmux select-window -t "$window_id"
 }
 
+#######################################
+# Creates the working directory and new tmux window for a given ticket
+# If already created, switch to existing window
+# Arguments:
+#   Name of the tmux window
+#   Working directory to set in new window
+# TODO:
+#   Add zsh competion for current tickets
+#######################################
 work_on() {
+  if [[ -z $JIRA_ROOT ]]; then
+    echo "Please set \$JIRA_ROOT"
+    exit 1
+  fi
   local ticket=${1^^}
   local project
 
@@ -73,8 +86,19 @@ work_on() {
 cat <<- EOF > "./$project/$ticket/README.md"
 # $ticket
 
-[Jira ticket for $ticket](https://grataio.atlassian.net/browse/$ticket)
+[Jira ticket for $ticket](${JIRA_ROOT}/browse/$ticket)
+
+Readme generated on $(date).
+
 EOF
+    # strip the leading two spaces the `jira` cli still outputs even with the
+    # `--plain` flag.
+    ticket_content=$(jira issue view "${ticket}" --plain | sed -e 's/^  //'
+)
+    if [[ -n $ticket_content ]]; then
+      echo "## Conents of ${ticket}" >> "./$project/$ticket/README.md"
+      echo "${ticket_content}" >> "./$project/$ticket/README.md"
+    fi
   fi
   if ! [ -f "./$project/$ticket/flake.nix" ]; then
 cat <<- EOF > "./$project/$ticket/flake.nix"
@@ -116,7 +140,7 @@ cat <<- EOF > "./$project/$ticket/.envrc"
 use nix
 EOF
   fi
-  create_and_switch_to_tmux_window "${ticket}"
+  create_and_switch_to_tmux_window "${ticket}" "${FOUNDRY_DIR}/${project}/${ticket}"
 
   #SLACK_CLI_TOKEN="$(pass show paigeai.slack.com/user_token )" slack status edit "Working on $ticket" :hammer_and_wrench:
   #git checkout -b "$ticket" || git checkout "$ticket"
@@ -145,23 +169,6 @@ log() {
     $EDITOR "${log_file}"
   fi
 
-}
-
-open_todo() {
-  todo_dir="${FOUNDRY_DIR}/todo"
-  mkdir -p "$todo_dir"
-
-  # if today's entry doesn't exist, open both the last entry and a new entry
-  # for today. This way I can move over tasks that still need to be done to
-  # today.
-  today=$(date '+%Y-%m-%d')
-  t_file="${todo_dir}/${today}.md"
-  if [ -f "$t_file" ]; then
-    nvim "$t_file"
-  else
-    last_file="$(find "$todo_dir" | sort | tail -n1)"
-    nvim -o "$last_file" "$t_file"
-  fi
 }
 
 print_dir() {
@@ -196,10 +203,6 @@ case "$1" in
     else
       work_on "ADHOC-$1"
     fi
-    ;;
-  "t"|"todo")
-    shift
-    open_todo
     ;;
   "c"|"commit")
     shift

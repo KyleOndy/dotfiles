@@ -18,6 +18,8 @@ stdenv.mkDerivation {
     mkdir -p $out/share/zsh/site-functions
     find ./completions \( -type f -o -type l \) \
         -exec cp -pL {} $out/share/zsh/site-functions \;
+
+    sed -i -e "s|source dots_common\.bash|source $out/share/zsh/site-functions/dots_common\.bash|" $out/share/zsh/site-functions/*
   '';
 
   meta = with pkgs.lib; {

@@ -1,0 +1,42 @@
+#compdef foundry
+# vi: ft=zsh
+
+# This completion was written by copying large chunks of `play`'s completion script.
+# https://github.com/zsh-users/zsh-completions/blob/master/src/_play
+
+# TODO:
+#       - read the docs on what this all does, lots of copy and paste
+
+source dots_common.bash
+
+_foundry_cmds() {
+  local commands; commands=(
+  {w,work,workon}':Start or continue work on a ticket'
+  {l,log}':Open daily notes'
+  )
+  _describe -t commands 'Foundry command' commands "$@"
+}
+
+
+_foundry() {
+  local context curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  local ret=1
+
+  _arguments -C \
+    '1: :_foundry_cmds' \
+    '*::arg:->args' \
+  && ret=0
+
+  case $state in
+    (args)
+      case $line[1] in
+        (w|work|workon)
+          _arguments "1: :(($(_jira_tickets_cached)))" && ret=0
+          ;;
+      esac
+  esac
+}
+
+_foundry "$@"
