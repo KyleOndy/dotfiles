@@ -19,7 +19,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    networking.firewall.allowedTCPPorts = mfIf cfg.openFirewall [ 7860 ];
+    networking.firewall.allowedTCPPorts = mfIf cfg.openFirewall [ 7860 7861 ];
 
     systemFoundry.nginxReverseProxy."${cfg.domainName}" = {
       enable = true;
