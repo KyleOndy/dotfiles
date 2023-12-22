@@ -26,7 +26,7 @@ in
       proxyPass = "http://127.0.0.1:7860";
     };
 
-    systemd.services.llm = mkIf cfg.backup.enable {
+    systemd.services.llm = {
       enable = true;
       description = "run llm";
       wantedBy = [ "multi-user.target" ];
