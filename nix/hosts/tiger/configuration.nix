@@ -23,9 +23,6 @@ in
       enp6s0.useDHCP = true;
       enp7s0.useDHCP = true;
     };
-    firewall.allowedTCPPorts = [
-      7860
-    ];
   };
 
   services = {
@@ -240,6 +237,11 @@ in
       pxe-api = {
         enable = false;
       };
+      llm = {
+        enable = true;
+        openFirewall = true;
+        domainName = "llm.${domain}";
+      };
       # todo: spin up a dmz_util server and move this
       dnsServer = {
         enable = true;
@@ -252,6 +254,7 @@ in
           "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
           "radarr.apps.dmz.509ely.com" = "10.25.89.5";
           "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
+          "llm.apps.dmz.509ely.com" = "10.25.89.5";
           "${config.systemFoundry.binary_cache.domainName}" = "10.25.89.5";
         };
         domainRecords = {
