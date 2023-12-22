@@ -26,15 +26,15 @@ in
       proxyPass = "http://127.0.0.1:7860";
     };
 
-    systemd.services.llm = {
-      enable = true;
-      description = "run llm";
-      wantedBy = [ "multi-user.target" ];
-      path = [ pkgs.nix ];
-      script = ''
-        pushd /home/kyle/src/text-generation-webui
-        nix-shell --command "python ./server.py --listen"
-      '';
-    };
+    #systemd.services.llm = {
+    #  enable = true;
+    #  description = "run llm";
+    #  wantedBy = [ "multi-user.target" ];
+    #  path = [ pkgs.nix ];
+    #  script = ''
+    #    pushd /home/kyle/src/text-generation-webui
+    #    nix-shell --command "python ./server.py --listen"
+    #  '';
+    #};
   };
 }
