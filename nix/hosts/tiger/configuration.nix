@@ -23,6 +23,9 @@ in
       enp6s0.useDHCP = true;
       enp7s0.useDHCP = true;
     };
+    firewall.allowedTCPPorts = [
+      7860
+    ];
   };
 
   services = {
