@@ -163,6 +163,7 @@
                     desktop = {
                       browsers.qutebrowser.enable = true;
                       wm.i3.enable = inputs.nixpkgs.lib.mkForce false;
+                      media.latex.enable = true;
                     };
                   };
                   programs = {
