@@ -102,7 +102,6 @@ in
       sops # secret management
       squashfsTools # create and unpack squashfs
       step-cli # working with CAs
-      texlive.combined.scheme-full
       tree # directory listing
       unzip # unzip things
       viddy # Modern watch command.
