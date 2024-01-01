@@ -66,6 +66,7 @@ download_all() {
   download "@TurnCycling/videos"
   download "@duzer/videos"
   download "@KeepSmilingAdventures/videos"
+  download "@EFProCycling/videos"
 
 
   ## science
