@@ -15,3 +15,6 @@ results/
 .terraform.lock.hcl
 .terraform/
 terraform.tfstate.backup
+
+.clj-kondo/
+.lsp/
