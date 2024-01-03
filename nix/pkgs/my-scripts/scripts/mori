@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+#  Memento mori (Latin for 'remember that you die') is an artistic or
+#  symbolic trope acting as a reminder of the inevitability of death.
+#
+# This script was inspired from retrohacker's [1] (William Blankenship)
+# script [1] which was sourced from their HN post [2].
+# [1]: https://gist.github.com/retrohacker/19978af044a080ed5677c0eadf3ce865
+# [2]: https://news.ycombinator.com/item?id=38858730
+
+RED="\033[41m \033[0m"
+GREEN="\033[42m \033[0m"
+
+birthdate="1989-10-24"
+name="Kyle"
+life_expectancy=75
+
+birth_timestamp=$(date -d "$birthdate" +%s)
+current_timestamp=$(date +%s)
+weeks_passed=$(( (current_timestamp - birth_timestamp) / 604800 ))
+total_weeks=$((life_expectancy * 52))
+weeks_remaining=$((total_weeks - weeks_passed))
+spent=$(( weeks_passed * 100 / total_weeks ))
+width=$(tput cols)
+red_blocks=$((weeks_passed * width / total_weeks))
+
+echo "$name, only $weeks_remaining Sundays remain - $spent% ($weeks_passed) Sundays spent"
+for (( block=0; block<width; block++ )); do
+  if (( block <= red_blocks ))
+  then
+    echo -ne "${RED}"
+  else
+    echo -ne "${GREEN}"
+  fi
+done
+echo
