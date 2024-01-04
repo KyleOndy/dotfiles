@@ -191,8 +191,8 @@ in
         }
 
 
-        # https://github.com/p00f/nvim-ts-rainbow
-        nvim-ts-rainbow # TreeSitter rainbow parens
+        # https://github.com/hiphish/rainbow-delimiters.nvim
+        rainbow-delimiters-nvim # TreeSitter rainbow parens
 
         # https://github.com/tpope/vim-surround
         vim-surround # easy wrapping
