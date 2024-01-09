@@ -53,7 +53,10 @@ in
     };
     home.packages = with pkgs; [
       neomutt # MUA
-      urlview # easily open urls within emails
+
+      # TODO: unmaintained, need to find new plugin. Perhaps extract_url or
+      #       urlscan
+      #urlview # easily open urls within emails
     ];
     xdg = {
       # todo: convert `~/.config` (XDG) to nix paths
