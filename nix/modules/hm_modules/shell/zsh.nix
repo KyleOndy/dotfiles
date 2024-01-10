@@ -479,7 +479,8 @@ in
           # stay grounded
           # TODO: extract to more general function
           if type mori > /dev/null; then
-            _mori_dir="''${TMPDIR}mori"
+            _tmp_dir=''${TMPDIR:-/tmp/}
+            _mori_dir="''${_tmp_dir}mori"
             [[ -d "''${_mori_dir}" ]] || mkdir "''${_mori_dir}"
             today="''${_mori_dir}/$(date +%Y%m%d)"
             if [[ ! -f "''${today}" ]]; then
