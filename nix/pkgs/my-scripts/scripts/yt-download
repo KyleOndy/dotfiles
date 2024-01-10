@@ -1,0 +1,20 @@
+#! /usr/bin/env nix-shell
+# shellcheck shell=bash
+#! nix-shell -i bash -p python3 ffmpeg yt-dlp
+# vi: ft=bash
+
+main() {
+  # each arg is a video
+
+  yt-dlp "$1" \
+    --prefer-free-formats \
+    --ignore-errors \
+    --mark-watched \
+    --embed-subs \
+    --add-metadata \
+    --concurrent-fragments=20 \
+    --compat-options no-live-chat \
+    --output "./%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s"
+}
+
+main $@
