@@ -67,6 +67,7 @@ download_all() {
   download "@duzer/videos"
   download "@KeepSmilingAdventures/videos"
   download "@EFProCycling/videos"
+  download "@wattwagon/videos"
 
 
   ## science
