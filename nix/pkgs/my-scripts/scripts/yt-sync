@@ -88,7 +88,6 @@ download_all() {
   download "c/SampsonBoatCo/videos"                   # Sampson Boat Co
   download "c/ShubaMusic/videos"
   download "@GxAce/videos"              # "GxAce"
-  download "@CalebHammer/videos"
 
   # tech
   download "c/AdamJames-tv/videos"            # Adam James (Clojure)
