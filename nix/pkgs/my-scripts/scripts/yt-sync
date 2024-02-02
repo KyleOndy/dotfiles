@@ -68,6 +68,11 @@ download_all() {
   download "@KeepSmilingAdventures/videos"
   download "@EFProCycling/videos"
   download "@wattwagon/videos"
+  download "@Buzzalong.cycling/videos"
+  download "@BIKEPACKINGcom/videos"
+  download "@mikemono/videos"
+  download "@tristantakevideo/videos"
+  download "@msoleilblais74/videos"
 
 
   ## science
