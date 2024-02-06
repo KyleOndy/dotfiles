@@ -64,6 +64,7 @@ in
       #(google-cloud-sdk.withExtraComponents [ google-cloud-sdk.components.gke-gcloud-auth-plugin ]) #gcloud # can not get this to play nice with the new gke auth plugin
       gron # make JSON greppable
       grpcurl # like curl, but for gRPC
+      helios # hand rolled photo management
       htmlq # like jq, but for HTML
       htop # system diagnostics
       ispell # spell checking

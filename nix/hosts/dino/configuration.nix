@@ -7,8 +7,6 @@
     "hid_sensor_hub"
   ];
 
-
-
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
   services.fwupd.enable = true;
