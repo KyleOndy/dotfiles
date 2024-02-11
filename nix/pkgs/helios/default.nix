@@ -9,6 +9,7 @@ stdenv.mkDerivation {
 
   installPhase = ''
     mkdir -p $out/bin
+    cp *.py $out/bin/
     cp main.py $out/bin/helios
   '';
 }
