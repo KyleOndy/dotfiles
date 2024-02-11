@@ -30,6 +30,8 @@ in
         cm = "commit";
         # reword the last commit
         reword = "commit --amend";
+        # less typing
+        cp = "cherry-pick";
         # add staged changes to last commit, keeping that message
         forgot = "commit --amend -C HEAD";
         # quickly create a commit with a message on the command line.
