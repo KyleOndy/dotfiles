@@ -28,7 +28,9 @@
   services = {
     xserver = {
       enable = true;
-      xkbOptions = "ctrl:nocaps"; # make caps lock a control key
+      xkb = {
+        options = "ctrl:nocaps"; # make caps lock a control key
+      };
       #displayManager = { defaultSession = "none+i3"; };
       desktopManager = { xterm.enable = false; };
     };
