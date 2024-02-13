@@ -72,7 +72,10 @@
               src = ./.;
               hooks = {
                 black.enable = true;
-                nixpkgs-fmt.enable = true;
+                nixpkgs-fmt = {
+                  enable = true;
+                  excludes = [ "flake.lock" ];
+                };
                 prettier.enable = true;
                 shellcheck.enable = true;
                 stylua.enable = true;
