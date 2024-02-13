@@ -17,9 +17,11 @@
     #nameservers = [ "10.24.89.1" ]; # todo: set to localhost?
   };
   # don't sleep with lid closed
-  services.logind = {
-    lidSwitch = "ignore";
-    lidSwitchDocked = "ignore";
+  services = {
+    logind = {
+      lidSwitch = "ignore";
+      lidSwitchDocked = "ignore";
+    };
   };
   system.stateVersion = "23.05";
 
