@@ -78,7 +78,9 @@ in
       lorri
       lsof # how is this not in the base system?
       lz4
+      lzop # fast file compresser, use for zfs transfers
       man-pages # developer documentation
+      mbuffer # buffer data streams, use for zfs transfers
       mosh # better ssh
       my-scripts # personal scripts. See `scripts` and `overlay` folder
       ncspot # cursors spotify client
