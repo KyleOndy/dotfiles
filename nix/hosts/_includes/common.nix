@@ -90,7 +90,7 @@
       cleanOnBoot = true;
       useTmpfs = true;
     };
-    kernelPackages = pkgs.linuxPackages_latest;
+    kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
     extraModulePackages = with config.boot.kernelPackages; [
       perf
       systemtap

@@ -22,10 +22,33 @@
       lidSwitch = "ignore";
       lidSwitchDocked = "ignore";
     };
+    syncoid = {
+      # had to run the following on alpha to get the service to work
+      # > sudo -u syncoid ssh -i /var/lib/syncoid/id_ed25519 -p 2332 svc.syncoid@tiger.dmz.509ely.com
+
+      # Had to run the following on tiger to grant the user the proper permissiosn
+      # > sudo zfs allow -u svc.syncoid send,hold,mount,snapshot,destroy storage
+
+      # syncoid crates ZFS snapshot, but we DO NOT mount these filesystems. If
+      # we needed them for some reason, we mount the filesystem manually.
+      enable = true;
+      sshKey = /var/lib/syncoid/id_ed25519;
+      commands = {
+        "storage/photos" = {
+          target = "storage/photos";
+          source = "svc.syncoid@tiger.dmz.509ely.com:storage/photos";
+          extraArgs = [ "--sshport" "2332" ];
+        };
+        "storage/backups" = {
+          target = "storage/backups";
+          source = "svc.syncoid@tiger.dmz.509ely.com:storage/backups";
+          extraArgs = [ "--sshport" "2332" ];
+        };
+      };
+    };
   };
   system.stateVersion = "23.05";
 
-  # TODO: add ZFS filesystems
   systemFoundry = {
     dnsServer = {
       enable = true;

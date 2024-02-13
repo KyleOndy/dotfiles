@@ -43,14 +43,38 @@ in
     };
     sanoid = {
       enable = true;
+      extraArgs = [
+        "--verbose"
+      ];
       datasets = {
         "storage/backups" = {
           autosnap = true;
           autoprune = true;
+
+          # This share is for things I truly want backed up. In this context
+          # backup is offside availability and not the ability to comb through
+          # old archived copied. I do keep some yearly since storage is cheap,
+          # but I'm not afraid to lower the longer tiers if needed to save some
+          # space.
           hourly = 4;
           daily = 31;
           monthly = 24;
           yearly = 10;
+        };
+        "storage/photos" = {
+          autosnap = true;
+          autoprune = true;
+
+          # My thoughts for the number and frequency of snapshots. The photos
+          # that live on this zfs share are a 1:1 dump of my ~/photos directory
+          # on my local laptop. If I ever need to not keep the entire library
+          # local I need to revisit this. The backup here is more for a short
+          # term disaster recovery, such as if I lose my local storage. I am
+          # not worried about recovering a photo I deleted a long time ago.
+          hourly = 0;
+          daily = 8;
+          monthly = 12;
+          yearly = 0;
         };
       };
     };
@@ -101,11 +125,23 @@ in
   };
   users = {
     # for backup reasons
-    users."svc.backup" = {
-      isSystemUser = true;
-      group = "svc.backup";
-      # todo: change and store with SOP
-      hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
+    users = {
+      "svc.backup" = {
+        isSystemUser = true;
+        group = "svc.backup";
+        # todo: change and store with SOP
+        hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
+      };
+      "svc.syncoid" = {
+        isNormalUser = true;
+        group = "svc.backup";
+        # todo: change and store with SOP
+        hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
+        extraGroups = [ "wheel" ]; # TODO: figure out the exact permissions needed
+        openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB+S8VkJTWt1220oiJJy/1O7Ih0BxGhY9O9l+y7XkDM3 root@alpha" # syncoid key on alpha
+        ];
+      };
     };
     groups."svc.backup".members = [
       "svc.backup"
