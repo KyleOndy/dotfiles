@@ -2,15 +2,17 @@
 # shellcheck shell=bash
 #! nix-shell -i bash -p rsync python3 ffmpeg yt-dlp
 # vi: ft=bash
-#set -e # script will bail when a channel has a premeier
 
 common_args=(
+    --quiet
     # todo: XDG data
     --download-archive "$HOME/.yt-dl/youtube-dl-seen.conf"
     --prefer-free-formats
     --ignore-errors
     --mark-watched
+    --write-auto-sub
     --embed-subs
+    # --embed-thumbnail # TOOD: jellyfin not picking up on embed image
     --add-metadata
     --concurrent-fragments=20
     --compat-options no-live-chat
@@ -32,13 +34,6 @@ download() {
   echo "==> Downloading $1"
   yt-dlp "https://www.youtube.com/$1" "${common_args[@]}" "${download_args[@]}"
 }
-
-archive() {
-  # todo: don't download twice
-  echo "==> Archiving $1"
-  yt-dlp "https://www.youtube.com/$1" "${common_args[@]}" "${archive_args[@]}"
-}
-
 
 download_all() {
 
@@ -62,7 +57,7 @@ download_all() {
   download "@sofianeshl/videos"                       # "Sofiane Sehili"
   download "@TENTISTHENEWRENT/videos"                 # "TENT IS THE NEW RENT"
   download  "@JackScottkeogh/videos"                  # Jack Keogh
-  downlaod "@PaulComponentEngineering/videos"         # Paul Components
+  download "@PaulComponentEngineering/videos"         # Paul Components
   download "@TurnCycling/videos"
   download "@duzer/videos"
   download "@KeepSmilingAdventures/videos"
@@ -80,8 +75,6 @@ download_all() {
 
 
   ## science
-  download "c/3blue1brown/videos"            # 3Blue1Brown
-  download "c/halfasinteresting/videos"     # Half As Interesting
   download "c/Wendoverproductions/videos"   # Wendover Productions
   download "@miniminuteman773/videos"
 
@@ -92,7 +85,6 @@ download_all() {
   # entertainment
   download  "c/kaptainkristian/videos"     # kaptainkristian
   download "c/everyframeapainting/videos"
-  download "c/smartereveryday/videos"
   download "c/PracticalEngineeringChannel/videos"
   download "c/SampsonBoatCo/videos"                   # Sampson Boat Co
   download "c/ShubaMusic/videos"
