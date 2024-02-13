@@ -19,8 +19,6 @@
   # Select internationalisation properties.
   i18n = { defaultLocale = "en_US.UTF-8"; };
   console = {
-    font = "Hack Nerd Font Mono";
-    #KeyMap = "us";
     # apply the X keymap to the console keymap, which affects virtual consoles
     # such as tty.
     useXkbConfig = true;
