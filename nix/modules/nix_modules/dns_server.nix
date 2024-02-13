@@ -76,6 +76,7 @@ in
 
     services.dnsmasq = {
       enable = true;
+      alwaysKeepRunning = true;
       settings = {
         log-async = 25;
         log-queries = true;
