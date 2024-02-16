@@ -42,9 +42,9 @@ download_all() {
   download "c/DylanJohnsonCycling/videos"             # Dylan Johnson
   download "c/PhilGaimonshow/videos"                  # Phil Gaimon
   download "c/TheVeganCyclist/videos"                 # The Vegan Cyclist
-  download "channel/UCFlT34jR2eye2OfAA48enMQ/videos"  # Valley Preferred Cycling Center
+  download "@ValleyPreferredCyclingCenter/videos"     # Valley Preferred Cycling Center
   download "user/sportscientist/videos"               # Stephen Seiler
-  download  "channel/UCEiB7dUaQJfVkAIpVY2fiwA/videos"  # black line coaching
+  download "@blacklinecoaching6925/videos"            # black line coaching
   download "c/DannyMacAskill/videos"                  # Danny MacAskill
   download "c/cosmocatalano-howtheracewaswon/videos"  # How the race was won
   download "c/JoyOfBike/videos"                       # joy of bikes
@@ -72,6 +72,7 @@ download_all() {
   download "@ChumbaUSABikes/videos"
   download "@BermPeakExpress/videos"
   download "@pnwbikepacking/videos"
+  download "@nrmlmtber/videos"
 
 
   ## science
@@ -81,6 +82,7 @@ download_all() {
   ## maker
   download "c/StuffMadeHere/videos"             # Stuff Made Here
   download "/c/StuffMadeHere2/videos"           # Stuff Made Here 2
+  download "@StumpyNubs/videos"
 
   # entertainment
   download  "c/kaptainkristian/videos"     # kaptainkristian
@@ -96,6 +98,8 @@ download_all() {
   download "@CaptainDisillusion/videos"
   download "@colinfurze/videos"
   download "@2MuchColinFurze/videos"
+  download "@theslappablejerk/videos"
+  download "@RudyAyoub/videos"
 
   # tech
   download "c/AdamJames-tv/videos"            # Adam James (Clojure)
