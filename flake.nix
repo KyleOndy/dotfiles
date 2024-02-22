@@ -20,6 +20,13 @@
     deploy-rs.url = "github:serokell/deploy-rs";
     # https://hydra.nixos.org/job/nixos/trunk-combined/nixos.sd_image.aarch64-linux
     nixpkgs-raspberrypi.url = "github:nixos/nixpkgs/4d7c2644dbac9cf8282c0afe68fca8f0f3e7b2db";
+    plasma-manager = {
+      url = "github:pjones/plasma-manager";
+      inputs = {
+        nixpkgs.follows = "nixpkgs";
+        home-manager.follows = "home-manager";
+      };
+    };
   };
   outputs = { self, ... }@inputs:
     let
@@ -138,18 +145,12 @@
             inputs.home-manager.nixosModules.home-manager
             {
               systemFoundry = {
-                users.kyle.enable = true;
                 deployment_target.enable = true;
+                users.kyle.enable = true;
+                desktop.kde.enable = true;
               };
               # TODO: overwriting for testing pourposes
               services = {
-                xserver = {
-                  displayManager = {
-                    sddm.enable = true;
-                    defaultSession = "plasmawayland";
-                  };
-                  desktopManager.plasma5.enable = true;
-                };
                 power-profiles-daemon.enable = false; # am using tlp
                 mullvad-vpn.enable = true;
               };
@@ -158,16 +159,19 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                sharedModules = hmModules;
+                sharedModules = hmModules ++ [
+                  # TODO: make this module available to all machines
+                  inputs.plasma-manager.homeManagerModules.plasma-manager
+                ];
                 users.kyle = {
                   imports = [ ./nix/profiles/full.nix ];
 
                   hmFoundry = {
                     desktop = {
                       browsers.qutebrowser.enable = true;
-                      wm.i3.enable = inputs.nixpkgs.lib.mkForce false;
                       media.latex.enable = true;
                       term.foot.enable = true;
+                      wm.kde.enable = true;
                     };
                   };
                 };
