@@ -79,11 +79,11 @@
               src = ./.;
               hooks = {
                 black.enable = true;
-                nixpkgs-fmt = {
+                nixpkgs-fmt.enable = true;
+                prettier = {
                   enable = true;
                   excludes = [ "flake.lock" ];
                 };
-                prettier.enable = true;
                 shellcheck.enable = true;
                 stylua.enable = true;
                 pkg_version = {
