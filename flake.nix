@@ -167,23 +167,7 @@
                       browsers.qutebrowser.enable = true;
                       wm.i3.enable = inputs.nixpkgs.lib.mkForce false;
                       media.latex.enable = true;
-                    };
-                  };
-                  programs = {
-                    foot = {
-                      enable = true;
-                      settings = {
-                        main = {
-                          font = "Hack:size=7";
-                          dpi-aware = "yes";
-                        };
-                        cursor = {
-                          blink = "yes";
-                        };
-                        mouse = {
-                          hide-when-typing = "yes";
-                        };
-                      };
+                      term.foot.enable = true;
                     };
                   };
                 };
