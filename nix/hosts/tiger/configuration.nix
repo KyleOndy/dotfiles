@@ -307,36 +307,38 @@ in
   };
 
   # TODO: move to module if it works and I like it
-  systemd.services.nix-update-and-build = {
-    enable = false;
-    startAt = "*-*-* 04:00:00"; # 4am
-    path = with pkgs; [
-      bash
-      git
-      gnumake
-      jq
-      nix
-      nixos-rebuild
-    ];
-    script = ''
-      set -ex
-      cd $(mktemp -d)
-      git clone https://github.com/kyleondy/dotfiles.git .
-      cp flake.lock flake.lock.old
-      make update
-      cp flake.lock flake.lock.new
-      hosts=$(nix flake show --json | jq -r '.nixosConfigurations | keys[]' | grep -v sd_card)
-      for host in $hosts; do
-        cp flake.lock.old flake.lock
-        nice -n19 make HOSTNAME="$host" build
-        orig_hash=$(readlink -f ./result)
+  systemd.services = {
+    nix-update-and-build = {
+      enable = false;
+      startAt = "*-*-* 04:00:00"; # 4am
+      path = with pkgs; [
+        bash
+        git
+        gnumake
+        jq
+        nix
+        nixos-rebuild
+      ];
+      script = ''
+        set -ex
+        cd $(mktemp -d)
+        git clone https://github.com/kyleondy/dotfiles.git .
+        cp flake.lock flake.lock.old
+        make update
+        cp flake.lock flake.lock.new
+        hosts=$(nix flake show --json | jq -r '.nixosConfigurations | keys[]' | grep -v sd_card)
+        for host in $hosts; do
+          cp flake.lock.old flake.lock
+          nice -n19 make HOSTNAME="$host" build
+          orig_hash=$(readlink -f ./result)
 
-        cp flake.lock.new flake.lock
-        nice -n19 make HOSTNAME="$host" build
-        echo "$host,$orig_hash,$(readlink -f ./result)" >> builds.csv
-      done
-      cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
-    '';
+          cp flake.lock.new flake.lock
+          nice -n19 make HOSTNAME="$host" build
+          echo "$host,$orig_hash,$(readlink -f ./result)" >> builds.csv
+        done
+        cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
+      '';
+    };
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?
