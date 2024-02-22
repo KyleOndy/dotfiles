@@ -35,6 +35,7 @@ in
           g = "git";
           j = "bat --language=json $@";
           k = "kubectl";
+          l = "bat --style=plain --paging=never --language=log $@";
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
           src = "cd ${config.home.homeDirectory}/src";
