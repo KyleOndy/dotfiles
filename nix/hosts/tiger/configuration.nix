@@ -307,38 +307,105 @@ in
   };
 
   # TODO: move to module if it works and I like it
-  systemd.services = {
-    nix-update-and-build = {
-      enable = false;
-      startAt = "*-*-* 04:00:00"; # 4am
-      path = with pkgs; [
-        bash
-        git
-        gnumake
-        jq
-        nix
-        nixos-rebuild
-      ];
-      script = ''
-        set -ex
-        cd $(mktemp -d)
-        git clone https://github.com/kyleondy/dotfiles.git .
-        cp flake.lock flake.lock.old
-        make update
-        cp flake.lock flake.lock.new
-        hosts=$(nix flake show --json | jq -r '.nixosConfigurations | keys[]' | grep -v sd_card)
-        for host in $hosts; do
-          cp flake.lock.old flake.lock
-          nice -n19 make HOSTNAME="$host" build
-          orig_hash=$(readlink -f ./result)
+  systemd = {
+    services = {
+      nix-update-and-build = {
+        enable = false;
+        startAt = "*-*-* 04:00:00"; # 4am
+        path = with pkgs; [
+          bash
+          git
+          gnumake
+          jq
+          nix
+          nixos-rebuild
+        ];
+        script = ''
+          set -ex
+          cd $(mktemp -d)
+          git clone https://github.com/kyleondy/dotfiles.git .
+          cp flake.lock flake.lock.old
+          make update
+          cp flake.lock flake.lock.new
+          hosts=$(nix flake show --json | jq -r '.nixosConfigurations | keys[]' | grep -v sd_card)
+          for host in $hosts; do
+            cp flake.lock.old flake.lock
+            nice -n19 make HOSTNAME="$host" build
+            orig_hash=$(readlink -f ./result)
 
-          cp flake.lock.new flake.lock
-          nice -n19 make HOSTNAME="$host" build
-          echo "$host,$orig_hash,$(readlink -f ./result)" >> builds.csv
-        done
-        cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
-      '';
+            cp flake.lock.new flake.lock
+            nice -n19 make HOSTNAME="$host" build
+            echo "$host,$orig_hash,$(readlink -f ./result)" >> builds.csv
+          done
+          cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
+        '';
+      };
+      yt-dowload-and-clean = {
+        enable = true;
+        descrption = "Downloads Youtube videos and cleans up Jellyfin";
+        startAt = "*-*-* *:00:00"; # hourly
+        path = with pkgs; [
+          bash
+          git
+          gnumake
+          jq
+          nix
+          nixos-rebuild
+        ];
+        script = ''
+          media_dir=/mnt/media/yt
+          temp_dir="/tmp/.yt-dl/downloads"
+
+
+          # remove watched episodes. this will remove anything that has been started.
+          echo "==> REMOVING THE FOLLOWING"
+          while IFS= read -r -d $'\0' file; do
+            if [[ -f "$file" ]]; then
+              rm -v "$file"
+            fi
+          done < <(journalctl --since="-36 Hours" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'Path=(/mnt/media/yt.*?), AudioStream')
+          echo "==> DONE REMOVING"
+
+          # Download new videos
+          yt-sync
+
+          # move into jellyfin dir
+          if [[ -z $(ls -A "$temp_dir"/* 2>/dev/null) ]]; then
+            echo "No downloads"
+          else
+            rsync -aPh --remove-source-files "$temp_dir"/* "$media_dir"
+          fi
+
+          # remove leftovers from incomplete downloads
+          fd \
+            --extension=part \
+            --extension="temp.webm" \
+            --extension=meta \
+            --extension=en.vtt \
+            . /mnt/media/yt -x rm
+          fd --type=f 'f[0-9]+\.webm' /mnt/media/yt -x rm
+
+          # remove empty dirs
+          fd --type=empty --type=directory . "$media_dir" "$temp_dir" -x rmdir
+
+          # TODO: start sync of jellyfin media library
+          # curl -v -X GET -H "X-MediaBrowser-Token: TOKEN" https://jellyfin.tld/library/refresh
+
+          # print most recent videos and count of all videos
+          vids=$(fd --type=f . /mnt/media/yt -x echo '{/}' | sort)
+          if [[ $(echo "$vids" | wc -l) -le 21 ]]; then
+            echo "$vids"
+          else
+            echo "$vids" | head
+            echo "..."
+            echo "$vids" | tail
+          fi
+          echo "total videos: $(echo "$vids" | wc -l)"
+        '';
+      };
+
     };
+    timers.yt-dowload-and-clean.timerConfig.RandomizedDelaySec = "15m";
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?
