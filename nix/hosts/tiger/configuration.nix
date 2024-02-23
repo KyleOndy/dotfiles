@@ -342,7 +342,7 @@ in
       };
       yt-dowload-and-clean = {
         enable = true;
-        descrption = "Downloads Youtube videos and cleans up Jellyfin";
+        description = "Downloads Youtube videos and cleans up Jellyfin";
         startAt = "*-*-* *:00:00"; # hourly
         path = with pkgs; [
           bash
