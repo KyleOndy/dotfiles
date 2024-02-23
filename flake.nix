@@ -121,7 +121,10 @@
               home-manager = {
                 useGlobalPkgs = true;
                 useUserPackages = true;
-                sharedModules = hmModules;
+                sharedModules = hmModules ++ [
+                  # TODO: make this module available to all machines
+                  inputs.plasma-manager.homeManagerModules.plasma-manager
+                ];
                 users.kyle = import ./nix/profiles/ssh.nix;
               };
             }
@@ -197,7 +200,10 @@
                 home-manager = {
                   useGlobalPkgs = true;
                   useUserPackages = true;
-                  sharedModules = hmModules;
+                  sharedModules = hmModules ++ [
+                    # TODO: make this module available to all machines
+                    inputs.plasma-manager.homeManagerModules.plasma-manager
+                  ];
                   users.kyle = import ./nix/profiles/ssh.nix;
                 };
               }
