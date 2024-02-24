@@ -22,6 +22,32 @@
       lidSwitch = "ignore";
       lidSwitchDocked = "ignore";
     };
+    sanoid = {
+      # we need to run sanoid to prune the backups
+      enable = true;
+      extraArgs = [
+        "--verbose"
+        "--prune-snapshots"
+      ];
+      datasets = {
+        "storage/backups" = {
+          autosnap = false;
+          autoprune = true;
+          hourly = 4;
+          daily = 31;
+          monthly = 24;
+          yearly = 10;
+        };
+        "storage/photos" = {
+          autosnap = false;
+          autoprune = true;
+          hourly = 0;
+          daily = 8;
+          monthly = 12;
+          yearly = 0;
+        };
+      };
+    };
     syncoid = {
       # had to run the following on alpha to get the service to work
       # > sudo -u syncoid ssh -i /var/lib/syncoid/id_ed25519 -p 2332 svc.syncoid@tiger.dmz.509ely.com
