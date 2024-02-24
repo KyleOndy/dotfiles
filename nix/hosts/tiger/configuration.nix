@@ -45,6 +45,7 @@ in
       enable = true;
       extraArgs = [
         "--verbose"
+        "--cron" # create snapshots, then purge expired ones
       ];
       datasets = {
         "storage/backups" = {
