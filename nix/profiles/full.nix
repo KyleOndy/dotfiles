@@ -20,7 +20,7 @@
         makemkv.enable = true;
       };
       term.st.enable = true;
-      wm.i3.enable = true;
+      wm.i3.enable = false;
     };
   };
 }
