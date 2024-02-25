@@ -291,6 +291,81 @@ in
           "lan.509ely.com" = "10.25.89.1";
         };
       };
+      youtubeDownloader = {
+        enable = true;
+        media_dir = "/mnt/media/yt";
+        temp_dir = "/mnt/scratch-big/youtube-downloads";
+        watched_channels = [
+          # cycling
+          "@DylanJohnsonCycling"
+          "@worstretirementever" # Phil Gaimon
+          "@TheVCAdventures" # The Vegan Cyclist
+          "@ValleyPreferredCyclingCenter"
+          "@sportscientist" # Stephen Seiler
+          "@blacklinecoaching6925"
+          "@Danny_MacAskill"
+          "@howtheracewaswon"
+          "@JoyOfBike"
+          "@chadweberg1" # Chad Weberg
+          "@DirtyTeethMTB"
+          "@jasperverkuijl"
+          "@nerocoaching" # "Jesse Coyle"
+          "@joe.nation"
+          "@joshibbett"
+          "@sofianeshl"
+          "@TENTISTHENEWRENT"
+          "@JackScottkeogh"
+          "@PaulComponentEngineering"
+          "@TurnCycling"
+          "@duzer"
+          "@KeepSmilingAdventures"
+          "@EFProCycling"
+          "@wattwagon"
+          "@Buzzalong.cycling"
+          "@BIKEPACKINGcom"
+          "@mikemono"
+          "@tristantakevideo"
+          "@msoleilblais74"
+          "@SethsBikeHacks"
+          "@ChumbaUSABikes"
+          "@BermPeakExpress"
+          "@pnwbikepacking"
+          "@nrmlmtber"
+
+          # science
+          "@Wendoverproductions"
+          "@miniminuteman773"
+
+          # maker
+          "@tested"
+          "@StuffMadeHere"
+          "@StuffMadeHere2"
+          "@StumpyNubs"
+
+          # entertainment
+          "@kaptainkristian"
+          "@kurzgesagt"
+          "@PracticalEngineeringChannel"
+          "@SampsonBoatCo"
+          "@ShubaMusic"
+          "@GxAce"
+          "@CharlieBerens"
+          "@DudeDad"
+          "@treykennedy"
+          "@Ben_Brainard"
+          "@CaptainDisillusion"
+          "@colinfurze"
+          "@2MuchColinFurze"
+          "@theslappablejerk"
+          "@RudyAyoub"
+          "@yeahmadtv"
+
+          # tech
+          "@AdamJames-tv"
+          "@ClojureTV"
+          "@KRAZAM"
+        ];
+      };
     };
 
   nixpkgs.config.packageOverrides = pkgs: {
@@ -340,72 +415,7 @@ in
           cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
         '';
       };
-      yt-dowload-and-clean = {
-        enable = true;
-        description = "Downloads Youtube videos and cleans up Jellyfin";
-        startAt = "*-*-* *:00:00"; # hourly
-        path = with pkgs; [
-          bash
-          git
-          gnumake
-          jq
-          nix
-          nixos-rebuild
-        ];
-        script = ''
-          media_dir=/mnt/media/yt
-          temp_dir="/tmp/.yt-dl/downloads"
-
-
-          # remove watched episodes. this will remove anything that has been started.
-          echo "==> REMOVING THE FOLLOWING"
-          while IFS= read -r -d $'\0' file; do
-            if [[ -f "$file" ]]; then
-              rm -v "$file"
-            fi
-          done < <(journalctl --since="-36 Hours" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'Path=(/mnt/media/yt.*?), AudioStream')
-          echo "==> DONE REMOVING"
-
-          # Download new videos
-          yt-sync
-
-          # move into jellyfin dir
-          if [[ -z $(ls -A "$temp_dir"/* 2>/dev/null) ]]; then
-            echo "No downloads"
-          else
-            rsync -aPh --remove-source-files "$temp_dir"/* "$media_dir"
-          fi
-
-          # remove leftovers from incomplete downloads
-          fd \
-            --extension=part \
-            --extension="temp.webm" \
-            --extension=meta \
-            --extension=en.vtt \
-            . /mnt/media/yt -x rm
-          fd --type=f 'f[0-9]+\.webm' /mnt/media/yt -x rm
-
-          # remove empty dirs
-          fd --type=empty --type=directory . "$media_dir" "$temp_dir" -x rmdir
-
-          # TODO: start sync of jellyfin media library
-          # curl -v -X GET -H "X-MediaBrowser-Token: TOKEN" https://jellyfin.tld/library/refresh
-
-          # print most recent videos and count of all videos
-          vids=$(fd --type=f . /mnt/media/yt -x echo '{/}' | sort)
-          if [[ $(echo "$vids" | wc -l) -le 21 ]]; then
-            echo "$vids"
-          else
-            echo "$vids" | head
-            echo "..."
-            echo "$vids" | tail
-          fi
-          echo "total videos: $(echo "$vids" | wc -l)"
-        '';
-      };
-
     };
-    timers.yt-dowload-and-clean.timerConfig.RandomizedDelaySec = "15m";
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?
