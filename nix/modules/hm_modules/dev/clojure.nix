@@ -29,6 +29,9 @@ in
 
       # https://github.com/babashka/neil#nix
       neil # A CLI to add common aliases and features to deps.edn-based projects.
+
+      # https://github.com/eraserhd/parinfer-rust
+      parinfer-rust # Infer parentheses for Clojure, Lisp and Scheme.
     ];
 
     programs = {
