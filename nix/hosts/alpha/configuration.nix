@@ -61,6 +61,8 @@
         # monitoring
         "prometheus.apps.lan.509ely.com" = "10.24.89.5";
         "grafana.apps.lan.509ely.com" = "10.24.89.5";
+
+        "local.509ely.com" = "127.0.0.1";
       };
       cnameRecords = { };
       domainRecords = {
