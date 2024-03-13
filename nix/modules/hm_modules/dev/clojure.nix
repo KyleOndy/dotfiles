@@ -72,8 +72,8 @@ in
           {
             plugin = vim-sexp;
             config = ''
-              " set no deafult bindings
-              "let g:sexp_filetypes = ""
+              " don't go inserting chracters for me
+              let g:sexp_enable_insert_mode_mappings = 0
             '';
           }
 
