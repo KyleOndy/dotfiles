@@ -477,20 +477,6 @@ in
           EOF
           }
 
-          # stay grounded
-          # TODO: extract to more general function
-          if type mori > /dev/null; then
-            _tmp_dir=''${TMPDIR:-/tmp/}
-            _mori_dir="''${_tmp_dir}mori"
-            [[ -d "''${_mori_dir}" ]] || mkdir "''${_mori_dir}"
-            today="''${_mori_dir}/$(date +%Y%m%d)"
-            if [[ ! -f "''${today}" ]]; then
-              # use the file as a marker we've displayed it today
-              touch "$today"
-              mori
-            fi
-          fi
-
           # completion
           # TODO: not sure of the implications here. Just copying verbatim from
           # https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-completion.html#cli-command-completion-linux
