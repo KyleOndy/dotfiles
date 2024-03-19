@@ -337,9 +337,13 @@ in
           "@miniminuteman773"
 
           # maker
+          "@Paul.Sellers"
+          "@RexKrueger"
+          "@RobCosmanWoodworking"
           "@StuffMadeHere"
           "@StuffMadeHere2"
           "@StumpyNubs"
+          "@WoodByWrightHowTo"
           "@tested"
 
           # entertainment
