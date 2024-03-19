@@ -93,7 +93,7 @@ in
 
           download() {
             local channel_name=$1
-            echo " downloading: https://www.youtube.com/$channel_name/videos"
+            echo "downloading: https://www.youtube.com/$channel_name/videos"
             yt-dlp "https://www.youtube.com/$channel_name/videos" \
               --quiet \
               --download-archive "${cfg.data_dir}/youtube-dl-seen.conf" \
