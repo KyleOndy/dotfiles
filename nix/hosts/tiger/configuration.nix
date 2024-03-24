@@ -345,6 +345,7 @@ in
           "@StuffMadeHere2"
           "@StumpyNubs"
           "@WoodByWrightHowTo"
+          "@lostartpress"
           "@tested"
 
           # entertainment
