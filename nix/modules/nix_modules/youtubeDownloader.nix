@@ -107,7 +107,7 @@ in
               --compat-options no-live-chat \
               --match-filter "!is_live" \
               --playlist-end 25 \
-              --output "${cfg.temp_dir}/%(uploader)s/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s"
+              --output "${cfg.temp_dir}/%(uploader)s/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s" || true
           }
 
           main
