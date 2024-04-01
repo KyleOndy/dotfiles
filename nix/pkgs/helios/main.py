@@ -1,6 +1,4 @@
-#! /usr/bin/env nix-shell
-#! nix-shell -i python3 -p python311 python311Packages.colorama python311Packages.pillow python311Packages.flake8 python311Packages.gphoto2 python311Packages.pytest python311Packages.shellingham python311Packages.typer
-# vi: ft=python
+#!/usr/bin/env python3
 
 import typer
 import os
