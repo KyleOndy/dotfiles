@@ -27,6 +27,7 @@ in
         shellAliases = {
           ":e" = "$EDITOR";
           ":q" = "exit";
+          ":Q" = "exit";
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
           cdg = "cd $(git root)";
