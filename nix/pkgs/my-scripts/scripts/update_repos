@@ -1,14 +1,33 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+debug=${DEBUG:-}
+
+_log() {
+  >&2 echo "LOG: $(date --iso-8601=seconds): $*"
+}
+
+_debug() {
+  [[ -n "${debug}" ]] && >&2 echo "DEBUG: $(date --iso-8601=seconds): $*"
+}
+
+########################################################################
+# END STANDARD BASH SCRIPT HEADER
+#
+# Everything above is scaffoled into my scripts via a helper. Do not change and
+# the contents can be updated and changes will be lost.
+########################################################################
 
 # TODO: I'm starting to copy and paste the same pattern for these functions. I
 #       should probably abstract it into some kind of function.
 
 get_worktree_projects() {
-  for dir in "$root_dir/"*; do
-    if [[ -d "${dir}/.bare" ]]; then
-      echo "$dir"
-    fi
-  done
+  # returns a path to the root of the worktree projects, the folder
+  # _containting_ .bare and .git
+  local src_dir=$1
+
+  # depth of 3 works for now as I organize as $src/{org}/{repo}
+  fd --type=d --hidden --max-depth=5 .bare "${src_dir}" -x echo  '{//}'
 }
 
 update_project_branch() {
@@ -45,24 +64,27 @@ set_git_commit_template() {
 
 cleanup_empty_dirs() {
   local project="$1"
-  fd --type=d --max-depth=1 . "$project" -X rmdir
+  fd --type=directory --type=empty --max-depth=2 . "$project" -X rmdir 2> /dev/null
 }
 
 main() {
-  projects=$(get_worktree_projects)
+  local src_dir=$1
+
+  projects=$(get_worktree_projects "${src_dir}")
   for project in $projects; do
     echo "==> $project"
     update_project_branch "$project" "master"
     update_project_branch "$project" "main"
-    # other nice to haves
+    ## other nice to haves
     install_precommit "$project" "master"
     install_precommit "$project" "main"
     set_git_commit_template "$project" "master"
     set_git_commit_template "$project" "main"
     cleanup_empty_dirs "$project"
-    sleep 60 # to not set off our alerts
+    _log "sleep to not set off our alerts"
+    sleep 60
   done
 }
 
 root_dir=${1:-"$HOME/src"}
-main "$@"
+main "$root_dir"
