@@ -113,3 +113,11 @@ Feb 09 03:25:11 tiger acme-nix-cache.apps.dmz.509ely.com-start[155152]: [nix-cac
 Your public IP has changed, update the whitelist in Namecheap.
 
 https://ap.www.namecheap.com/settings/tools/apiaccess/whitelisted-ips
+
+---
+
+need to understand how to buiild packages better.
+
+To build locally
+
+`nix-build -E 'with import <nixpkgs> {}; callPackage ./default.nix {}'`
