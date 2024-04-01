@@ -506,6 +506,9 @@ in
           fi
 
           _include /opt/homebrew/opt/asdf/libexec/asdf.sh
+
+          source ${pkgs.zsh-histdb}/sqlite-history.zsh
+          autoload -Uz add-zsh-hook
         '';
       };
       fzf = {
