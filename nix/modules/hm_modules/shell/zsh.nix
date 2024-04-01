@@ -51,9 +51,11 @@ in
         # combination that nix wants to replace with a variable. Its not some
         # fancy bash trick. In the bash source, the double quotes do not
         # appear.
-        initExtra = ''
+        initExtraFirst = ''
           # do this early, so I can overwrite settings as I want.
           source ${pkgs.zsh-vi-mode}/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+        '';
+        initExtra = ''
           # Only changing the escape key to `jk` in insert mode, we still
           # keep using the default keybindings `^[` in other modes
           ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
