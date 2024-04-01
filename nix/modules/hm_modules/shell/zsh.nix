@@ -140,12 +140,19 @@ in
               --preview '${pkgs.git}/bin/git show --color=always {} | head -'$LINES
           }
 
-          fzf_pick_git_remote() {
-            is_in_git_repo || return
-            ${pkgs.git}/bin/git remote -v | ${pkgs.gawk}/bin/awk '{print $1 "\t" $2}' | uniq |
-            _fzf --tac \
-              --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" {1} | head -200' |
-            cut -d$'\t' -f1
+          fzf_pick_git_repository() {
+            src_root="''${HOME}/src"
+            repo_bare=$(fd --type=d --max-depth=4 --hidden .bare "''${src_root}")
+
+            stripped_repo="''${repo_bare//"''${src_root}"\//}"
+            bare_repo=''${stripped_repo//.bare\//}
+
+            repo=$(echo "''${bare_repo}" | fzf)
+            for dir in "''${HOME}/src/''${repo}/main" "''${HOME}/src/''${repo}/master" "''${HOME}/src/''${repo}"; do
+              if [[ -d "''${dir}" ]]; then
+                pushd "''${dir}" > /dev/null && return
+              fi
+            done
           }
 
           fzf_pick_git_branch() {
@@ -186,8 +193,9 @@ in
               LBUFFER+=$(fzf_pick_git_tag | join-lines)
           }
 
-          fzf_git_remote_widget() {
-              LBUFFER+=$(fzf_pick_git_remote | join-lines)
+          fzf_git_repository_widget() {
+            fzf_pick_git_repository
+            _reset_prompt
           }
 
           fzf_git_branch_widget() {
@@ -226,7 +234,7 @@ in
           zvm_define_widget fzf_git_switch_worktree_widget
           zvm_define_widget fzf_git_commit_widget
           zvm_define_widget fzf_git_tag_widget
-          zvm_define_widget fzf_git_remote_widget
+          zvm_define_widget fzf_git_repository_widget
           zvm_define_widget fzf_git_branch_widget
           zvm_define_widget fzf_pick_aws_profile
           zvm_define_widget fzf_pick_kube_config
@@ -242,7 +250,7 @@ in
           zvm_bindkey viins '^[g^[w' fzf_git_switch_worktree_widget
           zvm_bindkey viins '^[g^[g' fzf_git_commit_widget
           zvm_bindkey viins '^[g^[t' fzf_git_tag_widget
-          zvm_bindkey viins '^[g^[r' fzf_git_remote_widget
+          zvm_bindkey viins '^[g^[r' fzf_git_repository_widget
           zvm_bindkey viins '^[g^[b' fzf_git_branch_widget
 
           # p is for profile
