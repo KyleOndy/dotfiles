@@ -72,6 +72,7 @@ in
       k9s # stylish kubernetes management
       kind # local k8s dev
       kubectl
+      kubectl-node-shell # host access to k8s host
       kubectx
       kubernetes-helm # helm
       lesspipe # auto piping into less
