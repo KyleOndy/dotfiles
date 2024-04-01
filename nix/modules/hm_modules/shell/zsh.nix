@@ -230,6 +230,40 @@ in
             _reset_prompt
           }
 
+          fzf_pick_k8s_cluster() {
+            config_dir="${config.home.homeDirectory}/.kube/configs"
+            # TODO: add exclude strings to own variable
+            kubeconfig=$(fd --type=f . $HOME/.kube/configs --exclude gke_gcloud_auth_plugin_cache -x basename {} |
+              sort | _fzf --preview "bat --color=always -l=yaml "$config_dir/{}"")
+
+
+            if [[ -z "$kubeconfig" ]]; then
+              unset KUBECONFIG
+              unset AWS_PROFILE
+              unset AWS_REGION
+            else
+              KUBECONFIG="$config_dir/$kubeconfig"
+              AWS_PROFILE=$(yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
+              AWS_REGION=$(yq '.users[].user.exec.args' "$KUBECONFIG" | rg -F -e '--region' -A1 | tail -n1 | cut -d' ' -f2)
+
+              # This checks if the cluster is AWS
+              # TODO: handle GKE cluster
+              if [[ -n $AWS_PROFILE ]] && [[ -n $AWS_REGION ]]; then
+                aws_sso_login "$AWS_PROFILE"
+                export AWS_PROFILE
+                export AWS_REGION
+                export KUBECONFIG
+              fi
+            fi
+            _reset_prompt
+          }
+
+          aws_sso_login() {
+            local profile=$1
+
+            aws --profile "$profile" sts get-caller-identity > /dev/null 2>&1 || aws --profile "$profile" sso login
+          }
+
           # this is not how keys and commands are bound in vanilla ZSH, this
           # pattern is due to ZVM.
           zvm_define_widget fzf_git_switch_worktree_widget
@@ -239,6 +273,7 @@ in
           zvm_define_widget fzf_git_branch_widget
           zvm_define_widget fzf_pick_aws_profile
           zvm_define_widget fzf_pick_kube_config
+          zvm_define_widget fzf_pick_k8s_cluster
 
           # easily cycle through history with up and down arrow
           zvm_bindkey viins "^[[A" history-beginning-search-backward
@@ -260,6 +295,10 @@ in
           # pk for kube is obvious, but the k binding is used to go down a pane
           zvm_bindkey viins '^[p^[z' fzf_pick_kube_config
           zvm_bindkey vicmd '^[p^[z' fzf_pick_kube_config
+
+          # make some assumptions and setup AWS envvars along with k8s
+          zvm_bindkey viins '^[p^[p' fzf_pick_k8s_cluster
+          zvm_bindkey vicmd '^[p^[p' fzf_pick_k8s_cluster
 
           # https://book.babashka.org/#_terminal_tab_completion
           _bb_tasks() {
