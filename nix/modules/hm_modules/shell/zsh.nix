@@ -525,13 +525,11 @@ in
           EOF
           }
 
-          # completion
-          # TODO: not sure of the implications here. Just copying verbatim from
-          # https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-completion.html#cli-command-completion-linux
-          autoload bashcompinit && bashcompinit
-          autoload -Uz compinit && compinit
+          # TODO: not sure why I need to complete call, kinda thoguht the
+          # package handled this
+          #
+          # https://github.com/NixOS/nixpkgs/blob/a853dd4cb8ddb5cb82d693ccb97d30d37a58d306/pkgs/tools/admin/awscli2/default.nix#L118-L124
           complete -C "${pkgs.awscli2}/bin/aws_completer" aws
-          source <(${pkgs.kubectl}/bin/kubectl completion zsh)
 
           # Yucky homebrew. Don't like mixing it with nix, but its work stuff,
           # so can't push back too hard.
