@@ -7,4 +7,5 @@ self: super: {
   octo = super.callPackage ./octo { };
   pxe-api = super.callPackage ./pxe-api { };
   vscode-ls = super.callPackage ./vscode-ls { };
+  zsh-histdb = super.callPackage ./zsh-histdb { };
 }
