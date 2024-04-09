@@ -72,6 +72,8 @@ in
             config = ''
               " don't go inserting chracters for me
               let g:sexp_enable_insert_mode_mappings = 0
+              " Disable mapping hooks. They clobber conjure
+              let g:sexp_filetypes = ""
             '';
           }
 
