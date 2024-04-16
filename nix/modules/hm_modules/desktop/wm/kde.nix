@@ -16,9 +16,9 @@ in
       enable = true;
 
       configFile = {
-        "baloofilerc"."Basic Settings"."Indexing-Enabled" = false;
-        "kwinrc"."NightColor"."Active" = true;
-        "kwinrc"."NightColor"."NightTemperature" = 2400;
+        "baloofilerc"."Basic Settings"."Indexing-Enabled".value = false;
+        "kwinrc"."NightColor"."Active".value = true;
+        "kwinrc"."NightColor"."NightTemperature".value = 2400;
       };
     };
   };

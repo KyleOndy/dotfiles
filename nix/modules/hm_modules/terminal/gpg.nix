@@ -43,7 +43,7 @@ in
       enable = cfg.service;
       defaultCacheTtl = 1800;
       enableSshSupport = false;
-      pinentryFlavor = "curses";
+      pinentryPackage = pkgs.pinentry-curses;
     };
   };
 }
