@@ -527,12 +527,6 @@ in
           EOF
           }
 
-          # TODO: not sure why I need to complete call, kinda thoguht the
-          # package handled this
-          #
-          # https://github.com/NixOS/nixpkgs/blob/a853dd4cb8ddb5cb82d693ccb97d30d37a58d306/pkgs/tools/admin/awscli2/default.nix#L118-L124
-          complete -C "${pkgs.awscli2}/bin/aws_completer" aws
-
           # Yucky homebrew. Don't like mixing it with nix, but its work stuff,
           # so can't push back too hard.
 
