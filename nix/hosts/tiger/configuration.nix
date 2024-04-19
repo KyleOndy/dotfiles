@@ -332,6 +332,7 @@ in
           "@tristantakevideo"
           "@wattwagon"
           "@worstretirementever" # Phil Gaimon
+          "@KerryWernervlog"
 
           # science
           "@Wendoverproductions"
