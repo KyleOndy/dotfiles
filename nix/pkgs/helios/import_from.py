@@ -125,6 +125,7 @@ def connect_to_camera():
         # no camera, try again in 2 seconds
         logging.info("Can not find camera. Is it on?")
         time.sleep(2)
+    logging.info("Found camera.")
     return camera
 
 
