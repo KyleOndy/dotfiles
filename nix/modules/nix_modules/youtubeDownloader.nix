@@ -102,7 +102,8 @@ in
               --mark-watched \
               --write-auto-sub \
               --embed-subs \
-              --add-metadata \
+              --embed-metadata \
+              --parse-metadata "$TITLE:%(title)s" \
               --concurrent-fragments=20 \
               --compat-options no-live-chat \
               --match-filter "!is_live" \
