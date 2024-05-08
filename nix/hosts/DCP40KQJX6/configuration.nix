@@ -15,7 +15,7 @@
   # Auto upgrade nix package and the daemon service.
   services.nix-daemon.enable = true;
   nix = {
-    package = pkgs.nixUnstable;
+    package = pkgs.nixVersions.latest;
     nixPath = [ "nixpkgs=${pkgs.path}" ]; # todo: this is actaully bad, right?
     extraOptions = ''
       builders-use-substitutes = true
