@@ -78,7 +78,7 @@
   systemFoundry = {
     dnsServer = {
       enable = true;
-      blacklist.enable = true;
+      blacklist.enable = false;
 
       upstreamDnsServers = [ "10.24.89.1" ];
       aRecords = {

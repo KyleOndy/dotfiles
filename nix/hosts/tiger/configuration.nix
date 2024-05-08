@@ -277,7 +277,7 @@ in
       # todo: spin up a dmz_util server and move this
       dnsServer = {
         enable = true;
-        blacklist.enable = true;
+        blacklist.enable = false;
         upstreamDnsServers = [ "10.25.89.1" ];
         aRecords = {
           "gitea.apps.dmz.509ely.com" = "10.25.89.5";
