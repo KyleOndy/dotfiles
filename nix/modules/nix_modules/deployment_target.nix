@@ -54,7 +54,7 @@ in
 
     nixpkgs.config.allowUnfree = true;
     nix = {
-      package = pkgs.nixUnstable;
+      package = pkgs.nixVersions.latest;
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
         trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.509ely.com" ];
