@@ -12,7 +12,7 @@ in
       zsh = {
         enable = true;
         enableCompletion = true;
-        enableAutosuggestions = true;
+        autosuggestion.enable = true;
         autocd = false; # I can't stand when ZSH Decided to change my directory
         history = {
           extended = true; # save timestamps
