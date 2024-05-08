@@ -9,11 +9,11 @@ in
 
   config = mkIf cfg.enable {
     services = {
+      displayManager = {
+        sddm.enable = true;
+        defaultSession = "plasmawayland";
+      };
       xserver = {
-        displayManager = {
-          sddm.enable = true;
-          defaultSession = "plasmawayland";
-        };
         desktopManager.plasma5 = {
           enable = true;
         };
