@@ -12,3 +12,11 @@ matter, and the file in encrypted at rest with [git-crypt], so the contents are
 not public.
 
 [git-crypt]: https://github.com/AGWA/git-crypt
+
+## Run Locally
+
+If you need admin creds, run the following bash snippet
+
+```
+for line in $(pass show aws.amazon.com/ondy-org/iam_users/admin | rg -e AWS_); do export "$line"; done
+```
