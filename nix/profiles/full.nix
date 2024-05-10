@@ -9,6 +9,7 @@
     desktop = {
       apps = {
         discord.enable = true;
+        slack.enable = true;
       };
       browsers = {
         firefox.enable = true;
