@@ -231,6 +231,32 @@
             ./nix/hosts/bootstrap.nix
           ];
         };
+        pi1 = inputs.nixpkgs.lib.nixosSystem {
+          system = "aarch64-linux";
+          modules = nixModules ++ [
+            inputs.nixos-hardware.nixosModules."raspberry-pi-4"
+            ./nix/hosts/pi1/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules ++ [
+                  # TODO: make this module available to all machines
+                  # TODO: should this be available on machines we only ssh into?
+                  inputs.plasma-manager.homeManagerModules.plasma-manager
+                ];
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
       };
 
       # deploy-rs
@@ -259,6 +285,14 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
+            };
+          };
+          pi1 = {
+            hostname = "pi1.lan.509ely.com";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi1;
             };
           };
         };

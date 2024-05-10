@@ -13,7 +13,7 @@
 
       matchBlocks = {
         "pi1" = {
-          hostname = "pi.dmz.509ely.com";
+          hostname = "pi.lan.509ely.com";
           user = "kyle";
         };
         "pi2" = {
