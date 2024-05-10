@@ -43,7 +43,6 @@ in
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
       curl # get whatever random files / pgp keys I need
-      deploy-rs # nixos deployment
       direnv
       dnsutils # dig
       docker-compose
@@ -64,7 +63,6 @@ in
       #(google-cloud-sdk.withExtraComponents [ google-cloud-sdk.components.gke-gcloud-auth-plugin ]) #gcloud # can not get this to play nice with the new gke auth plugin
       gron # make JSON greppable
       grpcurl # like curl, but for gRPC
-      helios # hand rolled photo management
       htmlq # like jq, but for HTML
       htop # system diagnostics
       ispell # spell checking
@@ -129,12 +127,10 @@ in
       babashka # a Clojure babushka for the grey areas of Bash
       calcurse # cli calendar
       cifs-utils # todo: why do I need this?
-      golden-cheetah # cycling analytics
       inotify-tools # watch the file system for changes
       ltrace # trace library calls
       molly-guard # prevent footguns from runing my day
       qemu_full
-      remmina # remote desktop client
       smbnetfs # todo: why do I need this?
       virt-manager # manage KVM
     ]
