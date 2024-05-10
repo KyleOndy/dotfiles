@@ -105,31 +105,6 @@
       )
     // {
       nixosConfigurations = {
-        alpha = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/alpha/configuration.nix
-            ./nix/hosts/alpha/hardware-configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry = {
-                deployment_target.enable = true;
-                users.kyle.enable = true;
-              };
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules ++ [
-                  # TODO: make this module available to all machines
-                  inputs.plasma-manager.homeManagerModules.plasma-manager
-                ];
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
-          ];
-        };
         dino = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = nixModules ++ [
@@ -263,14 +238,6 @@
       deploy = {
         fastConnection = true;
         nodes = {
-          alpha = {
-            hostname = "alpha.lan.509ely.com";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.alpha;
-            };
-          };
           dino = {
             hostname = "dino";
             profiles.system = {
