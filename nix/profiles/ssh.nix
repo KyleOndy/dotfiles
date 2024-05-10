@@ -59,7 +59,7 @@
       clojure.enable = true;
       python.enable = true;
       dotnet.enable = true;
-      hashicorp.enable = true;
+      hashicorp.enable = false;
       git.enable = true;
       haskell.enable = true;
       nix.enable = true;

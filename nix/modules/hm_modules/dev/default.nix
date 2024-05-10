@@ -102,6 +102,7 @@ in
       sops # secret management
       squashfsTools # create and unpack squashfs
       step-cli # working with CAs
+      terraform_1
       tree # directory listing
       unzip # unzip things
       viddy # Modern watch command.
