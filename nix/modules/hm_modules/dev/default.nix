@@ -102,7 +102,6 @@ in
       shellcheck # linting bash scripts
       shfmt # shell (bash) formatting
       silver-searcher # (ag) A code-searching tool similar to ack, but faster
-      slack # GUI app
       sops # secret management
       squashfsTools # create and unpack squashfs
       step-cli # working with CAs
