@@ -24,4 +24,10 @@
       wm.i3.enable = false;
     };
   };
+  home.packages = with pkgs; [
+    deploy-rs # nixos deployment
+    golden-cheetah # cycling analytics
+    helios # hand rolled photo management
+    remmina # remote desktop client
+  ];
 }
