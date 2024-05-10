@@ -1,11 +1,14 @@
 { config, pkgs, ... }:
 {
   # Use the systemd-boot EFI boot loader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-  boot.blacklistedKernelModules = [
-    "hid_sensor_hub"
-  ];
+  boot = {
+    loader.systemd-boot.enable = true;
+    loader.efi.canTouchEfiVariables = true;
+    blacklistedKernelModules = [
+      "hid_sensor_hub"
+    ];
+    binfmt.emulatedSystems = [ "aarch64-linux" "armv7l-linux" ];
+  };
 
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
