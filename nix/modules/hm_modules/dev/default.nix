@@ -60,7 +60,6 @@ in
       gnumake # make
       gnused # sed
       groff # man pages
-      #(google-cloud-sdk.withExtraComponents [ google-cloud-sdk.components.gke-gcloud-auth-plugin ]) #gcloud # can not get this to play nice with the new gke auth plugin
       gron # make JSON greppable
       grpcurl # like curl, but for gRPC
       htmlq # like jq, but for HTML
@@ -109,7 +108,6 @@ in
       visidata # vd tool for viewing structured data
       vlc # watch things
       w3m # browse the web from the cli, like it was meant to be
-      #weechat # IRC client
       watch
       wget # get a file from the internet
       xclip # copy something to the clipboard
@@ -133,10 +131,6 @@ in
       qemu_full
       smbnetfs # todo: why do I need this?
       virt-manager # manage KVM
-    ]
-
-    ++ optionals stdenv.isDarwin [
-      octo # octopus cli
     ];
   };
 }
