@@ -366,7 +366,6 @@ in
           "@kurzgesagt"
           "@theslappablejerk"
           "@treykennedy"
-          "@yeahmadtv"
 
           # tech
           "@AdamJames-tv"
