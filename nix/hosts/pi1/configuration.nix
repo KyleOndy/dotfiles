@@ -46,7 +46,7 @@
   #       this happens and fix the root issue.
   systemd.services.dnsmasq-watchdog = {
     enable = true;
-    startAt = "*-*-* *:*:00"; # every minute
+    startAt = "*-*-* *:*:00/20"; # every twenty seconds.
     path = with pkgs; [
       dnsutils
     ];
