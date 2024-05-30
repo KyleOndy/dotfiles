@@ -10,7 +10,7 @@ while IFS= read -r -d $'\0' file; do
   if [[ -f "$file" ]]; then
     rm -v "$file"
   fi
-done < <(journalctl --since="-7 days" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'Path=(/mnt/media/yt.*?), AudioStream')
+done < <(journalctl --since="-7 days" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'file:"(/mnt/media/yt.*?)" -threads')
 echo "==> DONE REMOVING"
 
 # Download new videos
