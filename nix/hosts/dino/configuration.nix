@@ -17,5 +17,15 @@
   networking.hostName = "dino"; # Define your hostname.
   networking.wireless.enable = true;
   system.stateVersion = "22.05";
+
+  # TEMP
+  services = {
+    unifi = {
+      enable = true;
+      unifiPackage = pkgs.unifi7;
+      openFirewall = true;
+    };
+  };
+  # END TEMP
 }
 
