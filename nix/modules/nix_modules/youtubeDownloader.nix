@@ -57,7 +57,7 @@ in
               if [[ -f "$file" ]]; then
                 rm -v "$file"
               fi
-            done < <(journalctl --since="-1 week" --until="-${cfg.delete_grace_period}" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'Path=(${cfg.media_dir}.*?), AudioStream')
+            done < <(journalctl --since="-1 week" --until="-${cfg.delete_grace_period}" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'file:"(/mnt/media/yt.*?)" -threads')
             echo "==> DONE REMOVING"
 
             # Download new videos
