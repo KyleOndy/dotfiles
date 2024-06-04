@@ -13,6 +13,10 @@
         pskRaw =
           "a2db56e5a0efe7c2e8eaca97d4bc4d872234dda49862554e02ce74696d8306e3";
       };
+      "Ondy - Temp" = {
+        pskRaw =
+          "199617a3c5c6d399a42f5441b70c17f4aedcefb388538a66c021e7242ad2e205";
+      };
       "Kyle's iPhone" = {
         pskRaw =
           "1fea8faabb7dc8c28812fa1c9a4251ba0745065490139bcbb0fb7a5a4514a99a";
