@@ -351,6 +351,7 @@ in
           "@worstretirementever" # Phil Gaimon
           "@KerryWernervlog"
           "@FullBeansCyclingCompany"
+          "@PatrickMcGrady1"
 
           # science
           "@Wendoverproductions"
