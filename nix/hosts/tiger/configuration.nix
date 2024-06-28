@@ -27,7 +27,7 @@ in
 
   services = {
     apcupsd = {
-      enable = true;
+      enable = false; # now using a Tripp Lite
       # if power doesn't come on in 15 seconds, shutdown to preseve network
       # stack.
       # TODO: add hooks to shutdown POE pis
