@@ -57,7 +57,7 @@ in
       package = pkgs.nixVersions.latest;
       settings = {
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
-        trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.509ely.com" ];
+        trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ];
         auto-optimise-store = true;
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];

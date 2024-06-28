@@ -255,7 +255,7 @@
             };
           };
           pi1 = {
-            hostname = "pi1.lan.509ely.com";
+            hostname = "pi1.lan.1ella.com";
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";

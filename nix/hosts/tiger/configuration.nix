@@ -212,7 +212,7 @@ in
   ];
   systemFoundry =
     let
-      domain = "apps.dmz.509ely.com";
+      domain = "apps.dmz.1ella.com";
       backup_path = "/mnt/backups/apps";
     in
     {
@@ -297,16 +297,16 @@ in
         blacklist.enable = false;
         upstreamDnsServers = [ "10.25.89.1" ];
         aRecords = {
-          "gitea.apps.dmz.509ely.com" = "10.25.89.5";
-          "jellyfin.apps.dmz.509ely.com" = "10.25.89.5";
-          "nzbget.apps.dmz.509ely.com" = "10.25.89.5";
-          "nzbhydra.apps.dmz.509ely.com" = "10.25.89.5";
-          "radarr.apps.dmz.509ely.com" = "10.25.89.5";
-          "sonarr.apps.dmz.509ely.com" = "10.25.89.5";
+          "gitea.apps.dmz.1ella.com" = "10.25.89.5";
+          "jellyfin.apps.dmz.1ella.com" = "10.25.89.5";
+          "nzbget.apps.dmz.1ella.com" = "10.25.89.5";
+          "nzbhydra.apps.dmz.1ella.com" = "10.25.89.5";
+          "radarr.apps.dmz.1ella.com" = "10.25.89.5";
+          "sonarr.apps.dmz.1ella.com" = "10.25.89.5";
           "${config.systemFoundry.binary_cache.domainName}" = "10.25.89.5";
         };
         domainRecords = {
-          "lan.509ely.com" = "10.25.89.1";
+          "lan.1ella.com" = "10.25.89.1";
         };
       };
       youtubeDownloader = {

@@ -29,8 +29,8 @@ in
             job_name = "hosts";
             static_configs = [{
               targets = [
-                "alpha.lan.509ely.com"
-                "util.lan.509ely.com"
+                "alpha.lan.1ella.com"
+                "util.lan.1ella.com"
               ];
             }];
           }
@@ -38,7 +38,7 @@ in
       };
       grafana = {
         enable = true;
-        domain = "grafana.apps.lan.509ely.com";
+        domain = "grafana.apps.lan.1ella.com";
         port = 2342;
         addr = "127.0.0.1";
         security = {

@@ -15,8 +15,8 @@ not public.
 
 ## Run Locally
 
-If you need admin creds, run the following bash snippet
-
 ```
+git-crypt unlock
 for line in $(pass show aws.amazon.com/ondy-org/iam_users/admin | rg -e AWS_); do export "$line"; done
+make
 ```
