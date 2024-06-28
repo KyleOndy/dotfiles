@@ -18,28 +18,6 @@
   system.stateVersion = "20.09";
 
 
-  systemFoundry = {
-    dnsServer = {
-      enable = true;
-      blacklist.enable = false;
-
-      upstreamDnsServers = [ "10.24.89.1" ];
-      aRecords = {
-        #"util.lan.1ella.com" = "10.24.89.53"; # why?
-
-        # monitoring
-        #"prometheus.apps.lan.1ella.com" = "10.24.89.5";
-        #"grafana.apps.lan.1ella.com" = "10.24.89.5";
-
-        #"local.1ella.com" = "127.0.0.1";
-      };
-      cnameRecords = { };
-      domainRecords = {
-        "dmz.1ella.com" = "10.25.89.5";
-        "apps.dmz.1ella.com" = "10.25.89.5";
-      };
-    };
-  };
   # TODO: add systemd service to check is we can resolve DNS from self, if not,
   #       restart dnsmasq. That fact that we hardcode the IP address is
   #       fragile, but it works for now. I really do need to figure out _why_
