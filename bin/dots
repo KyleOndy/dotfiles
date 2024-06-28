@@ -40,7 +40,7 @@ for host in "$@"; do
 
   result_closure=$(readlink -f "$result_path")
   _start "Copying closures to binary_cache"
-  nix-copy-closure --to "tiger.dmz.509ely.com" -s "$result_closure" || true
+  nix-copy-closure --to "tiger.dmz.1ella.com" -s "$result_closure" || true
   _finish "Copying closures to binary_cache"
 
   _start "Copying closures to $host"

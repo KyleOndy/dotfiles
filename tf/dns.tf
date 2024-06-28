@@ -9,7 +9,7 @@ resource "aws_route53_record" "ondy_org_apps_star_cname" {
   name    = "*.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = ["home.509ely.com"]
+  records = ["home.1ella.com"]
 }
 
 resource "aws_route53_record" "ondy_org_top_level_app" {
@@ -20,7 +20,7 @@ resource "aws_route53_record" "ondy_org_top_level_app" {
   name    = each.value
   type    = "CNAME"
   ttl     = "300"
-  records = ["home.509ely.com"]
+  records = ["home.1ella.com"]
 }
 
 resource "aws_route53_record" "org_ondy_mx" {

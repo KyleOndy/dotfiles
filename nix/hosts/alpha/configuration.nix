@@ -50,7 +50,7 @@
     };
     syncoid = {
       # had to run the following on alpha to get the service to work
-      # > sudo -u syncoid ssh -i /var/lib/syncoid/id_ed25519 -p 2332 svc.syncoid@tiger.dmz.509ely.com
+      # > sudo -u syncoid ssh -i /var/lib/syncoid/id_ed25519 -p 2332 svc.syncoid@tiger.dmz.1ella.com
 
       # Had to run the following on tiger to grant the user the proper permissiosn
       # > sudo zfs allow -u svc.syncoid send,hold,mount,snapshot,destroy storage
@@ -62,12 +62,12 @@
       commands = {
         "storage/photos" = {
           target = "storage/photos";
-          source = "svc.syncoid@tiger.dmz.509ely.com:storage/photos";
+          source = "svc.syncoid@tiger.dmz.1ella.com:storage/photos";
           extraArgs = [ "--sshport" "2332" ];
         };
         "storage/backups" = {
           target = "storage/backups";
-          source = "svc.syncoid@tiger.dmz.509ely.com:storage/backups";
+          source = "svc.syncoid@tiger.dmz.1ella.com:storage/backups";
           extraArgs = [ "--sshport" "2332" ];
         };
       };
@@ -82,18 +82,18 @@
 
       upstreamDnsServers = [ "10.24.89.1" ];
       aRecords = {
-        "util.lan.509ely.com" = "10.24.89.53"; # why?
+        "util.lan.1ella.com" = "10.24.89.53"; # why?
 
         # monitoring
-        "prometheus.apps.lan.509ely.com" = "10.24.89.5";
-        "grafana.apps.lan.509ely.com" = "10.24.89.5";
+        "prometheus.apps.lan.1ella.com" = "10.24.89.5";
+        "grafana.apps.lan.1ella.com" = "10.24.89.5";
 
-        "local.509ely.com" = "127.0.0.1";
+        "local.1ella.com" = "127.0.0.1";
       };
       cnameRecords = { };
       domainRecords = {
-        "dmz.509ely.com" = "10.25.89.5";
-        "apps.dmz.509ely.com" = "10.25.89.5";
+        "dmz.1ella.com" = "10.25.89.5";
+        "apps.dmz.1ella.com" = "10.25.89.5";
       };
     };
   };
@@ -115,7 +115,7 @@
     ];
     script = ''
       set -x
-      [[ -z $(dig @10.24.89.53 alpha.lan.509ely.com +short) ]] && systemctl restart dnsmasq || exit 0
+      [[ -z $(dig @10.24.89.53 alpha.lan.1ella.com +short) ]] && systemctl restart dnsmasq || exit 0
     '';
   };
 }

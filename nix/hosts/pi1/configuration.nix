@@ -25,18 +25,18 @@
 
       upstreamDnsServers = [ "10.24.89.1" ];
       aRecords = {
-        #"util.lan.509ely.com" = "10.24.89.53"; # why?
+        #"util.lan.1ella.com" = "10.24.89.53"; # why?
 
         # monitoring
-        #"prometheus.apps.lan.509ely.com" = "10.24.89.5";
-        #"grafana.apps.lan.509ely.com" = "10.24.89.5";
+        #"prometheus.apps.lan.1ella.com" = "10.24.89.5";
+        #"grafana.apps.lan.1ella.com" = "10.24.89.5";
 
-        #"local.509ely.com" = "127.0.0.1";
+        #"local.1ella.com" = "127.0.0.1";
       };
       cnameRecords = { };
       domainRecords = {
-        "dmz.509ely.com" = "10.25.89.5";
-        "apps.dmz.509ely.com" = "10.25.89.5";
+        "dmz.1ella.com" = "10.25.89.5";
+        "apps.dmz.1ella.com" = "10.25.89.5";
       };
     };
   };
@@ -52,7 +52,7 @@
     ];
     script = ''
       set -x
-      [[ -z $(dig @10.24.89.53 pi1.lan.509ely.com +short) ]] && systemctl restart dnsmasq || exit 0
+      [[ -z $(dig @10.24.89.53 pi1.lan.1ella.com +short) ]] && systemctl restart dnsmasq || exit 0
     '';
   };
 }
