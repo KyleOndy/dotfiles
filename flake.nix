@@ -151,6 +151,9 @@
                       term.foot.enable = true;
                       wm.kde.enable = true;
                     };
+                    dev = {
+                      hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
+                    };
                   };
                 };
               };
