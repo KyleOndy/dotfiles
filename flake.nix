@@ -117,7 +117,6 @@
             ./nix/hosts/_includes/docker.nix
             ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/_includes/laptop.nix
-            ./nix/hosts/_includes/wifi_networks.nix
 
             inputs.sops-nix.nixosModules.sops
             inputs.home-manager.nixosModules.home-manager
