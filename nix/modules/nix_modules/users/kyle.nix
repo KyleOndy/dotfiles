@@ -15,7 +15,12 @@ in
     };
     users.users.kyle = {
       isNormalUser = true;
-      extraGroups = [ "audio" "docker" "wheel" ]; # Enable ‘sudo’ for the user.
+      extraGroups = [
+        "audio"
+        "docker"
+        "wheel" # Enable ‘sudo’ for the user.
+        "networkmanager"
+      ];
       # despite being able to change the password, every time NixOS is rebuild,
       # the password gets reset.
       initialHashedPassword =
