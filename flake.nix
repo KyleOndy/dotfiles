@@ -256,14 +256,6 @@
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
             };
           };
-          pi1 = {
-            hostname = "pi1.lan.1ella.com";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.pi1;
-            };
-          };
         };
       };
     };
