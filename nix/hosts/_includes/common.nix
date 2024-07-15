@@ -107,6 +107,7 @@
     };
     buildMachines = [
       {
+        # hostname needs to be setup in /root/.ssh/config
         hostName = "tiger.dmz.1ella.com";
         sshUser = "svc.deploy";
         systems = [ "x86_64-linux" "aarch64-linux" ];
