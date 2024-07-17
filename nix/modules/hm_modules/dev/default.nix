@@ -81,6 +81,7 @@ in
       mosh # better ssh
       my-scripts # personal scripts. See `scripts` and `overlay` folder
       ncspot # cursors spotify client
+      nix-index # find packages
       nixfmt-rfc-style # formatter for nix files
       nixpkgs-fmt # formatter for nix
       nixpkgs-review # easily dev on nixpkgs
