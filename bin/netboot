@@ -1,5 +1,5 @@
 #!/run/current-system/sw/bin/env nix-shell
-#!nix-shell -i bash -p pixiecore
+#!nix-shell -i bashInteractive -p pixiecore
 # shellcheck shell=bash
 # vi: ft=bash
 set -ex
