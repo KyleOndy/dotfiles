@@ -1,6 +1,6 @@
 #! /usr/bin/env nix-shell
 # shellcheck shell=bash
-#! nix-shell -i bash -p python3 ffmpeg yt-dlp
+#! nix-shell -i bashInteractive -p python3 ffmpeg yt-dlp
 # vi: ft=bash
 
 main() {

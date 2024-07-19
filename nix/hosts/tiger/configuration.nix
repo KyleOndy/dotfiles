@@ -396,7 +396,7 @@ in
         enable = false;
         startAt = "*-*-* 04:00:00"; # 4am
         path = with pkgs; [
-          bash
+          bashInteractive
           git
           gnumake
           jq

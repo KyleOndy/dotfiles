@@ -1,6 +1,6 @@
 #! /usr/bin/env nix-shell
 # shellcheck shell=bash
-#! nix-shell -i bash -p ripgrep
+#! nix-shell -i bashInteractive -p ripgrep
 # vi: ft=bash
 set -e
 
