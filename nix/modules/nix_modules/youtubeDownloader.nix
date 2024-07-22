@@ -52,13 +52,13 @@ in
           main() {
             # TODO: Break out the cleanup process to own service
             # remove watched episodes. this will remove anything that has been started.
-            echo "==> REMOVING THE FOLLOWING"
-            while IFS= read -r -d $'\0' file; do
-              if [[ -f "$file" ]]; then
-                rm -v "$file"
-              fi
-            done < <(journalctl --since="-1 week" --until="-${cfg.delete_grace_period}" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'file:"(/mnt/media/yt.*?)" -threads')
-            echo "==> DONE REMOVING"
+            #echo "==> REMOVING THE FOLLOWING"
+            #while IFS= read -r -d $'\0' file; do
+            #  if [[ -f "$file" ]]; then
+            #    rm -v "$file"
+            #  fi
+            #done < <(journalctl --since="-1 week" --until="-${cfg.delete_grace_period}" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'file:"(/mnt/media/yt.*?)" -threads')
+            #echo "==> DONE REMOVING"
 
             # Download new videos
             for channel in ${concatStringsSep " " cfg.watched_channels}; do
