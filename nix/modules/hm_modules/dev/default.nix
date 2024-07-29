@@ -56,7 +56,6 @@ in
       findutils
       fortune # fun tidbits
       glances # system monitor
-      glooctl # cli for gloo (kubernetes)
       gnumake # make
       gnused # sed
       groff # man pages
