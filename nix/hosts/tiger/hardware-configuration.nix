@@ -39,9 +39,7 @@
 
   hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   # high-resolution display
-  hardware.opengl = {
-    driSupport = true;
-    # For 32 bit applications
-    driSupport32Bit = true;
+  hardware.graphics = {
+    enable32Bit = true;
   };
 }
