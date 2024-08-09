@@ -124,10 +124,25 @@ in
           }
 
           # https://github.com/eraserhd/parinfer-rust
-          # Infer parentheses for Clojure, Lisp and Scheme.
+          # A Rust port of parinfer
           {
             plugin = parinfer-rust;
+            type = "lua";
+            config = ''
+              require("nvim-paredit").setup()
+              -- TODO: add a toggle for parinfer
+              -- require("which-key").add({
+              --   { "<leader>tp", "<cmd>g:parinfer_enabled \
+              --   ? \":ParinferOff<cr>\" \
+              --   : \":ParinferOn<cr>\"" }
+              -- })
+            '';
           }
+
+          # https://github.com/PaterJason/nvim-treesitter-sexp
+          { plugin = nvim-treesitter-sexp; }
+
+
         ];
       };
     };
