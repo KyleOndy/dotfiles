@@ -115,16 +115,15 @@ in
           # A Rust port of parinfer
           {
             plugin = parinfer-rust;
-            type = "lua";
-            config = ''
-              require("nvim-paredit").setup()
-              -- TODO: add a toggle for parinfer
-              -- require("which-key").add({
-              --   { "<leader>tp", "<cmd>g:parinfer_enabled \
-              --   ? \":ParinferOff<cr>\" \
-              --   : \":ParinferOn<cr>\"" }
-              -- })
-            '';
+            # TODO: add a toggle for parinfer
+            #type = "lua";
+            #config = ''
+            #  require("which-key").add({
+            #    { "<leader>tp", "<cmd>g:parinfer_enabled \
+            #    ? \":ParinferOff<cr>\" \
+            #    : \":ParinferOn<cr>\"" }
+            #  })
+            #'';
           }
 
           # https://github.com/PaterJason/nvim-treesitter-sexp
