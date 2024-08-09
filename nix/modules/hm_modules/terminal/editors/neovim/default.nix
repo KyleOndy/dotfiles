@@ -60,27 +60,25 @@ in
               file_sorter =  require'telescope.sorters'.get_fzy_sorter,
             }
 
-            require("which-key").register({
-              ["<leader>o"] = {
-                name = "+open",
-                b = { "<cmd>Telescope buffers<cr>", "Open Buffer" },
-                f = { "<cmd>Telescope find_files<cr>", "Open File" },
-                k = { "<cmd>Telescope keymaps<cr>", "Open Keymaps" },
-                m = { "<cmd>Telescope marks<cr>", "Open Marks" },
-                n = { "<cmd>enew<cr>", "New File" },
-                o = { "<cmd>Telescope git_files<cr>", "Open Git Files" },
-                p = { "<cmd>Telescope man_pages<cr>", "Open Man Pages" },
-                r = { "<cmd>Telescope oldfiles<cr>", "Open Recent File" },
-                t = { "<cmd>Telescope help_tags<cr>", "Open Tags" },
-              },
-              ["<leader>s"] = {
-                ["/"] = { "<cmd>Telescope current_buffer_fuzzy_find<cr>", "Search buffer"},
-                a     = { "<cmd>Telescope grep_string<cr>", "Search word under cursor"},
-                s     = { "<cmd>Telescope live_grep<cr>", "Search Live Grep"},
-              },
-              ["<leader>i"] = {
-                s = { "<cmd>Telescope symbols<cr>", "Insert symbol" },
-              }
+            require("which-key").add({
+              { "<leader>i", group = "insert" },
+              { "<leader>is", "<cmd>Telescope symbols<cr>", desc = "Insert symbol" },
+              { "<leader>o", group = "open" },
+              { "<leader>ob", "<cmd>Telescope buffers<cr>", desc = "Open Buffer" },
+              { "<leader>of", "<cmd>Telescope find_files<cr>", desc = "Open File" },
+              { "<leader>ok", "<cmd>Telescope keymaps<cr>", desc = "Open Keymaps" },
+              { "<leader>om", "<cmd>Telescope marks<cr>", desc = "Open Marks" },
+              { "<leader>on", "<cmd>enew<cr>", desc = "New File" },
+              { "<leader>oo", "<cmd>Telescope git_files<cr>", desc = "Open Git Files" },
+              { "<leader>op", "<cmd>Telescope man_pages<cr>", desc = "Open Man Pages" },
+              { "<leader>or", "<cmd>Telescope oldfiles<cr>", desc = "Open Recent File" },
+              { "<leader>ot", "<cmd>Telescope help_tags<cr>", desc = "Open Tags" },
+              { "<leader>s", group = "search" },
+              { "<leader>s/", "<cmd>Telescope current_buffer_fuzzy_find<cr>", desc = "Search buffer" },
+              { "<leader>sa", "<cmd>Telescope grep_string<cr>", desc = "Search word under cursor" },
+              { "<leader>ss", "<cmd>Telescope live_grep<cr>", desc = "Search Live Grep" },
+
+
             })
           '';
         }
