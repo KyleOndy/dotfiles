@@ -82,7 +82,7 @@ in
           # todo: add these to home-manager and contribute upsteam
           # reduce <ESC> key timeout in vim mode
           export KEYTIMEOUT=50
-          # change the auto-completion color
+
           # my quality of life functions
 
           # nicer autocomplete selections
