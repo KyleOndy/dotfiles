@@ -12,7 +12,10 @@ in
       zsh = {
         enable = true;
         enableCompletion = true;
-        autosuggestion.enable = true;
+        autosuggestion = {
+          enable = true;
+          highlight = "fg=6";
+        };
         autocd = false; # I can't stand when ZSH Decided to change my directory
         history = {
           extended = true; # save timestamps
@@ -80,8 +83,6 @@ in
           # reduce <ESC> key timeout in vim mode
           export KEYTIMEOUT=50
           # change the auto-completion color
-          # todo: there is probably a better way
-          export ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=6'
           # my quality of life functions
 
           # nicer autocomplete selections
