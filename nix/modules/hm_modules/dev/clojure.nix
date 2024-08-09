@@ -103,18 +103,6 @@ in
           { plugin = vim-dispatch; }
           { plugin = vim-dispatch-neovim; }
 
-          # https://github.com/guns/vim-sexp
-          # Precision Editing for S-expressions
-          {
-            plugin = vim-sexp;
-            config = ''
-              " don't go inserting chracters for me
-              let g:sexp_enable_insert_mode_mappings = 0
-              " Disable mapping hooks. They clobber conjure
-              let g:sexp_filetypes = ""
-            '';
-          }
-
           # https://github.com/tpope/vim-sexp-mappings-for-regular-people
           # tpope to the rescue again
           {
