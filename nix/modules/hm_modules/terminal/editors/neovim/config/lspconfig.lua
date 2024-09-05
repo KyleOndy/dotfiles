@@ -36,33 +36,23 @@ local on_attach = function(client, bufnr)
 end
 
 local servers = {
-  "bashls",
-  "clangd",
+  --"bashls",
+  --"clangd",
   "clojure_lsp",
-  "cssls",
+  --"cssls",
   --"diagnosticls",
-  "dockerls",
+  --"dockerls",
   -- 'ghcide',
-  "gopls",
+  --"gopls",
   -- 'html',
-  "jsonls",
+  --"jsonls",
   -- 'omnisharp',
-  "pyright",
-  "terraformls",
+  --"pyright",
+  --"terraformls",
   -- 'tsserver',
   -- 'vimls', -- no nix package
-  "yamlls",
+  --"yamlls",
 }
 for _, lsp in ipairs(servers) do
-  nvim_lsp[lsp].setup({
-    on_attach = on_attach,
-  })
+  nvim_lsp[lsp].setup({ on_attach = on_attach })
 end
-
--- configure each lsp that needs it, explictly. There is probably a better
--- (DRY) way to do this combining it with above, but I don't edit this often,
--- and I don't know lua enough yet to worry.
---require('lspconfig')['pyright'].setup{
---    on_attach = on_attach,
---    flags = lsp_flags,
---}

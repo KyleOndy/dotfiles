@@ -55,6 +55,7 @@ in
       file # what type of file is this?
       findutils
       fortune # fun tidbits
+      fswatch
       glances # system monitor
       gnumake # make
       gnused # sed
