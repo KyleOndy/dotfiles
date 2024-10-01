@@ -335,7 +335,6 @@ in
           "@PatrickMcGrady1"
           "@raphafilms"
           "@Cycling366"
-          "@jackzakrajse"
 
           # science
           "@Wendoverproductions"
