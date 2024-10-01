@@ -330,7 +330,7 @@ in
           "@tristantakevideo"
           "@wattwagon"
           "@worstretirementever" # Phil Gaimon
-          "@KerryWernervlog"
+          "@KDubzDidWhat"
           "@FullBeansCyclingCompany"
           "@PatrickMcGrady1"
           "@raphafilms"
