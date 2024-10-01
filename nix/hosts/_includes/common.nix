@@ -79,13 +79,11 @@
     TERMINAL = "st";
   };
 
-  hardware.pulseaudio.enable = true;
   boot = {
     tmp = {
       cleanOnBoot = true;
       useTmpfs = true;
     };
-    kernelPackages = config.boot.zfs.package.latestCompatibleLinuxPackages;
     extraModulePackages = with config.boot.kernelPackages; [
       perf
       systemtap

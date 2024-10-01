@@ -63,6 +63,10 @@ deploy-rs:
 deploy-rs-all:
 	deploy -- .
 
+.PHONY: deploy-rs-all-dry
+deploy-rs-all-dry:
+	deploy --dry-activate -- .
+
 .PHONY: deploy-all
 deploy-all: ## Deploy all defined hosts
 	@nix flake show --json | \
