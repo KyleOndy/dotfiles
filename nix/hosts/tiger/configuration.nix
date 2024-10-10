@@ -425,9 +425,78 @@ in
           cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
         '';
       };
+      jellyfin-prune = {
+        enable = true;
+        startAt = "*-*-* 04:00:00"; # 4am
+        path = with pkgs; [
+          bashInteractive
+          curl
+          fd
+          jq
+        ];
+        environment = {
+          TOKEN_FILE = config.sops.secrets.jellyfin_api_token.path;
+        };
+        script = ''
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          TOKEN=$(cat $TOKEN_FILE)
+          TODAY="$(date +%Y-%m-%d)"
+          TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
+          WORKING_DIR="/tmp/yt-jelly-sync"
+
+          print_watched_vids() {
+            curl -sS -X 'GET' \
+              'https://jellyfin.apps.dmz.1ella.com/Items?userId=8e521e5f-b1e2-479a-a57d-65a25b276504&recursive=true&parentId=2f958036-93af-1464-2fd4-a2bec23b34f5&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
+              -H 'accept: application/json' \
+              -H "Authorization: MediaBrowser Token=\"$TOKEN\"" | jq -r '.Items[] | select(.UserData.PlayCount >= 1) | .Path'
+          }
+
+          update_lib() {
+            curl -Ss -X 'POST' \
+              'https://jellyfin.apps.dmz.1ella.com/ScheduledTasks/Running/7738148ffcd07979c7ceb148e06b3aed' \
+              -H 'accept: */*' \
+              -H "Authorization: MediaBrowser Token=\"$TOKEN\"" \
+              -d ""
+          }
+
+          main() {
+            vids=$(print_watched_vids)
+
+            [[ -d "$WORKING_DIR" ]] || mkdir "$WORKING_DIR"
+            echo "$vids" | sort > "$WORKING_DIR/$TODAY.txt"
+
+            old_vids_file=$(fd --type=f . "$WORKING_DIR" | sort -r | sed -n "/$TWO_DAYS_AGO/,//p" | head -n1)
+            if ! [[ -f "$old_vids_file" ]]; then
+              echo "Can not find a file"
+              exit 0
+            fi
+
+            vids_to_remove=$(comm -12 "$WORKING_DIR/$TODAY.txt" "$old_vids_file")
+
+            [[ -z "$vids_to_remove" ]] && exit 0
+
+            echo "$vids_to_remove" | while read -r vid; do
+              if [[ -f "$vid" ]]; then
+                rm -v "$vid"
+              else
+                echo "Can not find $vid"
+              fi
+            done
+
+            fd --type=directory --type=empty . /mnt/media/yt -X rmdir
+            update_lib
+          }
+
+          main
+        '';
+      };
     };
+  };
+  sops.secrets = {
+    jellyfin_api_token = { };
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?
 }
-
