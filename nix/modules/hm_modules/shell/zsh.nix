@@ -49,6 +49,7 @@ in
           tree2 = "tree -L 2 $@";
           tree3 = "tree -L 3 $@";
           y = "bat --language yaml $@";
+          ygron = "yq --output-format=props"; # like gron, for yaml
         };
         # The double single quote `''` is to escape the `${` character
         # combination that nix wants to replace with a variable. Its not some
