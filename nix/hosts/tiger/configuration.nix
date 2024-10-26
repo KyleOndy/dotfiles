@@ -204,6 +204,7 @@ in
   users.groups."${mediaGroup}".members = [
     config.systemFoundry.jellyfin.user
     config.systemFoundry.nzbget.user
+    config.systemFoundry.bazarr.user
     config.systemFoundry.radarr.user
     config.systemFoundry.sonarr.user
     "svc.deploy" # todo
@@ -231,6 +232,15 @@ in
         backup = {
           enable = true;
           destinationPath = "${backup_path}/radarr/";
+        };
+      };
+      bazarr = {
+        enable = true;
+        group = mediaGroup;
+        domainName = "bazarr.${domain}";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/bazarr/";
         };
       };
       jellyfin = {

@@ -66,7 +66,7 @@ in
       path = [ pkgs.coreutils ];
       script = ''
         mkdir -p ${cfg.backup.destinationPath}
-        cp -rn ${config.services.bazarr.dataDir}/Backups ${cfg.backup.destinationPath}/
+        cp -rn /var/lib/bazarr/backup ${cfg.backup.destinationPath}/
       '';
     };
   };
