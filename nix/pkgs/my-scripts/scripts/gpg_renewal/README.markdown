@@ -7,8 +7,13 @@
 export g=<location of GPG backups>
 
 . ./new-env.sh $g # note the script is sourced
+# enter password
 # edit the key if needed
 ./renew_gpg.sh $g
+# enter password 3 more times
+# create revocation, select 0, type
+# > I have lost control of this key
+# enter twic, y for yes
 k=<EXPORTED value from last script>
 
 ./upload-key.sh
