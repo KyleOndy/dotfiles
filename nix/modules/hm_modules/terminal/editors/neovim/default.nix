@@ -443,6 +443,9 @@ in
 
             -- test runner "clojure" (clojure.test) "clojurescript" (cljs.test) "kaocha"
             let g:conjure#client#clojure#nrepl#test#runner = "clojure",
+
+            -- https://github.com/Olical/conjure/issues/609#issuecomment-2375618354
+            aug my_bb | au! | autocmd my_bb BufNewFile,BufRead *.bb setlocal filetype=clojure
           '';
         }
       ];
