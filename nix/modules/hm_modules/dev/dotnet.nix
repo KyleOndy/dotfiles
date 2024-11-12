@@ -8,6 +8,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ pkgs.dotnet-netcore ];
+    home.packages = [ pkgs.dotnet-runtime ];
   };
 }
