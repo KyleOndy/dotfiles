@@ -17,6 +17,7 @@ in
         desktopManager.plasma5 = {
           enable = true;
         };
+        wacom.enable = true;
       };
     };
     environment.plasma5.excludePackages = with pkgs.libsForQt5; [
