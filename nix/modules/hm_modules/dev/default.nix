@@ -102,7 +102,6 @@ in
       silver-searcher # (ag) A code-searching tool similar to ack, but faster
       sops # secret management
       squashfsTools # create and unpack squashfs
-      step-cli # working with CAs
       terraform_1
       tree # directory listing
       unzip # unzip things
