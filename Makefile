@@ -85,6 +85,7 @@ switch-darwin: git-status build-darwin ## Switch darwin system to the defined st
 .PHONY: vm
 vm: ## build qemu vm
 	$(REBUILD) build-vm --flake .#$(HOSTNAME)
+	./result/bin/run-$(HOSTNAME)-vm
 
 # port forward: QEMU_NET_OPTS="hostfwd=tcp::8080-:8080"
 .PHONY: run-vm
