@@ -21,6 +21,10 @@ in
         config.audible_bell = "Disabled"
         config.hide_tab_bar_if_only_one_tab = true
         config.front_end="WebGpu"
+        config.font = wezterm.font_with_fallback {
+          'Berkeley Mono',
+          'Hack',
+        }
 
         return config
       '';
