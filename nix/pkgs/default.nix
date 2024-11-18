@@ -6,6 +6,7 @@ self: super: {
   mutt-gruvbox = super.callPackage ./mutt-gruvbox { };
   my-scripts = super.callPackage ./my-scripts { };
   octo = super.callPackage ./octo { };
+  pragmata-pro = super.callPackage ./pragmata-pro { };
   pxe-api = super.callPackage ./pxe-api { };
   vscode-ls = super.callPackage ./vscode-ls { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
