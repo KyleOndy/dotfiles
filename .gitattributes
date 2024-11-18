@@ -7,3 +7,4 @@ tf/*.pem filter=git-crypt diff=git-crypt
 
 # private / commercial files
 nix/pkgs/berkeley-mono/*.otf filter=git-crypt diff=git-crypt
+nix/pkgs/pragmata-pro/*.otf filter=git-crypt diff=git-crypt
