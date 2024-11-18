@@ -93,6 +93,7 @@ in
       pciutils # lspci
       pixz # parallel (de)compresser for xz
       postgresql # _the_ DB
+      pragmata-pro
       proselint # A linter for prose
       pv # pipe progress
       ranger # cli file browser
