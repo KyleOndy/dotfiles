@@ -42,6 +42,14 @@ resource "aws_route53_record" "org_ondy_txt" {
   records = ["v=spf1 include:mxroute.com -all"]
 }
 
+resource "aws_route53_record" "org_ondy_txt_bluesky" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "_atproto.ondy.org"
+  type    = "TXT"
+  ttl     = "86400"
+  records = ["did=did:plc:2qod5zgss7zqpbockr7syiqg"]
+}
+
 output "ondy_org_nameservers" {
   value = aws_route53_zone.ondy_org.name_servers
 }
