@@ -36,6 +36,7 @@ in
       awscli2 # interacting with AWS
       bashInteractive # want my modern bash
       bc # the classic calculator
+      berkeley-mono # font
       clang
       cmake
       cookiecutter
