@@ -1,5 +1,9 @@
+# terraform
 tf/*.key filter=git-crypt diff=git-crypt
 tf/*.secret filter=git-crypt diff=git-crypt
 tf/*.tfstate filter=git-crypt diff=git-crypt
 tf/terraform.tfvars filter=git-crypt diff=git-crypt
 tf/*.pem filter=git-crypt diff=git-crypt
+
+# private / commercial files
+nix/pkgs/berkeley-mono/*.otf filter=git-crypt diff=git-crypt
