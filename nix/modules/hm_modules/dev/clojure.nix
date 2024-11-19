@@ -65,18 +65,18 @@ in
 
           # https://github.com/eraserhd/parinfer-rust
           # A Rust port of parinfer
-          {
-            plugin = parinfer-rust;
-            # TODO: add a toggle for parinfer
-            #type = "lua";
-            #config = ''
-            #  require("which-key").add({
-            #    { "<leader>tp", "<cmd>g:parinfer_enabled \
-            #    ? \":ParinferOff<cr>\" \
-            #    : \":ParinferOn<cr>\"" }
-            #  })
-            #'';
-          }
+          #{
+          #  plugin = parinfer-rust;
+          #  # TODO: add a toggle for parinfer
+          #  #type = "lua";
+          #  #config = ''
+          #  #  require("which-key").add({
+          #  #    { "<leader>tp", "<cmd>g:parinfer_enabled \
+          #  #    ? \":ParinferOff<cr>\" \
+          #  #    : \":ParinferOn<cr>\"" }
+          #  #  })
+          #  #'';
+          #}
 
           # https://github.com/PaterJason/nvim-treesitter-sexp
           { plugin = nvim-treesitter-sexp; }
