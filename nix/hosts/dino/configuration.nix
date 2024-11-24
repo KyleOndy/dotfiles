@@ -28,5 +28,6 @@
     alsa.support32Bit = true;
     pulse.enable = true;
   };
+  hardware.keyboard.zsa.enable = true;
 }
 

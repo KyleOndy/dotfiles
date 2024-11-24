@@ -68,6 +68,7 @@ in
       ispell # spell checking
       jq # easy json formatting
       k9s # stylish kubernetes management
+      keymapp # zsa keyboard config
       kind # local k8s dev
       kubectl
       kubectl-node-shell # host access to k8s host
