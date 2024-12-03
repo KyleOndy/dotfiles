@@ -85,7 +85,7 @@ in
         # than nothing. This is set as a shell command so no matter how deep we are
         # in the tree of this repository, the command is executed at the root on the
         # repo so our file path is always correct.
-        fix-commit = "! git commit --edit --file=.git/COMMIT_EDITMSG";
+        fix-commit = "! git commit --edit --file=$(git rev-parse --git-dir)/COMMIT_EDITMSG";
         # easily follow the history of a single file
         file-history = "log -p -M --follow --stat";
         # easily fixup to latest commit
