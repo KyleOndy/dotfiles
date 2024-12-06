@@ -21,6 +21,7 @@ stdenv.mkDerivation rec {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/
+    sed -i -e 's/declate/declare/' ./src/gruvbox-main.sh
     cp -r gruvbox-tpm.tmux src/ $out
     runHook postInstall
   '';
