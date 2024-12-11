@@ -346,6 +346,7 @@ in
           "@raphafilms"
           "@Cycling366"
           "@the_dirtbags"
+          "@lesperitdelbikepacking"
 
           # science
           "@Wendoverproductions"
@@ -357,10 +358,12 @@ in
           "@RobCosmanWoodworking"
           "@StuffMadeHere"
           "@StuffMadeHere2"
-          "@StumpyNubs"
           "@WoodByWrightHowTo"
           "@lostartpress"
           "@tested"
+          "@MarkRober"
+          "@TomStantonEngineering"
+          "@theslowmoguys"
 
           # entertainment
           "@2MuchColinFurze"
@@ -383,6 +386,9 @@ in
           "@AdamJames-tv"
           "@ClojureTV"
           "@KRAZAM"
+
+          # outdoor
+          "@bronandjacob"
         ];
       };
     };
