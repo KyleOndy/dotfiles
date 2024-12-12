@@ -347,6 +347,7 @@ in
           "@Cycling366"
           "@the_dirtbags"
           "@lesperitdelbikepacking"
+          "@bike2reality814"
 
           # science
           "@Wendoverproductions"
