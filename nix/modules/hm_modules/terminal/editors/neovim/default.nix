@@ -391,6 +391,11 @@ in
           '';
         }
 
+        # https://github.com/GEverding/vim-hocon
+        {
+          plugin = vim-hocon;
+        }
+
 
       ] ++
 
