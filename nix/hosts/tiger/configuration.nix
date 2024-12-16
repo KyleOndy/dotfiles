@@ -348,6 +348,14 @@ in
           "@the_dirtbags"
           "@lesperitdelbikepacking"
           "@bike2reality814"
+          "@BikePak"
+          "@wheelstowaves"
+          "@MickTurnbullFilms"
+          "@joffreymaluski"
+          "@omniumcargo"
+          "@tristanbogaard"
+          "@TailfinCycling"
+          "@themountainraces"
 
           # science
           "@Wendoverproductions"
@@ -390,6 +398,9 @@ in
 
           # outdoor
           "@bronandjacob"
+          "@RabEquipment"
+          "@ChrisburkardStudio"
+          "@theaudaciousreport"
         ];
       };
     };
