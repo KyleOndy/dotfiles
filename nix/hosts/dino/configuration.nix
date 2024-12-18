@@ -28,6 +28,12 @@
     alsa.support32Bit = true;
     pulse.enable = true;
   };
-  hardware.keyboard.zsa.enable = true;
+  hardware = {
+    bluetooth = {
+      enable = true;
+      powerOnBoot = true;
+    };
+    keyboard.zsa.enable = true;
+  };
 }
 
