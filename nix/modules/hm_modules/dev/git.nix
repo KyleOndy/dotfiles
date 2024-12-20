@@ -228,6 +228,13 @@ in
         advice = {
           skippedCherryPicks = "false";
         };
+        gc = {
+          # storage is cheap, doing `git checkout foo@{'2 years ago'}` without
+          # worrying about reflog expiration iss nice. If a repo ever gets
+          # bloated, I can manutally gc it.
+          reflogExpire = "never";
+          reflogExpireUnreachable = "never";
+        };
       };
     };
     xdg = {
