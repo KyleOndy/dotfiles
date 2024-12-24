@@ -364,6 +364,7 @@ in
           # maker
           "@lostartpress"
           "@MarkRober"
+          "@matthiaswandel"
           "@Paul.Sellers"
           "@RexKrueger"
           "@RobCosmanWoodworking"
