@@ -12,7 +12,6 @@
 
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
-  services.fwupd.enable = true;
 
   networking.hostName = "dino"; # Define your hostname.
   system.stateVersion = "22.05";
@@ -22,11 +21,14 @@
   };
 
   security.rtkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
+  services = {
+    pipewire = {
+      enable = true;
+      alsa.enable = true;
+      alsa.support32Bit = true;
+      pulse.enable = true;
+    };
+    fwupd.enable = true;
   };
   hardware = {
     bluetooth = {
