@@ -29,6 +29,7 @@
       pulse.enable = true;
     };
     fwupd.enable = true;
+    libinput.touchpad.disableWhileTyping = true;
   };
   hardware = {
     bluetooth = {
