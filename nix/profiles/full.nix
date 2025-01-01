@@ -14,7 +14,6 @@
       browsers = {
         firefox.enable = true;
       };
-      fonts.hack.enable = true;
       gaming.steam.enable = true;
       media = {
         documents.enable = true;
