@@ -35,7 +35,7 @@
         inputs.nur.overlay
         (import ./nix/pkgs)
         # TODO: this was hacked, need to find a better way
-        (import ./nix/pkgs/nvim-treesitter-sexp)
+        #(import ./nix/pkgs/nvim-treesitter-sexp) # TODO: fix nvim-treesitter-sexp
       ];
 
       # I am sure this is ugly to experienced nix users, and might break in all

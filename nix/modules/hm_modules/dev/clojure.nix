@@ -79,7 +79,7 @@ in
           #}
 
           # https://github.com/PaterJason/nvim-treesitter-sexp
-          { plugin = nvim-treesitter-sexp; }
+          #{ plugin = nvim-treesitter-sexp; } # TODO: fix
         ];
       };
     };
