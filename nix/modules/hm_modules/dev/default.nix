@@ -128,12 +128,10 @@ in
       atop # system monitoring
       babashka # a Clojure babushka for the grey areas of Bash
       calcurse # cli calendar
-      cifs-utils # todo: why do I need this?
       inotify-tools # watch the file system for changes
       ltrace # trace library calls
       molly-guard # prevent footguns from runing my day
       qemu_full
-      smbnetfs # todo: why do I need this?
       virt-manager # manage KVM
     ];
   };

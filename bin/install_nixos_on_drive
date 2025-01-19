@@ -27,7 +27,7 @@ _partition mkpart primary linux-swap -${swap_size} 100%
 _partition mkpart ESP fat32 1MiB 512MiB
 _partition set 3 esp on
 
-# todo: this only works for nvme drives
+# this only works for nvme drives
 mkfs.ext4 -L nixos "${install_device}p1"
 mkswap -L swap "${install_device}p2"
 mkfs.fat -F 32 -n boot "${install_device}p3"

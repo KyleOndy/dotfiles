@@ -4,7 +4,7 @@ let cfg = config.hmFoundry.desktop.term.alacritty;
 in
 {
   options.hmFoundry.desktop.term.alacritty = {
-    enable = mkEnableOption "todo";
+    enable = mkEnableOption "alacritty";
   };
 
   config = mkIf cfg.enable {

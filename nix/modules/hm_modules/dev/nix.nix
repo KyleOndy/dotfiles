@@ -4,7 +4,7 @@ let cfg = config.hmFoundry.dev.nix;
 in
 {
   options.hmFoundry.dev.nix = {
-    enable = mkEnableOption "todo";
+    enable = mkEnableOption "nix";
   };
 
   config = mkIf cfg.enable {

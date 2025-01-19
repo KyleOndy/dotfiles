@@ -26,17 +26,6 @@ in
   };
 
   services = {
-    apcupsd = {
-      enable = false; # now using a Tripp Lite
-      # if power doesn't come on in 15 seconds, shutdown to preseve network
-      # stack.
-      # TODO: add hooks to shutdown POE pis
-      configText = ''
-        UPSTYPE usb
-        NISIP 127.0.0.1
-        TIMEOUT 15
-      '';
-    };
     zfs = {
       autoScrub.enable = true;
       autoSnapshot.enable = false;
@@ -83,46 +72,6 @@ in
       enable = true;
     };
     openssh.ports = [ 2332 ];
-    #samba = {
-    #  enable = true;
-    #  securityType = "user";
-    #  extraConfig = ''
-    #    workgroup = WORKGROUP
-    #    server string = tiger
-    #    netbios name = tiger
-    #    security = user
-    #    #use sendfile = yes
-    #    #max protocol = smb2
-    #    # note: localhost is the ipv6 localhost ::1
-    #    hosts allow = 10.24.89. 127.0.0.1 localhost
-    #    hosts deny = 0.0.0.0/0
-    #    guest account = nobody
-    #    #map to guest = bad user
-    #  '';
-    #  openFirewall = true;
-    #  shares = {
-    #    backups = {
-    #      path = "/mnt/backups"; # todo: reference directly?
-    #      browseable = "yes";
-    #      "read only" = "no";
-    #      "guest ok" = "no";
-    #      "create mask" = "0644";
-    #      "directory mask" = "0755";
-    #      "force user" = "kyle";
-    #      #"force group" = "groupname";
-    #    };
-    #    photos = {
-    #      path = "/mnt/photos";
-    #      browseable = "yes";
-    #      "read only" = "no";
-    #      "guest ok" = "no";
-    #      "create mask" = "0644";
-    #      "directory mask" = "0755";
-    #      "force user" = "kyle";
-    #      #"force group" = "groupname";
-    #    };
-    #  };
-    #};
     caddy = {
       enable = false;
       email = "kyle@ondy.org";
@@ -131,7 +80,6 @@ in
         https_port 9443
       '';
       virtualHosts = {
-        # TODO: magic port number
         "jellyfin.apps.home.1ella.com" = {
           extraConfig = ''
             reverse_proxy http://127.0.0.1:8096
@@ -207,7 +155,7 @@ in
     config.systemFoundry.bazarr.user
     config.systemFoundry.radarr.user
     config.systemFoundry.sonarr.user
-    "svc.deploy" # todo
+    "svc.deploy"
     "kyle"
   ];
   systemFoundry =
@@ -268,37 +216,6 @@ in
           enable = true;
           destinationPath = "${backup_path}/nzbget/";
         };
-      };
-      gitea = {
-        enable = false; # TODO: enable and expose
-        domainName = "gitea.${domain}";
-        backup = {
-          # todo: backups were chewing through diskspace with mirrored repos
-          enable = false;
-          destinationPath = "${backup_path}/gitea/";
-        };
-      };
-      binary_cache = {
-        enable = false;
-        domainName = "nix-cache.${domain}";
-      };
-      pixiecore = {
-        enable = false;
-        apiAddress = "http://localhost:3031"; # todo: reference api config
-        listenPort = 3032;
-      };
-      nixNetbootServe = {
-        enable = false;
-        gcRootDir = "${service_root}/nix-netboot-serve/gc-roots";
-        # todo: point to dotfiles?
-        configurationDir = "${service_root}/nix-netboot-serve/configurations";
-        profileDir = "${service_root}/nix-netboot-serve/profiles";
-        cpioCacheDir = "${service_root}/nix-netboot-serve/cpio-cache";
-        listenHost = "127.0.0.1"; # todo: localhost doesn't work
-        listenPort = 3030;
-      };
-      pxe-api = {
-        enable = false;
       };
       youtubeDownloader = {
         enable = true;
@@ -415,37 +332,6 @@ in
   # TODO: move to module if it works and I like it
   systemd = {
     services = {
-      nix-update-and-build = {
-        enable = false;
-        startAt = "*-*-* 04:00:00"; # 4am
-        path = with pkgs; [
-          bashInteractive
-          git
-          gnumake
-          jq
-          nix
-          nixos-rebuild
-        ];
-        script = ''
-          set -ex
-          cd $(mktemp -d)
-          git clone https://github.com/kyleondy/dotfiles.git .
-          cp flake.lock flake.lock.old
-          make update
-          cp flake.lock flake.lock.new
-          hosts=$(nix flake show --json | jq -r '.nixosConfigurations | keys[]' | grep -v sd_card)
-          for host in $hosts; do
-            cp flake.lock.old flake.lock
-            nice -n19 make HOSTNAME="$host" build
-            orig_hash=$(readlink -f ./result)
-
-            cp flake.lock.new flake.lock
-            nice -n19 make HOSTNAME="$host" build
-            echo "$host,$orig_hash,$(readlink -f ./result)" >> builds.csv
-          done
-          cp builds.csv /tmp/builds_$(date +%Y-%m-%d).csv
-        '';
-      };
       jellyfin-prune = {
         enable = true;
         startAt = "*-*-* 04:00:00"; # 4am
