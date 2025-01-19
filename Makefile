@@ -28,8 +28,6 @@ else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild $(IMPURE)
 	SWITCH := $(REBUILD) $(IMPURE)
 else
-	# todo: this will need to be addressed when I try to extend this repository
-	#       to a WSL, or any machine that isn't NixOS or nix-darwin.
 	(echo "Unsupported file system: $(UNAME)"; exit 1)
 endif
 
@@ -77,11 +75,6 @@ deploy-all: ## Deploy all defined hosts
 diff-system: ## Print system diff without color
 	@nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result) |  sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
 
-.PHONY: switch-darwin
-switch-darwin: git-status build-darwin ## Switch darwin system to the defined state
-	@# todo: is there an issue using {darwin,nixos}-rebuild and not `./result/activate`? I am doing this becuase it appeared that `*-rebuild build` was not creating the `result` directory.
-	$(SWITCH) switch --flake .#$(HOSTNAME)
-
 .PHONY: vm
 vm: ## build qemu vm
 	$(REBUILD) build-vm --flake .#$(HOSTNAME)
@@ -92,8 +85,6 @@ vm: ## build qemu vm
 run-vm:
 	./result/bin/run-$(HOSTNAME)-vm
 
-# todo: add targets to update a single dependencies instead of blindly updating
-#       them all.
 .PHONY: update
 update: ## Update all flake soruces
 	nix flake update
@@ -109,18 +100,6 @@ update/home-manager: ## Update just home-manager source
 .PHONY: update/nur
 update/nur: ## Update just the nur source
 	nix flake lock --update-input nur
-
-.PHONY: update/nix-darwin
-update/nix-darwin: ## Update just the nur source
-	nix flake lock --update-input nix-darwin
-
-.PHONY: update/pre-commit-hooks
-update/pre-commit-hooks: ## Update just the pre-commit-hooks source
-	nix flake lock --update-input pre-commit-hooks
-
-.PHONY: update/nixos-hardware
-update/nixos-hardware: ## Update just the pre-commit-hooks source
-	nix flake lock --update-input nixos-hardware
 
 .PHONY: check
 check: ## Run nix checks

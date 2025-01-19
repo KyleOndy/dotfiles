@@ -2,7 +2,7 @@
 with lib;
 let
   cfg = config.systemFoundry.jellyfin;
-  stateDir = "/var/lib/jellyfin"; # todo: hardcoded
+  stateDir = "/var/lib/jellyfin";
 in
 {
   options.systemFoundry.jellyfin = {
@@ -12,7 +12,6 @@ in
 
     group = mkOption {
       type = types.str;
-      # todo: can I pull the default from the jellyfin package?
       default = "jellyfin";
       description = "Group to run jellyfin under";
     };
@@ -24,7 +23,6 @@ in
 
     user = mkOption {
       type = types.str;
-      # todo: can I pull the default from the jellyfin package?
       default = "jellyfin";
       description = "User to server jellyfin under";
     };

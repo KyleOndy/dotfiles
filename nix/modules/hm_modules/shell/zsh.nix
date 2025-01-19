@@ -80,7 +80,6 @@ in
           # shell hooks
           eval "$(direnv hook zsh)"
           # zsh tweaks not included in home-manager.
-          # todo: add these to home-manager and contribute upsteam
           # reduce <ESC> key timeout in vim mode
           export KEYTIMEOUT=50
 
@@ -106,7 +105,6 @@ in
           }
 
           # fancy git + fzf
-          # todo: refactor this into its own script and just source it
           is_in_git_repo() {
             ${pkgs.git}/bin/git rev-parse HEAD > /dev/null 2>&1
           }
@@ -236,7 +234,6 @@ in
 
           fzf_pick_k8s_cluster() {
             config_dir="${config.home.homeDirectory}/.kube/configs"
-            # TODO: add exclude strings to own variable
             kubeconfig=$(fd --type=f . $HOME/.kube/configs --exclude gke_gcloud_auth_plugin_cache -x basename {} |
               sort | _fzf --preview "bat --color=always -l=yaml "$config_dir/{}"")
 
@@ -313,7 +310,6 @@ in
           compdef _bb_tasks bb
 
           # spaceship config
-          # TODO: is there a better way to soruce this?
           source "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh"
           export SPACESHIP_PROMPT_ASYNC=false # https://github.com/spaceship-prompt/spaceship-prompt/issues/1193
 

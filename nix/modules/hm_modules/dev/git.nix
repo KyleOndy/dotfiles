@@ -4,10 +4,10 @@ let cfg = config.hmFoundry.dev.git;
 in
 {
   options.hmFoundry.dev.git = {
-    enable = mkEnableOption "todo";
+    enable = mkEnableOption "git";
     userEmail = mkOption {
       type = types.str;
-      default = "kyle@ondy.org"; # TODO: remove default and set explicitly
+      default = "kyle@ondy.org";
       description = "Default email set in git config.";
     };
   };
