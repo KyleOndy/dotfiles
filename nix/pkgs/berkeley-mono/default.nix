@@ -3,7 +3,7 @@
 
 pkgs.stdenv.mkDerivation {
   pname = "berkeley-mono";
-  version = "1.009";
+  version = "2.002";
   src = ./.;
 
   installPhase = ''
