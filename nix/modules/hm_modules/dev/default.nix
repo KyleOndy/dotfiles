@@ -57,6 +57,7 @@ in
       findutils
       fortune # fun tidbits
       fswatch
+      ghostty # terminal from mitchellh
       glances # system monitor
       gnumake # make
       gnused # sed
