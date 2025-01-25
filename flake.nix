@@ -12,7 +12,7 @@
       # packages installed via nix-darwin use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
+    pre-commit-hooks.url = "github:cachix/git-hooks.nix";
     nur.url = "github:nix-community/NUR";
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
@@ -70,11 +70,14 @@
 
       hmModules = getModules ./nix/modules/hm_modules;
       nixModules = getModules ./nix/modules/nix_modules;
+
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
     in
-    # this allows us to get the propper `system` whereever we are running
-    inputs.flake-utils.lib.eachSystem [ "aarch64-darwin" "x86_64-linux" ]
-      (system: {
-        checks = {
+    {
+
+      checks = forAllSystems
+        (system: {
           pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run
             {
               src = ./.;
@@ -97,14 +100,22 @@
                 };
               };
             }
-          // builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
-        };
-        devShell = inputs.nixpkgs.legacyPackages.${system}.mkShell {
+          //
+          # this functions outputs two checks defined in `deploy-rs`'s flake,
+          # `deploy-schema` and `deploy-activate`.
+          #
+          # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
+          builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
+        });
+
+      devShells = forAllSystems (system: {
+        default = inputs.nixpkgs.legacyPackages.${system}.mkShell {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
+          buildInputs = self.checks.${system}.pre-commit-check.enabledPackages;
         };
-      }
-      )
-    // {
+      });
+
+
       nixosConfigurations = {
         dino = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
