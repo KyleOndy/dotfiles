@@ -32,7 +32,7 @@
     let
       # import all the overlays that extend packages via nix or home-manager.
       overlays = [
-        inputs.nur.overlay
+        inputs.nur.overlays.default
         (import ./nix/pkgs)
         # TODO: this was hacked, need to find a better way
         #(import ./nix/pkgs/nvim-treesitter-sexp) # TODO: fix nvim-treesitter-sexp
