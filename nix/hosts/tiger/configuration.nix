@@ -183,7 +183,7 @@ in
         };
       };
       bazarr = {
-        enable = true;
+        enable = false;
         group = mediaGroup;
         domainName = "bazarr.${domain}";
         backup = {
