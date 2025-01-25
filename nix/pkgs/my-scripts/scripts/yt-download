@@ -8,6 +8,7 @@ main() {
 
   yt-dlp "$1" \
     --prefer-free-formats \
+    --format 'bestvideo[format_note!*=Premium]+bestaudio' \
     --ignore-errors \
     --mark-watched \
     --embed-subs \
