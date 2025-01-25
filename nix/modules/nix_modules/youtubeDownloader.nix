@@ -98,6 +98,7 @@ in
               --quiet \
               --download-archive "${cfg.data_dir}/youtube-dl-seen.conf" \
               --prefer-free-formats \
+              --format 'bestvideo[format_note!*=Premium]+bestaudio' \
               --ignore-errors \
               --mark-watched \
               --write-auto-sub \
