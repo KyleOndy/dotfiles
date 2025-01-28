@@ -353,6 +353,9 @@ in
           TODAY="$(date +%Y-%m-%d)"
           TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
           WORKING_DIR="$DATA_DIR/yt-jelly-sync"
+          echo "TODAY: $TODAY"
+          echo "TWO_DAYS_AGO: $TWO_DAYS_AGO"
+          echo "WORKING_DIR: $WORKING_DIR"
 
           print_watched_vids() {
             curl -sS -X 'GET' \
@@ -377,13 +380,16 @@ in
 
             old_vids_file=$(fd --type=f . "$WORKING_DIR" | sort -r | sed -n "/$TWO_DAYS_AGO/,//p" | head -n1)
             if ! [[ -f "$old_vids_file" ]]; then
-              echo "Can not find a file"
+              echo "Can not find an old enough file. We'll try again tomorrow."
               exit 0
             fi
 
             vids_to_remove=$(comm -12 "$WORKING_DIR/$TODAY.txt" "$old_vids_file")
 
-            [[ -z "$vids_to_remove" ]] && exit 0
+          if [[ -z "$vids_to_remove" ]]; then
+            echo "No videos to remove"
+            exit 0
+          fi
 
             echo "$vids_to_remove" | while read -r vid; do
               if [[ -f "$vid" ]]; then
@@ -393,7 +399,8 @@ in
               fi
             done
 
-            fd --type=directory --type=empty . /mnt/media/yt -X rmdir
+            fd --type=directory --type=empty . /mnt/media/yt -X rmdir -v
+            echo "Updating library"
             update_lib
           }
 
