@@ -343,6 +343,7 @@ in
         ];
         environment = {
           TOKEN_FILE = config.sops.secrets.jellyfin_api_token.path;
+          DATA_DIR = config.systemFoundry.youtubeDownloader.data_dir;
         };
         script = ''
           #!/usr/bin/env bash
@@ -351,7 +352,7 @@ in
           TOKEN=$(cat $TOKEN_FILE)
           TODAY="$(date +%Y-%m-%d)"
           TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
-          WORKING_DIR="/tmp/yt-jelly-sync"
+          WORKING_DIR="$DATA_DIR/yt-jelly-sync"
 
           print_watched_vids() {
             curl -sS -X 'GET' \
