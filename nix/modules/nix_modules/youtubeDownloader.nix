@@ -50,6 +50,7 @@ in
           mkdir -p "${cfg.temp_dir}"
 
           main() {
+            echo "yt-dlp version: $(yt-dlp --version)" # for debugging
             # TODO: Break out the cleanup process to own service
             # remove watched episodes. this will remove anything that has been started.
             #echo "==> REMOVING THE FOLLOWING"
