@@ -39,7 +39,7 @@ in
       services.yt-dowload-and-clean = {
         enable = true;
         description = "Downloads Youtube videos and cleans up Jellyfin";
-        startAt = "*-*-* *:00:00"; # hourly
+        startAt = "*-*-* 4:00:00"; # 4 am
         path = with pkgs; [
           fd
           ripgrep
