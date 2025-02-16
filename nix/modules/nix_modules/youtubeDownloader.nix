@@ -31,6 +31,11 @@ in
       type = types.listOf types.str;
       description = "List of channels in @channel_name to watch";
     };
+    sleep_between_channels = mkOption {
+      type = types.int;
+      description = "Seconds to sleep between channel downloads.";
+      default = 60;
+    };
   };
 
   config = mkIf cfg.enable {
@@ -64,6 +69,8 @@ in
             # Download new videos
             for channel in ${concatStringsSep " " cfg.watched_channels}; do
               download "$channel"
+              echo "Sleeping for ${toString cfg.sleep_between_channels} seconds to look less like a bot"
+              sleep ${toString cfg.sleep_between_channels}
             done
 
             # move into jellyfin dir
@@ -106,7 +113,6 @@ in
               --embed-subs \
               --embed-metadata \
               --parse-metadata "$TITLE:%(title)s" \
-              --concurrent-fragments=20 \
               --compat-options no-live-chat \
               --match-filter "!is_live" \
               --playlist-end 25 \

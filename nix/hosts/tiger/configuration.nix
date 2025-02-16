@@ -218,6 +218,7 @@ in
         enable = true;
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/scratch-big/youtube-downloads";
+        sleep_between_channels = 180;
         watched_channels = [
           # cycling
           "@BermPeakExpress"
