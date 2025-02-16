@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 let
   mediaGroup = "media";
   service_root = "/var/lib";
@@ -19,10 +19,7 @@ in
   networking = {
     hostName = "tiger";
     hostId = "48661cc0";
-    interfaces = {
-      enp6s0.useDHCP = true;
-      enp7s0.useDHCP = true;
-    };
+    useDHCP = lib.mkDefault true;
   };
 
   services = {
