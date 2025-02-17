@@ -67,7 +67,8 @@ in
             #echo "==> DONE REMOVING"
 
             # Download new videos
-            for channel in ${concatStringsSep " " cfg.watched_channels}; do
+            echo '${concatStringsSep " " cfg.watched_channels}' \
+            | xargs -- shuf -e | while read channel; do
               download "$channel"
               echo "Sleeping for ${toString cfg.sleep_between_channels} seconds to look less like a bot"
               sleep ${toString cfg.sleep_between_channels}
