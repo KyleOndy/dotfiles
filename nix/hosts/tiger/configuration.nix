@@ -324,8 +324,19 @@ in
   hardware = {
     graphics = {
       enable = true;
+      extraPackages = with pkgs; [
+        # https://nixos.wiki/wiki/Accelerated_Video_Playback
+        vpl-gpu-rt
+        intel-media-driver # LIBVA_DRIVER_NAME=iHD
+        libvdpau-va-gl
+        # OpenCL filter support (hardware tonemapping and subtitle burn-in)
+        intel-compute-runtime
+        # To make OBS HW recording work
+        # https://discourse.nixos.org/t/trouble-getting-quicksync-to-work-with-jellyfin/42275
+      ];
     };
   };
+  environment.sessionVariables = { LIBVA_DRIVER_NAME = "iHD"; };
 
   # TODO: move to module if it works and I like it
   systemd = {
