@@ -188,7 +188,7 @@ in
           log = "true";
           # show unmodified (original) copy of conflict along with the conflicted
           # version.
-          conflictstyle = "diff3";
+          conflictstyle = "zdiff3";
         };
         push = {
           # makes pushing to remotes a bit easier, not having to specify the branch
@@ -234,6 +234,13 @@ in
           # bloated, I can manutally gc it.
           reflogExpire = "never";
           reflogExpireUnreachable = "never";
+        };
+        tag = {
+          sort = "version:refname";
+        };
+        rerere = {
+          enabled = true;
+          autoupdate = true;
         };
       };
     };
