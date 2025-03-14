@@ -60,19 +60,32 @@ in
       proxyPass = "http://127.0.0.1:8096";
     };
 
-    # jellyfin provides no native backup, so zip, compress it, and copy it over
-    systemd.services.jellyfin-backup = mkIf cfg.backup.enable {
-      startAt = "*-*-* 3:00:00";
-      path = with pkgs;[
-        coreutils
-        gnutar
-        pigz
-      ];
-      script = ''
-        mkdir -p ${cfg.backup.destinationPath}
-        tar --use-compress-program="pigz -k --best" -cvf ${cfg.backup.destinationPath}/jellyfin-$(date +%Y-%m-%d).tar.gz ${stateDir}
+    systemd.services = {
+      # jellyfin provides no native backup, so zip, compress it, and copy it over
+      jellyfin-backup = mkIf cfg.backup.enable {
+        startAt = "*-*-* 3:00:00";
+        path = with pkgs;[
+          coreutils
+          gnutar
+          pigz
+        ];
+        script = ''
+          mkdir -p ${cfg.backup.destinationPath}
+          tar --use-compress-program="pigz -k --best" -cvf ${cfg.backup.destinationPath}/jellyfin-$(date +%Y-%m-%d).tar.gz ${stateDir}
 
-      '';
+        '';
+      };
+      jellyfin-transcode-cleanp = {
+        startAt = "*-*-* *:00:00";
+        path = with pkgs;[
+          fd
+        ];
+        script = ''
+          # six hours feels reasonable, but is just an arbitrary guess
+          fd --type=file --changed-before="6 hours" . ${stateDir}/transcodes/ -X rm -v --
+        '';
+
+      };
     };
   };
 }
