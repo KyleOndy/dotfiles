@@ -11,16 +11,16 @@ in
     services = {
       displayManager = {
         sddm.enable = true;
-        defaultSession = "plasmawayland";
+        defaultSession = "plasma";
+      };
+      desktopManager.plasma6 = {
+        enable = true;
       };
       xserver = {
-        desktopManager.plasma5 = {
-          enable = true;
-        };
         wacom.enable = true;
       };
     };
-    environment.plasma5.excludePackages = with pkgs.libsForQt5; [
+    environment.plasma6.excludePackages = with pkgs.libsForQt5; [
       plasma-browser-integration
       konsole
       oxygen
