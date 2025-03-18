@@ -11,7 +11,7 @@ in
     programs = {
       firefox = {
         enable = true;
-        profiles.default.extensions = with pkgs.nur.repos.rycee.firefox-addons; [
+        profiles.default.extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
           browserpass
           multi-account-containers
           privacy-badger
