@@ -61,7 +61,7 @@
       dotnet.enable = false;
       hashicorp.enable = false;
       git.enable = true;
-      haskell.enable = true;
+      haskell.enable = false;
       nix.enable = true;
       go.enable = false;
     };
