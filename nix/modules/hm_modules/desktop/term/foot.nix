@@ -17,7 +17,7 @@ in
       enable = true;
       settings = {
         main = {
-          font = "Hack:size=7";
+          font = "BerkeleyMono:size=7";
           dpi-aware = "yes";
         };
         cursor = {
