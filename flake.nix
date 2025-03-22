@@ -159,7 +159,6 @@
                     desktop = {
                       browsers.qutebrowser.enable = true;
                       media.latex.enable = true;
-                      term.wezterm.enable = true;
                       wm.kde.enable = true;
                     };
                     dev = {
