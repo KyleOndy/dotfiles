@@ -19,7 +19,10 @@
         documents.enable = true;
         makemkv.enable = true;
       };
-      term.st.enable = true;
+      term = {
+        wezterm.enable = true;
+        foot.enable = true;
+      };
       wm.i3.enable = false;
     };
   };
