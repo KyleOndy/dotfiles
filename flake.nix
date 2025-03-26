@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/10b1173dcc46a4b73208dfa9924e8bd3a1586556";
+    nixpkgs-master.url = "github:nixos/nixpkgs/master";
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
     home-manager = {
       url = "github:nix-community/home-manager";
@@ -36,6 +37,12 @@
         (import ./nix/pkgs)
         # TODO: this was hacked, need to find a better way
         #(import ./nix/pkgs/nvim-treesitter-sexp) # TODO: fix nvim-treesitter-sexp
+
+        (final: _prev: {
+          master = import inputs.nixpkgs-master {
+            inherit (final) system;
+          };
+        })
       ];
 
       # I am sure this is ugly to experienced nix users, and might break in all
