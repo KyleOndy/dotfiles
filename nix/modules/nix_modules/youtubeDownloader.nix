@@ -49,7 +49,7 @@ in
           fd
           ripgrep
           rsync
-          yt-dlp
+          master.yt-dlp
         ];
         script = ''
           mkdir -p "${cfg.temp_dir}"
