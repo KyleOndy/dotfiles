@@ -57,6 +57,7 @@ in
         # currently all config is done via the web.
         # todo: setup some kind of autoamted downloading of backup zip
         enable = true;
+        package = pkgs.master.nzbget;
         user = cfg.user;
         group = cfg.group;
       };
