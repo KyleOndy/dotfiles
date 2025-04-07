@@ -93,6 +93,10 @@ update: ## Update all flake soruces
 update/nixpkgs: ## Updage just nixpkgs source
 	nix flake lock --update-input nixpkgs
 
+.PHONY: update/nixpkgs-master
+update/nixpkgs-master: ## Updage just nixpkgs-master source
+	nix flake lock --update-input nixpkgs-master
+
 .PHONY: update/home-manager
 update/home-manager: ## Update just home-manager source
 	nix flake lock --update-input home-manager
