@@ -3,7 +3,7 @@
 
 pkgs.stdenv.mkDerivation {
   pname = "pragmata-pro";
-  version = "0.830";
+  version = "0.9";
   src = ./.;
 
   installPhase = ''
