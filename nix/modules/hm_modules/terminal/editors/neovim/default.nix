@@ -389,6 +389,14 @@ in
           plugin = vim-hocon;
         }
 
+        # https://github.com/ggml-org/llama.vim
+        {
+          plugin = llama-vim;
+          type = "lua";
+          config = ''
+          '';
+        }
+
 
       ] ++
 
