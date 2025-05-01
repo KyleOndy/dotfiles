@@ -247,13 +247,6 @@ in
         popup-nvim
 
         {
-          # https://github.com/ThePrimeagen/git-worktree.nvim
-          plugin = git-worktree-nvim;
-          type = "lua";
-          config = builtins.readFile ./config/git-worktree.lua;
-        }
-
-        {
           # https://github.com/lewis6991/gitsigns.nvim
           plugin = gitsigns-nvim;
           config = ''
