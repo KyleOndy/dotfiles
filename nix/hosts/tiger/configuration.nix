@@ -253,10 +253,12 @@ in
           "@nerocoaching" # "Jesse Coyle"
           "@nrmlmtber"
           "@omniumcargo"
+          "@panoramacycles"
           "@PatrickMcGrady1"
           "@PaulComponentEngineering"
           "@pnwbikepacking"
           "@raphafilms"
+          "@RousLigon"
           "@SethsBikeHacks"
           "@sofianeshl"
           "@sportscientist" # Stephen Seiler
