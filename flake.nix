@@ -28,6 +28,10 @@
         home-manager.follows = "home-manager";
       };
     };
+    framework-dsp = {
+      url = "github:cab404/framework-dsp";
+      flake = false;
+    };
   };
   outputs = { self, ... }@inputs:
     let
@@ -150,6 +154,8 @@
                 power-profiles-daemon.enable = false; # am using tlp
                 mullvad-vpn.enable = true;
               };
+              programs.dconf.enable = true; # fw13 dsp
+
 
               nixpkgs.overlays = overlays;
               home-manager = {
@@ -170,6 +176,15 @@
                     };
                     dev = {
                       hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
+                    };
+                  };
+                  # dsp for fw13
+                  services.easyeffects = {
+                    enable = true;
+                  };
+                  xdg.configFile = {
+                    "easyeffects/output/cab-fw.json" = {
+                      source = "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
                     };
                   };
                 };
