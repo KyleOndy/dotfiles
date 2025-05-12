@@ -109,6 +109,22 @@
         "type": "github"
       }
     },
+    "framework-dsp": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1737179226,
+        "narHash": "sha256-nqAFmeDfEOMwZArs4AKo2ANzcOVEkEV4dqLqKYlu5tk=",
+        "owner": "cab404",
+        "repo": "framework-dsp",
+        "rev": "6e5b8e7a5d1f422bcaa2f237f28223fe2292ca38",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cab404",
+        "repo": "framework-dsp",
+        "type": "github"
+      }
+    },
     "gitignore": {
       "inputs": {
         "nixpkgs": [
@@ -415,6 +431,7 @@
       "inputs": {
         "deploy-rs": "deploy-rs",
         "flake-utils": "flake-utils",
+        "framework-dsp": "framework-dsp",
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
         "nix-netboot-serve": "nix-netboot-serve",
