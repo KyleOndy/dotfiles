@@ -319,6 +319,7 @@ in
           "@ChrisburkardStudio"
           "@RabEquipment"
           "@bronandjacob"
+          "@courtneyevewhite"
           "@theaudaciousreport"
         ];
       };
