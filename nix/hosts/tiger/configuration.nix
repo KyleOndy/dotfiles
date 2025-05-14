@@ -316,9 +316,9 @@ in
           "@KRAZAM"
 
           # outdoor
-          "@bronandjacob"
           "@ChrisburkardStudio"
           "@RabEquipment"
+          "@bronandjacob"
           "@theaudaciousreport"
         ];
       };
