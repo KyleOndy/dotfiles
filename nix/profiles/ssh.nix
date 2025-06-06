@@ -63,7 +63,7 @@
       git.enable = true;
       haskell.enable = false;
       nix.enable = true;
-      go.enable = false;
+      go.enable = true;
     };
     shell = {
       zsh.enable = true;
