@@ -1,0 +1,6 @@
+auto-commits: false
+auto-lint: true
+lint-cmd: ["nix: nixpkgs-fmt" ]
+code-theme: gruvbox-dark
+
+read: [./.ai/CONVENTIONS.md]
