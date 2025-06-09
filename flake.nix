@@ -218,6 +218,33 @@
               }
             ];
           };
+        cheetah = inputs.nixpkgs.lib.nixosSystem
+          {
+            system = "x86_64-linux";
+            modules = nixModules ++ [
+              ./nix/hosts/cheetah/configuration.nix
+              inputs.sops-nix.nixosModules.sops
+              inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
+              inputs.home-manager.nixosModules.home-manager
+              {
+                systemFoundry =
+                  {
+                    deployment_target.enable = true;
+                    users.kyle.enable = true;
+                  };
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  sharedModules = hmModules ++ [
+                    # TODO: make this module available to all machines
+                    inputs.plasma-manager.homeManagerModules.plasma-manager
+                  ];
+                  users.kyle = import ./nix/profiles/ssh.nix;
+                };
+              }
+            ];
+          };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -249,6 +276,15 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
+            };
+          };
+          cheetah = {
+            fastConnection = false;
+            hostname = "ns100099.ip-147-135-1.us";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.cheetah;
             };
           };
         };
