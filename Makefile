@@ -43,12 +43,6 @@ build: ## Buld single host
 diff-current-system:
 	nix store diff-closures /var/run/current-system "$(shell readlink -f ./result)"
 
-.PHONY: build-all
-build-all: # Build all defined hosts
-	@nix flake show --json | \
-		jq -r '.nixosConfigurations | keys[]' | \
-		xargs -t -- dots
-
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) --flake .#$(HOSTNAME) switch
@@ -64,12 +58,6 @@ deploy-rs-all:
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry:
 	deploy --dry-activate -- .
-
-.PHONY: deploy-all
-deploy-all: ## Deploy all defined hosts
-	@nix flake show --json | \
-		jq -r '.nixosConfigurations | keys[]' | \
-		xargs -t -- dots --deploy
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color
