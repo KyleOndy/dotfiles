@@ -20,7 +20,6 @@
     nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
     deploy-rs.url = "github:serokell/deploy-rs";
     # https://hydra.nixos.org/job/nixos/trunk-combined/nixos.sd_image.aarch64-linux
-    nixpkgs-raspberrypi.url = "github:nixos/nixpkgs/4d7c2644dbac9cf8282c0afe68fca8f0f3e7b2db";
     plasma-manager = {
       url = "github:pjones/plasma-manager";
       inputs = {
@@ -228,43 +227,6 @@
             #{
             #  nixpkgs.overlays = overlays;
             #}
-          ];
-        };
-        sd_card = inputs.nixpkgs.lib.nixosSystem {
-          system = "aarch64-linux";
-          modules = [
-            "${inputs.nixpkgs-raspberrypi}/nixos/modules/installer/sd-card/sd-image-aarch64-new-kernel-installer.nix"
-            {
-              nixpkgs.config.allowUnsupportedSystem = true;
-              system.stateVersion = "23.05";
-            }
-            ./nix/hosts/bootstrap.nix
-          ];
-        };
-        pi1 = inputs.nixpkgs.lib.nixosSystem {
-          system = "aarch64-linux";
-          modules = nixModules ++ [
-            inputs.nixos-hardware.nixosModules."raspberry-pi-4"
-            ./nix/hosts/pi1/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry = {
-                deployment_target.enable = true;
-                users.kyle.enable = true;
-              };
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules ++ [
-                  # TODO: make this module available to all machines
-                  # TODO: should this be available on machines we only ssh into?
-                  inputs.plasma-manager.homeManagerModules.plasma-manager
-                ];
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
           ];
         };
       };
