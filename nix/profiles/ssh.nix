@@ -44,6 +44,10 @@
           hostname = "alpha.lan.1ella.com";
           user = "kyle";
         };
+        "cheetah" = {
+          hostname = "ns100099.ip-147-135-1.us";
+          user = "kyle";
+        };
       };
     };
   };
