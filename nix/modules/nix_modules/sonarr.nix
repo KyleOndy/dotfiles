@@ -51,7 +51,7 @@ in
       sonarr = {
         # currently all config is done via the web.
         # todo: setup some kind of autoamted downloading of backup zip
-        package = pkgs.master.sonarr;
+        package = pkgs.sonarr;
         enable = true;
         user = cfg.user;
         group = cfg.group;
