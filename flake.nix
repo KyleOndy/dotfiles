@@ -280,7 +280,7 @@
           };
           cheetah = {
             fastConnection = false;
-            hostname = "ns100099.ip-147-135-1.us";
+            hostname = "cheetah";
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
