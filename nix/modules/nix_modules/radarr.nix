@@ -50,7 +50,7 @@ in
       radarr = {
         # currently all config is done via the web.
         # todo: setup some kind of autoamted downloading of backup zip
-        package = pkgs.master.radarr;
+        package = pkgs.radarr;
         enable = true;
         user = cfg.user;
         group = cfg.group;

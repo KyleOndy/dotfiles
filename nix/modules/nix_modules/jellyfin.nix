@@ -49,7 +49,7 @@ in
       # jellyfin service
       jellyfin = {
         enable = true;
-        package = pkgs.master.jellyfin;
+        package = pkgs.jellyfin;
         user = cfg.user;
         group = cfg.group;
         openFirewall = true;
