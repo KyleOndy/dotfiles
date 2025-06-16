@@ -108,6 +108,15 @@
         speedFactor = 10; # prefer this builder
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
+      {
+        # hostname needs to be setup in /root/.ssh/config
+        hostName = "cheetah";
+        sshUser = "svc.deploy";
+        systems = [ "x86_64-linux" "aarch64-linux" ];
+        maxJobs = 4;
+        speedFactor = 8; # prefer this builder
+        supportedFeatures = [ "benchmark" "big-parallel" ];
+      }
     ];
     extraOptions = ''
       builders-use-substitutes = true
