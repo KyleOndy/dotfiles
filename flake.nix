@@ -169,7 +169,6 @@
 
                   hmFoundry = {
                     desktop = {
-                      browsers.qutebrowser.enable = true;
                       media.latex.enable = true;
                       wm.kde.enable = true;
                     };
