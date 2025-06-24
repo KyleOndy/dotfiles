@@ -59,6 +59,7 @@ in
         trusted-users = [ "root" "@wheel" ]; # todo: security issue?
         trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ];
         auto-optimise-store = true;
+        download-buffer-size = 524288000; # 500 MB
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
       extraOptions = ''
