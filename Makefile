@@ -112,7 +112,8 @@ sdcard: ## build install media with my customizations
 
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system
-	sudo nix-collect-garbage --delete-older-than 31d
+	nix-collect-garbage --delete-older-than 7d
+	sudo nix-collect-garbage --delete-older-than 7d
 	sudo nix store optimise
 
 # https://kgolding.co.uk/snippets/makefile-check-git-status/
