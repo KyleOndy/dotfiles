@@ -163,6 +163,10 @@ in
           # the way of the groove.
           prompt = "false";
         };
+        "difftool \"pdfdiff\"" = {
+          prompt = "false";
+          cmd = "diff-pdf --view \"$LOCAL\" \"$REMOTE\"";
+        };
         mergetool = {
           # prompting before opening difftools is just one more key press getting in
           # the way of the groove.
