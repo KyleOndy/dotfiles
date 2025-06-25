@@ -226,7 +226,6 @@ in
           "@BIKEPACKINGcom"
           "@BikePak"
           "@blacklinecoaching6925"
-          "@Buzzalong.cycling"
           "@chadweberg1" # Chad Weberg
           "@ChumbaUSABikes"
           "@Cycling366"
