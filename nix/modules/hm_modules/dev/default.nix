@@ -45,6 +45,7 @@ in
       cowsay # cows keep me informed
       ctags # for navigating within NeoVim
       curl # get whatever random files / pgp keys I need
+      diff-pdf # compare and diff PDF files
       direnv
       dnsutils # dig
       docker-compose
