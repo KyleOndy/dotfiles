@@ -114,7 +114,7 @@
         sshUser = "svc.deploy";
         systems = [ "x86_64-linux" "aarch64-linux" ];
         maxJobs = 4;
-        speedFactor = 8; # prefer this builder
+        speedFactor = 10;
         supportedFeatures = [ "benchmark" "big-parallel" ];
       }
     ];
