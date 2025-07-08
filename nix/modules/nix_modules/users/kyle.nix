@@ -17,6 +17,7 @@ in
       isNormalUser = true;
       extraGroups = [
         "audio"
+        "dialout" # microcontoller dev
         "docker"
         "wheel" # Enable ‘sudo’ for the user.
         "networkmanager"
