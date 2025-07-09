@@ -248,7 +248,6 @@ in
           "@KeepSmilingAdventures"
           "@lesperitdelbikepacking"
           "@MickTurnbullFilms"
-          "@mikemono"
           "@msoleilblais74"
           "@omniumcargo"
           "@panoramacycles"
@@ -308,7 +307,6 @@ in
 
           # tech
           "@AdamJames-tv"
-          "@ClojureTV"
           "@KRAZAM"
 
           # outdoor
