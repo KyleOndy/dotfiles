@@ -90,6 +90,7 @@ in
       ncspot # cursors spotify client
       nix-index # find packages
       nixfmt-rfc-style # formatter for nix files
+      nettools # netstat and others
       nixpkgs-fmt # formatter for nix
       nixpkgs-review # easily dev on nixpkgs
       nmap # network mapping and scanning
