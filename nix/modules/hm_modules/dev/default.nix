@@ -38,7 +38,7 @@ in
       bashInteractive # want my modern bash
       bc # the classic calculator
       berkeley-mono # font
-      claude-code # anthropic
+      master.claude-code # anthropic
       clang
       cmake
       cookiecutter
