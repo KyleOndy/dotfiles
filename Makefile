@@ -79,19 +79,19 @@ update: ## Update all flake soruces
 
 .PHONY: update/nixpkgs
 update/nixpkgs: ## Updage just nixpkgs source
-	nix flake lock --update-input nixpkgs
+	nix flake update nixpkgs
 
 .PHONY: update/nixpkgs-master
 update/nixpkgs-master: ## Updage just nixpkgs-master source
-	nix flake lock --update-input nixpkgs-master
+	nix flake update nixpkgs-master
 
 .PHONY: update/home-manager
 update/home-manager: ## Update just home-manager source
-	nix flake lock --update-input home-manager
+	nix flake update home-manager
 
 .PHONY: update/nur
 update/nur: ## Update just the nur source
-	nix flake lock --update-input nur
+	nix flake update nur
 
 .PHONY: check
 check: ## Run nix checks
