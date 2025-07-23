@@ -43,7 +43,7 @@
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {
-            inherit (final) system;
+            inherit (final) system config;
           };
         })
       ];
