@@ -278,6 +278,7 @@ in
 
           # maker
           "@aaedmusa"
+          "@BennettStirton"
           "@lostartpress"
           "@MarkRober"
           "@matthiaswandel"
