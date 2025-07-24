@@ -175,7 +175,10 @@
                     };
                     dev = {
                       hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
-                      claude-code.enable = true;
+                      claude-code = {
+                        enable = true;
+                        enableNotifications = true;
+                      };
                     };
                   };
                   # dsp for fw13
