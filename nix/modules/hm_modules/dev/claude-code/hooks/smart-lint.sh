@@ -259,6 +259,33 @@ if [[ -n "$JS_FILES" ]]; then
     fi
 fi
 
+# SQL files
+SQL_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(sql)$' || true)
+if [[ -n "$SQL_FILES" ]]; then
+    log "Linting SQL files..."
+    
+    if command -v sqlfluff >/dev/null 2>&1; then
+        # Check if .sqlfluff configuration exists
+        if [[ -f ".sqlfluff" ]]; then
+            # Run sqlfluff lint and capture output
+            if echo "$SQL_FILES" | xargs sqlfluff lint >/dev/null 2>&1; then
+                success "SQL: sqlfluff passed"
+            else
+                error "SQL: sqlfluff failed (run 'sqlfluff lint' for details)"
+                LINT_FAILED=1
+            fi
+        else
+            warn "SQL: .sqlfluff config file not found, skipping SQL linting"
+            warn "SQL: Create .sqlfluff with:"
+            warn "SQL:   [sqlfluff]"
+            warn "SQL:   dialect = postgres"
+            warn "SQL: Common dialects: postgres, mysql, sqlite, bigquery, snowflake"
+        fi
+    else
+        warn "sqlfluff not found, skipping SQL linting"
+    fi
+fi
+
 # Terraform files
 TF_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(tf|tfvars)$' || true)
 if [[ -n "$TF_FILES" ]]; then

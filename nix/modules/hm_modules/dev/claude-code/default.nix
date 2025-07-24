@@ -78,6 +78,9 @@ in
       # JavaScript/TypeScript ecosystem
       nodePackages.prettier # js/ts formatting
 
+      # SQL ecosystem
+      sqlfluff # sql linting and formatting
+
       # General development tools
       gnumake # for Makefile-based testing
 
@@ -90,35 +93,41 @@ in
     );
 
     # Create .claude directory and configuration files
-    home.file = (mkIf cfg.enableHooks {
-      ".claude/hooks/smart-lint.sh" = {
-        source = ./hooks/smart-lint.sh;
-        executable = true;
+    home.file =
+      # Hook files (conditional)
+      (optionalAttrs cfg.enableHooks {
+        ".claude/hooks/smart-lint.sh" = {
+          source = ./hooks/smart-lint.sh;
+          executable = true;
+        };
+        ".claude/hooks/smart-test.sh" = {
+          source = ./hooks/smart-test.sh;
+          executable = true;
+        };
+        ".claude/hooks/ntfy-notifier.sh" = {
+          source = ./hooks/ntfy-notifier.sh;
+          executable = true;
+        };
+        ".claude/settings.json".source = ./settings.json;
+        ".claude/CLAUDE.md".source = cfg.projectMemory;
+      })
+      # Command files (conditional)
+      // (optionalAttrs cfg.enableCommands {
+        # we do not just symlink the entire commands dir, if we did we lose the
+        # ability to drop arbitrary commands as we are testing them into that
+        # dir.
+        ".claude/commands/development/".source = ./commands/development;
+        ".claude/commands/documentation/".source = ./commands/documentation;
+        ".claude/commands/testing/".source = ./commands/testing;
+      })
+      # Directory structure (always created)
+      // {
+        # Create necessary directory structure
+        ".claude/.keep".text = "";
+        ".claude/projects/.keep".text = "";
+        ".claude/todos/.keep".text = "";
+        ".claude/commands/.keep".text = "";
       };
-      ".claude/hooks/smart-test.sh" = {
-        source = ./hooks/smart-test.sh;
-        executable = true;
-      };
-      ".claude/hooks/ntfy-notifier.sh" = {
-        source = ./hooks/ntfy-notifier.sh;
-        executable = true;
-      };
-      ".claude/settings.json".source = ./settings.json;
-      ".claude/CLAUDE.md".source = cfg.projectMemory;
-    }) // (mkIf cfg.enableCommands {
-      # we do not just symlink the entire commands dir, if we did we lose the
-      # ability to drop arbitrary commands as we are testing them into that
-      # dir.
-      ".claude/commands/development/".source = ./commands/development;
-      ".claude/commands/documentation/".source = ./commands/documentation;
-      ".claude/commands/testing/".source = ./commands/testing;
-    }) // {
-      # Create necessary directory structure
-      ".claude/.keep".text = "";
-      ".claude/projects/.keep".text = "";
-      ".claude/todos/.keep".text = "";
-      ".claude/commands/.keep".text = "";
-    };
 
     # Set environment variables for hook configuration
     home.sessionVariables = mkIf cfg.enableHooks {
