@@ -56,6 +56,25 @@ Keep functions small and focused. Prefer explicit over implicit approaches. Dele
 - Document complex expressions with comments
 - Use meaningful variable names in let expressions
 
+### SQL
+
+- Use `sqlfluff` for SQL linting and formatting
+- **Required**: Create `.sqlfluff` configuration file in project root
+- Common dialects: `postgres`, `mysql`, `sqlite`, `bigquery`, `snowflake`
+- Example `.sqlfluff`:
+
+  ```ini
+  [sqlfluff]
+  dialect = postgres
+
+  [sqlfluff:rules]
+  max_line_length = 120
+  ```
+
+- Follow your chosen SQL style guide consistently
+- Use meaningful table and column names
+- Write readable queries with proper indentation
+
 ### Shell Scripts
 
 - Use `shellcheck` for catching common mistakes
