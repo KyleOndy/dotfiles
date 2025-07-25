@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/ntfy-notifier.sh",
+            "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
             "timeout": 5000
           }
         ]
