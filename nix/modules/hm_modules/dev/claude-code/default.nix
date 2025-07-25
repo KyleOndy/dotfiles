@@ -108,6 +108,10 @@ in
           source = ./hooks/ntfy-notifier.sh;
           executable = true;
         };
+        ".claude/hooks/enhanced-ntfy-notifier.sh" = {
+          source = ./hooks/enhanced-ntfy-notifier.sh;
+          executable = true;
+        };
         ".claude/settings.json".source = ./settings.json;
         ".claude/CLAUDE.md".source = cfg.projectMemory;
       })
