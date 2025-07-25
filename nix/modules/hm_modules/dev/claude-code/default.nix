@@ -122,6 +122,7 @@ in
         # dir.
         ".claude/commands/development/".source = ./commands/development;
         ".claude/commands/documentation/".source = ./commands/documentation;
+        ".claude/commands/planning/".source = ./commands/planning;
         ".claude/commands/testing/".source = ./commands/testing;
       })
       # Directory structure (always created)
