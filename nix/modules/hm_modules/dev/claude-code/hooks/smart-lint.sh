@@ -307,7 +307,7 @@ fi
 # Exit with appropriate code
 if [[ $LINT_FAILED -eq 1 ]]; then
     error "Some lint checks failed"
-    exit 1
+    exit 2
 else
     success "All lint checks passed"
     exit 0
