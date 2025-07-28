@@ -261,5 +261,5 @@ elif [ $TESTS_FAILED -eq 0 ]; then
     exit 0
 else
     error "$TESTS_FAILED out of $TESTS_RUN test suites failed"
-    exit 1
+    exit 2
 fi
