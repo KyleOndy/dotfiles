@@ -51,7 +51,7 @@ LINT_FAILED=0
 PYTHON_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(py)$' || true)
 if [[ -n "$PYTHON_FILES" ]]; then
     log "Linting Python files..."
-    
+
     # Run ruff if available
     if command -v ruff >/dev/null 2>&1; then
         if echo "$PYTHON_FILES" | xargs ruff check --quiet; then
@@ -60,7 +60,7 @@ if [[ -n "$PYTHON_FILES" ]]; then
             error "Python: ruff failed"
             LINT_FAILED=1
         fi
-        
+
         # Run ruff format check
         if echo "$PYTHON_FILES" | xargs ruff format --check --quiet; then
             success "Python: ruff format passed"
@@ -77,7 +77,7 @@ fi
 GO_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(go)$' || true)
 if [[ -n "$GO_FILES" ]]; then
     log "Linting Go files..."
-    
+
     # Run gofmt
     if command -v gofmt >/dev/null 2>&1; then
         UNFORMATTED=$(echo "$GO_FILES" | xargs gofmt -l)
@@ -88,7 +88,7 @@ if [[ -n "$GO_FILES" ]]; then
             LINT_FAILED=1
         fi
     fi
-    
+
     # Run go vet if we're in a go module
     if [[ -f "go.mod" ]] && command -v go >/dev/null 2>&1; then
         if go vet ./...; then
@@ -104,7 +104,7 @@ fi
 CLOJURE_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(clj|cljs|cljc|edn)$' || true)
 if [[ -n "$CLOJURE_FILES" ]]; then
     log "Linting Clojure files..."
-    
+
     # Run clj-kondo if available
     if command -v clj-kondo >/dev/null 2>&1; then
         if echo "$CLOJURE_FILES" | xargs clj-kondo --lint; then
@@ -116,51 +116,51 @@ if [[ -n "$CLOJURE_FILES" ]]; then
     else
         warn "clj-kondo not found, skipping Clojure linting"
     fi
-    
+
     # Clojure formatting (opt-in via environment variable)
     # This gets set by the Nix module based on clojureFormatting.enable
     if [[ "${CLAUDE_CLOJURE_FORMATTING:-false}" == "true" ]]; then
         FORMATTER="${CLAUDE_CLOJURE_FORMATTER:-cljstyle}"
         log "Running Clojure formatting with $FORMATTER..."
-        
+
         case "$FORMATTER" in
-            "cljstyle")
-                if command -v cljstyle >/dev/null 2>&1; then
-                    if echo "$CLOJURE_FILES" | xargs cljstyle check; then
-                        success "Clojure: cljstyle formatting passed"
-                    else
-                        error "Clojure: cljstyle formatting failed"
-                        LINT_FAILED=1
-                    fi
+        "cljstyle")
+            if command -v cljstyle >/dev/null 2>&1; then
+                if echo "$CLOJURE_FILES" | xargs cljstyle check; then
+                    success "Clojure: cljstyle formatting passed"
                 else
-                    warn "cljstyle not found, skipping Clojure formatting"
+                    error "Clojure: cljstyle formatting failed"
+                    LINT_FAILED=1
                 fi
-                ;;
-            "zprint")
-                if command -v zprint >/dev/null 2>&1; then
-                    # Check if files would be reformatted
-                    if echo "$CLOJURE_FILES" | xargs -I {} sh -c 'diff -q "{}" <(zprint < "{}")' >/dev/null 2>&1; then
-                        success "Clojure: zprint formatting passed"
-                    else
-                        error "Clojure: zprint formatting failed"
-                        LINT_FAILED=1
-                    fi
+            else
+                warn "cljstyle not found, skipping Clojure formatting"
+            fi
+            ;;
+        "zprint")
+            if command -v zprint >/dev/null 2>&1; then
+                # Check if files would be reformatted
+                if echo "$CLOJURE_FILES" | xargs -I {} sh -c 'diff -q "{}" <(zprint < "{}")' >/dev/null 2>&1; then
+                    success "Clojure: zprint formatting passed"
                 else
-                    warn "zprint not found, skipping Clojure formatting"
+                    error "Clojure: zprint formatting failed"
+                    LINT_FAILED=1
                 fi
-                ;;
-            "cljfmt")
-                if command -v cljfmt >/dev/null 2>&1; then
-                    if echo "$CLOJURE_FILES" | xargs cljfmt --dry-run; then
-                        success "Clojure: cljfmt formatting passed"
-                    else
-                        error "Clojure: cljfmt formatting failed"
-                        LINT_FAILED=1
-                    fi
+            else
+                warn "zprint not found, skipping Clojure formatting"
+            fi
+            ;;
+        "cljfmt")
+            if command -v cljfmt >/dev/null 2>&1; then
+                if echo "$CLOJURE_FILES" | xargs cljfmt --dry-run; then
+                    success "Clojure: cljfmt formatting passed"
                 else
-                    warn "cljfmt not found, skipping Clojure formatting"
+                    error "Clojure: cljfmt formatting failed"
+                    LINT_FAILED=1
                 fi
-                ;;
+            else
+                warn "cljfmt not found, skipping Clojure formatting"
+            fi
+            ;;
         esac
     fi
 fi
@@ -169,7 +169,7 @@ fi
 NIX_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(nix)$' || true)
 if [[ -n "$NIX_FILES" ]]; then
     log "Linting Nix files..."
-    
+
     # Run nixfmt
     if command -v nixfmt >/dev/null 2>&1; then
         if echo "$NIX_FILES" | xargs nixfmt --check; then
@@ -181,7 +181,7 @@ if [[ -n "$NIX_FILES" ]]; then
     else
         warn "nixfmt not found, skipping Nix formatting check"
     fi
-    
+
     # Run nix-instantiate to check syntax
     for file in $NIX_FILES; do
         if nix-instantiate --parse "$file" >/dev/null 2>&1; then
@@ -197,7 +197,7 @@ fi
 HASKELL_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(hs|lhs)$' || true)
 if [[ -n "$HASKELL_FILES" ]]; then
     log "Linting Haskell files..."
-    
+
     # Run hlint if available
     if command -v hlint >/dev/null 2>&1; then
         if echo "$HASKELL_FILES" | xargs hlint; then
@@ -215,7 +215,7 @@ fi
 SHELL_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(sh|bash)$' || true)
 if [[ -n "$SHELL_FILES" ]]; then
     log "Linting shell files..."
-    
+
     # Run shellcheck
     if command -v shellcheck >/dev/null 2>&1; then
         if echo "$SHELL_FILES" | xargs shellcheck; then
@@ -227,7 +227,7 @@ if [[ -n "$SHELL_FILES" ]]; then
     else
         warn "shellcheck not found, skipping shell linting"
     fi
-    
+
     # Run shfmt
     if command -v shfmt >/dev/null 2>&1; then
         if echo "$SHELL_FILES" | xargs shfmt -d; then
@@ -245,7 +245,7 @@ fi
 JS_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(js|ts|jsx|tsx)$' || true)
 if [[ -n "$JS_FILES" ]]; then
     log "Linting JavaScript/TypeScript files..."
-    
+
     # Run prettier check if available
     if command -v prettier >/dev/null 2>&1; then
         if echo "$JS_FILES" | xargs prettier --check; then
@@ -263,7 +263,7 @@ fi
 SQL_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(sql)$' || true)
 if [[ -n "$SQL_FILES" ]]; then
     log "Linting SQL files..."
-    
+
     if command -v sqlfluff >/dev/null 2>&1; then
         # Check if .sqlfluff configuration exists
         if [[ -f ".sqlfluff" ]]; then
@@ -290,7 +290,7 @@ fi
 TF_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(tf|tfvars)$' || true)
 if [[ -n "$TF_FILES" ]]; then
     log "Linting Terraform files..."
-    
+
     # Run terraform fmt check
     if command -v terraform >/dev/null 2>&1; then
         if terraform fmt -check -diff; then
@@ -312,7 +312,7 @@ if [[ -n "$MARKDOWN_FILES" ]]; then
     if command -v markdownlint-cli2 >/dev/null 2>&1; then
         # Check if configuration file exists
         if [[ -f ".markdownlint.json" ]] || [[ -f ".markdownlint-cli2.jsonc" ]] || [[ -f ".markdownlint.jsonc" ]] || [[ -f ".markdownlint.yaml" ]] || [[ -f ".markdownlint.yml" ]]; then
-            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2; then
+            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2 --fix; then
                 success "Markdown: markdownlint-cli2 passed"
             else
                 error "Markdown: markdownlint-cli2 failed"
