@@ -81,6 +81,9 @@ in
       # SQL ecosystem
       sqlfluff # sql linting and formatting
 
+      # Markdown ecosystem
+      markdownlint-cli2 # markdown linting
+
       # General development tools
       gnumake # for Makefile-based testing
 

@@ -304,6 +304,35 @@ if [[ -n "$TF_FILES" ]]; then
     fi
 fi
 
+# Markdown files
+MARKDOWN_FILES=$(echo "$MODIFIED_FILES" | grep -E '\.(md|markdown)$' || true)
+if [[ -n "$MARKDOWN_FILES" ]]; then
+    log "Linting Markdown files..."
+
+    if command -v markdownlint-cli2 >/dev/null 2>&1; then
+        # Check if configuration file exists
+        if [[ -f ".markdownlint.json" ]] || [[ -f ".markdownlint-cli2.jsonc" ]] || [[ -f ".markdownlint.jsonc" ]] || [[ -f ".markdownlint.yaml" ]] || [[ -f ".markdownlint.yml" ]]; then
+            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2; then
+                success "Markdown: markdownlint-cli2 passed"
+            else
+                error "Markdown: markdownlint-cli2 failed"
+                LINT_FAILED=1
+            fi
+        else
+            # Run with default configuration but warn about missing config
+            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2; then
+                success "Markdown: markdownlint-cli2 passed (using defaults)"
+                warn "Markdown: Consider creating .markdownlint.json for custom rules"
+            else
+                error "Markdown: markdownlint-cli2 failed"
+                LINT_FAILED=1
+            fi
+        fi
+    else
+        warn "markdownlint-cli2 not found, skipping Markdown linting"
+    fi
+fi
+
 # Exit with appropriate code
 if [[ $LINT_FAILED -eq 1 ]]; then
     error "Some lint checks failed"
