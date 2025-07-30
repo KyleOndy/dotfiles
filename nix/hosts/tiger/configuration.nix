@@ -243,7 +243,6 @@ in
           "@joffreymaluski"
           "@joshibbett"
           "@justinasleveika"
-          "@JoyOfBike"
           "@KDubzDidWhat"
           "@KeepSmilingAdventures"
           "@lesperitdelbikepacking"
