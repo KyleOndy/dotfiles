@@ -312,10 +312,10 @@ in
           "@KRAZAM"
 
           # outdoor
-          "@ChrisburkardStudio"
-          "@RabEquipment"
           "@bronandjacob"
+          "@ChrisburkardStudio"
           "@courtneyevewhite"
+          "@RabEquipment"
           "@theaudaciousreport"
         ];
       };
