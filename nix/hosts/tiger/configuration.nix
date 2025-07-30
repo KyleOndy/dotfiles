@@ -305,6 +305,7 @@ in
           "@SampsonBoatCo"
           "@theslappablejerk"
           "@treykennedy"
+          "@whistlindiesel"
 
           # tech
           "@AdamJames-tv"
