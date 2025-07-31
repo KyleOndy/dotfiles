@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   networking = {
@@ -16,7 +21,6 @@
   };
   powerManagement.cpuFreqGovernor = "ondemand";
   system.stateVersion = "20.09";
-
 
   # TODO: add systemd service to check is we can resolve DNS from self, if not,
   #       restart dnsmasq. That fact that we hardcode the IP address is

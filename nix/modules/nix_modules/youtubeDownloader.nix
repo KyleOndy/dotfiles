@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.youtubeDownloader;
+let
+  cfg = config.systemFoundry.youtubeDownloader;
 in
 {
   options.systemFoundry.youtubeDownloader = {
@@ -127,5 +133,3 @@ in
     };
   };
 }
-
-

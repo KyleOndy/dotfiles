@@ -1,4 +1,9 @@
-{ lib, stdenv, fetchFromGitHub, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchFromGitHub,
+  pkgs,
+}:
 
 stdenv.mkDerivation rec {
   pname = "tmux-gruvbox";
@@ -28,7 +33,7 @@ stdenv.mkDerivation rec {
 
   meta = with pkgs.lib; {
     description = "Gruvbox color scheme for Tmux";
-    homepage = https://github.com/egel/tmux-gruvbox;
+    homepage = "https://github.com/egel/tmux-gruvbox";
     license = licenses.gpl3;
     maintainers = with maintainers; [ kyleondy ];
     platforms = platforms.linux ++ platforms.darwin;

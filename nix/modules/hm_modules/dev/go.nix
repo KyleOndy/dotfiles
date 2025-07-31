@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.go;
+let
+  cfg = config.hmFoundry.dev.go;
 in
 {
   options.hmFoundry.dev.go = {

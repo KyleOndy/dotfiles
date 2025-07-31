@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
 let
   cfg = config.systemFoundry.jellyfin;
@@ -65,7 +70,7 @@ in
       # jellyfin provides no native backup, so zip, compress it, and copy it over
       jellyfin-backup = mkIf cfg.backup.enable {
         startAt = "*-*-* 3:00:00";
-        path = with pkgs;[
+        path = with pkgs; [
           coreutils
           gnutar
           pigz
@@ -78,7 +83,7 @@ in
       };
       jellyfin-transcode-cleanp = {
         startAt = "*-*-* *:00:00";
-        path = with pkgs;[
+        path = with pkgs; [
           fd
         ];
         script = ''

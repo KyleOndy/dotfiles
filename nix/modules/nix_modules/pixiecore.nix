@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.pixiecore;
+let
+  cfg = config.systemFoundry.pixiecore;
 in
 {
   options.systemFoundry.pixiecore = {

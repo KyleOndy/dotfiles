@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.desktop.kde;
+let
+  cfg = config.systemFoundry.desktop.kde;
 in
 {
   options.systemFoundry.desktop.kde = {

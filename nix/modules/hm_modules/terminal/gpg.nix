@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.terminal.gpg;
+let
+  cfg = config.hmFoundry.terminal.gpg;
 in
 {
   options.hmFoundry.terminal.gpg = {

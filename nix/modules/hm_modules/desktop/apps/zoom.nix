@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.apps.zoom;
+let
+  cfg = config.hmFoundry.desktop.apps.zoom;
 in
 {
   options.hmFoundry.desktop.apps.zoom = {

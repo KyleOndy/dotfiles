@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.gitea;
+let
+  cfg = config.systemFoundry.gitea;
 in
 {
   # todo: submodules?

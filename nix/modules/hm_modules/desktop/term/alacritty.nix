@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.term.alacritty;
+let
+  cfg = config.hmFoundry.desktop.term.alacritty;
 in
 {
   options.hmFoundry.desktop.term.alacritty = {

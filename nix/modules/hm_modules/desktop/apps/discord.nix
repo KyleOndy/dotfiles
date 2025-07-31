@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.apps.discord;
+let
+  cfg = config.hmFoundry.desktop.apps.discord;
 in
 {
   options.hmFoundry.desktop.apps.discord = {

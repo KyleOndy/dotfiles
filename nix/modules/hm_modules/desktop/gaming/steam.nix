@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.gaming.steam;
+let
+  cfg = config.hmFoundry.desktop.gaming.steam;
 in
 {
   options.hmFoundry.desktop.gaming.steam = {

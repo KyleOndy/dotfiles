@@ -33,7 +33,8 @@
       flake = false;
     };
   };
-  outputs = { self, ... }@inputs:
+  outputs =
+    { self, ... }@inputs:
     let
       # import all the overlays that extend packages via nix or home-manager.
       overlays = [
@@ -61,10 +62,12 @@
       #   - handles readDir's `symlink` and `unknown` types
       #   - is there a better way than (path + ("/" + path))?
       #   - can this be moved into a library and sourced over inline?
-      getModules = path:
+      getModules =
+        path:
         let
           lib = inputs.nixpkgs.lib;
-          getNixFilesRec = path:
+          getNixFilesRec =
+            path:
             let
               contents = builtins.readDir path;
               files = builtins.attrNames (lib.filterAttrs (_: v: v == "regular") contents);
@@ -74,50 +77,53 @@
             # return the path of all files found in this directory
             (map (p: path + ("/" + p)) nixFiles)
             ++
-            # pass each directory into this function again
-            (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
+              # pass each directory into this function again
+              (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
         in
         getNixFilesRec path;
 
       hmModules = getModules ./nix/modules/hm_modules;
       nixModules = getModules ./nix/modules/nix_modules;
 
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
     in
     {
 
-      checks = forAllSystems
-        (system: {
-          pre-commit-check = inputs.pre-commit-hooks.lib.${system}.run
-            {
-              src = ./.;
-              hooks = {
-                black.enable = true;
-                nixpkgs-fmt.enable = true;
-                prettier = {
-                  enable = true;
-                  excludes = [ "flake.lock" ];
-                };
-                shellcheck.enable = true;
-                stylua.enable = true;
-                pkg_version = {
-                  enable = false;
-                  name = "pkg-version-bump";
-                  entry = "bin/pre-commit-update-version";
-                  files = "^nix/pkgs/.*?/default\.nix$";
-                  language = "script";
-                  pass_filenames = true;
-                };
+      checks = forAllSystems (system: {
+        pre-commit-check =
+          inputs.pre-commit-hooks.lib.${system}.run {
+            src = ./.;
+            hooks = {
+              black.enable = true;
+              nixfmt-rfc-style.enable = true;
+              prettier = {
+                enable = true;
+                excludes = [ "flake.lock" ];
               };
-            }
-          //
+              shellcheck.enable = true;
+              stylua.enable = true;
+              pkg_version = {
+                enable = false;
+                name = "pkg-version-bump";
+                entry = "bin/pre-commit-update-version";
+                files = "^nix/pkgs/.*?/default\.nix$";
+                language = "script";
+                pass_filenames = true;
+              };
+            };
+          }
           # this functions outputs two checks defined in `deploy-rs`'s flake,
           # `deploy-schema` and `deploy-activate`.
           #
           # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
-          builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
-        });
+          // builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
+      });
 
       devShells = forAllSystems (system: {
         default = inputs.nixpkgs.legacyPackages.${system}.mkShell {
@@ -125,7 +131,6 @@
           buildInputs = self.checks.${system}.pre-commit-check.enabledPackages;
         };
       });
-
 
       nixosConfigurations = {
         dino = inputs.nixpkgs.lib.nixosSystem {
@@ -155,7 +160,6 @@
                 mullvad-vpn.enable = true;
               };
               programs.dconf.enable = true; # fw13 dsp
-
 
               nixpkgs.overlays = overlays;
               home-manager = {
@@ -195,60 +199,56 @@
             }
           ];
         };
-        tiger = inputs.nixpkgs.lib.nixosSystem
-          {
-            system = "x86_64-linux";
-            modules = nixModules ++ [
-              ./nix/hosts/tiger/configuration.nix
-              inputs.sops-nix.nixosModules.sops
-              inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-              inputs.home-manager.nixosModules.home-manager
-              {
-                systemFoundry =
-                  {
-                    deployment_target.enable = true;
-                    users.kyle.enable = true;
-                  };
-                nixpkgs.overlays = overlays;
-                home-manager = {
-                  useGlobalPkgs = true;
-                  useUserPackages = true;
-                  sharedModules = hmModules ++ [
-                    # TODO: make this module available to all machines
-                    inputs.plasma-manager.homeManagerModules.plasma-manager
-                  ];
-                  users.kyle = import ./nix/profiles/ssh.nix;
-                };
-              }
-            ];
-          };
-        cheetah = inputs.nixpkgs.lib.nixosSystem
-          {
-            system = "x86_64-linux";
-            modules = nixModules ++ [
-              ./nix/hosts/cheetah/configuration.nix
-              inputs.sops-nix.nixosModules.sops
-              inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-              inputs.home-manager.nixosModules.home-manager
-              {
-                systemFoundry =
-                  {
-                    deployment_target.enable = true;
-                    users.kyle.enable = true;
-                  };
-                nixpkgs.overlays = overlays;
-                home-manager = {
-                  useGlobalPkgs = true;
-                  useUserPackages = true;
-                  sharedModules = hmModules ++ [
-                    # TODO: make this module available to all machines
-                    inputs.plasma-manager.homeManagerModules.plasma-manager
-                  ];
-                  users.kyle = import ./nix/profiles/ssh.nix;
-                };
-              }
-            ];
-          };
+        tiger = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/tiger/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules ++ [
+                  # TODO: make this module available to all machines
+                  inputs.plasma-manager.homeManagerModules.plasma-manager
+                ];
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
+        cheetah = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = nixModules ++ [
+            ./nix/hosts/cheetah/configuration.nix
+            inputs.sops-nix.nixosModules.sops
+            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
+            inputs.home-manager.nixosModules.home-manager
+            {
+              systemFoundry = {
+                deployment_target.enable = true;
+                users.kyle.enable = true;
+              };
+              nixpkgs.overlays = overlays;
+              home-manager = {
+                useGlobalPkgs = true;
+                useUserPackages = true;
+                sharedModules = hmModules ++ [
+                  # TODO: make this module available to all machines
+                  inputs.plasma-manager.homeManagerModules.plasma-manager
+                ];
+                users.kyle = import ./nix/profiles/ssh.nix;
+              };
+            }
+          ];
+        };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [

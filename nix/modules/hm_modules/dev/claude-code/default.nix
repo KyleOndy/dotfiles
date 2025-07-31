@@ -1,7 +1,12 @@
 # Claude Code Home Manager Module
 # Provides intelligent Claude Code configuration management for multi-language development
 
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
 let
   cfg = config.hmFoundry.dev.claude-code;
@@ -35,7 +40,11 @@ in
       };
 
       formatter = mkOption {
-        type = types.enum [ "cljstyle" "zprint" "cljfmt" ];
+        type = types.enum [
+          "cljstyle"
+          "zprint"
+          "cljfmt"
+        ];
         default = "cljstyle";
         description = "Clojure formatter to use";
       };
@@ -50,50 +59,57 @@ in
 
   config = mkIf cfg.enable {
     # Ensure Claude Code and required tools are installed
-    home.packages = with pkgs; [
-      master.claude-code
+    home.packages =
+      with pkgs;
+      [
+        master.claude-code
 
-      # Core tools used by smart-lint.sh and smart-test.sh
-      gitAndTools.gitFull # for detecting modified files (matches git.nix module)
+        # Core tools used by smart-lint.sh and smart-test.sh
+        gitAndTools.gitFull # for detecting modified files (matches git.nix module)
 
-      # Python ecosystem
-      ruff # python linting and formatting (use regular version to avoid conflicts)
+        # Python ecosystem
+        ruff # python linting and formatting (use regular version to avoid conflicts)
 
-      # Go ecosystem
-      go # includes gofmt, go vet, go test
+        # Go ecosystem
+        go # includes gofmt, go vet, go test
 
-      # Clojure ecosystem
-      clj-kondo # clojure linting
-      babashka # fast clojure scripting
+        # Clojure ecosystem
+        clj-kondo # clojure linting
+        babashka # fast clojure scripting
 
-      # Nix ecosystem
-      nixfmt-rfc-style # nix formatting
+        # Nix ecosystem
+        nixfmt-rfc-style # nix formatting
 
-      # Shell ecosystem
-      shellcheck # shell script linting
-      shfmt # shell script formatting
+        # Shell ecosystem
+        shellcheck # shell script linting
+        shfmt # shell script formatting
 
-      # Haskell ecosystem (if haskell module is enabled)
+        # Haskell ecosystem (if haskell module is enabled)
 
-      # JavaScript/TypeScript ecosystem
-      nodePackages.prettier # js/ts formatting
+        # JavaScript/TypeScript ecosystem
+        nodePackages.prettier # js/ts formatting
 
-      # SQL ecosystem
-      sqlfluff # sql linting and formatting
+        # SQL ecosystem
+        sqlfluff # sql linting and formatting
 
-      # Markdown ecosystem
-      markdownlint-cli2 # markdown linting
+        # Markdown ecosystem
+        markdownlint-cli2 # markdown linting
 
-      # General development tools
-      gnumake # for Makefile-based testing
+        # General development tools
+        gnumake # for Makefile-based testing
 
-    ] ++ optionals cfg.enableNotifications [
-      libnotify # for notify-send desktop notifications
-    ] ++ optionals cfg.clojureFormatting.enable (
-      if cfg.clojureFormatting.formatter == "cljstyle" then [ cljstyle ]
-      else if cfg.clojureFormatting.formatter == "zprint" then [ zprint ]
-      else [ clojure-lsp ] # includes cljfmt
-    );
+      ]
+      ++ optionals cfg.enableNotifications [
+        libnotify # for notify-send desktop notifications
+      ]
+      ++ optionals cfg.clojureFormatting.enable (
+        if cfg.clojureFormatting.formatter == "cljstyle" then
+          [ cljstyle ]
+        else if cfg.clojureFormatting.formatter == "zprint" then
+          [ zprint ]
+        else
+          [ clojure-lsp ] # includes cljfmt
+      );
 
     # Create .claude directory and configuration files
     home.file =

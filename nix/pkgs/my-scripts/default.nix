@@ -1,5 +1,10 @@
 # https://github.com/jwiegley/nix-config/blob/master/overlays/20-my-scripts.nix
-{ lib, stdenv, fetchurl, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  pkgs,
+}:
 
 stdenv.mkDerivation {
   pname = "my-scripts";
@@ -24,7 +29,7 @@ stdenv.mkDerivation {
 
   meta = with pkgs.lib; {
     description = "Kyle Ondy's various scripts";
-    homepage = https://github.com/kyleondy;
+    homepage = "https://github.com/kyleondy";
     license = licenses.mit;
     maintainers = with maintainers; [ kyleondy ];
     platforms = platforms.linux ++ platforms.darwin;

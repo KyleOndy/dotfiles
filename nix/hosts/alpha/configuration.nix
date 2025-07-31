@@ -63,12 +63,18 @@
         "storage/photos" = {
           target = "storage/photos";
           source = "svc.syncoid@tiger.dmz.1ella.com:storage/photos";
-          extraArgs = [ "--sshport" "2332" ];
+          extraArgs = [
+            "--sshport"
+            "2332"
+          ];
         };
         "storage/backups" = {
           target = "storage/backups";
           source = "svc.syncoid@tiger.dmz.1ella.com:storage/backups";
-          extraArgs = [ "--sshport" "2332" ];
+          extraArgs = [
+            "--sshport"
+            "2332"
+          ];
         };
       };
     };

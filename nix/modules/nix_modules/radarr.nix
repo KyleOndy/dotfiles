@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.radarr;
+let
+  cfg = config.systemFoundry.radarr;
 in
 {
   options.systemFoundry.radarr = {

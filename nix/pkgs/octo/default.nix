@@ -1,6 +1,10 @@
 # todo: contribute this back upstream to nixpkgs
 # todo: support linux + osx
-{ lib, stdenv, fetchurl }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+}:
 
 stdenv.mkDerivation rec {
   pname = "octo";

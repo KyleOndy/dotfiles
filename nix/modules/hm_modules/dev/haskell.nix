@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.haskell;
+let
+  cfg = config.hmFoundry.dev.haskell;
 in
 {
   options.hmFoundry.dev.haskell = {

@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.bazarr;
+let
+  cfg = config.systemFoundry.bazarr;
 in
 {
   options.systemFoundry.bazarr = {

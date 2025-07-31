@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.browsers.qutebrowser;
+let
+  cfg = config.hmFoundry.desktop.browsers.qutebrowser;
 in
 {
   options.hmFoundry.desktop.browsers.qutebrowser = {

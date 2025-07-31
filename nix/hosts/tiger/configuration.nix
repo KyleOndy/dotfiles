@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   mediaGroup = "media";
   service_root = "/var/lib";
@@ -13,7 +18,10 @@ in
       efi.canTouchEfiVariables = true;
     };
     supportedFilesystems = [ "zfs" ];
-    binfmt.emulatedSystems = [ "aarch64-linux" "armv7l-linux" ];
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+      "armv7l-linux"
+    ];
   };
 
   networking = {
@@ -110,7 +118,6 @@ in
       "kyle"
     ];
   };
-
 
   fileSystems = {
     "/mnt/scratch-fast" = {
@@ -336,7 +343,9 @@ in
       ];
     };
   };
-  environment.sessionVariables = { LIBVA_DRIVER_NAME = "iHD"; };
+  environment.sessionVariables = {
+    LIBVA_DRIVER_NAME = "iHD";
+  };
 
   # TODO: move to module if it works and I like it
   systemd = {

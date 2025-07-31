@@ -1,5 +1,10 @@
 # https://fsd.it/shop/fonts/pragmatapro/
-{ lib, stdenv, fetchurl, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  pkgs,
+}:
 
 pkgs.stdenv.mkDerivation {
   pname = "pragmata-pro";

@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.dotnet;
+let
+  cfg = config.hmFoundry.dev.dotnet;
 in
 {
   options.hmFoundry.dev.dotnet = {

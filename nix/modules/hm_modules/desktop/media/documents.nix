@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.media.documents;
+let
+  cfg = config.hmFoundry.desktop.media.documents;
 in
 {
   options.hmFoundry.desktop.media.documents = {
