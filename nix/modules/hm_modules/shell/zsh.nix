@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.shell.zsh;
+let
+  cfg = config.hmFoundry.shell.zsh;
 in
 {
   options.hmFoundry.shell.zsh = {

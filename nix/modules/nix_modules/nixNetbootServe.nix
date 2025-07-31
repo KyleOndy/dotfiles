@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.nixNetbootServe;
+let
+  cfg = config.systemFoundry.nixNetbootServe;
 in
 {
   options.systemFoundry.nixNetbootServe = {

@@ -1,6 +1,7 @@
 # for laptops, power management.
 
-{ config, pkgs, ... }: {
+{ config, pkgs, ... }:
+{
   powerManagement = {
     enable = true;
     #cpuFreqGovernor = null;

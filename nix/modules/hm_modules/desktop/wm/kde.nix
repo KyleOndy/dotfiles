@@ -2,9 +2,15 @@
 # To generate a json of current config run the following command
 #   nix run github:pjones/plasma-manager
 #
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.wm.kde;
+let
+  cfg = config.hmFoundry.desktop.wm.kde;
 in
 {
   options.hmFoundry.desktop.wm.kde = {

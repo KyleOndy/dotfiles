@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.terminal.pass;
+let
+  cfg = config.hmFoundry.terminal.pass;
 in
 {
   options.hmFoundry.terminal.pass = {
@@ -11,14 +17,18 @@ in
     programs.password-store = {
       enable = true;
       package = pkgs.pass.withExtensions (ext: [ ext.pass-otp ]);
-      settings = { PASSWORD_STORE_DIR = "${config.home.homeDirectory}/.password-store"; };
+      settings = {
+        PASSWORD_STORE_DIR = "${config.home.homeDirectory}/.password-store";
+      };
     };
 
-    home.packages = with pkgs; [
-      passff-host # firefox plugin host extension
-    ]
-    ++ optionals stdenv.isLinux [
-      wl-clipboard # needed since upgrading
-    ];
+    home.packages =
+      with pkgs;
+      [
+        passff-host # firefox plugin host extension
+      ]
+      ++ optionals stdenv.isLinux [
+        wl-clipboard # needed since upgrading
+      ];
   };
 }

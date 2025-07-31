@@ -3,7 +3,10 @@
 { ... }:
 
 {
-  boot.kernelModules = [ "kvm-amd" "kvm-intel" ];
+  boot.kernelModules = [
+    "kvm-amd"
+    "kvm-intel"
+  ];
   virtualisation.libvirtd.enable = true;
 
   # https://blog.christophersmart.com/2016/08/31/configuring-qemu-bridge-helper-after-access-denied-by-acl-file-error/

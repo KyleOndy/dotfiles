@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.docker;
+let
+  cfg = config.systemFoundry.docker;
 in
 {
   options.systemFoundry.docker = {
@@ -15,5 +21,3 @@ in
     };
   };
 }
-
-

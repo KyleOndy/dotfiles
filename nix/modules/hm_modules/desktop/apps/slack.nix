@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.apps.slack;
+let
+  cfg = config.hmFoundry.desktop.apps.slack;
 in
 {
   options.hmFoundry.desktop.apps.slack = {

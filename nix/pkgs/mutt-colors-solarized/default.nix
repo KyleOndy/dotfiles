@@ -1,4 +1,8 @@
-{ lib, stdenv, fetchurl }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+}:
 # this may exist somewhere else already package in NIX, just doing it myself
 # out of convience since I only need one of the themes.
 

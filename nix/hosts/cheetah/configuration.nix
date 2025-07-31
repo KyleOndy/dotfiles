@@ -1,4 +1,9 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   imports = [ ./hardware-configuration.nix ];
@@ -7,7 +12,10 @@
     hostName = "cheetah";
   };
 
-  boot.binfmt.emulatedSystems = [ "aarch64-linux" "armv7l-linux" ];
+  boot.binfmt.emulatedSystems = [
+    "aarch64-linux"
+    "armv7l-linux"
+  ];
 
   # Configure mdadm to send notifications to root for RAID events
   boot.swraid.mdadmConf = "MAILADDR root@localhost";

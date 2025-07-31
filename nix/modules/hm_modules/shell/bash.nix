@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.shell.bash;
+let
+  cfg = config.hmFoundry.shell.bash;
 in
 {
   options.hmFoundry.shell.bash = {
@@ -17,8 +23,7 @@ in
     ];
     programs.bash = {
       enable = true;
-      initExtra = ''
-      '';
+      initExtra = '''';
       bashrcExtra = ''
         export PS4='+ \D{%s}: ''${BASH_SOURCE:-}:''${FUNCNAME[0]:-}:L''${LINENO:-}: '
       '';

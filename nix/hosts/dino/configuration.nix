@@ -7,7 +7,10 @@
     blacklistedKernelModules = [
       "hid_sensor_hub"
     ];
-    binfmt.emulatedSystems = [ "aarch64-linux" "armv7l-linux" ];
+    binfmt.emulatedSystems = [
+      "aarch64-linux"
+      "armv7l-linux"
+    ];
   };
 
   # becuase we are dual booting
@@ -39,4 +42,3 @@
     keyboard.zsa.enable = true;
   };
 }
-

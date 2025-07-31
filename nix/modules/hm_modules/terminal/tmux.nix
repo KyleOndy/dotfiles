@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.terminal.tmux;
+let
+  cfg = config.hmFoundry.terminal.tmux;
 in
 {
   options.hmFoundry.terminal.tmux = {

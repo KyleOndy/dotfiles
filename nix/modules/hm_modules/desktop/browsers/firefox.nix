@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.browsers.firefox;
+let
+  cfg = config.hmFoundry.desktop.browsers.firefox;
 in
 {
   options.hmFoundry.desktop.browsers.firefox = {

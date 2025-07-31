@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.dnsServer;
+let
+  cfg = config.systemFoundry.dnsServer;
 in
 {
   # todo: submodules?
@@ -61,7 +67,10 @@ in
     };
     upstreamDnsServers = mkOption {
       type = types.listOf types.str;
-      default = [ "9.9.9.9" "149.112.112.112" ]; # quad nine
+      default = [
+        "9.9.9.9"
+        "149.112.112.112"
+      ]; # quad nine
       description = "Servers to use for upstream lookups";
     };
   };
@@ -70,7 +79,11 @@ in
     # dnsmasq wasn't working until I re-ran nixos-rebuild switch
     # https://serverfault.com/a/907603
     systemd.services.dnsmasq = {
-      after = [ "network-online.target" "network.target" "systemd-resolved.service" ];
+      after = [
+        "network-online.target"
+        "network.target"
+        "systemd-resolved.service"
+      ];
       wants = [ "network-online.target" ];
     };
 
@@ -85,28 +98,18 @@ in
         conf-file = optional cfg.blacklist.enable cfg.blacklist.path;
 
         address = optionals (cfg.aRecords != { }) (
-          (builtins.attrValues (builtins.mapAttrs
-            (n: v: "/${n}/${v}")
-            cfg.aRecords
-          ))
+          (builtins.attrValues (builtins.mapAttrs (n: v: "/${n}/${v}") cfg.aRecords))
         );
 
         cname = optionals (cfg.cnameRecords != { }) (
-          (builtins.attrValues (builtins.mapAttrs
-            (n: v: "${n},${v}")
-            cfg.cnameRecords
-          ))
+          (builtins.attrValues (builtins.mapAttrs (n: v: "${n},${v}") cfg.cnameRecords))
         );
 
         server = optionals (cfg.domainRecords != { }) (
-          (builtins.attrValues (builtins.mapAttrs
-            (n: v: "/${n}/${v}")
-            cfg.domainRecords
-          ))
+          (builtins.attrValues (builtins.mapAttrs (n: v: "/${n}/${v}") cfg.domainRecords))
         );
       };
     };
-
 
     # if this files doesn't exist, dnsmasq fails to start. The preStart config
     # is appended to the preStart already defined for dnsmasq, so we don't need

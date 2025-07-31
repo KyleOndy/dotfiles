@@ -17,14 +17,19 @@
   ];
 
   # Select internationalisation properties.
-  i18n = { defaultLocale = "en_US.UTF-8"; };
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+  };
   console = {
     # apply the X keymap to the console keymap, which affects virtual consoles
     # such as tty.
     useXkbConfig = true;
   };
 
-  environment.pathsToLink = [ "/libexec" "/share/zsh" ];
+  environment.pathsToLink = [
+    "/libexec"
+    "/share/zsh"
+  ];
   services = {
     xserver = {
       enable = true;
@@ -32,7 +37,9 @@
         options = "ctrl:nocaps"; # make caps lock a control key
       };
       #displayManager = { defaultSession = "none+i3"; };
-      desktopManager = { xterm.enable = false; };
+      desktopManager = {
+        xterm.enable = false;
+      };
     };
     udev = {
       packages = [ pkgs.yubikey-personalization ];
@@ -68,7 +75,9 @@
     mosh.enable = true;
     less = {
       enable = true;
-      envVariables = { LESS = "--quit-if-one-screen --RAW-CONTROL-CHARS --no-init"; };
+      envVariables = {
+        LESS = "--quit-if-one-screen --RAW-CONTROL-CHARS --no-init";
+      };
     };
   };
   # todo: will this work, or do I need to pass in explicit git hash?
@@ -103,19 +112,31 @@
         # hostname needs to be setup in /root/.ssh/config
         hostName = "tiger.dmz.1ella.com";
         sshUser = "svc.deploy";
-        systems = [ "x86_64-linux" "aarch64-linux" ];
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
         maxJobs = 8;
         speedFactor = 10; # prefer this builder
-        supportedFeatures = [ "benchmark" "big-parallel" ];
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+        ];
       }
       {
         # hostname needs to be setup in /root/.ssh/config
         hostName = "cheetah";
         sshUser = "svc.deploy";
-        systems = [ "x86_64-linux" "aarch64-linux" ];
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
         maxJobs = 4;
         speedFactor = 10;
-        supportedFeatures = [ "benchmark" "big-parallel" ];
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+        ];
       }
     ];
     extraOptions = ''

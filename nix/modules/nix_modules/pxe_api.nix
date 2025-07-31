@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.pxe-api;
+let
+  cfg = config.systemFoundry.pxe-api;
 in
 {
   options.systemFoundry.pxe-api = {

@@ -9,8 +9,7 @@
   users.users."svc.deploy" = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
-    hashedPassword =
-      "$6$XTNiJhQm1$D3M90syVNZdTazCOZIAF8TLK/hD4oSi3Xdst62dCkWR44ia3rujnPx.yWT6BaU4tvu1im5nR20WcjWnhPMTIV/";
+    hashedPassword = "$6$XTNiJhQm1$D3M90syVNZdTazCOZIAF8TLK/hD4oSi3Xdst62dCkWR44ia3rujnPx.yWT6BaU4tvu1im5nR20WcjWnhPMTIV/";
     shell = pkgs.bashInteractive;
     # todo: make a key for just deploys
     openssh.authorizedKeys.keys = [
@@ -24,7 +23,10 @@
       experimental-features = nix-command flakes
     '';
     settings = {
-      trusted-users = [ "root" "@wheel" ]; # todo: security issue?
+      trusted-users = [
+        "root"
+        "@wheel"
+      ]; # todo: security issue?
     };
   };
   security.sudo.wheelNeedsPassword = false;

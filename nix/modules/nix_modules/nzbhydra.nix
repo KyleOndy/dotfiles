@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.nzbhydra2;
+let
+  cfg = config.systemFoundry.nzbhydra2;
 in
 {
   options.systemFoundry.nzbhydra2 = {

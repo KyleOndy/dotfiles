@@ -5,10 +5,11 @@
   inputs.nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
 
   outputs =
-    { nixpkgs
-    , disko
-    , nixos-facter-modules
-    , ...
+    {
+      nixpkgs,
+      disko,
+      nixos-facter-modules,
+      ...
     }:
     {
       # Use this for all other targets

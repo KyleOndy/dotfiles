@@ -1,4 +1,9 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
 let
   cfg = config.hmFoundry.terminal.email;
@@ -13,7 +18,9 @@ in
     programs.msmtp.enable = true;
     programs.notmuch = {
       enable = true;
-      hooks = { preNew = "mbsync --all"; };
+      hooks = {
+        preNew = "mbsync --all";
+      };
       new.tags = [ "new" ];
       hooks = {
         postNew = ''
@@ -33,7 +40,9 @@ in
         };
         imap = {
           host = "london.mxroute.com";
-          tls = { enable = true; };
+          tls = {
+            enable = true;
+          };
         };
         mbsync = {
           enable = true;

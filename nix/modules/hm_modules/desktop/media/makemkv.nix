@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.desktop.media.makemkv;
+let
+  cfg = config.hmFoundry.desktop.media.makemkv;
 in
 {
   options.hmFoundry.desktop.media.makemkv = {

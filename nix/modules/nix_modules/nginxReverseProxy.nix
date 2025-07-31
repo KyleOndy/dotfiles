@@ -1,45 +1,53 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.nginxReverseProxy;
+let
+  cfg = config.systemFoundry.nginxReverseProxy;
 in
 {
   options.systemFoundry.nginxReverseProxy = mkOption {
     default = { };
     description = "nginx reverse proxy instance";
-    type = types.attrsOf (types.submodule {
-      options = {
+    type = types.attrsOf (
+      types.submodule {
+        options = {
 
-        enable = mkEnableOption ''
-          Create an nginx reverse proxy with optional cers
-        '';
-        location = mkOption {
-          type = types.str;
-          default = "/";
-          description = ''
-            loction under domain
+          enable = mkEnableOption ''
+            Create an nginx reverse proxy with optional cers
           '';
+          location = mkOption {
+            type = types.str;
+            default = "/";
+            description = ''
+              loction under domain
+            '';
+          };
+          extraDomainNames = mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            description = "additional cnames to add to cert";
+          };
+          provisionCert = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              provision a cert for this reverse proxy
+            '';
+          };
+          proxyPass = mkOption {
+            type = types.str;
+            description = "path to proxy this domainnam to";
+            example = ''
+              http://127.0.0.1:8989
+            '';
+          };
         };
-        extraDomainNames = mkOption {
-          type = types.listOf types.str;
-          default = [ ];
-          description = "additional cnames to add to cert";
-        };
-        provisionCert = mkOption {
-          type = types.bool;
-          default = false;
-          description = ''
-            provision a cert for this reverse proxy
-          '';
-        };
-        proxyPass = mkOption {
-          type = types.str;
-          description = "path to proxy this domainnam to";
-          example = ''
-            http://127.0.0.1:8989
-          '';
-        };
-      };
-    });
+      }
+    );
   };
 
   config =
@@ -141,42 +149,41 @@ in
                       " -> uri=\"$uri\" \n"
                       "\n";
         '';
-        virtualHosts = lib.attrsets.mapAttrs
-          (name: cfg: {
-            enableACME = cfg.provisionCert;
-            forceSSL = true;
+        virtualHosts = lib.attrsets.mapAttrs (name: cfg: {
+          enableACME = cfg.provisionCert;
+          forceSSL = true;
 
-            # todo: should I make the path configurable?
-            sslCertificate = "/var/lib/acme/${name}/cert.pem";
-            sslCertificateKey = "/var/lib/acme/${name}/key.pem";
-            locations."/" = {
-              proxyPass = cfg.proxyPass;
-              # todo: these may need to be configurable
-              extraConfig = ''
-                # required when the target is also TLS server with multiple hosts
-                proxy_ssl_server_name on;
-                # required when the server wants to use HTTP Authentication
-                proxy_pass_header Authorization;
-                proxy_ssl_verify on;
-              '';
-            };
+          # todo: should I make the path configurable?
+          sslCertificate = "/var/lib/acme/${name}/cert.pem";
+          sslCertificateKey = "/var/lib/acme/${name}/key.pem";
+          locations."/" = {
+            proxyPass = cfg.proxyPass;
+            # todo: these may need to be configurable
             extraConfig = ''
-              access_log /var/log/nginx/${name}.access upstreamlog;
-              error_log /var/log/nginx/${name}.error error;
+              # required when the target is also TLS server with multiple hosts
+              proxy_ssl_server_name on;
+              # required when the server wants to use HTTP Authentication
+              proxy_pass_header Authorization;
+              proxy_ssl_verify on;
             '';
-          })
-          sites;
+          };
+          extraConfig = ''
+            access_log /var/log/nginx/${name}.access upstreamlog;
+            error_log /var/log/nginx/${name}.error error;
+          '';
+        }) sites;
       };
       security.acme = {
-        certs = mapAttrs
-          (name: cfg: { extraDomainNames = cfg.extraDomainNames; })
-          sites;
+        certs = mapAttrs (name: cfg: { extraDomainNames = cfg.extraDomainNames; }) sites;
       };
       users.users.nginx.extraGroups = [ "acme" ];
       sops.secrets.namecheap = {
         owner = "acme";
         group = "acme";
       };
-      networking.firewall.allowedTCPPorts = [ 80 443 ];
+      networking.firewall.allowedTCPPorts = [
+        80
+        443
+      ];
     };
 }

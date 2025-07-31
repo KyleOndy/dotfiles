@@ -1,8 +1,12 @@
-{ config, pkgs, ... }: {
+{ config, pkgs, ... }:
+{
   # configure proprietary drivers
   nixpkgs.config.allowUnfree = true;
   boot.initrd.kernelModules = [ "wl" ];
-  boot.kernelModules = [ "kvm-intel" "wl" ];
+  boot.kernelModules = [
+    "kvm-intel"
+    "wl"
+  ];
   boot.extraModulePackages = [ config.boot.kernelPackages.broadcom_sta ];
 
   # programs that should be available in the installer

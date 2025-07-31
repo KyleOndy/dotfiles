@@ -1,10 +1,11 @@
 # https://github.com/jlesquembre/dotfiles/blob/1e97bcc4d7800a75cf845484f44f9e97c1833d29/overlays/pkgs/vscode-ls/default.nix
-{ lib
-, stdenv
-, makeWrapper
-, nodejs_latest
-, unzip
-, vscode
+{
+  lib,
+  stdenv,
+  makeWrapper,
+  nodejs_latest,
+  unzip,
+  vscode,
 }:
 
 # Adapted from

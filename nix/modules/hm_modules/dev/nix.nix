@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.nix;
+let
+  cfg = config.hmFoundry.dev.nix;
 in
 {
   options.hmFoundry.dev.nix = {
@@ -9,10 +15,9 @@ in
 
   config = mkIf cfg.enable {
     programs.neovim = {
-      plugins = with pkgs.vimPlugins;
-        [
-          vim-nix # https://github.com/LnL7/vim-nix
-        ];
+      plugins = with pkgs.vimPlugins; [
+        vim-nix # https://github.com/LnL7/vim-nix
+      ];
     };
   };
 }

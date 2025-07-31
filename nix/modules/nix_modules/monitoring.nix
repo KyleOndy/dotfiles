@@ -1,5 +1,10 @@
 # todo: replace all duplicated values (ports, dns names, etc) with vars
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
 let
   cfg = config.systemFoundry.monitoring;
@@ -27,12 +32,14 @@ in
         scrapeConfigs = [
           {
             job_name = "hosts";
-            static_configs = [{
-              targets = [
-                "alpha.lan.1ella.com"
-                "util.lan.1ella.com"
-              ];
-            }];
+            static_configs = [
+              {
+                targets = [
+                  "alpha.lan.1ella.com"
+                  "util.lan.1ella.com"
+                ];
+              }
+            ];
           }
         ];
       };
@@ -75,7 +82,11 @@ in
       };
     };
 
-    networking.firewall.allowedTCPPorts = [ 80 443 config.services.grafana.port ];
+    networking.firewall.allowedTCPPorts = [
+      80
+      443
+      config.services.grafana.port
+    ];
     security.acme = {
       certs = {
         "${config.services.grafana.domain}" = {

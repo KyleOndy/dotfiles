@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.sonarr;
+let
+  cfg = config.systemFoundry.sonarr;
 in
 {
   # todo: submodules?
@@ -62,7 +68,6 @@ in
       "aspnetcore-runtime-6.0.36"
       "dotnet-sdk-6.0.428"
     ];
-
 
     systemFoundry.nginxReverseProxy."${cfg.domainName}" = {
       enable = true;

@@ -1,4 +1,9 @@
-{ lib, stdenv, fetchurl, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  pkgs,
+}:
 
 stdenv.mkDerivation {
   pname = "pxe-api";

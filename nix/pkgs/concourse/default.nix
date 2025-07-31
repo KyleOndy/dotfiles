@@ -1,5 +1,10 @@
 # initally taken from https://github.com/NixOS/nixpkgs/blob/531afdf1601550c3bbaccc1af685578ffc4cf83c/pkgs/development/tools/continuous-integration/fly/default.nix
-{ buildGoModule, fetchFromGitHub, stdenv, lib }:
+{
+  buildGoModule,
+  fetchFromGitHub,
+  stdenv,
+  lib,
+}:
 
 buildGoModule rec {
   pname = "concourse";

@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.clojure;
+let
+  cfg = config.hmFoundry.dev.clojure;
 in
 {
   options.hmFoundry.dev.clojure = {
@@ -19,7 +25,7 @@ in
       clojure # core language
 
       # https://github.com/candid82/joker
-      joker #  small Clojure interpreter, linter and formatter
+      joker # small Clojure interpreter, linter and formatter
 
       # https://github.com/technomancy/leiningen
       leiningen # build tooling
@@ -43,7 +49,6 @@ in
           # https://github.com/Olical/aniseed
           { plugin = aniseed; }
 
-
           # https://github.com/clojure-vim/vim-jack-in
           { plugin = vim-jack-in; }
 
@@ -59,8 +64,7 @@ in
           # tpope to the rescue again
           {
             plugin = vim-sexp-mappings-for-regular-people;
-            config = ''
-            '';
+            config = '''';
           }
 
           # https://github.com/PaterJason/nvim-treesitter-sexp

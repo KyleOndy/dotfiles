@@ -1,22 +1,31 @@
-{ lib, stdenv, fetchurl, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  pkgs,
+}:
 
 stdenv.mkDerivation {
   pname = "helios";
   version = "20240205";
 
   propagatedBuildInputs = [
-    (pkgs.python3.withPackages (pythonPackages: with pythonPackages; [
-      colorama
-      flake8
-      gphoto2
-      pillow
-      pytest
-      shellingham
-      typer
-    ]))
+    (pkgs.python3.withPackages (
+      pythonPackages: with pythonPackages; [
+        colorama
+        flake8
+        gphoto2
+        pillow
+        pytest
+        shellingham
+        typer
+      ]
+    ))
   ];
-  nativeBuildInputs = with pkgs; [
-  ];
+  nativeBuildInputs =
+    with pkgs;
+    [
+    ];
 
   src = ./.;
   #phases = [ "installPhase" ];

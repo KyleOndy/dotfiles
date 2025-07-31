@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.systemFoundry.binary_cache;
+let
+  cfg = config.systemFoundry.binary_cache;
 in
 {
   options.systemFoundry.binary_cache = {
@@ -27,5 +33,3 @@ in
     };
   };
 }
-
-

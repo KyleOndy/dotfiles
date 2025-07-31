@@ -1,5 +1,10 @@
 # https://berkeleygraphics.com/
-{ lib, stdenv, fetchurl, pkgs }:
+{
+  lib,
+  stdenv,
+  fetchurl,
+  pkgs,
+}:
 
 pkgs.stdenv.mkDerivation {
   pname = "berkeley-mono";

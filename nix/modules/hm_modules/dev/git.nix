@@ -1,6 +1,12 @@
-{ lib, pkgs, config, ... }:
+{
+  lib,
+  pkgs,
+  config,
+  ...
+}:
 with lib;
-let cfg = config.hmFoundry.dev.git;
+let
+  cfg = config.hmFoundry.dev.git;
 in
 {
   options.hmFoundry.dev.git = {
@@ -292,11 +298,10 @@ in
       '';
     };
 
-    home.packages = with pkgs;
-      [
-        git-crypt
-        git-lfs
-        pre-commit
-      ];
+    home.packages = with pkgs; [
+      git-crypt
+      git-lfs
+      pre-commit
+    ];
   };
 }
