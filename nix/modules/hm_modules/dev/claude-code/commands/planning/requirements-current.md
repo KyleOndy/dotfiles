@@ -1,25 +1,44 @@
+---
+allowed-tools: Read, LS
+description: Display detailed information about the active requirement gathering session
+---
+
 # View Current Requirement
 
-Display detailed information about the active requirement.
+Display detailed information about the active requirement gathering session, including progress, answers, and next steps.
 
-## Instructions:
+## Workflow
 
-1. Read requirements/.current-requirement
-2. If no active requirement:
+1. **Check Active Requirement Status**
 
-   - Show "No active requirement"
-   - Display last 3 completed requirements
-   - Exit
+   - Read requirements/.current-requirement file
+   - Verify if requirement gathering is active
+   - Show "No active requirement" if none exists
 
-3. For active requirement:
-   - Load all files from requirement folder
-   - Display comprehensive status
-   - Show codebase analysis overview
-   - Show all questions and answers so far
-   - Display context findings if available
-   - Indicate current phase and next steps
+2. **Load Requirement Data**
 
-## File Structure:
+   - Read all files from active requirement folder
+   - Parse metadata.json for status and progress
+   - Extract phase information and timestamps
+
+3. **Display Comprehensive Status**
+
+   - Show requirement name and duration
+   - Display current phase and progress metrics
+   - Present initial request and codebase overview
+
+4. **Show Question/Answer History**
+
+   - Display completed discovery questions and answers
+   - Show targeted context findings if available
+   - Present expert requirements questions and answers
+
+5. **Indicate Next Steps**
+   - Suggest continuation with /requirements-status
+   - Offer early completion with /requirements-end
+   - Provide phase-appropriate guidance
+
+## File Structure
 
 - 00-initial-request.md - Original user request
 - 01-discovery-questions.md - Context discovery questions
@@ -29,7 +48,7 @@ Display detailed information about the active requirement.
 - 05-detail-answers.md - User's detailed answers
 - 06-requirements-spec.md - Final requirements document
 
-## Display Format:
+## Display Format
 
 ```
 📋 Current Requirement: [name]
@@ -69,7 +88,7 @@ Q3: Add new API endpoint to routes/api/v1? [PENDING]
 - End early with /requirements-end
 ```
 
-## Important:
+## Important
 
 - This is view-only (doesn't continue gathering)
 - Shows complete history and context

@@ -1,5 +1,6 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Edit, Bash(npm:*), Bash(yarn:*), Bash(make:*), Bash(./bin/*:*)
+argument-hint: [--type api|database|service] [--service service-name]
 description: Create comprehensive integration test suite for API endpoints, database interactions, external services, and inter-component communication
 ---
 
