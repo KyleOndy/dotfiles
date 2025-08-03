@@ -25,8 +25,9 @@ in
         "audio"
         "dialout" # microcontoller dev
         "docker"
-        "wheel" # Enable ‘sudo’ for the user.
         "networkmanager"
+        "render" # gpu access
+        "wheel" # Enable ‘sudo’ for the user.
       ];
       # despite being able to change the password, every time NixOS is rebuild,
       # the password gets reset.

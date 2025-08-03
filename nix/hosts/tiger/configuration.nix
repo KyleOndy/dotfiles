@@ -396,7 +396,10 @@ in
             [[ -d "$WORKING_DIR" ]] || mkdir "$WORKING_DIR"
             echo "$vids" | sort > "$WORKING_DIR/$TODAY.txt"
 
-            old_vids_file=$(fd --type=f . "$WORKING_DIR" | sort -r | sed -n "/$TWO_DAYS_AGO/,//p" | head -n1)
+            temp_file=$(mktemp)
+            fd --type=f --changed-before "$TWO_DAYS_AGO" . "$WORKING_DIR" -0 | xargs -0 -r ls -t1d > "$temp_file" 2>/dev/null || true
+            old_vids_file=$(head -n1 "$temp_file" 2>/dev/null || true)
+            rm -f "$temp_file"
             if ! [[ -f "$old_vids_file" ]]; then
               echo "Can not find an old enough file. We'll try again tomorrow."
               exit 0

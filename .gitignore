@@ -23,3 +23,5 @@ terraform.tfstate.backup
 __pycache__/
 
 .aider*
+
+.nrepl-port
