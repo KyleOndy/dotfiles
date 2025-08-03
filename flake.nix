@@ -40,8 +40,6 @@
       overlays = [
         inputs.nur.overlays.default
         (import ./nix/pkgs)
-        # TODO: this was hacked, need to find a better way
-        #(import ./nix/pkgs/nvim-treesitter-sexp) # TODO: fix nvim-treesitter-sexp
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {
@@ -50,39 +48,20 @@
         })
       ];
 
-      # I am sure this is ugly to experienced nix users, and might break in all
-      # kinds of unexpected ways. This was my first actual function written in
-      # nix, and I never really figured out the repl, this is what I ended up
-      # with.
-      #
-      # This function takes a path, and returns a list of every file under it.
-      #
-      # TODO:
-      #   - filter by .nix
-      #   - handles readDir's `symlink` and `unknown` types
-      #   - is there a better way than (path + ("/" + path))?
-      #   - can this be moved into a library and sourced over inline?
+      # Get all .nix files recursively from a directory
       getModules =
         path:
         let
           lib = inputs.nixpkgs.lib;
-          getNixFilesRec =
-            path:
-            let
-              contents = builtins.readDir path;
-              files = builtins.attrNames (lib.filterAttrs (_: v: v == "regular") contents);
-              dirs = builtins.attrNames (lib.filterAttrs (_: v: v == "directory") contents);
-              nixFiles = lib.filter (p: lib.hasSuffix ".nix" p) files;
-            in
-            # return the path of all files found in this directory
-            (map (p: path + ("/" + p)) nixFiles)
-            ++
-              # pass each directory into this function again
-              (lib.concatMap (d: getNixFilesRec (path + ("/" + d))) dirs);
         in
-        getNixFilesRec path;
+        lib.filter (lib.hasSuffix ".nix") (lib.filesystem.listFilesRecursive path);
 
-      hmModules = getModules ./nix/modules/hm_modules;
+      # Split home-manager modules by category
+      hmCoreModules =
+        getModules ./nix/modules/hm_modules/dev
+        ++ getModules ./nix/modules/hm_modules/shell
+        ++ getModules ./nix/modules/hm_modules/terminal;
+      hmDesktopModules = getModules ./nix/modules/hm_modules/desktop;
       nixModules = getModules ./nix/modules/nix_modules;
 
       supportedSystems = [
@@ -92,6 +71,72 @@
         "aarch64-darwin"
       ];
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
+
+      # Helper function to create nixosSystem configurations
+      mkNixosSystem =
+        {
+          hostname,
+          system ? "x86_64-linux",
+          isDesktop ? false,
+          hasNetboot ? false,
+          hardwareModules ? [ ],
+          includeModules ? [ ],
+          profile ? null,
+          extraConfig ? { },
+        }:
+        inputs.nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules =
+            nixModules
+            ++ hardwareModules
+            ++ includeModules
+            ++ [
+              ./nix/hosts/${hostname}/configuration.nix
+              inputs.sops-nix.nixosModules.sops
+              inputs.home-manager.nixosModules.home-manager
+            ]
+            ++ (if hasNetboot then [ inputs.nix-netboot-serve.nixosModules.nix-netboot-serve ] else [ ])
+            ++ [
+              (
+                {
+                  systemFoundry = {
+                    deployment_target.enable = true;
+                    users.kyle.enable = true;
+                  } // (if isDesktop then { desktop.kde.enable = true; } else { });
+
+                  nixpkgs.overlays = overlays;
+                  home-manager = {
+                    useGlobalPkgs = true;
+                    useUserPackages = true;
+                    sharedModules =
+                      hmCoreModules
+                      ++ (
+                        if isDesktop then
+                          hmDesktopModules
+                          ++ [
+                            inputs.plasma-manager.homeManagerModules.plasma-manager
+                          ]
+                        else
+                          [ ]
+                      );
+                    users.kyle =
+                      let
+                        baseProfile =
+                          if profile != null then
+                            { imports = [ profile ]; }
+                          else if isDesktop then
+                            { imports = [ ./nix/profiles/full.nix ]; }
+                          else
+                            { imports = [ ./nix/profiles/ssh.nix ]; };
+                        extraUserConfig = extraConfig.home-manager.users.kyle or { };
+                      in
+                      baseProfile // extraUserConfig;
+                  };
+                }
+                // (builtins.removeAttrs extraConfig [ "home-manager" ])
+              )
+            ];
+        };
     in
     {
 
@@ -122,142 +167,81 @@
           # `deploy-schema` and `deploy-activate`.
           #
           # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
-          // builtins.mapAttrs (system: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
+          // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
       });
 
       devShells = forAllSystems (system: {
         default = inputs.nixpkgs.legacyPackages.${system}.mkShell {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
           buildInputs = self.checks.${system}.pre-commit-check.enabledPackages;
+
+          # Skip nix flake check in smart-test hook to speed up claude-code
+          CLAUDE_SKIP_NIX_TESTS = "true";
         };
       });
 
       nixosConfigurations = {
-        dino = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
+        dino = mkNixosSystem {
+          hostname = "dino";
+          isDesktop = true;
+          hardwareModules = [
             inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
-            ./nix/hosts/dino/configuration.nix
             ./nix/hosts/dino/hardware-configuration.nix
-
+          ];
+          includeModules = [
             # todo: refactor these into something else
             ./nix/hosts/_includes/common.nix
             ./nix/hosts/_includes/docker.nix
             ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/_includes/laptop.nix
-
-            inputs.sops-nix.nixosModules.sops
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry = {
-                deployment_target.enable = true;
-                users.kyle.enable = true;
-                desktop.kde.enable = true;
-              };
-              # TODO: overwriting for testing pourposes
-              services = {
-                power-profiles-daemon.enable = false; # am using tlp
-                mullvad-vpn.enable = true;
-              };
-              programs.dconf.enable = true; # fw13 dsp
-
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules ++ [
-                  # TODO: make this module available to all machines
-                  inputs.plasma-manager.homeManagerModules.plasma-manager
-                ];
-                users.kyle = {
-                  imports = [ ./nix/profiles/full.nix ];
-
-                  hmFoundry = {
-                    desktop = {
-                      media.latex.enable = true;
-                      wm.kde.enable = true;
-                    };
-                    dev = {
-                      hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
-                      claude-code = {
-                        enable = true;
-                        enableNotifications = true;
-                      };
-                    };
-                  };
-                  # dsp for fw13
-                  services.easyeffects = {
+          ];
+          extraConfig = {
+            services = {
+              power-profiles-daemon.enable = false; # am using tlp
+              mullvad-vpn.enable = true;
+            };
+            programs.dconf.enable = true; # fw13 dsp
+            home-manager.users.kyle = {
+              hmFoundry = {
+                desktop = {
+                  media.latex.enable = true;
+                  wm.kde.enable = true;
+                };
+                dev = {
+                  hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
+                  claude-code = {
                     enable = true;
-                  };
-                  xdg.configFile = {
-                    "easyeffects/output/cab-fw.json" = {
-                      source = "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
-                    };
+                    enableNotifications = true;
                   };
                 };
               };
-            }
-          ];
+              # dsp for fw13
+              services.easyeffects = {
+                enable = true;
+              };
+              xdg.configFile = {
+                "easyeffects/output/cab-fw.json" = {
+                  source = "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
+                };
+              };
+            };
+          };
         };
-        tiger = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/tiger/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry = {
-                deployment_target.enable = true;
-                users.kyle.enable = true;
-              };
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules ++ [
-                  # TODO: make this module available to all machines
-                  inputs.plasma-manager.homeManagerModules.plasma-manager
-                ];
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
-          ];
+        tiger = mkNixosSystem {
+          hostname = "tiger";
+          hasNetboot = true;
+          profile = ./nix/profiles/ssh.nix;
         };
-        cheetah = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = nixModules ++ [
-            ./nix/hosts/cheetah/configuration.nix
-            inputs.sops-nix.nixosModules.sops
-            inputs.nix-netboot-serve.nixosModules.nix-netboot-serve
-            inputs.home-manager.nixosModules.home-manager
-            {
-              systemFoundry = {
-                deployment_target.enable = true;
-                users.kyle.enable = true;
-              };
-              nixpkgs.overlays = overlays;
-              home-manager = {
-                useGlobalPkgs = true;
-                useUserPackages = true;
-                sharedModules = hmModules ++ [
-                  # TODO: make this module available to all machines
-                  inputs.plasma-manager.homeManagerModules.plasma-manager
-                ];
-                users.kyle = import ./nix/profiles/ssh.nix;
-              };
-            }
-          ];
+        cheetah = mkNixosSystem {
+          hostname = "cheetah";
+          hasNetboot = true;
+          profile = ./nix/profiles/ssh.nix;
         };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
             ./nix/iso.nix
             "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-            #inputs.sops-nix.nixosModules.sops
-            #{
-            #  nixpkgs.overlays = overlays;
-            #}
           ];
         };
       };

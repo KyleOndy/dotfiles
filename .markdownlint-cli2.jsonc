@@ -1,0 +1,19 @@
+{
+  // Markdownlint configuration for project
+  "config": {
+    // Allow longer lines for readability
+    "MD013": {
+      "line_length": 120,
+      "code_blocks": false,
+      "tables": false,
+    },
+    // Allow duplicate headings for structured docs
+    "MD024": {
+      "siblings_only": true,
+    },
+    // Allow inline HTML for complex formatting
+    "MD033": false,
+  },
+  // Ignore certain files/patterns
+  "ignores": ["**/node_modules/**", "**/result/**", "**/.git/**"],
+}
