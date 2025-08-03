@@ -2,7 +2,7 @@
 
 Show current requirement gathering progress and continue.
 
-## Instructions:
+## Instructions
 
 1. Read requirements/.current-requirement
 2. If no active requirement:
@@ -17,7 +17,7 @@ Show current requirement gathering progress and continue.
    - Load appropriate question/answer files
    - Continue from last unanswered question
 
-## Status Display Format:
+## Status Display Format
 
 ```
 📋 Active Requirement: [name]
@@ -31,7 +31,7 @@ Next Question:
 [Show next unanswered question with default]
 ```
 
-## Continuation Flow:
+## Continuation Flow
 
 1. Read next unanswered question from file
 2. Present to user with default
@@ -40,7 +40,7 @@ Next Question:
 5. Update metadata progress
 6. Move to next question or phase
 
-## Phase Transitions:
+## Phase Transitions
 
 - Discovery complete → Run context gathering → Generate detail questions
 - Detail complete → Generate final requirements spec

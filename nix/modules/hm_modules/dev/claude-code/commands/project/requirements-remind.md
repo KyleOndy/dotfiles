@@ -2,13 +2,13 @@
 
 Quick correction when deviating from requirements gathering rules.
 
-## Aliases:
+## Aliases
 
 - /requirements-remind
 - /remind
 - /r
 
-## Instructions:
+## Instructions
 
 1. Check requirements/.current-requirement
 2. If no active requirement:
@@ -61,25 +61,25 @@ Phase 4 - Expert Requirements:
 Please continue with the current question or read the next one from the file.
 ```
 
-## Common Correction Scenarios:
+## Common Correction Scenarios
 
-### Open-ended question asked:
+### Open-ended question asked
 
 "Let me rephrase as a yes/no question..."
 
-### Multiple questions asked:
+### Multiple questions asked
 
 "Let me ask one question at a time..."
 
-### Implementation started:
+### Implementation started
 
 "I apologize. Let me continue with requirements gathering..."
 
-### No default provided:
+### No default provided
 
 "Let me add a default for that question..."
 
-## Auto-trigger Patterns:
+## Auto-trigger Patterns
 
 - Detect code blocks → remind no implementation
 - Multiple "?" in response → remind one question

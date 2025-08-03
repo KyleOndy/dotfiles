@@ -2,7 +2,7 @@
 
 Finalize the current requirement gathering session.
 
-## Instructions:
+## Instructions
 
 1. Read requirements/.current-requirement
 2. If no active requirement:
@@ -45,7 +45,7 @@ Finalize the current requirement gathering session.
 - Remove requirement folder
 - Clear .current-requirement
 
-## Final Spec Format:
+## Final Spec Format
 
 ```markdown
 # Requirements Specification: [Name]
