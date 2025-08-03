@@ -234,17 +234,22 @@ fi
 
 # Nix-based testing (flake check)
 if [ -f "flake.nix" ]; then
-    log "Nix flake detected"
-    
-    if command -v nix >/dev/null 2>&1; then
-        log "Running nix flake check..."
-        if nix flake check; then
-            success "Nix: flake check passed"
-        else
-            error "Nix: flake check failed"
-            TESTS_FAILED=$((TESTS_FAILED + 1))
+    # Check if nix tests should be skipped
+    if [[ "${CLAUDE_SKIP_NIX_TESTS:-false}" == "true" ]]; then
+        warn "Nix: flake check skipped (CLAUDE_SKIP_NIX_TESTS=true)"
+    else
+        log "Nix flake detected"
+        
+        if command -v nix >/dev/null 2>&1; then
+            log "Running nix flake check..."
+            if nix flake check; then
+                success "Nix: flake check passed"
+            else
+                error "Nix: flake check failed"
+                TESTS_FAILED=$((TESTS_FAILED + 1))
+            fi
+            TESTS_RUN=$((TESTS_RUN + 1))
         fi
-        TESTS_RUN=$((TESTS_RUN + 1))
     fi
 fi
 
