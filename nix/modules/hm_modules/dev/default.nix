@@ -94,6 +94,7 @@ in
         mbuffer # buffer data streams, use for zfs transfers
         mosh # better ssh
         my-scripts # personal scripts. See `scripts` and `overlay` folder
+        babashka-scripts # babashka scripts for modern scripting
         ncspot # cursors spotify client
         nix-index # find packages
         nixfmt-rfc-style # formatter for nix files
