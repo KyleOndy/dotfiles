@@ -473,7 +473,6 @@ in
       inotify
       MUA
       Neovim
-      netboot
       NixOS
       nixpkgs
       nvme
@@ -482,7 +481,6 @@ in
       plugin
       plugins
       precommit
-      pxe
       ramroot
       rebase
       Reusability

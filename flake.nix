@@ -18,7 +18,6 @@
     nur.url = "github:nix-community/NUR";
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
-    nix-netboot-serve.url = "github:DeterminateSystems/nix-netboot-serve";
     deploy-rs.url = "github:serokell/deploy-rs";
     # https://hydra.nixos.org/job/nixos/trunk-combined/nixos.sd_image.aarch64-linux
     plasma-manager = {
@@ -47,6 +46,15 @@
           };
         })
       ];
+
+      # Profile registry for consistent profile management
+      profiles = {
+        minimal = ./nix/profiles/minimal.nix;
+        server = ./nix/profiles/server.nix;
+        ssh = ./nix/profiles/ssh.nix;
+        workstation = ./nix/profiles/workstation.nix;
+        gaming = ./nix/profiles/gaming.nix;
+      };
 
       # Get all .nix files recursively from a directory
       getModules =
@@ -78,7 +86,6 @@
           hostname,
           system ? "x86_64-linux",
           isDesktop ? false,
-          hasNetboot ? false,
           hardwareModules ? [ ],
           includeModules ? [ ],
           profile ? null,
@@ -95,7 +102,6 @@
               inputs.sops-nix.nixosModules.sops
               inputs.home-manager.nixosModules.home-manager
             ]
-            ++ (if hasNetboot then [ inputs.nix-netboot-serve.nixosModules.nix-netboot-serve ] else [ ])
             ++ [
               (
                 {
@@ -125,9 +131,9 @@
                           if profile != null then
                             { imports = [ profile ]; }
                           else if isDesktop then
-                            { imports = [ ./nix/profiles/full.nix ]; }
+                            { imports = [ profiles.workstation ]; }
                           else
-                            { imports = [ ./nix/profiles/ssh.nix ]; };
+                            { imports = [ profiles.ssh ]; };
                         extraUserConfig = extraConfig.home-manager.users.kyle or { };
                       in
                       baseProfile // extraUserConfig;
@@ -229,13 +235,11 @@
         };
         tiger = mkNixosSystem {
           hostname = "tiger";
-          hasNetboot = true;
-          profile = ./nix/profiles/ssh.nix;
+          profile = profiles.ssh;
         };
         cheetah = mkNixosSystem {
           hostname = "cheetah";
-          hasNetboot = true;
-          profile = ./nix/profiles/ssh.nix;
+          profile = profiles.ssh;
         };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";

@@ -8,7 +8,6 @@ self: super: {
   my-scripts = super.callPackage ./my-scripts { };
   octo = super.callPackage ./octo { };
   pragmata-pro = super.callPackage ./pragmata-pro { };
-  pxe-api = super.callPackage ./pxe-api { };
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   vscode-ls = super.callPackage ./vscode-ls { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
