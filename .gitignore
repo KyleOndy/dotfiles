@@ -25,3 +25,7 @@ __pycache__/
 .aider*
 
 .nrepl-port
+
+# nix closure comparison reports
+*closure*report*.md
+*closure*report*.json
