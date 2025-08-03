@@ -2,18 +2,19 @@
 {
   lib,
   stdenv,
-  fetchurl,
   pkgs,
+  ffmpeg,
 }:
 
 stdenv.mkDerivation {
   pname = "my-scripts";
-  version = "20220226";
+  version = "20250203";
 
-  # todo: don't hardcode this
   src = ./.;
 
-  buildInputs = [ ];
+  buildInputs = [
+    ffmpeg
+  ];
 
   installPhase = ''
     mkdir -p $out/bin
@@ -24,10 +25,10 @@ stdenv.mkDerivation {
     find ./completions \( -type f -o -type l \) \
         -exec cp -pL {} $out/share/zsh/site-functions \;
 
-    sed -i -e "s|source dots_common\.bash|source $out/share/zsh/site-functions/dots_common\.bash|" $out/share/zsh/site-functions/*
+    sed -i -e "s|source dots_common\.bash|source $out/share/zsh/site-functions/dots_common\.bash|" $out/share/zsh/site-functions/* || true
   '';
 
-  meta = with pkgs.lib; {
+  meta = with lib; {
     description = "Kyle Ondy's various scripts";
     homepage = "https://github.com/kyleondy";
     license = licenses.mit;
