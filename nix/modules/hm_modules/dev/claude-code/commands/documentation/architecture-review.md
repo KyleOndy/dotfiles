@@ -1,5 +1,6 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Edit, LS, Glob, Grep, WebFetch
+argument-hint: [--layer data-layer|service-layer|ui-layer] [--focus scalability|security|performance]
 description: Comprehensive architecture documentation and review with system design analysis, component mapping, and technical debt assessment
 ---
 

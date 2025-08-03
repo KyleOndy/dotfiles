@@ -1,6 +1,7 @@
 ---
 allowed-tools: all
-description: Intelligent Claude Code permission management system that analyzes, optimizes, and organizes permissions across settings files
+argument-hint: [--analyze] [--optimize] [--suggest] [--organize]
+description: Analyze and optimize Claude Code permissions across settings files
 ---
 
 # Manage Permissions

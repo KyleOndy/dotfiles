@@ -1,5 +1,6 @@
 ---
-allowed-tools: all
+allowed-tools: Bash(git:*), Read, LS
+argument-hint: [--target-branch branch]
 description: Rewrite git history to ensure clean, logical, and atomic commits with interactive rebase
 ---
 

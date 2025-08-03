@@ -1,6 +1,7 @@
 ---
 allowed-tools: all
-description: Systematic code refactoring analysis with automated detection of code smells, duplication, and improvement opportunities
+argument-hint: [--module module-name] [--focus performance|security|maintainability]
+description: Analyze code for refactoring opportunities with automated smell detection
 ---
 
 # Refactor Analysis

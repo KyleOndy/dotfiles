@@ -1,5 +1,6 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Edit, LS, WebFetch
+argument-hint: [--highlight-features] [--audience developers|users]
 description: Maintain comprehensive README with automatic content generation, project analysis, and documentation best practices
 ---
 

@@ -1,5 +1,6 @@
 ---
 allowed-tools: all
+argument-hint: [--version version] [--examples data-source] [--format openapi|graphql]
 description: Generate comprehensive API documentation with automatic schema extraction, example generation, and interactive documentation
 ---
 

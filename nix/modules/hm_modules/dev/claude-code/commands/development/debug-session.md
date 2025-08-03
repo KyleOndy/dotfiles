@@ -1,6 +1,7 @@
 ---
 allowed-tools: all
-description: Systematic debugging approach with automated issue detection, root cause analysis, and step-by-step resolution
+argument-hint: [--error error-type] [--context context-area] [--type performance|bug|crash]
+description: Debug application errors with guided analysis and systematic resolution
 ---
 
 # Debug Session
