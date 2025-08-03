@@ -1,0 +1,4 @@
+{:deps {org.clojure/tools.cli {:mvn/version "1.0.219"}
+        babashka/fs {:mvn/version "0.5.20"}
+        cheshire/cheshire {:mvn/version "5.11.0"}}
+ :paths ["src"]}
