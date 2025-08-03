@@ -1,105 +1,23 @@
-{ pkgs, config, ... }:
+# SSH profile - development environment with SSH access
+# This profile is suitable for remote development and server administration
+
+{ ... }:
 {
-  programs = {
-    home-manager = {
-      enable = true;
-    };
-    lesspipe.enable = true;
-    ssh = {
-      enable = true;
-      extraConfig = ''
-        IdentitiesOnly yes
-      '';
+  imports = [
+    ./common/base.nix
+    ./common/development.nix
+    ./common/ssh-hosts.nix
+  ];
 
-      matchBlocks = {
-        "pi1" = {
-          hostname = "pi.lan.1ella.com";
-          user = "kyle";
-        };
-        "pi2" = {
-          hostname = "pi2.dmz.1ella.com";
-          user = "kyle";
-        };
-        "pi3" = {
-          hostname = "pi3.dmz.1ella.com";
-          user = "kyle";
-        };
-        "*.compute-1.amazonaws.com" = {
-          extraOptions = {
-            UserKnownHostsFile = "/dev/null";
-            StrictHostKeyChecking = "no";
-          };
-        };
-        "tiger tiger.dmz.1ella.com" = {
-          # 10.25.89.5
-          hostname = "tiger.dmz.1ella.com";
-          user = "kyle";
-          port = 2332;
-        };
-        "dino" = {
-          hostname = "dino.lan.1ella.com";
-          user = "kyle";
-        };
-        "alpha" = {
-          hostname = "alpha.lan.1ella.com";
-          user = "kyle";
-        };
-        "cheetah" = {
-          hostname = "ns100099.ip-147-135-1.us";
-          user = "kyle";
-        };
-      };
-    };
-  };
+  hmFoundry.features = {
+    isDevelopment = true;
+    isDesktop = false;
+    isServer = false;
+    isGaming = false;
 
-  services = {
-    lorri.enable = true;
-  };
-
-  hmFoundry = {
-    # foundry is the namespace I've given to my internal modules
-    dev = {
-      enable = true;
-      clojure.enable = true;
-      python.enable = true;
-      dotnet.enable = false;
-      hashicorp.enable = false;
-      git.enable = true;
-      haskell.enable = false;
-      nix.enable = true;
-      go.enable = true;
-    };
-    shell = {
-      zsh.enable = true;
-      bash.enable = true;
-    };
-    terminal = {
-      email.enable = true;
-      tmux.enable = true;
-      gpg.enable = true;
-      pass.enable = true;
-      editors = {
-        neovim.enable = true;
-      };
-    };
-  };
-
-  # the following configuration should be moved into a module, I am just not sure where it fits right now, so dropping it inline.
-  home = {
-    sessionVariables = {
-      DOTFILES = "${config.home.homeDirectory}/src/dotfiles";
-      FOUNDRY_DATA = "${config.home.homeDirectory}/src/foundry";
-      EDITOR = "nvim";
-      VISUAL = "nvim";
-      # this allows the rest of the nix tooling to use the same nixpkgs that I
-      # have set in the flake.
-      NIX_PATH = "nixpkgs=${pkgs.path}";
-      MANPAGER = "nvim +Man! -- ";
-
-      # TODO: even if we aren't using GPG, we need this set before trying to
-      #       use the GPG module. Race condition I need to fix later.
-      GNUPGHOME = "${config.home.homeDirectory}/.gnupg";
-    };
-    stateVersion = "18.09";
+    # Enable core development features for SSH profile
+    isSystemAdmin = true; # Basic system administration tools
+    isNixDev = true; # Nix development tools
+    isSecurity = true; # Security tools for remote access
   };
 }

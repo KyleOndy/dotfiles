@@ -1,0 +1,52 @@
+# Shared SSH host definitions
+# This file contains all SSH hosts that can be used across different profiles
+
+{ lib, ... }:
+with lib;
+{
+  programs.ssh = {
+    enable = true;
+    extraConfig = ''
+      IdentitiesOnly yes
+    '';
+
+    matchBlocks = {
+      "pi1" = {
+        hostname = "pi.lan.1ella.com";
+        user = "kyle";
+      };
+      "pi2" = {
+        hostname = "pi2.dmz.1ella.com";
+        user = "kyle";
+      };
+      "pi3" = {
+        hostname = "pi3.dmz.1ella.com";
+        user = "kyle";
+      };
+      "*.compute-1.amazonaws.com" = {
+        extraOptions = {
+          UserKnownHostsFile = "/dev/null";
+          StrictHostKeyChecking = "no";
+        };
+      };
+      "tiger tiger.dmz.1ella.com" = {
+        # 10.25.89.5
+        hostname = "tiger.dmz.1ella.com";
+        user = "kyle";
+        port = 2332;
+      };
+      "dino" = {
+        hostname = "dino.lan.1ella.com";
+        user = "kyle";
+      };
+      "alpha" = {
+        hostname = "alpha.lan.1ella.com";
+        user = "kyle";
+      };
+      "cheetah" = {
+        hostname = "ns100099.ip-147-135-1.us";
+        user = "kyle";
+      };
+    };
+  };
+}
