@@ -2,7 +2,7 @@
 
 Begin gathering requirements for: $ARGUMENTS
 
-## Full Workflow:
+## Full Workflow
 
 ### Phase 1: Initial Setup & Codebase Analysis
 
@@ -66,9 +66,9 @@ Begin gathering requirements for: $ARGUMENTS
    - Acceptance criteria
    - Assumptions for any unanswered questions
 
-## Question Formats:
+## Question Formats
 
-### Discovery Questions (Phase 2):
+### Discovery Questions (Phase 2)
 
 ```
 ## Q1: Will users interact with this feature through a visual interface?
@@ -87,7 +87,7 @@ Begin gathering requirements for: $ARGUMENTS
 **Default if unknown:** No (most features require connectivity)
 ```
 
-### Expert Questions (Phase 4):
+### Expert Questions (Phase 4)
 
 ```
 ## Q7: Should we extend the existing UserService at services/UserService.ts?
@@ -97,7 +97,7 @@ Begin gathering requirements for: $ARGUMENTS
 **Default if unknown:** No (based on similar features not requiring schema changes)
 ```
 
-## Important Rules:
+## Important Rules
 
 - ONLY yes/no questions with smart defaults
 - ONE question at a time
@@ -107,7 +107,7 @@ Begin gathering requirements for: $ARGUMENTS
 - Document WHY each default makes sense
 - Use tools available if recommended ones aren't installed or available
 
-## Metadata Structure:
+## Metadata Structure
 
 ```json
 {
@@ -125,7 +125,7 @@ Begin gathering requirements for: $ARGUMENTS
 }
 ```
 
-## Phase Transitions:
+## Phase Transitions
 
 - After each phase, announce: "Phase complete. Starting [next phase]..."
 - Save all work before moving to next phase

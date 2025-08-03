@@ -147,10 +147,11 @@ in
         # we do not just symlink the entire commands dir, if we did we lose the
         # ability to drop arbitrary commands as we are testing them into that
         # dir.
-        ".claude/commands/development/".source = ./commands/development;
-        ".claude/commands/documentation/".source = ./commands/documentation;
-        ".claude/commands/planning/".source = ./commands/planning;
-        ".claude/commands/testing/".source = ./commands/testing;
+        ".claude/commands/code/".source = ./commands/code;
+        ".claude/commands/docs/".source = ./commands/docs;
+        ".claude/commands/git/".source = ./commands/git;
+        ".claude/commands/project/".source = ./commands/project;
+        ".claude/commands/test/".source = ./commands/test;
       })
       # Directory structure (always created)
       // {
