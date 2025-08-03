@@ -131,6 +131,14 @@ in
           source = ./hooks/enhanced-ntfy-notifier.sh;
           executable = true;
         };
+        ".claude/hooks/notification-bell.sh" = {
+          source = ./hooks/notification-bell.sh;
+          executable = true;
+        };
+        ".claude/assets/notification.wav" = {
+          source = ./assets/notification.wav;
+          executable = true;
+        };
         ".claude/settings.json".source = ./settings.json;
         ".claude/CLAUDE.md".source = cfg.projectMemory;
       })

@@ -27,6 +27,17 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/notification-bell.sh",
+            "timeout": 5000
+          }
+        ]
+      }
     ]
   }
 }
