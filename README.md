@@ -1,183 +1,306 @@
-# Kyle's dots and infrastructure
+# Personal Development Infrastructure System
 
-This repository holds all the configuration and assets required to setup
-environments or infrastructure I control.
+A comprehensive, declarative system for managing development environments, personal infrastructure, and configurations across multiple platforms and architectures.
 
-This repository is always in some form of evolution. I do try to keep `main` in
-a working state for people who happen to stumble upon this repo. I make no
-promises however, even to myself.
+This repository defines everything needed to bootstrap and maintain a complete development ecosystem - from individual developer workstations to production servers and homelab infrastructure.
 
-## Setup
+## Features
 
-```
-# install nix
-git clone https://github.com/kyleondy/dotfiles.git ~/src/dotfiles
-cd ~/src/dotfiles
+### 🏗️ **Modular Architecture**
+
+- **Custom namespace system** with `hmFoundry` (Home Manager) and `systemFoundry` (NixOS) modules
+- **Profile-based configuration** for different roles (workstation, server, gaming, minimal)
+- **Multi-platform support** for Linux (x86_64, ARM), macOS (Intel, Apple Silicon)
+- **Sophisticated include system** for shared configurations
+
+### 🤖 **AI-Assisted Development**
+
+- **Claude Code integration** with intelligent hooks for linting, testing, and notifications
+- **Multi-language development workflows** with automatic tool detection
+- **Smart testing and linting** that adapts to project structure
+- **Custom development guidelines** and automated code quality enforcement
+
+### 🔧 **Advanced Tooling**
+
+- **Babashka ecosystem** for custom scripting and automation
+- **Custom package collection** including fonts, tools, and utilities
+- **Infrastructure as Code** with Terraform for cloud resources
+- **Comprehensive secrets management** with SOPS encryption
+
+### 🌐 **Complete Infrastructure Management**
+
+- **Multi-host deployment** with deploy-rs
+- **Service orchestration** for media servers, monitoring, and development tools
+- **Network topology management** with DNS and reverse proxy configuration
+- **Security-first design** with proper firewall, SSH hardening, and secret handling
+
+## Quick Start
+
+### Prerequisites
+
+1. **Install Nix** with flakes enabled:
+
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
+   ```
+
+2. **Clone the repository**:
+
+   ```bash
+   git clone https://github.com/kyleondy/dotfiles.git ~/src/dotfiles
+   cd ~/src/dotfiles
+   ```
+
+### Setup Paths
+
+#### Development Workstation
+
+```bash
+# Enable flakes and direnv
 nix-shell -p direnv
 direnv allow
-make deploy
 
-# post setup
-git clone git@github.com:/kyleondy/password-store.git ~/.password-store
+# Deploy full workstation configuration
+make deploy
 ```
 
-## Tooling
+#### Server/Minimal Setup
 
-I use [NixOS] as my operating system whenever possible. To manage my user
-environment I use [`home-manager`]. I use [flakes] to pin my dependencies.
+```bash
+# Deploy server profile (no desktop environment)
+sudo nixos-rebuild switch --flake .#<hostname>
+```
 
-When I am unable to use [NixOS], I still try and use [home-manager] and use nix
-onto of the OS. On MacOS systems I use [nix-darwin] to manage as much of the
-system as I can.
+#### macOS Setup
 
-I use [terraform] to manage any infrastructure within [AWS].
+```bash
+# Install nix-darwin and deploy
+nix run nix-darwin -- switch --flake .#<hostname>
+```
 
-[nixos]: https://nixos.org/
-[home-manager]: https://github.com/rycee/home-manager
-[flaks]: https://nixos.wiki/wiki/Flakes
-[nix-darwin]: https://github.com/LnL7/nix-darwin
-[terraform]: https://www.terraform.io/
-[aws]: https://aws.amazon.com/
+### Post-Setup
 
-## Structure
+1. **Clone password store** (if using pass):
 
-My use cases:
+   ```bash
+   git clone git@github.com:kyleondy/password-store.git ~/.password-store
+   ```
 
-Multiple node types
+2. **Configure Claude Code** (optional):
 
-- laptop
-- server
-- VM
+   ```bash
+   claude  # Initialize in any project directory
+   ```
 
-Multiple architectures
+## Architecture
 
-- x86_64
-- aarch64-darwin
-- ARM
+### Module Organization
 
-Multiple roles
+```text
+nix/modules/
+├── hm_modules/           # Home Manager modules (user-level)
+│   ├── dev/             # Development tools and environments
+│   ├── desktop/         # Desktop applications and window managers
+│   ├── shell/           # Shell configuration (zsh, bash)
+│   └── terminal/        # Terminal tools and editors
+└── nix_modules/         # NixOS modules (system-level)
+    ├── security/        # Security configurations
+    ├── services/        # System services
+    └── users/           # User account management
+```
 
-- personal
-- work
+### Profile System
 
-Trying to not nest configuration files deeply. Ex, `flake.nix` imports
-`foo.nix` which import `bar.nix` which uses `bazz.nix`. Try to keep everything
-two layers deep. `flake.nix` can reference a file, but that file should not
-reference any deeper.
+- **`minimal`**: Base system with essential tools
+- **`ssh`**: Minimal + SSH access for servers
+- **`server`**: SSH + server services and monitoring
+- **`workstation`**: Full development environment with desktop
+- **`gaming`**: Workstation + gaming tools and optimizations
 
-Nodes have
+### Host Configuration
 
-- system configuration irrespective of a user
-- zero or more users, with their own config
-- the same user on node1 and node2 may have different configurations
+Each host in `nix/hosts/` defines:
 
-Users can have "roles".
+- Hardware-specific configuration
+- Service assignments and networking
+- User profiles and role assignments
+- Environment-specific overrides
 
-- Gaming
-- Dev
-- Document creation
+## Development Philosophy
 
-## Goals
+### Core Principles
 
-### Complete configuration
+> "Stop. The simple solution is usually correct."
 
-To define configuration for everything that plugs into a wall in this single
-repository.
+- **Explicit over implicit**: Clear, readable configurations
+- **Modular design**: Small, focused modules with single responsibilities
+- **Security first**: Proper secrets management and hardening
+- **Reproducible environments**: Deterministic builds across all platforms
 
-### Learning
+### Quality Standards
 
-I may do things the hard way to help me learn things.
+- **Automated testing**: Comprehensive test coverage for infrastructure
+- **Continuous validation**: Pre-commit hooks and CI/CD checks
+- **Documentation**: Every module and configuration is documented
+- **Maintainability**: Regular updates and dependency management
 
-## Non-Goals
+## Repository Structure
 
-The following are things they I feel need to be explicitly called out.
+- **[bin/](./bin/)**: Management scripts and utilities
+- **[docs/](./docs/)**: Detailed documentation and guides
+- **[keyboard/](./keyboard/)**: QMK configuration for custom keyboards
+- **[nix/](./nix/)**: Core Nix/NixOS configuration system
+  - **[hosts/](./nix/hosts/)**: Per-host configurations
+  - **[modules/](./nix/modules/)**: Reusable system and user modules
+  - **[pkgs/](./nix/pkgs/)**: Custom package definitions
+  - **[profiles/](./nix/profiles/)**: Role-based configuration profiles
+- **[notes/](./notes/)**: Infrastructure documentation and planning
+- **[tf/](./tf/)**: Terraform infrastructure definitions
+- **[util/](./util/)**: Additional utilities and tools
 
-### Reference architecture for best practices
+## Available Commands
 
-This repository is my metaphorical tool belt I wear at my day job. Sometimes I
-need to get things done, and I do it without much concern. I will try to leave
-a `// todo:` for the future, but do not assume any confusing code is done for a
-good reason.
+```bash
+make help           # Show all available commands
+make build          # Build configuration for current host
+make deploy         # Deploy configuration to current host
+make update         # Update all flake inputs
+make check          # Run validation checks
+make vm             # Build and run VM for testing
+make cleanup        # Clean up old generations and optimize store
+```
 
-### Reusability
+## Host Types and Roles
 
-To improve how quickly I can iterate, I do not write any of the code in this
-repository with the goal of having it easy for someone to reuse. I am thrilled
-if people can be inspired by my code, but I don't there will be much success
-blindly copying code.
+### Current Infrastructure
 
-## Repository layout
+- **`dino`**: Development workstation (Framework laptop)
 
-This is a top level layout. Each directory should have a README that provides
-more detail.
+  - Full desktop environment with KDE
+  - Complete development toolchain
+  - Claude Code integration with notifications
+  - Gaming and media capabilities
 
-- **[bin/](./bin/)**: scripts used in the management of this repo
-- **[docs/](./docs/)**: detailed documentation on specific topics
-- **[keyboard/](./keyboard/)**: QMK config for my keyboards
-- **[nix/](./nix/)**: configuration for Nix and NixOS
-- **[notes/](./notes/)**: less structured documentation
-- **[tf/](./tf/)**: terraform code
+- **`tiger`**: Home server
 
-## Roadmap / Todo
+  - Media services (Jellyfin, Sonarr, Radarr)
+  - Binary cache and build services
+  - Network storage and backup
 
-This is a running list things that I would like to do in the future, when I
-have time. They are in no specific order, nor are they encompassing.
+- **`cheetah`**: Remote server
+  - Lightweight services
+  - Monitoring and alerting
+  - External access point
 
-### General
+## Advanced Configuration
 
-- look into [nvd](https://gitlab.com/khumba/nvd) as a replacement for `nix-diff`.
-- cleanup old comments that are no longer valid throughout code base
-- use [git worktrees] so large builds do not prevent me from working on other code changes
-- automatically backup unifi console
-- [setup apcupsd to shutdown homelab and tiger. Just leave up network gear util_lan after ~90 seconds of outage](https://brendonmatheson.com/2020/03/21/automated-remote-host-shutdown-with-apcupsd.html)
+### Custom Packages
 
-[git worktrees]: https://git-scm.com/docs/git-worktree
+The repository includes custom packages in `nix/pkgs/`:
 
-#### ZSH
+- **Fonts**: Berkeley Mono, Pragmata Pro
+- **Scripts**: Custom automation and utility scripts
+- **Development tools**: Enhanced versions of standard tools
+- **Babashka projects**: Structured Clojure scripting solutions
 
-- Look into caching with [evalcache](https://github.com/mroth/evalcache)
+### Service Management
 
-### Infrastructure
+Services are configured declaratively:
 
-These are related to hosts opposed to dot files.
+```nix
+# Example: Enable media server stack
+systemFoundry = {
+  services = {
+    jellyfin.enable = true;
+    sonarr.enable = true;
+    radarr.enable = true;
+  };
+};
+```
 
-#### Bootstapping
+### Development Environment
 
-- Be able to run `make netboot` and build a netboot image, and server it via [pixicore]
-- write instructions, and script, on how to install NixOS on hardware
-- Look into [Graham Christensen]'s work with [nix-netboot-serve] (pxe on
-  demand). Possibly combine with [erase your darlings].
+Development tools are organized by language and purpose:
 
-[pixiecore]: https://github.com/danderson/netboot/tree/master/pixiecore
-[graham christensen]: https://twitter.com/grhmc
-[nix-netboot-serve]: https://github.com/DeterminateSystems/nix-netboot-serve
-[erase your darlings]: https://grahamc.com/blog/erase-your-darlings
+```nix
+# Example: Enable development environment
+hmFoundry = {
+  dev = {
+    enable = true;
+    python.enable = true;
+    go.enable = true;
+    claude-code = {
+      enable = true;
+      enableNotifications = true;
+    };
+  };
+};
+```
 
-#### Services
+## Use Cases
 
-- Move tiger to DMZ. Lets me easily server content to internet, build host, apps, binary cache, etc.
-  - IMPLICATION: will need backup ZFS server to PULL from this server since tiget can't reach out to it
-- serve things under `apps.ondy.org`
-- host under `apps.1ella.com`
-  - setup wildcard `*.apps.1ella.com` to DDNS address of home
-    - `sonarr.apps.1ella.com`
-    - `radarr.apps.1ella.com`
-    - `nzbget.apps.1ella.com`
-    - `nzbhydra2.apps.1ella.com`
-    - `jellyfin.apps.1ella.com`
-    - `git.apps.1ella.com`
-    - `concourse.apps.1ella.com`
-    - `hydra.apps.1ella.com`
-- setup vanity urls for `<foo>.ondy.org` as desired in TF
-  - git.ondy.org
-  - jellyfin.ondy.org
-  - nixcache.ondy.org
-  - ci.ondy.org
+### Multi-Node Scenarios
+
+- **Laptop + Server**: Synchronized development environment with remote build capacity
+- **Work + Personal**: Separate profiles with shared base configuration
+- **VM Testing**: Quick environment spinning for testing configurations
+
+### Multi-Architecture Support
+
+- **x86_64-linux**: Primary development and server platform
+- **aarch64-linux**: Raspberry Pi and ARM servers
+- **x86_64-darwin**: Intel Mac support
+- **aarch64-darwin**: Apple Silicon Mac support
+
+## Security
+
+- **Secrets management**: All sensitive data encrypted with SOPS
+- **SSH hardening**: Key-only authentication with proper key management
+- **Firewall configuration**: Minimal attack surface with required ports only
+- **User privilege management**: Principle of least privilege across all systems
+
+## Contributing
+
+This is a personal infrastructure repository, but the patterns and modules may be useful as reference. Key areas of innovation include:
+
+- Modular Nix configuration patterns
+- Multi-platform consistency approaches
+- Development workflow automation
+- Infrastructure as Code practices
+
+## Goals and Non-Goals
+
+### Goals
+
+- **Complete configuration**: Define everything that plugs into a wall
+- **Learning platform**: Experiment with new technologies and approaches
+- **Reproducible environments**: Consistent development experience everywhere
+- **Security by default**: Proper secrets and access management
+
+### Non-Goals
+
+- **Reference architecture**: This prioritizes personal workflow over best practices
+- **General reusability**: Optimized for specific use cases, not broad adoption
+- **Stability guarantees**: Main branch may break as experimentation continues
+
+## Roadmap
+
+Current focus areas include:
+
+- **Enhanced testing**: Automated testing for all configurations
+- **Improved secrets**: Migration to more sophisticated secret management
+- **Service expansion**: Additional homelab and development services
+- **Documentation**: Comprehensive guides for all major components
 
 ## External Resources
 
-These are other people's dotfiles and articles I found useful while setting my environment up.
-This list is in lexicographical order and not exclusive.
+Inspiration and reference materials:
 
 - [Terje Larsen's (terlar) dotfiles](https://github.com/terlar/nix-config)
 - [Utku Demir's (utdemir) dotfiles](https://github.com/utdemir/dotfiles)
+- [NixOS Manual](https://nixos.org/manual/nixos/stable/)
+- [Home Manager Manual](https://nix-community.github.io/home-manager/)
+
+---
+
+_This repository represents years of iteration on development environment management. While primarily personal, the architectural patterns and automation approaches may provide useful reference for others building similar systems._
