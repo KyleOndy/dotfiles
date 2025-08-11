@@ -121,12 +121,17 @@ stdenv.mkDerivation {
     ;; Set up classpath for structured project
     (require '[babashka.classpath :as cp])
 
+    ;; Add shared/common to classpath if it exists
+    (when (.exists (java.io.File. "$out/share/common/src"))
+      (cp/add-classpath "$out/share/common/src"))
+
     ;; Add project src to classpath if it exists
     (when (.exists (java.io.File. "$out/share/$project_name/src"))
       (cp/add-classpath "$out/share/$project_name/src"))
 
-    ;; Load and execute the main script
-    (load-file "$out/share/$project_name/$main_script")
+    ;; Preserve command-line arguments and load the main script
+    (binding [*command-line-args* *command-line-args*]
+      (load-file "$out/share/$project_name/$main_script"))
     EOF
             chmod +x "$out/bin/$project_name"
           fi
