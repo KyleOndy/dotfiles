@@ -226,6 +226,12 @@ in
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/scratch-big/youtube-downloads";
         sleep_between_channels = 180;
+
+        # Conservative defaults - only check 5 most recent videos per channel
+        max_videos_default = 5;
+        max_videos_initial = 30; # First run gets more to populate archive
+        download_shorts = false; # Global default: no shorts
+
         watched_channels = [
           # cycling
           "@BermPeakExpress"
