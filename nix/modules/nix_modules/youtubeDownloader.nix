@@ -11,7 +11,7 @@ in
 {
   options.systemFoundry.youtubeDownloader = {
     enable = mkEnableOption ''
-      Automatacilly download youtube videos and cleanup after watching
+      Automatically download youtube videos and cleanup after watching
     '';
     media_dir = mkOption {
       type = types.path;
@@ -25,7 +25,7 @@ in
     };
     temp_dir = mkOption {
       type = types.path;
-      description = "Directory to temparary files";
+      description = "Directory to temporary files";
       default = "${cfg.data_dir}/temp";
     };
     delete_grace_period = mkOption {
@@ -34,99 +34,100 @@ in
       default = "36 hours";
     };
     watched_channels = mkOption {
-      type = types.listOf types.str;
-      description = "List of channels in @channel_name to watch";
+      type = types.listOf (types.either types.str types.attrs);
+      description = "List of channels as strings or detailed configs";
+      example = [
+        "@regularChannel"
+        {
+          name = "@burstyChannel";
+          max_videos = 20;
+          download_shorts = true;
+        }
+      ];
     };
     sleep_between_channels = mkOption {
       type = types.int;
-      description = "Seconds to sleep between channel downloads.";
+      description = "Seconds to sleep between channel downloads";
       default = 60;
+    };
+    download_shorts = mkOption {
+      type = types.bool;
+      description = "Global default for downloading YouTube Shorts (can be overridden per channel)";
+      default = false;
+    };
+    max_videos_default = mkOption {
+      type = types.int;
+      description = ''
+        Default number of recent videos to check per channel.
+        This limits how far back yt-dlp looks, reducing API calls.
+        Videos already in the archive are skipped automatically.
+      '';
+      default = 5;
+    };
+    max_videos_initial = mkOption {
+      type = types.int;
+      description = ''
+        Number of videos to check on first run (when archive is empty).
+        After initial population, max_videos_default is used.
+      '';
+      default = 30;
     };
   };
 
   config = mkIf cfg.enable {
+
+    # Add babashka-scripts to system packages
+    environment.systemPackages = [ pkgs.babashka-scripts ];
 
     systemd = {
       services.yt-dowload-and-clean = {
         enable = true;
         description = "Downloads Youtube videos and cleans up Jellyfin";
         startAt = "*-*-* 4:00:00"; # 4 am
+
+        # Set environment variables for the Babashka script
+        environment =
+          let
+            # Normalize channels to always be objects with complete settings
+            normalizedChannels = map (
+              ch:
+              if builtins.isString ch then
+                {
+                  name = ch;
+                  download_shorts = cfg.download_shorts;
+                  max_videos = cfg.max_videos_default;
+                }
+              else
+                {
+                  name = ch.name;
+                  download_shorts = ch.download_shorts or cfg.download_shorts;
+                  max_videos = ch.max_videos or cfg.max_videos_default;
+                }
+            ) cfg.watched_channels;
+          in
+          {
+            YT_MEDIA_DIR = cfg.media_dir;
+            YT_DATA_DIR = cfg.data_dir;
+            YT_TEMP_DIR = cfg.temp_dir;
+            YT_CHANNELS = builtins.toJSON normalizedChannels;
+            YT_DOWNLOAD_SHORTS_DEFAULT = if cfg.download_shorts then "true" else "false";
+            YT_MAX_VIDEOS_DEFAULT = toString cfg.max_videos_default;
+            YT_MAX_VIDEOS_INITIAL = toString cfg.max_videos_initial;
+            YT_DELETE_GRACE_PERIOD = cfg.delete_grace_period;
+            YT_SLEEP_BETWEEN_CHANNELS = toString cfg.sleep_between_channels;
+          };
+
+        # Add required tools to PATH
         path = with pkgs; [
-          fd
-          ripgrep
+          yt-dlp
           rsync
-          master.yt-dlp
+          coreutils # for du
         ];
+
+        # Simple script execution - the Babashka script handles everything
         script = ''
           mkdir -p "${cfg.temp_dir}"
-
-          main() {
-            echo "yt-dlp version: $(yt-dlp --version)" # for debugging
-            # TODO: Break out the cleanup process to own service
-            # remove watched episodes. this will remove anything that has been started.
-            #echo "==> REMOVING THE FOLLOWING"
-            #while IFS= read -r -d $'\0' file; do
-            #  if [[ -f "$file" ]]; then
-            #    rm -v "$file"
-            #  fi
-            #done < <(journalctl --since="-1 week" --until="-${cfg.delete_grace_period}" -u jellyfin.service | rg --null-data --only-matching --replace='$1' 'file:"(/mnt/media/yt.*?)" -threads')
-            #echo "==> DONE REMOVING"
-
-            # Download new videos
-            echo '${concatStringsSep " " cfg.watched_channels}' \
-            | xargs -- shuf -e | while read channel; do
-              download "$channel"
-              echo "Sleeping for ${toString cfg.sleep_between_channels} seconds to look less like a bot"
-              sleep ${toString cfg.sleep_between_channels}
-            done
-
-            # move into jellyfin dir
-            if [[ -z $(ls -A "${cfg.temp_dir}"/* 2>/dev/null) ]]; then
-              echo "No downloads"
-            else
-              rsync -ahv --remove-source-files "${cfg.temp_dir}"/* "${cfg.media_dir}"
-            fi
-
-            # remove leftovers from incomplete downloads
-            fd \
-              --extension=part \
-              --extension="temp.webm" \
-              --extension=meta \
-              --extension=en.vtt \
-              . /mnt/media/yt -x rm
-            fd --type=f 'f[0-9]+\.webm' "${cfg.media_dir}" -x rm
-
-            # remove empty dirs
-            fd --type=empty --type=directory . "${cfg.media_dir}" "${cfg.temp_dir}" -x rmdir
-
-            # TODO: start sync of jellyfin media library
-            # curl -v -X GET -H "X-MediaBrowser-Token: TOKEN" https://jellyfin.tld/library/refresh
-
-            vids=$(fd --type=f . "${cfg.media_dir}" -x echo '{/}' | sort)
-            echo "total videos: $(echo "$vids" | wc -l)"
-          }
-
-          download() {
-            local channel_name=$1
-            echo "downloading: https://www.youtube.com/$channel_name"
-            yt-dlp "https://www.youtube.com/$channel_name" \
-              --quiet \
-              --download-archive "${cfg.data_dir}/youtube-dl-seen.conf" \
-              --prefer-free-formats \
-              --format 'bestvideo[format_note!*=Premium]+bestaudio' \
-              --ignore-errors \
-              --mark-watched \
-              --write-auto-sub \
-              --embed-subs \
-              --embed-metadata \
-              --parse-metadata "$TITLE:%(title)s" \
-              --compat-options no-live-chat \
-              --match-filter "!is_live" \
-              --playlist-end 25 \
-              --output "${cfg.temp_dir}/%(uploader)s/%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s" || true
-          }
-
-          main
+          exec ${pkgs.babashka-scripts}/bin/youtube-downloader
         '';
       };
       timers.yt-dowload-and-clean.timerConfig.RandomizedDelaySec = "15m";

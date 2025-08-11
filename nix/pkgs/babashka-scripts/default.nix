@@ -4,7 +4,6 @@
   stdenv,
   pkgs,
   babashka,
-  ffmpeg,
 }:
 
 let
@@ -15,12 +14,15 @@ in
 
 buildBabashkaScripts {
   pname = "babashka-scripts";
-  version = "20250203";
+  version = "20250811";
 
   src = ./.;
 
-  buildInputs = [
+  buildInputs = with pkgs; [
+    coreutils # Required for du command
     ffmpeg # Required for media processing scripts
+    master.yt-dlp # Required for YouTube downloader
+    rsync # Required for file moving
   ];
 
   meta = with lib; {

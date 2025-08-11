@@ -118,6 +118,9 @@ stdenv.mkDerivation {
             cat > "$out/bin/$project_name" << EOF
     #!${babashka}/bin/bb
 
+    ;; Build-time version information
+    (def *build-version* "${version}")
+
     ;; Set up classpath for structured project
     (require '[babashka.classpath :as cp])
 
