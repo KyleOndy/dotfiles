@@ -238,7 +238,6 @@ in
           "@bike2reality814"
           "@BIKEPACKINGcom"
           "@BikePak"
-          "@blacklinecoaching6925"
           "@chadweberg1" # Chad Weberg
           "@ChumbaUSABikes"
           "@Cycling366"
