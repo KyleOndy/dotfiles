@@ -44,7 +44,8 @@
                    "--parse-metadata" "%(title)s:%(title)s"
                    "--compat-options" "no-live-chat"
                    "--playlist-end" (str (:max-videos channel-config))
-                   "--output" output-template]
+                   "--output" output-template
+                   "--print" "before_dl:Downloading: %(title)s [%(id)s]"]
 
         ;; Filters
         filter-opts (when-let [filters (build-channel-filters channel-config)]
