@@ -125,12 +125,12 @@
                                    :or {max-attempts 3}}]
   (let [cmd (build-yt-dlp-command channel-config global-config)]
     (loop [attempt 0]
-      (when (:verbose global-config)
-        (println (format "  Attempt %d/%d for %s (max %d videos)"
-                         (inc attempt)
-                         max-attempts
-                         (:name channel-config)
-                         (:max-videos channel-config))))
+      ;; Always show attempts for systemd logs
+      (println (format "  Attempt %d/%d for %s (max %d videos)"
+                       (inc attempt)
+                       max-attempts
+                       (:name channel-config)
+                       (:max-videos channel-config)))
 
       (let [result (if (:dry-run global-config)
                      (do
@@ -142,8 +142,8 @@
           ;; Success
           (zero? (:exit result))
           (do
-            (when (:verbose global-config)
-              (println (format "  ✓ Successfully processed %s" (:name channel-config))))
+            ;; Always show success for systemd logs
+            (println (format "  ✓ Successfully processed %s" (:name channel-config)))
             result)
 
           ;; Check if we should retry
@@ -152,7 +152,10 @@
             (println (format "  ✗ Failed after %d attempts for %s"
                              max-attempts
                              (:name channel-config)))
-            result)
+            ;; Include error info in the result for summary
+            (assoc result
+                   :error-type (:type (parse-download-error (:err result)))
+                   :error-msg (first (str/split-lines (:err result)))))
 
           ;; Parse error and decide on retry
           :else
@@ -169,21 +172,24 @@
                   (add-to-skip-list (:data-dir global-config)
                                     video-id
                                     (name (:type error-info))))
-                (do
-                  (println (format "  ⚠ Skipping due to %s error: %s"
+                ;; Always show error details for systemd logs
+                (let [error-lines (str/split-lines (:err result))
+                      key-error (or (last (filter #(re-find #"ERROR|Error|error" %) error-lines))
+                                    (last error-lines))]
+                  (println (format "  ⚠ Skipping %s | Type: %s | Error: %s"
+                                   (:name channel-config)
                                    (:type error-info)
-                                   (:name channel-config)))
-                  ;; Show actual error details for debugging
-                  (when (or (:verbose global-config) (= :unknown (:type error-info)))
-                    (println (format "  Error details: %s"
-                                     (str/replace (:err result) #"\n" " | ")))))
-                result))))))))
+                                   (str/replace key-error #"\n" " "))))
+                (assoc result
+                       :error-type (:type error-info)
+                       :error-msg (first (str/split-lines (:err result))))))))))))
 
 (defn download-channel
   "Download videos from a single channel"
   [channel-config global-config]
-  (println (format "\nProcessing channel: %s" (:name channel-config)))
-  (println (format "  Settings: max=%d videos, shorts=%s"
+  ;; Single line channel info for systemd logs
+  (println (format "\nProcessing %s: max=%d videos, shorts=%s"
+                   (:name channel-config)
                    (:max-videos channel-config)
                    (:download-shorts channel-config)))
 
@@ -199,9 +205,9 @@
       (let [delay-ms (anti-bot/random-delay
                       (get-in global-config [:sleep-between-videos :min])
                       (get-in global-config [:sleep-between-videos :max]))]
-        (when (:verbose global-config)
-          (println (format "  Sleeping %d seconds between videos..."
-                           (/ delay-ms 1000))))))
+        ;; Always show sleep for systemd logs
+        (println (format "  Sleeping %d seconds between videos..."
+                         (/ delay-ms 1000)))))
 
     result))
 
