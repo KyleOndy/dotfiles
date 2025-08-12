@@ -84,8 +84,7 @@
           ;; Sleep between channels (unless it's the last one)
           (when (and (seq rest-channels)
                      (not (:dry-run config)))
-            (when verbose
-              (println (format "\nSleeping %d seconds before next channel..." delay-seconds)))
+            (println (format "\nSleeping %d seconds before next channel..." delay-seconds))
             (Thread/sleep (* 1000 delay-seconds)))
 
           (recur rest-channels (inc channel-index) new-results))))))
