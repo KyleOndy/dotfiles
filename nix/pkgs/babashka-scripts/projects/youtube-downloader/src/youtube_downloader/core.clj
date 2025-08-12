@@ -15,22 +15,22 @@
                   (if-let [build-version (resolve '*build-version*)]
                     @build-version
                     "dev")
-                  (catch Exception _ "dev"))]
-    (println (format "=== YouTube Downloader v%s ===" version)))
-  (println (format "yt-dlp version: %s"
-                   (try
-                     (str/trim (:out (proc/run-command ["yt-dlp" "--version"]
-                                                       :throw? false
-                                                       :timeout 5000)))
-                     (catch Exception _ "unknown"))))
-  (println (format "Channels configured: %d" (count (:channels config))))
-  (println (format "Media directory: %s" (:media-dir config)))
-  (println (format "Archive exists: %s" (:archive-exists? config)))
-  (when (:dry-run config)
-    (println "*** DRY RUN MODE - No actual downloads ***"))
-  (when (:verbose config)
-    (println "*** VERBOSE MODE ***"))
-  (println))
+                  (catch Exception _ "dev"))
+        yt-dlp-version (try
+                         (str/trim (:out (proc/run-command ["yt-dlp" "--version"]
+                                                           :throw? false
+                                                           :timeout 5000)))
+                         (catch Exception _ "unknown"))
+        mode (cond
+               (:dry-run config) " | Mode: DRY RUN"
+               :else "")]
+    (println (format "YouTube Downloader v%s | yt-dlp: %s | Channels: %d | Media: %s | Archive: %s%s"
+                     version
+                     yt-dlp-version
+                     (count (:channels config))
+                     (:media-dir config)
+                     (:archive-exists? config)
+                     mode))))
 
 (defn print-channel-summary
   "Print summary of channel configurations"
@@ -46,15 +46,14 @@
 (defn download-all-channels
   "Download videos from all configured channels"
   [config]
-  (let [{:keys [channels verbose sleep-between-channels]} config
+  (let [{:keys [channels sleep-between-channels]} config
         shuffled-channels (anti-bot/shuffle-channels channels)
         total-channels (count shuffled-channels)]
 
-    (when verbose
-      (println (format "Processing %d channels in random order:" total-channels))
-      (doseq [ch shuffled-channels]
-        (println (format "  %s" (:name ch))))
-      (println))
+    ;; Always show processing order for systemd logs
+    (println (format "Processing %d channels (random order): %s"
+                     total-channels
+                     (str/join ", " (map :name shuffled-channels))))
 
     (println "=== Starting Downloads ===")
 
@@ -92,25 +91,20 @@
 (defn print-results-summary
   "Print summary of download results"
   [results config]
-  (println "\n=== Download Summary ===")
-
   (let [successful (filter #(zero? (:exit %)) results)
-        failed (filter #(not (zero? (:exit %))) results)]
-
-    (println (format "Channels processed: %d" (count results)))
-    (println (format "Successful: %d" (count successful)))
-    (println (format "Failed: %d" (count failed)))
-
-    ;; Show failed channels
-    (when (seq failed)
-      (println "\nFailed channels:")
-      (doseq [{:keys [channel exit]} failed]
-        (println (format "  %s (exit code: %d)" channel exit))))
-
-    ;; Count new downloads
-    (let [new-downloads (cleaner/count-total-videos (:temp-dir config))]
-      (when (pos? new-downloads)
-        (println (format "\nNew downloads: %d files" new-downloads))))))
+        failed (filter #(not (zero? (:exit %))) results)
+        new-downloads (cleaner/count-total-videos (:temp-dir config))
+        failed-list (when (seq failed)
+                      (str " | Failed: "
+                           (str/join ", "
+                                     (map #(format "%s (exit %d)" (:channel %) (:exit %))
+                                          failed))))]
+    (println (format "\nDownload Summary: %d processed | %d successful | %d failed | %d new files%s"
+                     (count results)
+                     (count successful)
+                     (count failed)
+                     new-downloads
+                     (or failed-list "")))))
 
 (defn validate-prerequisites
   "Check that required tools are available"
@@ -126,9 +120,9 @@
   [error config]
   (println (format "\n❌ Error: %s" (.getMessage error)))
 
-  (when (:verbose config)
-    (println "\nStack trace:")
-    (.printStackTrace error))
+  ;; Always show stack trace for debugging in systemd logs
+  (println "\nStack trace:")
+  (.printStackTrace error)
 
   ;; Log error to file
   (try
@@ -159,9 +153,8 @@
       ;; Check prerequisites
       (validate-prerequisites)
 
-      ;; Print additional verbose info
-      (when (:verbose config)
-        (print-channel-summary (:channels config)))
+      ;; Always show channel summary for systemd logs
+      (print-channel-summary (:channels config))
 
       ;; Download from all channels
       (let [results (download-all-channels config)]
@@ -195,4 +188,4 @@
 (defn dry-run-mode
   "Run in dry-run mode to test configuration"
   []
-  (run-download-session :config-override {:dry-run true :verbose true}))
+  (run-download-session :config-override {:dry-run true}))
