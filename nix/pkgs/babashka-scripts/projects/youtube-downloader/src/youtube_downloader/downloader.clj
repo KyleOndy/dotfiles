@@ -196,20 +196,8 @@
   ;; Ensure temp directory exists
   (fs/create-dirs (:temp-dir global-config))
 
-  ;; Download with retry logic
-  (let [result (download-with-retry channel-config global-config)]
-
-    ;; Random delay between videos within the channel
-    (when (and (zero? (:exit result))
-               (not (:dry-run global-config)))
-      (let [delay-ms (anti-bot/random-delay
-                      (get-in global-config [:sleep-between-videos :min])
-                      (get-in global-config [:sleep-between-videos :max]))]
-        ;; Always show sleep for systemd logs
-        (println (format "  Sleeping %d seconds between videos..."
-                         (/ delay-ms 1000)))))
-
-    result))
+  ;; Download with retry logic - yt-dlp handles sleep between actual downloads
+  (download-with-retry channel-config global-config))
 
 (defn count-downloads
   "Count new downloads in temp directory"
