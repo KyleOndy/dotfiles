@@ -11,8 +11,9 @@
   "Build yt-dlp match filters based on channel configuration"
   [channel-config]
   (let [filters (cond-> []
-                  ;; Always skip private videos
-                  true (conj "!is_private")
+                  ;; Basic availability filtering - start minimal
+                  true (conj "!is_private"
+                             "availability=public")
 
                   ;; Skip shorts if not wanted
                   (not (:download-shorts channel-config))
@@ -20,6 +21,35 @@
 
     (when (seq filters)
       (str/join " & " filters))))
+
+(defn load-skip-list
+  "Load video IDs from skip list that should be permanently excluded"
+  [data-dir]
+  (let [skip-file (str data-dir "/skip-list.txt")
+        ;; Only skip permanent failures, not temporary network issues
+        permanent-failures #{:unavailable :private :members-only
+                             :copyright :not-found :age-restricted
+                             :geo-blocked}]
+    (if (fs/exists? skip-file)
+      (try
+        (->> (slurp skip-file)
+             str/split-lines
+             (map #(str/split % #"\t"))
+             ;; Parse format: timestamp\tvideo-id\treason
+             (filter #(>= (count %) 3))
+             ;; Only include permanent failure types
+             (filter #(contains? permanent-failures (keyword (nth % 2))))
+             ;; Extract video IDs
+             (map second)
+             ;; Deduplicate
+             distinct
+             ;; Limit to recent 100 to avoid command line length issues
+             (take 100)
+             vec)
+        (catch Exception e
+          (println (format "Warning: Could not load skip list: %s" (.getMessage e)))
+          []))
+      [])))
 
 (defn build-yt-dlp-command
   "Build the yt-dlp command with all options"
@@ -47,9 +77,21 @@
                    "--output" output-template
                    "--print" "before_dl:Downloading: %(title)s [%(id)s]"]
 
-        ;; Filters
-        filter-opts (when-let [filters (build-channel-filters channel-config)]
-                      ["--match-filter" filters])
+        ;; Build combined filters (channel filters + skip list)
+        channel-filters (build-channel-filters channel-config)
+        skip-list (load-skip-list (:data-dir global-config))
+        skip-filters (when (seq skip-list)
+                       (str/join " & " (map #(str "id!='" % "'") skip-list)))
+        all-filters (cond
+                      (and channel-filters skip-filters)
+                      (str channel-filters " & " skip-filters)
+
+                      channel-filters channel-filters
+                      skip-filters skip-filters
+                      :else nil)
+
+        filter-opts (when all-filters
+                      ["--match-filter" all-filters])
 
         ;; Anti-bot options
         stealth-opts (anti-bot/build-stealth-args (:data-dir global-config))]
