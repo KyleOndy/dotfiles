@@ -89,7 +89,6 @@ Rewriting git history back to `main` or another target branch to ensure clean, l
 ## Analysis Phase
 
 1. **Chat History Examination**
-
    - Summarize current chat history for important context
    - Identify root intentions behind the changes
    - Note any "one-off" quick fixes that should be separate commits
@@ -100,7 +99,6 @@ Rewriting git history back to `main` or another target branch to ensure clean, l
    !`git log --stat main..HEAD`
 
    Based on the above output, identify commits that should be:
-
    - **Squashed together**: Related changes that belong in one commit
    - **Split apart**: Mixed concerns that need separation
    - **Reordered**: Logical sequence improvements
@@ -160,7 +158,6 @@ Rewriting git history back to `main` or another target branch to ensure clean, l
    ```
 
 4. **Handle Each Rebase Step**
-
    - **For `reword`**: Editor opens → Edit message → Save and close
    - **For `edit`**: Make changes → `git add` → `git commit --amend` → `git rebase --continue`
    - **For `squash`**: Editor opens with combined messages → Edit → Save and close

@@ -18,35 +18,30 @@ Systematic code refactoring analysis with automated detection of code smells, du
 ## Workflow
 
 1. **Code Smell Detection**
-
    - Identify long methods and large classes
    - Detect duplicate code patterns
    - Find complex conditional logic
    - Spot inappropriate coupling
 
 2. **Architecture Analysis**
-
    - Review module dependencies
    - Identify circular dependencies
    - Analyze layer violations
    - Check separation of concerns
 
 3. **Performance Analysis**
-
    - Identify performance bottlenecks
    - Detect inefficient algorithms
    - Find memory usage issues
    - Review database query patterns
 
 4. **Maintainability Assessment**
-
    - Calculate code complexity metrics
    - Assess test coverage gaps
    - Review documentation quality
    - Analyze change frequency patterns
 
 5. **Refactoring Recommendations**
-
    - Prioritize refactoring opportunities
    - Assess risk levels for each change
    - Provide step-by-step implementation plans

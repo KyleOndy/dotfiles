@@ -108,7 +108,8 @@
                   systemFoundry = {
                     deployment_target.enable = true;
                     users.kyle.enable = true;
-                  } // (if isDesktop then { desktop.kde.enable = true; } else { });
+                  }
+                  // (if isDesktop then { desktop.kde.enable = true; } else { });
 
                   nixpkgs.overlays = overlays;
                   home-manager = {

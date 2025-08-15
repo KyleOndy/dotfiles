@@ -73,7 +73,6 @@ hmFoundry.dev.claude-code = {
    ```
 
 2. **The module automatically configures**:
-
    - Smart linting hooks that run after file modifications
    - Intelligent test execution
    - Desktop notifications (if enabled)

@@ -12,7 +12,6 @@ Quick correction when deviating from requirements gathering rules.
 
 1. Check requirements/.current-requirement
 2. If no active requirement:
-
    - Show "No active requirement gathering session"
    - Exit
 

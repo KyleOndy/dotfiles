@@ -6,7 +6,6 @@ Finalize the current requirement gathering session.
 
 1. Read requirements/.current-requirement
 2. If no active requirement:
-
    - Show "No active requirement to end"
    - Exit
 

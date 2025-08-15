@@ -18,21 +18,18 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
 ## Workflow
 
 1. **Load Current Settings**
-
    - Read .claude/settings.json (shared team settings)
    - Read .claude/settings.local.json (personal settings)
    - Extract permissions arrays and MCP configurations
    - Identify all unique permission patterns
 
 2. **Analyze Permission Patterns**
-
    - Parse each permission string (e.g., "Bash(git:\*)")
    - Extract tool name and pattern
    - Build hierarchy of permission coverage
    - Identify wildcard patterns and their scope
 
 3. **Detect Redundancies**
-
    - Find permissions covered by wildcards
      - Example: "Bash(git:_)" covers "Bash(git add:_)", "Bash(git commit:\*)"
    - Identify duplicate permissions across files
@@ -40,7 +37,6 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
    - Detect unused or outdated permission patterns
 
 4. **Categorize Permissions**
-
    - **Version Control**: git, svn operations
    - **Build Tools**: make, npm, yarn, cargo, etc.
    - **File Operations**: ls, find, grep, cat
@@ -51,7 +47,6 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
    - **Other**: uncategorized permissions
 
 5. **Optimization Suggestions**
-
    - Propose wildcard consolidations
      - Multiple "Bash(git ...)" → "Bash(git:\*)"
      - Multiple "./bin/script" → "Bash(./bin/_:_)"
@@ -60,7 +55,6 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
    - Identify overly broad permissions to narrow
 
 6. **Generate Recommendations**
-
    - Create optimized settings.json configuration
    - List permissions to keep in settings.local.json
    - Provide migration commands/instructions

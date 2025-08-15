@@ -175,14 +175,12 @@ make cleanup        # Clean up old generations and optimize store
 ### Current Infrastructure
 
 - **`dino`**: Development workstation (Framework laptop)
-
   - Full desktop environment with KDE
   - Complete development toolchain
   - Claude Code integration with notifications
   - Gaming and media capabilities
 
 - **`tiger`**: Home server
-
   - Media services (Jellyfin, Sonarr, Radarr)
   - Binary cache and build services
   - Network storage and backup
