@@ -10,25 +10,21 @@ Display detailed information about the active requirement gathering session, inc
 ## Workflow
 
 1. **Check Active Requirement Status**
-
    - Read requirements/.current-requirement file
    - Verify if requirement gathering is active
    - Show "No active requirement" if none exists
 
 2. **Load Requirement Data**
-
    - Read all files from active requirement folder
    - Parse metadata.json for status and progress
    - Extract phase information and timestamps
 
 3. **Display Comprehensive Status**
-
    - Show requirement name and duration
    - Display current phase and progress metrics
    - Present initial request and codebase overview
 
 4. **Show Question/Answer History**
-
    - Display completed discovery questions and answers
    - Show targeted context findings if available
    - Present expert requirements questions and answers

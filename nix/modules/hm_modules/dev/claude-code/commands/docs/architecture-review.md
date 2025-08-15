@@ -18,35 +18,30 @@ Comprehensive architecture documentation and review with system design analysis,
 ## Workflow
 
 1. **System Architecture Analysis**
-
    - Map system components and services
    - Analyze inter-service communication patterns
    - Document data flow and processing pipelines
    - Identify architectural patterns and styles
 
 2. **Component Documentation**
-
    - Document individual component responsibilities
    - Map component dependencies and interfaces
    - Analyze coupling and cohesion patterns
    - Identify reusable components and libraries
 
 3. **Technical Debt Assessment**
-
    - Identify architectural inconsistencies
    - Analyze code quality and maintainability
    - Document technical debt and improvement opportunities
    - Assess scalability and performance bottlenecks
 
 4. **Documentation Generation**
-
    - Create architecture diagrams and visualizations
    - Generate component interaction diagrams
    - Document API contracts and interfaces
    - Create deployment and infrastructure diagrams
 
 5. **Review and Recommendations**
-
    - Assess architecture against industry best practices
    - Identify improvement opportunities
    - Document architectural decisions and rationale

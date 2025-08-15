@@ -17,35 +17,30 @@ Comprehensive test suite generation with unit, integration, and end-to-end tests
 ## Workflow
 
 1. **Code Analysis**
-
    - Analyze function signatures and interfaces
    - Identify public APIs and entry points
    - Map dependencies and external services
    - Detect edge cases and error conditions
 
 2. **Test Strategy Planning**
-
    - Determine test types needed (unit, integration, e2e)
    - Identify testing boundaries and isolation points
    - Plan mock strategies for dependencies
    - Define test data requirements
 
 3. **Unit Test Generation**
-
    - Generate tests for individual functions
    - Create positive and negative test cases
    - Add boundary condition testing
    - Include error handling verification
 
 4. **Integration Test Creation**
-
    - Test component interactions
    - Verify API contract compliance
    - Test database operations
    - Validate external service integration
 
 5. **End-to-End Test Development**
-
    - Create user journey tests
    - Test complete workflows
    - Validate UI interactions

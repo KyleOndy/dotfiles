@@ -22,10 +22,8 @@ stdenv.mkDerivation {
       ]
     ))
   ];
-  nativeBuildInputs =
-    with pkgs;
-    [
-    ];
+  nativeBuildInputs = with pkgs; [
+  ];
 
   src = ./.;
   #phases = [ "installPhase" ];

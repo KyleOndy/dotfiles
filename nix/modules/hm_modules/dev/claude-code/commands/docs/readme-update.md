@@ -18,35 +18,30 @@ Comprehensive README maintenance with automatic content generation, project anal
 ## Workflow
 
 1. **Project Analysis**
-
    - Scan project structure and files
    - Identify key technologies and frameworks
    - Analyze build and deployment processes
    - Extract project metadata and dependencies
 
 2. **Content Structure Generation**
-
    - Create comprehensive table of contents
    - Generate project description and purpose
    - Add installation and setup instructions
    - Include usage examples and tutorials
 
 3. **Badge and Status Integration**
-
    - Add CI/CD pipeline status badges
    - Include code coverage and quality badges
    - Add dependency status indicators
    - Include license and version badges
 
 4. **Documentation Links**
-
    - Link to detailed documentation
    - Add API documentation references
    - Include changelog and release notes
    - Link to issue tracker and discussions
 
 5. **Contribution Guidelines**
-
    - Add contribution instructions
    - Include code of conduct
    - Document development setup

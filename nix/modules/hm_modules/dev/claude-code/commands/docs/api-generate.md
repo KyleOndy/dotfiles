@@ -18,35 +18,30 @@ Comprehensive API documentation generation with automatic schema extraction, exa
 ## Workflow
 
 1. **API Discovery and Analysis**
-
    - Scan codebase for API endpoints and methods
    - Extract route definitions and parameters
    - Analyze request/response schemas
    - Identify authentication requirements
 
 2. **Schema Generation**
-
    - Generate OpenAPI/Swagger specifications
    - Create GraphQL schema documentation
    - Extract data models and types
    - Document validation rules and constraints
 
 3. **Example Generation**
-
    - Create realistic request/response examples
    - Generate code samples in multiple languages
    - Include error handling examples
    - Add authentication flow examples
 
 4. **Interactive Documentation**
-
    - Set up interactive API explorer
    - Configure try-it-out functionality
    - Add mock server integration
    - Include testing playground
 
 5. **Documentation Enhancement**
-
    - Add comprehensive descriptions
    - Include usage guidelines and best practices
    - Document rate limiting and quotas
