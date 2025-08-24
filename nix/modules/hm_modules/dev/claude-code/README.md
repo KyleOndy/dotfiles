@@ -78,6 +78,7 @@ hmFoundry.dev.claude-code = {
    - Desktop notifications (if enabled)
 
 3. **Verify hook configuration**:
+
    ```bash
    cat .claude/settings.json
    ```
@@ -216,6 +217,7 @@ The module sets these environment variables for hook configuration:
    ```
 
 3. **Test hooks manually**:
+
    ```bash
    ~/.claude/hooks/smart-lint.sh
    ~/.claude/hooks/smart-test.sh
@@ -238,6 +240,7 @@ If you see "command not found" errors:
    ```
 
 3. **Verify module is enabled**:
+
    ```bash
    grep -r "claude-code" ~/.config/home-manager/
    ```
@@ -258,6 +261,7 @@ If you see "command not found" errors:
    ```
 
 3. **Test formatter manually**:
+
    ```bash
    cljstyle check src/  # or equivalent for your formatter
    ```
