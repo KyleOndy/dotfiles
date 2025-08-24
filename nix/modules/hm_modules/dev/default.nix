@@ -37,7 +37,6 @@ in
       [
         act # run github actions locally
         age # better encryption
-        master.aider-chat-full # ai toolgin
         aspell # spell check
         aspellDicts.en
         aspellDicts.en-computers

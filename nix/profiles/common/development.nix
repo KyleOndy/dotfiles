@@ -171,7 +171,6 @@ with lib;
         # Additional general development utilities
         additionalDevTools = [
           act # run github actions locally
-          master.aider-chat-full # ai tooling
           clang
           cmake
           cookiecutter
