@@ -243,6 +243,15 @@ hmFoundry = {
 - **Work + Personal**: Separate profiles with shared base configuration
 - **VM Testing**: Quick environment spinning for testing configurations
 
+### Work Fork Management
+
+This repository is designed to be fork-friendly for work environments. See [docs/work-forks.md](docs/work-forks.md) for detailed instructions on:
+
+- Creating and maintaining work-specific forks
+- Extending configurations without modifying core files
+- Rebasing strategies to incorporate upstream changes
+- Best practices for keeping work and personal configurations separate
+
 ### Multi-Architecture Support
 
 - **x86_64-linux**: Primary development and server platform
