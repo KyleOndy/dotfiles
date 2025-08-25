@@ -73,17 +73,17 @@ done
 
 ### [ ] 2. Document Current Package Sources
 
-#### Packages in BOTH files (duplicates to resolve):
+#### Packages in BOTH files (duplicates to resolve)
 
 - [ ] Document overlap between development.nix and dev/default.nix
 - [ ] Identify which version to keep (check for version differences)
 
-#### Packages ONLY in development.nix:
+#### Packages ONLY in development.nix
 
 - [ ] List packages controlled by feature flags
 - [ ] Map to new module locations
 
-#### Packages ONLY in dev/default.nix:
+#### Packages ONLY in dev/default.nix
 
 - [ ] List packages always installed
 - [ ] Determine if they need feature flag control
