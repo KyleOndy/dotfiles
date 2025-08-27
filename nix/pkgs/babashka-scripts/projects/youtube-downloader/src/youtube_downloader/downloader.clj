@@ -65,7 +65,7 @@
         ;; Core options
         core-opts ["--download-archive" archive-file
                    "--prefer-free-formats"
-                   "--format" "bestvideo[format_note!*=Premium]+bestaudio/best"
+                   "--format" "bestvideo+bestaudio/best"
                    "--ignore-errors"
                    "--mark-watched"
                    "--write-auto-sub"
