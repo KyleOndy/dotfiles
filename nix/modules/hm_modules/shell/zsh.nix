@@ -551,6 +551,8 @@ in
 
             source ${pkgs.zsh-histdb}/sqlite-history.zsh
             autoload -Uz add-zsh-hook
+
+            export PATH="$HOME/bin:$PATH"
           ''
         ];
       };
