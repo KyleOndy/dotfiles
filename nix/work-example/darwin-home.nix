@@ -9,7 +9,7 @@
 }:
 {
   # Import the base workstation profile to get all standard development tools
-  imports = [ ../profiles/workstation.nix ];
+  imports = [ ../profiles/workstation-darwin.nix ];
 
   # Work-specific packages
   home.packages = with pkgs; [
