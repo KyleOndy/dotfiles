@@ -23,7 +23,6 @@ with lib;
           wezterm.enable = true;
           foot.enable = true;
         };
-        wm.i3.enable = false;
       };
     };
 

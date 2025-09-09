@@ -23,7 +23,6 @@ with lib;
         # Explicitly disable Linux window managers
         wm = {
           kde.enable = mkForce false;
-          i3.enable = mkForce false;
         };
 
         # Some desktop tools might not work well on macOS

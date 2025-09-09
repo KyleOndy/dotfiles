@@ -14,7 +14,6 @@ with lib;
         # Enable Linux-specific window managers
         wm = {
           kde.enable = mkDefault false; # Can be overridden in host config
-          i3.enable = mkDefault false; # Can be overridden in host config
         };
       };
     };
