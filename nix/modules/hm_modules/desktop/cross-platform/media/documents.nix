@@ -14,11 +14,15 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = with pkgs; [
-      hunspell # spell check
-      hunspellDicts.en-us-large
-      libreoffice # getting things done
-      zathura # lightweight PDF viewer
-    ];
+    home.packages =
+      with pkgs;
+      [
+        hunspell # spell check
+        hunspellDicts.en-us-large
+        zathura # lightweight PDF viewer
+      ]
+      ++ lib.optionals pkgs.stdenv.isLinux [
+        libreoffice # getting things done - Not supported on macOS
+      ];
   };
 }
