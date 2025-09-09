@@ -111,8 +111,9 @@
                           { imports = [ profiles.workstation-darwin ]; }
                         else
                           { imports = [ profiles.ssh ]; };
+                      extraUserConfig = extraConfig.home-manager.users.kyle or { };
                     in
-                    baseProfile // (extraConfig.home-manager.users.kyle or { });
+                    baseProfile // extraUserConfig;
                 };
               }
               // (builtins.removeAttrs extraConfig [ "home-manager" ])

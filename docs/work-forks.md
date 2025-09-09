@@ -72,7 +72,7 @@ nix/
 #### Example `nix/work/darwin-system.nix`
 
 ```nix
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 {
   # Work-specific system configuration
   networking.computerName = "work-macbook";
@@ -103,9 +103,10 @@ nix/
 
 #### Example `nix/work/darwin-home.nix`
 
-**Important:** Write this as an attribute set (not a function) since `mkDarwinSystem` merges it directly:
+Write this as a standard Nix home-manager module:
 
 ```nix
+{ config, pkgs, lib, ... }:
 {
   # Work-specific packages
   home.packages = with pkgs; [
@@ -116,7 +117,7 @@ nix/
 
   # Override git configuration for work
   programs.git = {
-    userEmail = "you@company.com";  # No lib.mkForce needed - this will override
+    userEmail = lib.mkForce "you@company.com";
     extraConfig = {
       url."git@work-github.com:" = {
         insteadOf = "https://work-github.com/";
@@ -143,6 +144,12 @@ nix/
     isTerraform = true;
     isDocker = true;
   };
+
+  # Conditional configuration example
+  programs.ssh.extraConfig = lib.mkIf config.hmFoundry.features.isAWS ''
+    Host *.amazonaws.com
+      User ec2-user
+  '';
 }
 ```
 
@@ -161,8 +168,10 @@ darwinConfigurations = {
       # System-level nix-darwin config
       imports = [ ./nix/work/darwin-system.nix ];
 
-      # User-level home-manager config - import the attribute set
-      home-manager.users.kyle = import ./nix/work/darwin-home.nix;
+      # User-level home-manager config - import as additional configuration
+      home-manager.users.kyle = {
+        imports = [ ./nix/work/darwin-home.nix ];
+      };
     };
   };
 };
@@ -173,6 +182,50 @@ darwinConfigurations = {
 - Uses `workstation-darwin` profile for desktop configurations
 - Includes proper overlays and module sets
 - Handles platform-specific module filtering
+- **Module imports**: Work configurations are imported as proper home-manager modules
+
+## **Why Use Home-Manager Modules?**
+
+Work configurations are now imported as standard home-manager modules, which provides:
+
+### **Full Module System Power**
+
+- **`with pkgs;`** - Clean package lists without repetitive `pkgs.`
+- **`lib.mkForce`** - Override existing configurations with priority
+- **`lib.mkIf`** - Conditional configuration based on your config values
+- **`config` access** - Reference other parts of your configuration
+- **Module arguments** - Access to `config`, `pkgs`, `lib`, `options`, etc.
+
+### **Real-World Examples**
+
+```nix
+{ config, pkgs, lib, ... }:
+{
+  # Clean package syntax
+  home.packages = with pkgs; [ kubectl awscli2 terraform ];
+
+  # Force override (highest priority)
+  programs.git.userEmail = lib.mkForce "work@company.com";
+
+  # Conditional configuration based on your features
+  programs.zsh.shellAliases = lib.mkIf config.hmFoundry.features.isAWS {
+    aws-prod = "aws --profile production";
+  };
+
+  # Complex configuration with config access
+  programs.ssh.matchBlocks = lib.mkMerge [
+    (config.programs.ssh.matchBlocks or {})
+    {
+      "*.company.com" = {
+        user = "kyle.workuser";
+        identityFile = "~/.ssh/work_key";
+      };
+    }
+  ];
+}
+```
+
+This approach uses the standard home-manager module system, giving you full access to all module arguments and the ability to reference your existing configuration.
 
 ### 4. Build and Switch
 
@@ -205,10 +258,10 @@ nix/
 #### Example `nix/work-wsl-home.nix`
 
 ```nix
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 {
   # Import the base workstation profile
-  imports = [ ./profiles/workstation.nix ];
+  imports = [ ../profiles/workstation.nix ];
 
   # WSL-specific work packages
   home.packages = with pkgs; [
@@ -355,7 +408,7 @@ sops.secrets.work-aws-credentials = {
 ### Common Issues
 
 **Q: "error: expected a set but found a function" when building**
-A: Your `darwin-home.nix` file is written as a function `{ config, pkgs, lib, ... }: { ... }` but `mkDarwinSystem` expects a plain attribute set. Write it as just `{ ... }` without the function parameters.
+A: Ensure your work configuration is imported using `imports = [ ./nix/work/darwin-home.nix ];` rather than direct assignment. The module system handles calling functions automatically when they're imported as modules.
 
 **Q: Conflicts in flake.nix during rebase**
 A: This is expected. Usually you just need to keep both your additions and upstream changes. The structure is designed to minimize conflicts.
