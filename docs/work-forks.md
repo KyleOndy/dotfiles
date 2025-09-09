@@ -62,14 +62,14 @@ git remote add upstream git@github.com:yourusername/dotfiles.git
 
 Create the following structure:
 
-```
+```text
 nix/
 └── work/
     ├── darwin-system.nix    # nix-darwin system configuration
     └── darwin-home.nix      # home-manager user configuration
 ```
 
-#### Example `nix/work/darwin-system.nix`:
+#### Example `nix/work/darwin-system.nix`
 
 ```nix
 { config, pkgs, lib, ... }:
@@ -101,14 +101,12 @@ nix/
 }
 ```
 
-#### Example `nix/work/darwin-home.nix`:
+#### Example `nix/work/darwin-home.nix`
+
+**Important:** Write this as an attribute set (not a function) since `mkDarwinSystem` merges it directly:
 
 ```nix
-{ config, pkgs, lib, ... }:
 {
-  # Import the base workstation profile
-  imports = [ ../profiles/workstation.nix ];
-
   # Work-specific packages
   home.packages = with pkgs; [
     awscli2
@@ -118,7 +116,7 @@ nix/
 
   # Override git configuration for work
   programs.git = {
-    userEmail = lib.mkForce "you@company.com";
+    userEmail = "you@company.com";  # No lib.mkForce needed - this will override
     extraConfig = {
       url."git@work-github.com:" = {
         insteadOf = "https://work-github.com/";
@@ -163,7 +161,7 @@ darwinConfigurations = {
       # System-level nix-darwin config
       imports = [ ./nix/work/darwin-system.nix ];
 
-      # User-level home-manager config
+      # User-level home-manager config - import the attribute set
       home-manager.users.kyle = import ./nix/work/darwin-home.nix;
     };
   };
@@ -199,12 +197,12 @@ Same as macOS setup above.
 
 Create a single file for WSL home configuration:
 
-```
+```text
 nix/
 └── work-wsl-home.nix
 ```
 
-#### Example `nix/work-wsl-home.nix`:
+#### Example `nix/work-wsl-home.nix`
 
 ```nix
 { config, pkgs, lib, ... }:
@@ -355,6 +353,9 @@ sops.secrets.work-aws-credentials = {
 ## Troubleshooting
 
 ### Common Issues
+
+**Q: "error: expected a set but found a function" when building**
+A: Your `darwin-home.nix` file is written as a function `{ config, pkgs, lib, ... }: { ... }` but `mkDarwinSystem` expects a plain attribute set. Write it as just `{ ... }` without the function parameters.
 
 **Q: Conflicts in flake.nix during rebase**
 A: This is expected. Usually you just need to keep both your additions and upstream changes. The structure is designed to minimize conflicts.
