@@ -100,6 +100,7 @@
             (
               {
                 nixpkgs.overlays = overlays;
+                nixpkgs.config.allowUnfree = true;
                 home-manager = {
                   useGlobalPkgs = true;
                   useUserPackages = true;
