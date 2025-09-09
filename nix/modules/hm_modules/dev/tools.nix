@@ -22,7 +22,6 @@ in
         pragmata-pro
 
         # Terminal tools
-        ghostty
         keymapp
 
         # System utilities
