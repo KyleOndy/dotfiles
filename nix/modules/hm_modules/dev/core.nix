@@ -59,7 +59,6 @@ in
       bc
       entr
       fswatch
-      lorri
       lesspipe
       ranger
       visidata

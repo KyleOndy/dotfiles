@@ -104,7 +104,6 @@ with lib;
 
     # Essential services
     services = {
-      lorri.enable = true;
     };
 
     # Base environment setup
