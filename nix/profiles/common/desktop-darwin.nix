@@ -20,11 +20,6 @@ with lib;
     # Disable Linux-specific configurations
     hmFoundry = {
       desktop = {
-        # Explicitly disable Linux window managers
-        wm = {
-          kde.enable = mkForce false;
-        };
-
         # Some desktop tools might not work well on macOS
         term = {
           # foot is Linux-only, disable it
