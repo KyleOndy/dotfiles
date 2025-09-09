@@ -71,7 +71,9 @@
         getModules ./nix/modules/hm_modules/dev
         ++ getModules ./nix/modules/hm_modules/shell
         ++ getModules ./nix/modules/hm_modules/terminal;
-      hmDesktopModules = getModules ./nix/modules/hm_modules/desktop;
+      # Split desktop modules by platform compatibility
+      hmDesktopCrossModules = getModules ./nix/modules/hm_modules/desktop/cross-platform;
+      hmDesktopLinuxModules = getModules ./nix/modules/hm_modules/desktop/linux-only;
       nixModules = getModules ./nix/modules/nix_modules;
 
       supportedSystems = [
@@ -101,7 +103,15 @@
                 home-manager = {
                   useGlobalPkgs = true;
                   useUserPackages = true;
-                  sharedModules = hmCoreModules ++ (if isDesktop then hmDesktopModules else [ ]);
+                  sharedModules =
+                    hmCoreModules
+                    ++ (
+                      if isDesktop then
+                        hmDesktopCrossModules
+                        ++ (if inputs.nixpkgs.lib.hasSuffix "darwin" system then [ ] else hmDesktopLinuxModules)
+                      else
+                        [ ]
+                    );
                   users.kyle =
                     let
                       baseProfile =
@@ -160,10 +170,16 @@
                       hmCoreModules
                       ++ (
                         if isDesktop then
-                          hmDesktopModules
-                          ++ [
-                            inputs.plasma-manager.homeManagerModules.plasma-manager
-                          ]
+                          hmDesktopCrossModules
+                          ++ (
+                            if inputs.nixpkgs.lib.hasSuffix "linux" system then
+                              hmDesktopLinuxModules
+                              ++ [
+                                inputs.plasma-manager.homeManagerModules.plasma-manager
+                              ]
+                            else
+                              [ ]
+                          )
                         else
                           [ ]
                       );
