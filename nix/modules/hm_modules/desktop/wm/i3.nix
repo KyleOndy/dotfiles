@@ -13,7 +13,7 @@ in
     enable = mkEnableOption "i3";
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (cfg.enable && pkgs.stdenv.isLinux) {
     home.packages = with pkgs; [ brightnessctl ];
     xsession = {
       enable = true;

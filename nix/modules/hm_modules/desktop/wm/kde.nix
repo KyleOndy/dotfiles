@@ -17,7 +17,7 @@ in
     enable = mkEnableOption "kde";
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (cfg.enable && pkgs.stdenv.isLinux) {
     programs.plasma = {
       enable = true;
 

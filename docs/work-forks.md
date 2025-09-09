@@ -15,6 +15,36 @@ The recommended approach is to:
 3. Extend (rather than modify) the base `flake.nix`
 4. Use Nix's override mechanisms (`lib.mkForce`, `lib.mkDefault`) for changes
 
+## Platform-Aware Architecture
+
+This dotfiles repository now includes platform-aware profiles and modules that automatically handle cross-platform compatibility:
+
+### **Platform-Specific Profiles**
+
+- `workstation-linux.nix`: Full Linux desktop with window managers (KDE, i3)
+- `workstation-darwin.nix`: macOS-compatible desktop tools
+- `workstation.nix`: Cross-platform fallback
+
+### **Automatic Profile Selection**
+
+When you set `isDesktop = true` in host configurations, the system automatically selects:
+
+- Linux systems → `workstation-linux` profile
+- macOS systems → `workstation-darwin` profile
+- Other systems → `workstation` profile (fallback)
+
+### **Module-Level Platform Guards**
+
+Linux-specific modules (like KDE and i3) include platform checks:
+
+```nix
+config = mkIf (cfg.enable && pkgs.stdenv.isLinux) {
+  # Linux-specific configuration only
+};
+```
+
+This means you can safely enable desktop environments in your configuration - they'll only activate on compatible platforms.
+
 ## macOS Work Fork Setup
 
 For a macOS work environment using nix-darwin:
@@ -125,24 +155,26 @@ Add the `darwinConfigurations` section (which doesn't exist in the base repo):
 ```nix
 # At the end of outputs, after nixosConfigurations
 darwinConfigurations = {
-  work-mac = inputs.nix-darwin.lib.darwinSystem {
+  work-mac = mkDarwinSystem {
+    hostname = "work-mac";
     system = "aarch64-darwin";  # or "x86_64-darwin" for Intel
-    modules = [
-      ./nix/work/darwin-system.nix
-      inputs.home-manager.darwinModules.home-manager
-      {
-        nixpkgs.overlays = overlays;  # Reuse base overlays
-        home-manager = {
-          useGlobalPkgs = true;
-          useUserPackages = true;
-          sharedModules = hmCoreModules ++ hmDesktopModules;
-          users.kyle = import ./nix/work/darwin-home.nix;
-        };
-      }
-    ];
+    isDesktop = true;  # Automatically uses workstation-darwin profile
+    extraConfig = {
+      # System-level nix-darwin config
+      imports = [ ./nix/work/darwin-system.nix ];
+
+      # User-level home-manager config
+      home-manager.users.kyle = import ./nix/work/darwin-home.nix;
+    };
   };
 };
 ```
+
+**Note:** The new `mkDarwinSystem` helper automatically:
+
+- Uses `workstation-darwin` profile for desktop configurations
+- Includes proper overlays and module sets
+- Handles platform-specific module filtering
 
 ### 4. Build and Switch
 

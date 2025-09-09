@@ -53,6 +53,8 @@
         server = ./nix/profiles/server.nix;
         ssh = ./nix/profiles/ssh.nix;
         workstation = ./nix/profiles/workstation.nix;
+        workstation-linux = ./nix/profiles/workstation-linux.nix;
+        workstation-darwin = ./nix/profiles/workstation-darwin.nix;
         gaming = ./nix/profiles/gaming.nix;
       };
 
@@ -79,6 +81,44 @@
         "aarch64-darwin"
       ];
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
+
+      # Helper function to create darwinSystem configurations
+      mkDarwinSystem =
+        {
+          hostname,
+          system ? "aarch64-darwin",
+          isDesktop ? false,
+          profile ? null,
+          extraConfig ? { },
+        }:
+        inputs.nix-darwin.lib.darwinSystem {
+          inherit system;
+          modules = [
+            inputs.home-manager.darwinModules.home-manager
+            (
+              {
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  sharedModules = hmCoreModules ++ (if isDesktop then hmDesktopModules else [ ]);
+                  users.kyle =
+                    let
+                      baseProfile =
+                        if profile != null then
+                          { imports = [ profile ]; }
+                        else if isDesktop then
+                          { imports = [ profiles.workstation-darwin ]; }
+                        else
+                          { imports = [ profiles.ssh ]; };
+                    in
+                    baseProfile // (extraConfig.home-manager.users.kyle or { });
+                };
+              }
+              // (builtins.removeAttrs extraConfig [ "home-manager" ])
+            )
+          ];
+        };
 
       # Helper function to create nixosSystem configurations
       mkNixosSystem =
@@ -132,7 +172,14 @@
                           if profile != null then
                             { imports = [ profile ]; }
                           else if isDesktop then
-                            { imports = [ profiles.workstation ]; }
+                            # Auto-select platform-appropriate workstation profile
+                            if inputs.nixpkgs.lib.hasSuffix "linux" system then
+                              { imports = [ profiles.workstation-linux ]; }
+                            else if inputs.nixpkgs.lib.hasSuffix "darwin" system then
+                              { imports = [ profiles.workstation-darwin ]; }
+                            else
+                              # Fallback to cross-platform workstation for other systems
+                              { imports = [ profiles.workstation ]; }
                           else
                             { imports = [ profiles.ssh ]; };
                         extraUserConfig = extraConfig.home-manager.users.kyle or { };
