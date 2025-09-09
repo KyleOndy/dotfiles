@@ -24,8 +24,6 @@ in
         # Terminal tools
         ghostty
         keymapp
-        ncspot
-        vlc
 
         # System utilities
         pciutils

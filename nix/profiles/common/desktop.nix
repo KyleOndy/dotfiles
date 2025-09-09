@@ -18,6 +18,7 @@ with lib;
         media = {
           documents.enable = true;
           makemkv.enable = true;
+          music.enable = true;
         };
         term = {
           wezterm.enable = true;
@@ -33,11 +34,7 @@ with lib;
       golden-cheetah # cycling analytics
       helios # hand rolled photo management
       remmina # remote desktop client
-      vlc # watch things
-      ghostty # terminal from mitchellh
       glances # system monitor
-      keymapp # zsa keyboard config
-      ncspot # cursors spotify client
     ];
   };
 }

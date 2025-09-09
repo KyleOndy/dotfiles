@@ -25,6 +25,7 @@ with lib;
       arandr # GUI for xrandr
       pavucontrol # PulseAudio volume control
       playerctl # Media player control
+      vlc # watch things
     ];
   };
 }
