@@ -22,7 +22,6 @@
     kubectl
     kubectx
     k9s
-    helm
 
     # Development tools
     postman
