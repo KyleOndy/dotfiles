@@ -17,7 +17,6 @@ with lib;
         gaming.steam.enable = true;
         media = {
           documents.enable = true;
-          makemkv.enable = true;
           music.enable = true;
         };
         term = {
