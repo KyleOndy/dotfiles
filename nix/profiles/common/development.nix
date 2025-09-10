@@ -11,9 +11,15 @@
 with lib;
 {
   # Import environment variables commonly needed for development
-  imports = [ ./env.nix ];
+  imports = [
+    ./env.nix
+    ../../modules/hm_modules/common-tools.nix
+  ];
 
   config = {
+    # Enable common tools for development
+    hmFoundry.commonTools.enable = true;
+
     # Development language and tool configurations
     hmFoundry = {
       # foundry is the namespace I've given to my internal modules

@@ -14,10 +14,6 @@ in
     home.packages = with pkgs; [
       # Essential build tools
       bashInteractive
-      gnumake
-      gnused
-      coreutils-full
-      findutils
 
       # Essential dev utilities
       ctags
@@ -25,20 +21,9 @@ in
       envsubst
 
       # Search and navigation
-      ripgrep
-      fd
-      tree
-      bat
       silver-searcher
 
-      # Network tools
-      curl
-      wget
-      rsync
-
       # Data processing
-      jq
-      yq-go
       gron
       htmlq
 

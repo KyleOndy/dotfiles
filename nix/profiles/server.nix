@@ -6,7 +6,10 @@
   imports = [
     ./common/base.nix
     ./common/ssh-hosts.nix
+    ../modules/hm_modules/common-tools.nix
   ];
+
+  hmFoundry.commonTools.enable = true;
 
   hmFoundry.features = {
     isDevelopment = false;
@@ -31,19 +34,9 @@
     dnsutils
     nmap
 
-    # File management
-    rsync
-    tree
-    fd
-    ripgrep
-
     # System administration
     mosh # better ssh
     tmux # session management
-    curl
-    wget
-    jq
-    yq-go
 
     # Compression tools
     xz
@@ -51,7 +44,6 @@
     pixz
 
     # Basic utilities
-    bat
     watch
     viddy
     pv
