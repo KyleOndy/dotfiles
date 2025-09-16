@@ -292,6 +292,7 @@ in
           # maker
           "@aaedmusa"
           "@BennettStirton"
+          "@dkbuilds"
           "@lostartpress"
           "@MarkRober"
           "@matthiaswandel"
