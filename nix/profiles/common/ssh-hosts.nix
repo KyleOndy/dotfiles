@@ -11,18 +11,6 @@ with lib;
     '';
 
     matchBlocks = {
-      "pi1" = {
-        hostname = "pi.lan.1ella.com";
-        user = "kyle";
-      };
-      "pi2" = {
-        hostname = "pi2.dmz.1ella.com";
-        user = "kyle";
-      };
-      "pi3" = {
-        hostname = "pi3.dmz.1ella.com";
-        user = "kyle";
-      };
       "*.compute-1.amazonaws.com" = {
         extraOptions = {
           UserKnownHostsFile = "/dev/null";
