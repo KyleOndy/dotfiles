@@ -29,3 +29,5 @@ __pycache__/
 # nix closure comparison reports
 *closure*report*.md
 *closure*report*.json
+
+.cpcache/
