@@ -31,6 +31,10 @@
       url = "github:cab404/framework-dsp";
       flake = false;
     };
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs =
     { self, ... }@inputs:
@@ -201,6 +205,8 @@
             ./nix/hosts/_includes/docker.nix
             ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/_includes/laptop.nix
+            inputs.disko.nixosModules.disko
+            ./disko-config.nix
           ];
           extraConfig = {
             services = {
@@ -247,6 +253,56 @@
           modules = [
             ./nix/iso.nix
             "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+          ];
+        };
+        installer = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [
+            "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
+            inputs.disko.nixosModules.disko
+            (
+              { pkgs, ... }:
+              {
+                environment.systemPackages = with pkgs; [
+                  inputs.disko.packages.x86_64-linux.disko
+                  git
+                ];
+
+                nix.settings.experimental-features = [
+                  "nix-command"
+                  "flakes"
+                ];
+
+                environment.etc."installer".source = self;
+                environment.etc."install.sh" = {
+                  source = pkgs.writeShellScript "install.sh" ''
+                    set -e
+
+                    echo "install"
+                    echo "partitioning disk"
+                    sudo nix --experimental-features "nix-command flakes" run github:nix-community.disko -- \
+                      --mode disko /etc/installer.disko-config.nix
+
+                    echo "gen config"
+                    sudo nixos-generate-config --no-filesystems --root /mnt
+
+                    echo copying flake
+                    sudo cp -r /etc/installer /mnt/etc/nixos
+
+                    echo installing
+                    sudo nixos-install --flake /mnt/etc/nixos#dino
+
+                    echo done
+                    echo run sudo reboot
+                  '';
+                  mode = "0755";
+                };
+                services.getty.helpLine = ''
+                  To install: sudo /etc/install.sh
+                '';
+
+              }
+            )
           ];
         };
       };
