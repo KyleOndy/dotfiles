@@ -266,6 +266,8 @@
                 environment.systemPackages = with pkgs; [
                   inputs.disko.packages.x86_64-linux.disko
                   git
+                  neovim
+                  tmux
                 ];
 
                 nix.settings.experimental-features = [
