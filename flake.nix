@@ -289,11 +289,11 @@
                     sudo nixos-generate-config --no-filesystems --root /mnt
 
                     echo copying flake
-                    sudo cp -r /etc/installer/ /mnt/etc/nixos
-                    sudo cp /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/nix/hosts/dino/hardware-configuration.nix
+                    sudo cp -r /etc/installer /mnt/etc/nixos
+                    sudo cp /mnt/etc/nixos/hardware-configuration.nix /mnt/etc/nixos/installer/nix/hosts/dino/hardware-configuration.nix
 
                     echo installing
-                    sudo nixos-install --flake /mnt/etc/nixos#dino
+                    sudo nixos-install --flake /mnt/etc/nixos/installer#dino
 
                     echo done
                     echo run sudo reboot
