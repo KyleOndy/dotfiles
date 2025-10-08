@@ -280,8 +280,8 @@
 
                     echo "install"
                     echo "partitioning disk"
-                    sudo nix --experimental-features "nix-command flakes" run github:nix-community.disko -- \
-                      --mode disko /etc/installer.disko-config.nix
+                    sudo nix --experimental-features "nix-command flakes" run github:nix-community/disko -- \
+                      --mode disko /etc/installer/disko-config.nix
 
                     echo "gen config"
                     sudo nixos-generate-config --no-filesystems --root /mnt
