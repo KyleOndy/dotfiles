@@ -23,17 +23,18 @@
   ];
   boot.extraModulePackages = [ ];
 
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/NIXOS_BOOT";
+    fsType = "vfat";
+  };
   fileSystems."/" = {
-    device = "/dev/disk/by-uuid/70ad4f59-e574-490e-adc0-b1380d5bfd60";
+    device = "/dev/disk/by-label/NIXOS_ROOT";
     fsType = "ext4";
   };
 
-  boot.initrd.luks.devices."cryptoroot".device =
-    "/dev/disk/by-uuid/ec425b53-eb57-4288-b9b0-04cd698d2373";
-
-  fileSystems."/boot" = {
-    device = "/dev/disk/by-uuid/7428-617A";
-    fsType = "vfat";
+  boot.initrd.luks.devices."crypted" = {
+    device = "/dev/disk/by-label/NIXOS_LUKS";
+    allowDiscards = true;
   };
 
   swapDevices = [ ];
