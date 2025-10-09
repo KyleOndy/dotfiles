@@ -13,7 +13,7 @@
     ];
   };
 
-  boot.initrd.luks.device."crypted" = {
+  boot.initrd.luks.devices."crypted" = {
     device = "/dev/disk/by-partlabel/disk-main-luks";
     allowDiscards = true;
   };
