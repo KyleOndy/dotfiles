@@ -17,6 +17,10 @@ in
         # GitHub integration
         act
 
+        # Fonts
+        berkeley-mono
+        pragmata-pro
+
         # Terminal tools
         ghostty
         keymapp
