@@ -33,13 +33,9 @@
 
   boot.initrd.availableKernelModules = [
     "xhci_pci" # USB 3.0
-    "nvme"
-    "NVMe SSD
-    "
-    usb_storage
-    " # usb storage
-    "
-    sd_mod # sd card
+    "nvme" # NVMe SSD
+    "usb_storage" # usb storage
+    "sd_mod" # sd card
     "thunderbolt"
   ];
 
