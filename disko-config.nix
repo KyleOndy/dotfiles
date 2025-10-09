@@ -14,7 +14,6 @@
                 type = "filesystem";
                 format = "vfat";
                 mountpoint = "/boot";
-                label = "BOOT";
               };
             };
             luks = {
@@ -29,7 +28,6 @@
                   type = "filesystem";
                   format = "ext4";
                   mountpoint = "/";
-                  label = "nixos";
                 };
               };
             };

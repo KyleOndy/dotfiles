@@ -19,11 +19,11 @@
   };
 
   fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos";
+    device = "/dev/mapper/crypted";
     fsType = "ext4";
   };
   fileSystems."/boot" = {
-    device = "/dev/disk/by-label/BOOT";
+    device = "/dev/disk/by-partlabel/disk-main-ESP";
     fsType = "vfat";
     options = [
       "fmask=0022"
