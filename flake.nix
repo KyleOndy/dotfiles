@@ -197,7 +197,6 @@
           isDesktop = true;
           hardwareModules = [
             inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
-            ./nix/hosts/dino/hardware-configuration.nix
           ];
           includeModules = [
             # todo: refactor these into something else

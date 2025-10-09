@@ -13,11 +13,44 @@
     ];
   };
 
+  boot.initrd.luks.device."crypted" = {
+    device = "/dev/disk/by-partlabel/disk-main-luks";
+    allowDiscards = true;
+  };
+
+  fileSystems."/" = {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+  };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-label/BOOT";
+    fsType = "vfat";
+    options = [
+      "fmask=0022"
+      "dmask=0022"
+    ];
+  };
+
+  boot.initrd.availableKernelModules = [
+    "xhci_pci" # USB 3.0
+    "nvme"
+    "NVMe SSD
+    "
+    usb_storage
+    " # usb storage
+    "
+    sd_mod # sd card
+    "thunderbolt"
+  ];
+
+  boot.initrd.kernelModules = [ ];
+  boot.kernelModules = [ "kvm-intel" ];
+
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
 
   networking.hostName = "dino"; # Define your hostname.
-  system.stateVersion = "22.05";
+  system.stateVersion = "24.05";
 
   networking.networkmanager = {
     enable = true;
