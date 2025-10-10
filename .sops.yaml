@@ -8,9 +8,6 @@ keys:
   - &cheetah age1hp8z0w03ulmygen56q0nl9mtu02979tgrc3vfy5r32r3pn4dxvyqtnnywd
   - &dino age19kztqvck8297mm0v74epu6fq5eny7h84rx2evfvd7cm9uc5unuqqn4lw62
   - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
-  - &pi1 age1ewrzv34aedhlkf9n657vwz5yfprqhxkvfht8k9js0u59mzwkmvaq8z23f2
-  - &pi2 age17fed4a4jfwdqcwwd0s56f2js289m6xxswxr6pputgkr4098u0y2qnsjsz0
-  - &pi3 age1yf07wefhjgd7adt65nhnqm6j0x6h64n9vrflkuy4thmrnvu30u8qrjwwk8
 
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
@@ -23,8 +20,5 @@ creation_rules:
           - *cheetah
           - *dino
           - *tiger
-          - *pi1
-          - *pi2
-          - *pi3
         pgp:
           - *kyle

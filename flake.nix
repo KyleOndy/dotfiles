@@ -205,7 +205,6 @@
           extraConfig = {
             services = {
               power-profiles-daemon.enable = false; # am using tlp
-              mullvad-vpn.enable = true;
             };
             programs.dconf.enable = true; # fw13 dsp
             home-manager.users.kyle = {

@@ -22,6 +22,9 @@ terraform.tfstate.backup
 # python
 __pycache__/
 
+# rust
+target/
+
 .aider*
 
 .nrepl-port
