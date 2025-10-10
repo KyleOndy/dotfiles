@@ -18,6 +18,7 @@ with lib;
     ./performance.nix
     ./nix-tools.nix
     ./tools.nix
+    ./rust.nix
   ];
 
   options.hmFoundry.dev = {
