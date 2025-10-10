@@ -1,0 +1,13 @@
+[package]
+name = "battery-draw"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kyle Ondy <kyle@ondy.org>"]
+description = "Fast battery power usage monitoring for tmux status bars"
+license = "MIT"
+
+[[bin]]
+name = "battery-draw"
+path = "src/main.rs"
+
+[dependencies]

@@ -1,5 +1,6 @@
 self: super: {
   babashka-scripts = super.callPackage ./babashka-scripts { };
+  battery-draw = super.callPackage ./battery-draw { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
   concourse = super.callPackage ./concourse { };
   helios = super.callPackage ./helios { };
