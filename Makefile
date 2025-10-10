@@ -47,6 +47,11 @@ diff-current-system:
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) --flake .#$(HOSTNAME) switch
 
+.PHONY: boot
+boot: ## Deploy currently defined configuration for next boot
+	$(SWITCH) --flake .#$(HOSTNAME) boot
+
+
 .PHONY: deploy-rs
 deploy-rs:
 	deploy -- .#$(HOSTNAME)
