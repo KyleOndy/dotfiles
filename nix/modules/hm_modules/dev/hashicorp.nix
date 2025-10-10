@@ -15,12 +15,7 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
-      #consul # borken on osx?
-      nomad
-      #packer # packer broke on osx
       terraform_1
-      #vagrant # broke
-      vault
 
       # hashi-related
       terraform-docs # auto documentation generation
