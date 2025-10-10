@@ -22,18 +22,22 @@ with lib;
         hostname = "tiger.dmz.1ella.com";
         user = "kyle";
         port = 2332;
+        identityFile = "~/.ssh/id_ed25519";
       };
       "dino" = {
         hostname = "dino.lan.1ella.com";
         user = "kyle";
+        identityFile = "~/.ssh/id_ed25519";
       };
       "alpha" = {
         hostname = "alpha.lan.1ella.com";
         user = "kyle";
+        identityFile = "~/.ssh/id_ed25519";
       };
       "cheetah" = {
         hostname = "ns100099.ip-147-135-1.us";
         user = "kyle";
+        identityFile = "~/.ssh/id_ed25519";
       };
     };
   };

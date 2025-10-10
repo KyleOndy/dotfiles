@@ -42,7 +42,10 @@ in
         hashedPassword = "$6$XTNiJhQm1$D3M90syVNZdTazCOZIAF8TLK/hD4oSi3Xdst62dCkWR44ia3rujnPx.yWT6BaU4tvu1im5nR20WcjWnhPMTIV/";
         # todo: make a key for just deploys
         openssh.authorizedKeys.keys = [
+          # legacy key, delete once new keys are deployed
           "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDKPwXdnorhTtQOZ0iE3YJHtb8YYfhjnaav8ArQQuIOQR4tAxPyxMucKHuTsCH3soFFBTY1wg0KVt4x+6op4bfhr0Q40bqQprwy/5LFmui1FZhFhAxrbx4abK0Kh6NaKjvYmV1Lh9+gSKTK9edxWixX90ZI6YHhVEf5JSeUbVcKYKMD4gp5CR5EC2l8/bd/4nQ3n74Od4faa4DfE4qaleEQ4IcAONR0WGxtX1aP2Q4V+UfbS2gvBA0c/V0eIIXnscMcqBbzrYPMxQ7a8umpA65ByHgdFBnCeyvhKjxl2E1HoZcPzruBXs/NqmvnhG6iuFDPtG2G+Lj6xjEYffJcI2VnkYAyczD63P6zlsBIPbyvq7aS8jGR0CsNbfJExjXLmB3M4k2ANBidfai26zAN/Pn73MOA9ieShy1FUZCYf3nM5+EO+0Al6v48eJXNrcUNqKRUHEdyRi+Sd3Nj5shZ61lgCdSZk78XUjXpWcmhbFGaR+9aXn3kUV5rDjqpLzp4alU= kyle@dino"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtqba65kXXovFMhf0fR02pTlBJ8/w1bj24wqJuQmUZ+ kyle@dino"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACXOhBDxjR0LAbLo0oIPSC9yY4ni7aoZB7Mt+WJ/GpU root@dino"
         ];
       };
     };
@@ -75,6 +78,15 @@ in
       '';
     };
     security.sudo.wheelNeedsPassword = false;
+
+    # Prevent sshd from restarting during activation (fixes deploy-rs magic rollback)
+    # When sshd restarts, it kills the SSH connection that deploy-rs uses to confirm
+    # deployment, causing timeouts and automatic rollback.
+    # Note: SSH config changes won't apply until manual 'systemctl restart sshd'
+    systemd.services.sshd = {
+      restartIfChanged = false;
+      restartTriggers = lib.mkForce [ ];
+    };
 
     # this file path _feels_ suspect, but works
     sops.defaultSopsFile = ./../../secrets/secrets.yaml;

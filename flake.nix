@@ -111,6 +111,10 @@
                   }
                   // (if isDesktop then { desktop.kde.enable = true; } else { });
 
+                  # Add git revision to generation labels
+                  system.configurationRevision = self.rev or self.dirtyRev or "unknown";
+                  system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
+
                   nixpkgs.overlays = overlays;
                   home-manager = {
                     useGlobalPkgs = true;
@@ -201,6 +205,7 @@
             ./nix/hosts/_includes/docker.nix
             ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/_includes/laptop.nix
+            ./nix/hosts/dino/root-ssh-config.nix
           ];
           extraConfig = {
             services = {
