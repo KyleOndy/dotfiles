@@ -1,0 +1,15 @@
+move to spaceship prompt
+  write a new git module to override default
+  worktree support
+  in rust
+
+XDG cache
+
+refactor out scripts inline i nix into their own files
+  zshrc, nvimrc etc
+
+remove paclages I don't use
+  vault
+  rest of non-tf hashi
+
+get power useage into tmux bar
