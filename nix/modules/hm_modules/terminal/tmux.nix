@@ -93,8 +93,8 @@ in
 
         # left most solid arrow
         set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
-        # volume
-        set-option -ga status-right "#[fg=colour246,bg=colour239] v:#(amixer sget Master | awk -F"[][]" '/Left:/ { print $2 }')  "
+        # battery power draw
+        set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.battery-draw}/bin/battery-draw) "
 
         # system load.
         #   This has been tested on debian, OSX, and darwin, and seems to work
