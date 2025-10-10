@@ -47,8 +47,11 @@ in
 
     services.gpg-agent = {
       enable = cfg.service;
-      defaultCacheTtl = 1800;
-      enableSshSupport = false;
+      defaultCacheTtl = 1800; # GPG keys: 30 minutes
+      defaultCacheTtlSsh = 3600; # SSH keys: 1 hour (resets on use)
+      maxCacheTtl = 7200; # GPG keys max: 2 hours
+      maxCacheTtlSsh = 14400; # SSH keys max: 4 hours
+      enableSshSupport = true; # Enable SSH agent functionality
       pinentry.package = pkgs.pinentry-curses;
     };
   };
