@@ -17,7 +17,7 @@
   time.hardwareClockInLocalTime = true;
 
   networking.hostName = "dino"; # Define your hostname.
-  system.stateVersion = "22.05";
+  system.stateVersion = "24.05";
 
   networking.networkmanager = {
     enable = true;

@@ -1,11 +1,11 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable-small";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     # https://github.com/NixOS/nixpkgs/pull/427631
     nixpkgs-master.url = "github:nixos/nixpkgs/master";
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-25.05";
       # packages installed via home-manager use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
