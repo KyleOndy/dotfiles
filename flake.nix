@@ -115,6 +115,10 @@
                   }
                   // (if isDesktop then { desktop.kde.enable = true; } else { });
 
+                  # Add git revision to generation labels
+                  system.configurationRevision = self.rev or self.dirtyRev or "unknown";
+                  system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
+
                   nixpkgs.overlays = overlays;
                   home-manager = {
                     useGlobalPkgs = true;
