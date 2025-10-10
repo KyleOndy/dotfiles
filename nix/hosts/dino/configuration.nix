@@ -21,6 +21,48 @@
 
   networking.networkmanager = {
     enable = true;
+    ensureProfiles = {
+      environmentFiles = [
+        config.sops.templates."nm-home-wifi-env".path
+      ];
+      profiles = {
+        home-wifi = {
+          connection = {
+            id = "Home WiFi";
+            type = "802-11-wireless";
+            autoconnect = true;
+          };
+          "802-11-wireless" = {
+            mode = "infrastructure";
+            ssid = "$HOME_WIFI_SSID";
+          };
+          "802-11-wireless-security" = {
+            auth-alg = "open";
+            key-mgmt = "wpa-psk";
+            psk = "$HOME_WIFI_PASSWORD";
+          };
+          ipv4 = {
+            method = "auto";
+          };
+          ipv6 = {
+            method = "auto";
+          };
+        };
+      };
+    };
+  };
+
+  # SOPS secrets for WiFi configuration
+  sops.secrets = {
+    home_wifi_ssid = { };
+    home_wifi_password = { };
+  };
+
+  sops.templates."nm-home-wifi-env" = {
+    content = ''
+      HOME_WIFI_SSID="${config.sops.placeholder.home_wifi_ssid}"
+      HOME_WIFI_PASSWORD="${config.sops.placeholder.home_wifi_password}"
+    '';
   };
 
   security.rtkit.enable = true;
@@ -35,6 +77,7 @@
     libinput.touchpad.disableWhileTyping = true;
   };
   hardware = {
+    enableRedistributableFirmware = true;
     bluetooth = {
       enable = true;
       powerOnBoot = true;
