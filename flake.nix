@@ -208,6 +208,7 @@
             ./nix/hosts/_includes/docker.nix
             ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/_includes/laptop.nix
+            ./nix/hosts/dino/root-ssh-config.nix
             inputs.disko.nixosModules.disko
             ./disko-config.nix
           ];
