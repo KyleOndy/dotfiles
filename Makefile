@@ -47,17 +47,24 @@ diff-current-system:
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) --flake .#$(HOSTNAME) switch
 
+.PHONY: boot
+boot: ## Deploy currently defined configuration for next boot
+	$(SWITCH) --flake .#$(HOSTNAME) boot
+
+
 .PHONY: deploy-rs
 deploy-rs:
 	deploy -- .#$(HOSTNAME)
 
 .PHONY: deploy-rs-all
 deploy-rs-all:
-	deploy -- .
+	nix flake check -L
+	deploy --skip-checks -- .
 
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry:
-	deploy --dry-activate -- .
+	nix flake check -L
+	deploy --skip-checks --dry-activate -- .
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color
