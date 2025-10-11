@@ -51,6 +51,9 @@ deploy: ## Deploy currently defined configuration
 boot: ## Deploy currently defined configuration for next boot
 	$(SWITCH) --flake .#$(HOSTNAME) boot
 
+.PHONY: test
+test: ## Apply the current config without persisting it
+	$(SWITCH) --flake .#$(HOSTNAME) test
 
 .PHONY: deploy-rs
 deploy-rs:
