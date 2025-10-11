@@ -43,16 +43,18 @@ Before committing, ensure the solution is:
 ### 2. Verify Tests
 
 **Test Existence:**
-!`git status` - Check if test files were created/modified
+
+Use `git status` to check if test files were created or modified.
 
 **Run Tests:**
-Determine the project's test command and run it:
 
-For Python: !`pytest`
-For Go: !`go test ./...`
-For JavaScript/Node: !`npm test`
-For Rust: !`cargo test`
-For Make-based: !`make test`
+Determine the project's test command and run it using the Bash tool:
+
+- For Python: `pytest`
+- For Go: `go test ./...`
+- For JavaScript/Node: `npm test`
+- For Rust: `cargo test`
+- For Make-based: `make test`
 
 **Test Quality Check:**
 
@@ -91,9 +93,8 @@ Take a moment to reflect:
 ### 4. Prepare Commit
 
 **Read the completed task:**
-!`Read(TASKS.md)`
 
-Extract the first task (the one being completed):
+Use the Read tool to read `TASKS.md` and extract the first task (the one being completed):
 
 ```
 Task Title: [first heading]
@@ -101,9 +102,12 @@ Task Context: [context under first heading]
 ```
 
 **Review all changes:**
-!`git status`
-!`git diff --cached` (if there are staged changes)
-!`git diff` (if there are unstaged changes)
+
+Use git commands to review changes:
+
+- `git status` to see all changed files
+- `git diff --cached` if there are staged changes
+- `git diff` if there are unstaged changes
 
 **Categorize changes:**
 
@@ -115,9 +119,7 @@ Task Context: [context under first heading]
 
 **Read user's commit conventions:**
 
-First, check if a git commit template is configured:
-
-!`git config commit.template`
+First, check if a git commit template is configured using `git config commit.template`.
 
 **If a template path is returned:**
 
@@ -230,9 +232,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 Remove the completed task from TASKS.md:
 
-!`Read(TASKS.md)` (if not already read)
-
-Remove the first task (heading and its context) entirely. The file should now start with the next task (or be just `# Tasks` if this was the last one).
+Use the Read tool to read `TASKS.md` (if not already read), then remove the first task (heading and its context) entirely. The file should now start with the next task (or be just `# Tasks` if this was the last one).
 
 Example:
 
@@ -261,7 +261,8 @@ This task is next.
 ### 8. Stage and Commit
 
 **Stage all changes including TASKS.md:**
-!`git add -A`
+
+Use `git add -A` to stage all changes.
 
 **Create commit with crafted message:**
 
@@ -277,8 +278,11 @@ EOF
 ```
 
 **Verify commit:**
-!`git log -1 --pretty=format:"%h %s%n%b"`
-!`git status`
+
+Use git commands to verify:
+
+- `git log -1 --pretty=format:"%h %s%n%b"` to show the commit message
+- `git status` to confirm clean working directory
 
 ### 9. Summary
 

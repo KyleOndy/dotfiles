@@ -22,7 +22,7 @@ This planning phase is about understanding the problem deeply enough to implemen
 
 ### 1. Read the Next Task
 
-!`Read(TASKS.md)`
+Use the Read tool to read `TASKS.md` from the project root.
 
 Extract the first task (the one right after the `# Tasks` heading).
 
@@ -45,9 +45,12 @@ This is critical - understand what already exists before planning new code.
 - What patterns/conventions are used?
 
 **Search strategies:**
-!`Grep(relevant-pattern)` - Find similar implementations
-!`Glob(**/*.{extension})` - Locate relevant files
-!`Read(file)` - Study existing implementations
+
+Use these tools to explore the codebase:
+
+- Grep tool to find similar implementations using relevant patterns
+- Glob tool to locate files by extension (e.g., `**/*.js`, `**/*.py`)
+- Read tool to study existing implementations in detail
 
 **Key questions:**
 
