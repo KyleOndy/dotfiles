@@ -23,7 +23,7 @@ Creates meaningful commit messages by analyzing both the current chat conversati
 
 ### 1. Change Detection and Staging
 
-!`git status --porcelain`
+Use `git status --porcelain` to check the current state, then run the following bash script:
 
 ```bash
 # Detect current state

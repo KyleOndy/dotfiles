@@ -13,16 +13,16 @@ Review the most recent commit and validate that the task list still reflects cur
 
 First, determine if there are any commits on the current branch since it diverged from main.
 
-!`git log main..HEAD --oneline`
+Use `git log main..HEAD --oneline` to list commits on the current branch.
 
 If there are no commits yet, skip commit review and proceed to task validation.
 
 ### 2. Review Last Commit (if exists)
 
-If commits exist on the current branch, analyze the most recent one:
+If commits exist on the current branch, analyze the most recent one using git commands:
 
-!`git log -1 --pretty=format:"%h %s%n%b" HEAD`
-!`git show --stat HEAD`
+- `git log -1 --pretty=format:"%h %s%n%b" HEAD` to show commit message
+- `git show --stat HEAD` to show files changed
 
 **Analysis Questions:**
 
@@ -33,7 +33,7 @@ If commits exist on the current branch, analyze the most recent one:
 
 ### 3. Impact on Remaining Tasks
 
-!`Read(TASKS.md)`
+Use the Read tool to read `TASKS.md`.
 
 For each remaining task, consider:
 
@@ -55,9 +55,9 @@ For each remaining task, consider:
 
 ### 4. Check Current Project State
 
-Verify task assumptions still hold by checking relevant files:
+Verify task assumptions still hold by checking relevant files.
 
-!`git status`
+Use `git status` to check:
 
 - Are there uncommitted changes that might affect the task list?
 - Has work already been started on the next task?

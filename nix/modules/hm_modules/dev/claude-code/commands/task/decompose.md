@@ -11,9 +11,7 @@ Parse a freeform planning document and decompose it into a structured, ordered l
 
 ### 1. Read Planning Document
 
-Read `PLANNING.md` from the project root to understand the overall goals, features, and context.
-
-!`Read(PLANNING.md)`
+Use the Read tool to read `PLANNING.md` from the project root to understand the overall goals, features, and context.
 
 ### 2. Analyze and Decompose
 
@@ -62,7 +60,7 @@ More context here.
 
 **Format Rules:**
 
-- Use `## ` (H2) for each task title
+- Use `##` (H2) for each task title
 - No checkboxes, dates, or priority markers
 - Keep titles clear and action-oriented
 - Context should be 1-3 sentences explaining "why" and "what"
