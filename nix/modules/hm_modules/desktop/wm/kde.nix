@@ -21,10 +21,58 @@ in
     programs.plasma = {
       enable = true;
 
+      workspace = {
+        colorScheme = "BreezeDark";
+        lookAndFeel = "org.kde.breezedark.desktop";
+      };
+
+      panels = [
+        {
+          location = "bottom";
+          hiding = "autohide";
+          widgets = [
+            "org.kde.plasma.kickoff"
+            "org.kde.plasma.icontasks"
+            "org.kde.plasma.marginsseparator"
+            "org.kde.plasma.systemtray"
+            "org.kde.plasma.digitalclock"
+          ];
+        }
+      ];
+
+      window-rules = [
+        {
+          description = "Foot terminal - fullscreen without titlebar";
+          match = {
+            window-class = {
+              value = "foot";
+              type = "substring";
+            };
+          };
+          apply = {
+            noborder = {
+              value = true;
+              apply = "force";
+            };
+            maximizehoriz = {
+              value = true;
+              apply = "initially";
+            };
+            maximizevert = {
+              value = true;
+              apply = "initially";
+            };
+          };
+        }
+      ];
+
       configFile = {
         "baloofilerc"."Basic Settings"."Indexing-Enabled".value = false;
         "kwinrc"."NightColor"."Active".value = true;
         "kwinrc"."NightColor"."NightTemperature".value = 2400;
+        "kwinrc"."NightColor"."Mode".value = 1; # Manual location
+        "kwinrc"."NightColor"."LatitudeFixed".value = "40.14";
+        "kwinrc"."NightColor"."LongitudeFixed".value = "-74.44";
       };
     };
   };
