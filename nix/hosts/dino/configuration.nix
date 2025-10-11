@@ -42,6 +42,12 @@
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];
 
+  # Framework 12th gen: Fix suspend battery drain
+  # Reduces suspend power consumption from ~20-40%/8hrs to ~1%/hour
+  boot.kernelParams = [
+    "acpi_osi=\"!Windows 2020\""
+  ];
+
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
 
@@ -109,7 +115,7 @@
     enableRedistributableFirmware = true;
     bluetooth = {
       enable = true;
-      powerOnBoot = true;
+      powerOnBoot = false; # Save power - enable manually when needed
     };
     keyboard.zsa.enable = true;
   };
