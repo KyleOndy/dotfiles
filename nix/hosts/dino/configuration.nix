@@ -13,6 +13,35 @@
     ];
   };
 
+  boot.initrd.luks.devices."crypted" = {
+    device = "/dev/disk/by-partlabel/disk-main-luks";
+    allowDiscards = true;
+  };
+
+  fileSystems."/" = {
+    device = "/dev/mapper/crypted";
+    fsType = "ext4";
+  };
+  fileSystems."/boot" = {
+    device = "/dev/disk/by-partlabel/disk-main-ESP";
+    fsType = "vfat";
+    options = [
+      "fmask=0022"
+      "dmask=0022"
+    ];
+  };
+
+  boot.initrd.availableKernelModules = [
+    "xhci_pci" # USB 3.0
+    "nvme" # NVMe SSD
+    "usb_storage" # usb storage
+    "sd_mod" # sd card
+    "thunderbolt"
+  ];
+
+  boot.initrd.kernelModules = [ ];
+  boot.kernelModules = [ "kvm-intel" ];
+
   # becuase we are dual booting
   time.hardwareClockInLocalTime = true;
 
