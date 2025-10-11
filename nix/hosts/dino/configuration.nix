@@ -48,9 +48,6 @@
     "acpi_osi=\"!Windows 2020\""
   ];
 
-  # becuase we are dual booting
-  time.hardwareClockInLocalTime = true;
-
   networking.hostName = "dino"; # Define your hostname.
   system.stateVersion = "24.05";
 
