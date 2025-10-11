@@ -20,6 +20,26 @@
         "type": "github"
       }
     },
+    "disko": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1758287904,
+        "narHash": "sha256-IGmaEf3Do8o5Cwp1kXBN1wQmZwQN3NLfq5t4nHtVtcU=",
+        "owner": "nix-community",
+        "repo": "disko",
+        "rev": "67ff9807dd148e704baadbd4fd783b54282ca627",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "disko",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -202,11 +222,11 @@
     },
     "nixpkgs-master": {
       "locked": {
-        "lastModified": 1760130558,
-        "narHash": "sha256-yBU4S3DtGmxDG766+vh9p6ytatk5hHdYE8eyrYCiSZ4=",
+        "lastModified": 1760131239,
+        "narHash": "sha256-AksqO2bG5nkyGDXpJmZX7JKT7hca1uo6XZnAL3+lHTw=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "6f88108b78de4f434f376953b372e50f37d713e6",
+        "rev": "a0c659fc3e032fd33760b3fe785c3578d90ab5e2",
         "type": "github"
       },
       "original": {
@@ -345,6 +365,7 @@
     "root": {
       "inputs": {
         "deploy-rs": "deploy-rs",
+        "disko": "disko",
         "flake-utils": "flake-utils",
         "framework-dsp": "framework-dsp",
         "home-manager": "home-manager",
