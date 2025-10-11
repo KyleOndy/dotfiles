@@ -30,6 +30,7 @@ with lib;
         haskell.enable = false;
         nix.enable = true;
         go.enable = true;
+        rust.enable = true;
       };
       shell = {
         zsh.enable = true;
