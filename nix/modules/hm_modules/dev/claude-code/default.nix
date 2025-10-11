@@ -151,6 +151,7 @@ in
         ".claude/commands/docs/".source = ./commands/docs;
         ".claude/commands/git/".source = ./commands/git;
         ".claude/commands/project/".source = ./commands/project;
+        ".claude/commands/task/".source = ./commands/task;
         ".claude/commands/test/".source = ./commands/test;
       })
       # Directory structure (always created)
