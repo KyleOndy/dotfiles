@@ -101,6 +101,15 @@ in
       };
       delta = {
         enable = true;
+        options = {
+          syntax-theme = "gruvbox-dark";
+          line-numbers = true;
+          # Higher contrast backgrounds
+          minus-style = "syntax #330011";
+          minus-emph-style = "syntax #80002a";
+          plus-style = "syntax #001a00";
+          plus-emph-style = "syntax #003300";
+        };
       };
       signing = {
         # signed commits don't _really_ help, because no one will ever verify
