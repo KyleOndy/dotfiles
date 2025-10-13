@@ -18,29 +18,36 @@ fn main() {
     match result {
         Ok(output) => print!("{}", output),
         Err(_) => {
-            // Fallback to a reasonable default if battery reading fails
-            print!("0.0 W ");
+            // If battery reading fails (e.g., desktop system), show nothing
             process::exit(1);
         }
     }
 }
 
 fn calculate_power_draw() -> Result<String, Box<dyn std::error::Error>> {
+    // Read battery capacity percentage - if this fails, assume no battery (desktop system)
+    let capacity = read_battery_value("capacity")?;
+
     // Read battery status to determine if charging or discharging
     let status = read_battery_file("status")?;
     let is_charging = status == "Charging";
 
-    // Read current and voltage values
-    let current_now = read_battery_value("current_now")?;
-    let voltage_now = read_battery_value("voltage_now")?;
+    // Try to read current and voltage values for power calculation
+    let power_display = match (read_battery_value("current_now"), read_battery_value("voltage_now")) {
+        (Ok(current_now), Ok(voltage_now)) => {
+            // Calculate power in watts
+            // Formula: (current_now * voltage_now) / 1e12
+            let power_watts = (current_now as f64 * voltage_now as f64) / 1e12;
+            let prefix = if is_charging { "+" } else { "" };
+            format!(" {}{:.1}W", prefix, power_watts)
+        }
+        _ => {
+            // If power readings aren't available, just show percentage
+            String::new()
+        }
+    };
 
-    // Calculate power in watts
-    // Formula: (current_now * voltage_now) / 1e12
-    let power_watts = (current_now as f64 * voltage_now as f64) / 1e12;
-
-    // Format output with charging indicator
-    let prefix = if is_charging { "+" } else { "" };
-    Ok(format!("{}{:.1} W ", prefix, power_watts))
+    Ok(format!("{}%{} ", capacity, power_display))
 }
 
 #[cfg(test)]
