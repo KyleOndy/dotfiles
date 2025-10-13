@@ -1,259 +1,488 @@
 ---
-allowed-tools: Bash(git:*), Read, LS
-argument-hint: [--target-branch branch]
-description: Rewrite git history to ensure clean, logical, and atomic commits with interactive rebase
+allowed-tools: Bash(git:*), Bash(sed:*), Read, Grep
+argument-hint: [--base <ref>]
+description: AI-friendly git history cleanup with automated rebase patterns
 ---
 
 # Git History Clean
 
-**Skill Level:** Intermediate to Advanced  
+**Skill Level:** Intermediate to Advanced
 **Risk Level:** High (destructive operation - backup recommended)
 
-Rewriting git history back to `main` or another target branch to ensure clean, logical, and atomic commits. Common use cases:
+Clean up git history using AI-friendly automation patterns. Accepts any git ref: branches, commit SHAs, tags, `HEAD~N`, or merge bases.
+
+## 🤖 AI Agent Note
+
+**IMPORTANT**: Claude cannot use interactive editors. This command uses `GIT_SEQUENCE_EDITOR` with `sed` for programmatic rebase automation instead of manual editor interaction.
+
+## Common Use Cases
 
 - Squash multiple WIP commits into meaningful units
-- Separate mixed changes into focused commits
-- Fix commit messages that don't reflect actual changes
 - Remove debugging commits before merging
+- Drop temporary/experimental commits
+- Fix commit messages that don't reflect actual changes
+- Clean up fixup!/squash! commits automatically
 
-## Prerequisites
+## Prerequisites & Safety
 
-- Understanding of git rebase interactive mode
-- Familiarity with git reflog for recovery
+1. **Ensure you're not on a shared/protected branch**
+   - Protected branches (main, master, develop, etc.) should never have their history rewritten
+   - Only rebase commits that exist solely in your local repository
 
-## Pre-flight Checklist
-
-1. **Run tests to ensure current state is good**
-
-   ```bash
-   npm test  # or make test, cargo test, etc.
-   ```
-
-2. **Ensure you're not on a shared/protected branch**
-
-   Protected branches (main, master, develop, etc.) should never have their history rewritten.
-
-## Automated Setup and Verification
-
-!`git status`
-!`git branch --show-current`
+2. **Run pre-flight checks**
+   !`git status`
+   !`git branch --show-current`
 
 ## Initial Setup
 
-1. **Create backup branch automatically**
+### 1. Validate Base Reference
 
-   ```bash
-   BACKUP_BRANCH="backup-$(date +%Y%m%d-%H%M%S)"
-   git branch "$BACKUP_BRANCH"
-   echo "Created backup branch: $BACKUP_BRANCH"
-   ```
+```bash
+BASE="${1:-main}"  # Accepts: branches, SHAs, tags, HEAD~N, etc.
 
-2. **Handle uncommitted changes with guided commit**
+# Validate the ref exists
+if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
+  echo "Error: '$BASE' is not a valid git reference"
+  exit 1
+fi
 
-   ```bash
-   # Check for uncommitted changes
-   if ! git diff --quiet || ! git diff --cached --quiet; then
-     echo "🔍 Detected uncommitted changes. Let's create a commit first."
+# Show what will be rebased
+echo "Commits to be rebased from $BASE:"
+git log --oneline "$BASE..HEAD"
+```
 
-     # Show current status
-     echo "Current git status:"
-     git status --short
+### 2. Create Backup Branch
 
-     # Count and categorize changes
-     MODIFIED_FILES=$(git diff --name-only | wc -l)
-     STAGED_FILES=$(git diff --cached --name-only | wc -l)
-     TOTAL_FILES=$((MODIFIED_FILES + STAGED_FILES))
+```bash
+BACKUP_BRANCH="backup-$(date +%Y%m%d-%H%M%S)"
+git branch "$BACKUP_BRANCH"
+echo "Created backup branch: $BACKUP_BRANCH"
+```
 
-     # Smart commit message suggestion
-     if [ $TOTAL_FILES -le 3 ]; then
-       # Few files - suggest descriptive message based on files
-       CHANGED_FILES=$(git diff --name-only && git diff --cached --name-only | head -3 | tr '\n' ' ')
-       SUGGESTED_MSG="WIP: update $CHANGED_FILES"
-     else
-       # Many files - generic message
-       SUGGESTED_MSG="WIP: save current work before history rewrite"
-     fi
+### 3. Handle Uncommitted Changes
 
-     echo "Suggested commit message: $SUGGESTED_MSG"
+Git's `--autostash` will automatically handle uncommitted changes:
 
-     # Stage all changes and commit
-     git add .
-     git commit -m "$SUGGESTED_MSG"
+```bash
+# Option 1: Let rebase handle it (recommended)
+# The --autostash flag automatically stashes and reapplies changes
 
-     echo "✅ Created WIP commit. Proceeding with history rewrite..."
-   else
-     echo "✅ Working directory is clean"
-   fi
-   ```
+# Option 2: Commit changes first (if you want them in history)
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "Uncommitted changes detected. Creating WIP commit..."
+  git add .
+  git commit -m "WIP: save work before history rewrite"
+fi
+```
 
 ## Analysis Phase
 
-1. **Chat History Examination**
-   - Summarize current chat history for important context
-   - Identify root intentions behind the changes
-   - Note any "one-off" quick fixes that should be separate commits
-   - Document any experimental changes that should be excluded
+### 1. Examine Commit History
 
-2. **Git History Analysis**
-   !`git log --oneline main..HEAD`
-   !`git log --stat main..HEAD`
+Run these commands to understand your commits:
 
-   Based on the above output, identify commits that should be:
-   - **Squashed together**: Related changes that belong in one commit
-   - **Split apart**: Mixed concerns that need separation
-   - **Reordered**: Logical sequence improvements
-   - **Dropped**: Debugging/temporary commits
+!`git log --oneline $BASE..HEAD`
+!`git log --stat $BASE..HEAD`
 
-## Interactive Rebase Execution
+### 2. Categorize Commits
 
-1. **Concrete Rebase Example**
+Based on the output, identify:
 
-   **Before starting**: Understand the commit order in rebase editor
+- **Squash candidates**: WIP, fixup, typo fixes, related changes
+- **Drop candidates**: debug, temporary, experimental commits
+- **Reword candidates**: Unclear or inaccurate commit messages
+- **Keep separate**: Significant features, bug fixes, refactors
 
-   ```text
-   git log --oneline shows (newest first):
-   abc123 fix typo
-   def456 WIP: add validation
-   ghi789 feat: add login form
+### 3. Check for Fixup Commits
 
-   Rebase editor shows (oldest first):
-   pick ghi789 feat: add login form
-   pick def456 WIP: add validation
-   pick abc123 fix typo
-   ```
+```bash
+# Check if you used git commit --fixup during development
+git log --oneline "$BASE..HEAD" | grep -E "^[a-f0-9]+ (fixup!|squash!)"
+```
 
-2. **Start Interactive Rebase**
+If fixup commits exist, use Pattern 4 (Autosquash) below.
 
-   ```bash
-   TARGET_BRANCH="${1:-main}"
-   git rebase -i "$TARGET_BRANCH"
-   ```
+## 🚀 Automated Rebase Patterns
 
-3. **Common Rebase Patterns**
+Choose the appropriate pattern based on your analysis above.
 
-   **Pattern 1: Squash WIP commits**
+### Pattern 1: Squash All Commits Into One
 
-   ```text
-   pick ghi789 feat: add login form
-   squash def456 WIP: add validation
-   squash abc123 fix typo
-   ```
+**Use when**: All commits represent one logical change
 
-   **Pattern 2: Separate mixed changes with edit**
+```bash
+BASE="${1:-main}"
 
-   ```text
-   edit ghi789 feat: add login form + fix bug
-   pick def456 WIP: add validation
-   ```
+# Squash everything after the first commit
+GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash "$BASE"
 
-   Then when rebase pauses:
+# Then edit the combined commit message when prompted
+```
 
-   ```bash
-   git reset HEAD~1           # Uncommit the mixed changes
-   git add login-files        # Stage only login-related files
-   git commit -m "feat: add login form"
-   git add bug-fix-files      # Stage bug fix files
-   git commit -m "fix: resolve navigation issue"
-   git rebase --continue
-   ```
+**Example**:
 
-4. **Handle Each Rebase Step**
-   - **For `reword`**: Editor opens → Edit message → Save and close
-   - **For `edit`**: Make changes → `git add` → `git commit --amend` → `git rebase --continue`
-   - **For `squash`**: Editor opens with combined messages → Edit → Save and close
-   - **For conflicts**: Fix files → `git add` → `git rebase --continue`
+```
+Before: feat: add login → WIP: fix styling → fix typo → add validation
+After:  feat: add complete login form with validation
+```
 
-## Verification and Finalization
+### Pattern 2: Squash All But Keep First Commit Separate
 
-1. **Verify Rebase Success**
+**Use when**: First commit is significant, rest are refinements
 
-   ```bash
-   git log --oneline "$TARGET_BRANCH..HEAD"  # Show new clean history
-   git diff "$BACKUP_BRANCH"                 # Should show no differences
-   ```
+```bash
+BASE="${1:-main}"
 
-2. **Final Quality Checks**
-   - Each commit should compile and pass tests
-   - Commit messages should accurately describe changes
-   - No merge conflicts with target branch
+# Keep first commit (pick), squash the rest
+GIT_SEQUENCE_EDITOR="sed -i '3,$ s/^pick/squash/'" git rebase -i --autostash "$BASE"
+```
+
+**Example**:
+
+```
+Before: feat: add login → fix: address review comments → fix: typo → refactor: cleanup
+After:  feat: add login
+        fix: address review comments and cleanup
+```
+
+### Pattern 3: Drop Commits Matching Pattern
+
+**Use when**: Need to remove debug/temporary commits
+
+```bash
+BASE="${1:-main}"
+PATTERN="debug\|WIP\|temp\|experiment"  # Customize this
+
+# Drop any commits with these keywords in message
+GIT_SEQUENCE_EDITOR="sed -i '/^pick.*\($PATTERN\)/d'" git rebase -i --autostash "$BASE"
+```
+
+**Example**:
+
+```
+Before: feat: add feature → debug: add logging → more debug → feat: polish
+After:  feat: add feature → feat: polish
+```
+
+### Pattern 4: Autosquash (for fixup!/squash! commits)
+
+**Use when**: You used `git commit --fixup=<sha>` during development
+
+```bash
+BASE="${1:-main}"
+
+# Git automatically reorders and squashes fixup!/squash! commits
+GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --autostash "$BASE"
+```
+
+This is fully automated - no editor interaction needed!
+
+**Workflow**:
+
+```bash
+# During development:
+git commit -m "feat: add login"
+# ... later, fix something in that commit:
+git commit --fixup=abc123
+
+# When cleaning up:
+GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash main
+```
+
+### Pattern 5: Fixup All (Discard All Messages Except First)
+
+**Use when**: Only the first commit message matters, rest are noise
+
+```bash
+BASE="${1:-main}"
+
+# Use fixup (like squash but discards commit messages)
+GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/fixup/'" git rebase -i --autostash "$BASE"
+```
+
+**Example**:
+
+```
+Before: feat: add login → fix whitespace → fix typo → address comments
+After:  feat: add login  (other messages discarded)
+```
+
+### Pattern 6: Custom Sed Transformation
+
+**Use when**: Complex transformation needed
+
+```bash
+BASE="${1:-main}"
+
+# Template for custom sed commands
+# Multiple sed commands can be chained with -e
+GIT_SEQUENCE_EDITOR="sed -i -e 's/^pick abc123/edit abc123/' -e '/^pick.*debug/d'" \
+  git rebase -i --autostash "$BASE"
+```
+
+**Common sed operations**:
+
+```bash
+# Change specific commit to edit
+sed -i 's/^pick abc123/edit abc123/'
+
+# Reword specific commit
+sed -i 's/^pick abc123/reword abc123/'
+
+# Drop specific commit by SHA
+sed -i '/^pick abc123/d'
+
+# Squash commits with "WIP" in message
+sed -i '/^pick.*WIP/s/pick/squash/'
+
+# Change all picks to rewords
+sed -i 's/^pick/reword/'
+```
+
+## Decision Framework
+
+Use this flowchart to choose your pattern:
+
+```
+1. Do you have fixup!/squash! commits?
+   YES → Use Pattern 4 (Autosquash)
+   NO  → Continue to #2
+
+2. Do you want ONE final commit?
+   YES → Use Pattern 1 (Squash all into one)
+   NO  → Continue to #3
+
+3. Do you need to DROP specific commits?
+   YES → Use Pattern 3 (Drop by pattern)
+   NO  → Continue to #4
+
+4. Do you want to keep first commit message only?
+   YES → Use Pattern 5 (Fixup all)
+   NO  → Continue to #5
+
+5. Multiple logical commits but need cleanup?
+   → Use Pattern 2 (Keep first separate) or Pattern 6 (Custom)
+
+6. Complex restructuring needed?
+   → See "Advanced: Manual Rebase" section below
+```
+
+## Verification & Finalization
+
+### 1. Verify Rebase Success
+
+```bash
+# Show new clean history
+git log --oneline "$BASE..HEAD"
+
+# Verify content is identical (diff should be empty)
+git diff "$BACKUP_BRANCH"
+
+# If diff is empty, the rebase preserved all changes ✅
+```
+
+### 2. Test the Changes
+
+```bash
+# Run tests to ensure nothing broke
+npm test  # or cargo test, pytest, etc.
+```
+
+### 3. Cleanup Backup (Optional)
+
+```bash
+# Only after verifying everything works!
+git branch -d "$BACKUP_BRANCH"
+```
+
+## Handling Conflicts
+
+If rebase encounters conflicts:
+
+```bash
+# 1. Git will pause and show conflicted files
+git status
+
+# 2. Fix conflicts in the files (remove <<<, ===, >>> markers)
+# 3. Stage the resolved files
+git add <conflicted-files>
+
+# 4. Continue the rebase
+git rebase --continue
+
+# If it's too complex:
+git rebase --abort  # Start over with different approach
+```
+
+## Recovery & Troubleshooting
+
+### Abort Rebase
+
+```bash
+git rebase --abort  # Cancel and return to pre-rebase state
+```
+
+### Restore from Backup
+
+```bash
+git reset --hard "$BACKUP_BRANCH"  # Restore from backup
+```
+
+### Find Lost Commits
+
+```bash
+git reflog                         # Show all recent operations
+git cherry-pick <commit-hash>      # Restore specific commit
+```
+
+### Skip Problematic Commit
+
+```bash
+git rebase --skip  # Skip current commit entirely (during rebase)
+```
 
 ## Success Criteria
 
-- [ ] `git diff main` shows same changes as before rewrite
-- [ ] Each commit compiles and tests pass
+- [ ] `git diff $BASE` shows same changes as before rewrite
+- [ ] Each commit compiles and passes tests
 - [ ] Commit messages accurately describe changes
-- [ ] No merge conflicts with target branch
-
-## Common Issues & Troubleshooting
-
-### Merge Conflicts During Rebase
-
-```bash
-# Fix conflicts in files, then:
-git add <conflicted-files>
-git rebase --continue
-```
-
-### Want to Skip a Problematic Commit
-
-```bash
-git rebase --skip  # Skip current commit entirely
-```
-
-### Need to Edit a Commit During Rebase
-
-```bash
-# When rebase pauses at 'edit' command:
-# Make your changes, then:
-git add <modified-files>
-git commit --amend
-git rebase --continue
-```
-
-### Accidentally Deleted Important Commit
-
-```bash
-git reflog                    # Find the commit hash
-git cherry-pick <commit-hash> # Restore it
-```
-
-## Recovery
-
-If something goes wrong:
-
-- `git rebase --abort` - Cancel ongoing rebase (safest option)
-- `git reflog` - See recent operations and commit hashes
-- `git reset --hard backup-branch-name` - Restore from backup
-- `git reset --hard ORIG_HEAD` - Return to pre-rebase state
+- [ ] No merge conflicts with base branch
+- [ ] Backup branch created and verified
 
 ## Examples
 
 ### Example 1: Squashing WIP commits
 
-```text
-Before: feat: add login → WIP: fix styling → WIP: add validation → fix typo
-After:  feat: add login form with validation and styling
+```bash
+# Current history:
+git log --oneline main..HEAD
+# abc123 fix typo
+# def456 WIP: add validation
+# ghi789 WIP: fix styling
+# jkl012 feat: add login form
+
+# Use Pattern 1: Squash all
+BASE="main"
+GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash "$BASE"
+
+# Result: One commit with all changes
+# xyz789 feat: add complete login form with validation and styling
 ```
 
-### Example 2: Separating mixed changes
+### Example 2: Removing debug commits
 
-```text
-Before: add user auth + fix unrelated bug + update docs
-After:
-- feat: add user authentication system
-- fix: resolve navigation bug in sidebar
-- docs: update API documentation
+```bash
+# Current history:
+git log --oneline main..HEAD
+# abc123 remove debug
+# def456 add more debug
+# ghi789 debug: add logging
+# jkl012 feat: add feature
+
+# Use Pattern 3: Drop by pattern
+BASE="main"
+PATTERN="debug"
+GIT_SEQUENCE_EDITOR="sed -i '/^pick.*debug/d'" git rebase -i --autostash "$BASE"
+
+# Result: Only feature commit remains
+# jkl012 feat: add feature
 ```
 
-### Example 3: Removing debug commits
+### Example 3: Using autosquash workflow
 
-```text
-Before: feat: new feature → debug logging → more debug → remove debug
-After:  feat: implement new feature functionality
+```bash
+# During development, mark fixups:
+git commit -m "feat: add authentication"
+# ... later, found a typo:
+git add .
+git commit --fixup=abc123  # References the auth commit
+
+# ... later, another fix:
+git add .
+git commit --fixup=abc123
+
+# When ready to clean up:
+BASE="main"
+GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --autostash "$BASE"
+
+# Result: All fixups automatically squashed into original commit
+# abc123 feat: add authentication (with all fixes included)
 ```
 
 ## Warnings
 
-⚠️ **NEVER** rewrite history on shared/main branches  
-⚠️ **ALWAYS** create backup branch before starting  
-⚠️ **VERIFY** tests pass after each major change
+⚠️ **NEVER** rewrite history on shared/main branches
+⚠️ **ALWAYS** create backup branch before starting
+⚠️ **VERIFY** tests pass after rebase
+⚠️ **NEVER** force push to shared branches without team agreement
+
+---
+
+## Advanced: Manual Rebase
+
+For complex scenarios where automation isn't sufficient, you can perform manual interactive rebase. **Note**: This requires human interaction and cannot be performed by AI agents.
+
+### Understanding Commit Order
+
+```text
+git log --oneline shows (newest first):
+abc123 fix typo
+def456 WIP: add validation
+ghi789 feat: add login form
+
+Rebase editor shows (oldest first):
+pick ghi789 feat: add login form
+pick def456 WIP: add validation
+pick abc123 fix typo
+```
+
+### Manual Rebase Commands
+
+```bash
+pick    # Use commit as-is
+reword  # Change commit message
+edit    # Pause to amend commit
+squash  # Combine with previous, keep both messages
+fixup   # Combine with previous, discard this message
+drop    # Remove commit entirely
+```
+
+### Starting Manual Rebase
+
+```bash
+BASE="${1:-main}"
+git rebase -i --autostash "$BASE"
+
+# This opens an editor - only works for humans, not AI agents
+# Edit the file manually, save, and close
+```
+
+### Editing a Commit During Rebase
+
+When rebase pauses at an `edit` command:
+
+```bash
+# Make your changes
+git add <modified-files>
+git commit --amend
+git rebase --continue
+```
+
+### Splitting a Commit
+
+```bash
+# When rebase pauses at 'edit':
+git reset HEAD~1              # Uncommit
+git add <files-for-commit-1>  # Stage first group
+git commit -m "First part"
+git add <files-for-commit-2>  # Stage second group
+git commit -m "Second part"
+git rebase --continue
+```
+
+## Further Reading
+
+- `git rebase --help` - Official documentation
+- `git reflog --help` - Understanding reflog for recovery
+- Git autosquash workflow: https://thoughtbot.com/blog/autosquashing-git-commits
+- GIT_SEQUENCE_EDITOR: https://git-scm.com/docs/git-rebase#_sequence_editor
