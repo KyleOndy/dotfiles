@@ -1,0 +1,17 @@
+[package]
+name = "git-worktree-prompt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# No dependencies - pure Rust implementation!
+
+[dev-dependencies]
+tempfile = "3"
+serial_test = "3.2"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"  # Smaller binary, faster startup (no unwinding)

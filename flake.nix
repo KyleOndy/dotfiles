@@ -195,6 +195,21 @@
         };
       });
 
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = overlays;
+            config = { };
+          };
+        in
+        {
+          # Expose internal packages for direct building and benchmarking
+          git-worktree-prompt = pkgs.git-worktree-prompt;
+        }
+      );
+
       nixosConfigurations = {
         dino = mkNixosSystem {
           hostname = "dino";
