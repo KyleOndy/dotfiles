@@ -1,34 +1,88 @@
 #!/usr/bin/env bash
-set -Ee
+set -Eeo pipefail
 
-# easily create a new feature branch with my worktree flow
-# TODO: convert into a functio that lives in zshrc so I can cd into the worktree
+# Jira ticket validation pattern (used in work mode)
+readonly JIRA_PATTERN='^[A-Z]+-[0-9]+$'
 
+# Get worktree root (find .bare directory)
+# Allow command to fail gracefully (not in git repo is expected)
+wt_root=$(git worktree list --porcelain 2>/dev/null | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2 || true)
 
-if [[ $# -lt 2 ]]; then
-  echo "usage: $0 <jira ticket> <name> <base>"
-  echo
-  # TODO: generalize this for use on personal projects
-  echo "Opinionated script to ease create of feature branches working at S1"
-  echo "note: branch name and path will not be the same"
-  echo "path will be   <ticket>/<name>"
-  echo "branch will be <ticket>-<name>"
-  echo "if <base> is not given origin/master is assumed"
+if [[ -z "$wt_root" ]]; then
+  echo "Error: Not in a worktree-based repository (no .bare found)" >&2
+  echo "To set up a repository for this workflow, use: git wt-clone <url>" >&2
   exit 1
 fi
 
-ticket="${1^^}"
-name="$2"
-base_branch=${3:-"origin/master"}
+# Auto-detect mode based on argument count
+if [[ $# -eq 1 ]]; then
+  # HOME MODE: Single argument
+  # Supports both simple names and nested paths
+  name="$1"
+  base_branch="origin/main"
 
-# handle if we try to create a new feature branch while we are in another woorktree
-# HACK HACK FRAGILE!
-wt_root=$(git worktree list --porcelain | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2)
+  feature_path="${wt_root}/${name}"
+  branch_name="${name//\//-}"  # Convert slashes to hyphens
 
-feature_path="${wt_root}/${ticket}/${name}"
+elif [[ $# -ge 2 ]]; then
+  # WORK MODE: Ticket + name
+  ticket="${1^^}"  # Uppercase ticket
+  name="$2"
+  base_branch=${3:-"origin/master"}
 
+  # Validate Jira ticket format
+  if [[ ! "$ticket" =~ $JIRA_PATTERN ]]; then
+    echo "Error: Invalid ticket format '$ticket'. Expected format: PROJ-123" >&2
+    exit 1
+  fi
+
+  feature_path="${wt_root}/${ticket}/${name}"
+  branch_name="${ticket}-${name}"
+
+else
+  cat << 'EOF'
+usage: git wt-feature-branch <name> [base]
+       git wt-feature-branch <ticket> <name> [base]
+
+Create a new git worktree with branch.
+
+Home mode (1 argument):
+  git wt-feature-branch add-starship
+    → path: {repo}/add-starship/
+    → branch: add-starship
+    → base: origin/main
+
+  git wt-feature-branch feature/something
+    → path: {repo}/feature/something/
+    → branch: feature-something
+    → base: origin/main
+
+Work mode (2+ arguments):
+  git wt-feature-branch DEV-123 fix-the-thing
+    → path: {repo}/DEV-123/fix-the-thing/
+    → branch: DEV-123-fix-the-thing
+    → base: origin/master (default)
+
+  git wt-feature-branch DEV-123 fix-the-thing origin/develop
+    → base: origin/develop (specified)
+
+Ticket validation: Work mode requires valid Jira format (PROJ-123).
+The script auto-detects mode based on argument count.
+EOF
+  exit 1
+fi
+
+# Create worktree
+echo "Fetching latest from remote..."
 git fetch
-git worktree add -b "${ticket}-${name}" "$feature_path" "$base_branch"
-RED='\033[0;31m'
-NC='\033[0m' # No Color
->&2 echo -e "${RED}Remember to switch to ${ticket}/${name} to start working on it${NC}"
+
+echo "Creating worktree..."
+git worktree add -b "${branch_name}" "$feature_path" "$base_branch"
+
+echo ""
+echo "✓ Created worktree: ${feature_path}"
+echo "✓ Branch: ${branch_name}"
+echo "✓ Based on: ${base_branch}"
+echo ""
+echo "To start working:"
+echo "  cd ${feature_path}"
