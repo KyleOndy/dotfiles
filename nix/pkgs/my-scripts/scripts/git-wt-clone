@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-set -Ee
+set -Eeo pipefail
 
-# clone and setups a repo for use with my git worktree workflow
+# Clone and setup a repo for use with git worktree workflow
 
 get_default_branch() {
   local url=$1
-  # asusmptions abound!
+  # Assumptions abound!
   head_commit=$(git ls-remote "$url" HEAD | cut -f1)
   branches_on_head=$(git ls-remote "$url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
   branch_count=$(echo "$branches_on_head" | wc -l)
 
   default_branch="main"
   if [[ $branch_count -eq 0 ]]; then
-    echo "Uh oh! Can't determined default branch"
+    echo "Error: Can't determine default branch for $url" >&2
     exit 1
   elif [[ $branch_count -eq 1 ]]; then
     default_branch=$branches_on_head
@@ -22,43 +22,97 @@ get_default_branch() {
     elif echo "$branches_on_head" | grep --quiet "master"; then
       default_branch="master"
     else
-      # yolo
+      # Use first branch found
       default_branch=$(echo "$branches_on_head" | head -n1)
     fi
   fi
 
   echo "$default_branch"
-
 }
+
+# Show help text
+if [[ $# -eq 0 ]]; then
+  cat << 'EOF'
+usage: git wt-clone <url> [name]
+
+Clone a repository and set it up for git worktree workflow.
+
+Creates a directory with:
+  .bare/              - Bare repository
+  .git                - Points to .bare
+  <default-branch>/   - Initial worktree for default branch
+
+Arguments:
+  url   - Git repository URL to clone
+  name  - Directory name (optional, defaults to repository name)
+
+Examples:
+  git wt-clone https://github.com/user/repo
+    → Creates ./repo/ with main/ or master/ worktree
+
+  git wt-clone https://github.com/user/repo my-project
+    → Creates ./my-project/ with main/ or master/ worktree
+
+After cloning, use git wt-feature-branch to create feature worktrees.
+EOF
+  exit 0
+fi
 
 url=$1
 basename=${url##*/}
 name=${2:-${basename%.*}}
-default_branch=$(get_default_branch "$url")
 
+# Validate inputs
+if [[ -z "$url" ]]; then
+  echo "Error: Repository URL required" >&2
+  echo "Usage: git wt-clone <url> [name]" >&2
+  exit 1
+fi
+
+if [[ -e "$name" ]]; then
+  echo "Error: Directory '$name' already exists" >&2
+  exit 1
+fi
+
+# Detect default branch
+echo "Detecting default branch..."
+default_branch=$(get_default_branch "$url")
+echo "Default branch: $default_branch"
+
+# Create directory structure
 mkdir "$name"
 cd "$name"
-#git clone "$url" "$default_branch"
-#
+
+# Clone as bare repository
+echo ""
+echo "Cloning repository..."
 git clone --bare "$url" .bare
+
+# Set up git directory pointer
 echo "gitdir: ./.bare" > .git
+
+# Configure remote fetch
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+
+# Create initial worktree for default branch
+echo ""
+echo "Creating worktree for '$default_branch'..."
 git worktree add "$default_branch" "$default_branch"
 
-# TODO: I'm sure this is a better way to do this. Avoid the following
-#
-#   There is no tracking information for the current branch.
-#   Please specify which branch you want to rebase against.
-#   See git-rebase(1) for details.
-#
-#       git rebase '<branch>'
-#
-#   If you wish to set tracking information for this branch you can do so with:
-#
-#       git branch --set-upstream-to=<remote>/<branch> master
-
-
-
+# Set up tracking for default branch
 cd "$default_branch"
-git fetch
+git fetch --quiet
 git branch --set-upstream-to="origin/${default_branch}" "$default_branch"
+
+# Success summary
+echo ""
+echo "✓ Repository cloned and configured for worktree workflow"
+echo "✓ Directory: ../$name/"
+echo "✓ Initial worktree: $default_branch/"
+echo ""
+echo "To start working:"
+echo "  cd $default_branch"
+echo ""
+echo "To create feature worktrees:"
+echo "  git wt-feature-branch <name>              # Home mode"
+echo "  git wt-feature-branch <ticket> <name>     # Work mode"

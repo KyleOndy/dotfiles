@@ -1,26 +1,23 @@
 #compdef git-wt-feature-branch
 # vi: ft=zsh
 
-# TODO:
-#       - read the docs on what this all does, lots of copy and paste
-#       - add descrption of what this command does, aka. git wt-f<TAB> will
-#         show a description of this script
-#       - make the second argument show its help text
+# Completion for git-wt-feature-branch dual-mode operation
+# Home mode: git wt-feature-branch <name> [base]
+# Work mode: git wt-feature-branch <ticket> <name> [base]
 
 source dots_common.bash
 
 _git_branches() {
-  # TODO: gonna need to fix this
   git --no-pager branch -a --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
     sed -E 's|"|'"'"'|g' | \
     sed -E 's|\t|"|g'
 }
 
 main() {
-  # TODO: gonna need to fix this
-  _arguments "1: :(($(_jira_tickets_cached)))" \
-    "2: :( )" \
-    "3: :(($(_git_branches)))"
+  _arguments \
+    "1:name or ticket:(($(_jira_tickets_cached)))" \
+    "2:description (work mode only):( )" \
+    "3:base branch:(($(_git_branches)))"
 }
 
 main "$@"
