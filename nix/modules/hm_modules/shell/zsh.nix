@@ -82,6 +82,10 @@ in
               # https://github.com/jeffreytse/zsh-vi-mode/issues/24
               source "${pkgs.fzf}/share/fzf/key-bindings.zsh"
               source "${pkgs.fzf}/share/fzf/completion.zsh"
+
+              # Initialize starship prompt AFTER zvm finishes to prevent prompt corruption
+              # https://github.com/jeffreytse/zsh-vi-mode#execute-extra-commands
+              eval "$(${pkgs.starship}/bin/starship init zsh)"
             }
 
             # shell hooks
@@ -315,84 +319,6 @@ in
               _files # autocomplete filenames as well
             }
             compdef _bb_tasks bb
-
-            # spaceship config
-            source "${pkgs.spaceship-prompt}/lib/spaceship-prompt/spaceship.zsh"
-            export SPACESHIP_PROMPT_ASYNC=false # https://github.com/spaceship-prompt/spaceship-prompt/issues/1193
-
-            # Here are some symbols I'd love to use somewhere
-            #  U+2615   HOT BEVERAGE          ☕
-            #  U+2620   SKULL AND CROSSBONES  ☠
-            #  U+2622   RADIOACTIVE SIGN      ☢
-            export SPACESHIP_CHAR_SYMBOL='λ '
-            export SPACESHIP_CHAR_SYMBOL_ROOT='☢ '
-            export SPACESHIP_TIME_SHOW=true
-            export SPACESHIP_KUBECTL_SHOW=true
-            export SPACESHIP_KUBECTL_VERSION_SHOW=false # don't care what version
-            export SPACESHIP_WTROOT_PREFIX="for "
-            export SPACESHIP_PROMPT_ORDER=(
-              time           # Time stamps section
-              user           # Username section
-              dir            # Current directory section
-              host           # Hostname section
-              wtroot         # hacky homegrown worktree root
-              git            # Git section (git_branch + git_status + [git_commit](default off))
-              python         # Python section
-              golang         # Go section
-              java           # Java section
-              aws            # Amazon Web Services section
-              gcloud         # Google Cloud Platform section
-              azure          # Azure section
-              venv           # virtualenv section
-              uv             # uv virtualenv section
-              kubectl        # Kubectl context section
-              nix_shell      # Nix shell
-              exec_time      # Execution time
-              async          # Async jobs indicator
-              line_sep       # Line break
-              battery        # Battery level and status
-              jobs           # Background jobs indicator
-              exit_code      # Exit code section
-              sudo           # Sudo indicator
-              char           # Prompt character
-            )
-            export SPACESHIP_GIT_STATUS_SHOW=false
-
-            SPACESHIP_WTROOT_SHOW="''${SPACESHIP_WTROOT_SHOW=true}"
-            SPACESHIP_WTROOT_PREFIX="''${SPACESHIP_WTROOT_PREFIX="$SPACESHIP_PROMPT_DEFAULT_PREFIX"}"
-            SPACESHIP_WTROOT_SUFFIX="''${SPACESHIP_WTROOT_SUFFIX=$SPACESHIP_PROMPT_DEFAULT_SUFFIX}"
-            SPACESHIP_WTROOT_SYMBOL="''${SPACESHIP_WTROOT_SYMBOL=" "}"
-            SPACESHIP_WTROOT_COLOR="''${SPACESHIP_WTROOT_COLOR="yellow"}"
-
-            spaceship_wtroot() {
-              [[ $SPACESHIP_WTROOT_SHOW == false ]] && return
-              # todo: if not git; bail
-
-              # TODO: should set SPACESHIP_GIT_SHOW to some original value
-              results=$(find_up .bare | head -n1)
-              if [[ -z "$results" ]]; then
-                SPACESHIP_GIT_SHOW=true
-                return
-              fi
-
-              # HACKS ON HACKS
-              #                 if we are in a "root" of a worktree, but not in a
-              #                 checked-out worktree, we don't want spaceship to
-              #                 display the git status or we always get the
-              #                 `fatal: this operation must be run in a work
-              #                 tree` error which is really annyoing. So turn of
-              #                 spaceship's git prompt iif we are "between"
-              #                 `.bare` and a checked out worktree.
-              ${pkgs.git}/bin/git rev-parse --show-toplevel > /dev/null 2>&1 || SPACESHIP_GIT_SHOW=false
-
-              result=$(basename $(dirname $(echo "$results" | head -n1)))
-              spaceship::section::v4 \
-                --color  "$SPACESHIP_WTROOT_COLOR" \
-                --prefix "$SPACESHIP_WTROOT_PREFIX" \
-                --suffix "$SPACESHIP_WTROOT_SUFFIX" \
-                --symbol "$SPACESHIP_WTROOT_SYMBOL" \
-                "$result"
-            }
 
             git() {
               # TODO: add more sanity checks for me locally
