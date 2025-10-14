@@ -12,4 +12,11 @@ remove paclages I don't use
   vault
   rest of non-tf hashi
 
+Get rid of duplicate packages
+  keep the orginization simple, just lexogrpathical sort
+
+replace all nerdfont asumption in starship with unicode
+
 get power useage into tmux bar
+
+firefox pocket disable didn't work

@@ -233,6 +233,7 @@
             programs.dconf.enable = true; # fw13 dsp
             home-manager.users.kyle = {
               hmFoundry = {
+                shell.starship.enable = true;
                 desktop = {
                   media.latex.enable = true;
                   wm.kde.enable = true;
