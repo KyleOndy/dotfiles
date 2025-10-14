@@ -77,6 +77,7 @@ in
       fortune
       w3m
       xclip
+      xxd
 
       # Personal scripts
       my-scripts
