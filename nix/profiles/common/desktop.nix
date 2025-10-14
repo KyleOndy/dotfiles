@@ -20,7 +20,7 @@ with lib;
           makemkv.enable = true;
         };
         term = {
-          wezterm.enable = true;
+          wezterm.enable = false;
           foot.enable = true;
         };
         wm.i3.enable = false;
