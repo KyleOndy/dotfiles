@@ -221,15 +221,47 @@
             inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
           ];
           includeModules = [
-            # todo: refactor these into something else
-            ./nix/hosts/_includes/common.nix
-            ./nix/hosts/_includes/docker.nix
-            ./nix/hosts/_includes/kvm.nix
             ./nix/hosts/dino/root-ssh-config.nix
             inputs.disko.nixosModules.disko
             ./disko-config.nix
           ];
           extraConfig = {
+            systemFoundry = {
+              nixBuilders = {
+                enable = true;
+                machines = [
+                  {
+                    hostName = "tiger.dmz.1ella.com";
+                    sshUser = "svc.deploy";
+                    systems = [
+                      "x86_64-linux"
+                      "aarch64-linux"
+                    ];
+                    maxJobs = 8;
+                    speedFactor = 10;
+                    supportedFeatures = [
+                      "benchmark"
+                      "big-parallel"
+                    ];
+                  }
+                  {
+                    hostName = "cheetah";
+                    sshUser = "svc.deploy";
+                    systems = [
+                      "x86_64-linux"
+                      "aarch64-linux"
+                    ];
+                    maxJobs = 4;
+                    speedFactor = 10;
+                    supportedFeatures = [
+                      "benchmark"
+                      "big-parallel"
+                    ];
+                  }
+                ];
+              };
+              docker.enable = true;
+            };
             services = {
               power-profiles-daemon.enable = false; # am using tlp
             };
