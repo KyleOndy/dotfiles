@@ -97,6 +97,9 @@
         }:
         inputs.nixpkgs.lib.nixosSystem {
           inherit system;
+          specialArgs = {
+            inherit inputs;
+          };
           modules =
             nixModules
             ++ hardwareModules
@@ -225,73 +228,6 @@
             inputs.disko.nixosModules.disko
             ./disko-config.nix
           ];
-          extraConfig = {
-            systemFoundry = {
-              nixBuilders = {
-                enable = true;
-                machines = [
-                  {
-                    hostName = "tiger.dmz.1ella.com";
-                    sshUser = "svc.deploy";
-                    systems = [
-                      "x86_64-linux"
-                      "aarch64-linux"
-                    ];
-                    maxJobs = 8;
-                    speedFactor = 10;
-                    supportedFeatures = [
-                      "benchmark"
-                      "big-parallel"
-                    ];
-                  }
-                  {
-                    hostName = "cheetah";
-                    sshUser = "svc.deploy";
-                    systems = [
-                      "x86_64-linux"
-                      "aarch64-linux"
-                    ];
-                    maxJobs = 4;
-                    speedFactor = 10;
-                    supportedFeatures = [
-                      "benchmark"
-                      "big-parallel"
-                    ];
-                  }
-                ];
-              };
-              docker.enable = true;
-            };
-            services = {
-              power-profiles-daemon.enable = false; # am using tlp
-            };
-            programs.dconf.enable = true; # fw13 dsp
-            home-manager.users.kyle = {
-              hmFoundry = {
-                shell.starship.enable = true;
-                desktop = {
-                  media.latex.enable = true;
-                  wm.kde.enable = true;
-                };
-                dev = {
-                  hashicorp.enable = inputs.nixpkgs.lib.mkForce true;
-                  claude-code = {
-                    enable = true;
-                    enableNotifications = true;
-                  };
-                };
-              };
-              # dsp for fw13
-              services.easyeffects = {
-                enable = true;
-              };
-              xdg.configFile = {
-                "easyeffects/output/cab-fw.json" = {
-                  source = "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
-                };
-              };
-            };
-          };
         };
         tiger = mkNixosSystem {
           hostname = "tiger";

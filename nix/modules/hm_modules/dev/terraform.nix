@@ -6,11 +6,11 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.dev.hashicorp;
+  cfg = config.hmFoundry.dev.terraform;
 in
 {
-  options.hmFoundry.dev.hashicorp = {
-    enable = mkEnableOption "hashitools";
+  options.hmFoundry.dev.terraform = {
+    enable = mkEnableOption "terraform development tools";
   };
 
   config = mkIf cfg.enable {
