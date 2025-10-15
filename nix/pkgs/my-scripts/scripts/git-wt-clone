@@ -1,29 +1,34 @@
 #!/usr/bin/env bash
-set -Eeo pipefail
+set -Eeuo pipefail
 
 # Clone and setup a repo for use with git worktree workflow
 
 get_default_branch() {
   local url=$1
   # Assumptions abound!
+  local head_commit
+  local branches_on_head
+  local branch_count
+  local default_branch
+
   head_commit=$(git ls-remote "$url" HEAD | cut -f1)
   branches_on_head=$(git ls-remote "$url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
-  branch_count=$(echo "$branches_on_head" | wc -l)
+  branch_count=$(wc -l <<< "$branches_on_head")
 
   default_branch="main"
   if [[ $branch_count -eq 0 ]]; then
     echo "Error: Can't determine default branch for $url" >&2
     exit 1
   elif [[ $branch_count -eq 1 ]]; then
-    default_branch=$branches_on_head
+    default_branch="$branches_on_head"
   else
-    if echo "$branches_on_head" | grep --quiet "main"; then
+    if echo "$branches_on_head" | grep -q "main"; then
       default_branch="main"
-    elif echo "$branches_on_head" | grep --quiet "master"; then
+    elif echo "$branches_on_head" | grep -q "master"; then
       default_branch="master"
     else
       # Use first branch found
-      default_branch=$(echo "$branches_on_head" | head -n1)
+      default_branch=$(head -n1 <<< "$branches_on_head")
     fi
   fi
 
@@ -58,9 +63,9 @@ EOF
   exit 0
 fi
 
-url=$1
-basename=${url##*/}
-name=${2:-${basename%.*}}
+readonly url=$1
+readonly basename=${url##*/}
+readonly name=${2:-${basename%.*}}
 
 # Validate inputs
 if [[ -z "$url" ]]; then
@@ -77,6 +82,7 @@ fi
 # Detect default branch
 echo "Detecting default branch..."
 default_branch=$(get_default_branch "$url")
+readonly default_branch
 echo "Default branch: $default_branch"
 
 # Create directory structure
@@ -101,17 +107,16 @@ git worktree add "$default_branch" "$default_branch"
 
 # Set up tracking for default branch
 cd "$default_branch"
-git fetch --quiet
-git branch --set-upstream-to="origin/${default_branch}" "$default_branch"
+git branch -u "origin/${default_branch}" "$default_branch"
 
 # Success summary
 echo ""
 echo "✓ Repository cloned and configured for worktree workflow"
-echo "✓ Directory: ../$name/"
-echo "✓ Initial worktree: $default_branch/"
+echo "✓ Directory: $name/"
+echo "✓ Initial worktree: $name/$default_branch/"
 echo ""
 echo "To start working:"
-echo "  cd $default_branch"
+echo "  cd $name/$default_branch"
 echo ""
 echo "To create feature worktrees:"
 echo "  git wt-feature-branch <name>              # Home mode"
