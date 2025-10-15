@@ -139,6 +139,10 @@ in
           source = ./assets/notification.wav;
           executable = true;
         };
+        ".claude/statusline.sh" = {
+          source = ./statusline.sh;
+          executable = true;
+        };
         ".claude/settings.json".source = ./settings.json;
         ".claude/CLAUDE.md".source = cfg.projectMemory;
       })
