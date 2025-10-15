@@ -407,3 +407,89 @@ fn test_corrupted_git_head() {
         }
     }
 }
+
+#[test]
+#[serial]
+fn test_worktree_subdirectory_shows_only_worktree_name() {
+    // Create a worktree-style setup with .bare directory
+    let temp_dir = TempDir::new().unwrap();
+    let path = temp_dir.path();
+
+    // Create .bare directory and initialize as bare repo
+    let bare_dir = path.join(".bare");
+    fs::create_dir(&bare_dir).unwrap();
+
+    Command::new("git")
+        .args(["init", "--bare"])
+        .current_dir(&bare_dir)
+        .output()
+        .unwrap();
+
+    // Create a .git file pointing to .bare (simulating worktree setup)
+    fs::write(path.join(".git"), "gitdir: .bare").unwrap();
+
+    // Create a worktree with nested path name
+    let worktree_dir = path.join("feat/work-config");
+    Command::new("git")
+        .args(["worktree", "add", "-b", "feat-work-config", "feat/work-config"])
+        .current_dir(path)
+        .output()
+        .unwrap();
+
+    // Configure git in the worktree
+    Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(&worktree_dir)
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args(["config", "user.email", "test@example.com"])
+        .current_dir(&worktree_dir)
+        .output()
+        .unwrap();
+
+    // Create initial commit
+    fs::write(worktree_dir.join("test.txt"), "test").unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(&worktree_dir)
+        .output()
+        .unwrap();
+
+    Command::new("git")
+        .args(["commit", "-m", "initial"])
+        .current_dir(&worktree_dir)
+        .output()
+        .unwrap();
+
+    // Create nested subdirectories within the worktree
+    let subdir = worktree_dir.join("nix").join("work-example");
+    fs::create_dir_all(&subdir).unwrap();
+
+    // Test from deep subdirectory - should show only worktree name, not full path
+    let original_dir = env::current_dir().unwrap();
+    env::set_current_dir(&subdir).unwrap();
+    let result = run();
+    env::set_current_dir(original_dir).unwrap();
+
+    assert!(
+        result.is_ok(),
+        "run() should succeed in worktree subdirectory"
+    );
+    let output = result.unwrap();
+    assert!(
+        output.is_some(),
+        "run() should return Some output for worktree subdirectory"
+    );
+
+    let output_text = output.unwrap();
+    // Expected: Just the worktree name, NOT the subdirectory path
+    // Since branch is "feat-work-config" and path is "feat/work-config",
+    // they normalize to the same thing, so should show just tree icon
+    assert_eq!(
+        output_text, "🌳 feat/work-config",
+        "Expected '🌳 feat/work-config' (worktree name only), got '{}'",
+        output_text
+    );
+}

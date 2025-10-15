@@ -135,7 +135,7 @@ pub(crate) fn run() -> Result<Option<String>, Error> {
 
     // 6. Check if we're in a worktree setup (look for .bare parent)
     if let Some(bare_parent) = find_bare_parent(&work_dir) {
-        let worktree_path = get_relative_path(&bare_parent)?;
+        let worktree_path = get_relative_path(&bare_parent, &work_dir)?;
 
         // If in bare parent directory (not in any worktree), show [bare]
         if worktree_path.is_empty() || worktree_path == "." {
@@ -246,11 +246,9 @@ fn find_bare_parent(work_dir: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Calculates current directory path relative to bare parent directory
-fn get_relative_path(bare_parent: &Path) -> Result<String, Error> {
-    let current_dir = env::current_dir()?;
-
-    let relative = current_dir
+/// Calculates worktree directory path relative to bare parent directory
+fn get_relative_path(bare_parent: &Path, work_dir: &Path) -> Result<String, Error> {
+    let relative = work_dir
         .strip_prefix(bare_parent)
         .map_err(|e| Error::from_str(&format!("Failed to calculate relative path: {}", e)))?;
 
