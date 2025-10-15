@@ -1,9 +1,10 @@
 #compdef git-wt-feature-branch
 # vi: ft=zsh
 
-# Completion for git-wt-feature-branch dual-mode operation
+# Completion for git-wt-feature-branch multi-mode operation
 # Home mode: git wt-feature-branch <name> [base]
 # Work mode: git wt-feature-branch <ticket> <name> [base]
+# Existing mode: git wt-feature-branch --existing <branch> [prefix]
 
 source dots_common.bash
 
@@ -13,11 +14,28 @@ _git_branches() {
     sed -E 's|\t|"|g'
 }
 
+_git_remote_branches() {
+  git --no-pager branch -r --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
+    grep -v 'HEAD' | \
+    sed -E 's|origin/||g' | \
+    sed -E 's|"|'"'"'|g' | \
+    sed -E 's|\t|"|g'
+}
+
 main() {
-  _arguments \
-    "1:name or ticket:(($(_jira_tickets_cached)))" \
-    "2:description (work mode only):( )" \
-    "3:base branch:(($(_git_branches)))"
+  # Handle --existing/-e flag mode
+  if [[ "${words[2]}" == "--existing" || "${words[2]}" == "-e" ]]; then
+    _arguments \
+      "1:flag:(--existing -e)" \
+      "2:existing branch:(($(_git_remote_branches)))" \
+      "3:namespace prefix (optional):(($(_jira_tickets_cached)) TRIVIAL CHORE HOTFIX SPIKE)"
+  else
+    # Original dual-mode completion
+    _arguments \
+      "1:name or ticket:(($(_jira_tickets_cached)))" \
+      "2:description (work mode only):( )" \
+      "3:base branch:(($(_git_branches)))"
+  fi
 }
 
 main "$@"

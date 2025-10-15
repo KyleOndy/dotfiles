@@ -14,8 +14,46 @@ if [[ -z "$wt_root" ]]; then
   exit 1
 fi
 
-# Auto-detect mode based on argument count
-if [[ $# -eq 1 ]]; then
+# Auto-detect mode based on argument count and flags
+if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
+  # EXISTING BRANCH MODE: Checkout existing branch into worktree
+  shift
+  branch_name="$1"
+  folder_prefix="$2"  # Optional namespace/prefix
+
+  if [[ -z "$branch_name" ]]; then
+    echo "Error: Branch name required when using --existing" >&2
+    exit 1
+  fi
+
+  # Determine base branch for context
+  if [[ -f "${wt_root}/.bare/config" ]] && grep -q 'origin/master' "${wt_root}/.bare/config"; then
+    base_branch="origin/master"
+  else
+    base_branch="origin/main"
+  fi
+
+  # Build worktree path based on optional prefix
+  if [[ -n "$folder_prefix" ]]; then
+    feature_path="${wt_root}/${folder_prefix}/${branch_name}"
+  else
+    feature_path="${wt_root}/${branch_name}"
+  fi
+
+  # Validate that branch exists in remote
+  echo "Checking if branch exists..."
+  if ! git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
+    echo "Error: Branch 'origin/${branch_name}' not found in remote" >&2
+    echo "" >&2
+    echo "Available remote branches:" >&2
+    git branch -r | grep -v HEAD | sed 's/origin\///' | head -20 >&2
+    exit 1
+  fi
+
+  # Set flag to indicate we're checking out existing branch
+  checkout_existing=true
+
+elif [[ $# -eq 1 ]]; then
   # HOME MODE: Single argument
   # Supports both simple names and nested paths
   name="$1"
@@ -23,6 +61,7 @@ if [[ $# -eq 1 ]]; then
 
   feature_path="${wt_root}/${name}"
   branch_name="${name//\//-}"  # Convert slashes to hyphens
+  checkout_existing=false
 
 elif [[ $# -ge 2 ]]; then
   # WORK MODE: Ticket + name
@@ -38,36 +77,55 @@ elif [[ $# -ge 2 ]]; then
 
   feature_path="${wt_root}/${ticket}/${name}"
   branch_name="${ticket}-${name}"
+  checkout_existing=false
 
 else
   cat << 'EOF'
 usage: git wt-feature-branch <name> [base]
        git wt-feature-branch <ticket> <name> [base]
+       git wt-feature-branch --existing <branch> [prefix]
 
-Create a new git worktree with branch.
+Create a new git worktree with branch, or checkout an existing branch.
 
 Home mode (1 argument):
   git wt-feature-branch add-starship
     → path: {repo}/add-starship/
-    → branch: add-starship
+    → branch: add-starship (new)
     → base: origin/main
 
   git wt-feature-branch feature/something
     → path: {repo}/feature/something/
-    → branch: feature-something
+    → branch: feature-something (new)
     → base: origin/main
 
 Work mode (2+ arguments):
   git wt-feature-branch DEV-123 fix-the-thing
     → path: {repo}/DEV-123/fix-the-thing/
-    → branch: DEV-123-fix-the-thing
+    → branch: DEV-123-fix-the-thing (new)
     → base: origin/master (default)
 
   git wt-feature-branch DEV-123 fix-the-thing origin/develop
     → base: origin/develop (specified)
 
-Ticket validation: Work mode requires valid Jira format (PROJ-123).
-The script auto-detects mode based on argument count.
+Existing branch mode (--existing/-e flag):
+  git wt-feature-branch -e feature/cool-api
+    → path: {repo}/feature/cool-api/
+    → branch: feature/cool-api (existing)
+
+  git wt-feature-branch -e bobs-feature PROJ-456
+    → path: {repo}/PROJ-456/bobs-feature/
+    → branch: bobs-feature (existing)
+    → namespaced under: PROJ-456
+
+  git wt-feature-branch -e fix-typo TRIVIAL
+    → path: {repo}/TRIVIAL/fix-typo/
+    → branch: fix-typo (existing)
+    → namespaced under: TRIVIAL
+
+Notes:
+  - Work mode requires valid Jira format (PROJ-123)
+  - Existing mode accepts any prefix (JIRA tickets, TRIVIAL, CHORE, etc.)
+  - The script auto-detects mode based on flags and argument count
 EOF
   exit 1
 fi
@@ -77,7 +135,13 @@ echo "Fetching latest from remote..."
 git fetch
 
 echo "Creating worktree..."
-git worktree add --no-checkout -b "${branch_name}" "$feature_path" "$base_branch"
+if [[ "$checkout_existing" == true ]]; then
+  # Checkout existing branch (no -b flag)
+  git worktree add --no-checkout "$feature_path" "$branch_name"
+else
+  # Create new branch
+  git worktree add --no-checkout -b "${branch_name}" "$feature_path" "$base_branch"
+fi
 
 # Set up git-crypt for new worktree if configured
 if git config --get filter.git-crypt.smudge &>/dev/null; then
