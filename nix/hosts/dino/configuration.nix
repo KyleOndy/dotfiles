@@ -40,7 +40,10 @@
   ];
 
   boot.initrd.kernelModules = [ ];
-  boot.kernelModules = [ "kvm-intel" ];
+  boot.kernelModules = [
+    "kvm-intel"
+    "kvm-amd"
+  ];
 
   # Framework 12th gen: Fix suspend battery drain
   # Reduces suspend power consumption from ~20-40%/8hrs to ~1%/hour
@@ -173,6 +176,118 @@
       # Battery charge thresholds (preserve battery health)
       START_CHARGE_THRESH_BAT0 = 90;
       STOP_CHARGE_THRESH_BAT0 = 97;
+    };
+  };
+
+  # KVM virtualization support
+  virtualisation.libvirtd.enable = true;
+
+  # QEMU bridge configuration for VM networking
+  environment.etc."qemu/bridge.conf" = {
+    text = ''
+      allow all
+    '';
+  };
+
+  # === Configuration from common.nix ===
+
+  # Timezone and locale
+  time.timeZone = "America/New_York";
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+  };
+  console = {
+    useXkbConfig = true;
+  };
+
+  # Base system packages
+  environment.systemPackages = with pkgs; [
+    curl
+    gitAndTools.git
+    gnumake
+    rsync
+    neovim
+  ];
+
+  environment.pathsToLink = [
+    "/libexec"
+    "/share/zsh"
+  ];
+
+  # X server and desktop configuration
+  services.xserver = {
+    enable = true;
+    xkb = {
+      options = "ctrl:nocaps";
+    };
+    desktopManager = {
+      xterm.enable = false;
+    };
+  };
+
+  # udev rules
+  services.udev = {
+    packages = [ pkgs.yubikey-personalization ];
+    extraRules = ''
+      # UDEV rules for Teensy USB devices
+      ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", ENV{ID_MM_DEVICE_IGNORE}="1"
+      ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789A]?", ENV{MTP_NO_PROBE}="1"
+      SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789ABCD]?", MODE:="0666"
+      KERNEL=="ttyACM*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", MODE:="0666"
+    '';
+  };
+
+  # System services
+  services.pcscd.enable = true;
+  services.openssh.enable = true;
+  services.fstrim.enable = true;
+  services.printing = {
+    enable = true;
+    drivers = [ pkgs.hplip ];
+  };
+
+  # Programs configuration
+  programs.ssh.startAgent = false;
+  programs.gnupg.agent = {
+    enable = true;
+    enableSSHSupport = true;
+  };
+  programs.mosh.enable = true;
+  programs.less = {
+    enable = true;
+    envVariables = {
+      LESS = "--quit-if-one-screen --RAW-CONTROL-CHARS --no-init";
+    };
+  };
+
+  # Boot configuration
+  boot.tmp = {
+    cleanOnBoot = true;
+    useTmpfs = true;
+  };
+
+  # Nix configuration
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 35d";
+  };
+  nix.settings = {
+    auto-optimise-store = true;
+  };
+  nix.extraOptions = ''
+    experimental-features = nix-command flakes
+    min-free = ${toString (1 * 1024 * 1024 * 1024)}
+    max-free = ${toString (25 * 1024 * 1024 * 1024)}
+    keep-derivations = true
+    keep-outputs = true
+  '';
+
+  # VM variant configuration
+  virtualisation.vmVariant = {
+    virtualisation = {
+      memorySize = 4096;
+      cores = 4;
     };
   };
 }
