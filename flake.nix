@@ -123,6 +123,9 @@
                   home-manager = {
                     useGlobalPkgs = true;
                     useUserPackages = true;
+                    extraSpecialArgs = {
+                      dotfiles-root = self.outPath;
+                    };
                     sharedModules =
                       hmCoreModules
                       ++ (

@@ -1,9 +1,14 @@
 # Shared environment variables used across profiles
 
-{ pkgs, config, ... }:
+{
+  pkgs,
+  config,
+  dotfiles-root,
+  ...
+}:
 {
   home.sessionVariables = {
-    DOTFILES = "${config.home.homeDirectory}/src/dotfiles";
+    DOTFILES = dotfiles-root;
     FOUNDRY_DATA = "${config.home.homeDirectory}/src/foundry";
     EDITOR = "nvim";
     VISUAL = "nvim";
