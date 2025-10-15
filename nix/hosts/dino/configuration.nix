@@ -1,4 +1,10 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  inputs,
+  lib,
+  ...
+}:
 {
   # Use the systemd-boot EFI boot loader.
   boot = {
@@ -289,5 +295,71 @@
       memorySize = 4096;
       cores = 4;
     };
+  };
+
+  # Remote build machines
+  systemFoundry.nixBuilders = {
+    enable = true;
+    machines = [
+      {
+        hostName = "tiger.dmz.1ella.com";
+        sshUser = "svc.deploy";
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
+        maxJobs = 8;
+        speedFactor = 10;
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+        ];
+      }
+      {
+        hostName = "cheetah";
+        sshUser = "svc.deploy";
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
+        maxJobs = 4;
+        speedFactor = 10;
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+        ];
+      }
+    ];
+  };
+
+  # Docker
+  systemFoundry.docker.enable = true;
+
+  # Power management - disable conflicting service
+  services.power-profiles-daemon.enable = false; # using tlp instead
+
+  # Framework 13 DSP support
+  programs.dconf.enable = true;
+
+  # Dino-specific home-manager user configuration
+  home-manager.users.kyle = {
+    hmFoundry = {
+      shell.starship.enable = true;
+      desktop = {
+        media.latex.enable = true;
+        wm.kde.enable = true;
+      };
+      dev = {
+        terraform.enable = lib.mkForce true;
+        claude-code = {
+          enable = true;
+          enableNotifications = true;
+        };
+      };
+    };
+    # Framework 13 DSP audio configuration
+    services.easyeffects.enable = true;
+    xdg.configFile."easyeffects/output/cab-fw.json".source =
+      "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
   };
 }

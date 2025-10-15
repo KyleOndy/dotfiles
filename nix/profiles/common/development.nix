@@ -25,7 +25,7 @@ with lib;
         };
         python.enable = true;
         dotnet.enable = false;
-        hashicorp.enable = false;
+        terraform.enable = false;
         git.enable = true;
         haskell.enable = false;
         nix.enable = true;
