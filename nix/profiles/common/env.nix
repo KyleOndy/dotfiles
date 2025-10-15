@@ -8,7 +8,8 @@
 }:
 {
   home.sessionVariables = {
-    DOTFILES = dotfiles-root;
+    DOTFILES = "${config.home.homeDirectory}/src/dotfiles/main";
+    DOTFILES_STORE = dotfiles-root;
     FOUNDRY_DATA = "${config.home.homeDirectory}/src/foundry";
     EDITOR = "nvim";
     VISUAL = "nvim";
