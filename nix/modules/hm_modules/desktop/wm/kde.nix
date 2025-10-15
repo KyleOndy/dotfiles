@@ -26,6 +26,11 @@ in
         lookAndFeel = "org.kde.breezedark.desktop";
       };
 
+      startup.startupScript."foot-terminal" = {
+        text = "foot";
+        priority = 1;
+      };
+
       panels = [
         {
           location = "bottom";
