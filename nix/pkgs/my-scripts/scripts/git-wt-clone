@@ -103,7 +103,32 @@ git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 # Create initial worktree for default branch
 echo ""
 echo "Creating worktree for '$default_branch'..."
-git worktree add "$default_branch" "$default_branch"
+git worktree add --no-checkout "$default_branch" "$default_branch"
+
+# Set up git-crypt for new worktree if configured
+if git config --get filter.git-crypt.smudge &>/dev/null; then
+  echo "Setting up git-crypt..."
+
+  # Get the worktree's git directory
+  worktree_git_dir=$(git -C "$default_branch" rev-parse --git-dir)
+
+  # Create git-crypt keys directory
+  mkdir -p "$worktree_git_dir/git-crypt/keys"
+
+  # Decrypt the symmetric key from the repo using GPG
+  # Try each .gpg file (in case multiple collaborators) and use the first successful decryption
+  for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+    if [ -f "$gpg_key" ]; then
+      if gpg --decrypt --quiet "$gpg_key" > "$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+        break
+      fi
+    fi
+  done
+fi
+
+# Checkout files after git-crypt is unlocked
+echo "Checking out files..."
+(cd "$default_branch" && git checkout "$default_branch")
 
 # Set up tracking for default branch
 cd "$default_branch"
