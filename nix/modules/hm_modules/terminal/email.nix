@@ -16,6 +16,35 @@ in
   config = mkIf cfg.enable {
     programs.mbsync.enable = true;
     programs.msmtp.enable = true;
+
+    # Automatic mail sync timer
+    systemd.user.services.mbsync = {
+      Unit = {
+        Description = "Mailbox synchronization service";
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStart = "${pkgs.isync}/bin/mbsync --all";
+        # Don't fail if quota exceeded - just skip and retry later
+        SuccessExitStatus = [
+          0
+          1
+        ];
+      };
+    };
+
+    systemd.user.timers.mbsync = {
+      Unit = {
+        Description = "Mailbox synchronization timer";
+      };
+      Timer = {
+        OnCalendar = "*:0/15"; # Every 15 minutes
+        Persistent = true; # Run if missed while system was off
+      };
+      Install = {
+        WantedBy = [ "timers.target" ];
+      };
+    };
     programs.notmuch = {
       enable = true;
       hooks = {
@@ -31,33 +60,105 @@ in
     };
     accounts.email = {
       maildirBasePath = "mail";
-      accounts.kyle_at_ondy_org = {
-        address = "kyle@ondy.org";
-        maildir.path = "ondy.org";
-        gpg = {
-          key = "3C799D26057B64E6D907B0ACDB0E3C33491F91C9";
-          signByDefault = true;
-        };
-        imap = {
-          host = "london.mxroute.com";
-          tls = {
-            enable = true;
+      accounts = {
+        kyle_at_ondy_org = {
+          address = "kyle@ondy.org";
+          maildir.path = "ondy.org";
+          gpg = {
+            key = "3C799D26057B64E6D907B0ACDB0E3C33491F91C9";
+            signByDefault = false;
           };
+          imap = {
+            host = "london.mxroute.com";
+            tls = {
+              enable = true;
+            };
+          };
+          mbsync = {
+            enable = true;
+            create = "maildir";
+            patterns = [
+              "*"
+              "!INBOX/Archive"
+              "!INBOX/Drafts"
+              "!INBOX/Sent"
+              "!INBOX/spam"
+            ];
+          };
+          msmtp.enable = true;
+          notmuch.enable = true;
+          primary = true;
+          realName = "Kyle Ondy";
+          passwordCommand = "pass show email/kyle@ondy.org";
+          smtp = {
+            host = "london.mxroute.com";
+            tls.enable = true;
+          };
+          userName = "kyle@ondy.org";
         };
-        mbsync = {
-          enable = true;
-          create = "maildir";
+        kyle_at_ondy_me = {
+          address = "kyle@ondy.me";
+          maildir.path = "ondy.me";
+          gpg = {
+            key = "3C799D26057B64E6D907B0ACDB0E3C33491F91C9";
+            signByDefault = false;
+          };
+          imap = {
+            host = "london.mxroute.com";
+            tls = {
+              enable = true;
+            };
+          };
+          mbsync = {
+            enable = true;
+            create = "maildir";
+            patterns = [
+              "*"
+              "!INBOX/Archive"
+              "!INBOX/Drafts"
+              "!INBOX/Sent"
+              "!INBOX/spam"
+            ];
+          };
+          msmtp.enable = true;
+          notmuch.enable = true;
+          primary = false;
+          realName = "Kyle Ondy";
+          passwordCommand = "pass show email/kyle@ondy.me";
+          smtp = {
+            host = "london.mxroute.com";
+            tls.enable = true;
+          };
+          userName = "kyle@ondy.me";
         };
-        msmtp.enable = true;
-        notmuch.enable = true;
-        primary = true;
-        realName = "Kyle Ondy";
-        passwordCommand = "pass show email/kyle@ondy.org";
-        smtp = {
-          host = "london.mxroute.com";
-          tls.enable = true;
+        kyleondy_at_gmail = {
+          address = "kyleondy@gmail.com";
+          maildir.path = "gmail";
+          imap = {
+            host = "imap.gmail.com";
+            tls = {
+              enable = true;
+            };
+          };
+          mbsync = {
+            enable = true;
+            create = "maildir";
+          };
+          msmtp.enable = true;
+          notmuch.enable = true;
+          primary = false;
+          realName = "Kyle Ondy";
+          passwordCommand = "pass show email/kyleondy@gmail.com_mbsync";
+          smtp = {
+            host = "smtp.gmail.com";
+            port = 587;
+            tls = {
+              enable = true;
+              useStartTls = true;
+            };
+          };
+          userName = "kyleondy@gmail.com";
         };
-        userName = "kyle@ondy.org";
       };
     };
     home.packages = with pkgs; [
@@ -98,19 +199,41 @@ in
         set sendmail          = "msmtp"
         set sendmail_wait     = 0
 
+        # Multiple account support
+        alternates '^kyle@ondy\.org$' '^kyle@ondy\.me$' '^kyleondy@gmail\.com$'
+
+        # Default account macros (kyle@ondy.org)
         macro index S "<save-message>+ondy.org/Spam<enter>"
         macro index,pager A "<save-message>=ondy.org/Archive<enter>"
         macro index ,d \
           "<tag-prefix><save-message>+ondy.org/Trash<enter>" \
         "delete all"
 
+        # Account switching macros
+        macro index <f2> '<sync-mailbox><enter-command>source ~/.config/neomutt/accounts/ondy.me<enter><change-folder>!<enter>' "Switch to kyle@ondy.me"
+        macro index <f3> '<sync-mailbox><enter-command>source ~/.config/neomutt/accounts/gmail<enter><change-folder>!<enter>' "Switch to gmail"
+        macro index <f4> '<sync-mailbox><enter-command>source ~/.config/neomutt/accounts/ondy.org<enter><change-folder>!<enter>' "Switch to kyle@ondy.org"
+
+        # All mailboxes across all accounts
         mailboxes +ondy.org/Inbox \
                   +ondy.org/Archive \
                   +ondy.org/Drafts \
                   +ondy.org/Sent \
                   +ondy.org/Trash \
                   +ondy.org/Junk \
-                  +ondy.org/spam
+                  +ondy.org/spam \
+                  +ondy.me/Inbox \
+                  +ondy.me/Archive \
+                  +ondy.me/Drafts \
+                  +ondy.me/Sent \
+                  +ondy.me/Trash \
+                  +ondy.me/Junk \
+                  +gmail/Inbox \
+                  "+gmail/[Gmail]/Sent Mail" \
+                  "+gmail/[Gmail]/Drafts" \
+                  "+gmail/[Gmail]/Trash" \
+                  "+gmail/[Gmail]/Spam" \
+                  "+gmail/[Gmail]/All Mail"
 
         # TODO: figure out notmuch and workflow
         # virtual-mailboxes "inbox" "notmuch://?query=tag:inbox"
@@ -232,6 +355,36 @@ in
         text/plain               ; cat %s                       ; copiousoutput
         text/x-diff              ; vim -R %s
         text/x-patch             ; vim -R %s
+      '';
+      configFile."neomutt/accounts/ondy.org".text = ''
+        set from              = 'kyle@ondy.org'
+        set spoolfile         = "+ondy.org/Inbox"
+        set mbox              = "+ondy.org/Inbox"
+        set trash             = "+ondy.org/Trash"
+        set postponed         = "+ondy.org/Drafts"
+        set record            = "+ondy.org/Sent"
+        macro index S "<save-message>+ondy.org/Spam<enter>"
+        macro index,pager A "<save-message>=ondy.org/Archive<enter>"
+      '';
+      configFile."neomutt/accounts/ondy.me".text = ''
+        set from              = 'kyle@ondy.me'
+        set spoolfile         = "+ondy.me/Inbox"
+        set mbox              = "+ondy.me/Inbox"
+        set trash             = "+ondy.me/Trash"
+        set postponed         = "+ondy.me/Drafts"
+        set record            = "+ondy.me/Sent"
+        macro index S "<save-message>+ondy.me/Spam<enter>"
+        macro index,pager A "<save-message>=ondy.me/Archive<enter>"
+      '';
+      configFile."neomutt/accounts/gmail".text = ''
+        set from              = 'kyleondy@gmail.com'
+        set spoolfile         = "+gmail/Inbox"
+        set mbox              = "+gmail/Inbox"
+        set trash             = "+gmail/[Gmail]/Trash"
+        set postponed         = "+gmail/[Gmail]/Drafts"
+        set record            = "+gmail/[Gmail]/Sent Mail"
+        macro index S "<save-message>+gmail/[Gmail]/Spam<enter>"
+        macro index,pager A "<save-message>+gmail/[Gmail]/All Mail<enter>"
       '';
     };
   };
