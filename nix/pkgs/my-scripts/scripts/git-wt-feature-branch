@@ -14,6 +14,33 @@ if [[ -z "$wt_root" ]]; then
   exit 1
 fi
 
+# Detect the default branch for the remote
+# Tries multiple methods in order of reliability:
+# 1. Git's symbolic-ref (official default branch tracking)
+# 2. Check if origin/main exists
+# 3. Fall back to origin/master
+get_default_branch() {
+  # Try symbolic-ref first (most reliable)
+  if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null); then
+    echo "$default_branch"
+    return 0
+  fi
+
+  # Fallback: try main first, then master
+  if git show-ref --verify --quiet refs/remotes/origin/main; then
+    echo "origin/main"
+    return 0
+  fi
+
+  if git show-ref --verify --quiet refs/remotes/origin/master; then
+    echo "origin/master"
+    return 0
+  fi
+
+  # Last resort: just use main (will fail later if it doesn't exist)
+  echo "origin/main"
+}
+
 # Auto-detect mode based on argument count and flags
 if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   # EXISTING BRANCH MODE: Checkout existing branch into worktree
@@ -26,12 +53,8 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
     exit 1
   fi
 
-  # Determine base branch for context
-  if [[ -f "${wt_root}/.bare/config" ]] && grep -q 'origin/master' "${wt_root}/.bare/config"; then
-    base_branch="origin/master"
-  else
-    base_branch="origin/main"
-  fi
+  # Determine base branch using auto-detection
+  base_branch=$(get_default_branch)
 
   # Build worktree path based on optional prefix
   if [[ -n "$folder_prefix" ]]; then
@@ -57,7 +80,7 @@ elif [[ $# -eq 1 ]]; then
   # HOME MODE: Single argument
   # Supports both simple names and nested paths
   name="$1"
-  base_branch="origin/main"
+  base_branch=$(get_default_branch)
 
   feature_path="${wt_root}/${name}"
   branch_name="${name//\//-}"  # Convert slashes to hyphens
@@ -67,7 +90,7 @@ elif [[ $# -ge 2 ]]; then
   # WORK MODE: Ticket + name
   ticket="${1^^}"  # Uppercase ticket
   name="$2"
-  base_branch=${3:-"origin/master"}
+  base_branch=${3:-$(get_default_branch)}
 
   # Validate Jira ticket format
   if [[ ! "$ticket" =~ $JIRA_PATTERN ]]; then
@@ -91,18 +114,18 @@ Home mode (1 argument):
   git wt-feature-branch add-starship
     → path: {repo}/add-starship/
     → branch: add-starship (new)
-    → base: origin/main
+    → base: auto-detected (origin/main or origin/master)
 
   git wt-feature-branch feature/something
     → path: {repo}/feature/something/
     → branch: feature-something (new)
-    → base: origin/main
+    → base: auto-detected
 
 Work mode (2+ arguments):
   git wt-feature-branch DEV-123 fix-the-thing
     → path: {repo}/DEV-123/fix-the-thing/
     → branch: DEV-123-fix-the-thing (new)
-    → base: origin/master (default)
+    → base: auto-detected (default)
 
   git wt-feature-branch DEV-123 fix-the-thing origin/develop
     → base: origin/develop (specified)
@@ -123,6 +146,7 @@ Existing branch mode (--existing/-e flag):
     → namespaced under: TRIVIAL
 
 Notes:
+  - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
   - Work mode requires valid Jira format (PROJ-123)
   - Existing mode accepts any prefix (JIRA tickets, TRIVIAL, CHORE, etc.)
   - The script auto-detects mode based on flags and argument count
