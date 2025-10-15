@@ -55,6 +55,7 @@
   # Reduces suspend power consumption from ~20-40%/8hrs to ~1%/hour
   boot.kernelParams = [
     "acpi_osi=\"!Windows 2020\""
+    "mem_sleep_default=deep" # Enable deeper S3 sleep state for better power savings
   ];
 
   networking.hostName = "dino"; # Define your hostname.
@@ -172,6 +173,10 @@
       WIFI_PWR_ON_AC = "off";
       WIFI_PWR_ON_BAT = "on";
 
+      # Audio power management
+      SOUND_POWER_SAVE_ON_AC = 1;
+      SOUND_POWER_SAVE_ON_BAT = 10;
+
       # USB autosuspend
       USB_AUTOSUSPEND = 1;
       USB_EXCLUDE_BTUSB = 0;
@@ -213,6 +218,7 @@
     gnumake
     rsync
     neovim
+    powertop # Power consumption and management diagnosis tool
   ];
 
   environment.pathsToLink = [

@@ -78,6 +78,11 @@ in
         "kwinrc"."NightColor"."Mode".value = 1; # Manual location
         "kwinrc"."NightColor"."LatitudeFixed".value = "40.14";
         "kwinrc"."NightColor"."LongitudeFixed".value = "-74.44";
+
+        # Compositor power efficiency settings
+        "kwinrc"."Compositing"."GLCore".value = true; # Use OpenGL core profile
+        "kwinrc"."Compositing"."LatencyControl".value = "ForceMinLatency"; # Reduce latency
+        "kwinrc"."Compositing"."MaxFPS".value = 60; # Cap framerate to save power
       };
     };
   };
