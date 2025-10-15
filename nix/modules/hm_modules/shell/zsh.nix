@@ -479,6 +479,12 @@ in
             autoload -Uz add-zsh-hook
 
             export PATH="$HOME/bin:$PATH"
+
+            private() {
+              unset HISTFILE
+              SAVEHIST=0
+              echo "Private mode enabled"
+            }
           ''
         ];
       };
