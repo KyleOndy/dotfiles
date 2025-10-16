@@ -199,19 +199,6 @@
     nix-direnv.enable = true;
   };
 
-  # Work-specific feature flags
-  hmFoundry.features = {
-    isAWS = true;
-    isKubernetes = true;
-    isTerraform = true;
-    isDocker = true;
-    isSystemAdmin = true;
-
-    # WSL doesn't need desktop features
-    isDesktop = false;
-    isGaming = false;
-  };
-
   # WSL-specific file management
   home.file = {
     # Link Windows .kube config if needed

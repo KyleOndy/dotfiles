@@ -108,12 +108,12 @@ nix/
     DEFAULT_AWS_PROFILE = "work-profile";
   };
 
-  # Enable work-relevant features
-  hmFoundry.features = {
-    isAWS = true;
-    isKubernetes = true;
-    isTerraform = true;
-    isDocker = true;
+  # Enable work-relevant development features
+  hmFoundry.dev = {
+    aws.enable = true;
+    kubernetes.enable = true;
+    terraform.enable = true;
+    docker.enable = true;
   };
 }
 ```
