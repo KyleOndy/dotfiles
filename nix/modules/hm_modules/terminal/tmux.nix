@@ -93,9 +93,10 @@ in
 
         # left most solid arrow
         set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
-        # battery power draw
-        set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.battery-draw}/bin/battery-draw) "
-
+        ${optionalString pkgs.stdenv.isLinux ''
+          # battery power draw (Linux only)
+          set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.battery-draw}/bin/battery-draw) "
+        ''}
         # system load.
         #   This has been tested on debian, OSX, and darwin, and seems to work
         #   across all systems
