@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Emergency Cleanup Script"
+echo "This will terminate ALL nix-ephemeral-builder instances"
+echo ""
+
+BUILD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$BUILD_DIR"
+
+# Try Terraform first
+if [ -f "terraform.tfstate" ]; then
+  echo "Found Terraform state, attempting Terraform destroy..."
+  if terraform destroy -auto-approve; then
+    echo "Terraform cleanup successful"
+    exit 0
+  else
+    echo "WARNING: Terraform destroy failed, trying direct AWS cleanup..."
+  fi
+fi
+
+# Direct AWS cleanup
+if ! command -v aws &> /dev/null; then
+  echo "ERROR: AWS CLI not found. Install it or use AWS console."
+  echo "   https://aws.amazon.com/cli/"
+  exit 1
+fi
+
+echo "Looking for orphaned build instances..."
+
+# Find all instances with our tags
+instances=$(aws ec2 describe-instances \
+  --filters \
+    "Name=tag:ManagedBy,Values=terraform-ephemeral-builder" \
+    "Name=instance-state-name,Values=running,pending,stopping,stopped" \
+  --query 'Reservations[*].Instances[*].[InstanceId,LaunchTime,State.Name,Tags[?Key=='\''Name'\''].Value|[0]]' \
+  --output text 2>/dev/null || echo "")
+
+if [ -z "$instances" ]; then
+  echo "No orphaned instances found"
+  exit 0
+fi
+
+echo "Found instances:"
+echo "$instances" | column -t
+echo ""
+
+read -r -p "Terminate these instances? (yes/no): " confirm
+if [ "$confirm" != "yes" ]; then
+  echo "Cancelled"
+  exit 0
+fi
+
+# Terminate each instance
+while IFS=$'\t' read -r instance_id launch_time state name; do
+  if [ -z "$instance_id" ]; then
+    continue
+  fi
+  echo "Terminating $instance_id ($name, launched $launch_time, state: $state)..."
+  aws ec2 terminate-instances --instance-ids "$instance_id"
+done <<< "$instances"
+
+echo "Cleanup complete"

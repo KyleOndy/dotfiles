@@ -63,13 +63,24 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
     feature_path="${wt_root}/${branch_name}"
   fi
 
-  # Validate that branch exists in remote
+  # Validate that branch exists (check local first, then remote)
   echo "Checking if branch exists..."
-  if ! git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
-    echo "Error: Branch 'origin/${branch_name}' not found in remote" >&2
+
+  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+    # Local branch exists
+    branch_source="local"
+  elif git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
+    # Remote branch exists
+    branch_source="remote"
+  else
+    # Branch not found anywhere
+    echo "Error: Branch '${branch_name}' not found locally or in remote" >&2
+    echo "" >&2
+    echo "Available local branches:" >&2
+    git branch --list | sed 's/^[\* ]*/  /' | head -10 >&2
     echo "" >&2
     echo "Available remote branches:" >&2
-    git branch -r | grep -v HEAD | sed 's/origin\///' | head -20 >&2
+    git branch -r | grep -v HEAD | sed 's/origin\//  /' | head -10 >&2
     exit 1
   fi
 
@@ -161,7 +172,14 @@ git fetch
 echo "Creating worktree..."
 if [[ "$checkout_existing" == true ]]; then
   # Checkout existing branch (no -b flag)
-  git worktree add --no-checkout "$feature_path" "$branch_name"
+  # For local branches, use the branch name directly
+  # For remote branches, use the branch name and it will track the remote
+  if [[ "$branch_source" == "local" ]]; then
+    git worktree add --no-checkout "$feature_path" "$branch_name"
+  else
+    # Remote branch - checkout will create local tracking branch
+    git worktree add --no-checkout "$feature_path" "$branch_name"
+  fi
 else
   # Create new branch
   git worktree add --no-checkout -b "${branch_name}" "$feature_path" "$base_branch"
@@ -195,7 +213,11 @@ echo "Checking out files..."
 echo ""
 echo "✓ Created worktree: ${feature_path}"
 echo "✓ Branch: ${branch_name}"
-echo "✓ Based on: ${base_branch}"
+if [[ "$checkout_existing" == true ]]; then
+  echo "✓ Source: ${branch_source} branch"
+else
+  echo "✓ Based on: ${base_branch}"
+fi
 echo ""
 echo "To start working:"
 echo "  cd ${feature_path}"
