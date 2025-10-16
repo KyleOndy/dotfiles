@@ -28,17 +28,21 @@ with lib;
     };
 
     # Desktop-specific packages
-    home.packages = with pkgs; [
-      # Desktop applications
-      deploy-rs # nixos deployment
-      golden-cheetah # cycling analytics
-      helios # hand rolled photo management
-      remmina # remote desktop client
-      vlc # watch things
-      ghostty # terminal from mitchellh
-      glances # system monitor
-      keymapp # zsa keyboard config
-      ncspot # cursors spotify client
-    ];
+    home.packages =
+      with pkgs;
+      [
+        # Desktop applications
+        deploy-rs # nixos deployment
+        glances # system monitor
+        ncspot # cursors spotify client
+      ]
+      ++ lib.optionals stdenv.isLinux [
+        # Linux-only applications
+        golden-cheetah # cycling analytics
+        helios # hand rolled photo management
+        keymapp # zsa keyboard config
+        remmina # remote desktop client
+        vlc # watch things
+      ];
   };
 }

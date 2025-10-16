@@ -8,7 +8,7 @@ with lib;
     ./core.nix
     ./cloud/aws.nix
     ./cloud/k8s.nix
-    ./infrastructure/terraform.nix
+    ./terraform.nix
     ./infrastructure/docker.nix
     ./media.nix
     ./documents.nix
