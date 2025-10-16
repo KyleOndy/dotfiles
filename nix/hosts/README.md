@@ -5,11 +5,6 @@ This is a description of the machines I manage with NixOS.
 Going forward machines are named after animals. The specific animal has little
 bearing on the function of the machine.
 
-## [Alpha]
-
-My daily driver laptop.
-Currently a Lenevo T560.
-
 ## Sigma
 
 Temporary host running various services. Will be replaced with a new system in
@@ -68,5 +63,3 @@ Features:
 - Optimized for x86_64-linux
 
 See [docs/work-forks.md](../../docs/work-forks.md) for details on using this in a work fork.
-
-[alpha]: ./alpha

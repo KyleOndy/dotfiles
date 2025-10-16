@@ -127,8 +127,7 @@ in
         };
       };
     };
-    # todo: fix: need to create an acme user and group do get the deploy
-    #            working in alpha
+    # todo: fix: need to create an acme user and group to get the deploy working
     users.users.acme = {
       isSystemUser = true;
       group = "acme";
