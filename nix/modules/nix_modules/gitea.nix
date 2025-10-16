@@ -61,7 +61,7 @@ in
       };
     };
 
-    systemFoundry.nginxReverseProxy."${cfg.domainName}" = {
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       #proxyPass = "http://${config.services.gitea.httpAddress}:${toString config.services.gitea.httpPort}";
       proxyPass = "http://127.0.0.1:3000";

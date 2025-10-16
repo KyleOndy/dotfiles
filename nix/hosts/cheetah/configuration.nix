@@ -20,6 +20,20 @@
   # Configure mdadm to send notifications to root for RAID events
   boot.swraid.mdadmConf = "MAILADDR root@localhost";
 
+  systemFoundry = {
+    nginxReverseProxy.acme = {
+      email = "kyle@ondy.org";
+      dnsProvider = "route53";
+      credentialsSecret = "apps_ondy_org_route53";
+    };
+
+    harmonia = {
+      enable = true;
+      domainName = "nix-cache.apps.ondy.org";
+      provisionCert = true;
+    };
+  };
+
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
   # on your system were taken. It's perfectly fine and recommended to leave

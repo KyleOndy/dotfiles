@@ -168,6 +168,12 @@ in
       backup_path = "/mnt/backups/apps";
     in
     {
+      nginxReverseProxy.acme = {
+        email = "kyle@ondy.org";
+        dnsProvider = "namecheap";
+        credentialsSecret = "namecheap";
+      };
+
       sonarr = {
         enable = true;
         group = mediaGroup;
