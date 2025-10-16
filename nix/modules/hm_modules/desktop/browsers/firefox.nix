@@ -57,6 +57,9 @@ in
             # Disable Disk Cache (use RAM only)
             "browser.cache.disk.enable" = false;
             "browser.cache.memory.enable" = true;
+
+            # Always show bookmarks toolbar
+            "browser.toolbars.bookmarks.visibility" = "always";
           };
         };
       };
