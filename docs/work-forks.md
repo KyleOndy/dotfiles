@@ -28,127 +28,132 @@ cd ~/src/work-dotfiles
 git remote add upstream git@github.com:yourusername/dotfiles.git
 ```
 
-### 2. Create Work-Specific Files
+### 2. Understanding the Base Configuration
 
-Create the following structure:
+The upstream repository includes base configurations in `nix/hosts/work-mac/`:
 
-```
-nix/
-└── work/
-    ├── darwin-system.nix    # nix-darwin system configuration
-    └── darwin-home.nix      # home-manager user configuration
-```
+- `configuration.nix` - System-level darwin settings (hostname, nix daemon, Homebrew, etc.)
+- `home.nix` - Home-manager configuration (imports workstation profile)
 
-#### Example `nix/work/darwin-system.nix`
+Both files use **conditional imports** to load work-specific overrides if they exist:
 
 ```nix
-{ config, pkgs, lib, ... }:
+# configuration.nix includes:
+imports = [ ] ++ lib.optional (builtins.pathExists ./work.nix) ./work.nix;
+
+# home.nix includes:
+imports = [ ../../profiles/workstation.nix ]
+  ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
+```
+
+This means:
+
+- ✅ Upstream base configs flow through rebases automatically
+- ✅ You only maintain **your deltas** in `work.nix` and `work-home.nix`
+- ✅ No flake.nix modifications needed (it already has `darwinConfigurations.work-mac`)
+
+### 3. Create Work-Specific Files
+
+Add your company-specific overrides in `nix/hosts/work-mac/`:
+
+```
+nix/hosts/work-mac/
+├── configuration.nix    # Base (from upstream)
+├── home.nix             # Base (from upstream)
+├── work.nix             # Your system overrides
+└── work-home.nix        # Your user overrides
+```
+
+#### Example `work.nix` (system-level)
+
+```nix
+{ pkgs, lib, ... }:
 {
-  # Work-specific system configuration
-  networking.computerName = "work-macbook";
-  networking.hostName = "work-macbook";
+  # Override hostname
+  networking.computerName = "My Work MacBook";
+  networking.hostName = "work-macbook-123";
 
-  # Company-required security settings
-  security.pam.enableSudoTouchIdAuth = true;
+  # Company VPN
+  services.tailscale.enable = true;
 
-  # Work-specific services
-  services.tailscale.enable = true;  # Company VPN
-
-  # System packages needed for work
-  environment.systemPackages = with pkgs; [
-    # Company tools
+  # Work-required Homebrew apps
+  homebrew.casks = lib.mkForce [
+    "slack"
+    "zoom"
+    "docker"
+    "1password"
   ];
 
-  # Homebrew for work-specific apps that aren't in nixpkgs
-  homebrew = {
-    enable = true;
-    casks = [
-      "slack"
-      "zoom"
-      # Other work apps
-    ];
-  };
+  # Company-specific system packages
+  environment.systemPackages = with pkgs; [
+    # Add work tools here
+  ];
 }
 ```
 
-#### Example `nix/work/darwin-home.nix`
+#### Example `work-home.nix` (user-level)
 
 ```nix
-{ config, pkgs, lib, ... }:
+{ pkgs, lib, ... }:
 {
-  # Import the base workstation profile
-  imports = [ ../profiles/workstation.nix ];
-
-  # Work-specific packages
-  home.packages = with pkgs; [
-    awscli2
-    kubectl
-    # Company-specific tools
-  ];
-
-  # Override git configuration for work
+  # Work git configuration
   programs.git = {
     userEmail = lib.mkForce "you@company.com";
+    userName = lib.mkForce "Your Name";
     extraConfig = {
       url."git@work-github.com:" = {
         insteadOf = "https://work-github.com/";
       };
+      user.signingkey = "WORK_GPG_KEY_ID";
+      commit.gpgsign = true;
     };
   };
 
-  # Work-specific shell aliases
+  # Work SSH configuration
+  programs.ssh.matchBlocks = {
+    "work-*" = {
+      user = "your-username";
+      forwardAgent = true;
+    };
+    "work-bastion" = {
+      hostname = "bastion.company.com";
+      user = "your-username";
+    };
+  };
+
+  # Work packages
+  home.packages = with pkgs; [
+    awscli2
+    kubectl
+    k9s
+    terraform
+  ];
+
+  # Work aliases
   programs.zsh.shellAliases = {
-    kc = "kubectl --context=work-cluster";
+    kdev = "kubectl --context=dev-cluster";
     vpn = "tailscale up --accept-routes";
   };
 
-  # Work-specific environment variables
-  home.sessionVariables = {
-    WORK_ENV = "true";
-    DEFAULT_AWS_PROFILE = "work-profile";
-  };
-
-  # Enable work-relevant development features
-  hmFoundry.dev = {
-    aws.enable = true;
-    kubernetes.enable = true;
-    terraform.enable = true;
-    docker.enable = true;
+  # Enable work tools
+  hmFoundry.features = {
+    isAWS = true;
+    isKubernetes = true;
+    isTerraform = true;
+    isDocker = true;
   };
 }
 ```
 
-### 3. Modify flake.nix
-
-Add the `darwinConfigurations` section (which doesn't exist in the base repo):
-
-```nix
-# At the end of outputs, after nixosConfigurations
-darwinConfigurations = {
-  work-mac = inputs.nix-darwin.lib.darwinSystem {
-    system = "aarch64-darwin";  # or "x86_64-darwin" for Intel
-    modules = [
-      ./nix/work/darwin-system.nix
-      inputs.home-manager.darwinModules.home-manager
-      {
-        nixpkgs.overlays = overlays;  # Reuse base overlays
-        home-manager = {
-          useGlobalPkgs = true;
-          useUserPackages = true;
-          sharedModules = hmCoreModules ++ hmDesktopModules;
-          users.kyle = import ./nix/work/darwin-home.nix;
-        };
-      }
-    ];
-  };
-};
-```
-
 ### 4. Build and Switch
 
+The flake already includes the `darwinConfigurations.work-mac` configuration, so just build and switch:
+
 ```bash
-# First time setup
+# Build (first time)
 nix build .#darwinConfigurations.work-mac.system
+
+# Apply
 ./result/sw/bin/darwin-rebuild switch --flake .#work-mac
 
 # Subsequent updates
@@ -163,70 +168,98 @@ For a WSL environment that only needs home-manager configuration:
 
 Same as macOS setup above.
 
-### 2. Create Work-Specific File
+### 2. Understanding the Base Configuration
 
-Create a single file for WSL home configuration:
+The upstream repository includes a base configuration in `nix/hosts/work-wsl/`:
 
-```
-nix/
-└── work-wsl-home.nix
-```
+- `home.nix` - Home-manager configuration with WSL-specific settings
 
-#### Example `nix/work-wsl-home.nix`
+It uses **conditional imports** to load work-specific overrides:
 
 ```nix
-{ config, pkgs, lib, ... }:
-{
-  # Import the base workstation profile
-  imports = [ ./profiles/workstation.nix ];
+imports = [ ../../profiles/workstation.nix ]
+  ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
+```
 
-  # WSL-specific work packages
+This means:
+
+- ✅ Upstream base config flows through rebases automatically
+- ✅ You only maintain **your deltas** in `work-home.nix`
+- ✅ No flake.nix modifications needed (it already has `homeConfigurations."kyle@work-wsl"`)
+
+### 3. Create Work-Specific File
+
+Add your company-specific overrides in `nix/hosts/work-wsl/`:
+
+```
+nix/hosts/work-wsl/
+├── home.nix       # Base (from upstream)
+└── work-home.nix  # Your overrides
+```
+
+#### Example `work-home.nix`
+
+```nix
+{ pkgs, lib, ... }:
+{
+  # Work packages
   home.packages = with pkgs; [
-    wslu  # WSL utilities
-    # Work tools
+    awscli2
+    azure-cli
+    kubectl
+    terraform
+    docker-compose
   ];
 
-  # Work git config
+  # Work git configuration
   programs.git = {
     userEmail = lib.mkForce "you@company.com";
+    userName = lib.mkForce "Your Name";
+    extraConfig = {
+      core.autocrlf = "input";
+      core.credentialStore = "wincredman";  # Windows credential manager
+      user.signingkey = "WORK_GPG_KEY_ID";
+      commit.gpgsign = true;
+    };
   };
 
-  # WSL-specific settings
-  home.sessionVariables = {
-    BROWSER = "wslview";  # Use Windows browser
+  # Work SSH configuration
+  programs.ssh.matchBlocks = {
+    "work-*" = {
+      user = "your-username";
+      forwardAgent = true;
+      identityFile = "/mnt/c/Users/YourUser/.ssh/work_id_rsa";
+    };
+    "work-bastion" = {
+      hostname = "bastion.company.com";
+      user = "your-username";
+    };
   };
 
-  # WSL often needs different SSH config
-  programs.ssh = {
-    extraConfig = ''
-      # Use Windows ssh-agent
-      Host *
-        ForwardAgent yes
-    '';
+  # Work-specific shell configuration
+  programs.zsh.shellAliases = {
+    docker = "docker.exe";  # Use Windows Docker Desktop
+    kdev = "kubectl --context=dev";
+    vpn-check = "ping -c 1 internal.company.com";
+  };
+
+  programs.zsh.sessionVariables = {
+    WORK_ENV = "wsl";
+    DEFAULT_AWS_PROFILE = "company-dev";
+  };
+
+  # Enable work tools
+  hmFoundry.features = {
+    isAWS = true;
+    isKubernetes = true;
+    isDocker = true;
   };
 }
 ```
 
-### 3. Modify flake.nix
-
-Add `homeConfigurations` for standalone home-manager:
-
-```nix
-# After nixosConfigurations
-homeConfigurations = {
-  "kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
-    pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-    modules = [
-      ./nix/work-wsl-home.nix
-      {
-        nixpkgs.overlays = overlays;
-      }
-    ];
-  };
-};
-```
-
 ### 4. Build and Switch
+
+The flake already includes the `homeConfigurations."kyle@work-wsl"` configuration:
 
 ```bash
 # Build and activate

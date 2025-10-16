@@ -23,7 +23,7 @@ stdenv.mkDerivation rec {
   meta = with lib; {
     description = "Solarized Colorscheme for Mutt";
     homepage = "https://github.com/altercation/solarized/tree/master/ ";
-    platforms = platforms.linux;
+    platforms = platforms.unix; # Just text files, works on all Unix-like systems
     license = licenses.mit;
   };
 }
