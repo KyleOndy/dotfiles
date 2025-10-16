@@ -27,13 +27,6 @@
         StrictHostKeyChecking accept-new
         ConnectTimeout 10
 
-      Host alpha alpha.lan.1ella.com
-        HostName alpha.lan.1ella.com
-        User svc.deploy
-        IdentityFile /root/.ssh/id_ed25519
-        StrictHostKeyChecking accept-new
-        ConnectTimeout 10
-
       # Default settings for all hosts
       Host *
         IdentitiesOnly yes

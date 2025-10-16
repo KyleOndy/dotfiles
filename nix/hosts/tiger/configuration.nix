@@ -108,9 +108,7 @@ in
         # todo: change and store with SOP
         hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
         extraGroups = [ "wheel" ]; # TODO: figure out the exact permissions needed
-        openssh.authorizedKeys.keys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB+S8VkJTWt1220oiJJy/1O7Ih0BxGhY9O9l+y7XkDM3 root@alpha" # syncoid key on alpha
-        ];
+        openssh.authorizedKeys.keys = [ ];
       };
     };
     groups."svc.backup".members = [
