@@ -29,19 +29,7 @@ in
         listenAddress = "127.0.0.1";
         # todo: some kind of mapAttrs to cut down on copy/paste
         # todo: https tagets
-        scrapeConfigs = [
-          {
-            job_name = "hosts";
-            static_configs = [
-              {
-                targets = [
-                  "alpha.lan.1ella.com"
-                  "util.lan.1ella.com"
-                ];
-              }
-            ];
-          }
-        ];
+        scrapeConfigs = [ ];
       };
       grafana = {
         enable = true;

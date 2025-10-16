@@ -79,11 +79,11 @@ in
             create = "maildir";
             patterns = [
               "INBOX"
-              "Sent"
+              "Archive"
+              "Deleted Messages"
               "Drafts"
               "Junk"
-              "Archive"
-              "Trash"
+              "Sent"
             ];
           };
           msmtp.enable = true;
@@ -111,16 +111,8 @@ in
             };
           };
           mbsync = {
-            enable = true;
+            enable = false; # TODO: setup
             create = "maildir";
-            patterns = [
-              "INBOX"
-              "Sent"
-              "Drafts"
-              "Junk"
-              "Archive"
-              "Trash"
-            ];
           };
           msmtp.enable = true;
           notmuch.enable = true;
@@ -143,7 +135,7 @@ in
             };
           };
           mbsync = {
-            enable = true;
+            enable = false; # TODO: setup
             create = "maildir";
           };
           msmtp.enable = true;
@@ -192,9 +184,9 @@ in
         # -- Mailboxes --
         set realname          = 'Kyle Ondy'
         set from              = 'kyle@ondy.org'
-        set spoolfile         = "+ondy.org/INBOX"
+        set spoolfile         = "+ondy.org/Inbox"
         set virtual_spoolfile = yes
-        set mbox              = "+ondy.org/INBOX"
+        set mbox              = "+ondy.org/Inbox"
         set trash             = "+ondy.org/Trash"
         set postponed         = "+ondy.org/Drafts"
         set record            = "+ondy.org/Sent"
@@ -217,13 +209,13 @@ in
         macro index <f4> '<sync-mailbox><enter-command>source ~/.config/neomutt/accounts/ondy.org<enter><change-folder>!<enter>' "Switch to kyle@ondy.org"
 
         # All mailboxes across all accounts
-        mailboxes +ondy.org/INBOX \
-                  +ondy.org/Drafts \
-                  +ondy.org/Sent \
-                  +ondy.org/Junk \
+        mailboxes +ondy.org/Inbox \
                   +ondy.org/Archive \
-                  +ondy.org/Trash \
-                  +ondy.me/INBOX \
+                  +ondy.org/Drafts \
+                  +ondy.org/Junk \
+                  +ondy.org/Sent \
+                  "+ondy.org/Deleted Messages" \
+                  +ondy.me/Inbox \
                   +ondy.me/Drafts \
                   +ondy.me/Sent \
                   +ondy.me/Junk \
@@ -359,8 +351,8 @@ in
       '';
       configFile."neomutt/accounts/ondy.org".text = ''
         set from              = 'kyle@ondy.org'
-        set spoolfile         = "+ondy.org/INBOX"
-        set mbox              = "+ondy.org/INBOX"
+        set spoolfile         = "+ondy.org/Inbox"
+        set mbox              = "+ondy.org/Inbox"
         set trash             = "+ondy.org/Trash"
         set postponed         = "+ondy.org/Drafts"
         set record            = "+ondy.org/Sent"
@@ -369,8 +361,8 @@ in
       '';
       configFile."neomutt/accounts/ondy.me".text = ''
         set from              = 'kyle@ondy.me'
-        set spoolfile         = "+ondy.me/INBOX"
-        set mbox              = "+ondy.me/INBOX"
+        set spoolfile         = "+ondy.me/Inbox"
+        set mbox              = "+ondy.me/Inbox"
         set trash             = "+ondy.me/Trash"
         set postponed         = "+ondy.me/Drafts"
         set record            = "+ondy.me/Sent"
