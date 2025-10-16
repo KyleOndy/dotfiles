@@ -42,6 +42,6 @@
     };
   };
 
-  # Temporarily disable desktop packages
-  home.packages = lib.mkForce [ ];
+  # Desktop packages are managed by hmFoundry modules
+  # home.packages overrides should be additive, not replacing
 }
