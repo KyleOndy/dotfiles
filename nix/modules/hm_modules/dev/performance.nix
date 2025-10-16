@@ -15,13 +15,17 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = with pkgs; [
-      parallel
-      mbuffer
-      lz4
-      lzop
-      pixz
-      xz
-    ];
+    home.packages =
+      with pkgs;
+      [
+        parallel
+        lz4
+        lzop
+        pixz
+        xz
+      ]
+      ++ lib.optionals pkgs.stdenv.isLinux [
+        mbuffer
+      ];
   };
 }

@@ -1,21 +1,20 @@
 # Base home-manager configuration for work macOS environments
-# Imports the workstation profile and allows work-specific extensions via work-home.nix
+# The desktop profile is imported via mkDarwinSystem
+# This file provides macOS-specific overrides and allows work-specific extensions via work-home.nix
 {
   lib,
   ...
 }:
 {
-  # Import the base workstation profile for full development environment
-  imports = [
-    ../../profiles/workstation.nix
-  ]
-  ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
+  # The desktop profile is imported via mkDarwinSystem in flake.nix
+  # This file provides macOS-specific overrides
+  imports = [ ] ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
 
-  # The workstation profile provides:
-  # - Development tools (git, editors, terminal multiplexers)
+  # The desktop profile provides:
+  # - Full development tools (kubernetes, aws, terraform, docker, etc.)
   # - Shell configuration (zsh with sensible defaults)
-  # - Language toolchains (via hmFoundry.features flags)
-  # - Desktop applications (if isDesktop is enabled)
+  # - Desktop applications (browsers, communication apps, terminals)
+  # - Language toolchains (via hmFoundry.dev flags)
   #
   # Work forks can override or extend any of these settings in work-home.nix
   # using lib.mkForce, lib.mkDefault, or by adding to existing lists/attrsets
@@ -43,6 +42,6 @@
     };
   };
 
-  # Temporarily disable desktop packages
-  home.packages = lib.mkForce [ ];
+  # Desktop packages are managed by hmFoundry modules
+  # home.packages overrides should be additive, not replacing
 }
