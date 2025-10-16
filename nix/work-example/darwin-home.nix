@@ -161,21 +161,6 @@
     };
   };
 
-  # Work-specific feature flags
-  hmFoundry.features = {
-    # Enable all work-relevant development features
-    isAWS = true;
-    isKubernetes = true;
-    isTerraform = true;
-    isDocker = true;
-    isMonitoring = true;
-    isSecurity = true;
-
-    # Disable features not needed for work
-    isGaming = false;
-    isMediaDev = false;
-  };
-
   # Direnv for project-specific environments
   programs.direnv = {
     enable = true;

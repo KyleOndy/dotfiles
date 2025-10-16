@@ -86,12 +86,17 @@ programs.git.userEmail = lib.mkForce "work@company.com";
 
 ### Conditional Configuration
 
-Use feature flags to conditionally enable functionality:
+Enable specific development features using module enables:
 
 ```nix
-hmFoundry.features = {
-  isAWS = true;  # Enables AWS tools from base config
-  isDocker = true;  # Enables Docker tools
+# Enable individual development tools as needed
+hmFoundry.dev = {
+  aws.enable = true;        # AWS CLI tools
+  kubernetes.enable = true;  # kubectl, k9s, etc.
+  docker.enable = true;      # Docker tools
+  terraform.enable = true;   # Terraform
+  monitoring.enable = true;  # Monitoring tools
+  security.enable = true;    # Security tools
 };
 ```
 

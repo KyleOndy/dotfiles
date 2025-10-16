@@ -54,7 +54,6 @@
       # Profile registry for consistent profile management
       profiles = {
         minimal = ./nix/profiles/minimal.nix;
-        server = ./nix/profiles/server.nix;
         ssh = ./nix/profiles/ssh.nix;
         workstation = ./nix/profiles/workstation.nix;
         gaming = ./nix/profiles/gaming.nix;
