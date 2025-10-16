@@ -20,17 +20,17 @@ with lib;
       dev = {
         enable = true;
         clojure = {
-          enable = true;
-          globalDepsEdn.enable = true;
+          enable = lib.mkDefault true;
+          globalDepsEdn.enable = lib.mkDefault true;
         };
-        python.enable = true;
-        dotnet.enable = false;
-        terraform.enable = false;
-        git.enable = true;
-        haskell.enable = false;
-        nix.enable = true;
-        go.enable = true;
-        rust.enable = true;
+        python.enable = lib.mkDefault true;
+        dotnet.enable = lib.mkDefault false;
+        terraform.enable = lib.mkDefault false;
+        git.enable = lib.mkDefault true;
+        haskell.enable = lib.mkDefault false;
+        nix.enable = lib.mkDefault true;
+        go.enable = lib.mkDefault true;
+        rust.enable = lib.mkDefault true;
       };
       shell = {
         zsh.enable = true;
@@ -47,11 +47,11 @@ with lib;
       };
     };
 
-    # All packages are now handled by the dev modules based on feature flags
-    # The modules automatically include packages when:
-    # - hmFoundry.dev.enable = true (core packages)
-    # - hmFoundry.features.isKubernetes = true (k8s tools)
-    # - hmFoundry.features.isAWS = true (AWS tools)
+    # All packages are now handled by the dev modules
+    # Enable features by setting the corresponding dev module:
+    # - hmFoundry.dev.kubernetes.enable = true
+    # - hmFoundry.dev.aws.enable = true
+    # - hmFoundry.dev.terraform.enable = true
     # - etc.
   };
 }

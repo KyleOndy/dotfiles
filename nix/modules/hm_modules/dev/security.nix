@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.security;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isSecurity) {
+  options.hmFoundry.dev.security = {
+    enable = mkEnableOption "Security and secrets management tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       age
       sops

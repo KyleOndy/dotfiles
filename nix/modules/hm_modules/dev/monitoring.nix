@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.monitoring;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isMonitoring) {
+  options.hmFoundry.dev.monitoring = {
+    enable = mkEnableOption "Advanced monitoring and diagnostic tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       glances
       viddy

@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.kubernetes;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isKubernetes) {
+  options.hmFoundry.dev.kubernetes = {
+    enable = mkEnableOption "Kubernetes development tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       k9s
       kubectl
