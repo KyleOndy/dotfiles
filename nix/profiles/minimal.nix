@@ -5,11 +5,5 @@
 {
   imports = [ ./common/base.nix ];
 
-  # No additional features enabled
-  hmFoundry.features = {
-    isDevelopment = false;
-    isDesktop = false;
-    isServer = false;
-    isGaming = false;
-  };
+  # No additional features enabled - all dev modules default to disabled
 }

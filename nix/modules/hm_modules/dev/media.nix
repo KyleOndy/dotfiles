@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.media;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isMediaDev) {
+  options.hmFoundry.dev.media = {
+    enable = mkEnableOption "Media processing and content creation tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       ffmpeg
       exiftool

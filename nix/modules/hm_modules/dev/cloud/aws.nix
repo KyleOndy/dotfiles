@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.aws;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isAWS) {
+  options.hmFoundry.dev.aws = {
+    enable = mkEnableOption "AWS development tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       awscli2
     ];

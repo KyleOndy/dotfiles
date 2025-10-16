@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.nixTools;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isNixDev) {
+  options.hmFoundry.dev.nixTools = {
+    enable = mkEnableOption "Nix development and packaging tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       nix-index
       nixfmt-rfc-style

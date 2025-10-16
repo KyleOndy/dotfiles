@@ -7,11 +7,14 @@
 }:
 with lib;
 let
-  cfg = config.hmFoundry.features;
-  devCfg = config.hmFoundry.dev;
+  cfg = config.hmFoundry.dev.documents;
 in
 {
-  config = mkIf (devCfg.enable && cfg.isDocuments) {
+  options.hmFoundry.dev.documents = {
+    enable = mkEnableOption "Document processing and writing tools";
+  };
+
+  config = mkIf cfg.enable {
     home.packages = with pkgs; [
       aspell
       aspellDicts.en

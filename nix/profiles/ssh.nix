@@ -9,15 +9,10 @@
     ./common/ssh-hosts.nix
   ];
 
-  hmFoundry.features = {
-    isDevelopment = true;
-    isDesktop = false;
-    isServer = false;
-    isGaming = false;
-
-    # Enable core development features for SSH profile
-    isSystemAdmin = true; # Basic system administration tools
-    isNixDev = true; # Nix development tools
-    isSecurity = true; # Security tools for remote access
+  # Enable core development features for SSH profile
+  hmFoundry.dev = {
+    sysadmin.enable = true;
+    nixTools.enable = true;
+    security.enable = true;
   };
 }

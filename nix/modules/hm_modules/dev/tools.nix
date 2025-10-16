@@ -18,31 +18,27 @@ in
         act
 
         # Fonts
-        berkeley-mono
-        pragmata-pro
+        # TODO: Re-enable after fixing i686 Linux issue on darwin
+        # berkeley-mono
+        # pragmata-pro
 
         # Terminal tools
-        ghostty
-        keymapp
         ncspot
-        vlc
-
-        # System utilities
-        pciutils
-        squashfsTools
 
         # Additional Clojure tools (always with dev for now)
         babashka-scripts
       ]
       ++ lib.optionals stdenv.isLinux [
-        # Linux-specific tools
+        # Linux-specific tools and system utilities
         atop
         babashka
         calcurse
         inotify-tools
         ltrace
         molly-guard
+        pciutils
         qemu_full
+        squashfsTools
         virt-manager
       ];
   };

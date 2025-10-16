@@ -8,17 +8,12 @@
     ./common/ssh-hosts.nix
   ];
 
-  hmFoundry.features = {
-    isDevelopment = false;
-    isDesktop = false;
-    isServer = true;
-    isGaming = false;
-
-    # Enable server-specific features
-    isSystemAdmin = true; # System administration tools
-    isMonitoring = true; # Advanced monitoring tools
-    isPerformance = true; # Performance optimization tools
-    isSecurity = true; # Security tools
+  # Enable server-specific features
+  hmFoundry.dev = {
+    sysadmin.enable = true;
+    monitoring.enable = true;
+    performance.enable = true;
+    security.enable = true;
   };
 
   # Server-specific packages
