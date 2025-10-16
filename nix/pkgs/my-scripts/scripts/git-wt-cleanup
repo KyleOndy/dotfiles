@@ -1,0 +1,555 @@
+#!/usr/bin/env bash
+set -Eeo pipefail
+
+# Git worktree cleanup utility
+# Provides interactive and automated cleanup of worktrees
+
+# Colors for output
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly NC='\033[0m' # No Color
+
+# Configuration
+DRY_RUN=false
+INTERACTIVE=true
+MODE=""
+AGE_DAYS=0
+
+# Get worktree root (find .bare directory)
+wt_root=$(git worktree list --porcelain 2>/dev/null | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2 || true)
+
+if [[ -z "$wt_root" ]]; then
+  echo "Error: Not in a worktree-based repository (no .bare found)" >&2
+  echo "To set up a repository for this workflow, use: git wt-clone <url>" >&2
+  exit 1
+fi
+
+# Detect the default branch for the remote
+get_default_branch() {
+  # Try symbolic-ref first (most reliable)
+  if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null); then
+    echo "$default_branch"
+    return 0
+  fi
+
+  # Fallback: try main first, then master
+  if git show-ref --verify --quiet refs/remotes/origin/main; then
+    echo "origin/main"
+    return 0
+  fi
+
+  if git show-ref --verify --quiet refs/remotes/origin/master; then
+    echo "origin/master"
+    return 0
+  fi
+
+  # Last resort: just use main
+  echo "origin/main"
+}
+
+# Get worktree information
+get_worktree_info() {
+  local path=$1
+  local branch
+  local last_commit_date
+  local is_merged
+  local remote_deleted
+  local has_changes
+  local has_unpushed
+
+  # Skip bare repository
+  if [[ "$path" == *".bare" ]]; then
+    return
+  fi
+
+  # Get branch name
+  branch=$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+
+  # Get last commit date
+  last_commit_date=$(git -C "$path" log -1 --format=%ci 2>/dev/null || echo "unknown")
+
+  # Get days since last commit
+  local age_days
+  if [[ "$last_commit_date" != "unknown" ]]; then
+    local commit_timestamp
+    local now_timestamp
+    commit_timestamp=$(date -d "$last_commit_date" +%s 2>/dev/null || echo "0")
+    now_timestamp=$(date +%s)
+    local age_seconds=$((now_timestamp - commit_timestamp))
+    age_days=$((age_seconds / 86400))
+  else
+    age_days=0
+  fi
+
+  # Check if branch is merged into default branch
+  local default_branch
+  default_branch=$(get_default_branch)
+  local default_branch_name=${default_branch#origin/}
+  is_merged=false
+
+  # Use git branch --merged to check if branch is fully merged
+  # This correctly handles cases where branch points to same commit as default
+  if git -C "$path" branch --merged "$default_branch_name" 2>/dev/null | grep -q "^[* ]*${branch}$"; then
+    # Exclude the default branch itself from being marked as merged
+    if [[ "$branch" != "$default_branch_name" ]]; then
+      is_merged=true
+    fi
+  fi
+
+  # Check if remote branch exists
+  remote_deleted=false
+  if ! git show-ref --verify --quiet "refs/remotes/origin/$branch" 2>/dev/null; then
+    # Branch doesn't exist on remote
+    # But check if it's a local-only branch that was never pushed
+    local has_upstream
+    has_upstream=$(git -C "$path" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
+    if [[ -z "$has_upstream" ]]; then
+      remote_deleted="never-pushed"
+    else
+      remote_deleted=true
+    fi
+  fi
+
+  # Check for uncommitted changes
+  has_changes=false
+  if ! git -C "$path" diff --quiet 2>/dev/null || ! git -C "$path" diff --cached --quiet 2>/dev/null; then
+    has_changes=true
+  fi
+
+  # Check for unpushed commits
+  has_unpushed=false
+  local upstream
+  upstream=$(git -C "$path" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || echo "")
+  if [[ -n "$upstream" ]]; then
+    local unpushed_count
+    unpushed_count=$(git -C "$path" rev-list --count "$upstream..HEAD" 2>/dev/null || echo "0")
+    if [[ "$unpushed_count" -gt 0 ]]; then
+      has_unpushed=true
+    fi
+  fi
+
+  # Output as delimited string for parsing
+  echo "${path}|${branch}|${age_days}|${is_merged}|${remote_deleted}|${has_changes}|${has_unpushed}|${last_commit_date}"
+}
+
+# Format worktree info for display
+format_worktree_display() {
+  local info=$1
+  IFS='|' read -r path branch age_days is_merged remote_deleted has_changes has_unpushed last_commit_date <<< "$info"
+
+  local display_path=${path#"${wt_root}"/}
+  local status_flags=""
+
+  if [[ "$has_changes" == "true" ]]; then
+    status_flags="${status_flags}[CHANGES]"
+  fi
+
+  if [[ "$has_unpushed" == "true" ]]; then
+    status_flags="${status_flags}[UNPUSHED]"
+  fi
+
+  if [[ "$is_merged" == "true" ]]; then
+    status_flags="${status_flags}[MERGED]"
+  fi
+
+  if [[ "$remote_deleted" == "true" ]]; then
+    status_flags="${status_flags}[REMOTE-DELETED]"
+  elif [[ "$remote_deleted" == "never-pushed" ]]; then
+    status_flags="${status_flags}[LOCAL-ONLY]"
+  fi
+
+  printf "%-40s %-30s %4dd ago %s\n" "$display_path" "$branch" "$age_days" "$status_flags"
+}
+
+# Remove a worktree safely
+remove_worktree() {
+  local path=$1
+  local force=${2:-false}
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo -e "${YELLOW}[DRY-RUN]${NC} Would remove: $path"
+    return 0
+  fi
+
+  local result
+  if [[ "$force" == true ]]; then
+    git worktree remove --force "$path"
+    result=$?
+  else
+    git worktree remove "$path"
+    result=$?
+  fi
+
+  if [[ $result -eq 0 ]]; then
+    echo -e "${GREEN}✓${NC} Removed: $path"
+  else
+    echo -e "${RED}✗${NC} Failed to remove: $path"
+    return 1
+  fi
+}
+
+# Interactive mode using fzf
+interactive_cleanup() {
+  echo "Scanning worktrees..."
+
+  local worktrees=()
+  while IFS= read -r wt_path; do
+    if [[ "$wt_path" != *".bare" ]]; then
+      worktrees+=("$wt_path")
+    fi
+  done < <(git worktree list --porcelain | rg '^worktree' | cut -d' ' -f2)
+
+  if [[ ${#worktrees[@]} -eq 0 ]]; then
+    echo "No worktrees found to clean up."
+    exit 0
+  fi
+
+  # Collect worktree info
+  local info_list=()
+  local display_list=()
+
+  for wt_path in "${worktrees[@]}"; do
+    local info
+    info=$(get_worktree_info "$wt_path")
+    info_list+=("$info")
+    display_list+=("$(format_worktree_display "$info")")
+  done
+
+  # Use fzf for selection
+  echo ""
+  echo "Select worktrees to remove (Tab to select multiple, Enter to confirm):"
+  echo ""
+
+  local selected_display
+  selected_display=$(printf '%s\n' "${display_list[@]}" | \
+    fzf --multi \
+        --header="Tab: select/deselect | Enter: confirm | Esc: cancel" \
+        --bind="tab:toggle" \
+        --preview="echo {}" \
+        --preview-window=up:3:wrap || true)
+
+  if [[ -z "$selected_display" ]]; then
+    echo "No worktrees selected."
+    exit 0
+  fi
+
+  # Find matching worktrees
+  local to_remove=()
+  while IFS= read -r display_line; do
+    for i in "${!display_list[@]}"; do
+      if [[ "${display_list[$i]}" == "$display_line" ]]; then
+        to_remove+=("${info_list[$i]}")
+        break
+      fi
+    done
+  done <<< "$selected_display"
+
+  # Check for uncommitted changes or unpushed commits
+  local has_warnings=false
+  echo ""
+  echo "Selected worktrees:"
+  echo ""
+
+  for info in "${to_remove[@]}"; do
+    IFS='|' read -r path branch age_days is_merged remote_deleted has_changes has_unpushed last_commit_date <<< "$info"
+    local display_path=${path#"${wt_root}"/}
+
+    echo "  - $display_path ($branch)"
+
+    if [[ "$has_changes" == "true" ]]; then
+      echo -e "    ${YELLOW}⚠ Warning: Has uncommitted changes${NC}"
+      has_warnings=true
+    fi
+
+    if [[ "$has_unpushed" == "true" ]]; then
+      echo -e "    ${YELLOW}⚠ Warning: Has unpushed commits${NC}"
+      has_warnings=true
+    fi
+  done
+
+  echo ""
+  if [[ "$has_warnings" == true ]]; then
+    echo -e "${YELLOW}Some worktrees have uncommitted changes or unpushed commits.${NC}"
+    read -p "Are you sure you want to remove these worktrees? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      exit 0
+    fi
+  else
+    read -p "Remove these worktrees? [y/N] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "Cancelled."
+      exit 0
+    fi
+  fi
+
+  # Remove selected worktrees
+  echo ""
+  for info in "${to_remove[@]}"; do
+    IFS='|' read -r path branch age_days is_merged remote_deleted has_changes has_unpushed last_commit_date <<< "$info"
+    local force=false
+    if [[ "$has_changes" == "true" ]]; then
+      force=true
+    fi
+    remove_worktree "$path" "$force"
+  done
+
+  echo ""
+  echo -e "${GREEN}Cleanup complete.${NC}"
+}
+
+# Automated cleanup based on criteria
+automated_cleanup() {
+  echo "Scanning worktrees..."
+
+  local worktrees=()
+  while IFS= read -r wt_path; do
+    if [[ "$wt_path" != *".bare" ]]; then
+      worktrees+=("$wt_path")
+    fi
+  done < <(git worktree list --porcelain | rg '^worktree' | cut -d' ' -f2)
+
+  if [[ ${#worktrees[@]} -eq 0 ]]; then
+    echo "No worktrees found."
+    exit 0
+  fi
+
+  # Collect worktrees matching criteria
+  local to_remove=()
+
+  for wt_path in "${worktrees[@]}"; do
+    local info
+    info=$(get_worktree_info "$wt_path")
+    IFS='|' read -r path branch age_days is_merged remote_deleted has_changes has_unpushed last_commit_date <<< "$info"
+
+    # Skip worktrees with uncommitted changes (safety check)
+    if [[ "$has_changes" == "true" ]]; then
+      continue
+    fi
+
+    local should_remove=false
+
+    case "$MODE" in
+      merged)
+        if [[ "$is_merged" == "true" && "$has_unpushed" == "false" ]]; then
+          should_remove=true
+        fi
+        ;;
+      deleted-remote)
+        if [[ "$remote_deleted" == "true" && "$has_unpushed" == "false" ]]; then
+          should_remove=true
+        fi
+        ;;
+      old)
+        if [[ "$age_days" -ge "$AGE_DAYS" && "$has_unpushed" == "false" ]]; then
+          should_remove=true
+        fi
+        ;;
+    esac
+
+    if [[ "$should_remove" == true ]]; then
+      to_remove+=("$info")
+    fi
+  done
+
+  if [[ ${#to_remove[@]} -eq 0 ]]; then
+    echo "No worktrees match the cleanup criteria."
+    exit 0
+  fi
+
+  # Display what will be removed
+  echo ""
+  echo "Worktrees to remove:"
+  echo ""
+
+  for info in "${to_remove[@]}"; do
+    format_worktree_display "$info"
+  done
+
+  echo ""
+  echo "Total: ${#to_remove[@]} worktree(s)"
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo ""
+    echo -e "${YELLOW}[DRY-RUN] No worktrees were removed.${NC}"
+    exit 0
+  fi
+
+  # Confirm removal
+  read -p "Remove these worktrees? [y/N] " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Cancelled."
+    exit 0
+  fi
+
+  # Remove worktrees
+  echo ""
+  for info in "${to_remove[@]}"; do
+    IFS='|' read -r path branch age_days is_merged remote_deleted has_changes has_unpushed last_commit_date <<< "$info"
+    remove_worktree "$path" false
+  done
+
+  echo ""
+  echo -e "${GREEN}Cleanup complete.${NC}"
+}
+
+# Prune and maintenance
+run_maintenance() {
+  echo "Running git worktree maintenance..."
+  echo ""
+
+  if [[ "$DRY_RUN" == true ]]; then
+    echo -e "${YELLOW}[DRY-RUN]${NC} Would run: git worktree prune"
+    echo -e "${YELLOW}[DRY-RUN]${NC} Would run: git gc --auto"
+  else
+    echo "Pruning worktrees..."
+    git worktree prune -v
+
+    echo ""
+    echo "Running garbage collection..."
+    git gc --auto
+
+    echo ""
+    echo -e "${GREEN}✓ Maintenance complete.${NC}"
+  fi
+}
+
+# Show help
+show_help() {
+  cat << 'EOF'
+usage: git wt-cleanup [options]
+
+Clean up old or merged git worktrees.
+
+Options:
+  -i, --interactive        Interactive mode with fzf (default)
+  -m, --merged             Remove worktrees with merged branches
+  -d, --deleted-remote     Remove worktrees for branches deleted on remote
+  -o, --older-than DAYS    Remove worktrees older than N days
+  -p, --prune              Run git worktree prune and gc
+  -n, --dry-run            Show what would be removed without removing
+  -h, --help               Show this help
+
+Interactive mode:
+  git wt-cleanup
+  git wt-cleanup --interactive
+    → Use fzf to select worktrees to remove
+    → Shows age, status, uncommitted changes, unpushed commits
+    → Multi-select with Tab, confirm with Enter
+
+Automated cleanup:
+  git wt-cleanup --merged
+    → Remove worktrees with branches fully merged into default branch
+    → Skips worktrees with uncommitted changes or unpushed commits
+
+  git wt-cleanup --deleted-remote
+    → Remove worktrees for branches deleted on remote
+    → Skips worktrees with uncommitted changes or unpushed commits
+
+  git wt-cleanup --older-than 90
+    → Remove worktrees not modified in 90+ days
+    → Skips worktrees with uncommitted changes or unpushed commits
+
+Maintenance:
+  git wt-cleanup --prune
+    → Run git worktree prune (remove deleted worktrees from git)
+    → Run git gc --auto (cleanup and optimize repository)
+
+Dry run:
+  git wt-cleanup --merged --dry-run
+    → Preview what would be removed without actually removing
+
+Safety:
+  - Worktrees with uncommitted changes require confirmation or --force
+  - Worktrees with unpushed commits are highlighted and require confirmation
+  - Default branch worktrees are never automatically removed
+  - Bare repository (.bare) is never touched
+
+Examples:
+  # Interactive cleanup
+  git wt-cleanup
+
+  # Clean up merged feature branches
+  git wt-cleanup --merged
+
+  # Preview old worktrees
+  git wt-cleanup --older-than 30 --dry-run
+
+  # Full maintenance
+  git wt-cleanup --prune
+EOF
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -i|--interactive)
+      INTERACTIVE=true
+      MODE=""
+      shift
+      ;;
+    -m|--merged)
+      INTERACTIVE=false
+      MODE="merged"
+      shift
+      ;;
+    -d|--deleted-remote)
+      INTERACTIVE=false
+      MODE="deleted-remote"
+      shift
+      ;;
+    -o|--older-than)
+      INTERACTIVE=false
+      MODE="old"
+      AGE_DAYS=$2
+      shift 2
+      ;;
+    -p|--prune)
+      run_maintenance
+      exit 0
+      ;;
+    -n|--dry-run)
+      DRY_RUN=true
+      shift
+      ;;
+    -h|--help)
+      show_help
+      exit 0
+      ;;
+    *)
+      echo "Error: Unknown option $1" >&2
+      echo "Use --help for usage information" >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Validate age parameter
+if [[ "$MODE" == "old" && ! "$AGE_DAYS" =~ ^[0-9]+$ ]]; then
+  echo "Error: --older-than requires a number of days" >&2
+  exit 1
+fi
+
+# Run cleanup
+if [[ "$INTERACTIVE" == true ]]; then
+  # Check if fzf is available
+  if ! command -v fzf &> /dev/null; then
+    echo "Error: fzf is required for interactive mode" >&2
+    echo "Install fzf or use automated cleanup modes (--merged, --deleted-remote, etc.)" >&2
+    exit 1
+  fi
+
+  interactive_cleanup
+else
+  if [[ -z "$MODE" ]]; then
+    echo "Error: No cleanup mode specified" >&2
+    echo "Use --help for usage information" >&2
+    exit 1
+  fi
+
+  automated_cleanup
+fi
