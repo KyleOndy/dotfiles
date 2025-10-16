@@ -4,6 +4,10 @@ ALLOW_BROKEN=false
 ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
+# Binary cache configuration
+CACHE_HOST=cheetah
+CACHE_URL=ssh://$(CACHE_HOST)
+
 # I don't like to do this, but sometimes I just need to move ahead
 ifeq ($(ALLOW_BROKEN), true)
 	export NIXPKGS_ALLOW_BROKEN=1
@@ -135,3 +139,19 @@ git-status:
 		echo "Error - working directory is dirty. Commit those changes!"; \
 		exit 1; \
 	fi
+
+# Cache push targets
+.PHONY: cache-push-dino
+cache-push-dino: ## Push dino system closure to binary cache
+	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.dino.config.system.build.toplevel
+
+.PHONY: cache-push-tiger
+cache-push-tiger: ## Push tiger system closure to binary cache
+	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.tiger.config.system.build.toplevel
+
+.PHONY: cache-push-cheetah
+cache-push-cheetah: ## Push cheetah system closure to binary cache
+	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.cheetah.config.system.build.toplevel
+
+.PHONY: cache-push-all
+cache-push-all: cache-push-dino cache-push-tiger cache-push-cheetah ## Push all system closures to binary cache
