@@ -10,7 +10,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-darwin = {
-      url = "github:LnL7/nix-darwin";
+      url = "github:LnL7/nix-darwin/nix-darwin-25.05";
       # packages installed via nix-darwin use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -295,6 +295,48 @@
             )
           ];
         };
+
+      };
+      darwinConfigurations.work-mac = inputs.nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
+        modules = [
+          ./nix/hosts/work-mac/configuration.nix
+          inputs.home-manager.darwinModules.home-manager
+          {
+            nixpkgs.overlays = overlays;
+            users.users."kyle.ondy".home = "/Users/kyle.ondy";
+            home-manager = {
+              useGlobalPkgs = true;
+              useUserPackages = true;
+              extraSpecialArgs = {
+                dotfiles-root = self.outPath;
+              };
+              # Include plasma-manager even though KDE isn't on macOS
+              # This allows desktop modules (like kde.nix) to reference programs.plasma
+              # without evaluation errors, enabling cross-platform validation
+              sharedModules =
+                hmCoreModules
+                ++ hmDesktopModules
+                ++ [
+                  inputs.plasma-manager.homeModules.plasma-manager
+                ];
+              users."kyle.ondy" =
+                { lib, ... }:
+                {
+                  imports = [ ./nix/hosts/work-mac/home.nix ];
+                  #home.homeDirectory = lib.mkForce "/Users/kyle.ondy";
+                };
+            };
+          }
+        ];
+      };
+
+      homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
+        pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
+        modules = [
+          ./nix/hosts/work-wsl/home.nix
+          { nixpkgs.overlays = overlays; }
+        ];
       };
 
       # deploy-rs

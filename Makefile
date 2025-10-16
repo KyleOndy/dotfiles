@@ -155,3 +155,20 @@ cache-push-cheetah: ## Push cheetah system closure to binary cache
 
 .PHONY: cache-push-all
 cache-push-all: cache-push-dino cache-push-tiger cache-push-cheetah ## Push all system closures to binary cache
+
+# macOS-specific targets
+.PHONY: build-mac
+build-mac: ## Build work-mac darwin configuration
+	nix build $(IMPURE) .#darwinConfigurations.work-mac.system
+
+.PHONY: build-mac-dry
+build-mac-dry: ## Dry-run build of work-mac darwin configuration
+	nix build $(IMPURE) .#darwinConfigurations.work-mac.system --dry-run
+
+.PHONY: test-mac
+test-mac: ## Test work-mac configuration evaluation
+	nix eval $(IMPURE) .#darwinConfigurations.work-mac.config.system.stateVersion
+
+.PHONY: test-mac-home
+test-mac-home: ## Test work-mac home-manager configuration
+	nix eval $(IMPURE) .#darwinConfigurations.work-mac.config.home-manager.users.'"kyle.ondy"'.home.homeDirectory

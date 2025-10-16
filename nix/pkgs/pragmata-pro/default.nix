@@ -2,19 +2,20 @@
 {
   lib,
   stdenv,
-  fetchurl,
-  pkgs,
+  file,
 }:
 
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "pragmata-pro";
   version = "0.9";
   src = ./.;
 
+  nativeBuildInputs = [ file ];
+
   installPhase = ''
     # make sure we have decrypted the font
     for font in *.otf; do
-     file $font | grep --quiet 'OpenType font data'
+     ${file}/bin/file $font | grep --quiet 'OpenType font data'
     done
 
     mkdir -p $out/share/fonts/opentype/pragmata-pro
@@ -22,4 +23,11 @@ pkgs.stdenv.mkDerivation {
 
     runHook postInstall
   '';
+
+  meta = with lib; {
+    description = "PragmataPro Typeface";
+    homepage = "https://fsd.it/shop/fonts/pragmatapro/";
+    license = licenses.unfree;
+    platforms = platforms.all;
+  };
 }
