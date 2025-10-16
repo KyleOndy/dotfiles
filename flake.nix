@@ -52,11 +52,22 @@
       ];
 
       # Profile registry for consistent profile management
+      # Each profile specifies:
+      # - homeModule: path to home-manager configuration
+      # - needsDesktop: whether desktop modules and environment are required
+      #
+      # Available profiles:
+      # - server: Headless systems accessed via SSH (full dev tools, no GUI)
+      # - desktop: Systems with physical access and GUI (full dev tools + desktop apps)
       profiles = {
-        minimal = ./nix/profiles/minimal.nix;
-        ssh = ./nix/profiles/ssh.nix;
-        workstation = ./nix/profiles/workstation.nix;
-        gaming = ./nix/profiles/gaming.nix;
+        server = {
+          homeModule = ./nix/profiles/server.nix;
+          needsDesktop = false;
+        };
+        desktop = {
+          homeModule = ./nix/profiles/desktop.nix;
+          needsDesktop = true;
+        };
       };
 
       # Get all .nix files recursively from a directory
@@ -84,16 +95,20 @@
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
 
       # Helper function to create nixosSystem configurations
+      # Profile is now required and must be specified from the profiles registry
       mkNixosSystem =
         {
           hostname,
           system ? "x86_64-linux",
-          isDesktop ? false,
           hardwareModules ? [ ],
           includeModules ? [ ],
-          profile ? null,
+          profile, # Required - no default
           extraConfig ? { },
         }:
+        let
+          profileConfig = profiles.${profile};
+          isDesktop = profileConfig.needsDesktop;
+        in
         inputs.nixpkgs.lib.nixosSystem {
           inherit system;
           specialArgs = {
@@ -141,13 +156,9 @@
                       );
                     users.kyle =
                       let
-                        baseProfile =
-                          if profile != null then
-                            { imports = [ profile ]; }
-                          else if isDesktop then
-                            { imports = [ profiles.workstation ]; }
-                          else
-                            { imports = [ profiles.ssh ]; };
+                        baseProfile = {
+                          imports = [ profileConfig.homeModule ];
+                        };
                         extraUserConfig = extraConfig.home-manager.users.kyle or { };
                       in
                       baseProfile // extraUserConfig;
@@ -156,6 +167,66 @@
                 // (builtins.removeAttrs extraConfig [ "home-manager" ])
               )
             ];
+        };
+
+      # Helper function to create darwinSystem configurations
+      # Profile is now required and must be specified from the profiles registry
+      mkDarwinSystem =
+        {
+          hostname,
+          system ? "aarch64-darwin",
+          includeModules ? [ ],
+          profile, # Required - no default
+          username ? "kyle.ondy",
+          extraConfig ? { },
+        }:
+        let
+          profileConfig = profiles.${profile};
+          isDesktop = profileConfig.needsDesktop;
+          hostHomeConfig = ./nix/hosts/${hostname}/home.nix;
+        in
+        inputs.nix-darwin.lib.darwinSystem {
+          inherit system;
+          modules = [
+            ./nix/hosts/${hostname}/configuration.nix
+            inputs.home-manager.darwinModules.home-manager
+          ]
+          ++ includeModules
+          ++ [
+            (
+              {
+                nixpkgs.overlays = overlays;
+                users.users.${username}.home = "/Users/${username}";
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  extraSpecialArgs = {
+                    dotfiles-root = self.outPath;
+                  };
+                  # Include desktop modules for cross-platform validation
+                  # This allows desktop modules to reference programs.plasma without evaluation errors
+                  sharedModules =
+                    hmCoreModules
+                    ++ (
+                      if isDesktop then
+                        hmDesktopModules
+                        ++ [
+                          inputs.plasma-manager.homeModules.plasma-manager
+                        ]
+                      else
+                        [ ]
+                    );
+                  users.${username} = {
+                    imports = [
+                      profileConfig.homeModule
+                    ]
+                    ++ (if builtins.pathExists hostHomeConfig then [ hostHomeConfig ] else [ ]);
+                  };
+                };
+              }
+              // (builtins.removeAttrs extraConfig [ "home-manager" ])
+            )
+          ];
         };
     in
     {
@@ -218,7 +289,7 @@
       nixosConfigurations = {
         dino = mkNixosSystem {
           hostname = "dino";
-          isDesktop = true;
+          profile = "desktop";
           hardwareModules = [
             inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
           ];
@@ -230,11 +301,11 @@
         };
         tiger = mkNixosSystem {
           hostname = "tiger";
-          profile = profiles.ssh;
+          profile = "desktop";
         };
         cheetah = mkNixosSystem {
           hostname = "cheetah";
-          profile = profiles.ssh;
+          profile = "server";
         };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
@@ -297,38 +368,10 @@
         };
 
       };
-      darwinConfigurations.work-mac = inputs.nix-darwin.lib.darwinSystem {
-        system = "aarch64-darwin";
-        modules = [
-          ./nix/hosts/work-mac/configuration.nix
-          inputs.home-manager.darwinModules.home-manager
-          {
-            nixpkgs.overlays = overlays;
-            users.users."kyle.ondy".home = "/Users/kyle.ondy";
-            home-manager = {
-              useGlobalPkgs = true;
-              useUserPackages = true;
-              extraSpecialArgs = {
-                dotfiles-root = self.outPath;
-              };
-              # Include plasma-manager even though KDE isn't on macOS
-              # This allows desktop modules (like kde.nix) to reference programs.plasma
-              # without evaluation errors, enabling cross-platform validation
-              sharedModules =
-                hmCoreModules
-                ++ hmDesktopModules
-                ++ [
-                  inputs.plasma-manager.homeModules.plasma-manager
-                ];
-              users."kyle.ondy" =
-                { lib, ... }:
-                {
-                  imports = [ ./nix/hosts/work-mac/home.nix ];
-                  #home.homeDirectory = lib.mkForce "/Users/kyle.ondy";
-                };
-            };
-          }
-        ];
+      darwinConfigurations.work-mac = mkDarwinSystem {
+        hostname = "work-mac";
+        profile = "desktop";
+        username = "kyle.ondy";
       };
 
       homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
