@@ -2,19 +2,20 @@
 {
   lib,
   stdenv,
-  fetchurl,
-  pkgs,
+  file,
 }:
 
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "berkeley-mono";
   version = "2.002";
   src = ./.;
 
+  nativeBuildInputs = [ file ];
+
   installPhase = ''
     # make sure we have decrypted the font
     for font in *.otf; do
-     file $font | grep --quiet 'OpenType font data'
+     ${file}/bin/file $font | grep --quiet 'OpenType font data'
     done
 
     mkdir -p $out/share/fonts/opentype/berkeley-mono
@@ -22,4 +23,11 @@ pkgs.stdenv.mkDerivation {
 
     runHook postInstall
   '';
+
+  meta = with lib; {
+    description = "Berkeley Mono Typeface";
+    homepage = "https://berkeleygraphics.com/";
+    license = licenses.unfree;
+    platforms = platforms.all;
+  };
 }
