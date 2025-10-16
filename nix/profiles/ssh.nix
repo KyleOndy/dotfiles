@@ -14,5 +14,6 @@
     sysadmin.enable = true;
     nixTools.enable = true;
     security.enable = true;
+    monitoring.enable = true;
   };
 }
