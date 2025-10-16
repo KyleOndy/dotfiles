@@ -1,5 +1,6 @@
-# Workstation profile - full development environment with desktop
-# This profile is a complete development setup with GUI applications
+# Desktop profile - systems with GUI and physical interaction
+# Full development environment with desktop applications
+# Suitable for workstations, laptops, and systems with monitors/keyboards
 
 { ... }:
 {
@@ -10,7 +11,8 @@
     ./common/ssh-hosts.nix
   ];
 
-  # Enable all development features for workstation
+  # Enable all development features for desktop systems
+  # Includes GUI-related tools like media and document processing
   hmFoundry.dev = {
     kubernetes.enable = true;
     aws.enable = true;
