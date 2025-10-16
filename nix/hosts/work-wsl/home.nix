@@ -7,9 +7,9 @@
   ...
 }:
 {
-  # Import the base workstation profile for all standard development tools
+  # Import the server profile - WSL is used as a terminal-only environment
   imports = [
-    ../../profiles/workstation.nix
+    ../../profiles/server.nix
   ]
   ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
 
