@@ -85,6 +85,8 @@ in
         character = {
           success_symbol = "[λ](bold green)";
           error_symbol = "[λ](bold red)";
+          vimcmd_symbol = "[λ](bold cyan)";
+          vimcmd_visual_symbol = "[λ](bold yellow)";
         };
 
         # Show command duration for slow commands
