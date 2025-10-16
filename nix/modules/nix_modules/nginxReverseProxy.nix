@@ -9,56 +9,100 @@ let
   cfg = config.systemFoundry.nginxReverseProxy;
 in
 {
-  options.systemFoundry.nginxReverseProxy = mkOption {
-    default = { };
-    description = "nginx reverse proxy instance";
-    type = types.attrsOf (
-      types.submodule {
-        options = {
+  options.systemFoundry.nginxReverseProxy = {
+    acme = {
+      email = mkOption {
+        type = types.str;
+        description = "ACME account email for Let's Encrypt";
+        example = "admin@example.com";
+      };
+      dnsProvider = mkOption {
+        type = types.str;
+        description = "DNS provider for DNS-01 ACME challenge";
+        example = "namecheap";
+      };
+      credentialsSecret = mkOption {
+        type = types.str;
+        description = "Name of the sops secret containing DNS provider credentials";
+        example = "namecheap";
+      };
+    };
 
-          enable = mkEnableOption ''
-            Create an nginx reverse proxy with optional cers
-          '';
-          location = mkOption {
-            type = types.str;
-            default = "/";
-            description = ''
-              loction under domain
+    sites = mkOption {
+      default = { };
+      description = "Nginx reverse proxy sites";
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+
+            enable = mkEnableOption ''
+              Create an nginx reverse proxy with optional certs
             '';
+            location = mkOption {
+              type = types.str;
+              default = "/";
+              description = ''
+                Location path under domain
+              '';
+            };
+            extraDomainNames = mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "Additional CNAMEs to add to certificate";
+            };
+            provisionCert = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Provision a Let's Encrypt certificate for this reverse proxy
+              '';
+            };
+            proxyPass = mkOption {
+              type = types.str;
+              description = "URL to proxy this domain to";
+              example = ''
+                http://127.0.0.1:8989
+              '';
+            };
+            enableSSLVerify = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Enable SSL certificate verification for upstream HTTPS connections.
+                Only relevant when proxyPass uses https://.
+              '';
+            };
           };
-          extraDomainNames = mkOption {
-            type = types.listOf types.str;
-            default = [ ];
-            description = "additional cnames to add to cert";
-          };
-          provisionCert = mkOption {
-            type = types.bool;
-            default = false;
-            description = ''
-              provision a cert for this reverse proxy
-            '';
-          };
-          proxyPass = mkOption {
-            type = types.str;
-            description = "path to proxy this domainnam to";
-            example = ''
-              http://127.0.0.1:8989
-            '';
-          };
-        };
-      }
-    );
+        }
+      );
+    };
   };
 
   config =
     let
-      sites = lib.filterAttrs (_: cfg: cfg.enable) config.systemFoundry.nginxReverseProxy;
+      enabledSites = lib.filterAttrs (_: siteCfg: siteCfg.enable) cfg.sites;
+      anySiteEnabled = enabledSites != { };
+      sitesWithCerts = lib.filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites;
+      anyNeedsCerts = sitesWithCerts != { };
     in
-    {
+    mkIf anySiteEnabled {
+      assertions = [
+        {
+          assertion = !anyNeedsCerts || (cfg.acme ? email && cfg.acme.email != "");
+          message = "nginxReverseProxy: acme.email is required when provisionCert is enabled on any site";
+        }
+        {
+          assertion = !anyNeedsCerts || (cfg.acme ? dnsProvider && cfg.acme.dnsProvider != "");
+          message = "nginxReverseProxy: acme.dnsProvider is required when provisionCert is enabled on any site";
+        }
+        {
+          assertion = !anyNeedsCerts || (cfg.acme ? credentialsSecret && cfg.acme.credentialsSecret != "");
+          message = "nginxReverseProxy: acme.credentialsSecret is required when provisionCert is enabled on any site";
+        }
+      ];
       services.nginx = {
         enable = true;
 
-        # todo: make these options
         recommendedGzipSettings = true;
         recommendedOptimisation = true;
         recommendedProxySettings = true;
@@ -149,35 +193,47 @@ in
                       " -> uri=\"$uri\" \n"
                       "\n";
         '';
-        virtualHosts = lib.attrsets.mapAttrs (name: cfg: {
-          enableACME = cfg.provisionCert;
-          forceSSL = true;
+        virtualHosts = lib.attrsets.mapAttrs (
+          name: siteCfg:
+          {
+            enableACME = siteCfg.provisionCert;
+            forceSSL = siteCfg.provisionCert;
 
-          # todo: should I make the path configurable?
-          sslCertificate = "/var/lib/acme/${name}/cert.pem";
-          sslCertificateKey = "/var/lib/acme/${name}/key.pem";
-          locations."/" = {
-            proxyPass = cfg.proxyPass;
-            # todo: these may need to be configurable
+            locations.${siteCfg.location} = {
+              proxyPass = siteCfg.proxyPass;
+              extraConfig = ''
+                # required when the target is also TLS server with multiple hosts
+                proxy_ssl_server_name on;
+                # required when the server wants to use HTTP Authentication
+                proxy_pass_header Authorization;
+              ''
+              + optionalString siteCfg.enableSSLVerify ''
+                proxy_ssl_verify on;
+              '';
+            };
             extraConfig = ''
-              # required when the target is also TLS server with multiple hosts
-              proxy_ssl_server_name on;
-              # required when the server wants to use HTTP Authentication
-              proxy_pass_header Authorization;
-              proxy_ssl_verify on;
+              access_log /var/log/nginx/${name}.access upstreamlog;
+              error_log /var/log/nginx/${name}.error error;
             '';
-          };
-          extraConfig = ''
-            access_log /var/log/nginx/${name}.access upstreamlog;
-            error_log /var/log/nginx/${name}.error error;
-          '';
-        }) sites;
+          }
+          // optionalAttrs siteCfg.provisionCert {
+            sslCertificate = "/var/lib/acme/${name}/cert.pem";
+            sslCertificateKey = "/var/lib/acme/${name}/key.pem";
+          }
+        ) enabledSites;
       };
       security.acme = {
-        certs = mapAttrs (name: cfg: { extraDomainNames = cfg.extraDomainNames; }) sites;
+        acceptTerms = true;
+        defaults.email = cfg.acme.email;
+        certs = mapAttrs (name: siteCfg: {
+          dnsProvider = cfg.acme.dnsProvider;
+          credentialsFile = config.sops.secrets.${cfg.acme.credentialsSecret}.path;
+          extraDomainNames = siteCfg.extraDomainNames;
+          webroot = null; # Explicitly disable webroot for DNS-01 challenge
+        }) (filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites);
       };
       users.users.nginx.extraGroups = [ "acme" ];
-      sops.secrets.namecheap = {
+      sops.secrets.${cfg.acme.credentialsSecret} = {
         owner = "acme";
         group = "acme";
       };
