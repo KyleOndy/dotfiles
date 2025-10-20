@@ -18,6 +18,13 @@ in
       type = types.str;
       description = "Domain to server nzbhydra2 under";
     };
+
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for this service";
+    };
+
     backup = mkOption {
       default = { };
       description = "Move the backups somewhere";
@@ -51,6 +58,7 @@ in
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:5076";
+      provisionCert = cfg.provisionCert;
     };
     systemd.services.nzbhydra2-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
