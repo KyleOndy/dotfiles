@@ -12,6 +12,14 @@
     hostName = "cheetah";
   };
 
+  time.timeZone = "America/New_York";
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+    extraLocaleSettings = {
+      LC_ALL = "en_US.UTF-8";
+    };
+  };
+
   boot.binfmt.emulatedSystems = [
     "aarch64-linux"
     "armv7l-linux"

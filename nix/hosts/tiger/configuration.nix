@@ -30,6 +30,14 @@ in
     useDHCP = lib.mkDefault true;
   };
 
+  time.timeZone = "America/New_York";
+  i18n = {
+    defaultLocale = "en_US.UTF-8";
+    extraLocaleSettings = {
+      LC_ALL = "en_US.UTF-8";
+    };
+  };
+
   services = {
     zfs = {
       autoScrub.enable = true;
