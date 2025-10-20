@@ -39,7 +39,7 @@ nix/
     └── darwin-home.nix      # home-manager user configuration
 ```
 
-#### Example `nix/work/darwin-system.nix`:
+#### Example `nix/work/darwin-system.nix`
 
 ```nix
 { config, pkgs, lib, ... }:
@@ -71,7 +71,7 @@ nix/
 }
 ```
 
-#### Example `nix/work/darwin-home.nix`:
+#### Example `nix/work/darwin-home.nix`
 
 ```nix
 { config, pkgs, lib, ... }:
@@ -172,7 +172,7 @@ nix/
 └── work-wsl-home.nix
 ```
 
-#### Example `nix/work-wsl-home.nix`:
+#### Example `nix/work-wsl-home.nix`
 
 ```nix
 { config, pkgs, lib, ... }:
