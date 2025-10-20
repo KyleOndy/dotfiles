@@ -367,5 +367,65 @@
     services.easyeffects.enable = true;
     xdg.configFile."easyeffects/output/cab-fw.json".source =
       "${inputs.framework-dsp}/config/output/Gracefu's Edits.json";
+
+    # Power management configuration for laptop
+    programs.plasma.powerdevil = {
+      AC = {
+        autoSuspend = {
+          action = "nothing"; # Don't auto-suspend when on AC
+        };
+        turnOffDisplay = {
+          idleTimeout = 600; # Turn off display after 10 minutes (in seconds)
+          idleTimeoutWhenLocked = 60; # Turn off display 1 min after lock
+        };
+        dimDisplay = {
+          enable = true;
+          idleTimeout = 540; # Dim after 9 minutes (before display turns off)
+        };
+        whenLaptopLidClosed = "sleep"; # Still sleep when lid closes
+        inhibitLidActionWhenExternalMonitorConnected = true; # Don't sleep with external monitor
+        powerButtonAction = "showLogoutScreen";
+      };
+
+      battery = {
+        autoSuspend = {
+          action = "sleep"; # Auto-suspend when on battery
+          idleTimeout = 300; # After 5 minutes of inactivity
+        };
+        turnOffDisplay = {
+          idleTimeout = 180; # Turn off display after 3 minutes
+          idleTimeoutWhenLocked = 30; # Turn off display 30s after lock
+        };
+        dimDisplay = {
+          enable = true;
+          idleTimeout = 120; # Dim after 2 minutes
+        };
+        whenLaptopLidClosed = "sleep";
+        powerButtonAction = "sleep";
+      };
+
+      lowBattery = {
+        autoSuspend = {
+          action = "sleep"; # Aggressive sleep when battery is low
+          idleTimeout = 120; # After 2 minutes of inactivity
+        };
+        turnOffDisplay = {
+          idleTimeout = 60; # Turn off display after 1 minute
+          idleTimeoutWhenLocked = 20; # Turn off display 20s after lock (minimum allowed)
+        };
+        dimDisplay = {
+          enable = true;
+          idleTimeout = 30; # Dim after 30 seconds
+        };
+        whenLaptopLidClosed = "sleep";
+        powerButtonAction = "sleep";
+      };
+
+      batteryLevels = {
+        lowLevel = 20; # Low battery at 20%
+        criticalLevel = 5; # Critical battery at 5%
+        criticalAction = "sleep"; # Sleep at critical battery
+      };
+    };
   };
 }
