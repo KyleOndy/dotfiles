@@ -4,20 +4,20 @@ set -Eeuo pipefail
 # Clone and setup a repo for use with git worktree workflow
 
 get_default_branch() {
-  local url=$1
+  local repo_url=$1
   # Assumptions abound!
   local head_commit
   local branches_on_head
   local branch_count
   local default_branch
 
-  head_commit=$(git ls-remote "$url" HEAD | cut -f1)
-  branches_on_head=$(git ls-remote "$url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
+  head_commit=$(git ls-remote "$repo_url" HEAD | cut -f1)
+  branches_on_head=$(git ls-remote "$repo_url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
   branch_count=$(wc -l <<< "$branches_on_head")
 
   default_branch="main"
   if [[ $branch_count -eq 0 ]]; then
-    echo "Error: Can't determine default branch for $url" >&2
+    echo "Error: Can't determine default branch for $repo_url" >&2
     exit 1
   elif [[ $branch_count -eq 1 ]]; then
     default_branch="$branches_on_head"
@@ -99,6 +99,9 @@ echo "gitdir: ./.bare" > .git
 
 # Configure remote fetch
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+
+# Fetch remote branches to populate remote tracking references
+git fetch origin
 
 # Create initial worktree for default branch
 echo ""
