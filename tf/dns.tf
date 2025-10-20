@@ -1,7 +1,18 @@
-## ondy.org
+locals {
+  cheetah_dns = ["ns100099.ip-147-135-1.us"]
+}
 
+## ondy.org
 resource "aws_route53_zone" "ondy_org" {
   name = "ondy.org"
+}
+
+resource "aws_route53_record" "ondy_org_apex" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "ondy.org"
+  type    = "A"
+  ttl     = "300"
+  records = ["147.135.1.147"]
 }
 
 resource "aws_route53_record" "ondy_org_apps_star_cname" {
@@ -9,21 +20,20 @@ resource "aws_route53_record" "ondy_org_apps_star_cname" {
   name    = "*.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = [aws_instance.reverse_proxy.public_dns]
+  records = local.cheetah_dns
 }
 
 resource "aws_route53_record" "ondy_org_top_level_app" {
   for_each = toset(var.ondy_org_top_level_apps)
 
-
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = each.value
   type    = "CNAME"
   ttl     = "300"
-  records = [aws_instance.reverse_proxy.public_dns]
+  records = local.cheetah_dns
 }
 
-resource "aws_route53_record" "org_ondy_mx" {
+resource "aws_route53_record" "ondy_org_mx" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "ondy.org"
   type    = "MX"
@@ -34,7 +44,7 @@ resource "aws_route53_record" "org_ondy_mx" {
   ]
 }
 
-resource "aws_route53_record" "org_ondy_txt" {
+resource "aws_route53_record" "ondy_org_txt" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "ondy.org"
   type    = "TXT"
@@ -42,7 +52,7 @@ resource "aws_route53_record" "org_ondy_txt" {
   records = ["v=spf1 include:mxroute.com -all"]
 }
 
-resource "aws_route53_record" "org_ondy_txt_bluesky" {
+resource "aws_route53_record" "ondy_org_txt_atproto" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "_atproto.ondy.org"
   type    = "TXT"
@@ -53,7 +63,6 @@ resource "aws_route53_record" "org_ondy_txt_bluesky" {
 output "ondy_org_nameservers" {
   value = aws_route53_zone.ondy_org.name_servers
 }
-
 
 ## ondy.me
 
@@ -87,4 +96,20 @@ output "ondy_me_nameservers" {
 ## kyleondy.com
 resource "aws_route53_zone" "kyleondy_com" {
   name = "kyleondy.com"
+}
+
+resource "aws_route53_record" "kyleondy_com_apex" {
+  zone_id = aws_route53_zone.kyleondy_com.zone_id
+  name    = "kyleondy.com"
+  type    = "A"
+  ttl     = "300"
+  records = ["147.135.1.147"]
+}
+
+resource "aws_route53_record" "kyleondy_com_www" {
+  zone_id = aws_route53_zone.kyleondy_com.zone_id
+  name    = "www.kyleondy.com"
+  type    = "CNAME"
+  ttl     = "300"
+  records = local.cheetah_dns
 }

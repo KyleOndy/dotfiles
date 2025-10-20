@@ -58,10 +58,30 @@ in
               '';
             };
             proxyPass = mkOption {
-              type = types.str;
+              type = types.nullOr types.str;
+              default = null;
               description = "URL to proxy this domain to";
               example = ''
                 http://127.0.0.1:8989
+              '';
+            };
+            staticRoot = mkOption {
+              type = types.nullOr types.path;
+              default = null;
+              description = ''
+                Path to serve static files from.
+                Mutually exclusive with proxyPass.
+              '';
+              example = "/var/www/example.com";
+            };
+            isDefault = mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Make this the default server block that catches all requests
+                not matched by other server blocks. When enabled, this will
+                redirect all traffic to the first domain in extraDomainNames
+                or the site name if no extraDomainNames are specified.
               '';
             };
             enableSSLVerify = mkOption {
@@ -71,6 +91,16 @@ in
                 Enable SSL certificate verification for upstream HTTPS connections.
                 Only relevant when proxyPass uses https://.
               '';
+            };
+            route53HostedZoneId = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = ''
+                Route53 hosted zone ID for DNS-01 ACME challenge.
+                Only relevant when using route53 as dnsProvider.
+                If not specified, lego will attempt to auto-detect the zone.
+              '';
+              example = "Z0855021CRZ8TKMBC7EC";
             };
           };
         }
@@ -99,7 +129,19 @@ in
           assertion = !anyNeedsCerts || (cfg.acme ? credentialsSecret && cfg.acme.credentialsSecret != "");
           message = "nginxReverseProxy: acme.credentialsSecret is required when provisionCert is enabled on any site";
         }
-      ];
+      ]
+      ++ lib.flatten (
+        lib.mapAttrsToList (name: siteCfg: [
+          {
+            assertion = siteCfg.proxyPass != null || siteCfg.staticRoot != null || siteCfg.isDefault;
+            message = "nginxReverseProxy.${name}: must specify either proxyPass, staticRoot, or isDefault";
+          }
+          {
+            assertion = !(siteCfg.proxyPass != null && siteCfg.staticRoot != null);
+            message = "nginxReverseProxy.${name}: proxyPass and staticRoot are mutually exclusive";
+          }
+        ]) enabledSites
+      );
       services.nginx = {
         enable = true;
 
@@ -195,28 +237,71 @@ in
         '';
         virtualHosts = lib.attrsets.mapAttrs (
           name: siteCfg:
+          let
+            # Determine redirect target for default server
+            redirectTarget =
+              if siteCfg.isDefault then
+                if (builtins.length siteCfg.extraDomainNames) > 0 then
+                  builtins.head siteCfg.extraDomainNames
+                else
+                  name
+              else
+                null;
+          in
           {
-            enableACME = siteCfg.provisionCert;
-            forceSSL = siteCfg.provisionCert;
+            enableACME = siteCfg.provisionCert && !siteCfg.isDefault;
+            forceSSL = siteCfg.provisionCert && !siteCfg.isDefault;
+            default = siteCfg.isDefault;
 
-            locations.${siteCfg.location} = {
-              proxyPass = siteCfg.proxyPass;
-              extraConfig = ''
-                # required when the target is also TLS server with multiple hosts
-                proxy_ssl_server_name on;
-                # required when the server wants to use HTTP Authentication
-                proxy_pass_header Authorization;
-              ''
-              + optionalString siteCfg.enableSSLVerify ''
-                proxy_ssl_verify on;
-              '';
-            };
+            # Configure root for static sites
+            root = if siteCfg.staticRoot != null then siteCfg.staticRoot else null;
+
+            # Configure locations
+            locations =
+              if siteCfg.isDefault then
+                # Default server: redirect everything
+                {
+                  "/" = {
+                    return = "301 https://${redirectTarget}$request_uri";
+                  };
+                }
+              else if siteCfg.staticRoot != null then
+                # Static site: serve files
+                {
+                  ${siteCfg.location} = {
+                    tryFiles = "$uri $uri/ =404";
+                    extraConfig = ''
+                      # Enable caching for static assets
+                      location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+                        expires 1y;
+                        add_header Cache-Control "public, immutable";
+                      }
+                    '';
+                  };
+                }
+              else
+                # Reverse proxy
+                {
+                  ${siteCfg.location} = {
+                    proxyPass = siteCfg.proxyPass;
+                    extraConfig = ''
+                      # required when the target is also TLS server with multiple hosts
+                      proxy_ssl_server_name on;
+                      # required when the server wants to use HTTP Authentication
+                      proxy_pass_header Authorization;
+                    ''
+                    + optionalString siteCfg.enableSSLVerify ''
+                      proxy_ssl_verify on;
+                    '';
+                  };
+                };
+
             extraConfig = ''
               access_log /var/log/nginx/${name}.access upstreamlog;
               error_log /var/log/nginx/${name}.error error;
             '';
           }
-          // optionalAttrs siteCfg.provisionCert {
+          // optionalAttrs (siteCfg.provisionCert && !siteCfg.isDefault) {
             sslCertificate = "/var/lib/acme/${name}/cert.pem";
             sslCertificateKey = "/var/lib/acme/${name}/key.pem";
           }
@@ -227,11 +312,22 @@ in
         defaults.email = cfg.acme.email;
         certs = mapAttrs (name: siteCfg: {
           dnsProvider = cfg.acme.dnsProvider;
-          credentialsFile = config.sops.secrets.${cfg.acme.credentialsSecret}.path;
+          environmentFile = config.sops.secrets.${cfg.acme.credentialsSecret}.path;
           extraDomainNames = siteCfg.extraDomainNames;
           webroot = null; # Explicitly disable webroot for DNS-01 challenge
         }) (filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites);
       };
+
+      # Override ACME service environment variables for sites with custom zone IDs
+      systemd.services = mapAttrs' (
+        name: siteCfg:
+        nameValuePair "acme-${name}" {
+          serviceConfig = mkIf (siteCfg.route53HostedZoneId != null) {
+            Environment = [ "AWS_HOSTED_ZONE_ID=${siteCfg.route53HostedZoneId}" ];
+          };
+        }
+      ) (filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites);
+
       users.users.nginx.extraGroups = [ "acme" ];
       sops.secrets.${cfg.acme.credentialsSecret} = {
         owner = "acme";
