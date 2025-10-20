@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Check spot instance availability for various instance types
+# Usage: ./check-spot-availability [architecture]
+#   architecture: amd64 (default) or arm64
+
+ARCH="${1:-amd64}"
+REGION="${AWS_REGION:-us-east-1}"
+
+echo "Checking spot availability in $REGION for $ARCH instances..."
+echo ""
+
+# Define instance families based on architecture
+if [[ "$ARCH" == "amd64" ]]; then
+  # AMD EPYC instances (best value for Nix builds)
+  INSTANCES=(
+    "c6a.xlarge"
+    "c6a.2xlarge"
+    "c6a.4xlarge"
+    "c6a.8xlarge"
+    "c6a.12xlarge"
+    "c6a.16xlarge"
+    "c6a.24xlarge"
+    "c6a.32xlarge"
+    "c6a.48xlarge"
+  )
+  PRODUCT="Linux/UNIX"
+elif [[ "$ARCH" == "arm64" ]]; then
+  # ARM Graviton instances
+  INSTANCES=(
+    "c6g.xlarge"
+    "c6g.2xlarge"
+    "c6g.4xlarge"
+    "c6g.8xlarge"
+    "c6g.12xlarge"
+    "c6g.16xlarge"
+    "c7g.xlarge"
+    "c7g.2xlarge"
+    "c7g.4xlarge"
+    "c7g.8xlarge"
+    "c7g.12xlarge"
+    "c7g.16xlarge"
+  )
+  PRODUCT="Linux/UNIX"
+else
+  echo "ERROR: Architecture must be 'amd64' or 'arm64'"
+  exit 1
+fi
+
+# Get current spot prices and availability
+echo "Current Spot Prices (sorted by price):"
+echo "--------------------------------------"
+
+prices=$(aws ec2 describe-spot-price-history \
+  --region "$REGION" \
+  --instance-types "${INSTANCES[@]}" \
+  --product-descriptions "$PRODUCT" \
+  --max-items 100 \
+  --query 'SpotPriceHistory[*].[InstanceType,SpotPrice,AvailabilityZone]' \
+  --output text | sort -k2 -n)
+
+if [ -z "$prices" ]; then
+  echo "ERROR: No spot price data available. Check AWS credentials and region."
+  exit 1
+fi
+
+# Show unique prices per instance type (latest)
+echo "$prices" | awk '{
+  if (!seen[$1]++) {
+    printf "%-20s $%-8s  (%s)\n", $1, $2, $3
+  }
+}'
+
+echo ""
+echo "Spot Placement Score (likelihood of successful placement):"
+echo "-----------------------------------------------------------"
+echo "Note: Requires at least 3 instance types for accurate scoring"
+echo ""
+
+# Calculate spot placement score for the instance family
+# Using multiple similar instances increases flexibility
+if [ ${#INSTANCES[@]} -ge 3 ]; then
+  # Take first 5 instances for scoring (AWS recommends flexibility)
+  score_instances=("${INSTANCES[@]:0:5}")
+
+  placement_scores=$(aws ec2 get-spot-placement-scores \
+    --region "$REGION" \
+    --instance-types "${score_instances[@]}" \
+    --target-capacity 1 \
+    --single-availability-zone \
+    --query 'SpotPlacementScores[*].[AvailabilityZoneId,Score]' \
+    --output text 2>/dev/null | sort -k2 -rn || echo "")
+
+  if [ -n "$placement_scores" ]; then
+    echo "Availability Zone    Score (1-10, higher = better)"
+    echo "$placement_scores" | awk '{printf "%-20s %s\n", $1, $2}'
+    echo ""
+    echo "Recommendation: Use AZ with highest score for best spot availability"
+  else
+    echo "Could not retrieve placement scores (API might not be available in region)"
+  fi
+else
+  echo "Need at least 3 instance types for placement scoring"
+fi
+
+echo ""
+echo "Tips for better spot availability:"
+echo "  - Use smaller instances (better availability)"
+echo "  - Try different regions (us-east-1, us-west-2, eu-west-1)"
+echo "  - Add instance flexibility to Terraform (multiple types)"
+echo "  - Use mixed instances (combine spot + on-demand)"
