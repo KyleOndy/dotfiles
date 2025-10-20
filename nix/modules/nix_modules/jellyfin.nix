@@ -26,6 +26,12 @@ in
       description = "Domain to server jellyfin under";
     };
 
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for this service";
+    };
+
     user = mkOption {
       type = types.str;
       default = "jellyfin";
@@ -64,6 +70,7 @@ in
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:8096";
+      provisionCert = cfg.provisionCert;
     };
 
     systemd.services = {

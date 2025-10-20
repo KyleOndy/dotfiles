@@ -184,6 +184,7 @@ in
         enable = true;
         group = mediaGroup;
         domainName = "sonarr.${domain}";
+        provisionCert = true;
         backup = {
           enable = true;
           destinationPath = "${backup_path}/sonarr/";
@@ -193,6 +194,7 @@ in
         enable = true;
         group = mediaGroup;
         domainName = "radarr.${domain}";
+        provisionCert = true;
         backup = {
           enable = true;
           destinationPath = "${backup_path}/radarr/";
@@ -211,6 +213,7 @@ in
         enable = true;
         group = mediaGroup;
         domainName = "jellyfin.${domain}";
+        provisionCert = true;
         backup = {
           enable = false; # not worth it, easy to set back up
           destinationPath = "${backup_path}/jellyfin/";
@@ -219,6 +222,7 @@ in
       nzbhydra2 = {
         enable = true;
         domainName = "nzbhydra.${domain}";
+        provisionCert = true;
         backup = {
           enable = true;
           destinationPath = "${backup_path}/nzbhydra2/";
@@ -228,6 +232,7 @@ in
         enable = true;
         group = mediaGroup;
         domainName = "nzbget.${domain}";
+        provisionCert = true;
         backup = {
           enable = true;
           destinationPath = "${backup_path}/nzbget/";

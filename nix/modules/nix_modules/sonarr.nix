@@ -27,6 +27,12 @@ in
       description = "Domain to server sonarr under";
     };
 
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for this service";
+    };
+
     user = mkOption {
       type = types.str;
       # todo: can I pull the default from the sonarr package?
@@ -72,6 +78,7 @@ in
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:8989";
+      provisionCert = cfg.provisionCert;
     };
 
     systemd.services.sonarr-backup = mkIf cfg.backup.enable {

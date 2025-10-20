@@ -31,6 +31,12 @@ in
       description = "Domain to server nzbget under";
     };
 
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for this service";
+    };
+
     user = mkOption {
       type = types.str;
       # todo: can I pull the default from the nzbget package?
@@ -71,6 +77,7 @@ in
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:6789";
+      provisionCert = cfg.provisionCert;
     };
     networking.firewall.allowedTCPPorts = [ 6789 ];
     systemd.services.nzbget-backup = mkIf cfg.backup.enable {
