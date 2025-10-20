@@ -1,0 +1,550 @@
+{
+  "version": 4,
+  "terraform_version": "1.12.0",
+  "serial": 100,
+  "lineage": "27d78e7e-41db-1cdc-8790-dd153b6ae457",
+  "outputs": {
+    "ondy_me_nameservers": {
+      "value": [
+        "ns-1078.awsdns-06.org",
+        "ns-1759.awsdns-27.co.uk",
+        "ns-467.awsdns-58.com",
+        "ns-769.awsdns-32.net"
+      ],
+      "type": [
+        "list",
+        "string"
+      ]
+    },
+    "ondy_org_nameservers": {
+      "value": [
+        "ns-1198.awsdns-21.org",
+        "ns-1785.awsdns-31.co.uk",
+        "ns-236.awsdns-29.com",
+        "ns-906.awsdns-49.net"
+      ],
+      "type": [
+        "list",
+        "string"
+      ]
+    }
+  },
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "aws_iam_policy",
+      "name": "acme_route53",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::436428857397:policy/AcmeRoute53Access",
+            "attachment_count": 1,
+            "description": "Allows ACME challenges via Route53 TXT record modifications",
+            "id": "arn:aws:iam::436428857397:policy/AcmeRoute53Access",
+            "name": "AcmeRoute53Access",
+            "name_prefix": "",
+            "path": "/",
+            "policy": "{\"Statement\":[{\"Action\":\"route53:GetChange\",\"Effect\":\"Allow\",\"Resource\":\"arn:aws:route53:::change/*\",\"Sid\":\"\"},{\"Action\":\"route53:ListHostedZonesByName\",\"Effect\":\"Allow\",\"Resource\":\"*\",\"Sid\":\"\"},{\"Action\":\"route53:ListResourceRecordSets\",\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:route53:::hostedzone/Z0855021CRZ8TKMBC7EC\",\"arn:aws:route53:::hostedzone/Z06083802CG1QAOANM0ML\",\"arn:aws:route53:::hostedzone/Z0365859SHHFAPNR0QXN\"],\"Sid\":\"\"},{\"Action\":\"route53:ChangeResourceRecordSets\",\"Condition\":{\"ForAllValues:StringEquals\":{\"route53:ChangeResourceRecordSetsRecordTypes\":\"TXT\"}},\"Effect\":\"Allow\",\"Resource\":[\"arn:aws:route53:::hostedzone/Z0855021CRZ8TKMBC7EC\",\"arn:aws:route53:::hostedzone/Z06083802CG1QAOANM0ML\",\"arn:aws:route53:::hostedzone/Z0365859SHHFAPNR0QXN\"],\"Sid\":\"\"}],\"Version\":\"2012-10-17\"}",
+            "policy_id": "ANPAWLHJP4A262JYVF7H4",
+            "tags": {},
+            "tags_all": {
+              "managed_by": "https://github.com/KyleOndy/dotfiles/tf",
+              "owner": "kyle@ondy.org"
+            }
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_user",
+      "name": "acme",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::436428857397:user/svc.acme",
+            "force_destroy": null,
+            "id": "svc.acme",
+            "name": "svc.acme",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {
+              "managed_by": "https://github.com/KyleOndy/dotfiles/tf",
+              "owner": "kyle@ondy.org"
+            },
+            "unique_id": "AIDAWLHJP4A2X3UGSODA3"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_iam_user_policy_attachment",
+      "name": "acme_route53",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "svc.acme-20251020184401640300000001",
+            "policy_arn": "arn:aws:iam::436428857397:policy/AcmeRoute53Access",
+            "user": "svc.acme"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA==",
+          "dependencies": [
+            "aws_iam_policy.acme_route53",
+            "aws_iam_user.acme"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "kyleondy_com_www",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "www.kyleondy.com",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0855021CRZ8TKMBC7EC_www.kyleondy.com_CNAME",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "www.kyleondy.com",
+            "records": [
+              "ns100099.ip-147-135-1.us"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 300,
+            "type": "CNAME",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0855021CRZ8TKMBC7EC"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInVwZGF0ZSI6MTgwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMiJ9",
+          "dependencies": [
+            "aws_route53_zone.kyleondy_com"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "ondy_me_mx",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "ondy.me",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z06083802CG1QAOANM0ML_ondy.me_MX",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "ondy.me",
+            "records": [
+              "10 london.mxroute.com",
+              "20 london-relay.mxroute.com"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 3600,
+            "type": "MX",
+            "weighted_routing_policy": [],
+            "zone_id": "Z06083802CG1QAOANM0ML"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_me"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "ondy_me_txt",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "ondy.me",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z06083802CG1QAOANM0ML_ondy.me_TXT",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "ondy.me",
+            "records": [
+              "v=spf1 include:mxroute.com -all"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 3600,
+            "type": "TXT",
+            "weighted_routing_policy": [],
+            "zone_id": "Z06083802CG1QAOANM0ML"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_me"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "ondy_org_apps_star_cname",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "*.apps.ondy.org",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0365859SHHFAPNR0QXN_*.apps.ondy.org_CNAME",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "*.apps.ondy.org",
+            "records": [
+              "ns100099.ip-147-135-1.us"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 300,
+            "type": "CNAME",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_org"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "ondy_org_top_level_app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "index_key": "git.ondy.org",
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "git.ondy.org",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0365859SHHFAPNR0QXN_git.ondy.org_CNAME",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "git.ondy.org",
+            "records": [
+              "ns100099.ip-147-135-1.us"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 300,
+            "type": "CNAME",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_org"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "org_ondy_mx",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "ondy.org",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0365859SHHFAPNR0QXN_ondy.org_MX",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "ondy.org",
+            "records": [
+              "10 london.mxroute.com",
+              "20 london-relay.mxroute.com"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 3600,
+            "type": "MX",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_org"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "org_ondy_txt",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "ondy.org",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0365859SHHFAPNR0QXN_ondy.org_TXT",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "ondy.org",
+            "records": [
+              "v=spf1 include:mxroute.com -all"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 3600,
+            "type": "TXT",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_org"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "org_ondy_txt_bluesky",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 2,
+          "attributes": {
+            "alias": [],
+            "allow_overwrite": null,
+            "cidr_routing_policy": [],
+            "failover_routing_policy": [],
+            "fqdn": "_atproto.ondy.org",
+            "geolocation_routing_policy": [],
+            "geoproximity_routing_policy": [],
+            "health_check_id": "",
+            "id": "Z0365859SHHFAPNR0QXN__atproto.ondy.org_TXT",
+            "latency_routing_policy": [],
+            "multivalue_answer_routing_policy": false,
+            "name": "_atproto.ondy.org",
+            "records": [
+              "did=did:plc:2qod5zgss7zqpbockr7syiqg"
+            ],
+            "set_identifier": "",
+            "timeouts": null,
+            "ttl": 86400,
+            "type": "TXT",
+            "weighted_routing_policy": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjIifQ==",
+          "dependencies": [
+            "aws_route53_zone.ondy_org"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_zone",
+      "name": "kyleondy_com",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:route53:::hostedzone/Z0855021CRZ8TKMBC7EC",
+            "comment": "Managed by Terraform",
+            "delegation_set_id": "",
+            "force_destroy": false,
+            "id": "Z0855021CRZ8TKMBC7EC",
+            "name": "kyleondy.com",
+            "name_servers": [
+              "ns-1207.awsdns-22.org",
+              "ns-1898.awsdns-45.co.uk",
+              "ns-328.awsdns-41.com",
+              "ns-916.awsdns-50.net"
+            ],
+            "primary_name_server": "ns-328.awsdns-41.com",
+            "tags": {},
+            "tags_all": {
+              "managed_by": "https://github.com/KyleOndy/dotfiles/tf",
+              "owner": "kyle@ondy.org"
+            },
+            "timeouts": null,
+            "vpc": [],
+            "zone_id": "Z0855021CRZ8TKMBC7EC"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_zone",
+      "name": "ondy_me",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:route53:::hostedzone/Z06083802CG1QAOANM0ML",
+            "comment": "Managed by Terraform",
+            "delegation_set_id": "",
+            "force_destroy": false,
+            "id": "Z06083802CG1QAOANM0ML",
+            "name": "ondy.me",
+            "name_servers": [
+              "ns-1078.awsdns-06.org",
+              "ns-1759.awsdns-27.co.uk",
+              "ns-467.awsdns-58.com",
+              "ns-769.awsdns-32.net"
+            ],
+            "primary_name_server": "ns-769.awsdns-32.net",
+            "tags": {},
+            "tags_all": {
+              "managed_by": "https://github.com/KyleOndy/dotfiles/tf",
+              "owner": "kyle@ondy.org"
+            },
+            "timeouts": null,
+            "vpc": [],
+            "zone_id": "Z06083802CG1QAOANM0ML"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_route53_zone",
+      "name": "ondy_org",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:route53:::hostedzone/Z0365859SHHFAPNR0QXN",
+            "comment": "Managed by Terraform",
+            "delegation_set_id": "",
+            "force_destroy": false,
+            "id": "Z0365859SHHFAPNR0QXN",
+            "name": "ondy.org",
+            "name_servers": [
+              "ns-1198.awsdns-21.org",
+              "ns-1785.awsdns-31.co.uk",
+              "ns-236.awsdns-29.com",
+              "ns-906.awsdns-49.net"
+            ],
+            "primary_name_server": "ns-1785.awsdns-31.co.uk",
+            "tags": {},
+            "tags_all": {
+              "managed_by": "https://github.com/KyleOndy/dotfiles/tf",
+              "owner": "kyle@ondy.org"
+            },
+            "timeouts": null,
+            "vpc": [],
+            "zone_id": "Z0365859SHHFAPNR0QXN"
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "bnVsbA=="
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
