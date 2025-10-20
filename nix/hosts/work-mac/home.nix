@@ -3,6 +3,7 @@
 # This file provides macOS-specific overrides and allows work-specific extensions via work-home.nix
 {
   lib,
+  pkgs,
   ...
 }:
 {
@@ -38,10 +39,13 @@
     wm.i3.enable = lib.mkForce false;
     media = {
       makemkv.enable = lib.mkForce false;
-      documents.enable = lib.mkForce false; # LibreOffice is Linux-only
+      documents.enable = lib.mkForce false;
     };
   };
 
-  # Desktop packages are managed by hmFoundry modules
-  # home.packages overrides should be additive, not replacing
+  # packages I use at work, but not persoanlly, that do not need to be kept
+  # secret in the work fork.
+  home.packages = with pkgs; [
+    k9s
+  ];
 }
