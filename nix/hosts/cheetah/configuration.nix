@@ -28,11 +28,35 @@
   # Configure mdadm to send notifications to root for RAID events
   boot.swraid.mdadmConf = "MAILADDR root@localhost";
 
+  # Ensure website directory exists with proper permissions
+  systemd.tmpfiles.rules = [
+    "d /var/www/kyleondy.com 0755 nginx nginx -"
+  ];
+
   systemFoundry = {
-    nginxReverseProxy.acme = {
-      email = "kyle@ondy.org";
-      dnsProvider = "route53";
-      credentialsSecret = "apps_ondy_org_route53";
+    nginxReverseProxy = {
+      acme = {
+        email = "kyle@ondy.org";
+        dnsProvider = "route53";
+        credentialsSecret = "apps_ondy_org_route53";
+      };
+
+      sites = {
+        # Main website
+        "www.kyleondy.com" = {
+          enable = true;
+          provisionCert = true;
+          staticRoot = "/var/www/kyleondy.com";
+          route53HostedZoneId = "Z0855021CRZ8TKMBC7EC";
+        };
+
+        # Default catch-all server that redirects to www.kyleondy.com
+        "_" = {
+          enable = true;
+          isDefault = true;
+          extraDomainNames = [ "www.kyleondy.com" ];
+        };
+      };
     };
 
     harmonia = {
