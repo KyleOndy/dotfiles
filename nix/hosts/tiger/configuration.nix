@@ -247,6 +247,47 @@ in
 
         # Enable node exporter for system metrics
         nodeExporter.enable = true;
+
+        # Send metrics to cheetah's VictoriaMetrics instance
+        vmagent = {
+          enable = true;
+          remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
+          bearerTokenFile = config.sops.secrets.monitoring_token_tiger.path;
+          scrapeConfigs = [
+            {
+              job_name = "node";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9100" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "zfs";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9134" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+          ];
+        };
+
+        # Send logs to cheetah's Loki instance
+        promtail = {
+          enable = true;
+          lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
+          bearerTokenFile = config.sops.secrets.monitoring_token_tiger.path;
+          extraLabels = {
+            host = "tiger";
+          };
+        };
       };
 
       youtubeDownloader = {
@@ -469,6 +510,7 @@ in
   };
   sops.secrets = {
     jellyfin_api_token = { };
+    monitoring_token_tiger = { };
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?

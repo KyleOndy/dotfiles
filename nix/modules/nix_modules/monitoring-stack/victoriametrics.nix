@@ -48,7 +48,7 @@ in
     services.victoriametrics = {
       enable = true;
       listenAddress = "${cfg.listenAddress}:${toString cfg.port}";
-      retentionPeriod = cfg.retentionPeriod;
+      retentionPeriod = "${toString cfg.retentionPeriod}d";
     };
 
     systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {

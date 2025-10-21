@@ -64,6 +64,111 @@
       domainName = "nix-cache.apps.ondy.org";
       provisionCert = true;
     };
+
+    # VictoriaMetrics-based monitoring stack
+    monitoringStack = {
+      enable = true;
+      domain = "apps.ondy.org";
+
+      # Retention configuration
+      retention = {
+        metrics = 400; # days
+        logs = 400; # days
+      };
+
+      # Bearer token authentication - hashes computed at runtime from sops secrets
+      # The template file is created at activation time, so we provide a dummy value during evaluation
+      tokenHashes =
+        if builtins.pathExists config.sops.templates."monitoring-token-hashes.nix".path then
+          import config.sops.templates."monitoring-token-hashes.nix".path
+        else
+          {
+            # Dummy hashes for evaluation - real hashes computed at activation
+            cheetah = "";
+            tiger = "";
+            dino = "";
+          };
+
+      # Server-side components (central monitoring server)
+      victoriametrics = {
+        enable = true;
+        provisionCert = true;
+        domain = "metrics.apps.ondy.org";
+      };
+
+      loki = {
+        enable = true;
+        provisionCert = true;
+        domain = "loki.apps.ondy.org";
+      };
+
+      grafana = {
+        enable = true;
+        provisionCert = true;
+        domain = "grafana.apps.ondy.org";
+      };
+
+      alertmanager = {
+        enable = true;
+      };
+
+      vmalert = {
+        enable = true;
+      };
+
+      # Local monitoring agents (cheetah monitors itself)
+      nodeExporter = {
+        enable = true;
+      };
+
+      vmagent = {
+        enable = true;
+        # Send metrics to local VictoriaMetrics instance
+        remoteWriteUrl = "http://127.0.0.1:8428/api/v1/write";
+        # Scrape local node_exporter
+        scrapeConfigs = [
+          {
+            job_name = "node";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9100" ];
+                labels = {
+                  host = "cheetah";
+                };
+              }
+            ];
+          }
+        ];
+      };
+
+      promtail = {
+        enable = true;
+        # Send logs to local Loki instance
+        lokiUrl = "http://127.0.0.1:3100/loki/api/v1/push";
+        extraLabels = {
+          host = "cheetah";
+        };
+      };
+    };
+  };
+
+  # SOPS secrets for monitoring
+  sops.secrets = {
+    monitoring_token_cheetah = { };
+    monitoring_token_tiger = { };
+    monitoring_token_dino = { };
+  };
+
+  # Runtime computation of SHA-256 hashes from monitoring tokens
+  # This template generates a Nix attrset file that can be imported
+  sops.templates."monitoring-token-hashes.nix" = {
+    content = ''
+      {
+        cheetah = "$(echo -n '${config.sops.placeholder.monitoring_token_cheetah}' | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)";
+        tiger = "$(echo -n '${config.sops.placeholder.monitoring_token_tiger}' | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)";
+        dino = "$(echo -n '${config.sops.placeholder.monitoring_token_dino}' | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)";
+      }
+    '';
   };
 
   # This value determines the NixOS release from which the default
