@@ -35,6 +35,7 @@ with lib;
       shell = {
         zsh.enable = true;
         bash.enable = true;
+        starship.enable = true;
       };
       terminal = {
         email.enable = true;
