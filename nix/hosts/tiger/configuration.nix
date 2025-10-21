@@ -369,8 +369,8 @@ in
           "@worstretirementever" # Phil Gaimon
 
           # science
+          "@AlphaPhoenixChannel"
           "@miniminuteman773"
-          "@Wendoverproductions"
 
           # maker
           "@aaedmusa"
