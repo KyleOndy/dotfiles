@@ -23,34 +23,31 @@ Creates meaningful commit messages by analyzing both the current chat conversati
 
 ### 1. Change Detection and Staging
 
-Use `git status --porcelain` to check the current state, then run the following bash script:
+**Check current state:**
 
-```bash
-# Detect current state
-STAGED_FILES=$(git diff --cached --name-only)
-UNSTAGED_FILES=$(git diff --name-only)
-STAGED_COUNT=$(echo "$STAGED_FILES" | grep -c . || echo 0)
-UNSTAGED_COUNT=$(echo "$UNSTAGED_FILES" | grep -c . || echo 0)
+Use the Bash tool to run these commands:
 
-echo "📊 Change Summary:"
-echo "  Staged files: $STAGED_COUNT"
-echo "  Unstaged files: $UNSTAGED_COUNT"
+1. Run `git status --porcelain` to check current state
+2. Run `git diff --cached --name-only` to get staged files
+3. Run `git diff --name-only` to get unstaged files
 
-# Determine staging strategy
-if [ $STAGED_COUNT -gt 0 ]; then
-  echo "✅ Using staged changes only"
-  FILES_TO_COMMIT="$STAGED_FILES"
-elif [ $UNSTAGED_COUNT -gt 0 ]; then
-  echo "📦 Staging all unstaged changes"
-  git add .
-  FILES_TO_COMMIT="$UNSTAGED_FILES"
-else
-  echo "❌ No changes to commit"
-  exit 0
-fi
+**Determine staging strategy:**
 
-echo "Files to commit:"
-echo "$FILES_TO_COMMIT" | sed 's/^/  - /'
+- If there are staged files: Use those for the commit
+- If no staged files but there are unstaged files: Stage all changes with `git add -A`
+- If no changes at all: Report "No changes to commit" and exit
+
+**Report summary:**
+
+```
+📊 Change Summary:
+  Staged files: [count]
+  Unstaged files: [count]
+
+[Status message: "✅ Using staged changes only" or "📦 Staging all unstaged changes"]
+
+Files to commit:
+  - [list each file]
 ```
 
 ### 2. Chat Context Analysis
@@ -66,157 +63,164 @@ Based on the current conversation, identify:
 
 ### 3. File Change Analysis
 
-```bash
-# Get files to be committed (staged files)
-COMMIT_FILES=$(git diff --cached --name-only)
+**Get files to be committed:**
 
-# Categorize by file type
-CODE_FILES=$(echo "$COMMIT_FILES" | grep -E '\.(js|jsx|ts|tsx|py|go|rs|java|cpp|c|clj|cljs|cljc)$' || true)
-CONFIG_FILES=$(echo "$COMMIT_FILES" | grep -E '\.(json|yaml|yml|toml|ini|conf|env)$|package\.json|Cargo\.toml|deps\.edn' || true)
-DOC_FILES=$(echo "$COMMIT_FILES" | grep -E '\.(md|rst|txt)$|README' || true)
-TEST_FILES=$(echo "$COMMIT_FILES" | grep -E 'test|spec' || true)
+Run `git diff --cached --name-only` to get the list of staged files.
 
-# Categorize by change type
-NEW_FILES=$(git diff --cached --name-only --diff-filter=A)
-MODIFIED_FILES=$(git diff --cached --name-only --diff-filter=M)
-DELETED_FILES=$(git diff --cached --name-only --diff-filter=D)
+**Categorize by file type:**
 
-echo "📁 File Analysis:"
-[ -n "$CODE_FILES" ] && echo "  Code files: $(echo "$CODE_FILES" | wc -l)"
-[ -n "$CONFIG_FILES" ] && echo "  Config files: $(echo "$CONFIG_FILES" | wc -l)"
-[ -n "$DOC_FILES" ] && echo "  Documentation: $(echo "$DOC_FILES" | wc -l)"
-[ -n "$TEST_FILES" ] && echo "  Tests: $(echo "$TEST_FILES" | wc -l)"
+Analyze the file extensions to identify:
 
-echo "📝 Change Types:"
-[ -n "$NEW_FILES" ] && echo "  New: $(echo "$NEW_FILES" | wc -l) files"
-[ -n "$MODIFIED_FILES" ] && echo "  Modified: $(echo "$MODIFIED_FILES" | wc -l) files"
-[ -n "$DELETED_FILES" ] && echo "  Deleted: $(echo "$DELETED_FILES" | wc -l) files"
+- **Code files**: `.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.go`, `.rs`, `.java`, `.cpp`, `.c`, `.clj`, `.cljs`, `.cljc`, `.nix`
+- **Config files**: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.conf`, `.env`, `package.json`, `Cargo.toml`, `deps.edn`
+- **Documentation**: `.md`, `.rst`, `.txt`, `README`
+- **Tests**: Files containing `test` or `spec` in their path
+
+**Categorize by change type:**
+
+Use these git commands:
+
+- `git diff --cached --name-only --diff-filter=A` for new files (Added)
+- `git diff --cached --name-only --diff-filter=M` for modified files (Modified)
+- `git diff --cached --name-only --diff-filter=D` for deleted files (Deleted)
+
+**Report the analysis:**
+
+```
+📁 File Analysis:
+  Code files: [count]
+  Config files: [count]
+  Documentation: [count]
+  Tests: [count]
+
+📝 Change Types:
+  New: [count] files
+  Modified: [count] files
+  Deleted: [count] files
 ```
 
 ### 4. Commit Message Generation
 
-Based on the chat context and file analysis, generate a commit message following conventional commit format:
+Based on the chat context and file analysis, generate a commit message following conventional commit format.
 
-```bash
-# Determine commit type based on changes and context
-determine_commit_type() {
-  # Priority order for commit type detection
+**Determine commit type:**
 
-  if [ -n "$NEW_FILES" ] && echo "$NEW_FILES" | grep -qE '\.(js|jsx|ts|tsx|py|go|rs|java|cpp|c|clj)$'; then
-    echo "feat"
-  elif echo "$COMMIT_FILES" | grep -qE 'test|spec'; then
-    echo "test"
-  elif [ -n "$DOC_FILES" ]; then
-    echo "docs"
-  elif echo "$COMMIT_FILES" | grep -qE '\.(json|yaml|yml|toml|package\.json|Cargo\.toml)$'; then
-    echo "chore"
-  elif [ $(echo "$COMMIT_FILES" | wc -l) -eq 1 ] && echo "$COMMIT_FILES" | head -1 | grep -qE '\.(js|jsx|ts|tsx|py|go|rs)$'; then
-    # Single file change - likely a fix
-    echo "fix"
-  else
-    echo "feat"
-  fi
-}
+Use this priority order to select the appropriate type:
 
-# Detect scope from file paths
-determine_scope() {
-  # Look for common directory patterns
-  DIRS=$(echo "$COMMIT_FILES" | xargs dirname | sort | uniq)
+1. If there are new code files (`.js`, `.jsx`, `.ts`, `.tsx`, `.py`, `.go`, `.rs`, `.java`, `.cpp`, `.c`, `.clj`, `.nix`) → `feat`
+2. If only test files changed (`test` or `spec` in path) → `test`
+3. If only documentation files changed (`.md`, `.rst`, `.txt`) → `docs`
+4. If only config files changed (`.json`, `.yaml`, `.yml`, `.toml`, etc.) → `chore`
+5. If single code file changed (likely a bug fix) → `fix`
+6. Default → `feat`
 
-  # Check for specific patterns
-  if echo "$DIRS" | grep -q "auth"; then
-    echo "auth"
-  elif echo "$DIRS" | grep -q "api"; then
-    echo "api"
-  elif echo "$DIRS" | grep -q "ui\|components"; then
-    echo "ui"
-  elif echo "$DIRS" | grep -q "test"; then
-    echo "test"
-  elif echo "$DIRS" | grep -q "docs"; then
-    echo "docs"
-  else
-    # Use the most common directory
-    echo "$DIRS" | head -1 | xargs basename
-  fi
-}
+**Determine scope (optional):**
 
-COMMIT_TYPE=$(determine_commit_type)
-SCOPE=$(determine_scope)
+Look at the directories containing changed files:
 
-# Generate description based on chat context and changes
-generate_description() {
-  # This should be filled in based on the chat analysis above
-  # For now, provide a template that the user will customize
+- If directories contain `auth` → scope: `auth`
+- If directories contain `api` → scope: `api`
+- If directories contain `ui` or `components` → scope: `ui`
+- If directories contain `test` → scope: `test`
+- If directories contain `docs` → scope: `docs`
+- If directories contain `infra` or `infrastructure` → scope: `infra`
+- If directories contain `nix` or Nix module paths → scope: appropriate Nix scope (e.g., `nix`, `home-manager`, `hosts`)
+- Otherwise → use the most common directory name as scope
 
-  case $COMMIT_TYPE in
-    "feat")
-      echo "add [description based on chat context]"
-      ;;
-    "fix")
-      echo "resolve [issue description from chat]"
-      ;;
-    "docs")
-      echo "update documentation"
-      ;;
-    "test")
-      echo "add tests for [feature from chat]"
-      ;;
-    "chore")
-      echo "update configuration"
-      ;;
-    *)
-      echo "[description from chat context]"
-      ;;
-  esac
-}
+**Generate description:**
 
-DESCRIPTION=$(generate_description)
+Based on the commit type and chat context analysis:
 
-# Build final commit message
-if [ -n "$SCOPE" ] && [ "$SCOPE" != "." ]; then
-  COMMIT_MESSAGE="$COMMIT_TYPE($SCOPE): $DESCRIPTION"
-else
-  COMMIT_MESSAGE="$COMMIT_TYPE: $DESCRIPTION"
-fi
+- **feat**: `add [concise description of new feature/capability]`
+- **fix**: `resolve [issue description]` or `correct [problem description]`
+- **docs**: `update [what documentation]` or `add [documentation topic]`
+- **test**: `add tests for [feature]` or `improve test coverage for [area]`
+- **chore**: `update [tool/dependency/config]`
+- **refactor**: `restructure [component/module]`
 
-echo "💬 Proposed commit message:"
-echo "  $COMMIT_MESSAGE"
+The description should:
+
+- Be derived from the chat context analysis (Section 2)
+- Be concise and specific
+- Use imperative mood (add, fix, update, not added, fixed, updated)
+- Focus on WHAT and WHY, not HOW
+
+**Build the final commit message:**
+
+Format: `<type>(<scope>): <description>`
+
+If no scope is applicable, use: `<type>: <description>`
+
+**Report the proposed message:**
+
+```
+💬 Proposed commit message:
+  [type]([scope]): [description]
 ```
 
 ### 5. Commit Creation
 
-```bash
-# Show final summary
-echo ""
-echo "🔍 Final Review:"
-echo "  Type: $COMMIT_TYPE"
-[ -n "$SCOPE" ] && [ "$SCOPE" != "." ] && echo "  Scope: $SCOPE"
-echo "  Files: $(echo "$COMMIT_FILES" | wc -l)"
-echo "  Message: $COMMIT_MESSAGE"
+**Show final summary:**
 
-# Check for preview mode
-if [[ "$1" == "--preview" ]]; then
-  echo ""
-  echo "👁️  Preview mode - not committing"
-  echo "To commit, run the command without --preview"
-  exit 0
-fi
+Display a review of what will be committed:
 
-# Create the commit
-echo ""
-echo "✨ Creating commit..."
-git commit -m "$COMMIT_MESSAGE"
-
-if [ $? -eq 0 ]; then
-  echo "✅ Commit created successfully!"
-  echo ""
-  echo "📋 Summary:"
-  git log -1 --oneline
-else
-  echo "❌ Commit failed"
-  exit 1
-fi
 ```
+🔍 Final Review:
+  Type: [commit_type]
+  Scope: [scope] (if applicable)
+  Files: [count]
+  Message: [full_commit_message]
+```
+
+**Check for preview mode:**
+
+If the command was invoked with `--preview` flag:
+
+- Display: `👁️  Preview mode - not committing`
+- Display: `To commit, run the command without --preview`
+- Exit without creating the commit
+
+**Create the commit:**
+
+If not in preview mode, create the commit using:
+
+```bash
+git commit -m "[commit_message]"
+```
+
+For multi-line commit messages (if body is needed), use a heredoc:
+
+```bash
+git commit -m "$(cat <<'EOF'
+[type]([scope]): [description]
+
+[optional body explaining the change]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+```
+
+**Verify the commit:**
+
+After successful commit:
+
+- Display: `✅ Commit created successfully!`
+- Run `git log -1 --oneline` to show the commit
+- Display the commit summary:
+
+```
+📋 Summary:
+[hash] [commit message]
+```
+
+If the commit fails:
+
+- Display: `❌ Commit failed`
+- Show the error message from git
+- Exit with error status
 
 ## Usage Examples
 
