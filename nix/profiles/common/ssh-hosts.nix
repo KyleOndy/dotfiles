@@ -8,6 +8,7 @@ with lib;
     enable = true;
     extraConfig = ''
       IdentitiesOnly yes
+      SendEnv LANG LC_*
     '';
 
     matchBlocks = {

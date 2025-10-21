@@ -49,7 +49,10 @@ in
     services = {
       openssh = {
         enable = true;
-        settings.PermitRootLogin = "no";
+        settings = {
+          PermitRootLogin = "no";
+          AcceptEnv = "LANG LC_*";
+        };
       };
       # TODO: do I still need RuntimeDirectorySize?
       logind.extraConfig = ''
