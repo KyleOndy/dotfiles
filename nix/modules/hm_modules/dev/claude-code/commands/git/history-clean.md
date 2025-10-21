@@ -37,43 +37,53 @@ Clean up git history using AI-friendly automation patterns. Accepts any git ref:
 
 ### 1. Validate Base Reference
 
-```bash
-BASE="${1:-main}"  # Accepts: branches, SHAs, tags, HEAD~N, etc.
+**Determine the base reference:**
 
-# Validate the ref exists
-if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
-  echo "Error: '$BASE' is not a valid git reference"
-  exit 1
-fi
+The base reference can be any valid git ref:
 
-# Show what will be rebased
-echo "Commits to be rebased from $BASE:"
-git log --oneline "$BASE..HEAD"
-```
+- Branch names: `main`, `master`, `develop`
+- Commit SHAs: `abc123`
+- Tags: `v1.0.0`
+- Relative refs: `HEAD~3`, `HEAD~N`
+
+Default to `main` if no argument is provided.
+
+**Validate the reference exists:**
+
+Run `git rev-parse --verify "$BASE"` to check if the reference is valid.
+
+- If it fails: Display `Error: '$BASE' is not a valid git reference` and exit
+- If it succeeds: Continue to show what will be rebased
+
+**Show what will be rebased:**
+
+Run `git log --oneline "$BASE..HEAD"` to display the commits that will be affected by the rebase.
 
 ### 2. Create Backup Branch
 
-```bash
-BACKUP_BRANCH="backup-$(date +%Y%m%d-%H%M%S)"
-git branch "$BACKUP_BRANCH"
-echo "Created backup branch: $BACKUP_BRANCH"
-```
+**Create a timestamped backup branch:**
+
+Generate a backup branch name using the current date and time in format: `backup-YYYYMMDD-HHMMSS`
+
+Run `git branch "backup-$(date +%Y%m%d-%H%M%S)"` to create the backup branch.
+
+Display: `Created backup branch: [branch_name]`
 
 ### 3. Handle Uncommitted Changes
 
-Git's `--autostash` will automatically handle uncommitted changes:
+**Option 1 (Recommended): Use --autostash**
 
-```bash
-# Option 1: Let rebase handle it (recommended)
-# The --autostash flag automatically stashes and reapplies changes
+The `--autostash` flag (used in all patterns below) automatically stashes uncommitted changes before the rebase and reapplies them afterward. No action needed.
 
-# Option 2: Commit changes first (if you want them in history)
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "Uncommitted changes detected. Creating WIP commit..."
-  git add .
-  git commit -m "WIP: save work before history rewrite"
-fi
-```
+**Option 2: Create a WIP commit**
+
+If you want uncommitted changes to be part of the history:
+
+1. Check for uncommitted changes using `git diff --quiet` and `git diff --cached --quiet`
+2. If changes exist:
+   - Display: `Uncommitted changes detected. Creating WIP commit...`
+   - Run `git add .`
+   - Run `git commit -m "WIP: save work before history rewrite"`
 
 ## Analysis Phase
 
@@ -95,12 +105,13 @@ Based on the output, identify:
 
 ### 3. Check for Fixup Commits
 
-```bash
-# Check if you used git commit --fixup during development
-git log --oneline "$BASE..HEAD" | grep -E "^[a-f0-9]+ (fixup!|squash!)"
-```
+**Check for fixup!/squash! commits:**
 
-If fixup commits exist, use Pattern 4 (Autosquash) below.
+Run `git log --oneline "$BASE..HEAD"` and check if any commit messages start with `fixup!` or `squash!`.
+
+You can pipe to grep: `git log --oneline "$BASE..HEAD" | grep -E "^[a-f0-9]+ (fixup!|squash!)"`
+
+If fixup commits exist, use **Pattern 4 (Autosquash)** below.
 
 ## 🚀 Automated Rebase Patterns
 
@@ -271,29 +282,38 @@ Use this flowchart to choose your pattern:
 
 ### 1. Verify Rebase Success
 
-```bash
-# Show new clean history
-git log --oneline "$BASE..HEAD"
+**Show the new clean history:**
 
-# Verify content is identical (diff should be empty)
-git diff "$BACKUP_BRANCH"
+Run `git log --oneline "$BASE..HEAD"` to display the cleaned-up commit history.
 
-# If diff is empty, the rebase preserved all changes ✅
-```
+**Verify content is identical:**
+
+Run `git diff "$BACKUP_BRANCH"` to compare the current state with the backup.
+
+- If the diff is empty: The rebase preserved all changes ✅
+- If there are differences: Review them carefully to ensure nothing was lost
 
 ### 2. Test the Changes
 
-```bash
-# Run tests to ensure nothing broke
-npm test  # or cargo test, pytest, etc.
-```
+**Run the project's test suite:**
+
+Determine the appropriate test command for the project:
+
+- For JavaScript/Node: `npm test`
+- For Rust: `cargo test`
+- For Python: `pytest`
+- For Go: `go test ./...`
+- For Make-based projects: `make test`
+
+Run the tests to ensure nothing broke during the rebase.
 
 ### 3. Cleanup Backup (Optional)
 
-```bash
-# Only after verifying everything works!
-git branch -d "$BACKUP_BRANCH"
-```
+**Delete the backup branch:**
+
+Only after verifying everything works!
+
+Run `git branch -d "$BACKUP_BRANCH"` to delete the backup branch.
 
 ## Handling Conflicts
 
@@ -353,60 +373,92 @@ git rebase --skip  # Skip current commit entirely (during rebase)
 
 ### Example 1: Squashing WIP commits
 
+**Current history:**
+
+Run `git log --oneline main..HEAD` to see:
+
+```
+abc123 fix typo
+def456 WIP: add validation
+ghi789 WIP: fix styling
+jkl012 feat: add login form
+```
+
+**Use Pattern 1: Squash all**
+
+Run the following command:
+
 ```bash
-# Current history:
-git log --oneline main..HEAD
-# abc123 fix typo
-# def456 WIP: add validation
-# ghi789 WIP: fix styling
-# jkl012 feat: add login form
+GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash main
+```
 
-# Use Pattern 1: Squash all
-BASE="main"
-GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash "$BASE"
+**Result:** One commit with all changes
 
-# Result: One commit with all changes
-# xyz789 feat: add complete login form with validation and styling
+```
+xyz789 feat: add complete login form with validation and styling
 ```
 
 ### Example 2: Removing debug commits
 
+**Current history:**
+
+Run `git log --oneline main..HEAD` to see:
+
+```
+abc123 remove debug
+def456 add more debug
+ghi789 debug: add logging
+jkl012 feat: add feature
+```
+
+**Use Pattern 3: Drop by pattern**
+
+Run the following command to drop all commits containing "debug":
+
 ```bash
-# Current history:
-git log --oneline main..HEAD
-# abc123 remove debug
-# def456 add more debug
-# ghi789 debug: add logging
-# jkl012 feat: add feature
+GIT_SEQUENCE_EDITOR="sed -i '/^pick.*debug/d'" git rebase -i --autostash main
+```
 
-# Use Pattern 3: Drop by pattern
-BASE="main"
-PATTERN="debug"
-GIT_SEQUENCE_EDITOR="sed -i '/^pick.*debug/d'" git rebase -i --autostash "$BASE"
+**Result:** Only feature commit remains
 
-# Result: Only feature commit remains
-# jkl012 feat: add feature
+```
+jkl012 feat: add feature
 ```
 
 ### Example 3: Using autosquash workflow
 
+**During development, mark fixups:**
+
 ```bash
-# During development, mark fixups:
 git commit -m "feat: add authentication"
-# ... later, found a typo:
+```
+
+Later, when you find a typo:
+
+```bash
 git add .
 git commit --fixup=abc123  # References the auth commit
+```
 
-# ... later, another fix:
+Later, another fix:
+
+```bash
 git add .
 git commit --fixup=abc123
+```
 
-# When ready to clean up:
-BASE="main"
-GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --autostash "$BASE"
+**When ready to clean up:**
 
-# Result: All fixups automatically squashed into original commit
-# abc123 feat: add authentication (with all fixes included)
+Run the following command:
+
+```bash
+GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --autostash main
+```
+
+**Result:** All fixups automatically squashed into original commit
+
+```
+abc123 feat: add authentication (with all fixes included)
 ```
 
 ## Warnings
@@ -484,5 +536,5 @@ git rebase --continue
 
 - `git rebase --help` - Official documentation
 - `git reflog --help` - Understanding reflog for recovery
-- Git autosquash workflow: https://thoughtbot.com/blog/autosquashing-git-commits
-- GIT_SEQUENCE_EDITOR: https://git-scm.com/docs/git-rebase#_sequence_editor
+- Git autosquash workflow: <https://thoughtbot.com/blog/autosquashing-git-commits>
+- GIT_SEQUENCE_EDITOR: <https://git-scm.com/docs/git-rebase#_sequence_editor>
