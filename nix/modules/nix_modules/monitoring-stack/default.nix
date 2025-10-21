@@ -18,6 +18,7 @@ in
     ./vmagent.nix
     ./promtail.nix
     ./node_exporter.nix
+    ./zfs_exporter.nix
   ];
 
   options.systemFoundry.monitoringStack = {

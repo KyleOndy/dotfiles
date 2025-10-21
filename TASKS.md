@@ -22,18 +22,6 @@
 
 ---
 
-## Add node_exporter configuration with systemd collector
-
-Enable node_exporter on all hosts with systemd collector for service monitoring. Provides essential system metrics.
-
-## Create system overview Grafana dashboard
-
-Build dashboard showing CPU, memory, disk, and network metrics for all hosts. This is the primary operational dashboard.
-
-## Create service health dashboard for systemd units
-
-Design dashboard displaying systemd service status and failure alerts. Critical for monitoring service availability.
-
 ## Add ZFS exporter and dashboard for tiger
 
 Configure ZFS metrics collection and create storage monitoring dashboard specific to tiger's storage pools. Important for data integrity monitoring.
