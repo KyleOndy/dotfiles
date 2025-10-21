@@ -59,6 +59,22 @@ in
             url = "http://${config.systemFoundry.monitoringStack.loki.listenAddress}:${toString config.systemFoundry.monitoringStack.loki.port}";
           }
         ];
+        dashboards.settings = {
+          apiVersion = 1;
+          providers = [
+            {
+              name = "default";
+              type = "file";
+              disableDeletion = false;
+              updateIntervalSeconds = 10;
+              allowUiUpdates = true;
+              options = {
+                path = "/etc/grafana-dashboards";
+                foldersFromFilesStructure = false;
+              };
+            }
+          ];
+        };
       };
     };
 
@@ -75,5 +91,30 @@ in
 
     services.grafana.settings.security.admin_password =
       "$__file{${config.sops.secrets.grafana_admin_password.path}}";
+
+    environment.etc."grafana-dashboards/system-overview.json" = {
+      source = ./dashboards/system-overview.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/node-exporter-full.json" = {
+      source = ./dashboards/node-exporter-full.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/systemd-services.json" = {
+      source = ./dashboards/systemd-services.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/zfs-storage.json" = {
+      source = ./dashboards/zfs-storage.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/media-services.json" = {
+      source = ./dashboards/media-services.json;
+      mode = "0644";
+    };
   };
 }
