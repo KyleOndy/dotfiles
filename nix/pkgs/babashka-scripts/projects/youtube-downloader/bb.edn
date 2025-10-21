@@ -1,2 +1,1 @@
-{:paths ["src" "../../shared/src"]
- :deps {}}
+{:paths ["src" "../../shared/src"]}

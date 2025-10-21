@@ -41,6 +41,14 @@ in
           http_addr = "127.0.0.1";
           domain = cfg.domain;
         };
+        smtp = {
+          enabled = true;
+          host = config.systemFoundry.monitoringStack.alertmanager.smtp.server;
+          user = config.systemFoundry.monitoringStack.alertmanager.smtp.username;
+          password = "$__file{${config.sops.secrets.monitoring_smtp_password.path}}";
+          from_address = config.systemFoundry.monitoringStack.alertmanager.smtp.from;
+          from_name = "Grafana Monitoring";
+        };
       };
       provision = {
         enable = true;
@@ -57,6 +65,16 @@ in
             type = "loki";
             access = "proxy";
             url = "http://${config.systemFoundry.monitoringStack.loki.listenAddress}:${toString config.systemFoundry.monitoringStack.loki.port}";
+          }
+          {
+            name = "Alertmanager";
+            type = "alertmanager";
+            access = "proxy";
+            url = "http://${config.systemFoundry.monitoringStack.alertmanager.listenAddress}:${toString config.systemFoundry.monitoringStack.alertmanager.port}";
+            jsonData = {
+              implementation = "prometheus";
+              handleGrafanaManagedAlerts = true;
+            };
           }
         ];
         dashboards.settings = {
@@ -75,6 +93,44 @@ in
             }
           ];
         };
+        alerting = {
+          contactPoints.settings = {
+            apiVersion = 1;
+            contactPoints = [
+              {
+                orgId = 1;
+                name = "email";
+                receivers = [
+                  {
+                    uid = "email-kyle";
+                    type = "email";
+                    settings = {
+                      addresses = "kyle@ondy.org";
+                    };
+                    disableResolveMessage = false;
+                  }
+                ];
+              }
+            ];
+          };
+          policies.settings = {
+            apiVersion = 1;
+            policies = [
+              {
+                orgId = 1;
+                receiver = "email";
+                group_by = [
+                  "alertname"
+                  "grafana_folder"
+                ];
+                group_wait = "10s";
+                group_interval = "10s";
+                repeat_interval = "1h";
+              }
+            ];
+            resetPolicies = [ 1 ];
+          };
+        };
       };
     };
 
@@ -82,6 +138,7 @@ in
       enable = true;
       proxyPass = "http://127.0.0.1:${toString cfg.port}";
       provisionCert = cfg.provisionCert;
+      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
     };
 
     sops.secrets.grafana_admin_password = {
@@ -114,6 +171,31 @@ in
 
     environment.etc."grafana-dashboards/media-services.json" = {
       source = ./dashboards/media-services.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/youtube-downloader-operational.json" = {
+      source = ./dashboards/youtube-downloader-operational.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/youtube-downloader-errors.json" = {
+      source = ./dashboards/youtube-downloader-errors.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/youtube-downloader-performance.json" = {
+      source = ./dashboards/youtube-downloader-performance.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/youtube-downloader-channel.json" = {
+      source = ./dashboards/youtube-downloader-channel.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/youtube-downloader-alerts.json" = {
+      source = ./dashboards/youtube-downloader-alerts.json;
       mode = "0644";
     };
   };

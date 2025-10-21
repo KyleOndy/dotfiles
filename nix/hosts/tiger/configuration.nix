@@ -510,7 +510,13 @@ in
   };
   sops.secrets = {
     jellyfin_api_token = { };
-    monitoring_token_tiger = { };
+    monitoring_token_tiger = {
+      # vmagent service runs as DynamicUser, which means it can't be assigned
+      # file ownership directly. Using mode 0444 allows the service to read it.
+      # This is acceptable since the token is only used for authentication to
+      # our own VictoriaMetrics instance, not external services.
+      mode = "0444";
+    };
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?

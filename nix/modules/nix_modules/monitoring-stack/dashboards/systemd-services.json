@@ -574,7 +574,7 @@
       "targets": [
         {
           "expr": "topk(10, increase(node_systemd_service_restart_total[1h]))",
-          "legendFormat": "{{instance}}:{{name}}",
+          "legendFormat": "{{host}}:{{name}}",
           "refId": "A"
         }
       ],
@@ -847,8 +847,8 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count by (instance, state) (node_systemd_unit_state{name=~\".*\\.service\"})",
-          "legendFormat": "{{instance}} - {{state}}",
+          "expr": "count by (host, state) (node_systemd_unit_state{name=~\".*\\.service\"})",
+          "legendFormat": "{{host}} - {{state}}",
           "refId": "A"
         }
       ],

@@ -15,9 +15,11 @@ resource "aws_route53_record" "ondy_org_apex" {
   records = ["147.135.1.147"]
 }
 
-resource "aws_route53_record" "ondy_org_apps_star_cname" {
+resource "aws_route53_record" "ondy_org_apps_subdomains" {
+  for_each = toset(var.ondy_org_apps_subdomains)
+
   zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = "*.apps.ondy.org"
+  name    = "${each.value}.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
   records = local.cheetah_dns
@@ -27,7 +29,7 @@ resource "aws_route53_record" "ondy_org_top_level_app" {
   for_each = toset(var.ondy_org_top_level_apps)
 
   zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = each.value
+  name    = "${each.value}.ondy.org"
   type    = "CNAME"
   ttl     = "300"
   records = local.cheetah_dns

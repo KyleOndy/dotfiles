@@ -173,7 +173,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "avg(100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100))",
+          "expr": "avg(100 - (avg by (host) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100))",
           "refId": "A"
         }
       ],
@@ -326,8 +326,8 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
-          "legendFormat": "{{instance}}",
+          "expr": "100 - (avg by (host) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{host}}",
           "refId": "A"
         }
       ],
@@ -404,12 +404,12 @@
       "targets": [
         {
           "expr": "node_load1",
-          "legendFormat": "{{instance}} (1m)",
+          "legendFormat": "{{host}} (1m)",
           "refId": "A"
         },
         {
           "expr": "node_load5",
-          "legendFormat": "{{instance}} (5m)",
+          "legendFormat": "{{host}} (5m)",
           "refId": "B"
         }
       ],
@@ -502,7 +502,7 @@
       "targets": [
         {
           "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
           "refId": "A"
         }
       ],
@@ -579,7 +579,7 @@
       "targets": [
         {
           "expr": "node_memory_MemAvailable_bytes",
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
           "refId": "A"
         }
       ],
@@ -672,7 +672,7 @@
       "targets": [
         {
           "expr": "(1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|fuse.*\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|fuse.*\"})) * 100",
-          "legendFormat": "{{instance}}:{{mountpoint}}",
+          "legendFormat": "{{host}}:{{mountpoint}}",
           "refId": "A"
         }
       ],
@@ -749,12 +749,12 @@
       "targets": [
         {
           "expr": "irate(node_disk_read_bytes_total[5m])",
-          "legendFormat": "{{instance}}:{{device}} read",
+          "legendFormat": "{{host}}:{{device}} read",
           "refId": "A"
         },
         {
           "expr": "irate(node_disk_written_bytes_total[5m])",
-          "legendFormat": "{{instance}}:{{device}} write",
+          "legendFormat": "{{host}}:{{device}} write",
           "refId": "B"
         }
       ],
@@ -845,12 +845,12 @@
       "targets": [
         {
           "expr": "irate(node_network_receive_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m]) * 8",
-          "legendFormat": "{{instance}}:{{device}} receive",
+          "legendFormat": "{{host}}:{{device}} receive",
           "refId": "A"
         },
         {
           "expr": "irate(node_network_transmit_bytes_total{device!~\"lo|veth.*|docker.*\"}[5m]) * 8",
-          "legendFormat": "{{instance}}:{{device}} transmit",
+          "legendFormat": "{{host}}:{{device}} transmit",
           "refId": "B"
         }
       ],

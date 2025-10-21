@@ -37,6 +37,11 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    # Ensure promtail state directory exists
+    systemd.tmpfiles.rules = [
+      "d /var/lib/promtail 0755 promtail promtail -"
+    ];
+
     services.promtail = {
       enable = true;
       configuration = {

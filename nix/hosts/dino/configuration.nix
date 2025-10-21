@@ -98,7 +98,13 @@
   sops.secrets = {
     home_wifi_ssid = { };
     home_wifi_password = { };
-    monitoring_token_dino = { };
+    monitoring_token_dino = {
+      # vmagent service runs as DynamicUser, which means it can't be assigned
+      # file ownership directly. Using mode 0444 allows the service to read it.
+      # This is acceptable since the token is only used for authentication to
+      # our own VictoriaMetrics instance, not external services.
+      mode = "0444";
+    };
   };
 
   sops.templates."nm-home-wifi-env" = {

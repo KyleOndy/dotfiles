@@ -55,6 +55,7 @@ in
       enable = true;
       proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
       provisionCert = cfg.provisionCert;
+      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
       extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
         # Require valid bearer token for write endpoints
         if ($request_uri ~ "^/api/v1/(write|import)") {
