@@ -238,6 +238,17 @@ in
           destinationPath = "${backup_path}/nzbget/";
         };
       };
+      # Monitoring stack configuration
+      monitoringStack = {
+        enable = true;
+
+        # Enable ZFS exporter for storage monitoring
+        zfsExporter.enable = true;
+
+        # Enable node exporter for system metrics
+        nodeExporter.enable = true;
+      };
+
       youtubeDownloader = {
         enable = true;
         media_dir = "/mnt/media/yt";
