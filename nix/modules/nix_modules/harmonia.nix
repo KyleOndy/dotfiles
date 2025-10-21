@@ -44,6 +44,7 @@ in
       enable = true;
       provisionCert = cfg.provisionCert;
       proxyPass = "http://127.0.0.1:5000";
+      route53HostedZoneId = "Z0365859SHHFAPNR0QXN";
     };
   };
 }

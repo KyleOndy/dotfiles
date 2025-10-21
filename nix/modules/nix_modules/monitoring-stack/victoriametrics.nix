@@ -30,6 +30,18 @@ in
       default = parentCfg.retention.metrics;
       description = "Days to retain metrics (defaults to parent retention.metrics)";
     };
+
+    domain = mkOption {
+      type = types.str;
+      default = "metrics.${parentCfg.domain}";
+      description = "Domain name for VictoriaMetrics (defaults to metrics.{parent domain})";
+    };
+
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for VictoriaMetrics domain";
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -37,6 +49,21 @@ in
       enable = true;
       listenAddress = "${cfg.listenAddress}:${toString cfg.port}";
       retentionPeriod = cfg.retentionPeriod;
+    };
+
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
+      enable = true;
+      proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+      provisionCert = cfg.provisionCert;
+      extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
+        # Require valid bearer token for write endpoints
+        if ($request_uri ~ "^/api/v1/(write|import)") {
+          set $auth_check "$valid_metrics_token";
+        }
+        if ($auth_check = "") {
+          return 401 "Unauthorized: Invalid or missing bearer token\n";
+        }
+      '';
     };
   };
 }
