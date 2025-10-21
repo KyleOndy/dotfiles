@@ -22,25 +22,6 @@
 
 ---
 
-## Add SOPS secrets for monitoring authentication
-
-Define the following secrets in secrets.yaml:
-
-- `smtp_password` - For Alertmanager email notifications
-- `monitoring_token_cheetah` - Bearer token for cheetah's vmagent/promtail
-- `monitoring_token_tiger` - Bearer token for tiger's vmagent/promtail
-- `monitoring_token_dino` - Bearer token for dino's vmagent/promtail
-
-Note: `grafana_admin_password` already exists. These remaining secrets are required before services can authenticate. Per-host tokens enable better auditing and security isolation.
-
-## Configure email alerting in Alertmanager
-
-Set up SMTP configuration for Alertmanager using SOPS secrets to send alert notifications. This enables proactive problem detection.
-
-## Create basic alerting rules
-
-Define VictoriaMetrics-compatible alerting rules for systemd failures, high resource usage, low disk space, and host unreachability. These are the critical alerts for system health. Rules will be evaluated by VictoriaMetrics and sent to Alertmanager.
-
 ## Add node_exporter configuration with systemd collector
 
 Enable node_exporter on all hosts with systemd collector for service monitoring. Provides essential system metrics.
