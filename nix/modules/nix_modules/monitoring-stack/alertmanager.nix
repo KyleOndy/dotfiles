@@ -28,19 +28,19 @@ in
     smtp = {
       server = mkOption {
         type = types.str;
-        default = "";
+        default = "mail.ondy.org:587";
         description = "SMTP server address (e.g., smtp.gmail.com:587)";
       };
 
       from = mkOption {
         type = types.str;
-        default = "";
+        default = "monitoring@ondy.org";
         description = "Email address to send alerts from";
       };
 
       username = mkOption {
         type = types.str;
-        default = "";
+        default = "monitoring@ondy.org";
         description = "SMTP username for authentication";
       };
 
@@ -53,6 +53,11 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    sops.secrets.monitoring_smtp_password = {
+      owner = "alertmanager";
+      group = "alertmanager";
+    };
+
     services.prometheus.alertmanager = {
       enable = true;
       listenAddress = cfg.listenAddress;
@@ -63,7 +68,7 @@ in
           smtp_smarthost = cfg.smtp.server;
           smtp_from = cfg.smtp.from;
           smtp_auth_username = cfg.smtp.username;
-          smtp_auth_password_file = mkIf (cfg.smtp.passwordFile != null) (toString cfg.smtp.passwordFile);
+          smtp_auth_password_file = config.sops.secrets.monitoring_smtp_password.path;
         };
 
         route = {

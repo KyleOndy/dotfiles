@@ -14,8 +14,10 @@ in
     ./loki.nix
     ./grafana.nix
     ./alertmanager.nix
+    ./vmalert.nix
     ./vmagent.nix
     ./promtail.nix
+    ./node_exporter.nix
   ];
 
   options.systemFoundry.monitoringStack = {
