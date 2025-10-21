@@ -19,6 +19,7 @@ in
     ./promtail.nix
     ./node_exporter.nix
     ./zfs_exporter.nix
+    ./nginx_exporter.nix
   ];
 
   options.systemFoundry.monitoringStack = {
@@ -60,31 +61,23 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Add bearer token authentication map directives
-    systemFoundry.nginxReverseProxy.appendHttpConfig = mkIf (cfg.tokenHashes != { }) ''
-      # Extract bearer token from Authorization header
-      map $http_authorization $bearer_token {
-        ~^Bearer\s+(\S+)$ $1;
-        default "";
-      }
+    # Add bearer token authentication map directives only when running server components
+    # Token hashes are loaded from runtime-generated files created by systemd service
+    # Only needed when VictoriaMetrics or Loki are enabled (server mode)
+    systemFoundry.nginxReverseProxy.appendHttpConfig =
+      mkIf (cfg.victoriametrics.enable || cfg.loki.enable)
+        ''
+          # Extract bearer token from Authorization header
+          map $http_authorization $bearer_token {
+            ~^Bearer\s+(\S+)$ $1;
+            default "";
+          }
 
-      # Validate token hash for VictoriaMetrics ingestion
-      # Clients must send SHA-256 hash of their token as the bearer token
-      map $bearer_token $valid_metrics_token {
-        ${lib.concatStringsSep "\n    " (
-          lib.mapAttrsToList (host: hash: ''"${hash}" "1";'') cfg.tokenHashes
-        )}
-        default "";
-      }
-
-      # Validate token hash for Loki ingestion
-      # Clients must send SHA-256 hash of their token as the bearer token
-      map $bearer_token $valid_logs_token {
-        ${lib.concatStringsSep "\n    " (
-          lib.mapAttrsToList (host: hash: ''"${hash}" "1";'') cfg.tokenHashes
-        )}
-        default "";
-      }
-    '';
+          # Include runtime-generated token hash maps
+          # These files are created by the monitoring-token-hash-generator systemd service
+          # and contain the actual SHA-256 hashes of the bearer tokens
+          include /run/monitoring-token-hashes/metrics-map.conf;
+          include /run/monitoring-token-hashes/logs-map.conf;
+        '';
   };
 }

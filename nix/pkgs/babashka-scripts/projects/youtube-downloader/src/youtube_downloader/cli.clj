@@ -3,6 +3,7 @@
   (:require
    [babashka.cli :as cli]
    [clojure.string :as str]
+   [common.logging :as log]
    [youtube-downloader.core :as core]))
 
 (def cli-spec
@@ -96,15 +97,24 @@
     (let [config (youtube-downloader.config/from-env)
           validation (youtube-downloader.config/validate-config config)]
 
-      (println "=== Configuration Test ===")
+      (log/info "Running configuration test")
 
       (if validation
         (do
+          (log/error "Configuration validation failed" {:error (:error validation)})
           (println "❌ Configuration Error:")
           (println (str "   " (:error validation)))
           (System/exit 1))
 
         (do
+          (log/info "Configuration validated successfully"
+                    {:media_dir (:media-dir config)
+                     :data_dir (:data-dir config)
+                     :temp_dir (:temp-dir config)
+                     :archive_exists (:archive-exists? config)
+                     :channels (count (:channels config))})
+
+          ;; User-friendly output
           (println "✅ Configuration Valid")
           (println)
           (println "Settings:")
@@ -125,6 +135,7 @@
           (println "✅ Configuration test passed"))))
 
     (catch Exception e
+      (log/log-exception e "Configuration test failed")
       (println "❌ Configuration Test Failed:")
       (println (str "   " (.getMessage e)))
       ;; Always show stack trace for debugging

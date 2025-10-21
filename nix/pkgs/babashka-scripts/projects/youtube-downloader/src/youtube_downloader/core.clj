@@ -2,11 +2,14 @@
   "Main orchestration logic for YouTube downloader"
   (:require
    [clojure.string :as str]
+   [common.logging :as log]
+   [common.metrics-textfile :as textfile]
    [common.process :as proc]
    [youtube-downloader.anti-bot :as anti-bot]
    [youtube-downloader.cleaner :as cleaner]
    [youtube-downloader.config :as config]
-   [youtube-downloader.downloader :as dl]))
+   [youtube-downloader.downloader :as dl]
+   [youtube-downloader.observability :as obs]))
 
 (defn print-banner
   "Print startup banner with configuration info"
@@ -20,28 +23,21 @@
                          (str/trim (:out (proc/run-command ["yt-dlp" "--version"]
                                                            :throw? false
                                                            :timeout 5000)))
-                         (catch Exception _ "unknown"))
-        mode (cond
-               (:dry-run config) " | Mode: DRY RUN"
-               :else "")]
-    (println (format "YouTube Downloader v%s | yt-dlp: %s | Channels: %d | Media: %s | Archive: %s%s"
-                     version
-                     yt-dlp-version
-                     (count (:channels config))
-                     (:media-dir config)
-                     (:archive-exists? config)
-                     mode))))
+                         (catch Exception _ "unknown"))]
+    (log/info "YouTube Downloader starting"
+              {:version version
+               :yt_dlp_version yt-dlp-version
+               :channels (count (:channels config))
+               :media_dir (:media-dir config)
+               :archive_exists (:archive-exists? config)
+               :dry_run (boolean (:dry-run config))})))
 
 (defn print-channel-summary
   "Print summary of channel configurations"
   [channels]
-  (println "Channel Configuration:")
-  (doseq [{:keys [name max-videos download-shorts]} channels]
-    (println (format "  %-25s max=%2d shorts=%s"
-                     name
-                     max-videos
-                     download-shorts)))
-  (println))
+  (log/info "Channel configuration loaded"
+            {:total_channels (count channels)
+             :channels (mapv #(select-keys % [:name :max-videos :download-shorts]) channels)}))
 
 (defn download-all-channels
   "Download videos from all configured channels"
@@ -50,12 +46,9 @@
         shuffled-channels (anti-bot/shuffle-channels channels)
         total-channels (count shuffled-channels)]
 
-    ;; Always show processing order for systemd logs
-    (println (format "Processing %d channels (random order): %s"
-                     total-channels
-                     (str/join ", " (map :name shuffled-channels))))
-
-    (println "=== Starting Downloads ===")
+    (log/info "Starting channel downloads"
+              {:total_channels total-channels
+               :processing_order (mapv :name shuffled-channels)})
 
     (loop [remaining-channels shuffled-channels
            channel-index 0
@@ -69,10 +62,14 @@
               rest-channels (rest remaining-channels)
 
               ;; Download from current channel
+              start-time (System/currentTimeMillis)
               result (dl/download-channel current-channel config)
+              duration-seconds (/ (- (System/currentTimeMillis) start-time) 1000.0)
+
               new-results (conj results (assoc result
                                                :channel (:name current-channel)
-                                               :max-videos (:max-videos current-channel)))
+                                               :max-videos (:max-videos current-channel)
+                                               :duration-seconds duration-seconds))
 
               ;; Calculate delay to next channel
               delay-seconds (anti-bot/calculate-channel-delay
@@ -80,10 +77,13 @@
                              total-channels
                              sleep-between-channels)]
 
+          ;; Record metrics for this channel
+          (obs/record-channel-duration (:name current-channel) duration-seconds)
+
           ;; Sleep between channels (unless it's the last one)
           (when (and (seq rest-channels)
                      (not (:dry-run config)))
-            (println (format "\nSleeping %d seconds before next channel..." delay-seconds))
+            (log/debug "Sleeping before next channel" {:seconds delay-seconds})
             (Thread/sleep (* 1000 delay-seconds)))
 
           (recur rest-channels (inc channel-index) new-results))))))
@@ -94,17 +94,17 @@
   (let [successful (filter #(zero? (:exit %)) results)
         failed (filter #(not (zero? (:exit %))) results)
         new-downloads (cleaner/count-total-videos (:temp-dir config))
-        failed-list (when (seq failed)
-                      (str " | Failed: "
-                           (str/join ", "
-                                     (map #(format "%s (exit %d)" (:channel %) (:exit %))
-                                          failed))))]
-    (println (format "\nDownload Summary: %d processed | %d successful | %d failed | %d new files%s"
-                     (count results)
-                     (count successful)
-                     (count failed)
-                     new-downloads
-                     (or failed-list "")))))
+        failed-details (when (seq failed)
+                         (mapv #(select-keys % [:channel :exit :error-type]) failed))]
+    (log/info "Download session summary"
+              {:total_processed (count results)
+               :successful (count successful)
+               :failed (count failed)
+               :new_files new-downloads
+               :failed_channels failed-details})
+
+    ;; Update metrics gauge for temp files
+    (obs/update-temp-files-count new-downloads)))
 
 (defn validate-prerequisites
   "Check that required tools are available"
@@ -118,13 +118,9 @@
 (defn handle-error
   "Handle errors gracefully with proper logging"
   [error config]
-  (println (format "\n❌ Error: %s" (.getMessage error)))
+  (log/log-exception error "Fatal error occurred" {:data_dir (:data-dir config)})
 
-  ;; Always show stack trace for debugging in systemd logs
-  (println "\nStack trace:")
-  (.printStackTrace error)
-
-  ;; Log error to file
+  ;; Log error to file for compatibility
   (try
     (spit (str (:data-dir config) "/error.log")
           (format "[%s] %s\n%s\n\n"
@@ -139,48 +135,61 @@
 (defn run-download-session
   "Run a complete download session"
   [& {:keys [config-override]}]
-  (try
-    ;; Load and validate configuration
-    (let [config (merge (config/from-env) config-override)]
+  (let [session-start (System/currentTimeMillis)]
+    (try
+      ;; Load and validate configuration
+      (let [config (merge (config/from-env) config-override)]
 
-      ;; Print startup info immediately (before any validation that might fail)
-      (print-banner config)
+        ;; Print startup info immediately (before any validation that might fail)
+        (print-banner config)
 
-      ;; Validate configuration
-      (when-let [error (config/validate-config config)]
-        (throw (ex-info (:error error) error)))
+        ;; Validate configuration
+        (when-let [error (config/validate-config config)]
+          (throw (ex-info (:error error) error)))
 
-      ;; Check prerequisites
-      (validate-prerequisites)
+        ;; Check prerequisites
+        (validate-prerequisites)
 
-      ;; Always show channel summary for systemd logs
-      (print-channel-summary (:channels config))
+        ;; Always show channel summary for systemd logs
+        (print-channel-summary (:channels config))
 
-      ;; Download from all channels
-      (let [results (download-all-channels config)]
+        ;; Download from all channels
+        (let [results (download-all-channels config)]
 
-        ;; Print results
-        (print-results-summary results config)
+          ;; Print results
+          (print-results-summary results config)
 
-        ;; Cleanup
-        (println "\n=== Post-download Cleanup ===")
-        (cleaner/quick-cleanup config)
+          ;; Cleanup
+          (log/info "Starting post-download cleanup")
+          (cleaner/quick-cleanup config)
 
-        (println "\n✅ Download session completed")
-        results))
+          ;; Record session metrics
+          (let [session-duration (/ (- (System/currentTimeMillis) session-start) 1000.0)]
+            (obs/record-session-duration session-duration)
+            (obs/update-last-run))
 
-    (catch Exception e
-      (handle-error e (or config-override {}))
-      (System/exit 1))))
+          ;; Write metrics to textfile for node_exporter
+          (textfile/write-service-metrics "youtube-downloader")
+
+          (log/info "Download session completed successfully")
+          results))
+
+      (catch Exception e
+        (handle-error e (or config-override {}))
+        ;; Still try to write metrics even on error
+        (try
+          (textfile/write-service-metrics "youtube-downloader")
+          (catch Exception _))
+        (System/exit 1)))))
 
 (defn maintenance-mode
   "Run in maintenance mode (cleanup only)"
   []
   (try
     (let [config (config/from-env)]
-      (println "=== Maintenance Mode ===")
+      (log/info "Starting maintenance mode")
       (cleaner/maintenance-cleanup config)
-      (println "✅ Maintenance completed"))
+      (log/info "Maintenance completed"))
     (catch Exception e
       (handle-error e {})
       (System/exit 1))))

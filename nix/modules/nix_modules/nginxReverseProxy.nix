@@ -166,6 +166,9 @@ in
 
         clientMaxBodySize = "512m";
 
+        # Increase map hash bucket size to accommodate SHA-256 hash keys (64 bytes)
+        mapHashBucketSize = 128;
+
         commonHttpConfig = ''
           log_format upstreamlog '[$time_local] $remote_addr - $remote_user - $server_name to: $upstream_addr: $request upstream_response_time $upstream_response_time msec $msec request_time $request_time';
 

@@ -62,7 +62,7 @@
       },
       "id": 187,
       "panels": [],
-      "title": "Resource Overview (associated JOB)，Host：$show_hostname，Instance：$node",
+      "title": "Resource Overview (associated JOB)，Host：$show_hostname，Host：$node",
       "type": "row"
     },
     {
@@ -413,7 +413,7 @@
           "refId": "B"
         },
         {
-          "expr": "count(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode='system'}) by (instance)",
+          "expr": "count(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode='system'}) by (host)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -430,7 +430,7 @@
           "refId": "L"
         },
         {
-          "expr": "(1 - avg(rate(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode=\"idle\"}[$interval])) by (instance)) * 100",
+          "expr": "(1 - avg(rate(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode=\"idle\"}[$interval])) by (host)) * 100",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -457,7 +457,7 @@
           "refId": "E"
         },
         {
-          "expr": "max(rate(node_disk_read_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])) by (instance)",
+          "expr": "max(rate(node_disk_read_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])) by (host)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -466,7 +466,7 @@
           "refId": "H"
         },
         {
-          "expr": "max(rate(node_disk_written_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])) by (instance)",
+          "expr": "max(rate(node_disk_written_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])) by (host)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -493,7 +493,7 @@
           "refId": "N"
         },
         {
-          "expr": "max(rate(node_network_receive_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])*8) by (instance)",
+          "expr": "max(rate(node_network_receive_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])*8) by (host)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -502,7 +502,7 @@
           "refId": "J"
         },
         {
-          "expr": "max(rate(node_network_transmit_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])*8) by (instance)",
+          "expr": "max(rate(node_network_transmit_bytes_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\"}[$interval])*8) by (host)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -627,7 +627,7 @@
           "step": 240
         },
         {
-          "expr": "avg(1 - avg(rate(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode=\"idle\"}[$interval])) by (instance)) * 100",
+          "expr": "avg(1 - avg(rate(node_cpu_seconds_total{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",mode=\"idle\"}[$interval])) by (host)) * 100",
           "format": "time_series",
           "hide": false,
           "interval": "30m",
@@ -910,7 +910,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance))",
+          "expr": "sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host))",
           "format": "time_series",
           "instant": false,
           "interval": "30m",
@@ -919,7 +919,7 @@
           "refId": "E"
         },
         {
-          "expr": "sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance))",
+          "expr": "sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host))",
           "format": "time_series",
           "instant": false,
           "interval": "30m",
@@ -928,7 +928,7 @@
           "refId": "C"
         },
         {
-          "expr": "(sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance))) *100/(sum(avg(node_filesystem_avail_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance))+(sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,instance))))",
+          "expr": "(sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host))) *100/(sum(avg(node_filesystem_avail_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host))+(sum(avg(node_filesystem_size_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host)) - sum(avg(node_filesystem_free_bytes{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",fstype=~\"xfs|ext.*\"})by(device,host))))",
           "format": "time_series",
           "instant": false,
           "interval": "30m",
@@ -1061,7 +1061,7 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "avg(time() - node_boot_time_seconds{instance=~\"$node\"})",
+          "expr": "avg(time() - node_boot_time_seconds{host=~\"$node\"})",
           "format": "time_series",
           "hide": false,
           "instant": true,
@@ -1138,14 +1138,14 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "100 - (avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"idle\"}[$interval])) * 100)",
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"idle\"}[$interval])) * 100)",
           "instant": true,
           "interval": "",
           "legendFormat": "CPU Busy",
           "refId": "A"
         },
         {
-          "expr": "avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"iowait\"}[$interval])) * 100",
+          "expr": "avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"iowait\"}[$interval])) * 100",
           "hide": true,
           "instant": true,
           "interval": "",
@@ -1153,14 +1153,14 @@
           "refId": "C"
         },
         {
-          "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$node\"} / (node_memory_MemTotal_bytes{instance=~\"$node\"})))* 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{host=~\"$node\"} / (node_memory_MemTotal_bytes{host=~\"$node\"})))* 100",
           "instant": true,
           "interval": "",
           "legendFormat": "Used RAM Memory",
           "refId": "B"
         },
         {
-          "expr": "(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"})*100 /(node_filesystem_avail_bytes {instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}+(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}))",
+          "expr": "(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"})*100 /(node_filesystem_avail_bytes {host=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}+(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint=\"$maxmount\"}))",
           "hide": false,
           "instant": true,
           "interval": "",
@@ -1168,7 +1168,7 @@
           "refId": "D"
         },
         {
-          "expr": "(1 - ((node_memory_SwapFree_bytes{instance=~\"$node\"} + 1)/ (node_memory_SwapTotal_bytes{instance=~\"$node\"} + 1))) * 100",
+          "expr": "(1 - ((node_memory_SwapFree_bytes{host=~\"$node\"} + 1)/ (node_memory_SwapTotal_bytes{host=~\"$node\"} + 1))) * 100",
           "instant": true,
           "interval": "",
           "legendFormat": "Used SWAP",
@@ -1348,7 +1348,7 @@
       ],
       "targets": [
         {
-          "expr": "node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-0",
+          "expr": "node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-0",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1358,7 +1358,7 @@
           "refId": "C"
         },
         {
-          "expr": "node_filesystem_avail_bytes {instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-0",
+          "expr": "node_filesystem_avail_bytes {host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-0",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1368,7 +1368,7 @@
           "refId": "A"
         },
         {
-          "expr": "(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}) *100/(node_filesystem_avail_bytes {instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}+(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}))",
+          "expr": "(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}) *100/(node_filesystem_avail_bytes {host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}+(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}))",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1446,7 +1446,7 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"iowait\"}[$interval])) * 100",
+          "expr": "avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"iowait\"}[$interval])) * 100",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -1534,7 +1534,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "increase(node_network_receive_bytes_total{instance=~\"$node\",device=~\"$device\"}[60m])",
+          "expr": "increase(node_network_receive_bytes_total{host=~\"$node\",device=~\"$device\"}[60m])",
           "interval": "60m",
           "intervalFactor": 1,
           "legendFormat": "{{device}}_receive",
@@ -1544,7 +1544,7 @@
           "target": ""
         },
         {
-          "expr": "increase(node_network_transmit_bytes_total{instance=~\"$node\",device=~\"$device\"}[60m])",
+          "expr": "increase(node_network_transmit_bytes_total{host=~\"$node\",device=~\"$device\"}[60m])",
           "hide": false,
           "interval": "60m",
           "intervalFactor": 1,
@@ -1659,7 +1659,7 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "count(node_cpu_seconds_total{instance=~\"$node\", mode='system'})",
+          "expr": "count(node_cpu_seconds_total{host=~\"$node\", mode='system'})",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -1736,7 +1736,7 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "avg(node_filesystem_files_free{instance=~\"$node\",mountpoint=\"$maxmount\",fstype=~\"ext.?|xfs\"})",
+          "expr": "avg(node_filesystem_files_free{host=~\"$node\",mountpoint=\"$maxmount\",fstype=~\"ext.?|xfs\"})",
           "format": "time_series",
           "instant": true,
           "interval": "",
@@ -1813,12 +1813,12 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "sum(node_memory_MemTotal_bytes{instance=~\"$node\"})",
+          "expr": "sum(node_memory_MemTotal_bytes{host=~\"$node\"})",
           "format": "time_series",
           "instant": true,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{host}}",
           "refId": "A",
           "step": 20
         }
@@ -1890,7 +1890,7 @@
       "pluginVersion": "7.2.0",
       "targets": [
         {
-          "expr": "avg(node_filefd_maximum{instance=~\"$node\"})",
+          "expr": "avg(node_filefd_maximum{host=~\"$node\"})",
           "format": "time_series",
           "instant": true,
           "intervalFactor": 1,
@@ -1984,7 +1984,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"system\"}[$interval])) by (instance) *100",
+          "expr": "avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"system\"}[$interval])) by (host) *100",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -1995,7 +1995,7 @@
           "step": 20
         },
         {
-          "expr": "avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"user\"}[$interval])) by (instance) *100",
+          "expr": "avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"user\"}[$interval])) by (host) *100",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2005,7 +2005,7 @@
           "step": 240
         },
         {
-          "expr": "avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"iowait\"}[$interval])) by (instance) *100",
+          "expr": "avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"iowait\"}[$interval])) by (host) *100",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2016,7 +2016,7 @@
           "step": 240
         },
         {
-          "expr": "(1 - avg(rate(node_cpu_seconds_total{instance=~\"$node\",mode=\"idle\"}[$interval])) by (instance))*100",
+          "expr": "(1 - avg(rate(node_cpu_seconds_total{host=~\"$node\",mode=\"idle\"}[$interval])) by (host))*100",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2154,7 +2154,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_MemTotal_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -2165,7 +2165,7 @@
           "step": 4
         },
         {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$node\"} - node_memory_MemAvailable_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_MemTotal_bytes{host=~\"$node\"} - node_memory_MemAvailable_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2175,7 +2175,7 @@
           "step": 4
         },
         {
-          "expr": "node_memory_MemAvailable_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_MemAvailable_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2185,7 +2185,7 @@
           "step": 4
         },
         {
-          "expr": "node_memory_Buffers_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_Buffers_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": true,
           "interval": "",
@@ -2195,7 +2195,7 @@
           "step": 4
         },
         {
-          "expr": "node_memory_MemFree_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_MemFree_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 1,
@@ -2204,7 +2204,7 @@
           "step": 4
         },
         {
-          "expr": "node_memory_Cached_bytes{instance=~\"$node\"}",
+          "expr": "node_memory_Cached_bytes{host=~\"$node\"}",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 1,
@@ -2213,14 +2213,14 @@
           "step": 4
         },
         {
-          "expr": "node_memory_MemTotal_bytes{instance=~\"$node\"} - (node_memory_Cached_bytes{instance=~\"$node\"} + node_memory_Buffers_bytes{instance=~\"$node\"} + node_memory_MemFree_bytes{instance=~\"$node\"})",
+          "expr": "node_memory_MemTotal_bytes{host=~\"$node\"} - (node_memory_Cached_bytes{host=~\"$node\"} + node_memory_Buffers_bytes{host=~\"$node\"} + node_memory_MemFree_bytes{host=~\"$node\"})",
           "format": "time_series",
           "hide": true,
           "intervalFactor": 1,
           "refId": "G"
         },
         {
-          "expr": "(1 - (node_memory_MemAvailable_bytes{instance=~\"$node\"} / (node_memory_MemTotal_bytes{instance=~\"$node\"})))* 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{host=~\"$node\"} / (node_memory_MemTotal_bytes{host=~\"$node\"})))* 100",
           "format": "time_series",
           "hide": false,
           "interval": "30m",
@@ -2339,7 +2339,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(node_network_receive_bytes_total{instance=~'$node',device=~\"$device\"}[$interval])*8",
+          "expr": "rate(node_network_receive_bytes_total{host=~'$node',device=~\"$device\"}[$interval])*8",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -2348,7 +2348,7 @@
           "step": 4
         },
         {
-          "expr": "rate(node_network_transmit_bytes_total{instance=~'$node',device=~\"$device\"}[$interval])*8",
+          "expr": "rate(node_network_transmit_bytes_total{host=~'$node',device=~\"$device\"}[$interval])*8",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -2473,7 +2473,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "node_load1{instance=~\"$node\"}",
+          "expr": "node_load1{host=~\"$node\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2485,7 +2485,7 @@
           "target": ""
         },
         {
-          "expr": "node_load5{instance=~\"$node\"}",
+          "expr": "node_load5{host=~\"$node\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2495,7 +2495,7 @@
           "step": 20
         },
         {
-          "expr": "node_load15{instance=~\"$node\"}",
+          "expr": "node_load15{host=~\"$node\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2505,7 +2505,7 @@
           "step": 20
         },
         {
-          "expr": " sum(count(node_cpu_seconds_total{instance=~\"$node\", mode='system'}) by (cpu,instance)) by(instance)",
+          "expr": " sum(count(node_cpu_seconds_total{host=~\"$node\", mode='system'}) by (cpu,host)) by(host)",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2623,7 +2623,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(node_disk_read_bytes_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_read_bytes_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -2632,7 +2632,7 @@
           "step": 10
         },
         {
-          "expr": "rate(node_disk_written_bytes_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_written_bytes_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2751,7 +2751,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}) *100/(node_filesystem_avail_bytes {instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}+(node_filesystem_size_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{instance=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}))",
+          "expr": "(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}) *100/(node_filesystem_avail_bytes {host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}+(node_filesystem_size_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}-node_filesystem_free_bytes{host=~'$node',fstype=~\"ext.*|xfs\",mountpoint !~\".*pod.*\"}))",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2760,10 +2760,10 @@
           "refId": "A"
         },
         {
-          "expr": "node_filesystem_files_free{instance=~'$node',fstype=~\"ext.?|xfs\"} / node_filesystem_files{instance=~'$node',fstype=~\"ext.?|xfs\"}",
+          "expr": "node_filesystem_files_free{host=~'$node',fstype=~\"ext.?|xfs\"} / node_filesystem_files{host=~'$node',fstype=~\"ext.?|xfs\"}",
           "hide": true,
           "interval": "",
-          "legendFormat": "Inodes：{{instance}}：{{mountpoint}}",
+          "legendFormat": "Inodes：{{host}}：{{mountpoint}}",
           "refId": "B"
         }
       ],
@@ -2878,7 +2878,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(node_disk_reads_completed_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_reads_completed_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2888,7 +2888,7 @@
           "step": 10
         },
         {
-          "expr": "rate(node_disk_writes_completed_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_writes_completed_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -2898,7 +2898,7 @@
           "step": 10
         },
         {
-          "expr": "node_disk_io_now{instance=~\"$node\"}",
+          "expr": "node_disk_io_now{host=~\"$node\"}",
           "format": "time_series",
           "hide": true,
           "interval": "",
@@ -3024,7 +3024,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_io_time_seconds_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -3142,7 +3142,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(node_disk_read_time_seconds_total{instance=~\"$node\"}[$interval]) / rate(node_disk_reads_completed_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_read_time_seconds_total{host=~\"$node\"}[$interval]) / rate(node_disk_reads_completed_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -3152,7 +3152,7 @@
           "refId": "B"
         },
         {
-          "expr": "rate(node_disk_write_time_seconds_total{instance=~\"$node\"}[$interval]) / rate(node_disk_writes_completed_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_write_time_seconds_total{host=~\"$node\"}[$interval]) / rate(node_disk_writes_completed_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -3162,7 +3162,7 @@
           "refId": "C"
         },
         {
-          "expr": "rate(node_disk_io_time_seconds_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_io_time_seconds_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": true,
           "interval": "",
@@ -3172,7 +3172,7 @@
           "step": 10
         },
         {
-          "expr": "rate(node_disk_io_time_weighted_seconds_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_disk_io_time_weighted_seconds_total{host=~\"$node\"}[$interval])",
           "format": "time_series",
           "hide": true,
           "interval": "",
@@ -3299,7 +3299,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "node_netstat_Tcp_CurrEstab{instance=~'$node'}",
+          "expr": "node_netstat_Tcp_CurrEstab{host=~'$node'}",
           "format": "time_series",
           "hide": false,
           "instant": false,
@@ -3310,7 +3310,7 @@
           "step": 20
         },
         {
-          "expr": "node_sockstat_TCP_tw{instance=~'$node'}",
+          "expr": "node_sockstat_TCP_tw{host=~'$node'}",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -3318,7 +3318,7 @@
           "refId": "D"
         },
         {
-          "expr": "node_sockstat_sockets_used{instance=~'$node'}",
+          "expr": "node_sockstat_sockets_used{host=~'$node'}",
           "hide": false,
           "interval": "30m",
           "intervalFactor": 1,
@@ -3326,52 +3326,52 @@
           "refId": "B"
         },
         {
-          "expr": "node_sockstat_UDP_inuse{instance=~'$node'}",
+          "expr": "node_sockstat_UDP_inuse{host=~'$node'}",
           "interval": "",
           "legendFormat": "UDP_inuse",
           "refId": "C"
         },
         {
-          "expr": "node_sockstat_TCP_alloc{instance=~'$node'}",
+          "expr": "node_sockstat_TCP_alloc{host=~'$node'}",
           "interval": "",
           "legendFormat": "TCP_alloc",
           "refId": "E"
         },
         {
-          "expr": "rate(node_netstat_Tcp_PassiveOpens{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_Tcp_PassiveOpens{host=~'$node'}[$interval])",
           "hide": true,
           "interval": "",
-          "legendFormat": "{{instance}}_Tcp_PassiveOpens",
+          "legendFormat": "{{host}}_Tcp_PassiveOpens",
           "refId": "G"
         },
         {
-          "expr": "rate(node_netstat_Tcp_ActiveOpens{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_Tcp_ActiveOpens{host=~'$node'}[$interval])",
           "hide": true,
           "interval": "",
-          "legendFormat": "{{instance}}_Tcp_ActiveOpens",
+          "legendFormat": "{{host}}_Tcp_ActiveOpens",
           "refId": "F"
         },
         {
-          "expr": "rate(node_netstat_Tcp_InSegs{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_Tcp_InSegs{host=~'$node'}[$interval])",
           "interval": "",
           "legendFormat": "Tcp_InSegs",
           "refId": "H"
         },
         {
-          "expr": "rate(node_netstat_Tcp_OutSegs{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_Tcp_OutSegs{host=~'$node'}[$interval])",
           "interval": "",
           "legendFormat": "Tcp_OutSegs",
           "refId": "I"
         },
         {
-          "expr": "rate(node_netstat_Tcp_RetransSegs{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_Tcp_RetransSegs{host=~'$node'}[$interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "Tcp_RetransSegs",
           "refId": "J"
         },
         {
-          "expr": "rate(node_netstat_TcpExt_ListenDrops{instance=~'$node'}[$interval])",
+          "expr": "rate(node_netstat_TcpExt_ListenDrops{host=~'$node'}[$interval])",
           "hide": true,
           "interval": "",
           "legendFormat": "",
@@ -3498,7 +3498,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "node_filefd_allocated{instance=~\"$node\"}",
+          "expr": "node_filefd_allocated{host=~\"$node\"}",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -3507,20 +3507,20 @@
           "refId": "B"
         },
         {
-          "expr": "rate(node_context_switches_total{instance=~\"$node\"}[$interval])",
+          "expr": "rate(node_context_switches_total{host=~\"$node\"}[$interval])",
           "interval": "",
           "intervalFactor": 5,
           "legendFormat": "switches",
           "refId": "A"
         },
         {
-          "expr": "  (node_filefd_allocated{instance=~\"$node\"}/node_filefd_maximum{instance=~\"$node\"}) *100",
+          "expr": "  (node_filefd_allocated{host=~\"$node\"}/node_filefd_maximum{host=~\"$node\"}) *100",
           "format": "time_series",
           "hide": true,
           "instant": false,
           "interval": "",
           "intervalFactor": 5,
-          "legendFormat": "使用的文件描述符占比_{{instance}}",
+          "legendFormat": "使用的文件描述符占比_{{host}}",
           "refId": "C"
         }
       ],
@@ -3645,7 +3645,7 @@
         "allValue": null,
         "current": {},
         "datasource": "VictoriaMetrics",
-        "definition": "label_values(node_uname_info{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",nodename=~\"$hostname\"},instance)",
+        "definition": "label_values(node_uname_info{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",nodename=~\"$hostname\"},host)",
         "hide": 0,
         "includeAll": false,
         "label": "Instance",
@@ -3653,7 +3653,7 @@
         "multiFormat": "regex values",
         "name": "node",
         "options": [],
-        "query": "label_values(node_uname_info{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",nodename=~\"$hostname\"},instance)",
+        "query": "label_values(node_uname_info{origin_prometheus=~\"$origin_prometheus\",job=~\"$job\",nodename=~\"$hostname\"},host)",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,

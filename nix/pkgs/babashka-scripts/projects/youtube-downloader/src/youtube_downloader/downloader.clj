@@ -3,9 +3,11 @@
   (:require
    [babashka.fs :as fs]
    [clojure.string :as str]
+   [common.logging :as log]
    [common.process :as proc]
    [youtube-downloader.anti-bot :as anti-bot]
-   [youtube-downloader.config :as config]))
+   [youtube-downloader.config :as config]
+   [youtube-downloader.observability :as obs]))
 
 (defn build-channel-filters
   "Build yt-dlp match filters based on channel configuration"
@@ -32,22 +34,25 @@
                              :geo-blocked}]
     (if (fs/exists? skip-file)
       (try
-        (->> (slurp skip-file)
-             str/split-lines
-             (map #(str/split % #"\t"))
-             ;; Parse format: timestamp\tvideo-id\treason
-             (filter #(>= (count %) 3))
-             ;; Only include permanent failure types
-             (filter #(contains? permanent-failures (keyword (nth % 2))))
-             ;; Extract video IDs
-             (map second)
-             ;; Deduplicate
-             distinct
-             ;; Limit to recent 100 to avoid command line length issues
-             (take 100)
-             vec)
+        (let [skip-list (->> (slurp skip-file)
+                             str/split-lines
+                             (map #(str/split % #"\t"))
+                             ;; Parse format: timestamp\tvideo-id\treason
+                             (filter #(>= (count %) 3))
+                             ;; Only include permanent failure types
+                             (filter #(contains? permanent-failures (keyword (nth % 2))))
+                             ;; Extract video IDs
+                             (map second)
+                             ;; Deduplicate
+                             distinct
+                             ;; Limit to recent 100 to avoid command line length issues
+                             (take 100)
+                             vec)]
+          (log/debug "Loaded skip list" {:count (count skip-list) :skip_file skip-file})
+          (obs/update-skip-list-size (count skip-list))
+          skip-list)
         (catch Exception e
-          (println (format "Warning: Could not load skip list: %s" (.getMessage e)))
+          (log/warn "Could not load skip list" {:error (.getMessage e) :skip_file skip-file})
           []))
       [])))
 
@@ -165,18 +170,20 @@
   "Download with retry logic and error handling"
   [channel-config global-config & {:keys [max-attempts]
                                    :or {max-attempts 3}}]
-  (let [cmd (build-yt-dlp-command channel-config global-config)]
+  (let [cmd (build-yt-dlp-command channel-config global-config)
+        channel-name (:name channel-config)]
     (loop [attempt 0]
-      ;; Always show attempts for systemd logs
-      (println (format "  Attempt %d/%d for %s (max %d videos)"
-                       (inc attempt)
-                       max-attempts
-                       (:name channel-config)
-                       (:max-videos channel-config)))
+      (log/debug "Starting download attempt"
+                 {:channel channel-name
+                  :attempt (inc attempt)
+                  :max_attempts max-attempts
+                  :max_videos (:max-videos channel-config)})
 
       (let [result (if (:dry-run global-config)
                      (do
-                       (println "  [DRY RUN] Would execute:" (str/join " " cmd))
+                       (log/info "Dry run mode - would execute yt-dlp"
+                                 {:channel channel-name
+                                  :command (str/join " " (take 10 cmd))})
                        {:exit 0 :out "Dry run" :err ""})
                      (proc/run-command cmd :throw? false :timeout 600000))]
 
@@ -184,19 +191,22 @@
           ;; Success
           (zero? (:exit result))
           (do
-            ;; Always show success for systemd logs
-            (println (format "  ✓ Successfully processed %s" (:name channel-config)))
+            (log/info "Channel download succeeded" {:channel channel-name})
+            (obs/record-download-success channel-name)
             result)
 
           ;; Check if we should retry
           (>= attempt (dec max-attempts))
-          (do
-            (println (format "  ✗ Failed after %d attempts for %s"
-                             max-attempts
-                             (:name channel-config)))
+          (let [error-info (parse-download-error (:err result))
+                error-type (:type error-info)]
+            (log/error "Channel download failed after all retries"
+                       {:channel channel-name
+                        :error_type (name error-type)
+                        :max_attempts max-attempts})
+            (obs/record-download-failure channel-name error-type)
             ;; Include error info in the result for summary
             (assoc result
-                   :error-type (:type (parse-download-error (:err result)))
+                   :error-type error-type
                    :error-msg (first (str/split-lines (:err result)))))
 
           ;; Parse error and decide on retry
@@ -204,6 +214,11 @@
           (let [error-info (parse-download-error (:err result))]
             (if (:retry? error-info)
               (do
+                (log/warn "Retrying after retryable error"
+                          {:channel channel-name
+                           :error_type (name (:type error-info))
+                           :retry_reason "retryable_error"})
+                (obs/record-retry channel-name (:type error-info))
                 (when (= :rate-limit (:type error-info))
                   (anti-bot/handle-rate-limit (:err result) attempt))
                 (Thread/sleep (anti-bot/exponential-backoff attempt))
@@ -211,29 +226,25 @@
               (do
                 ;; Non-retryable error - log and skip
                 (when-let [video-id (extract-video-id (:err result))]
+                  (log/warn "Adding video to skip list"
+                            {:channel channel-name
+                             :video_id video-id
+                             :error_type (name (:type error-info))})
                   (add-to-skip-list (:data-dir global-config)
                                     video-id
                                     (name (:type error-info))))
-                ;; Always show error details for systemd logs
-                (let [error-lines (str/split-lines (:err result))
-                      key-error (or (last (filter #(re-find #"ERROR|Error|error" %) error-lines))
-                                    (last error-lines))]
-                  (println (format "  ⚠ Skipping %s | Type: %s | Error: %s"
-                                   (:name channel-config)
-                                   (:type error-info)
-                                   (str/replace key-error #"\n" " "))))
+                (obs/record-download-failure channel-name (:type error-info))
                 (assoc result
-                       :error-type (:type error-info)
-                       :error-msg (first (str/split-lines (:err result))))))))))))
+                       :error_type (:type error-info)
+                       :error-msg (first (str/split-lines (:err result)))))))))))) ; closes assoc, do, if, let error-info, cond, let result, loop, let cmd, defn
 
 (defn download-channel
   "Download videos from a single channel"
   [channel-config global-config]
-  ;; Single line channel info for systemd logs
-  (println (format "\nProcessing %s: max=%d videos, shorts=%s"
-                   (:name channel-config)
-                   (:max-videos channel-config)
-                   (:download-shorts channel-config)))
+  (log/info "Processing channel"
+            {:channel (:name channel-config)
+             :max_videos (:max-videos channel-config)
+             :download_shorts (:download-shorts channel-config)})
 
   ;; Ensure temp directory exists
   (fs/create-dirs (:temp-dir global-config))
