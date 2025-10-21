@@ -38,6 +38,12 @@ in
         description = "Email address to send alerts from";
       };
 
+      to = mkOption {
+        type = types.listOf types.str;
+        default = [ "kyle@ondy.org" ];
+        description = "Email addresses to send alerts to";
+      };
+
       username = mkOption {
         type = types.str;
         default = "monitoring@ondy.org";
@@ -54,8 +60,8 @@ in
 
   config = mkIf (parentCfg.enable && cfg.enable) {
     sops.secrets.monitoring_smtp_password = {
-      owner = "alertmanager";
-      group = "alertmanager";
+      mode = "0440";
+      group = "grafana";
     };
 
     services.prometheus.alertmanager = {
@@ -63,14 +69,13 @@ in
       listenAddress = cfg.listenAddress;
       port = cfg.port;
 
-      configuration = {
-        global = mkIf (cfg.smtp.server != "") {
-          smtp_smarthost = cfg.smtp.server;
-          smtp_from = cfg.smtp.from;
-          smtp_auth_username = cfg.smtp.username;
-          smtp_auth_password_file = config.sops.secrets.monitoring_smtp_password.path;
-        };
+      # Disable clustering for single-node deployment
+      extraFlags = [
+        "--cluster.listen-address="
+        "--cluster.advertise-address=127.0.0.1:9094"
+      ];
 
+      configuration = {
         route = {
           group_by = [ "alertname" ];
           group_wait = "10s";
@@ -80,15 +85,25 @@ in
         };
 
         receivers = [
-          {
-            name = "default";
-            email_configs = mkIf (cfg.smtp.server != "") [
-              {
-                to = cfg.smtp.from;
-              }
-            ];
-          }
+          (
+            {
+              name = "default";
+            }
+            // optionalAttrs (cfg.smtp.server != "") {
+              email_configs = map (recipient: {
+                to = recipient;
+              }) cfg.smtp.to;
+            }
+          )
         ];
+      }
+      // optionalAttrs (cfg.smtp.server != "") {
+        global = {
+          smtp_smarthost = cfg.smtp.server;
+          smtp_from = cfg.smtp.from;
+          smtp_auth_username = cfg.smtp.username;
+          smtp_auth_password_file = config.sops.secrets.monitoring_smtp_password.path;
+        };
       };
     };
   };

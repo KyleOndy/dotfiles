@@ -115,6 +115,8 @@ in
             YT_MAX_VIDEOS_INITIAL = toString cfg.max_videos_initial;
             YT_DELETE_GRACE_PERIOD = cfg.delete_grace_period;
             YT_SLEEP_BETWEEN_CHANNELS = toString cfg.sleep_between_channels;
+            # Metrics textfile directory for node_exporter
+            TEXTFILE_DIRECTORY = "/var/lib/prometheus-node-exporter-text-files";
           };
 
         # Add required tools to PATH

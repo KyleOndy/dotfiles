@@ -47,11 +47,39 @@ in
   config = mkIf (parentCfg.enable && cfg.enable) {
     services.loki = {
       enable = true;
+      extraFlags = [
+        "-common.storage.ring.instance-interface-names=eno1"
+        "-common.storage.ring.instance-interface-names=lo"
+      ];
       configuration = {
+        # Run in single-process mode (all-in-one)
+        target = "all";
+
         server.http_listen_port = cfg.port;
         server.http_listen_address = cfg.listenAddress;
 
         auth_enabled = false;
+
+        # Memberlist configuration for network interfaces
+        # Even though we use inmemory kvstore, memberlist may still initialize
+        memberlist = {
+          bind_addr = [ "127.0.0.1" ];
+        };
+
+        # Common configuration for single-node deployment
+        # Use inmemory kvstore instead of memberlist for single-node setups
+        common = {
+          instance_interface_names = [
+            "eno1"
+            "lo"
+          ];
+          ring = {
+            kvstore = {
+              store = "inmemory";
+            };
+          };
+          replication_factor = 1;
+        };
 
         ingester = {
           lifecycler = {
@@ -110,6 +138,7 @@ in
           retention_enabled = true;
           retention_delete_delay = "2h";
           retention_delete_worker_count = 150;
+          delete_request_store = "filesystem";
         };
       };
     };
@@ -118,6 +147,7 @@ in
       enable = true;
       proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
       provisionCert = cfg.provisionCert;
+      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
       extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
         # Require valid bearer token for push endpoints
         if ($request_uri ~ "^/loki/api/v1/push") {

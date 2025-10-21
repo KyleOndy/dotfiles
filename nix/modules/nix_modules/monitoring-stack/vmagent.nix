@@ -47,7 +47,6 @@ in
       enable = true;
       remoteWrite = {
         url = cfg.remoteWriteUrl;
-        basicAuthPasswordFile = cfg.bearerTokenFile;
       };
       prometheusConfig = {
         global = {
@@ -55,6 +54,15 @@ in
         };
         scrape_configs = cfg.scrapeConfigs;
       };
+      extraArgs = optionals (cfg.bearerTokenFile != null) [
+        "-remoteWrite.bearerTokenFile=${cfg.bearerTokenFile}"
+      ];
     };
+
+    # Provide SSL CA certificate bundle for HTTPS remote write with DynamicUser
+    # DynamicUser runs in an isolated environment without automatic access to system certs
+    systemd.services.vmagent.serviceConfig.Environment = [
+      "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+    ];
   };
 }

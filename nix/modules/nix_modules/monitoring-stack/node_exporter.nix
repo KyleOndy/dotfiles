@@ -27,17 +27,32 @@ in
 
     enabledCollectors = mkOption {
       type = types.listOf types.str;
-      default = [ "systemd" ];
+      default = [
+        "systemd"
+        "textfile"
+      ];
       description = "Additional collectors to enable beyond the defaults";
+    };
+
+    textfileDirectory = mkOption {
+      type = types.str;
+      default = "/var/lib/prometheus-node-exporter-text-files";
+      description = "Directory for textfile collector to read .prom files from";
     };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    # Ensure textfile directory exists
+    systemd.tmpfiles.rules = [
+      "d ${cfg.textfileDirectory} 0755 root root -"
+    ];
+
     services.prometheus.exporters.node = {
       enable = true;
       port = cfg.port;
       listenAddress = cfg.listenAddress;
       enabledCollectors = cfg.enabledCollectors;
+      extraFlags = [ "--collector.textfile.directory=${cfg.textfileDirectory}" ];
     };
   };
 }
