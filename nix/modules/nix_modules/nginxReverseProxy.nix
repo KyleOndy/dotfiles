@@ -28,6 +28,12 @@ in
       };
     };
 
+    appendHttpConfig = mkOption {
+      type = types.lines;
+      default = "";
+      description = "Additional configuration to append to the http block (e.g., map directives)";
+    };
+
     sites = mkOption {
       default = { };
       description = "Nginx reverse proxy sites";
@@ -101,6 +107,14 @@ in
                 If not specified, lego will attempt to auto-detect the zone.
               '';
               example = "Z0855021CRZ8TKMBC7EC";
+            };
+            extraConfig = mkOption {
+              type = types.lines;
+              default = "";
+              description = ''
+                Additional nginx configuration for this location block.
+                Useful for authentication checks, rate limiting, etc.
+              '';
             };
           };
         }
@@ -234,6 +248,8 @@ in
                       " -> upstream_status=\"$upstream_status\" \n"
                       " -> uri=\"$uri\" \n"
                       "\n";
+
+          ${cfg.appendHttpConfig}
         '';
         virtualHosts = lib.attrsets.mapAttrs (
           name: siteCfg:
@@ -292,6 +308,9 @@ in
                     ''
                     + optionalString siteCfg.enableSSLVerify ''
                       proxy_ssl_verify on;
+                    ''
+                    + optionalString (siteCfg.extraConfig != "") ''
+                      ${siteCfg.extraConfig}
                     '';
                   };
                 };
