@@ -22,30 +22,6 @@
 
 ---
 
-## Add ZFS exporter and dashboard for tiger
-
-Configure ZFS metrics collection and create storage monitoring dashboard specific to tiger's storage pools. Important for data integrity monitoring.
-
-## Create media services dashboard for tiger
-
-Build dashboard for Jellyfin, Sonarr, Radarr, and other media services on tiger. Provides visibility into media stack health.
-
-## Enable monitoring stack on cheetah
-
-Add systemFoundry.monitoringStack configuration to cheetah's configuration.nix with proper domain and retention settings.
-
-## Deploy vmagent and promtail to tiger
-
-Configure tiger with vmagent and promtail modules pointing to cheetah's endpoints with authentication.
-
-## Deploy vmagent and promtail to dino
-
-Configure dino with vmagent and promtail for laptop monitoring, handling intermittent connectivity gracefully.
-
-## Configure vmagent and promtail on cheetah locally
-
-Set up cheetah to monitor itself by configuring local vmagent and promtail instances.
-
 ## Test metric ingestion from all hosts
 
 Verify VictoriaMetrics is receiving metrics from all three hosts and data is visible in Grafana.

@@ -44,7 +44,7 @@ in
 
       settings = {
         "datasource.url" = cfg.datasourceUrl;
-        "notifier.url" = cfg.notifierUrl;
+        "notifier.url" = [ cfg.notifierUrl ];
         "httpListenAddr" = "${cfg.listenAddress}:${toString cfg.port}";
       };
 

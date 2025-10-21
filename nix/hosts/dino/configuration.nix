@@ -94,10 +94,11 @@
     };
   };
 
-  # SOPS secrets for WiFi configuration
+  # SOPS secrets for WiFi configuration and monitoring
   sops.secrets = {
     home_wifi_ssid = { };
     home_wifi_password = { };
+    monitoring_token_dino = { };
   };
 
   sops.templates."nm-home-wifi-env" = {
@@ -256,6 +257,44 @@
   services.printing = {
     enable = true;
     drivers = [ pkgs.hplip ];
+  };
+
+  # Monitoring stack configuration
+  systemFoundry.monitoringStack = {
+    enable = true;
+
+    # Enable node exporter for system metrics
+    nodeExporter.enable = true;
+
+    # Send metrics to cheetah's VictoriaMetrics instance
+    vmagent = {
+      enable = true;
+      remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
+      bearerTokenFile = config.sops.secrets.monitoring_token_dino.path;
+      scrapeConfigs = [
+        {
+          job_name = "node";
+          static_configs = [
+            {
+              targets = [ "127.0.0.1:9100" ];
+              labels = {
+                host = "dino";
+              };
+            }
+          ];
+        }
+      ];
+    };
+
+    # Send logs to cheetah's Loki instance
+    promtail = {
+      enable = true;
+      lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
+      bearerTokenFile = config.sops.secrets.monitoring_token_dino.path;
+      extraLabels = {
+        host = "dino";
+      };
+    };
   };
 
   # Programs configuration
