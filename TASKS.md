@@ -22,14 +22,6 @@
 
 ---
 
-## Configure nginx reverse proxy endpoints for monitoring services
-
-Set up HTTPS endpoints for grafana.apps.ondy.org, metrics.apps.ondy.org, and loki.apps.ondy.org using the existing nginxReverseProxy module pattern.
-
-## Implement bearer token authentication for service endpoints
-
-Add bearer token validation to VictoriaMetrics and Loki ingestion endpoints using nginx map directive. Use per-host tokens (monitoring_token_cheetah, monitoring_token_tiger, monitoring_token_dino) for better auditing and security isolation. This secures metric and log submission while allowing identification of traffic source. Note: vmagent.nix and promtail.nix modules already support bearer tokens; this task is about wiring them up in nginx configuration.
-
 ## Add SOPS secrets for monitoring authentication
 
 Define the following secrets in secrets.yaml:

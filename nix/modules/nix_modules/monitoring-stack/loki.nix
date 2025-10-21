@@ -30,6 +30,18 @@ in
       default = parentCfg.retention.logs;
       description = "Days to retain logs (defaults to parent retention.logs)";
     };
+
+    domain = mkOption {
+      type = types.str;
+      default = "loki.${parentCfg.domain}";
+      description = "Domain name for Loki (defaults to loki.{parent domain})";
+    };
+
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for Loki domain";
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -100,6 +112,21 @@ in
           retention_delete_worker_count = 150;
         };
       };
+    };
+
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
+      enable = true;
+      proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+      provisionCert = cfg.provisionCert;
+      extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
+        # Require valid bearer token for push endpoints
+        if ($request_uri ~ "^/loki/api/v1/push") {
+          set $auth_check_logs "$valid_logs_token";
+        }
+        if ($auth_check_logs = "") {
+          return 401 "Unauthorized: Invalid or missing bearer token\n";
+        }
+      '';
     };
   };
 }
