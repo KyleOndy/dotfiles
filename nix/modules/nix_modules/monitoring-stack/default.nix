@@ -20,6 +20,7 @@ in
     ./node_exporter.nix
     ./zfs_exporter.nix
     ./nginx_exporter.nix
+    ./nginxlog_exporter.nix
   ];
 
   options.systemFoundry.monitoringStack = {

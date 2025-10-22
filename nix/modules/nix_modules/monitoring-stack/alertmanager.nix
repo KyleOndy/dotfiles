@@ -28,7 +28,7 @@ in
     smtp = {
       server = mkOption {
         type = types.str;
-        default = "mail.ondy.org:587";
+        default = "london.mxroute.com:587";
         description = "SMTP server address (e.g., smtp.gmail.com:587)";
       };
 
@@ -60,8 +60,7 @@ in
 
   config = mkIf (parentCfg.enable && cfg.enable) {
     sops.secrets.monitoring_smtp_password = {
-      mode = "0440";
-      group = "grafana";
+      mode = "0444";
     };
 
     services.prometheus.alertmanager = {

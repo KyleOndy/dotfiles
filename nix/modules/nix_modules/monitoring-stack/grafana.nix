@@ -198,5 +198,20 @@ in
       source = ./dashboards/youtube-downloader-alerts.json;
       mode = "0644";
     };
+
+    environment.etc."grafana-dashboards/nginx-exporter.json" = {
+      source = ./dashboards/nginx-exporter.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/nginx-log-metrics.json" = {
+      source = ./dashboards/nginx-log-metrics.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/nginx-vhost-details.json" = {
+      source = ./dashboards/nginx-vhost-details.json;
+      mode = "0644";
+    };
   };
 }
