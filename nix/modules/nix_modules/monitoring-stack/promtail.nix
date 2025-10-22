@@ -42,6 +42,9 @@ in
       "d /var/lib/promtail 0755 promtail promtail -"
     ];
 
+    # Grant promtail access to nginx logs
+    users.users.promtail.extraGroups = mkIf config.services.nginx.enable [ "nginx" ];
+
     services.promtail = {
       enable = true;
       configuration = {
@@ -87,6 +90,20 @@ in
               {
                 source_labels = [ "__journal_priority_keyword" ];
                 target_label = "level";
+              }
+            ];
+          }
+          {
+            job_name = "nginx";
+            static_configs = [
+              {
+                targets = [ "localhost" ];
+                labels = {
+                  job = "nginx";
+                  unit = "nginx.service";
+                  __path__ = "/var/log/nginx/access.log";
+                }
+                // cfg.extraLabels;
               }
             ];
           }

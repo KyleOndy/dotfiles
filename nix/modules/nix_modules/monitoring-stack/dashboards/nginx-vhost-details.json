@@ -719,7 +719,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "{job=\"systemd-journal\", unit=\"nginx.service\"} | pattern `<ip> - <user> [<time>] \"<method> <path> <protocol>\" <status> <size> \"<referer>\" \"<ua>\" <duration> <vhost> <scheme> <upstream>` | vhost =~ \"$vhost\" | status =~ \"5..\"",
+          "expr": "{job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ \"$vhost\" | status =~ \"5..\"",
           "refId": "A"
         }
       ],
@@ -799,8 +799,9 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "topk(20, sum by (path) (count_over_time({job=\"systemd-journal\", unit=\"nginx.service\"} | pattern `<ip> - <user> [<time>] \"<method> <path> <protocol>\" <status> <size> \"<referer>\" \"<ua>\" <duration> <vhost> <scheme> <upstream>` | vhost =~ \"$vhost\" | status = \"200\" [$__range])))",
-          "refId": "A"
+          "expr": "topk(20, sum by (path) (count_over_time({job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ `$vhost` | status =~ `2..` [$__range])))",
+          "refId": "A",
+          "queryType": "instant"
         }
       ],
       "title": "Top 20 Pages (Successful Requests)",
@@ -903,8 +904,9 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "topk(20, sum by (referer) (count_over_time({job=\"systemd-journal\", unit=\"nginx.service\"} | pattern `<ip> - <user> [<time>] \"<method> <path> <protocol>\" <status> <size> \"<referer>\" \"<ua>\" <duration> <vhost> <scheme> <upstream>` | vhost =~ \"$vhost\" | referer != \"-\" | referer != \"\" [$__range])))",
-          "refId": "A"
+          "expr": "topk(20, sum by (referer) (count_over_time({job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ `$vhost` | referer != \"-\" | referer != \"\" [$__range])))",
+          "refId": "A",
+          "queryType": "instant"
         }
       ],
       "title": "Top 20 Referrers",
