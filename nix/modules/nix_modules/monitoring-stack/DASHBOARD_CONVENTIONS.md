@@ -11,6 +11,15 @@ This document outlines the conventions and best practices for creating and maint
 - [Template Variables](#template-variables)
 - [Adding New Dashboards](#adding-new-dashboards)
 - [Modifying Existing Dashboards](#modifying-existing-dashboards)
+- [Troubleshooting](#troubleshooting)
+  - [Dashboard Shows "No data"](#dashboard-shows-no-data)
+  - [Dashboard Not Updating](#dashboard-not-updating)
+  - [Template Variable Shows No Values](#template-variable-shows-no-values)
+  - [Exporter Metric Naming Mismatches](#exporter-metric-naming-mismatches)
+  - [VictoriaMetrics Regex Quirks](#victoriametrics-regex-quirks)
+  - [State-Based Metrics](#state-based-metrics-node_systemd_unit_state)
+- [Best Practices](#best-practices)
+- [Examples](#examples)
 
 ## Label Naming
 
@@ -55,7 +64,7 @@ This document outlines the conventions and best practices for creating and maint
 ### Other Important Labels
 
 - `job` - Type of metrics (node, nginx, zfs, etc.)
-- `vhost` - Virtual host for nginx metrics (www.kyleondy.com, grafana.apps.ondy.org, etc.)
+- `vhost` - Virtual host for nginx metrics (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `pool` - ZFS pool name (storage, scratch, etc.)
 - `service` - Systemd service name
 
@@ -75,7 +84,7 @@ Dashboards should be organized into logical folders:
 
 Dashboard titles should follow this pattern:
 
-```
+```text
 [Category] - [Specific Component] - [Host (if applicable)]
 ```
 
@@ -341,7 +350,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 
 1. Create subdirectories in `dashboards/`:
 
-   ```
+   ```text
    dashboards/
    ├── system/
    │   ├── node-exporter.json
@@ -379,6 +388,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 3. **Check time range**: Some metrics may not have historical data
 
 4. **Verify exporter is running**:
+
    ```bash
    ssh host systemctl status <exporter-name>
    ```
@@ -396,6 +406,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 3. **Check JSON syntax**: `jq . < dashboard.json`
 
 4. **Force reload**:
+
    ```bash
    ssh cheetah systemctl restart grafana
    ```
@@ -434,6 +445,7 @@ When importing dashboards from grafana.com or updating exporters, metric names m
    ```
 
 3. **Check VictoriaMetrics for available metrics**:
+
    ```bash
    ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
    ```
@@ -448,14 +460,93 @@ When importing dashboards from grafana.com or updating exporters, metric names m
 
 1. Identify all mismatched metric names in dashboard JSON
 2. Use find/replace to update:
+
    ```bash
    # Update metric names
    sed -i 's/old_metric_name/new_metric_name/g' dashboard.json
    # Update label names
    sed -i 's/old_label/new_label/g' dashboard.json
    ```
+
 3. Verify JSON is still valid: `jq . < dashboard.json`
 4. Deploy and test
+
+### VictoriaMetrics Regex Quirks
+
+**Issue**: VictoriaMetrics doesn't handle escaped dots in regex patterns correctly.
+
+**Symptoms:**
+
+- Dashboard shows "No data" despite metrics existing
+- Queries work in Prometheus but not VictoriaMetrics
+- Pattern like `name=~".*\\.service"` returns 0 results
+
+**Root Cause**: VictoriaMetrics interprets `\\.` differently than Prometheus. Use unescaped `.` instead.
+
+**Solution:**
+
+```bash
+# ❌ Bad - doesn't work in VictoriaMetrics
+node_systemd_unit_state{name=~".*\\.service"}
+
+# ✅ Good - works in VictoriaMetrics
+node_systemd_unit_state{name=~".*.service"}
+```
+
+**Note**: `.` matches any character in regex, not just literal dot. This is usually fine for metric filtering, but be aware of the difference.
+
+**How to fix in dashboard JSON:**
+
+```bash
+# Replace escaped dots with unescaped dots
+sed -i 's/\\\\\\.service/.service/g' dashboard.json
+```
+
+### State-Based Metrics (node_systemd_unit_state)
+
+**Issue**: Some metrics expose multiple time series per resource with state labels, where only one has value `1`.
+
+**How it works**: The `node_systemd_unit_state` metric creates **5 time series per service**:
+
+```promql
+node_systemd_unit_state{name="nginx.service",state="active"} = 1
+node_systemd_unit_state{name="nginx.service",state="inactive"} = 0
+node_systemd_unit_state{name="nginx.service",state="failed"} = 0
+node_systemd_unit_state{name="nginx.service",state="activating"} = 0
+node_systemd_unit_state{name="nginx.service",state="deactivating"} = 0
+```
+
+Only the current state has value `1`, all others have value `0`.
+
+**Common Mistake**: Counting time series instead of actual states:
+
+```promql
+# ❌ WRONG - counts all time series with state="failed" label (even if value=0)
+count(node_systemd_unit_state{state="failed"})
+# Result: 308 (counts time series, not failed services)
+
+# ✅ CORRECT - counts only services actually in failed state (value=1)
+count(node_systemd_unit_state{state="failed"} == 1)
+# Result: 0 (no services are failed)
+```
+
+**Correct Patterns:**
+
+```promql
+# Count total services (unique service names)
+count(max by (name, host) (node_systemd_unit_state{name=~".*.service"}))
+
+# Count services in specific state
+count(node_systemd_unit_state{name=~".*.service",state="active"} == 1)
+
+# Count by state for pie chart
+count by (state) (node_systemd_unit_state{name=~".*.service"} == 1)
+
+# Time series by host and state
+count by (host, state) (node_systemd_unit_state{name=~".*.service"} == 1)
+```
+
+**When to use this pattern**: Any metric that uses boolean indicator time series for states (systemd units, alerting states, etc.)
 
 ## Best Practices
 

@@ -61,7 +61,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(node_systemd_unit_state{name=~\".*\\.service\"})",
+          "expr": "count(max by (name, host) (node_systemd_unit_state{name=~\".*.service\"}))",
           "refId": "A"
         }
       ],
@@ -115,7 +115,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(node_systemd_unit_state{name=~\".*\\.service\",state=\"failed\"})",
+          "expr": "count(node_systemd_unit_state{name=~\".*.service\",state=\"failed\"} == 1)",
           "refId": "A"
         }
       ],
@@ -165,73 +165,11 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(node_systemd_unit_state{name=~\".*\\.service\",state=\"active\"})",
+          "expr": "count(node_systemd_unit_state{name=~\".*.service\",state=\"active\"} == 1)",
           "refId": "A"
         }
       ],
       "title": "Active Services",
-      "type": "stat"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "orange",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 4,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "values": false,
-          "calcs": ["lastNotNull"],
-          "fields": ""
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "sum(increase(node_systemd_service_restart_total[1h]))",
-          "refId": "A"
-        }
-      ],
-      "title": "Total Restarts (1h)",
       "type": "stat"
     },
     {
@@ -364,7 +302,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count by (state) (node_systemd_unit_state{name=~\".*\\.service\"})",
+          "expr": "count by (state) (node_systemd_unit_state{name=~\".*.service\"} == 1)",
           "legendFormat": "{{state}}",
           "refId": "A"
         }
@@ -459,7 +397,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{name=~\".*\\.service\",state=\"failed\"} == 1",
+          "expr": "node_systemd_unit_state{name=~\".*.service\",state=\"failed\"} == 1",
           "format": "table",
           "instant": true,
           "refId": "A"
@@ -473,305 +411,18 @@
             "excludeByName": {
               "Value": true,
               "__name__": true,
-              "job": true
+              "job": true,
+              "instance": true
             },
             "indexByName": {
-              "instance": 0,
+              "host": 0,
               "name": 1,
               "state": 2
             },
             "renameByName": {
-              "instance": "Host",
+              "host": "Host",
               "name": "Service",
               "state": "State"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 13
-      },
-      "id": 8,
-      "panels": [],
-      "title": "Service Restarts",
-      "type": "row"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "tooltip": false,
-              "viz": false,
-              "legend": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 14
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": ["last"],
-          "displayMode": "table",
-          "placement": "right"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "topk(10, increase(node_systemd_service_restart_total[1h]))",
-          "legendFormat": "{{host}}:{{name}}",
-          "refId": "A"
-        }
-      ],
-      "title": "Top 10 Services by Restarts (1h)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "displayMode": "auto"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 14
-      },
-      "id": 10,
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Restarts"
-          }
-        ]
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "topk(15, increase(node_systemd_service_restart_total[1h]))",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Recent Restart Activity (1h)",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "__name__": true,
-              "job": true
-            },
-            "indexByName": {
-              "instance": 0,
-              "name": 1,
-              "Value": 2
-            },
-            "renameByName": {
-              "instance": "Host",
-              "name": "Service",
-              "Value": "Restarts"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 22
-      },
-      "id": 11,
-      "panels": [],
-      "title": "Service Uptime",
-      "type": "row"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "displayMode": "auto"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 23
-      },
-      "id": 12,
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Uptime"
-          }
-        ]
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "topk(15, time() - node_systemd_unit_start_time_seconds{name=~\".*\\.service\",state=\"active\"} > 0)",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Longest Running Services",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "__name__": true,
-              "job": true,
-              "state": true
-            },
-            "indexByName": {
-              "instance": 0,
-              "name": 1,
-              "Value": 2
-            },
-            "renameByName": {
-              "instance": "Host",
-              "name": "Service",
-              "Value": "Uptime"
             }
           }
         }
@@ -829,9 +480,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 23
+        "w": 24,
+        "x": 0,
+        "y": 13
       },
       "id": 13,
       "options": {
@@ -847,7 +498,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count by (host, state) (node_systemd_unit_state{name=~\".*\\.service\"})",
+          "expr": "count by (host, state) (node_systemd_unit_state{name=~\".*.service\"} == 1)",
           "legendFormat": "{{host}} - {{state}}",
           "refId": "A"
         }
