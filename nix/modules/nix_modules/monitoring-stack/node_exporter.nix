@@ -52,7 +52,11 @@ in
       port = cfg.port;
       listenAddress = cfg.listenAddress;
       enabledCollectors = cfg.enabledCollectors;
-      extraFlags = [ "--collector.textfile.directory=${cfg.textfileDirectory}" ];
+      extraFlags = [
+        "--collector.textfile.directory=${cfg.textfileDirectory}"
+        "--collector.systemd.enable-restarts-metrics"
+        "--collector.systemd.enable-start-time-metrics"
+      ];
     };
   };
 }
