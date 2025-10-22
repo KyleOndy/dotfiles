@@ -319,7 +319,10 @@ in
                 };
 
             extraConfig = ''
-              access_log /var/log/nginx/${name}.access upstreamlog;
+              # Use prometheus log format for metrics collection
+              # All requests (HTTP and HTTPS) log to /var/log/nginx/access.log
+              # which is parsed by nginxlog-exporter
+              access_log /var/log/nginx/access.log prometheus;
               error_log /var/log/nginx/${name}.error error;
             '';
           }
