@@ -125,6 +125,7 @@ in
           reject_old_samples = true;
           reject_old_samples_max_age = "168h";
           retention_period = "${toString cfg.retentionPeriod}d";
+          max_query_series = 5000;
         };
 
         table_manager = {

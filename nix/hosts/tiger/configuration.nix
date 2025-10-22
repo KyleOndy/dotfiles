@@ -248,6 +248,9 @@ in
         # Enable node exporter for system metrics
         nodeExporter.enable = true;
 
+        # Enable nginx log exporter for web traffic analytics
+        nginxlogExporter.enable = true;
+
         # Send metrics to cheetah's VictoriaMetrics instance
         vmagent = {
           enable = true;
@@ -270,6 +273,17 @@ in
               static_configs = [
                 {
                   targets = [ "127.0.0.1:9134" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "nginxlog";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:4040" ];
                   labels = {
                     host = "tiger";
                   };
