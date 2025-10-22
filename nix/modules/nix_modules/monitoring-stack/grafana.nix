@@ -88,7 +88,7 @@ in
               allowUiUpdates = true;
               options = {
                 path = "/etc/grafana-dashboards";
-                foldersFromFilesStructure = false;
+                foldersFromFilesStructure = true;
               };
             }
           ];
@@ -149,68 +149,72 @@ in
     services.grafana.settings.security.admin_password =
       "$__file{${config.sops.secrets.grafana_admin_password.path}}";
 
-    environment.etc."grafana-dashboards/system-overview.json" = {
-      source = ./dashboards/system-overview.json;
+    # System dashboards
+    environment.etc."grafana-dashboards/system/system-overview.json" = {
+      source = ./dashboards/system/system-overview.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/node-exporter-full.json" = {
-      source = ./dashboards/node-exporter-full.json;
+    environment.etc."grafana-dashboards/system/node-exporter-full.json" = {
+      source = ./dashboards/system/node-exporter-full.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/systemd-services.json" = {
-      source = ./dashboards/systemd-services.json;
+    environment.etc."grafana-dashboards/system/systemd-services.json" = {
+      source = ./dashboards/system/systemd-services.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/zfs-storage.json" = {
-      source = ./dashboards/zfs-storage.json;
+    # Storage dashboards
+    environment.etc."grafana-dashboards/storage/zfs-storage.json" = {
+      source = ./dashboards/storage/zfs-storage.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/media-services.json" = {
-      source = ./dashboards/media-services.json;
+    # Network dashboards
+    environment.etc."grafana-dashboards/network/nginx-exporter.json" = {
+      source = ./dashboards/network/nginx-exporter.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/youtube-downloader-operational.json" = {
-      source = ./dashboards/youtube-downloader-operational.json;
+    environment.etc."grafana-dashboards/network/nginx-log-metrics.json" = {
+      source = ./dashboards/network/nginx-log-metrics.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/youtube-downloader-errors.json" = {
-      source = ./dashboards/youtube-downloader-errors.json;
+    environment.etc."grafana-dashboards/network/nginx-vhost-details.json" = {
+      source = ./dashboards/network/nginx-vhost-details.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/youtube-downloader-performance.json" = {
-      source = ./dashboards/youtube-downloader-performance.json;
+    # Application dashboards
+    environment.etc."grafana-dashboards/applications/media-services.json" = {
+      source = ./dashboards/applications/media-services.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/youtube-downloader-channel.json" = {
-      source = ./dashboards/youtube-downloader-channel.json;
+    environment.etc."grafana-dashboards/applications/youtube-downloader-operational.json" = {
+      source = ./dashboards/applications/youtube-downloader-operational.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/youtube-downloader-alerts.json" = {
-      source = ./dashboards/youtube-downloader-alerts.json;
+    environment.etc."grafana-dashboards/applications/youtube-downloader-errors.json" = {
+      source = ./dashboards/applications/youtube-downloader-errors.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/nginx-exporter.json" = {
-      source = ./dashboards/nginx-exporter.json;
+    environment.etc."grafana-dashboards/applications/youtube-downloader-performance.json" = {
+      source = ./dashboards/applications/youtube-downloader-performance.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/nginx-log-metrics.json" = {
-      source = ./dashboards/nginx-log-metrics.json;
+    environment.etc."grafana-dashboards/applications/youtube-downloader-channel.json" = {
+      source = ./dashboards/applications/youtube-downloader-channel.json;
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/nginx-vhost-details.json" = {
-      source = ./dashboards/nginx-vhost-details.json;
+    environment.etc."grafana-dashboards/applications/youtube-downloader-alerts.json" = {
+      source = ./dashboards/applications/youtube-downloader-alerts.json;
       mode = "0644";
     };
   };
