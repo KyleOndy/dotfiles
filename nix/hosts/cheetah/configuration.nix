@@ -119,6 +119,10 @@
         enable = true;
       };
 
+      nginxlogExporter = {
+        enable = true;
+      };
+
       vmagent = {
         enable = true;
         # Send metrics to local VictoriaMetrics instance
@@ -141,6 +145,17 @@
             static_configs = [
               {
                 targets = [ "127.0.0.1:9113" ];
+                labels = {
+                  host = "cheetah";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "nginxlog";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:4040" ];
                 labels = {
                   host = "cheetah";
                 };
