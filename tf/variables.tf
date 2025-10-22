@@ -8,9 +8,10 @@ variable "ondy_org_top_level_apps" {
 variable "ondy_org_apps_subdomains" {
   type = list(string)
   default = [
-    "metrics",
-    "loki",
     "grafana",
+    "loki",
+    "metrics",
     "nix-cache",
+    "vmalert",
   ]
 }
