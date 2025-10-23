@@ -265,13 +265,15 @@ in
           {
             # https://github.com/tpope/vim-fugitive
             plugin = vim-fugitive;
+            type = "lua";
             config = ''
-              nmap <Leader>gg :tab Git<CR>
-              nmap <Leader>gb :GBrowse<CR>  " opens file in browser
-              nmap <Leader>gB :GBrowse!<CR> " puts file url on clipboard
-              vmap <Leader>gb :GBrowse<CR>  " opens file in browser to line number!
-              vmap <Leader>gb :GBrowse!<CR> " puts file url with line number on clipboard
-              nmap <Leader>gp :Git push<CR>
+              require("which-key").add({
+                { "<leader>g", group = "git" },
+                { "<leader>gg", "<cmd>tab Git<cr>", desc = "Git status" },
+                { "<leader>gb", "<cmd>GBrowse<cr>", desc = "Browse file/selection in browser", mode = { "n", "v" } },
+                { "<leader>gB", "<cmd>GBrowse!<cr>", desc = "Copy file/selection URL to clipboard", mode = { "n", "v" } },
+                { "<leader>gp", "<cmd>Git push<cr>", desc = "Git push" },
+              })
             '';
           }
           {
