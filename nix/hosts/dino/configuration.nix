@@ -428,7 +428,7 @@
         };
         whenLaptopLidClosed = "sleep"; # Still sleep when lid closes
         inhibitLidActionWhenExternalMonitorConnected = true; # Don't sleep with external monitor
-        powerButtonAction = "showLogoutScreen";
+        powerButtonAction = "sleep";
       };
 
       battery = {
