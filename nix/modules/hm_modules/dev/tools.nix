@@ -18,9 +18,8 @@ in
         act
 
         # Fonts
-        # TODO: Re-enable after fixing i686 Linux issue on darwin
-        # berkeley-mono
-        # pragmata-pro
+        berkeley-mono
+        pragmata-pro
 
         # Terminal tools
         ncspot
