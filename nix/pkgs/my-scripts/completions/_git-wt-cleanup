@@ -1,0 +1,21 @@
+#compdef git-wt-cleanup
+# vi: ft=zsh
+
+# Completion for git-wt-cleanup
+# Cleans up old or merged git worktrees
+
+_git-wt-cleanup() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-i --interactive -m --merged -d --deleted-remote -o --older-than -p --prune)'{-i,--interactive}'[Interactive mode with fzf (default)]' \
+    '(-i --interactive -m --merged -d --deleted-remote -o --older-than -p --prune)'{-m,--merged}'[Remove worktrees with merged branches]' \
+    '(-i --interactive -m --merged -d --deleted-remote -o --older-than -p --prune)'{-d,--deleted-remote}'[Remove worktrees for branches deleted on remote]' \
+    '(-i --interactive -m --merged -d --deleted-remote -o --older-than -p --prune)'{-o,--older-than}'[Remove worktrees older than N days]:days:' \
+    '(-i --interactive -m --merged -d --deleted-remote -o --older-than -p --prune)'{-p,--prune}'[Run git worktree prune and gc]' \
+    '(-n --dry-run)'{-n,--dry-run}'[Show what would be removed without removing]' \
+    '(-h --help)'{-h,--help}'[Show help]'
+}
+
+_git-wt-cleanup "$@"
