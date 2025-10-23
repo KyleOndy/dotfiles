@@ -27,7 +27,7 @@ stdenv.mkDerivation rec {
   meta = with lib; {
     description = "A gruvbox colorscheme for mutt and neomutt";
     homepage = "https://git.sthu.org/?p=mutt-gruvbox.git;a=summary";
-    platforms = platforms.linux;
+    platforms = platforms.unix;
     #license = licenses.none;
   };
 }
