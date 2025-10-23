@@ -18,10 +18,8 @@
     # WSL utilities for Windows interop
     wslu
 
-    # Common build tools that might not be in WSL's default Ubuntu
-    gcc
+    # Build tools for WSL (clang and cmake are provided by dev/core.nix)
     gnumake
-    cmake
   ];
 
   # WSL-specific shell configuration
