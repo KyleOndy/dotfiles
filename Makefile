@@ -172,3 +172,16 @@ test-mac: ## Test work-mac configuration evaluation
 .PHONY: test-mac-home
 test-mac-home: ## Test work-mac home-manager configuration
 	nix eval $(IMPURE) .#darwinConfigurations.work-mac.config.home-manager.users.'"kyle.ondy"'.home.homeDirectory
+
+# WSL-specific targets
+.PHONY: build-wsl
+build-wsl: ## Build work-wsl home-manager configuration
+	nix build --impure .#homeConfigurations."kyle@work-wsl".activationPackage
+
+.PHONY: build-wsl-dry
+build-wsl-dry: ## Dry-run build of work-wsl home-manager configuration
+	nix build --impure .#homeConfigurations."kyle@work-wsl".activationPackage --dry-run
+
+.PHONY: deploy-wsl
+deploy-wsl: ## Deploy work-wsl home-manager configuration
+	nix run --impure .#homeConfigurations."kyle@work-wsl".activationPackage

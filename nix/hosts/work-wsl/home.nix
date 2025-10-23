@@ -41,17 +41,17 @@
       DOTS_CONTEXT = "work";
 
       # Use Windows browser for opening URLs
-      BROWSER = lib.mkDefault "wslview";
+      BROWSER = "wslview";
 
       # X11 display for GUI apps (if using WSLg)
-      DISPLAY = lib.mkDefault ":0";
+      DISPLAY = ":0";
 
       # Path to Windows home directory
       WINHOME = "/mnt/c/Users/$(whoami)";
 
       # Disable telemetry for Windows tools
-      DOTNET_CLI_TELEMETRY_OPTOUT = lib.mkDefault "1";
-      POWERSHELL_TELEMETRY_OPTOUT = lib.mkDefault "1";
+      DOTNET_CLI_TELEMETRY_OPTOUT = "1";
+      POWERSHELL_TELEMETRY_OPTOUT = "1";
     };
 
     initExtra = ''
@@ -91,7 +91,7 @@
   '';
 
   # WSL configuration file
-  home.file.".wslconfig".text = lib.mkDefault ''
+  home.file.".wslconfig".text = ''
     [automount]
     enabled = true
     options = "metadata,umask=22,fmask=11"

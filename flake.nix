@@ -376,9 +376,15 @@
 
       homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-        modules = [
+        extraSpecialArgs = {
+          dotfiles-root = self.outPath;
+        };
+        modules = hmCoreModules ++ [
           ./nix/hosts/work-wsl/home.nix
-          { nixpkgs.overlays = overlays; }
+          {
+            nixpkgs.overlays = overlays;
+            nixpkgs.config.allowUnfree = true;
+          }
         ];
       };
 
