@@ -43,6 +43,11 @@
     };
   };
 
+  # Enable work context for shell completions (Jira tickets, etc.)
+  home.sessionVariables = {
+    DOTS_CONTEXT = "work";
+  };
+
   # packages I use at work, but not persoanlly, that do not need to be kept
   # secret in the work fork.
   home.packages = with pkgs; [

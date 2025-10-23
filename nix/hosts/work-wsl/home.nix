@@ -37,6 +37,9 @@
     };
 
     sessionVariables = {
+      # Enable work context for shell completions (Jira tickets, etc.)
+      DOTS_CONTEXT = "work";
+
       # Use Windows browser for opening URLs
       BROWSER = lib.mkDefault "wslview";
 
