@@ -1,0 +1,13 @@
+#compdef git-wt-clone
+# vi: ft=zsh
+
+# Completion for git-wt-clone
+# Usage: git wt-clone <url> [name]
+
+_git-wt-clone() {
+  _arguments \
+    '1:repository URL:_urls' \
+    '2:directory name:_files -/'
+}
+
+_git-wt-clone "$@"
