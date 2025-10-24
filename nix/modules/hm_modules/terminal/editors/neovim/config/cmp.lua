@@ -39,21 +39,19 @@ cmp.setup({
     -- end, { 'i', 's' }),
   }),
   sources = cmp.config.sources({
-    { name = "buffer" },
-    { name = "conjure" },
-    -- { name = 'luasnip' },
-    { name = "nvim_lsp" },
-    { name = "cmdline-history" },
-    { name = "conjure" },
-    { name = "dictionary" },
-    { name = "nvim-lsp" },
-    { name = "rg" },
+    { name = "nvim_lsp" }, -- LSP completions (highest priority)
+    { name = "conjure" }, -- Clojure REPL completions
+    { name = "buffer" }, -- Words from current buffer
+    { name = "path" }, -- File path completions
+    { name = "cmdline_history" }, -- Command history
+    { name = "dictionary" }, -- Dictionary words
+    { name = "rg" }, -- Ripgrep search results
     {
       name = "tmux",
       option = { all_panes = true },
     },
   }, {
-    { name = "buffer" },
+    { name = "buffer" }, -- Fallback to buffer completions
   }),
 })
 

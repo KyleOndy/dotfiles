@@ -35,6 +35,9 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nixCats = {
+      url = "github:BirdeeHub/nixCats-nvim";
+    };
   };
   outputs =
     { self, ... }@inputs:
@@ -68,6 +71,20 @@
           homeModule = ./nix/profiles/desktop.nix;
           needsDesktop = true;
         };
+      };
+
+      # nixCats configuration for Neovim
+      inherit (inputs.nixCats) utils;
+      # Create the custom home-manager module for nixCats
+      # Category and package definitions are in nix/nixcats/
+      nixCatsHomeModule = utils.mkHomeModules {
+        moduleNamespace = [ "nvim" ];
+        inherit (inputs) nixpkgs;
+        dependencyOverlays = [ ];
+        luaPath = ./nix/modules/hm_modules/terminal/editors/neovim/lua;
+        categoryDefinitions = import ./nix/nixcats/categories.nix;
+        packageDefinitions = import ./nix/nixcats/packages.nix;
+        defaultPackageName = "nvim";
       };
 
       # Get all .nix files recursively from a directory
@@ -142,9 +159,11 @@
                     useUserPackages = true;
                     extraSpecialArgs = {
                       dotfiles-root = self.outPath;
+                      inherit inputs;
                     };
                     sharedModules =
                       hmCoreModules
+                      ++ [ nixCatsHomeModule ]
                       ++ (
                         if isDesktop then
                           hmDesktopModules
@@ -202,11 +221,13 @@
                   useUserPackages = true;
                   extraSpecialArgs = {
                     dotfiles-root = self.outPath;
+                    inherit inputs;
                   };
                   # Include desktop modules for cross-platform validation
                   # This allows desktop modules to reference programs.plasma without evaluation errors
                   sharedModules =
                     hmCoreModules
+                    ++ [ nixCatsHomeModule ]
                     ++ (
                       if isDesktop then
                         hmDesktopModules
@@ -378,14 +399,18 @@
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
         extraSpecialArgs = {
           dotfiles-root = self.outPath;
+          inherit inputs;
         };
-        modules = hmCoreModules ++ [
-          ./nix/hosts/work-wsl/home.nix
-          {
-            nixpkgs.overlays = overlays;
-            nixpkgs.config.allowUnfree = true;
-          }
-        ];
+        modules =
+          hmCoreModules
+          ++ [ nixCatsHomeModule ]
+          ++ [
+            ./nix/hosts/work-wsl/home.nix
+            {
+              nixpkgs.overlays = overlays;
+              nixpkgs.config.allowUnfree = true;
+            }
+          ];
       };
 
       # deploy-rs
