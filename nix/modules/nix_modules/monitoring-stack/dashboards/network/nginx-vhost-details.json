@@ -461,6 +461,63 @@
       "fieldConfig": {
         "defaults": {
           "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 12
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.5.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "VictoriaMetrics"
+          },
+          "expr": "sum(increase(nginx_http_response_count_total{vhost=~\"$vhost\"}[$__range]))",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Hits",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "VictoriaMetrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
             "mode": "palette-classic"
           },
           "custom": {
@@ -478,7 +535,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 12
+        "y": 16
       },
       "id": 7,
       "options": {
@@ -719,7 +776,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "{job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ \"$vhost\" | status =~ \"5..\"",
+          "expr": "{job=\"nginx\"} |~ `$vhost` | regexp `(?P<method>\\w+) (?P<path>\\S+) \\S+ (?P<status>\\d+)` | status =~ \"5..\"",
           "refId": "A"
         }
       ],
@@ -799,7 +856,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "topk(20, sum by (path) (count_over_time({job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ `$vhost` | status =~ `2..` [$__range])))",
+          "expr": "topk(20, sum by (path) (count_over_time({job=\"nginx\"} | pattern `<ip> - <remote_user> [<time>] \"<method> <path> <protocol>\" <status> <size> \"<referer>\" \"<ua>\" <duration> <vhost> <scheme> <upstream>` | vhost =~ \"$vhost\" | status =~ `2..` [$__range])))",
           "refId": "A",
           "queryType": "instant"
         }
@@ -824,6 +881,7 @@
             },
             "renameByName": {
               "Value": "Count",
+              "Value #A": "Count",
               "path": "Page"
             }
           }
@@ -904,7 +962,7 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "topk(20, sum by (referer) (count_over_time({job=\"nginx\", unit=\"nginx.service\"} | regexp `(?P<ip>\\S+) - (?P<remote_user>\\S+) \\[(?P<time>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+) (?P<size>\\S+) \"(?P<referer>[^\"]*)\" \"(?P<ua>[^\"]*)\" (?P<duration>\\S+) (?P<vhost>\\S+) (?P<scheme>\\S+) (?P<upstream>\\S+)` | vhost =~ `$vhost` | referer != \"-\" | referer != \"\" [$__range])))",
+          "expr": "topk(20, sum by (referer) (count_over_time({job=\"nginx\"} | pattern `<ip> - <remote_user> [<time>] \"<method> <path> <protocol>\" <status> <size> \"<referer>\" \"<ua>\" <duration> <vhost> <scheme> <upstream>` | vhost =~ \"$vhost\" [$__range])))",
           "refId": "A",
           "queryType": "instant"
         }
@@ -929,6 +987,7 @@
             },
             "renameByName": {
               "Value": "Count",
+              "Value #A": "Count",
               "referer": "Referrer"
             }
           }
