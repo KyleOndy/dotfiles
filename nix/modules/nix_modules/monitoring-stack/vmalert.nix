@@ -73,7 +73,7 @@ in
           rules:
             - alert: SystemdServiceFailed
               expr: node_systemd_unit_state{state="failed"} == 1
-              for: 1m
+              for: 5m
               labels:
                 severity: critical
               annotations:
