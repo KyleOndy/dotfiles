@@ -94,6 +94,31 @@ in
             # reduce <ESC> key timeout in vim mode
             export KEYTIMEOUT=50
 
+            # Cache management for expensive operations
+            # Global cache storage
+            typeset -gA _cache_data
+            typeset -gA _cache_time
+            readonly CACHE_TTL=300 # 5 minutes
+
+            # Get cached value if valid, returns 1 if cache miss
+            _cache_get() {
+              local key="$1"
+              local now=$EPOCHSECONDS
+              if [[ -n "''${_cache_time[$key]}" ]] && (( now - _cache_time[$key] < CACHE_TTL )); then
+                echo "''${_cache_data[$key]}"
+                return 0
+              fi
+              return 1
+            }
+
+            # Store value in cache with current timestamp
+            _cache_set() {
+              local key="$1"
+              local value="$2"
+              _cache_data[$key]="$value"
+              _cache_time[$key]=$EPOCHSECONDS
+            }
+
             # my quality of life functions
 
             # nicer autocomplete selections
@@ -103,21 +128,20 @@ in
             setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
 
             find_up() {
-              local ec=1
               local p=$(pwd)
               while [[ "$p" != "" ]]; do
                 if [[ -e "$p/$1" ]]; then
                   echo "$p/$1"
-                  ec=0
+                  return 0
                 fi
                 p=''${p%/*}
               done
-              return $ec
+              return 1
             }
 
             # fancy git + fzf
             is_in_git_repo() {
-              ${pkgs.git}/bin/git rev-parse HEAD > /dev/null 2>&1
+              ${pkgs.git}/bin/git rev-parse --git-dir > /dev/null 2>&1
             }
             _fzf() {
               ${pkgs.fzf}/bin/fzf "$@" --multi --ansi --border
@@ -125,13 +149,14 @@ in
             fzf_pick_git_worktree() {
               is_in_git_repo || return
               # this will break if a worktree name has a newline, didn't want to deal with null terminators
+              local worktree
               worktree=$(
-                ${pkgs.git}/bin/git worktree list | rg --invert-match '\(bare\)$'| ${pkgs.fzf}/bin/fzf \
+                ${pkgs.git}/bin/git worktree list | ${pkgs.ripgrep}/bin/rg --invert-match '\(bare\)$'| ${pkgs.fzf}/bin/fzf \
                   --prompt="Switch Worktree: " \
                   --height 40% --reverse \
                   --preview-window down \
-                  --preview 'git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" --color=always "$(echo {} | rg -v --regexp ".bare" | sed -E "s/^.*\[(.+)\]$/\1/g")"' | \
-                  awk '{print $1}'
+                  --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" --color=always "$(echo {} | ${pkgs.ripgrep}/bin/rg -v --regexp ".bare" | ${pkgs.gnused}/bin/sed -E "s/^.*\[(.+)\]$/\1/g")"' | \
+                  ${pkgs.coreutils}/bin/awk '{print $1}'
               )
               cd "$worktree" || return
             }
@@ -143,39 +168,54 @@ in
               # default.
               ${pkgs.git}/bin/git log --color --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' |
               _fzf --no-sort --reverse \
-                --preview '${pkgs.gnugrep}/bin/grep -o "[a-f0-9]\{7,\}" <<< {} | ${pkgs.findutils}/bin/xargs ${pkgs.git}/bin/git show --color=always | head -'$LINES |
-              grep -o "[a-f0-9]\{7,\}"
+                --preview '${pkgs.gnugrep}/bin/grep -o "[a-f0-9]\{7,\}" <<< {} | ${pkgs.findutils}/bin/xargs ${pkgs.git}/bin/git show --color=always | ${pkgs.coreutils}/bin/head -'$LINES |
+              ${pkgs.gnugrep}/bin/grep -o "[a-f0-9]\{7,\}"
             }
 
             fzf_pick_git_tag() {
               is_in_git_repo || return
               ${pkgs.git}/bin/git tag --sort -version:refname |
               _fzf --preview-window right:70% \
-                --preview '${pkgs.git}/bin/git show --color=always {} | head -'$LINES
+                --preview '${pkgs.git}/bin/git show --color=always {} | ${pkgs.coreutils}/bin/head -'$LINES
             }
 
             fzf_pick_git_repository() {
-              src_root="''${HOME}/src"
-              repo_bare=$(fd --type=d --max-depth=4 --hidden .bare "''${src_root}")
+              local src_root="${config.home.homeDirectory}/src"
+              local repo_bare stripped_repo bare_repo repo dir
 
-              stripped_repo="''${repo_bare//"''${src_root}"\//}"
+              if ! repo_bare=$(${pkgs.fd}/bin/fd --type=d --max-depth=4 --hidden .bare "${config.home.homeDirectory}/src" 2>/dev/null); then
+                echo "Error: Failed to find git repositories" >&2
+                return 1
+              fi
+
+              if [[ -z "$repo_bare" ]]; then
+                echo "Error: No git repositories found in $src_root" >&2
+                return 1
+              fi
+
+              stripped_repo="''${repo_bare//${config.home.homeDirectory}\/src\//}"
               bare_repo=''${stripped_repo//.bare\//}
 
-              repo=$(echo "''${bare_repo}" | fzf)
-              for dir in "''${HOME}/src/''${repo}/main" "''${HOME}/src/''${repo}/master" "''${HOME}/src/''${repo}"; do
+              repo=$(echo "''${bare_repo}" | ${pkgs.fzf}/bin/fzf) || return
+              [[ -z "$repo" ]] && return
+
+              for dir in "${config.home.homeDirectory}/src/''${repo}/main" "${config.home.homeDirectory}/src/''${repo}/master" "${config.home.homeDirectory}/src/''${repo}"; do
                 if [[ -d "''${dir}" ]]; then
                   pushd "''${dir}" > /dev/null && return
                 fi
               done
+
+              echo "Error: No valid worktree found for repository: $repo" >&2
+              return 1
             }
 
             fzf_pick_git_branch() {
               is_in_git_repo || return
-              ${pkgs.git}/bin/git branch -a --color=always | grep -v '/HEAD\s' | sort |
+              ${pkgs.git}/bin/git branch -a --color=always | ${pkgs.gnugrep}/bin/grep -v '/HEAD\s' | ${pkgs.coreutils}/bin/sort |
               _fzf  --tac --preview-window right:70% \
-                --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --color=always --pretty="format:%C(auto)%cd %h%d %s" $(sed s/^..// <<< {} | cut -d" " -f1) | head -'$LINES |
-              sed 's/^..//' | cut -d' ' -f1 |
-              sed 's#^remotes/##'
+                --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --color=always --pretty="format:%C(auto)%cd %h%d %s" $(${pkgs.gnugrep}/bin/sed s/^..// <<< {} | ${pkgs.coreutils}/bin/cut -d" " -f1) | ${pkgs.coreutils}/bin/head -'$LINES |
+              ${pkgs.gnugrep}/bin/sed 's/^..//' | ${pkgs.coreutils}/bin/cut -d' ' -f1 |
+              ${pkgs.gnugrep}/bin/sed 's#^remotes/##'
             }
 
             # A helper function to join multi-line output from fzf
@@ -187,16 +227,20 @@ in
             }
 
             _reset_prompt() {
-              local precmd
-              for precmd in $precmd_functions; do
-                $precmd
-              done
-              zle reset-prompt
+              # Only run if we're in a ZLE context (defensive check)
+              if [[ -o zle ]]; then
+                local precmd
+                for precmd in $precmd_functions; do
+                  # Run precmd functions but don't let errors stop the loop
+                  $precmd || true
+                done
+                zle reset-prompt
+                zle -R
+              fi
             }
 
             fzf_git_switch_worktree_widget() {
-              fzf_pick_git_worktree
-              _reset_prompt
+              fzf_pick_git_worktree && _reset_prompt
             }
 
             fzf_git_commit_widget() {
@@ -208,8 +252,7 @@ in
             }
 
             fzf_git_repository_widget() {
-              fzf_pick_git_repository
-              _reset_prompt
+              fzf_pick_git_repository && _reset_prompt
             }
 
             fzf_git_branch_widget() {
@@ -217,7 +260,19 @@ in
             }
 
             fzf_pick_aws_profile() {
-              aws_profile=$(grep '\[profile .*\]' "${config.home.homeDirectory}/.aws/config" | cut -d' ' -f2 | rev | cut -c 2- | rev | _fzf)
+              local aws_profile aws_profiles prompt_prefix
+
+              # Try to get from cache
+              if aws_profiles=$(_cache_get "aws_profiles"); then
+                prompt_prefix="[cached] "
+              else
+                # Cache miss - fetch and cache
+                aws_profiles=$(${pkgs.gnugrep}/bin/grep '\[profile .*\]' "${config.home.homeDirectory}/.aws/config" | ${pkgs.coreutils}/bin/cut -d' ' -f2 | ${pkgs.coreutils}/bin/rev | ${pkgs.coreutils}/bin/cut -c 2- | ${pkgs.coreutils}/bin/rev)
+                _cache_set "aws_profiles" "$aws_profiles"
+                prompt_prefix=""
+              fi
+
+              aws_profile=$(echo "$aws_profiles" | _fzf --prompt="''${prompt_prefix}AWS Profile: ")
               if [[ -z "$aws_profile" ]]; then
                 unset AWS_PROFILE
               else
@@ -229,11 +284,22 @@ in
             # easily export which kube config I want. I can't break things if I can
             # not connect to the cluster.
             fzf_pick_kube_config() {
-              config_dir="${config.home.homeDirectory}/.kube/configs"
-              # becuase at $WORK I use darwin, I don't have GNU find, and need to do
-              # these shenanigans with `basename`.
-              kubeconfig=$(find "$config_dir" -type f -exec basename {} \; | sort |
-              _fzf --preview "bat --color=always "$config_dir/{}"")
+              local config_dir="${config.home.homeDirectory}/.kube/configs"
+              local kubeconfig kube_configs prompt_prefix
+
+              # Try to get from cache
+              if kube_configs=$(_cache_get "kube_configs"); then
+                prompt_prefix="[cached] "
+              else
+                # Cache miss - fetch and cache
+                # becuase at $WORK I use darwin, I don't have GNU find, and need to do
+                # these shenanigans with `basename`.
+                kube_configs=$(${pkgs.findutils}/bin/find "$config_dir" -type f -exec ${pkgs.coreutils}/bin/basename {} \; | ${pkgs.coreutils}/bin/sort)
+                _cache_set "kube_configs" "$kube_configs"
+                prompt_prefix=""
+              fi
+
+              kubeconfig=$(echo "$kube_configs" | _fzf --prompt="''${prompt_prefix}Kube Config: " --preview "${pkgs.bat}/bin/bat --color=always "$config_dir/{}"")
 
               if [[ -z "$kubeconfig" ]]; then
                 unset KUBECONFIG
@@ -244,10 +310,20 @@ in
             }
 
             fzf_pick_k8s_cluster() {
-              config_dir="${config.home.homeDirectory}/.kube/configs"
-              kubeconfig=$(fd --type=f . $HOME/.kube/configs --exclude gke_gcloud_auth_plugin_cache -x basename {} |
-                sort | _fzf --preview "bat --color=always -l=yaml "$config_dir/{}"")
+              local config_dir="${config.home.homeDirectory}/.kube/configs"
+              local kubeconfig k8s_clusters prompt_prefix
 
+              # Try to get from cache
+              if k8s_clusters=$(_cache_get "k8s_clusters"); then
+                prompt_prefix="[cached] "
+              else
+                # Cache miss - fetch and cache
+                k8s_clusters=$(${pkgs.fd}/bin/fd --type=f . $HOME/.kube/configs --exclude gke_gcloud_auth_plugin_cache -x ${pkgs.coreutils}/bin/basename {} | ${pkgs.coreutils}/bin/sort)
+                _cache_set "k8s_clusters" "$k8s_clusters"
+                prompt_prefix=""
+              fi
+
+              kubeconfig=$(echo "$k8s_clusters" | _fzf --prompt="''${prompt_prefix}K8s Cluster: " --preview "${pkgs.bat}/bin/bat --color=always -l=yaml "$config_dir/{}"")
 
               if [[ -z "$kubeconfig" ]]; then
                 unset KUBECONFIG
@@ -255,8 +331,8 @@ in
                 unset AWS_REGION
               else
                 KUBECONFIG="$config_dir/$kubeconfig"
-                AWS_PROFILE=$(yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
-                AWS_REGION=$(yq '.users[].user.exec.args' "$KUBECONFIG" | rg -F -e '--region' -A1 | tail -n1 | cut -d' ' -f2)
+                AWS_PROFILE=$(${pkgs.yq}/bin/yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
+                AWS_REGION=$(${pkgs.yq}/bin/yq '.users[].user.exec.args' "$KUBECONFIG" | ${pkgs.ripgrep}/bin/rg -F -e '--region' -A1 | ${pkgs.coreutils}/bin/tail -n1 | ${pkgs.coreutils}/bin/cut -d' ' -f2)
 
                 # This checks if the cluster is AWS
                 # TODO: handle GKE cluster
@@ -273,7 +349,7 @@ in
             aws_sso_login() {
               local profile=$1
 
-              aws --profile "$profile" sts get-caller-identity > /dev/null 2>&1 || aws --profile "$profile" sso login
+              ${pkgs.awscli2}/bin/aws --profile "$profile" sts get-caller-identity > /dev/null 2>&1 || ${pkgs.awscli2}/bin/aws --profile "$profile" sso login
             }
 
             # this is not how keys and commands are bound in vanilla ZSH, this
@@ -314,7 +390,7 @@ in
 
             # https://book.babashka.org/#_terminal_tab_completion
             _bb_tasks() {
-              local matches=(`bb tasks |tail -n +3 |cut -f1 -d ' '`)
+              local matches=($(bb tasks | ${pkgs.coreutils}/bin/tail -n +3 | ${pkgs.coreutils}/bin/cut -f1 -d ' '))
               compadd -a matches
               _files # autocomplete filenames as well
             }
@@ -324,25 +400,28 @@ in
               # TODO: add more sanity checks for me locally
               #   - if in a worktree project, don't allow checking out a branch if on master or main
 
-              # this regex checks (hopefully) the following cases:
-              #   push --force
-              #   push -f
-              #   push --foo --force
-              #   push --foo -f
-              #   push --force --foo
-              #   push --f --foo
-              if echo $@ | ${pkgs.ripgrep}/bin/rg --quiet 'push .*(-f|--force)( |$)'; then
-                # todo: refactor colors to a general funciton
-                RED='\033[0;31m'
-                NC='\033[0m' # No Color
-                # write to stderr
-                >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
-                >&2 echo "''${RED}If you really want to --force, call the git binary directly.''${NC}"
-                >&2 echo "''${RED}    ${pkgs.git}/bin/git''${NC}"
-                return 1
-              else
+              # Fast path: skip check for non-push commands (99% of git usage)
+              if [[ "$1" != "push" ]]; then
                 ${pkgs.git}/bin/git "$@"
+                return
               fi
+
+              # Only check for --force flags on push commands
+              local arg
+              for arg in "$@"; do
+                if [[ "$arg" == "-f" ]] || [[ "$arg" == "--force" ]]; then
+                  # todo: refactor colors to a general function
+                  local RED='\033[0;31m'
+                  local NC='\033[0m' # No Color
+                  # write to stderr
+                  >&2 echo -e "''${RED}Whoa there cowboy! Perhaps you should use --force-with-lease instead of ruining someone's day.''${NC}"
+                  >&2 echo -e "''${RED}If you really want to --force, call the git binary directly.''${NC}"
+                  >&2 echo -e "''${RED}    ${pkgs.git}/bin/git''${NC}"
+                  return 1
+                fi
+              done
+
+              ${pkgs.git}/bin/git "$@"
             }
 
             # tmux-fzf config
@@ -368,10 +447,23 @@ in
 
             assume_aws_role() {
               local role_arn=$1
-              response=$(aws sts assume-role --role-arn "$role_arn" --role-session-name todo)
-              export AWS_ACCESS_KEY_ID=$(echo "$response" | jq -r '.Credentials.AccessKeyId')
-              export AWS_SECRET_ACCESS_KEY=$(echo "$response" | jq -r '.Credentials.SecretAccessKey')
-              export AWS_SESSION_TOKEN=$(echo "$response" | jq -r '.Credentials.SessionToken')
+              local response
+
+              if [[ -z "$role_arn" ]]; then
+                echo "Error: Role ARN is required" >&2
+                echo "Usage: assume_aws_role <role-arn>" >&2
+                return 1
+              fi
+
+              if ! response=$(${pkgs.awscli2}/bin/aws sts assume-role --role-arn "$role_arn" --role-session-name todo 2>&1); then
+                echo "Error: Failed to assume role: $role_arn" >&2
+                echo "$response" >&2
+                return 1
+              fi
+
+              export AWS_ACCESS_KEY_ID=$(echo "$response" | ${pkgs.jq}/bin/jq -r '.Credentials.AccessKeyId')
+              export AWS_SECRET_ACCESS_KEY=$(echo "$response" | ${pkgs.jq}/bin/jq -r '.Credentials.SecretAccessKey')
+              export AWS_SESSION_TOKEN=$(echo "$response" | ${pkgs.jq}/bin/jq -r '.Credentials.SessionToken')
             }
 
             reset_aws_envvars() {
@@ -460,20 +552,6 @@ in
             511 Network Authentication Required
             EOF
             }
-
-            # Yucky homebrew. Don't like mixing it with nix, but its work stuff,
-            # so can't push back too hard.
-
-            _include () {
-              [[ -f "$1" ]] && source "$1"
-            }
-
-            # TODO: rip out all evals
-            if [[ -f /opt/homebrew/bin/brew ]]; then
-              eval "$(/opt/homebrew/bin/brew shellenv)"
-            fi
-
-            _include /opt/homebrew/opt/asdf/libexec/asdf.sh
 
             source ${pkgs.zsh-histdb}/sqlite-history.zsh
             autoload -Uz add-zsh-hook
