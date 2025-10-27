@@ -4,6 +4,7 @@
     [babashka.cli :as cli]
     [clojure.string :as str]
     [common.logging :as log]
+    [youtube-downloader.config :as config]
     [youtube-downloader.core :as core]))
 
 
@@ -99,8 +100,8 @@
   "Test configuration and display results"
   []
   (try
-    (let [config (youtube-downloader.config/from-env)
-          validation (youtube-downloader.config/validate-config config)]
+    (let [cfg (config/from-env)
+          validation (config/validate-config cfg)]
 
       (log/info "Running configuration test")
 
@@ -113,26 +114,26 @@
 
         (do
           (log/info "Configuration validated successfully"
-                    {:media_dir (:media-dir config)
-                     :data_dir (:data-dir config)
-                     :temp_dir (:temp-dir config)
-                     :archive_exists (:archive-exists? config)
-                     :channels (count (:channels config))})
+                    {:media_dir (:media-dir cfg)
+                     :data_dir (:data-dir cfg)
+                     :temp_dir (:temp-dir cfg)
+                     :archive_exists (:archive-exists? cfg)
+                     :channels (count (:channels cfg))})
 
           ;; User-friendly output
           (println "✅ Configuration Valid")
           (println)
           (println "Settings:")
-          (println (format "  Media Dir:       %s" (:media-dir config)))
-          (println (format "  Data Dir:        %s" (:data-dir config)))
-          (println (format "  Temp Dir:        %s" (:temp-dir config)))
-          (println (format "  Archive Exists:  %s" (:archive-exists? config)))
-          (println (format "  Channels:        %d" (count (:channels config))))
+          (println (format "  Media Dir:       %s" (:media-dir cfg)))
+          (println (format "  Data Dir:        %s" (:data-dir cfg)))
+          (println (format "  Temp Dir:        %s" (:temp-dir cfg)))
+          (println (format "  Archive Exists:  %s" (:archive-exists? cfg)))
+          (println (format "  Channels:        %d" (count (:channels cfg))))
           (println)
 
           ;; Always show channel details
           (println "Channel Details:")
-          (doseq [{:keys [name max-videos download-shorts]} (:channels config)]
+          (doseq [{:keys [name max-videos download-shorts]} (:channels cfg)]
             (println (format "  %-25s max=%2d shorts=%s"
                              name max-videos download-shorts)))
           (println)
