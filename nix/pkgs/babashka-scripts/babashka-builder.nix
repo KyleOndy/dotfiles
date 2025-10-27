@@ -92,7 +92,13 @@ stdenv.mkDerivation {
       for project_dir in projects/*/; do
         if [ -d "$project_dir" ]; then
           project_name=$(basename "$project_dir")
-          
+
+          # Read project version from VERSION file, fallback to package version
+          project_version="${version}"
+          if [ -f "$project_dir/VERSION" ]; then
+            project_version=$(cat "$project_dir/VERSION" | tr -d '\n')
+          fi
+
           # Copy the entire project structure
           mkdir -p "$out/share/$project_name"
           cp -r "$project_dir"* "$out/share/$project_name/"
@@ -118,9 +124,6 @@ stdenv.mkDerivation {
             cat > "$out/bin/$project_name" << EOF
     #!${babashka}/bin/bb
 
-    ;; Build-time version information
-    (def *build-version* "${version}")
-
     ;; Set up classpath for structured project
     (require '[babashka.classpath :as cp])
 
@@ -131,6 +134,9 @@ stdenv.mkDerivation {
     ;; Add project src to classpath if it exists
     (when (.exists (java.io.File. "$out/share/$project_name/src"))
       (cp/add-classpath "$out/share/$project_name/src"))
+
+    ;; Set build version as environment variable
+    (System/setProperty "BUILD_VERSION" "$project_version")
 
     ;; Preserve command-line arguments and load the main script
     (binding [*command-line-args* *command-line-args*]

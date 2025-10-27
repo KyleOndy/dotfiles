@@ -1,16 +1,18 @@
 (ns youtube-downloader.cli
   "Command-line interface for YouTube downloader"
   (:require
-   [babashka.cli :as cli]
-   [clojure.string :as str]
-   [common.logging :as log]
-   [youtube-downloader.core :as core]))
+    [babashka.cli :as cli]
+    [clojure.string :as str]
+    [common.logging :as log]
+    [youtube-downloader.core :as core]))
+
 
 (def cli-spec
   "CLI options specification"
   {:help {:desc "Show help"
           :alias :h}
-
+   :version {:desc "Show version"
+             :alias :v}
    :dry-run {:desc "Show what would be done without executing"
              :alias :d}
    :maintenance {:desc "Run maintenance cleanup only"
@@ -21,6 +23,7 @@
               :alias :c}
    :max-videos {:desc "Override max videos per channel"
                 :alias :n}})
+
 
 (defn show-help
   "Display help message"
@@ -35,7 +38,7 @@
   (println)
   (println "Options:")
   (println "  -h, --help          Show this help")
-
+  (println "  -v, --version       Show version")
   (println "  -d, --dry-run       Show what would be done without executing")
   (println "  -m, --maintenance   Run maintenance cleanup only")
   (println "  -t, --config-test   Test configuration and exit")
@@ -81,6 +84,7 @@
   (println "  - Uses random delays between channels to avoid bot detection")
   (println "  - Respects yt-dlp download archive to avoid re-downloads"))
 
+
 (defn parse-channels-override
   "Parse comma-separated channel names from CLI"
   [channels-str]
@@ -89,6 +93,7 @@
          (map str/trim)
          (filter seq)
          (map #(hash-map :name %)))))
+
 
 (defn test-configuration
   "Test configuration and display results"
@@ -142,6 +147,7 @@
       (.printStackTrace e)
       (System/exit 1))))
 
+
 (defn -main
   "Main entry point"
   [& args]
@@ -152,6 +158,12 @@
       (:help options)
       (do
         (show-help)
+        (System/exit 0))
+
+      ;; Show version
+      (:version options)
+      (do
+        (println (str "youtube-downloader version " (or (System/getProperty "BUILD_VERSION") "unknown")))
         (System/exit 0))
 
       ;; Config test mode
