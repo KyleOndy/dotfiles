@@ -81,7 +81,7 @@ in
         set-option -g status-left-style none
         set-option -g status-left-length "80"
         set-option -g status-right-style none
-        set-option -g status-right-length "80"
+        set-option -g status-right-length "120"
         set-window-option -g window-status-separator ""
 
         # ----------------------
