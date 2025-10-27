@@ -121,7 +121,7 @@ in
 
         # Add required tools to PATH
         path = with pkgs; [
-          yt-dlp
+          master.yt-dlp
           rsync
           coreutils # for du
         ];
