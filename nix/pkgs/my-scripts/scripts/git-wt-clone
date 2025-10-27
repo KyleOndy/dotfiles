@@ -11,8 +11,8 @@ get_default_branch() {
   local branch_count
   local default_branch
 
-  head_commit=$(git ls-remote "$repo_url" HEAD | cut -f1)
-  branches_on_head=$(git ls-remote "$repo_url" | rg "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
+  head_commit=$(git ls-remote "$repo_url" HEAD | cut -f1 | head -n1)
+  branches_on_head=$(git ls-remote "$repo_url" | rg --fixed-strings "$head_commit" | rg 'refs/heads/' | cut -f2 | cut -d'/' -f3-)
   branch_count=$(wc -l <<< "$branches_on_head")
 
   default_branch="main"

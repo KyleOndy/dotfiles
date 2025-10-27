@@ -18,7 +18,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = with pkgs; [ pinentry-curses ]; # cli pin entry
     # TODO: see note in ssh.nix
     #home.sessionVariables = { GNUPGHOME = "${config.home.homeDirectory}/.gnupg"; };
 
@@ -52,7 +51,16 @@ in
       maxCacheTtl = 7200; # GPG keys max: 2 hours
       maxCacheTtlSsh = 14400; # SSH keys max: 4 hours
       enableSshSupport = true; # Enable SSH agent functionality
-      pinentry.package = pkgs.pinentry-curses;
+      # Smart pinentry: Use curses in interactive terminals, GUI otherwise
+      pinentry.package = pkgs.writeShellScriptBin "pinentry-auto" ''
+        # Use curses (text mode) if we're in an interactive terminal with GPG_TTY set
+        # Use gtk2 (GUI) otherwise (for IDEs, automation, Claude Code, etc.)
+        if [ -t 0 ] && [ -n "$GPG_TTY" ] && [ -c "$GPG_TTY" ]; then
+          exec ${pkgs.pinentry-curses}/bin/pinentry-curses "$@"
+        else
+          exec ${pkgs.pinentry-gtk2}/bin/pinentry-gtk2 "$@"
+        fi
+      '';
     };
   };
 }

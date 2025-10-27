@@ -156,7 +156,7 @@ in
                   --height 40% --reverse \
                   --preview-window down \
                   --preview '${pkgs.git}/bin/git log --oneline --graph --date=short --pretty="format:%C(auto)%cd %h%d %s" --color=always "$(echo {} | ${pkgs.ripgrep}/bin/rg -v --regexp ".bare" | ${pkgs.gnused}/bin/sed -E "s/^.*\[(.+)\]$/\1/g")"' | \
-                  ${pkgs.coreutils}/bin/awk '{print $1}'
+                  ${pkgs.gawk}/bin/awk '{print $1}'
               )
               cd "$worktree" || return
             }
