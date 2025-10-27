@@ -1,18 +1,25 @@
 (ns common.metrics-server
   "Simple HTTP server for exposing Prometheus metrics"
   (:require
-   [clojure.string :as str]
-   [common.logging :as log]
-   [common.metrics :as metrics])
+    [clojure.string :as str]
+    [common.logging :as log]
+    [common.metrics :as metrics])
   (:import
-   [java.net ServerSocket InetSocketAddress]
-   [java.io BufferedReader InputStreamReader PrintWriter]))
+    (java.io
+      BufferedReader
+      InputStreamReader
+      PrintWriter)
+    (java.net
+      InetSocketAddress
+      ServerSocket)))
 
+
+;; Atom holding server state
 (defonce ^:private server-state
-  "Atom holding server state"
   (atom {:running false
          :server-socket nil
          :thread nil}))
+
 
 (defn- handle-request
   "Handle an HTTP request"
@@ -65,6 +72,7 @@
         (.close socket)
         (catch Exception _)))))
 
+
 (defn- accept-loop
   "Main server loop accepting connections"
   [server-socket]
@@ -79,6 +87,7 @@
         nil)
       (catch Exception e
         (log/error "Error accepting connection" {:error (.getMessage e)})))))
+
 
 (defn start-server
   "Start the metrics HTTP server on the specified port"
@@ -106,6 +115,7 @@
       (log/error "Failed to start metrics server" {:error (.getMessage e)})
       (throw e))))
 
+
 (defn stop-server
   "Stop the metrics HTTP server"
   []
@@ -122,10 +132,12 @@
         (log/error "Error stopping server" {:error (.getMessage e)})
         false))))
 
+
 (defn running?
   "Check if the server is running"
   []
   (:running @server-state))
+
 
 (defmacro with-metrics-server
   "Run body with a metrics server running in the background"
@@ -137,12 +149,13 @@
        (finally
          (stop-server)))))
 
+
 (comment
   ;; Example usage
-  (require '[common.metrics :as m])
+  ;; Note: common.metrics is already required as 'metrics' in the ns form
 
-  (def test-counter (m/counter "test_counter" "A test counter"))
-  (m/inc-counter test-counter {:label "value1"})
+  (def test-counter (metrics/counter "test_counter" "A test counter"))
+  (metrics/inc-counter test-counter {:label "value1"})
 
   (start-server 9091)
   ;; Now curl http://localhost:9091/metrics
