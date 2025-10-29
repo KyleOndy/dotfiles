@@ -1,13 +1,14 @@
 (ns youtube-downloader.downloader
   "Core downloading functionality using yt-dlp"
   (:require
-   [babashka.fs :as fs]
-   [clojure.string :as str]
-   [common.logging :as log]
-   [common.process :as proc]
-   [youtube-downloader.anti-bot :as anti-bot]
-   [youtube-downloader.config :as config]
-   [youtube-downloader.observability :as obs]))
+    [babashka.fs :as fs]
+    [clojure.string :as str]
+    [common.logging :as log]
+    [common.process :as proc]
+    [youtube-downloader.anti-bot :as anti-bot]
+    [youtube-downloader.config :as config]
+    [youtube-downloader.observability :as obs]))
+
 
 (defn build-channel-filters
   "Build yt-dlp match filters based on channel configuration"
@@ -23,6 +24,7 @@
 
     (when (seq filters)
       (str/join " & " filters))))
+
 
 (defn load-skip-list
   "Load video IDs from skip list that should be permanently excluded"
@@ -55,6 +57,7 @@
           (log/warn "Could not load skip list" {:error (.getMessage e) :skip_file skip-file})
           []))
       [])))
+
 
 (defn build-yt-dlp-command
   "Build the yt-dlp command with all options"
@@ -103,6 +106,7 @@
 
     (concat base-cmd core-opts filter-opts stealth-opts)))
 
+
 (defn parse-download-error
   "Parse yt-dlp error output to determine the issue"
   [stderr]
@@ -150,11 +154,13 @@
       :else
       {:type :unknown :retry? (anti-bot/should-retry? stderr)})))
 
+
 (defn extract-video-id
   "Extract video ID from error message if present"
   [stderr]
   (when-let [match (re-find #"\[youtube\] ([A-Za-z0-9_-]{11}):" stderr)]
     (second match)))
+
 
 (defn add-to-skip-list
   "Add a video ID to the skip list"
@@ -165,6 +171,7 @@
                       video-id
                       reason)]
     (spit skip-file entry :append true)))
+
 
 (defn download-with-retry
   "Download with retry logic and error handling"
@@ -251,6 +258,7 @@
 
   ;; Download with retry logic - yt-dlp handles sleep between actual downloads
   (download-with-retry channel-config global-config))
+
 
 (defn count-downloads
   "Count new downloads in temp directory"
