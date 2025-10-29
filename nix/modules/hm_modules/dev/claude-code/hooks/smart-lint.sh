@@ -34,11 +34,25 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 0
 fi
 
-# Get list of modified files
-MODIFIED_FILES=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-files --modified --others --exclude-standard)
+# Get list of modified files (excluding deleted files)
+MODIFIED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD 2>/dev/null || git ls-files --modified --others --exclude-standard)
 
 if [[ -z "$MODIFIED_FILES" ]]; then
     log "No modified files detected"
+    exit 0
+fi
+
+# Filter out files that don't exist (safety check for edge cases)
+EXISTING_FILES=""
+while IFS= read -r file; do
+    if [[ -f "$file" ]]; then
+        EXISTING_FILES="${EXISTING_FILES}${file}"$'\n'
+    fi
+done <<<"$MODIFIED_FILES"
+MODIFIED_FILES="${EXISTING_FILES%$'\n'}"
+
+if [[ -z "$MODIFIED_FILES" ]]; then
+    log "No existing modified files to lint"
     exit 0
 fi
 
@@ -54,7 +68,7 @@ if [[ -n "$PYTHON_FILES" ]]; then
 
     # Run ruff if available
     if command -v ruff >/dev/null 2>&1; then
-        if echo "$PYTHON_FILES" | xargs ruff check --quiet; then
+        if echo "$PYTHON_FILES" | tr '\n' '\0' | xargs -0 ruff check --quiet; then
             success "Python: ruff passed"
         else
             error "Python: ruff failed"
@@ -62,7 +76,7 @@ if [[ -n "$PYTHON_FILES" ]]; then
         fi
 
         # Run ruff format check
-        if echo "$PYTHON_FILES" | xargs ruff format --check --quiet; then
+        if echo "$PYTHON_FILES" | tr '\n' '\0' | xargs -0 ruff format --check --quiet; then
             success "Python: ruff format passed"
         else
             error "Python: ruff format failed"
@@ -80,7 +94,7 @@ if [[ -n "$GO_FILES" ]]; then
 
     # Run gofmt
     if command -v gofmt >/dev/null 2>&1; then
-        UNFORMATTED=$(echo "$GO_FILES" | xargs gofmt -l)
+        UNFORMATTED=$(echo "$GO_FILES" | tr '\n' '\0' | xargs -0 gofmt -l)
         if [[ -z "$UNFORMATTED" ]]; then
             success "Go: gofmt passed"
         else
@@ -107,7 +121,7 @@ if [[ -n "$CLOJURE_FILES" ]]; then
 
     # Run clj-kondo if available
     if command -v clj-kondo >/dev/null 2>&1; then
-        if echo "$CLOJURE_FILES" | xargs clj-kondo --lint; then
+        if echo "$CLOJURE_FILES" | tr '\n' '\0' | xargs -0 clj-kondo --lint; then
             success "Clojure: clj-kondo passed"
         else
             error "Clojure: clj-kondo failed"
@@ -126,7 +140,7 @@ if [[ -n "$CLOJURE_FILES" ]]; then
         case "$FORMATTER" in
         "cljstyle")
             if command -v cljstyle >/dev/null 2>&1; then
-                if echo "$CLOJURE_FILES" | xargs cljstyle check; then
+                if echo "$CLOJURE_FILES" | tr '\n' '\0' | xargs -0 cljstyle check; then
                     success "Clojure: cljstyle formatting passed"
                 else
                     error "Clojure: cljstyle formatting failed"
@@ -139,7 +153,7 @@ if [[ -n "$CLOJURE_FILES" ]]; then
         "zprint")
             if command -v zprint >/dev/null 2>&1; then
                 # Check if files would be reformatted
-                if echo "$CLOJURE_FILES" | xargs -I {} sh -c 'diff -q "{}" <(zprint < "{}")' >/dev/null 2>&1; then
+                if echo "$CLOJURE_FILES" | tr '\n' '\0' | xargs -0 -I {} sh -c 'diff -q "{}" <(zprint < "{}")' >/dev/null 2>&1; then
                     success "Clojure: zprint formatting passed"
                 else
                     error "Clojure: zprint formatting failed"
@@ -151,7 +165,7 @@ if [[ -n "$CLOJURE_FILES" ]]; then
             ;;
         "cljfmt")
             if command -v cljfmt >/dev/null 2>&1; then
-                if echo "$CLOJURE_FILES" | xargs cljfmt --dry-run; then
+                if echo "$CLOJURE_FILES" | tr '\n' '\0' | xargs -0 cljfmt --dry-run; then
                     success "Clojure: cljfmt formatting passed"
                 else
                     error "Clojure: cljfmt formatting failed"
@@ -172,7 +186,7 @@ if [[ -n "$NIX_FILES" ]]; then
 
     # Run nixfmt
     if command -v nixfmt >/dev/null 2>&1; then
-        if echo "$NIX_FILES" | xargs nixfmt --check; then
+        if echo "$NIX_FILES" | tr '\n' '\0' | xargs -0 nixfmt --check; then
             success "Nix: nixfmt passed"
         else
             error "Nix: nixfmt failed"
@@ -183,14 +197,14 @@ if [[ -n "$NIX_FILES" ]]; then
     fi
 
     # Run nix-instantiate to check syntax
-    for file in $NIX_FILES; do
+    while IFS= read -r file; do
         if nix-instantiate --parse "$file" >/dev/null 2>&1; then
             success "Nix: $file syntax valid"
         else
             error "Nix: $file has syntax errors"
             LINT_FAILED=1
         fi
-    done
+    done <<<"$NIX_FILES"
 fi
 
 # Haskell files
@@ -200,7 +214,7 @@ if [[ -n "$HASKELL_FILES" ]]; then
 
     # Run hlint if available
     if command -v hlint >/dev/null 2>&1; then
-        if echo "$HASKELL_FILES" | xargs hlint; then
+        if echo "$HASKELL_FILES" | tr '\n' '\0' | xargs -0 hlint; then
             success "Haskell: hlint passed"
         else
             error "Haskell: hlint failed"
@@ -218,7 +232,7 @@ if [[ -n "$SHELL_FILES" ]]; then
 
     # Run shellcheck
     if command -v shellcheck >/dev/null 2>&1; then
-        if echo "$SHELL_FILES" | xargs shellcheck; then
+        if echo "$SHELL_FILES" | tr '\n' '\0' | xargs -0 shellcheck; then
             success "Shell: shellcheck passed"
         else
             error "Shell: shellcheck failed"
@@ -230,7 +244,7 @@ if [[ -n "$SHELL_FILES" ]]; then
 
     # Run shfmt
     if command -v shfmt >/dev/null 2>&1; then
-        if echo "$SHELL_FILES" | xargs shfmt -d; then
+        if echo "$SHELL_FILES" | tr '\n' '\0' | xargs -0 shfmt -d; then
             success "Shell: shfmt passed"
         else
             error "Shell: shfmt failed"
@@ -248,7 +262,7 @@ if [[ -n "$JS_FILES" ]]; then
 
     # Run prettier check if available
     if command -v prettier >/dev/null 2>&1; then
-        if echo "$JS_FILES" | xargs prettier --check; then
+        if echo "$JS_FILES" | tr '\n' '\0' | xargs -0 prettier --check; then
             success "JS/TS: prettier passed"
         else
             error "JS/TS: prettier failed"
@@ -268,7 +282,7 @@ if [[ -n "$SQL_FILES" ]]; then
         # Check if .sqlfluff configuration exists
         if [[ -f ".sqlfluff" ]]; then
             # Run sqlfluff lint and capture output
-            if echo "$SQL_FILES" | xargs sqlfluff lint >/dev/null 2>&1; then
+            if echo "$SQL_FILES" | tr '\n' '\0' | xargs -0 sqlfluff lint >/dev/null 2>&1; then
                 success "SQL: sqlfluff passed"
             else
                 error "SQL: sqlfluff failed (run 'sqlfluff lint' for details)"
@@ -312,7 +326,7 @@ if [[ -n "$MARKDOWN_FILES" ]]; then
     if command -v markdownlint-cli2 >/dev/null 2>&1; then
         # Check if configuration file exists
         if [[ -f ".markdownlint.json" ]] || [[ -f ".markdownlint-cli2.jsonc" ]] || [[ -f ".markdownlint.jsonc" ]] || [[ -f ".markdownlint.yaml" ]] || [[ -f ".markdownlint.yml" ]]; then
-            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2 --fix; then
+            if echo "$MARKDOWN_FILES" | tr '\n' '\0' | xargs -0 markdownlint-cli2 --fix; then
                 success "Markdown: markdownlint-cli2 passed"
             else
                 error "Markdown: markdownlint-cli2 failed"
@@ -320,7 +334,7 @@ if [[ -n "$MARKDOWN_FILES" ]]; then
             fi
         else
             # Run with default configuration but warn about missing config
-            if echo "$MARKDOWN_FILES" | xargs markdownlint-cli2; then
+            if echo "$MARKDOWN_FILES" | tr '\n' '\0' | xargs -0 markdownlint-cli2; then
                 success "Markdown: markdownlint-cli2 passed (using defaults)"
                 warn "Markdown: Consider creating .markdownlint.json for custom rules"
             else
