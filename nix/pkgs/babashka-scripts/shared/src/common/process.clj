@@ -1,8 +1,9 @@
 (ns common.process
   "Common process execution utilities for babashka scripts"
   (:require
-   [babashka.process :as p]
-   [clojure.string :as str]))
+    [babashka.process :as p]
+    [clojure.string :as str]))
+
 
 (defn run-command
   "Run a command and return the result"
@@ -26,6 +27,7 @@
           (throw e)
           {:exit 1 :err (.getMessage e) :out ""})))))
 
+
 (defn command-exists?
   "Check if a command exists by testing its functionality"
   [cmd]
@@ -40,6 +42,7 @@
           (zero? (:exit result)))
         (catch Exception _
           false)))))
+
 
 (defn run-with-retry
   "Run a command with retry logic"
@@ -58,6 +61,7 @@
           (Thread/sleep delay)
           (recur (inc attempt)))))))
 
+
 (defn run-async
   "Run a command asynchronously and return a future"
   [cmd & {:keys [dir env]}]
@@ -65,6 +69,7 @@
                dir (assoc :dir dir)
                env (assoc :env env))]
     (future (apply p/shell opts cmd))))
+
 
 (defn kill-process
   "Kill a process by PID"

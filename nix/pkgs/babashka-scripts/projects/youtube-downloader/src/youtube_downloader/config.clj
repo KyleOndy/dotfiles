@@ -1,10 +1,10 @@
 (ns youtube-downloader.config
   "Configuration management for YouTube downloader"
   (:require
-   [babashka.fs :as fs]
-   [cheshire.core :as json]
-   [clojure.edn :as edn]
-   [clojure.string :as str]))
+    [babashka.fs :as fs]
+    [cheshire.core :as json]
+    [clojure.string :as str]))
+
 
 (def default-config
   "Conservative defaults to minimize bot detection"
@@ -13,6 +13,7 @@
    :download-shorts false ; Don't download shorts by default
    :sleep-between-channels 60
    :sleep-between-videos {:min 5 :max 30}})
+
 
 (defn sanitize-channel-name
   "Create a safe filename from channel name using hash + truncated name"
@@ -31,10 +32,12 @@
                       (#(if (> (count %) 20) (subs % 0 20) %)))]
     (str hash "-" safe-name)))
 
+
 (defn channel-archive-path
   "Get the archive file path for a specific channel"
   [data-dir channel-name]
   (str data-dir "/youtube-dl-seen-" (sanitize-channel-name channel-name) ".conf"))
+
 
 (defn migrate-shared-archive
   "Migrate from shared archive to per-channel archives"
@@ -55,10 +58,12 @@
       (fs/move old-archive migration-marker)
       (println "Migration completed"))))
 
+
 (defn archive-exists?
   "Check if the download archive exists for a specific channel"
   [data-dir channel-name]
   (fs/exists? (channel-archive-path data-dir channel-name)))
+
 
 (defn parse-channel
   "Parse a channel configuration, applying defaults"
@@ -75,6 +80,7 @@
       {:name (:name ch)
        :download-shorts (get ch :download_shorts (:download-shorts defaults))
        :max-videos (get ch :max_videos base-max)})))
+
 
 (defn from-env
   "Load configuration from environment variables"
@@ -122,6 +128,7 @@
                                (:sleep-between-channels default-config))
      :sleep-between-videos (:sleep-between-videos default-config)
      :dry-run (= "true" (System/getenv "YT_DRY_RUN"))}))
+
 
 (defn validate-config
   "Validate configuration and return errors if any"
