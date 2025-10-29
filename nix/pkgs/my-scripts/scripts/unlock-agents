@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# Unlock and warm up GPG, YubiKey, and SSH agent caches
+# Run this script before working with Claude Code to ensure agents remain unlocked
+# for the configured cache duration
+
+set -euo pipefail
+
+echo "=== Unlocking GPG, YubiKey, and SSH Agents ==="
+echo ""
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Helper function to convert seconds to human-readable format
+seconds_to_human() {
+    local seconds=$1
+    local hours=$((seconds / 3600))
+    local minutes=$(((seconds % 3600) / 60))
+
+    if [ $hours -gt 0 ]; then
+        echo "${hours}h ${minutes}m"
+    else
+        echo "${minutes}m"
+    fi
+}
+
+# Test GPG signing to unlock YubiKey GPG key
+echo -e "${YELLOW}Testing GPG signing (will prompt for YubiKey PIN)...${NC}"
+echo "test" | gpg --clearsign --default-key DB0E3C33491F91C9 >/dev/null 2>&1 && \
+    echo -e "${GREEN}✓ GPG signing successful - YubiKey unlocked${NC}" || \
+    echo "✗ GPG signing failed"
+echo ""
+
+# Test SSH authentication to unlock SSH key
+echo -e "${YELLOW}Testing SSH authentication (will prompt for SSH key passphrase)...${NC}"
+if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+    echo -e "${GREEN}✓ SSH authentication successful - SSH agent unlocked${NC}"
+else
+    # Try to add the key explicitly if connection failed but might be for other reasons
+    if ssh-add -l >/dev/null 2>&1; then
+        echo -e "${GREEN}✓ SSH keys already in agent${NC}"
+    else
+        ssh-add
+        echo -e "${GREEN}✓ SSH key added to agent${NC}"
+    fi
+fi
+echo ""
+
+echo "=== Cache Status ==="
+echo ""
+
+# Read GPG agent cache settings from config
+if [ -f ~/.gnupg/gpg-agent.conf ]; then
+    default_ttl=$(grep -E "^default-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+    default_ttl_ssh=$(grep -E "^default-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+    max_ttl=$(grep -E "^max-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+    max_ttl_ssh=$(grep -E "^max-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+
+    echo "GPG Agent Cache Settings:"
+    echo "  - GPG Key Default TTL: $(seconds_to_human "$default_ttl") (${default_ttl}s)"
+    echo "  - GPG Key Max TTL: $(seconds_to_human "$max_ttl") (${max_ttl}s)"
+    echo "  - SSH Key Default TTL: $(seconds_to_human "$default_ttl_ssh") (${default_ttl_ssh}s)"
+    echo "  - SSH Key Max TTL: $(seconds_to_human "$max_ttl_ssh") (${max_ttl_ssh}s)"
+else
+    echo "GPG Agent config not found at ~/.gnupg/gpg-agent.conf"
+fi
+echo ""
+
+# Show loaded SSH keys
+echo "SSH Keys in Agent:"
+ssh-add -l || echo "  No keys loaded"
+echo ""
+
+echo -e "${GREEN}All agents unlocked!${NC}"
+echo "Run this script again if you see authentication prompts."
