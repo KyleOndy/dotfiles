@@ -15,6 +15,11 @@ in
       type = types.bool;
       default = true;
     };
+    clearCacheOnScreenLock = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Clear GPG and SSH agent caches when the screen locks";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -46,21 +51,31 @@ in
 
     services.gpg-agent = {
       enable = cfg.service;
-      defaultCacheTtl = 1800; # GPG keys: 30 minutes
-      defaultCacheTtlSsh = 3600; # SSH keys: 1 hour (resets on use)
-      maxCacheTtl = 7200; # GPG keys max: 2 hours
-      maxCacheTtlSsh = 14400; # SSH keys max: 4 hours
+      defaultCacheTtl = 28800; # GPG keys: 8 hours
+      defaultCacheTtlSsh = 28800; # SSH keys: 8 hours (resets on use)
+      maxCacheTtl = 28800; # GPG keys max: 8 hours
+      maxCacheTtlSsh = 28800; # SSH keys max: 8 hours
       enableSshSupport = true; # Enable SSH agent functionality
-      # Smart pinentry: Use curses in interactive terminals, GUI otherwise
-      pinentry.package = pkgs.writeShellScriptBin "pinentry-auto" ''
-        # Use curses (text mode) if we're in an interactive terminal with GPG_TTY set
-        # Use gtk2 (GUI) otherwise (for IDEs, automation, Claude Code, etc.)
-        if [ -t 0 ] && [ -n "$GPG_TTY" ] && [ -c "$GPG_TTY" ]; then
-          exec ${pkgs.pinentry-curses}/bin/pinentry-curses "$@"
-        else
-          exec ${pkgs.pinentry-gtk2}/bin/pinentry-gtk2 "$@"
-        fi
-      '';
+      pinentry.package = pkgs.pinentry-curses;
+    };
+
+    # Systemd service to clear GPG/SSH cache on screen lock
+    systemd.user.services.gpg-lock-on-screensaver = mkIf cfg.clearCacheOnScreenLock {
+      Unit = {
+        Description = "Clear GPG and SSH caches when screen locks";
+        After = [ "graphical-session.target" ];
+      };
+
+      Service = {
+        Type = "simple";
+        ExecStart = "${pkgs.bash}/bin/bash ${./gpg-lock-on-screensaver.sh}";
+        Restart = "on-failure";
+        RestartSec = "5s";
+      };
+
+      Install = {
+        WantedBy = [ "graphical-session.target" ];
+      };
     };
   };
 }
