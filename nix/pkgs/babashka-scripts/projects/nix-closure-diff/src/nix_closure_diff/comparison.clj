@@ -64,7 +64,7 @@
 
         ;; Get names of packages that had version changes
         version-changed-names (set (map :name version-changes))
-        
+
         ;; Filter out packages from added/removed that are actually version changes
         truly-added-keys (filter #(not (contains? version-changed-names (first %))) added-keys)
         truly-removed-keys (filter #(not (contains? version-changed-names (first %))) removed-keys)]
