@@ -1,15 +1,16 @@
 (ns youtube-downloader.core
   "Main orchestration logic for YouTube downloader"
   (:require
-   [clojure.string :as str]
-   [common.logging :as log]
-   [common.metrics-textfile :as textfile]
-   [common.process :as proc]
-   [youtube-downloader.anti-bot :as anti-bot]
-   [youtube-downloader.cleaner :as cleaner]
-   [youtube-downloader.config :as config]
-   [youtube-downloader.downloader :as dl]
-   [youtube-downloader.observability :as obs]))
+    [clojure.string :as str]
+    [common.logging :as log]
+    [common.metrics-textfile :as textfile]
+    [common.process :as proc]
+    [youtube-downloader.anti-bot :as anti-bot]
+    [youtube-downloader.cleaner :as cleaner]
+    [youtube-downloader.config :as config]
+    [youtube-downloader.downloader :as dl]
+    [youtube-downloader.observability :as obs]))
+
 
 (defn print-banner
   "Print startup banner with configuration info"
@@ -32,12 +33,14 @@
                :archive_exists (:archive-exists? config)
                :dry_run (boolean (:dry-run config))})))
 
+
 (defn print-channel-summary
   "Print summary of channel configurations"
   [channels]
   (log/info "Channel configuration loaded"
             {:total_channels (count channels)
              :channels (mapv #(select-keys % [:name :max-videos :download-shorts]) channels)}))
+
 
 (defn download-all-channels
   "Download videos from all configured channels"
@@ -73,9 +76,9 @@
 
               ;; Calculate delay to next channel
               delay-seconds (anti-bot/calculate-channel-delay
-                             channel-index
-                             total-channels
-                             sleep-between-channels)]
+                              channel-index
+                              total-channels
+                              sleep-between-channels)]
 
           ;; Record metrics for this channel
           (obs/record-channel-duration (:name current-channel) duration-seconds)
@@ -87,6 +90,7 @@
             (Thread/sleep (* 1000 delay-seconds)))
 
           (recur rest-channels (inc channel-index) new-results))))))
+
 
 (defn print-results-summary
   "Print summary of download results"
@@ -103,8 +107,10 @@
                :new_files new-downloads
                :failed_channels failed-details})
 
-    ;; Update metrics gauge for temp files
-    (obs/update-temp-files-count new-downloads)))
+    ;; Update metrics
+    (obs/update-temp-files-count new-downloads)
+    (obs/record-videos-processed new-downloads)))
+
 
 (defn validate-prerequisites
   "Check that required tools are available"
@@ -114,6 +120,7 @@
       (throw (ex-info (format "Missing required tools: %s"
                               (str/join ", " missing-tools))
                       {:missing-tools missing-tools})))))
+
 
 (defn handle-error
   "Handle errors gracefully with proper logging"
@@ -131,6 +138,7 @@
     (catch Exception _
       ;; Ignore logging errors
       nil)))
+
 
 (defn run-download-session
   "Run a complete download session"
@@ -182,6 +190,7 @@
           (catch Exception _))
         (System/exit 1)))))
 
+
 (defn maintenance-mode
   "Run in maintenance mode (cleanup only)"
   []
@@ -193,6 +202,7 @@
     (catch Exception e
       (handle-error e {})
       (System/exit 1))))
+
 
 (defn dry-run-mode
   "Run in dry-run mode to test configuration"
