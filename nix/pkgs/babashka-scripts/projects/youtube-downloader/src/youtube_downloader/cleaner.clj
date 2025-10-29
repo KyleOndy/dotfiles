@@ -1,10 +1,10 @@
 (ns youtube-downloader.cleaner
   "File management and cleanup operations"
   (:require
-   [babashka.fs :as fs]
-   [clojure.string :as str]
-   [common.fs :as cfs]
-   [common.process :as proc]))
+    [babashka.fs :as fs]
+    [clojure.string :as str]
+    [common.process :as proc]))
+
 
 (defn move-downloads
   "Move completed downloads from temp to media directory"
@@ -38,6 +38,7 @@
               (println "  ✗ Failed to move files with rsync")
               (println "  Error:" (:err result)))))))))
 
+
 (defn clean-incomplete-downloads
   "Remove incomplete download files"
   [media-dir & {:keys [dry-run]
@@ -65,19 +66,22 @@
               (try
                 (fs/delete f)
                 (swap! removed inc)
-                (catch Exception e
+                (catch Exception _
                   (swap! failed inc))))
             (println (format "  ✓ Removed %d files, %d failed" @removed @failed))))))))
 
+
 (defn clean-empty-directories
   "Remove empty directories"
-  [& dirs]
+  [& _]
   (println "  Skipping empty directory cleanup (simplified for now)"))
+
 
 (defn count-total-videos
   "Count total videos in media directory"
   [media-dir]
   (count (fs/glob media-dir "**/*.{mp4,webm,mkv}")))
+
 
 (defn get-directory-size
   "Get directory size in human readable format"
@@ -89,6 +93,7 @@
         "unknown"))
     (catch Exception _
       "unknown")))
+
 
 (defn cleanup-old-logs
   "Clean up old log files and temporary data"
@@ -112,9 +117,10 @@
               (try
                 (fs/delete log-file)
                 (swap! removed inc)
-                (catch Exception e
+                (catch Exception _
                   (swap! failed inc))))
             (println (format "  ✓ Removed %d logs, %d failed" @removed @failed))))))))
+
 
 (defn maintenance-cleanup
   "Perform comprehensive cleanup and maintenance"
@@ -141,6 +147,7 @@
           media-size (get-directory-size media-dir)]
       (println (format "\nFinal stats: %d videos | %s total size"
                        total-videos media-size)))))
+
 
 (defn quick-cleanup
   "Quick cleanup for post-download maintenance"
