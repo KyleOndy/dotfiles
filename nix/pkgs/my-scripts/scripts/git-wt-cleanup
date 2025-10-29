@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-set -Eeo pipefail
 
 # Git worktree cleanup utility
 # Provides interactive and automated cleanup of worktrees
 
-# Colors for output
-readonly RED='\033[0;31m'
-readonly GREEN='\033[0;32m'
-readonly YELLOW='\033[0;33m'
-readonly NC='\033[0m' # No Color
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
 
 # Configuration
 DRY_RUN=false
@@ -17,36 +17,7 @@ MODE=""
 AGE_DAYS=0
 
 # Get worktree root (find .bare directory)
-wt_root=$(git worktree list --porcelain 2>/dev/null | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2 || true)
-
-if [[ -z "$wt_root" ]]; then
-  echo "Error: Not in a worktree-based repository (no .bare found)" >&2
-  echo "To set up a repository for this workflow, use: git wt-clone <url>" >&2
-  exit 1
-fi
-
-# Detect the default branch for the remote
-get_default_branch() {
-  # Try symbolic-ref first (most reliable)
-  if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null); then
-    echo "$default_branch"
-    return 0
-  fi
-
-  # Fallback: try main first, then master
-  if git show-ref --verify --quiet refs/remotes/origin/main; then
-    echo "origin/main"
-    return 0
-  fi
-
-  if git show-ref --verify --quiet refs/remotes/origin/master; then
-    echo "origin/master"
-    return 0
-  fi
-
-  # Last resort: just use main
-  echo "origin/main"
-}
+wt_root=$(require_worktree_repo)
 
 # Get worktree information
 get_worktree_info() {

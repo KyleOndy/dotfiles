@@ -3,47 +3,36 @@
 # Run this script before working with Claude Code to ensure agents remain unlocked
 # for the configured cache duration
 
-set -euo pipefail
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
 
 echo "=== Unlocking GPG, YubiKey, and SSH Agents ==="
 echo ""
 
-# Colors for output
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-# Helper function to convert seconds to human-readable format
-seconds_to_human() {
-    local seconds=$1
-    local hours=$((seconds / 3600))
-    local minutes=$(((seconds % 3600) / 60))
-
-    if [ $hours -gt 0 ]; then
-        echo "${hours}h ${minutes}m"
-    else
-        echo "${minutes}m"
-    fi
-}
-
 # Test GPG signing to unlock YubiKey GPG key
-echo -e "${YELLOW}Testing GPG signing (will prompt for YubiKey PIN)...${NC}"
-echo "test" | gpg --clearsign --default-key DB0E3C33491F91C9 >/dev/null 2>&1 && \
-    echo -e "${GREEN}✓ GPG signing successful - YubiKey unlocked${NC}" || \
-    echo "✗ GPG signing failed"
+log_highlight "Testing GPG signing (will prompt for YubiKey PIN)..."
+if echo "test" | gpg --clearsign --default-key DB0E3C33491F91C9 >/dev/null 2>&1; then
+    log_info "GPG signing successful - YubiKey unlocked"
+else
+    log_error "GPG signing failed"
+fi
 echo ""
 
 # Test SSH authentication to unlock SSH key
-echo -e "${YELLOW}Testing SSH authentication (will prompt for SSH key passphrase)...${NC}"
+log_highlight "Testing SSH authentication (will prompt for SSH key passphrase)..."
 if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    echo -e "${GREEN}✓ SSH authentication successful - SSH agent unlocked${NC}"
+    log_info "SSH authentication successful - SSH agent unlocked"
 else
     # Try to add the key explicitly if connection failed but might be for other reasons
     if ssh-add -l >/dev/null 2>&1; then
-        echo -e "${GREEN}✓ SSH keys already in agent${NC}"
+        log_info "SSH keys already in agent"
     else
         ssh-add
-        echo -e "${GREEN}✓ SSH key added to agent${NC}"
+        log_info "SSH key added to agent"
     fi
 fi
 echo ""
@@ -73,5 +62,5 @@ echo "SSH Keys in Agent:"
 ssh-add -l || echo "  No keys loaded"
 echo ""
 
-echo -e "${GREEN}All agents unlocked!${NC}"
+log_info "All agents unlocked!"
 echo "Run this script again if you see authentication prompts."
