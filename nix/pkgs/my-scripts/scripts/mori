@@ -8,8 +8,10 @@
 # [1]: https://gist.github.com/retrohacker/19978af044a080ed5677c0eadf3ce865
 # [2]: https://news.ycombinator.com/item?id=38858730
 
-RED="\033[41m \033[0m"
-GREEN="\033[42m \033[0m"
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
 
 birthdate="1989-10-24"
 name="Kyle"
@@ -28,9 +30,9 @@ echo "$name, only $weeks_remaining Sundays remain - $spent% ($weeks_passed) Sund
 for (( block=0; block<width; block++ )); do
   if (( block <= red_blocks ))
   then
-    echo -ne "${RED}"
+    echo -ne "${COLOR_BLOCK_RED}"
   else
-    echo -ne "${GREEN}"
+    echo -ne "${COLOR_BLOCK_GREEN}"
   fi
 done
 echo

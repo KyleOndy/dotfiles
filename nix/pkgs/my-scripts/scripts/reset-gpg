@@ -1,7 +1,25 @@
 #!/usr/bin/env bash
 
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
 # This is just a bandaid. I need to figure out why gpg keeps dying on me.
+log_warn "Resetting GPG agents (this is a workaround for persistent issues)"
+
+log_info "Stopping gpg-agent..."
 sudo pkill gpg-agent
+
+log_info "Stopping pcscd..."
 sudo pkill pcscd
+
+log_info "Stopping scdaemon..."
 sudo pkill scdaemon
+
+log_info "Reloading GPG agent..."
 gpg-connect-agent reloadagent /bye
+
+log_info "GPG agents reset complete"

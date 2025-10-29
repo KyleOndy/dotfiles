@@ -1,45 +1,14 @@
 #!/usr/bin/env bash
-set -Eeo pipefail
 
-# Jira ticket validation pattern (used in work mode)
-readonly JIRA_PATTERN='^[A-Z]+-[0-9]+$'
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
 
-# Get worktree root (find .bare directory)
-# Allow command to fail gracefully (not in git repo is expected)
-wt_root=$(git worktree list --porcelain 2>/dev/null | rg '^worktree.*\.bare$' | sed 's/\/\.bare$//' | sort -u | cut -d' ' -f2 || true)
+set_strict_mode
 
-if [[ -z "$wt_root" ]]; then
-  echo "Error: Not in a worktree-based repository (no .bare found)" >&2
-  echo "To set up a repository for this workflow, use: git wt-clone <url>" >&2
-  exit 1
-fi
-
-# Detect the default branch for the remote
-# Tries multiple methods in order of reliability:
-# 1. Git's symbolic-ref (official default branch tracking)
-# 2. Check if origin/main exists
-# 3. Fall back to origin/master
-get_default_branch() {
-  # Try symbolic-ref first (most reliable)
-  if default_branch=$(git symbolic-ref refs/remotes/origin/HEAD --short 2>/dev/null); then
-    echo "$default_branch"
-    return 0
-  fi
-
-  # Fallback: try main first, then master
-  if git show-ref --verify --quiet refs/remotes/origin/main; then
-    echo "origin/main"
-    return 0
-  fi
-
-  if git show-ref --verify --quiet refs/remotes/origin/master; then
-    echo "origin/master"
-    return 0
-  fi
-
-  # Last resort: just use main (will fail later if it doesn't exist)
-  echo "origin/main"
-}
+# Get worktree root
+wt_root=$(require_worktree_repo)
 
 # Auto-detect mode based on argument count and flags
 if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
@@ -49,8 +18,7 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   folder_prefix="$2"  # Optional namespace/prefix
 
   if [[ -z "$branch_name" ]]; then
-    echo "Error: Branch name required when using --existing" >&2
-    exit 1
+    die "Branch name required when using --existing"
   fi
 
   # Determine base branch using auto-detection
@@ -64,7 +32,7 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   fi
 
   # Validate that branch exists (check local first, then remote)
-  echo "Checking if branch exists..."
+  log_info "Checking if branch exists..."
 
   if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
     # Local branch exists
@@ -74,7 +42,7 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
     branch_source="remote"
   else
     # Branch not found anywhere
-    echo "Error: Branch '${branch_name}' not found locally or in remote" >&2
+    log_error "Branch '${branch_name}' not found locally or in remote"
     echo "" >&2
     echo "Available local branches:" >&2
     git branch --list | sed 's/^[\* ]*/  /' | head -10 >&2
@@ -104,9 +72,8 @@ elif [[ $# -ge 2 ]]; then
   base_branch=${3:-$(get_default_branch)}
 
   # Validate Jira ticket format
-  if [[ ! "$ticket" =~ $JIRA_PATTERN ]]; then
-    echo "Error: Invalid ticket format '$ticket'. Expected format: PROJ-123" >&2
-    exit 1
+  if ! is_valid_jira_ticket "$ticket"; then
+    die "Invalid ticket format '$ticket'. Expected format: PROJ-123"
   fi
 
   feature_path="${wt_root}/${ticket}/${name}"
@@ -166,10 +133,10 @@ EOF
 fi
 
 # Create worktree
-echo "Fetching latest from remote..."
+log_info "Fetching latest from remote..."
 git fetch
 
-echo "Creating worktree..."
+log_info "Creating worktree..."
 if [[ "$checkout_existing" == true ]]; then
   # Checkout existing branch (no -b flag)
   # For local branches, use the branch name directly
@@ -187,7 +154,7 @@ fi
 
 # Set up git-crypt for new worktree if configured
 if git config --get filter.git-crypt.smudge &>/dev/null; then
-  echo "Setting up git-crypt..."
+  log_info "Setting up git-crypt..."
 
   # Get the worktree's git directory
   worktree_git_dir=$(git -C "$feature_path" rev-parse --git-dir)
@@ -207,16 +174,16 @@ if git config --get filter.git-crypt.smudge &>/dev/null; then
 fi
 
 # Checkout files after git-crypt is unlocked
-echo "Checking out files..."
+log_info "Checking out files..."
 (cd "$feature_path" && git checkout "${branch_name}")
 
 echo ""
-echo "✓ Created worktree: ${feature_path}"
-echo "✓ Branch: ${branch_name}"
+log_info "Created worktree: ${feature_path}"
+log_info "Branch: ${branch_name}"
 if [[ "$checkout_existing" == true ]]; then
-  echo "✓ Source: ${branch_source} branch"
+  log_info "Source: ${branch_source} branch"
 else
-  echo "✓ Based on: ${base_branch}"
+  log_info "Based on: ${base_branch}"
 fi
 echo ""
 echo "To start working:"

@@ -3,10 +3,24 @@
 #! nix-shell -i bash -p python3 ffmpeg yt-dlp
 # vi: ft=bash
 
-main() {
-  # each arg is a video
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../lib/common.sh
+source "${SCRIPT_DIR}/../lib/common.sh"
 
-  yt-dlp "$1" \
+set_strict_mode
+
+main() {
+  if [[ $# -eq 0 ]]; then
+    die "usage: $0 <video_url>
+Download a video from YouTube or other supported sites"
+  fi
+
+  local video_url=$1
+
+  log_info "Downloading video: $video_url"
+
+  yt-dlp "$video_url" \
     --prefer-free-formats \
     --format 'bestvideo[format_note!*=Premium]+bestaudio' \
     --ignore-errors \
@@ -16,6 +30,8 @@ main() {
     --concurrent-fragments=20 \
     --compat-options no-live-chat \
     --output "./%(upload_date)s - %(uploader)s - %(title)s [%(id)s].%(ext)s"
+
+  log_info "Download complete!"
 }
 
-main $@
+main "$@"
