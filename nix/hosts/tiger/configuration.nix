@@ -370,6 +370,7 @@ in
 
           # science
           "@AlphaPhoenixChannel"
+          "@BetaPhoenixChannel"
           "@miniminuteman773"
 
           # maker
