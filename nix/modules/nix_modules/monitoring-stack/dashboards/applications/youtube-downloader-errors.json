@@ -384,7 +384,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum by(reason) (rate(yt_retry_attempts_total[5m]))",
+          "expr": "sum by(reason) (rate(yt_retry_attempts_total[5m])) or vector(0)",
           "legendFormat": "{{reason}}",
           "refId": "A"
         }
@@ -444,7 +444,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "(sum(rate(yt_retry_attempts_total[24h])) - sum(rate(yt_downloads_total{status=\"failed\"}[24h]))) / sum(rate(yt_retry_attempts_total[24h])) * 100",
+          "expr": "((sum(rate(yt_retry_attempts_total[24h])) - sum(rate(yt_downloads_total{status=\"failed\"}[24h]))) / sum(rate(yt_retry_attempts_total[24h])) * 100) or vector(100)",
           "refId": "A"
         }
       ],
