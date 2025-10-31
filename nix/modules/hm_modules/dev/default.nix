@@ -10,6 +10,7 @@ with lib;
     ./core.nix
     ./documents.nix
     ./infrastructure/docker.nix
+    ./java.nix
     ./media.nix
     ./monitoring.nix
     ./nix-tools.nix
