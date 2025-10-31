@@ -71,7 +71,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "(sum(rate(yt_downloads_total{status=\"success\",channel=\"$channel\"}[7d])) / sum(rate(yt_downloads_total{channel=\"$channel\"}[7d])) * 60) + (20 - min(20, histogram_quantile(0.95, rate(yt_channel_duration_seconds_bucket{channel=\"$channel\"}[7d])) / 30 * 20)) + (20 - min(20, sum(rate(yt_retry_attempts_total{channel=\"$channel\"}[7d])) * 100))",
+          "expr": "(sum(rate(yt_downloads_total{status=\"success\",channel=\"$channel\"}[7d])) / sum(rate(yt_downloads_total{channel=\"$channel\"}[7d])) * 60) + (20 - min(20, histogram_quantile(0.95, rate(yt_channel_duration_seconds_bucket{channel=\"$channel\"}[7d])) / 30 * 20)) + (20 - min(20, (sum(rate(yt_retry_attempts_total{channel=\"$channel\"}[7d])) or vector(0)) * 100))",
           "refId": "A"
         }
       ],
