@@ -13,6 +13,9 @@
   ]
   ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
 
+  # Enable Java development tools for work
+  hmFoundry.dev.java.enable = true;
+
   # WSL-specific packages
   home.packages = with pkgs; [
     # WSL utilities for Windows interop

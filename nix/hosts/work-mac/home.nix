@@ -48,6 +48,9 @@
     DOTS_CONTEXT = "work";
   };
 
+  # Enable Java development tools for work
+  hmFoundry.dev.java.enable = true;
+
   # packages I use at work, but not persoanlly, that do not need to be kept
   # secret in the work fork.
   home.packages = with pkgs; [
