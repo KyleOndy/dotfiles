@@ -5,20 +5,20 @@
 with lib;
 {
   imports = [
-    ./core.nix
     ./cloud/aws.nix
     ./cloud/k8s.nix
-    ./terraform.nix
+    ./core.nix
+    ./documents.nix
     ./infrastructure/docker.nix
     ./media.nix
-    ./documents.nix
-    ./sysadmin.nix
     ./monitoring.nix
-    ./security.nix
-    ./performance.nix
     ./nix-tools.nix
-    ./tools.nix
+    ./performance.nix
     ./rust.nix
+    ./security.nix
+    ./sysadmin.nix
+    ./terraform.nix
+    ./tools.nix
   ];
 
   options.hmFoundry.dev = {
