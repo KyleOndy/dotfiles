@@ -234,7 +234,9 @@ Remove the completed task from TASKS.md:
 
 Use the Read tool to read `TASKS.md` (if not already read), then remove the first task (heading and its context) entirely. The file should now start with the next task (or be just `# Tasks` if this was the last one).
 
-Example:
+**Important**: The task heading may contain a status marker (e.g., `## [IN PROGRESS] Task title`). Always remove the entire heading line including any status marker.
+
+Example without status markers:
 
 ```markdown
 # Before
@@ -257,6 +259,32 @@ This task is next.
 
 This task is next.
 ```
+
+Example with status markers:
+
+```markdown
+# Before
+
+# Tasks
+
+## [IN PROGRESS] Completed task
+
+This task is done.
+
+## Next task
+
+This task is next.
+
+# After
+
+# Tasks
+
+## Next task
+
+This task is next.
+```
+
+Note: The next task may or may not have a status marker - preserve it as-is.
 
 ### 8. Stage and Commit
 
@@ -323,23 +351,28 @@ Please fix the test failures and run /task:done again when tests pass.
 
 **If no changes to commit:**
 
-```
+```text
 ⚠️ No changes detected
 
 Either the task hasn't been implemented yet, or changes were already committed.
 Check: git status
 
 If changes were already committed:
-- Just run /task:sync to update task list
+- Run `/task:sync` to update task list
 - Skip this /task:done command
+
+If you're unsure what to do, run `/task` for guidance.
 ```
 
 **If TASKS.md doesn't exist:**
 
-```
+```text
 ❌ TASKS.md not found
 
-Make sure you're in the project root and have run /task:decompose first.
+You need to create a task list first.
+
+Run `/task` to see your status and get guidance on next steps.
+Likely you need to run `/task:decompose` first.
 ```
 
 ## Tips
