@@ -151,6 +151,11 @@ in
         # we do not just symlink the entire commands dir, if we did we lose the
         # ability to drop arbitrary commands as we are testing them into that
         # dir.
+
+        # Bare commands (root level)
+        ".claude/commands/task.md".source = ./commands/task.md;
+
+        # Category commands (subdirectories)
         ".claude/commands/code/".source = ./commands/code;
         ".claude/commands/docs/".source = ./commands/docs;
         ".claude/commands/git/".source = ./commands/git;
@@ -165,6 +170,7 @@ in
         ".claude/projects/.keep".text = "";
         ".claude/todos/.keep".text = "";
         ".claude/commands/.keep".text = "";
+        ".claude/task-plans/.keep".text = "";
       };
 
     # Set environment variables for hook configuration

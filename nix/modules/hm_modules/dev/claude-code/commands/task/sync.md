@@ -66,6 +66,8 @@ Use `git status` to check:
 
 If any of the following are true, update TASKS.md:
 
+**IMPORTANT**: When modifying task headings, preserve any existing status markers like `[IN PROGRESS]` or `[BLOCKED]`. These markers track workflow state and should be maintained unless explicitly changing the status.
+
 **Reorder tasks** if dependencies have changed
 
 ```markdown
@@ -82,19 +84,44 @@ If any of the following are true, update TASKS.md:
 ## Task B (depends on X)
 ```
 
+Example with status markers:
+
+```markdown
+# Before
+
+## [BLOCKED] Task B (depends on X)
+
+## Task A (provides X)
+
+# After
+
+## Task A (provides X)
+
+## [BLOCKED] Task B (depends on X)
+```
+
 **Remove tasks** that are no longer needed
 
 - Delete the entire task section (heading + context)
+- Status markers are removed with the task
 
 **Modify task descriptions** if context has changed
 
 - Update the context to reflect new information
 - Clarify scope based on recent learnings
+- Preserve status markers in the heading (e.g., keep `[IN PROGRESS]` if present)
 
 **Add new tasks** if gaps were discovered
 
 - Insert in appropriate position based on dependencies
 - Include context about why the task is needed
+- New tasks typically have no status marker (unless immediately blocked)
+
+**Change status markers** when appropriate
+
+- Add `[BLOCKED]` if task cannot proceed without user input
+- Remove `[IN PROGRESS]` if work hasn't actually started yet
+- Add `[BLOCKED]` with explanation if dependencies are missing
 
 ### 6. Identify Blockers
 
@@ -109,10 +136,19 @@ If any tasks are blocked, STOP and report to user:
 
 **When blocked:**
 
-1. Clearly state which task is blocked and why
-2. Explain what's needed to unblock
-3. Ask user for input/decision
-4. DO NOT proceed to `/task:plan` until unblocked
+1. Mark the blocked task with `[BLOCKED]` status in TASKS.md
+2. Clearly state which task is blocked and why
+3. Explain what's needed to unblock
+4. Ask user for input/decision
+5. DO NOT proceed to `/task:plan` until unblocked
+
+Example of marking a task as blocked:
+
+```markdown
+## [BLOCKED] Implement JWT token generation
+
+Need to decide: Which JWT library? Token expiration time? Refresh tokens?
+```
 
 ### 7. Summary Report
 
@@ -193,6 +229,40 @@ The next task requires implementing JWT token generation, but we need to decide:
 3. Do we need refresh tokens?
 
 Please provide guidance on these decisions before proceeding.
+```
+
+## Error Handling
+
+**If TASKS.md doesn't exist:**
+
+```text
+❌ TASKS.md not found
+
+You need to create a task list first.
+
+Run `/task` to see your status and get guidance on next steps.
+Likely you need to run `/task:decompose` first.
+```
+
+**If no commits on branch:**
+
+```text
+ℹ️ No commits yet on this branch
+
+Nothing to sync - no work has been completed yet.
+
+Run `/task` to see your status and suggested next steps.
+Likely you need `/task:plan` to start working on the first task.
+```
+
+**If uncommitted changes exist:**
+
+```text
+⚠️ Uncommitted changes detected
+
+Complete your current work first before syncing.
+
+Run `/task` for guidance - likely you need `/task:done`.
 ```
 
 ## Tips

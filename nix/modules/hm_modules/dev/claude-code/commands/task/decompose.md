@@ -113,6 +113,34 @@ Create middleware to verify JWT tokens on protected routes.
 Test login success, invalid credentials, expired tokens, and middleware protection.
 ```
 
+## Error Handling
+
+**If PLANNING.md doesn't exist:**
+
+```text
+❌ PLANNING.md not found
+
+Before running /task:decompose, you need a planning document.
+
+Options:
+1. Create PLANNING.md with your high-level plan
+2. Use /task directly - it will guide you through the workflow
+
+Run `/task` to see your current status and suggested next steps.
+```
+
+**If TASKS.md already exists:**
+
+```text
+⚠️ TASKS.md already exists
+
+Do you want to:
+1. Replace it with a new task list from PLANNING.md
+2. Cancel and keep existing TASKS.md
+
+Run `/task` to see your current task status before deciding.
+```
+
 ## Tips
 
 - **Be specific**: "Add validation" → "Add email format and password strength validation to registration"
