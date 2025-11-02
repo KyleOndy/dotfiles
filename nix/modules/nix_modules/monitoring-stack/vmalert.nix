@@ -93,8 +93,28 @@ in
         - name: disk_space
           interval: 60s
           rules:
+            # Special rule for tiger /mnt/media - allow lower free space (media library fills up)
             - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Low disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+                description: "Disk space is below 5% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+
+            - alert: DiskSpaceCritical
+              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+                description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+
+            # Default disk space alerts for all other filesystems
+            - alert: DiskSpaceLow
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: warning
@@ -103,7 +123,7 @@ in
                 description: "Disk space is below 15% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: critical
@@ -143,22 +163,22 @@ in
                 description: "CPU load per core has been above 4 for 15 minutes on {{ $labels.instance }}. Current load per core: {{ $value | printf \"%.2f\" }}"
 
             - alert: HighMemoryUsage
-              expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or 0)) / node_memory_MemTotal_bytes)) > 0.85
               for: 5m
               labels:
                 severity: warning
               annotations:
                 summary: "High memory usage on {{ $labels.instance }}"
-                description: "Memory usage is above 85% on {{ $labels.instance }}. Current: {{ $value | humanizePercentage }}"
+                description: "Memory usage is above 85% on {{ $labels.instance }} (excluding reclaimable ZFS ARC). Current: {{ $value | humanizePercentage }}"
 
             - alert: HighMemoryUsageCritical
-              expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.95
+              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or 0)) / node_memory_MemTotal_bytes)) > 0.95
               for: 5m
               labels:
                 severity: critical
               annotations:
                 summary: "Critical memory usage on {{ $labels.instance }}"
-                description: "Memory usage is above 95% on {{ $labels.instance }}. Current: {{ $value | humanizePercentage }}"
+                description: "Memory usage is above 95% on {{ $labels.instance }} (excluding reclaimable ZFS ARC). Current: {{ $value | humanizePercentage }}"
 
             - alert: HostMemoryPressure
               expr: rate(node_vmstat_pgmajfault[5m]) > 1000
