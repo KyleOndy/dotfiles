@@ -72,6 +72,7 @@ in
       extraFlags = [
         "--cluster.listen-address="
         "--cluster.advertise-address=127.0.0.1:9094"
+        "--web.external-url=https://vmalert.apps.ondy.org"
       ];
 
       configuration = {
