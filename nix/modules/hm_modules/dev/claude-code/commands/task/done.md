@@ -18,7 +18,38 @@ Before committing, ensure the solution is:
 
 ## Workflow
 
-### 1. Review Implementation Quality
+### 1. Verify Testing Was Completed
+
+**Before committing, confirm that testing was done:**
+
+Check if `/task:test` was run recently by looking for indicators:
+
+- Have tests been modified or created? (`git status`)
+- Are there uncommitted changes that suggest work is still in progress?
+
+**If you skipped `/task:test`:**
+
+```text
+⚠️ Recommended: Run /task:test first
+
+/task:test provides:
+- Automated test execution with clear pass/fail status
+- Manual verification checklist from your plan
+- Iterative testing workflow (test → fix → test)
+
+Do you want to run /task:test before committing? (yes/no/skip)
+```
+
+**User responses:**
+
+- **Yes** → Stop and tell user to run `/task:test`, then return to `/task:done`
+- **No/Skip** → Continue with `/task:done` (user takes responsibility)
+
+**If tests were clearly run** (test files modified, no major concerns):
+
+- Proceed to review
+
+### 2. Review Implementation Quality
 
 **Check for Simplicity:**
 
@@ -40,15 +71,17 @@ Before committing, ensure the solution is:
 - Consistent with existing codebase style?
 - No code duplication that should be extracted?
 
-### 2. Verify Tests
+### 3. Safety Check: Run Tests
+
+**Note:** This is a final safety check. Primary testing should happen in `/task:test`.
 
 **Test Existence:**
 
 Use `git status` to check if test files were created or modified.
 
-**Run Tests:**
+**Run Tests (Quick Check):**
 
-Determine the project's test command and run it using the Bash tool:
+Run tests one final time as a safety check:
 
 - For Python: `pytest`
 - For Go: `go test ./...`
@@ -56,21 +89,29 @@ Determine the project's test command and run it using the Bash tool:
 - For Rust: `cargo test`
 - For Make-based: `make test`
 
-**Test Quality Check:**
+**If tests pass:**
 
-- Do tests cover the core functionality?
-- Do tests cover error cases?
-- Are test names descriptive?
-- Do tests match code complexity? (simple code = simple tests)
+- Continue to next step (code quality review)
 
 **If tests fail:**
 
-1. Show the test failures clearly
-2. DO NOT proceed with commit
-3. Fix the failures first
-4. Return to this command when fixed
+```text
+❌ Tests are failing
 
-### 3. Check for Simpler Approaches
+This suggests testing wasn't completed properly.
+
+Recommendation:
+1. Run /task:test to see detailed test output and manual verification checklist
+2. Fix issues iteratively using /task:test
+3. Return to /task:done when tests pass
+
+Do you want to fix the tests now or skip this check? (fix/skip)
+```
+
+- **fix** → Stop, direct user to run `/task:test`
+- **skip** → DO NOT ALLOW - tests must pass before commit
+
+### 4. Check for Simpler Approaches
 
 Take a moment to reflect:
 
@@ -90,7 +131,7 @@ Take a moment to reflect:
 
 - Proceed to commit preparation
 
-### 4. Prepare Commit
+### 5. Prepare Commit
 
 **Read the completed task:**
 
@@ -115,7 +156,7 @@ Use git commands to review changes:
 - What files were modified?
 - What was the nature of the changes? (feature, fix, refactor, test, docs, chore)
 
-### 5. Determine Commit Type
+### 6. Determine Commit Type
 
 **Read user's commit conventions:**
 
@@ -156,9 +197,9 @@ Use conventional commits defaults:
 - Use imperative mood ("add" not "added")
 - Explain what and why in body, not how
 
-### 6. Craft Commit Message
+### 7. Craft Commit Message
 
-**Apply the commit conventions from step 5.**
+**Apply the commit conventions from step 6.**
 
 **Message Structure:**
 
@@ -228,7 +269,7 @@ email scenarios. Ensures validation catches common input errors.
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-### 7. Update TASKS.md
+### 8. Update TASKS.md
 
 Remove the completed task from TASKS.md:
 
@@ -286,7 +327,7 @@ This task is next.
 
 Note: The next task may or may not have a status marker - preserve it as-is.
 
-### 8. Stage and Commit
+### 9. Stage and Commit
 
 **Stage all changes including TASKS.md:**
 
@@ -312,7 +353,7 @@ Use git commands to verify:
 - `git log -1 --pretty=format:"%h %s%n%b"` to show the commit message
 - `git status` to confirm clean working directory
 
-### 9. Summary
+### 10. Summary
 
 Provide completion summary:
 
@@ -346,7 +387,13 @@ Next Steps:
 Test Failures:
 [show failing test output]
 
-Please fix the test failures and run /task:done again when tests pass.
+Please run /task:test to fix issues iteratively:
+1. Run /task:test to see detailed failures
+2. Fix the issues
+3. Run /task:test again (repeat as needed)
+4. Return to /task:done when all tests pass
+
+Tests must pass before committing.
 ```
 
 **If no changes to commit:**
@@ -377,8 +424,9 @@ Likely you need to run `/task:decompose` first.
 
 ## Tips
 
+- **Run /task:test first**: Testing should happen before /task:done
 - **Don't rush review**: Take time to genuinely assess if there's a simpler way
-- **Tests matter**: Never commit without running tests
+- **Tests must pass**: Never commit without passing tests
 - **Good commit messages**: Future you will thank present you for clarity
 - **Atomic commits**: Each commit should be a complete, working change
 - **Remove completed tasks**: Keeps TASKS.md focused on what's left
