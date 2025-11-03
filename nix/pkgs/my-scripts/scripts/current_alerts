@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Show currently firing alerts from vmalert
+
+set -euo pipefail
+
+# Color codes
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# vmalert host (can be overridden with environment variable)
+VMALERT_HOST="${VMALERT_HOST:-cheetah}"
+VMALERT_PORT="${VMALERT_PORT:-8880}"
+
+# Function to format a timestamp
+format_time() {
+  local timestamp="$1"
+  if command -v gdate &> /dev/null; then
+    # macOS with GNU coreutils
+    gdate -d "$timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "$timestamp"
+  else
+    # Linux
+    date -d "$timestamp" "+%Y-%m-%d %H:%M:%S %Z" 2>/dev/null || echo "$timestamp"
+  fi
+}
+
+# Query vmalert for alerts
+echo -e "${BLUE}Querying vmalert on ${VMALERT_HOST}...${NC}\n"
+
+ALERTS=$(ssh "$VMALERT_HOST" curl -s "http://127.0.0.1:${VMALERT_PORT}/api/v1/alerts")
+
+# Check if we got valid JSON
+if ! echo "$ALERTS" | jq empty 2>/dev/null; then
+  echo -e "${RED}Error: Failed to get alerts from vmalert${NC}"
+  exit 1
+fi
+
+# Count total and firing alerts
+TOTAL_ALERTS=$(echo "$ALERTS" | jq '.data.alerts | length')
+FIRING_ALERTS=$(echo "$ALERTS" | jq '[.data.alerts[] | select(.state=="firing")] | length')
+
+echo -e "${CYAN}Total alerts: ${NC}${TOTAL_ALERTS}"
+echo -e "${CYAN}Firing alerts: ${NC}${FIRING_ALERTS}"
+echo ""
+
+if [ "$FIRING_ALERTS" -eq 0 ]; then
+  echo -e "${GREEN}✓ No alerts currently firing${NC}"
+  exit 0
+fi
+
+# Display firing alerts
+echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${RED}                    FIRING ALERTS                            ${NC}"
+echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+echo "$ALERTS" | jq -r '.data.alerts[] | select(.state=="firing") |
+  "[\(.labels.severity | ascii_upcase)] \(.labels.alertname)\n" +
+  "  Host: \(.labels.host // "N/A")\n" +
+  "  Description: \(.annotations.description // .annotations.summary // "No description")\n" +
+  "  Active since: \(.activeAt)\n" +
+  "  Value: \(.value)\n" +
+  "  Source: \(.source)\n" +
+  "---"
+' | while IFS= read -r line; do
+  if [[ "$line" =~ ^\[WARNING\] ]]; then
+    echo -e "${YELLOW}${line}${NC}"
+  elif [[ "$line" =~ ^\[CRITICAL\] ]]; then
+    echo -e "${RED}${line}${NC}"
+  elif [[ "$line" =~ ^\ +Host: ]]; then
+    echo -e "${CYAN}${line}${NC}"
+  elif [[ "$line" =~ ^--- ]]; then
+    echo ""
+  else
+    echo "$line"
+  fi
+done
