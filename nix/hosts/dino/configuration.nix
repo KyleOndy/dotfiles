@@ -192,7 +192,10 @@
       USB_EXCLUDE_WWAN = 0;
 
       # Battery charge thresholds (preserve battery health)
-      START_CHARGE_THRESH_BAT0 = 90;
+      # Framework laptops only support stop threshold (end threshold)
+      # TLP uses BAT0 for main battery config regardless of sysfs name (BAT1)
+      # Set START to 0 to use only stop threshold (per TLP docs)
+      START_CHARGE_THRESH_BAT0 = 0;
       STOP_CHARGE_THRESH_BAT0 = 97;
     };
   };
