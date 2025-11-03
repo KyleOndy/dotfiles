@@ -34,3 +34,4 @@ target/
 *closure*report*.json
 
 .cpcache/
+.clojure-mcp/
