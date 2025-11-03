@@ -140,6 +140,48 @@ Now that you understand the context, plan the implementation:
 - What's the naming convention?
 - What testing framework/libraries are used?
 
+**Manual Verification Steps:**
+
+Consider if manual testing is needed based on the changes:
+
+- **UI changes**: Browser testing, visual verification
+- **API endpoints**: Test with curl/httpie, check responses
+- **CLI tools**: Run commands manually, verify output
+- **Configuration changes**: Verify behavior changes as expected
+- **Performance sensitive**: Check resource usage, response times
+- **Security relevant**: Test authentication, authorization, input validation
+
+If manual testing is needed, create a checklist with specific, actionable steps and include validation commands.
+
+**Example format:**
+
+````markdown
+### Manual Verification
+
+- [ ] Test registration form with valid email in browser
+- [ ] Test with invalid email format (no @, missing domain)
+- [ ] Verify error message displays correctly in UI
+- [ ] Test with very long email address (edge case)
+
+### Validation Commands
+
+```bash
+# Test valid email
+curl -X POST http://localhost:5000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com", "password": "test123"}'
+
+# Test invalid email - should return 400
+curl -X POST http://localhost:5000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "invalid-email", "password": "test123"}'
+```
+````
+
+````
+
+These manual steps will be used by `/task:test` to guide verification.
+
 ### 7. Identify Risks and Unknowns
 
 **Technical Risks:**
@@ -203,7 +245,7 @@ Provide a comprehensive but concise plan:
 ## Questions for User
 - [Any decisions needed]
 - [Or "None - ready to implement" if clear]
-```
+````
 
 ### 9. Mark Task as In Progress
 
@@ -299,7 +341,7 @@ After presenting the plan:
 
 ## Example Plan Output
 
-```text
+````text
 📋 Implementation Plan
 
 ## Summary
@@ -329,22 +371,46 @@ Add email validation to user registration endpoint by reusing existing validator
 5. Run existing tests to ensure no regressions
 
 ## Testing Strategy
+
+### Automated Tests
 - Unit tests: valid emails (user@example.com), invalid formats (no @, no domain)
 - Edge cases: empty string, null, very long emails
 - Integration: register endpoint returns 400 for invalid email
 - Use existing test utilities in `tests/helpers/`
 
+### Manual Verification
+- [ ] Test registration form in browser with valid email
+- [ ] Test with invalid email formats (verify error display)
+- [ ] Check that validation happens before database insert
+
+### Validation Commands
+```bash
+# Test endpoint directly
+curl -X POST http://localhost:5000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "test123"}'
+
+# Test with invalid email
+curl -X POST http://localhost:5000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{"email": "notanemail", "password": "test123"}'
+````
+
 ## Dependencies
+
 - Uses: existing `isValidEmail` from validators.js
 - Affects: registration endpoint behavior, error responses
 
 ## Risks/Considerations
+
 - Need to preserve existing email validation behavior in other endpoints
 - Should return consistent error format (check existing error responses)
 
 ## Questions for User
+
 None - ready to implement
-```
+
+````
 
 ## Error Handling
 
@@ -357,7 +423,7 @@ You need to create a task list before planning.
 
 Run `/task` to see your status and get guidance on next steps.
 Likely you need to run `/task:decompose` first.
-```
+````
 
 **If TASKS.md is empty or has no tasks:**
 
@@ -389,4 +455,4 @@ Run `/task` for guidance - likely you need `/task:done`.
 
 ---
 
-**Next Step:** After user approves the plan, begin implementation and testing. When done, run `/task:done`.
+**Next Step:** After user approves the plan, begin implementation. When implementation is complete, run `/task:test` to verify it works, then `/task:done` to commit.
