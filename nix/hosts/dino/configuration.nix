@@ -389,6 +389,9 @@
   # Docker
   systemFoundry.docker.enable = true;
 
+  # Professional audio/video devices (MOTU M4, Elgato)
+  systemFoundry.audioVideoDevices.enable = true;
+
   # Power management - disable conflicting service
   services.power-profiles-daemon.enable = false; # using tlp instead
 
@@ -399,6 +402,7 @@
   home-manager.users.kyle = {
     hmFoundry = {
       desktop = {
+        apps.zoom.enable = true;
         media.latex.enable = true;
         wm.kde.enable = true;
       };
