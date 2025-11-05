@@ -28,6 +28,7 @@ in
         "docker"
         "networkmanager"
         "render" # gpu access
+        "video" # camera/capture device access
         "wheel" # Enable 'sudo' for the user.
       ];
       # despite being able to change the password, every time NixOS is rebuild,
