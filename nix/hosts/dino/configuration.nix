@@ -124,6 +124,10 @@
     };
     fwupd.enable = true;
     libinput.touchpad.disableWhileTyping = true;
+
+    # Thunderbolt support for CalDigit TS4 dock
+    # Enables authorization of Thunderbolt devices via boltctl
+    hardware.bolt.enable = true;
   };
   hardware = {
     enableRedistributableFirmware = true;
@@ -229,6 +233,7 @@
     rsync
     neovim
     powertop # Power consumption and management diagnosis tool
+    bolt # Thunderbolt device management for CalDigit TS4 dock
   ];
 
   environment.pathsToLink = [
@@ -267,6 +272,43 @@
     enable = true;
     drivers = [ pkgs.hplip ];
   };
+
+  # Prevent system sleep when CalDigit TS4 dock is connected
+  # This ensures the laptop stays awake while docked, even if lid is closed
+  systemd.services.inhibit-sleep-when-docked =
+    let
+      checkScript = pkgs.writeShellScript "check-dock-connected" ''
+        #!/usr/bin/env bash
+        set -euo pipefail
+
+        while true; do
+          # Check if CalDigit dock is actively connected (not just stored in bolt DB)
+          # First get the output, then check if CalDigit exists AND status shows connected (not disconnected)
+          DOCK_INFO=$(${pkgs.bolt}/bin/boltctl list 2>/dev/null || true)
+
+          if echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -q "CalDigit" && \
+             echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -A10 "CalDigit" | ${pkgs.gnugrep}/bin/grep -qE "status:[[:space:]]+connected$"; then
+            # Dock is connected, keep inhibitor active
+            echo "$(date): CalDigit dock detected as connected, maintaining sleep inhibitor"
+            sleep 5
+          else
+            # No dock detected or dock is disconnected, exit and release inhibitor
+            echo "$(date): CalDigit dock not connected, releasing sleep inhibitor"
+            exit 0
+          fi
+        done
+      '';
+    in
+    {
+      description = "Inhibit sleep when CalDigit TS4 Thunderbolt dock is connected";
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        Type = "simple";
+        ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=sleep:handle-lid-switch --who='CalDigit TS4 Dock Monitor' --why='Prevent sleep while docked' --mode=block ${checkScript}";
+        Restart = "always";
+        RestartSec = "10s";
+      };
+    };
 
   # Monitoring stack configuration
   systemFoundry.monitoringStack = {
