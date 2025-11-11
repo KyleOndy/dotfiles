@@ -261,6 +261,11 @@
       ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789A]?", ENV{MTP_NO_PROBE}="1"
       SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789ABCD]?", MODE:="0666"
       KERNEL=="ttyACM*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", MODE:="0666"
+
+      # Enable wake from sleep for built-in keyboard and trackpad
+      # serio0 = AT keyboard (i8042), serio1 = PS/2 trackpad
+      SUBSYSTEM=="serio", KERNEL=="serio0", ATTR{power/wakeup}="enabled"
+      SUBSYSTEM=="serio", KERNEL=="serio1", ATTR{power/wakeup}="enabled"
     '';
   };
 
