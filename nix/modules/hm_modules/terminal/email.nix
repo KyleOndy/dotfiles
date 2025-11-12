@@ -18,12 +18,14 @@ in
     programs.msmtp.enable = true;
 
     # Automatic mail sync timer
+    # Note: This service is overridden in host configuration to use sops-based config
     systemd.user.services.mbsync = {
       Unit = {
         Description = "Mailbox synchronization service";
       };
       Service = {
         Type = "oneshot";
+        # This ExecStart is overridden in host config for automated sync with sops
         ExecStart = "${pkgs.isync}/bin/mbsync --all";
         # Don't fail if quota exceeded - just skip and retry later
         SuccessExitStatus = [
