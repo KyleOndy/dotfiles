@@ -332,6 +332,11 @@
       ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789A]?", ENV{MTP_NO_PROBE}="1"
       SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789ABCD]?", MODE:="0666"
       KERNEL=="ttyACM*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", MODE:="0666"
+
+      # CalDigit TS4 Thunderbolt dock - start sleep inhibitor when connected
+      # Trigger on Thunderbolt device add/remove events for CalDigit vendor
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{device_name}=="TS4", ATTR{vendor_name}=="CalDigit, Inc.", TAG+="systemd", ENV{SYSTEMD_WANTS}="inhibit-sleep-when-docked.service"
+      ACTION=="remove", SUBSYSTEM=="thunderbolt", ATTR{device_name}=="TS4", ATTR{vendor_name}=="CalDigit, Inc.", RUN+="${pkgs.systemd}/bin/systemctl stop inhibit-sleep-when-docked.service"
     '';
   };
 
@@ -346,25 +351,26 @@
 
   # Prevent system sleep when CalDigit TS4 dock is connected
   # This ensures the laptop stays awake while docked, even if lid is closed
+  # Triggered by udev rules when dock connects/disconnects
   systemd.services.inhibit-sleep-when-docked =
     let
-      checkScript = pkgs.writeShellScript "check-dock-connected" ''
+      monitorScript = pkgs.writeShellScript "monitor-dock-connected" ''
         #!/usr/bin/env bash
         set -euo pipefail
 
+        echo "$(date): CalDigit dock connected, holding sleep inhibitor"
+
+        # Monitor dock connection status
         while true; do
-          # Check if CalDigit dock is actively connected (not just stored in bolt DB)
-          # First get the output, then check if CalDigit exists AND status shows connected (not disconnected)
           DOCK_INFO=$(${pkgs.bolt}/bin/boltctl list 2>/dev/null || true)
 
           if echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -q "CalDigit" && \
              echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -A10 "CalDigit" | ${pkgs.gnugrep}/bin/grep -qE "status:[[:space:]]+connected$"; then
-            # Dock is connected, keep inhibitor active
-            echo "$(date): CalDigit dock detected as connected, maintaining sleep inhibitor"
-            sleep 5
+            # Still connected, keep holding inhibitor
+            sleep 10
           else
-            # No dock detected or dock is disconnected, exit and release inhibitor
-            echo "$(date): CalDigit dock not connected, releasing sleep inhibitor"
+            # Dock disconnected, exit to release inhibitor
+            echo "$(date): CalDigit dock disconnected, releasing sleep inhibitor"
             exit 0
           fi
         done
@@ -372,12 +378,11 @@
     in
     {
       description = "Inhibit sleep when CalDigit TS4 Thunderbolt dock is connected";
-      wantedBy = [ "multi-user.target" ];
+      # Service is triggered by udev rules, not started at boot
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=sleep:handle-lid-switch --who='CalDigit TS4 Dock Monitor' --why='Prevent sleep while docked' --mode=block ${checkScript}";
-        Restart = "always";
-        RestartSec = "10s";
+        ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=sleep:handle-lid-switch --who='CalDigit TS4 Dock Monitor' --why='Prevent sleep while docked' --mode=block ${monitorScript}";
+        Restart = "on-failure";
       };
     };
 
