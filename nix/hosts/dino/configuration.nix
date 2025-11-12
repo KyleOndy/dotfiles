@@ -58,6 +58,13 @@
     "mem_sleep_default=deep" # Enable deeper S3 sleep state for better power savings
   ];
 
+  # Enable Framework battery charge control via cros_charge-control driver
+  # Required for TLP 1.8+ to manage battery thresholds on Framework laptops
+  # This allows TLP to communicate with the ChromeOS-derived EC to enforce charge limits
+  boot.extraModprobeConfig = ''
+    options cros_charge_control probe_with_fwk_charge_control=1
+  '';
+
   networking.hostName = "dino"; # Define your hostname.
   system.stateVersion = "24.05";
 
@@ -105,12 +112,83 @@
       # our own VictoriaMetrics instance, not external services.
       mode = "0444";
     };
+    email_kyle_ondy_org = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    email_kyle_ondy_me = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    email_kyleondy_gmail = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   sops.templates."nm-home-wifi-env" = {
     content = ''
       HOME_WIFI_SSID="${config.sops.placeholder.home_wifi_ssid}"
       HOME_WIFI_PASSWORD="${config.sops.placeholder.home_wifi_password}"
+    '';
+  };
+
+  # Password script for automated mbsync service
+  sops.templates."mbsync-password-script" = {
+    owner = "kyle";
+    mode = "0500";
+    content = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+      case "$1" in
+        "kyle@ondy.org")
+          cat ${config.sops.secrets.email_kyle_ondy_org.path}
+          ;;
+        "kyle@ondy.me")
+          cat ${config.sops.secrets.email_kyle_ondy_me.path}
+          ;;
+        "kyleondy@gmail.com")
+          cat ${config.sops.secrets.email_kyleondy_gmail.path}
+          ;;
+        *)
+          echo "Unknown email account: $1" >&2
+          exit 1
+          ;;
+      esac
+    '';
+  };
+
+  # Automated mbsync config for systemd service (uses sops passwords)
+  sops.templates."mbsyncrc-automated" = {
+    owner = "kyle";
+    mode = "0600";
+    content = ''
+      # Generated mbsync config for automated systemd service
+      # Uses sops-encrypted passwords instead of pass/GPG
+
+      IMAPAccount kyle_at_ondy_org
+      CertificateFile /etc/ssl/certs/ca-certificates.crt
+      Host london.mxroute.com
+      PassCmd "bash ${config.sops.templates."mbsync-password-script".path} kyle@ondy.org"
+      TLSType IMAPS
+      User kyle@ondy.org
+
+      IMAPStore kyle_at_ondy_org-remote
+      Account kyle_at_ondy_org
+
+      MaildirStore kyle_at_ondy_org-local
+      Inbox /home/kyle/mail/ondy.org/Inbox
+      Path /home/kyle/mail/ondy.org/
+      SubFolders Verbatim
+
+      Channel kyle_at_ondy_org
+      Create Near
+      Expunge None
+      Far :kyle_at_ondy_org-remote:
+      Near :kyle_at_ondy_org-local:
+      Patterns INBOX Archive "Deleted Messages" Drafts Junk Sent
+      Remove None
+      SyncState *
     '';
   };
 
@@ -262,10 +340,10 @@
       SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789ABCD]?", MODE:="0666"
       KERNEL=="ttyACM*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", MODE:="0666"
 
-      # Enable wake from sleep for built-in keyboard and trackpad
-      # serio0 = AT keyboard (i8042), serio1 = PS/2 trackpad
-      SUBSYSTEM=="serio", KERNEL=="serio0", ATTR{power/wakeup}="enabled"
-      SUBSYSTEM=="serio", KERNEL=="serio1", ATTR{power/wakeup}="enabled"
+      # CalDigit TS4 Thunderbolt dock - start sleep inhibitor when connected
+      # Trigger on Thunderbolt device add/remove events for CalDigit vendor
+      ACTION=="add", SUBSYSTEM=="thunderbolt", ATTR{device_name}=="TS4", ATTR{vendor_name}=="CalDigit, Inc.", TAG+="systemd", ENV{SYSTEMD_WANTS}="inhibit-sleep-when-docked.service"
+      ACTION=="remove", SUBSYSTEM=="thunderbolt", ATTR{device_name}=="TS4", ATTR{vendor_name}=="CalDigit, Inc.", RUN+="${pkgs.systemd}/bin/systemctl stop inhibit-sleep-when-docked.service"
     '';
   };
 
@@ -280,25 +358,26 @@
 
   # Prevent system sleep when CalDigit TS4 dock is connected
   # This ensures the laptop stays awake while docked, even if lid is closed
+  # Triggered by udev rules when dock connects/disconnects
   systemd.services.inhibit-sleep-when-docked =
     let
-      checkScript = pkgs.writeShellScript "check-dock-connected" ''
+      monitorScript = pkgs.writeShellScript "monitor-dock-connected" ''
         #!/usr/bin/env bash
         set -euo pipefail
 
+        echo "$(date): CalDigit dock connected, holding sleep inhibitor"
+
+        # Monitor dock connection status
         while true; do
-          # Check if CalDigit dock is actively connected (not just stored in bolt DB)
-          # First get the output, then check if CalDigit exists AND status shows connected (not disconnected)
           DOCK_INFO=$(${pkgs.bolt}/bin/boltctl list 2>/dev/null || true)
 
           if echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -q "CalDigit" && \
              echo "$DOCK_INFO" | ${pkgs.gnugrep}/bin/grep -A10 "CalDigit" | ${pkgs.gnugrep}/bin/grep -qE "status:[[:space:]]+connected$"; then
-            # Dock is connected, keep inhibitor active
-            echo "$(date): CalDigit dock detected as connected, maintaining sleep inhibitor"
-            sleep 5
+            # Still connected, keep holding inhibitor
+            sleep 10
           else
-            # No dock detected or dock is disconnected, exit and release inhibitor
-            echo "$(date): CalDigit dock not connected, releasing sleep inhibitor"
+            # Dock disconnected, exit to release inhibitor
+            echo "$(date): CalDigit dock disconnected, releasing sleep inhibitor"
             exit 0
           fi
         done
@@ -306,12 +385,11 @@
     in
     {
       description = "Inhibit sleep when CalDigit TS4 Thunderbolt dock is connected";
-      wantedBy = [ "multi-user.target" ];
+      # Service is triggered by udev rules, not started at boot
       serviceConfig = {
         Type = "simple";
-        ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=sleep:handle-lid-switch --who='CalDigit TS4 Dock Monitor' --why='Prevent sleep while docked' --mode=block ${checkScript}";
-        Restart = "always";
-        RestartSec = "10s";
+        ExecStart = "${pkgs.systemd}/bin/systemd-inhibit --what=sleep:handle-lid-switch --who='CalDigit TS4 Dock Monitor' --why='Prevent sleep while docked' --mode=block ${monitorScript}";
+        Restart = "on-failure";
       };
     };
 
@@ -351,6 +429,29 @@
         host = "dino";
       };
     };
+  };
+
+  # Notmuch mail indexing service (runs after mbsync)
+  systemd.user.services.notmuch-new = {
+    description = "Notmuch mail indexer";
+    after = [ "mbsync.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # Use --no-hooks since mbsync is handled by separate service
+      ExecStart = "${pkgs.notmuch}/bin/notmuch new --no-hooks";
+      WorkingDirectory = "/home/kyle";
+      StandardOutput = "journal";
+    };
+  };
+
+  # Timer to run notmuch after mbsync completes
+  systemd.user.timers.notmuch-new = {
+    description = "Notmuch mail indexing timer";
+    timerConfig = {
+      OnCalendar = "*:0/15"; # Every 15 minutes, matching mbsync
+      Persistent = true;
+    };
+    wantedBy = [ "timers.target" ];
   };
 
   # Programs configuration
@@ -445,6 +546,12 @@
   # Framework 13 DSP support
   programs.dconf.enable = true;
 
+  # Configure systemd-logind to let KDE PowerDevil handle power button
+  # Otherwise logind intercepts power button before KDE can handle it
+  services.logind.extraConfig = ''
+    HandlePowerKey=ignore
+  '';
+
   # Dino-specific home-manager user configuration
   home-manager.users.kyle = {
     hmFoundry = {
@@ -482,7 +589,7 @@
         };
         whenLaptopLidClosed = "sleep"; # Still sleep when lid closes
         inhibitLidActionWhenExternalMonitorConnected = true; # Don't sleep with external monitor
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       battery = {
@@ -499,7 +606,7 @@
           idleTimeout = 120; # Dim after 2 minutes
         };
         whenLaptopLidClosed = "sleep";
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       lowBattery = {
@@ -516,7 +623,7 @@
           idleTimeout = 30; # Dim after 30 seconds
         };
         whenLaptopLidClosed = "sleep";
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       batteryLevels = {
@@ -525,5 +632,10 @@
         criticalAction = "sleep"; # Sleep at critical battery
       };
     };
+
+    # Override mbsync service to use sops-based config for automated runs
+    systemd.user.services.mbsync.Service.ExecStart = lib.mkForce "${pkgs.isync}/bin/mbsync -c ${
+      config.sops.templates."mbsyncrc-automated".path
+    } --all";
   };
 }
