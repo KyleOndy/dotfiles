@@ -105,12 +105,83 @@
       # our own VictoriaMetrics instance, not external services.
       mode = "0444";
     };
+    email_kyle_ondy_org = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    email_kyle_ondy_me = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    email_kyleondy_gmail = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   sops.templates."nm-home-wifi-env" = {
     content = ''
       HOME_WIFI_SSID="${config.sops.placeholder.home_wifi_ssid}"
       HOME_WIFI_PASSWORD="${config.sops.placeholder.home_wifi_password}"
+    '';
+  };
+
+  # Password script for automated mbsync service
+  sops.templates."mbsync-password-script" = {
+    owner = "kyle";
+    mode = "0500";
+    content = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+      case "$1" in
+        "kyle@ondy.org")
+          cat ${config.sops.secrets.email_kyle_ondy_org.path}
+          ;;
+        "kyle@ondy.me")
+          cat ${config.sops.secrets.email_kyle_ondy_me.path}
+          ;;
+        "kyleondy@gmail.com")
+          cat ${config.sops.secrets.email_kyleondy_gmail.path}
+          ;;
+        *)
+          echo "Unknown email account: $1" >&2
+          exit 1
+          ;;
+      esac
+    '';
+  };
+
+  # Automated mbsync config for systemd service (uses sops passwords)
+  sops.templates."mbsyncrc-automated" = {
+    owner = "kyle";
+    mode = "0600";
+    content = ''
+      # Generated mbsync config for automated systemd service
+      # Uses sops-encrypted passwords instead of pass/GPG
+
+      IMAPAccount kyle_at_ondy_org
+      CertificateFile /etc/ssl/certs/ca-certificates.crt
+      Host london.mxroute.com
+      PassCmd "bash ${config.sops.templates."mbsync-password-script".path} kyle@ondy.org"
+      TLSType IMAPS
+      User kyle@ondy.org
+
+      IMAPStore kyle_at_ondy_org-remote
+      Account kyle_at_ondy_org
+
+      MaildirStore kyle_at_ondy_org-local
+      Inbox /home/kyle/mail/ondy.org/Inbox
+      Path /home/kyle/mail/ondy.org/
+      SubFolders Verbatim
+
+      Channel kyle_at_ondy_org
+      Create Near
+      Expunge None
+      Far :kyle_at_ondy_org-remote:
+      Near :kyle_at_ondy_org-local:
+      Patterns INBOX Archive "Deleted Messages" Drafts Junk Sent
+      Remove None
+      SyncState *
     '';
   };
 
@@ -261,11 +332,6 @@
       ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789A]?", ENV{MTP_NO_PROBE}="1"
       SUBSYSTEMS=="usb", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789ABCD]?", MODE:="0666"
       KERNEL=="ttyACM*", ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="04[789B]?", MODE:="0666"
-
-      # Enable wake from sleep for built-in keyboard and trackpad
-      # serio0 = AT keyboard (i8042), serio1 = PS/2 trackpad
-      SUBSYSTEM=="serio", KERNEL=="serio0", ATTR{power/wakeup}="enabled"
-      SUBSYSTEM=="serio", KERNEL=="serio1", ATTR{power/wakeup}="enabled"
     '';
   };
 
@@ -351,6 +417,29 @@
         host = "dino";
       };
     };
+  };
+
+  # Notmuch mail indexing service (runs after mbsync)
+  systemd.user.services.notmuch-new = {
+    description = "Notmuch mail indexer";
+    after = [ "mbsync.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      # Use --no-hooks since mbsync is handled by separate service
+      ExecStart = "${pkgs.notmuch}/bin/notmuch new --no-hooks";
+      WorkingDirectory = "/home/kyle";
+      StandardOutput = "journal";
+    };
+  };
+
+  # Timer to run notmuch after mbsync completes
+  systemd.user.timers.notmuch-new = {
+    description = "Notmuch mail indexing timer";
+    timerConfig = {
+      OnCalendar = "*:0/15"; # Every 15 minutes, matching mbsync
+      Persistent = true;
+    };
+    wantedBy = [ "timers.target" ];
   };
 
   # Programs configuration
@@ -445,6 +534,12 @@
   # Framework 13 DSP support
   programs.dconf.enable = true;
 
+  # Configure systemd-logind to let KDE PowerDevil handle power button
+  # Otherwise logind intercepts power button before KDE can handle it
+  services.logind.extraConfig = ''
+    HandlePowerKey=ignore
+  '';
+
   # Dino-specific home-manager user configuration
   home-manager.users.kyle = {
     hmFoundry = {
@@ -482,7 +577,7 @@
         };
         whenLaptopLidClosed = "sleep"; # Still sleep when lid closes
         inhibitLidActionWhenExternalMonitorConnected = true; # Don't sleep with external monitor
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       battery = {
@@ -499,7 +594,7 @@
           idleTimeout = 120; # Dim after 2 minutes
         };
         whenLaptopLidClosed = "sleep";
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       lowBattery = {
@@ -516,7 +611,7 @@
           idleTimeout = 30; # Dim after 30 seconds
         };
         whenLaptopLidClosed = "sleep";
-        powerButtonAction = "sleep";
+        powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       batteryLevels = {
@@ -525,5 +620,10 @@
         criticalAction = "sleep"; # Sleep at critical battery
       };
     };
+
+    # Override mbsync service to use sops-based config for automated runs
+    systemd.user.services.mbsync.Service.ExecStart = lib.mkForce "${pkgs.isync}/bin/mbsync -c ${
+      config.sops.templates."mbsyncrc-automated".path
+    } --all";
   };
 }
