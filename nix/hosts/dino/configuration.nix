@@ -275,10 +275,10 @@
 
       # Battery charge thresholds (preserve battery health)
       # Framework laptops only support stop threshold (end threshold)
-      # TLP uses BAT0 for main battery config regardless of sysfs name (BAT1)
+      # Battery is at BAT1 (not BAT0) with cros_charge_control driver
       # Set START to 0 to use only stop threshold (per TLP docs)
-      START_CHARGE_THRESH_BAT0 = 0;
-      STOP_CHARGE_THRESH_BAT0 = 97;
+      START_CHARGE_THRESH_BAT1 = 0;
+      STOP_CHARGE_THRESH_BAT1 = 97;
     };
   };
 
