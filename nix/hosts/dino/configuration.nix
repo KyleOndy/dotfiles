@@ -557,6 +557,7 @@
     hmFoundry = {
       desktop = {
         apps.zoom.enable = true;
+        apps.teams.enable = true;
         media.latex.enable = true;
         wm.kde.enable = true;
       };
