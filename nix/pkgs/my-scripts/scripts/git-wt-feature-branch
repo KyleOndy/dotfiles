@@ -10,6 +10,64 @@ set_strict_mode
 # Get worktree root
 wt_root=$(require_worktree_repo)
 
+# Function to show help
+show_help() {
+  cat << 'EOF'
+usage: git wt-feature-branch <name> [base]
+       git wt-feature-branch <ticket> <name> [base]
+       git wt-feature-branch --existing <branch> [prefix]
+
+Create a new git worktree with branch, or checkout an existing branch.
+
+Home mode (1 argument):
+  git wt-feature-branch add-starship
+    → path: {repo}/add-starship/
+    → branch: add-starship (new)
+    → base: auto-detected (origin/main or origin/master)
+
+  git wt-feature-branch feature/something
+    → path: {repo}/feature/something/
+    → branch: feature-something (new)
+    → base: auto-detected
+
+Work mode (2+ arguments):
+  git wt-feature-branch DEV-123 fix-the-thing
+    → path: {repo}/DEV-123/fix-the-thing/
+    → branch: DEV-123-fix-the-thing (new)
+    → base: auto-detected (default)
+
+  git wt-feature-branch DEV-123 fix-the-thing origin/develop
+    → base: origin/develop (specified)
+
+Existing branch mode (--existing/-e flag):
+  git wt-feature-branch -e feature/cool-api
+    → path: {repo}/feature/cool-api/
+    → branch: feature/cool-api (existing)
+
+  git wt-feature-branch -e bobs-feature PROJ-456
+    → path: {repo}/PROJ-456/bobs-feature/
+    → branch: bobs-feature (existing)
+    → namespaced under: PROJ-456
+
+  git wt-feature-branch -e fix-typo TRIVIAL
+    → path: {repo}/TRIVIAL/fix-typo/
+    → branch: fix-typo (existing)
+    → namespaced under: TRIVIAL
+
+Notes:
+  - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
+  - Work mode requires valid Jira format (PROJ-123)
+  - Existing mode accepts any prefix (JIRA tickets, TRIVIAL, CHORE, etc.)
+  - The script auto-detects mode based on flags and argument count
+EOF
+  exit 0
+}
+
+# Check for help flags first
+if [[ "$1" == "-h" || "$1" == "--help" || $# -eq 0 ]]; then
+  show_help
+fi
+
 # Auto-detect mode based on argument count and flags
 if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   # EXISTING BRANCH MODE: Checkout existing branch into worktree
@@ -80,56 +138,6 @@ elif [[ $# -ge 2 ]]; then
   branch_name="${ticket}-${name}"
   checkout_existing=false
 
-else
-  cat << 'EOF'
-usage: git wt-feature-branch <name> [base]
-       git wt-feature-branch <ticket> <name> [base]
-       git wt-feature-branch --existing <branch> [prefix]
-
-Create a new git worktree with branch, or checkout an existing branch.
-
-Home mode (1 argument):
-  git wt-feature-branch add-starship
-    → path: {repo}/add-starship/
-    → branch: add-starship (new)
-    → base: auto-detected (origin/main or origin/master)
-
-  git wt-feature-branch feature/something
-    → path: {repo}/feature/something/
-    → branch: feature-something (new)
-    → base: auto-detected
-
-Work mode (2+ arguments):
-  git wt-feature-branch DEV-123 fix-the-thing
-    → path: {repo}/DEV-123/fix-the-thing/
-    → branch: DEV-123-fix-the-thing (new)
-    → base: auto-detected (default)
-
-  git wt-feature-branch DEV-123 fix-the-thing origin/develop
-    → base: origin/develop (specified)
-
-Existing branch mode (--existing/-e flag):
-  git wt-feature-branch -e feature/cool-api
-    → path: {repo}/feature/cool-api/
-    → branch: feature/cool-api (existing)
-
-  git wt-feature-branch -e bobs-feature PROJ-456
-    → path: {repo}/PROJ-456/bobs-feature/
-    → branch: bobs-feature (existing)
-    → namespaced under: PROJ-456
-
-  git wt-feature-branch -e fix-typo TRIVIAL
-    → path: {repo}/TRIVIAL/fix-typo/
-    → branch: fix-typo (existing)
-    → namespaced under: TRIVIAL
-
-Notes:
-  - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
-  - Work mode requires valid Jira format (PROJ-123)
-  - Existing mode accepts any prefix (JIRA tickets, TRIVIAL, CHORE, etc.)
-  - The script auto-detects mode based on flags and argument count
-EOF
-  exit 1
 fi
 
 # Create worktree
