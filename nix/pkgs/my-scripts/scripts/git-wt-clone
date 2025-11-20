@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 set_strict_mode
 
 # Show help text
-if [[ $# -eq 0 ]]; then
+if [[ "$1" == "-h" || "$1" == "--help" || $# -eq 0 ]]; then
   cat << 'EOF'
 usage: git wt-clone <url> [name]
 
