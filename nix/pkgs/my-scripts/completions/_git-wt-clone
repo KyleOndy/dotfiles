@@ -6,6 +6,7 @@
 
 _git-wt-clone() {
   _arguments \
+    '(-h --help)'{-h,--help}'[Show help message]' \
     '1:repository URL:_urls' \
     '2:directory name:_files -/'
 }
