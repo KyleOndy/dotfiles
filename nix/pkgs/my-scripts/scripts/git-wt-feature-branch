@@ -73,7 +73,7 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   # EXISTING BRANCH MODE: Checkout existing branch into worktree
   shift
   branch_name="$1"
-  folder_prefix="$2"  # Optional namespace/prefix
+  folder_prefix="${2:-}"  # Optional namespace/prefix
 
   if [[ -z "$branch_name" ]]; then
     die "Branch name required when using --existing"
