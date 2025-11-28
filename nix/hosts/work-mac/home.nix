@@ -26,6 +26,20 @@
   # - programs.ssh.matchBlocks = { "work-*" = { ... }; };
   # - programs.zsh.shellAliases = { vpn = "tailscale up"; };
   # - hmFoundry.dev.aws.enable = true;
+  #
+  # For work-specific Neovim plugins (e.g., copilot):
+  # nvim.packageDefinitions.merge = {
+  #   nvim = { pkgs, ... }: {
+  #     categories = { work = true; };
+  #     work = { copilot = true; };
+  #   };
+  # };
+  #
+  # Provision work Lua config from this directory:
+  # xdg.configFile."nixCats-nvim/lua/plugins/work.lua".source = ./work.lua;
+  # Then create work.lua in this directory and add "plugins.work" to lua/plugins.lua
+  #
+  # See docs/nixcats-work-plugins.md for details.
 
   # Disable Linux-only features on macOS
   hmFoundry.desktop = {
