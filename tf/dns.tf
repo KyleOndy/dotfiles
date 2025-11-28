@@ -1,5 +1,6 @@
 locals {
   cheetah_dns = ["ns100099.ip-147-135-1.us"]
+  wolf_dns = ["ns568215.ip-51-79-99.net"]
 }
 
 ## ondy.org
