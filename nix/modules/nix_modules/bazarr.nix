@@ -26,12 +26,25 @@ in
       description = "Domain to server bazarr under";
     };
 
+    provisionCert = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Provision SSL certificate for this service";
+    };
+
     user = mkOption {
       type = types.str;
       # todo: can I pull the default from the bazarr package?
       default = "bazarr";
       description = "User to server bazarr under";
     };
+
+    extraGroups = mkOption {
+      type = types.listOf types.str;
+      default = [ "media" ];
+      description = "Additional groups for the bazarr user (e.g., for shared media access)";
+    };
+
     backup = mkOption {
       default = { };
       description = "Move the backups somewhere";
@@ -63,9 +76,15 @@ in
       };
     };
 
+    # Add service user to extra groups for media access
+    users.users.${cfg.user} = mkIf (cfg.extraGroups != [ ]) {
+      extraGroups = cfg.extraGroups;
+    };
+
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:6767";
+      provisionCert = cfg.provisionCert;
     };
     systemd.services.bazarr-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
