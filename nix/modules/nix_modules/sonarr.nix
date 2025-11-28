@@ -39,6 +39,13 @@ in
       default = "sonarr";
       description = "User to server sonarr under";
     };
+
+    extraGroups = mkOption {
+      type = types.listOf types.str;
+      default = [ "media" ];
+      description = "Additional groups for the sonarr user (e.g., for shared media access)";
+    };
+
     backup = mkOption {
       default = { };
       description = "Move the backups somewhere";
@@ -68,6 +75,11 @@ in
         user = cfg.user;
         group = cfg.group;
       };
+    };
+
+    # Add service user to extra groups for media access
+    users.users.${cfg.user} = mkIf (cfg.extraGroups != [ ]) {
+      extraGroups = cfg.extraGroups;
     };
 
     nixpkgs.config.permittedInsecurePackages = [
