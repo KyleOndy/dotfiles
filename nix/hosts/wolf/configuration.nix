@@ -53,13 +53,14 @@
         enable = true;
       };
 
-      nginxExporter = {
-        enable = true;
-      };
-
-      nginxlogExporter = {
-        enable = true;
-      };
+      # nginxExporter and nginxlogExporter disabled - no nginx running on wolf
+      # nginxExporter = {
+      #   enable = true;
+      # };
+      #
+      # nginxlogExporter = {
+      #   enable = true;
+      # };
 
       vmagent = {
         enable = true;
