@@ -74,6 +74,14 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    # Assertion: nginx must be enabled for nginxlog-exporter to work
+    assertions = [
+      {
+        assertion = config.services.nginx.enable;
+        message = "nginxlogExporter requires nginx to be enabled (services.nginx.enable = true)";
+      }
+    ];
+
     # Add prometheus-compatible log format to nginx
     services.nginx.commonHttpConfig = mkAfter ''
       # Prometheus-friendly access log format with extended metrics
@@ -103,7 +111,7 @@ in
         User = "nginxlog-exporter";
         Group = "nginxlog-exporter";
         # Grant read access to nginx logs
-        SupplementaryGroups = [ "nginx" ];
+        SupplementaryGroups = optional config.services.nginx.enable "nginx";
         ExecStart = ''
           ${pkgs.prometheus-nginxlog-exporter}/bin/prometheus-nginxlog-exporter \
             -config-file ${exporterConfig}
@@ -122,13 +130,15 @@ in
     users.users.nginxlog-exporter = {
       isSystemUser = true;
       group = "nginxlog-exporter";
-      extraGroups = [ "nginx" ];
+      extraGroups = optional config.services.nginx.enable "nginx";
       description = "nginxlog-exporter service user";
     };
 
     users.groups.nginxlog-exporter = { };
 
-    # Ensure nginx log directory has proper permissions
-    systemd.tmpfiles.rules = [ "d /var/log/nginx 0755 nginx nginx -" ];
+    # Ensure nginx log directory has proper permissions (only if nginx is enabled)
+    systemd.tmpfiles.rules = mkIf config.services.nginx.enable [
+      "d /var/log/nginx 0755 nginx nginx -"
+    ];
   };
 }

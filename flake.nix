@@ -450,7 +450,8 @@
             fastConnection = false;
             hostname = "51.79.99.201";
             profiles.system = {
-              sshUser = "svc.deploy";
+              #sshUser = "svc.deploy";
+              sshUser = "root";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.wolf;
             };
