@@ -13,5 +13,16 @@ variable "ondy_org_apps_subdomains" {
     "metrics",
     "nix-cache",
     "vmalert",
+
+    # media managment
+    "bazarr",
+    "jellyfin",
+    "jellyseerr",
+    "lidarr",
+    "prowlarr",
+    "radarr",
+    "readarr",
+    "sabnzbd",
+    "sonarr",
   ]
 }
