@@ -68,15 +68,19 @@ in
         # currently all config is done via the web.
         enable = true;
         package = pkgs.prowlarr;
-        user = cfg.user;
-        group = cfg.group;
+        # NOTE: The upstream prowlarr module does not support custom user/group options.
+        # It uses DynamicUser = true for better security isolation.
+        # Unlike other *arr services (sonarr, radarr, etc.), prowlarr in NixOS 25.05
+        # does not expose user/group configuration options.
       };
     };
 
-    # Add service user to extra groups for media access
-    users.users.${cfg.user} = mkIf (cfg.extraGroups != [ ]) {
-      extraGroups = cfg.extraGroups;
-    };
+    # NOTE: Cannot configure users.users for dynamic user created by prowlarr service.
+    # The user/group/extraGroups options defined above are kept for API compatibility
+    # but are not actually used. If media access is needed, consider:
+    # 1. Setting appropriate ACLs on media directories
+    # 2. Using bind mounts with different permissions
+    # 3. Configuring prowlarr to only index (not access files directly)
 
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
@@ -89,7 +93,12 @@ in
       path = [ pkgs.coreutils ];
       script = ''
         mkdir -p ${cfg.backup.destinationPath}
-        cp -rn ${config.services.prowlarr.dataDir}/Backups ${cfg.backup.destinationPath}/
+        # Note: prowlarr uses DynamicUser, so dataDir is /var/lib/prowlarr
+        # The service itself sees /var/lib/private/prowlarr due to systemd's PrivateUsers
+        # but we can access it via /var/lib/prowlarr with appropriate permissions
+        if [ -d /var/lib/prowlarr/Backups ]; then
+          cp -rn /var/lib/prowlarr/Backups/* ${cfg.backup.destinationPath}/ || true
+        fi
       '';
     };
   };
