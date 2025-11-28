@@ -1,5 +1,4 @@
 locals {
-  cheetah_dns = ["ns100099.ip-147-135-1.us"]
   wolf_dns = ["ns568215.ip-51-79-99.net"]
 }
 
@@ -23,7 +22,7 @@ resource "aws_route53_record" "ondy_org_apps_subdomains" {
   name    = "${each.value}.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = local.cheetah_dns
+  records = local.wolf_dns
 }
 
 resource "aws_route53_record" "ondy_org_top_level_app" {
@@ -33,7 +32,7 @@ resource "aws_route53_record" "ondy_org_top_level_app" {
   name    = "${each.value}.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = local.cheetah_dns
+  records = local.wolf_dns
 }
 
 resource "aws_route53_record" "ondy_org_mx" {
@@ -114,5 +113,5 @@ resource "aws_route53_record" "kyleondy_com_www" {
   name    = "www.kyleondy.com"
   type    = "CNAME"
   ttl     = "300"
-  records = local.cheetah_dns
+  records = local.wolf_dns
 }
