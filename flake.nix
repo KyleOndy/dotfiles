@@ -328,6 +328,10 @@
           hostname = "cheetah";
           profile = "server";
         };
+        wolf = mkNixosSystem {
+          hostname = "wolf";
+          profile = "server";
+        };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -440,6 +444,15 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.cheetah;
+            };
+          };
+          wolf = {
+            fastConnection = false;
+            hostname = "51.79.99.201";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.wolf;
             };
           };
         };
