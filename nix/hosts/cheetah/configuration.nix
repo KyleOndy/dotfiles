@@ -193,6 +193,10 @@
       # Used by sops template for runtime hash computation and nginx auth
       mode = "0444";
     };
+    monitoring_token_wolf = {
+      # Used by sops template for runtime hash computation and nginx auth
+      mode = "0444";
+    };
   };
 
   # Runtime computation of SHA-256 hashes from monitoring tokens
@@ -217,6 +221,7 @@
       cheetah_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_cheetah.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       tiger_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_tiger.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       dino_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_dino.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
+      wolf_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_wolf.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
 
       # Write metrics token map for nginx (VictoriaMetrics ingestion)
       cat > /run/monitoring-token-hashes/metrics-map.conf <<EOF
@@ -226,6 +231,7 @@
         "$cheetah_hash" "1";
         "$tiger_hash" "1";
         "$dino_hash" "1";
+        "$wolf_hash" "1";
         default "";
       }
       EOF
@@ -238,6 +244,7 @@
         "$cheetah_hash" "1";
         "$tiger_hash" "1";
         "$dino_hash" "1";
+        "$wolf_hash" "1";
         default "";
       }
       EOF
