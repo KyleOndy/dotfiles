@@ -73,6 +73,15 @@ in
       provisionCert = cfg.provisionCert;
     };
 
+    # Add rate-limited location for auth endpoint
+    services.nginx.virtualHosts."${cfg.domainName}".locations."/Users/AuthenticateByName" = {
+      proxyPass = "http://127.0.0.1:8096";
+      extraConfig = ''
+        limit_req zone=jellyfin_auth burst=3 nodelay;
+        limit_req_status 429;
+      '';
+    };
+
     systemd.services = {
       # jellyfin provides no native backup, so zip, compress it, and copy it over
       jellyfin-backup = mkIf cfg.backup.enable {
@@ -89,7 +98,7 @@ in
         '';
       };
       jellyfin-transcode-cleanp = {
-        startAt = "*-*-* *:00:00";
+        startAt = "*-*-* 04:00:00";
         path = with pkgs; [
           fd
         ];
