@@ -82,6 +82,11 @@ in
       extraGroups = cfg.extraGroups;
     };
 
+    # Configure systemd service to use supplementary groups
+    systemd.services.sonarr.serviceConfig = mkIf (cfg.extraGroups != [ ]) {
+      SupplementaryGroups = cfg.extraGroups;
+    };
+
     nixpkgs.config.permittedInsecurePackages = [
       "aspnetcore-runtime-6.0.36"
       "dotnet-sdk-6.0.428"
