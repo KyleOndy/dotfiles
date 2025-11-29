@@ -30,7 +30,7 @@ in
       default = { };
       description = "Extra labels to add to all log entries";
       example = {
-        host = "cheetah";
+        host = "wolf";
         environment = "production";
       };
     };

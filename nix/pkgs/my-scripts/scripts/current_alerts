@@ -12,7 +12,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # vmalert host (can be overridden with environment variable)
-VMALERT_HOST="${VMALERT_HOST:-cheetah}"
+VMALERT_HOST="${VMALERT_HOST:-wolf}"
 VMALERT_PORT="${VMALERT_PORT:-8880}"
 
 # Function to format a timestamp

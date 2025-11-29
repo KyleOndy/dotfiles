@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to capture current package state for all hosts
 # This will be used to verify package parity after migration
 
-HOSTS="dino tiger cheetah"
+HOSTS="dino tiger wolf"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 OUTPUT_DIR="pre-migration"
 
@@ -15,7 +15,7 @@ mkdir -p "${OUTPUT_DIR}"
 
 for host in $HOSTS; do
     echo "Capturing packages for ${host}..."
-    
+
     # Capture full package list as JSON
     if nix eval ".#nixosConfigurations.${host}.config.home-manager.users.kyle.home.packages" --json > "${OUTPUT_DIR}/${host}-packages.json" 2>/dev/null; then
         echo "  ✓ Captured package list"
@@ -23,7 +23,7 @@ for host in $HOSTS; do
         echo "  ✗ Failed to capture package list"
         continue
     fi
-    
+
     # Capture just package names for easier reading
     if nix eval ".#nixosConfigurations.${host}.config.home-manager.users.kyle.home.packages" --apply 'map (p: p.name)' --json > "${OUTPUT_DIR}/${host}-package-names.json" 2>/dev/null; then
         echo "  ✓ Captured package names"
@@ -33,14 +33,14 @@ for host in $HOSTS; do
     else
         echo "  ✗ Failed to capture package names"
     fi
-    
+
     # Capture feature flags
     if nix eval ".#nixosConfigurations.${host}.config.home-manager.users.kyle.config.hmFoundry.features" --json > "${OUTPUT_DIR}/${host}-features.json" 2>/dev/null; then
         echo "  ✓ Captured feature flags"
     else
         echo "  ✗ Failed to capture feature flags"
     fi
-    
+
     echo ""
 done
 

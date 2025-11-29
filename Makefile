@@ -5,7 +5,7 @@ ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
 # Binary cache configuration
-CACHE_HOST=cheetah
+CACHE_HOST=wolf
 CACHE_URL=ssh://$(CACHE_HOST)
 
 # I don't like to do this, but sometimes I just need to move ahead
@@ -149,12 +149,12 @@ cache-push-dino: ## Push dino system closure to binary cache
 cache-push-tiger: ## Push tiger system closure to binary cache
 	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.tiger.config.system.build.toplevel
 
-.PHONY: cache-push-cheetah
-cache-push-cheetah: ## Push cheetah system closure to binary cache
-	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.cheetah.config.system.build.toplevel
+.PHONY: cache-push-wolf
+cache-push-wolf: ## Push wolf system closure to binary cache
+	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.wolf.config.system.build.toplevel
 
 .PHONY: cache-push-all
-cache-push-all: cache-push-dino cache-push-tiger cache-push-cheetah ## Push all system closures to binary cache
+cache-push-all: cache-push-dino cache-push-tiger cache-push-wolf ## Push all system closures to binary cache
 
 # macOS-specific targets
 .PHONY: build-mac

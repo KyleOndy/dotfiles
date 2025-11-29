@@ -257,13 +257,6 @@
 
   # SOPS secrets for monitoring
   sops.secrets = {
-    monitoring_token_cheetah = {
-      # vmagent service runs as DynamicUser, which means it can't be assigned
-      # file ownership directly. Using mode 0444 allows the service to read it.
-      # This is acceptable since the token is only used for authentication to
-      # our own VictoriaMetrics instance, not external services.
-      mode = "0444";
-    };
     monitoring_token_tiger = {
       # Used by sops template for runtime hash computation and nginx auth
       mode = "0444";
@@ -297,7 +290,6 @@
       mkdir -p /run/monitoring-token-hashes
 
       # Read tokens from sops secrets and compute SHA-256 hashes
-      cheetah_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_cheetah.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       tiger_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_tiger.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       dino_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_dino.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       wolf_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_wolf.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
@@ -307,7 +299,6 @@
       # Validate token hash for VictoriaMetrics ingestion
       # Clients must send SHA-256 hash of their token as the bearer token
       map \$bearer_token \$valid_metrics_token {
-        "$cheetah_hash" "1";
         "$tiger_hash" "1";
         "$dino_hash" "1";
         "$wolf_hash" "1";
@@ -320,7 +311,6 @@
       # Validate token hash for Loki ingestion
       # Clients must send SHA-256 hash of their token as the bearer token
       map \$bearer_token \$valid_logs_token {
-        "$cheetah_hash" "1";
         "$tiger_hash" "1";
         "$dino_hash" "1";
         "$wolf_hash" "1";

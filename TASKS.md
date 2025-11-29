@@ -4,9 +4,9 @@
 
 **Module Strategy:** Replace existing Prometheus-based `monitoring.nix` module entirely with new VictoriaMetrics stack. Create separate modules for each component (modular architecture) in `monitoring-stack/` directory.
 
-**Domain Configuration:** All monitoring endpoints will be under `apps.ondy.org` domain (using route53 on cheetah).
+**Domain Configuration:** All monitoring endpoints will be under `apps.ondy.org` domain (using route53 on wolf).
 
-**Authentication:** Use per-host bearer tokens for better security and auditing. Token names: `monitoring_token_cheetah`, `monitoring_token_tiger`, `monitoring_token_dino`. Nginx-based authentication using map directive for token validation.
+**Authentication:** Use per-host bearer tokens for better security and auditing. Token names: `monitoring_token_wolf`, `monitoring_token_tiger`, `monitoring_token_dino`. Nginx-based authentication using map directive for token validation.
 
 **Module Structure:**
 
@@ -18,7 +18,7 @@
 - `monitoring-stack/vmagent.nix` - Metrics collection agent
 - `monitoring-stack/promtail.nix` - Log shipping agent
 
-**Deployment Order:** Deploy to cheetah first (all services), then tiger and dino (agents only).
+**Deployment Order:** Deploy to wolf first (all services), then tiger and dino (agents only).
 
 ---
 

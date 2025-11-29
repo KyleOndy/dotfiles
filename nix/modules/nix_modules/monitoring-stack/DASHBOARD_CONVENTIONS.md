@@ -30,7 +30,7 @@ This document outlines the conventions and best practices for creating and maint
 **Why?**
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `cheetah`, `tiger`, `dino`
+- `host` shows friendly hostnames like `wolf`, `tiger`, `dino`
 
 **How to Configure:**
 
@@ -138,7 +138,7 @@ Use consistent tags for easier filtering:
 
 - `system`, `network`, `storage`, `application`
 - Component-specific: `nginx`, `zfs`, `node`, `systemd`
-- Host-specific: `tiger`, `cheetah`, `dino` (only if dashboard is host-specific)
+- Host-specific: `tiger`, `wolf`, `dino` (only if dashboard is host-specific)
 
 ## Panel Configuration
 
@@ -380,7 +380,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 1. **Check if metrics exist in VictoriaMetrics**:
 
    ```bash
-   ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
+   ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
    ```
 
 2. **Verify label names**: Ensure using `host` not `instance`
@@ -398,7 +398,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 1. **Check provisioning logs**:
 
    ```bash
-   ssh cheetah journalctl -u grafana -n 50
+   ssh wolf journalctl -u grafana -n 50
    ```
 
 2. **Verify file permissions**: Should be `0644`
@@ -408,7 +408,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
 4. **Force reload**:
 
    ```bash
-   ssh cheetah systemctl restart grafana
+   ssh wolf systemctl restart grafana
    ```
 
 ### Template Variable Shows No Values
@@ -447,7 +447,7 @@ When importing dashboards from grafana.com or updating exporters, metric names m
 3. **Check VictoriaMetrics for available metrics**:
 
    ```bash
-   ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
+   ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
    ```
 
 **Common examples:**

@@ -324,10 +324,6 @@
           hostname = "tiger";
           profile = "desktop";
         };
-        cheetah = mkNixosSystem {
-          hostname = "cheetah";
-          profile = "server";
-        };
         wolf = mkNixosSystem {
           hostname = "wolf";
           profile = "server";
@@ -435,15 +431,6 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
-            };
-          };
-          cheetah = {
-            fastConnection = false;
-            hostname = "cheetah";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.cheetah;
             };
           };
           wolf = {
