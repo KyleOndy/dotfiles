@@ -218,42 +218,49 @@
 
     prowlarr = {
       enable = true;
+      group = "media";
       domainName = "prowlarr.apps.ondy.org";
       provisionCert = true;
     };
 
     sabnzbd = {
       enable = true;
+      group = "media";
       domainName = "sabnzbd.apps.ondy.org";
       provisionCert = true;
     };
 
     bazarr = {
       enable = true;
+      group = "media";
       domainName = "bazarr.apps.ondy.org";
       provisionCert = true;
     };
 
     lidarr = {
       enable = true;
+      group = "media";
       domainName = "lidarr.apps.ondy.org";
       provisionCert = true;
     };
 
     radarr = {
       enable = true;
+      group = "media";
       domainName = "radarr.apps.ondy.org";
       provisionCert = true;
     };
 
     readarr = {
       enable = true;
+      group = "media";
       domainName = "readarr.apps.ondy.org";
       provisionCert = true;
     };
 
     sonarr = {
       enable = true;
+      group = "media";
       domainName = "sonarr.apps.ondy.org";
       provisionCert = true;
     };
