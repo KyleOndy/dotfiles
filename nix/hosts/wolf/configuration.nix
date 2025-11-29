@@ -49,9 +49,13 @@
   };
   boot.loader.efi.canTouchEfiVariables = false;
 
+  # Allow svc.deploy to write to website directory
+  users.users."svc.deploy".extraGroups = [ "nginx" ];
+
   # Ensure website directory exists with proper permissions
+  # 0775 allows nginx group members (including svc.deploy) to write
   systemd.tmpfiles.rules = [
-    "d /var/www/kyleondy.com 0755 nginx nginx -"
+    "d /var/www/kyleondy.com 0775 nginx nginx -"
   ];
 
   systemFoundry = {
