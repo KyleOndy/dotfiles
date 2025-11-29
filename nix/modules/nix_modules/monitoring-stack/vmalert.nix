@@ -89,6 +89,16 @@ in
                 summary: "Systemd service {{ $labels.name }} is crashlooping on {{ $labels.instance }}"
                 description: "Service {{ $labels.name }} has restarted more than 5 times in the last 15 minutes on {{ $labels.instance }}"
 
+            - alert: JellyfinDown
+              expr: node_systemd_unit_state{host="wolf",name="jellyfin.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: jellyfin
+              annotations:
+                summary: "Jellyfin service is down on wolf"
+                description: "Jellyfin has been unavailable for 5 minutes"
+
         # Disk space monitoring
         - name: disk_space
           interval: 60s
