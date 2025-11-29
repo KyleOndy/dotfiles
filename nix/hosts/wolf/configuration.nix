@@ -210,6 +210,12 @@
       domainName = "prowlarr.apps.ondy.org";
       provisionCert = true;
     };
+
+    sabnzbd = {
+      enable = true;
+      domainName = "sabnzbd.apps.ondy.org";
+      provisionCert = true;
+    };
   };
 
   # SOPS secrets for monitoring
