@@ -17,7 +17,6 @@ Build NixOS systems on optimized EC2 instances that provision on-demand and term
 # Build a specific system
 make build-tiger    # AMD EPYC c6a.24xlarge (96 vCPU)
 make build-dino     # Intel c7i.16xlarge (64 vCPU)
-make build-cheetah  # Intel c6i.16xlarge (64 vCPU)
 
 # Test with small instance
 make test
@@ -33,11 +32,10 @@ make help
 
 Your systems are built on EC2 instances matching their CPU architectures:
 
-| System  | CPU                         | EC2 Instance | vCPUs | Architecture |
-| ------- | --------------------------- | ------------ | ----- | ------------ |
-| tiger   | AMD Ryzen 7 5800X (Zen 3)   | c6a.24xlarge | 96    | znver3       |
-| dino    | Intel i5-1240P (Alder Lake) | c7i.16xlarge | 64    | skylake      |
-| cheetah | Intel Xeon E3-1270 v6       | c6i.16xlarge | 64    | skylake      |
+| System | CPU                         | EC2 Instance | vCPUs | Architecture |
+| ------ | --------------------------- | ------------ | ----- | ------------ |
+| tiger  | AMD Ryzen 7 5800X (Zen 3)   | c6a.24xlarge | 96    | znver3       |
+| dino   | Intel i5-1240P (Alder Lake) | c7i.16xlarge | 64    | skylake      |
 
 ## How It Works
 

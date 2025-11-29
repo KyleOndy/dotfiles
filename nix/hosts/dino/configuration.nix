@@ -400,7 +400,7 @@
     # Enable node exporter for system metrics
     nodeExporter.enable = true;
 
-    # Send metrics to cheetah's VictoriaMetrics instance
+    # Send metrics to wolf's VictoriaMetrics instance
     vmagent = {
       enable = true;
       remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
@@ -420,7 +420,7 @@
       ];
     };
 
-    # Send logs to cheetah's Loki instance
+    # Send logs to wolf's Loki instance
     promtail = {
       enable = true;
       lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
@@ -518,7 +518,7 @@
         ];
       }
       {
-        hostName = "cheetah";
+        hostName = "wolf";
         sshUser = "svc.deploy";
         systems = [
           "x86_64-linux"

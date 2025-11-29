@@ -11,7 +11,7 @@
    ["-n" "--commit-new COMMIT" "New commit hash to compare to"
     :default "beddaecc"]
    ["-s" "--systems SYSTEMS" "Comma-separated list of systems to compare"
-    :default ["dino" "cheetah" "tiger"]
+    :default ["dino" "wolf" "tiger"]
     :parse-fn #(str/split % #",")]
    ["-o" "--output OUTPUT" "Output file for the report"
     :default "closure-comparison-report.md"]

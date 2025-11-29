@@ -251,7 +251,7 @@ in
         # Enable nginx log exporter for web traffic analytics
         nginxlogExporter.enable = true;
 
-        # Send metrics to cheetah's VictoriaMetrics instance
+        # Send metrics to wolf's VictoriaMetrics instance
         vmagent = {
           enable = true;
           remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
@@ -293,7 +293,7 @@ in
           ];
         };
 
-        # Send logs to cheetah's Loki instance
+        # Send logs to wolf's Loki instance
         promtail = {
           enable = true;
           lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";

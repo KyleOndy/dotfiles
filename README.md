@@ -185,7 +185,7 @@ make cleanup        # Clean up old generations and optimize store
   - Binary cache and build services
   - Network storage and backup
 
-- **`cheetah`**: Remote server
+- **`wolf`**: Remote server
   - Lightweight services
   - Monitoring and alerting
   - External access point

@@ -155,9 +155,6 @@ case "$TARGET_SYSTEM" in
   dino)
     TARGET_GCCARCH="gccarch-alderlake"
     ;;
-  cheetah)
-    TARGET_GCCARCH="gccarch-skylake"
-    ;;
   tiger)
     TARGET_GCCARCH="gccarch-znver3"
     ;;
