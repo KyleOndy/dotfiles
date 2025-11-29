@@ -4,7 +4,6 @@ keys:
   - &kyle 3C799D26057B64E6D907B0ACDB0E3C33491F91C9 # yubikey
 
   # machine keys
-  - &cheetah age1hp8z0w03ulmygen56q0nl9mtu02979tgrc3vfy5r32r3pn4dxvyqtnnywd
   - &dino age1t0eyg4vswkrry0ff0uzrfflyfmxkzctz9ngay7k2z0k3mgt9t9zqm7z0sn
   - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
   - &wolf age1hf20rzjwdsvtuhjd7wvxyh0sdha8wzdnfhcl3mztpn3ughplx34sn03642
@@ -16,7 +15,6 @@ creation_rules:
   - path_regex: nix/secrets/[^/]+\.yaml$
     key_groups:
       - age:
-          - *cheetah
           - *dino
           - *tiger
           - *wolf

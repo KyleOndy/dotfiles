@@ -54,7 +54,7 @@ in
         Generate hashes with: echo -n "your-token" | sha256sum | cut -d' ' -f1
       '';
       example = {
-        cheetah = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        wolf = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         tiger = "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35";
         dino = "4e07408562bedb8b60ce05c1decfe3ad16b72230967de01f640b7e4729b49fce";
       };

@@ -30,11 +30,6 @@ with lib;
         user = "kyle";
         identityFile = "~/.ssh/id_ed25519";
       };
-      "cheetah" = {
-        hostname = "ns100099.ip-147-135-1.us";
-        user = "kyle";
-        identityFile = "~/.ssh/id_ed25519";
-      };
       "wolf" = {
         hostname = "ns568215.ip-51-79-99.net";
         user = "kyle";
