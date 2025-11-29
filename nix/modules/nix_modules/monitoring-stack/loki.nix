@@ -42,15 +42,23 @@ in
       default = false;
       description = "Provision SSL certificate for Loki domain";
     };
+
+    instanceInterfaceNames = mkOption {
+      type = types.listOf types.str;
+      default = [
+        "eno1"
+        "lo"
+      ];
+      description = "Network interfaces for Loki ring discovery";
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
     services.loki = {
       enable = true;
-      extraFlags = [
-        "-common.storage.ring.instance-interface-names=eno1"
-        "-common.storage.ring.instance-interface-names=lo"
-      ];
+      extraFlags = map (
+        iface: "-common.storage.ring.instance-interface-names=${iface}"
+      ) cfg.instanceInterfaceNames;
       configuration = {
         # Run in single-process mode (all-in-one)
         target = "all";
@@ -69,10 +77,7 @@ in
         # Common configuration for single-node deployment
         # Use inmemory kvstore instead of memberlist for single-node setups
         common = {
-          instance_interface_names = [
-            "eno1"
-            "lo"
-          ];
+          instance_interface_names = cfg.instanceInterfaceNames;
           ring = {
             kvstore = {
               store = "inmemory";
