@@ -24,6 +24,9 @@ in
         # Terminal tools
         ncspot
 
+        # HTTP server for quick file sharing
+        miniserve
+
         # Additional Clojure tools (always with dev for now)
         babashka-scripts
       ]

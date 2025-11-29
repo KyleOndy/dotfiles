@@ -48,6 +48,7 @@ in
           l = "bat --style=plain --paging=never --language=log $@";
           llr = "ll --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
+          serve = "miniserve . --dirs-first --upload-files";
           src = "cd ${config.home.homeDirectory}/src";
           src_grep = "fd --type=f --full-path --regex '(/master/|/main/)' --print0 . ${config.home.homeDirectory}/src/ | xargs --null -- rg \"$@\" --";
           tree = "tree --dirsfirst -ChFQ $@";
@@ -564,15 +565,6 @@ in
               echo "Private mode enabled"
             }
 
-            serve() {
-              local port=''${1:-8000}
-              local ip=$(${pkgs.iproute2}/bin/ip -4 addr show scope global | ${pkgs.gnugrep}/bin/grep -oP '(?<=inet\s)\d+(\.\d+){3}' | ${pkgs.coreutils}/bin/head -n1)
-              echo "Starting HTTP server on all interfaces (port $port)"
-              echo "  Local:   http://localhost:$port"
-              [[ -n "$ip" ]] && echo "  Network: http://$ip:$port"
-              echo "Press Ctrl+C to stop"
-              ${pkgs.python3}/bin/python3 -m http.server --bind 0.0.0.0 "$port"
-            }
           ''
         ];
       };
