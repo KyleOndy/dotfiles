@@ -203,6 +203,12 @@
         };
       };
     };
+
+    prowlarr = {
+      enable = true;
+      domainName = "prowlarr.apps.ondy.org";
+      provisionCert = true;
+    };
   };
 
   # SOPS secrets for monitoring
