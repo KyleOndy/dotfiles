@@ -223,6 +223,36 @@
       domainName = "sabnzbd.apps.ondy.org";
       provisionCert = true;
     };
+
+    bazarr = {
+      enable = true;
+      domainName = "bazarr.apps.ondy.org";
+      provisionCert = true;
+    };
+
+    lidarr = {
+      enable = true;
+      domainName = "lidarr.apps.ondy.org";
+      provisionCert = true;
+    };
+
+    radarr = {
+      enable = true;
+      domainName = "radarr.apps.ondy.org";
+      provisionCert = true;
+    };
+
+    readarr = {
+      enable = true;
+      domainName = "readarr.apps.ondy.org";
+      provisionCert = true;
+    };
+
+    sonarr = {
+      enable = true;
+      domainName = "sonarr.apps.ondy.org";
+      provisionCert = true;
+    };
   };
 
   # SOPS secrets for monitoring

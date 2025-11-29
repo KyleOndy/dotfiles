@@ -78,6 +78,11 @@ in
       extraGroups = cfg.extraGroups;
     };
 
+    # Configure systemd service to use supplementary groups
+    systemd.services.lidarr.serviceConfig = mkIf (cfg.extraGroups != [ ]) {
+      SupplementaryGroups = cfg.extraGroups;
+    };
+
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;
       proxyPass = "http://127.0.0.1:8686";
