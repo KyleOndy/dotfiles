@@ -33,6 +33,8 @@ with lib;
         gnused
         gnumake
         man-pages
+        unzip
+        zip
       ];
     };
   };
