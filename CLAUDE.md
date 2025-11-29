@@ -4,7 +4,7 @@ This directory contains the NixOS configuration for a VictoriaMetrics-based moni
 
 ## Architecture Overview
 
-### Server Components (cheetah)
+### Server Components (wolf)
 
 - **VictoriaMetrics**: Time-series database for metrics storage
 - **Loki**: Log aggregation system
@@ -30,7 +30,7 @@ This directory contains the NixOS configuration for a VictoriaMetrics-based moni
 #### Why?
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `cheetah`, `tiger`, `dino`
+- `host` shows friendly hostnames like `wolf`, `tiger`, `dino`
 
 #### How to Configure
 
@@ -101,10 +101,10 @@ Or use `jq` for more precise replacements (see nix/modules/nix_modules/monitorin
 
 After configuration changes:
 
-1. Deploy to cheetah
-2. Check alertmanager logs: `ssh cheetah systemctl status alertmanager`
+1. Deploy to wolf
+2. Check alertmanager logs: `ssh wolf systemctl status alertmanager`
 3. Look for SMTP connection errors in logs
-4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on cheetah)
+4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on wolf)
 
 ## Adding New Dashboards
 
@@ -199,7 +199,7 @@ imports = [
 
 ### Step 3: Configure vmagent Scraping
 
-In host configuration (e.g., `nix/hosts/cheetah/configuration.nix`):
+In host configuration (e.g., `nix/hosts/wolf/configuration.nix`):
 
 ```nix
 vmagent = {
@@ -212,7 +212,7 @@ vmagent = {
         {
           targets = [ "127.0.0.1:9999" ];
           labels = {
-            host = "cheetah";  # Use 'host' label!
+            host = "wolf";  # Use 'host' label!
           };
         }
       ];
@@ -230,25 +230,25 @@ vmagent = {
 1. **Check if metrics exist in VictoriaMetrics**:
 
    ```bash
-   ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
+   ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
    ```
 
 2. **Verify exporter is running**:
 
    ```bash
-   ssh cheetah systemctl status <exporter-name>
+   ssh wolf systemctl status <exporter-name>
    ```
 
 3. **Check exporter metrics endpoint**:
 
    ```bash
-   ssh cheetah 'curl http://127.0.0.1:<port>/metrics | head -20'
+   ssh wolf 'curl http://127.0.0.1:<port>/metrics | head -20'
    ```
 
 4. **Verify vmagent is scraping**:
 
    ```bash
-   ssh cheetah 'curl http://127.0.0.1:8429/metrics | grep scrape'
+   ssh wolf 'curl http://127.0.0.1:8429/metrics | grep scrape'
    ```
 
 5. **Check for label mismatches**: Dashboard using `instance` instead of `host`?
@@ -258,13 +258,13 @@ vmagent = {
 1. **Check alertmanager is running**:
 
    ```bash
-   ssh cheetah systemctl status alertmanager
+   ssh wolf systemctl status alertmanager
    ```
 
 2. **Check for SMTP errors in logs**:
 
    ```bash
-   ssh cheetah journalctl -u alertmanager -n 50
+   ssh wolf journalctl -u alertmanager -n 50
    ```
 
 3. **Common errors**:
@@ -275,13 +275,13 @@ vmagent = {
 4. **Verify alerts are firing**:
 
    ```bash
-   ssh cheetah 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
+   ssh wolf 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
    ```
 
 5. **Check Alertmanager has received alerts**:
 
    ```bash
-   ssh cheetah 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
+   ssh wolf 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
    ```
 
 ### Exporter Permission Issues
@@ -293,13 +293,13 @@ Common issue: Exporter can't read log files or access resources.
 1. **Check service user groups**:
 
    ```bash
-   ssh cheetah id nginxlog-exporter
+   ssh wolf id nginxlog-exporter
    ```
 
 2. **Verify file permissions**:
 
    ```bash
-   ssh cheetah ls -la /var/log/nginx/
+   ssh wolf ls -la /var/log/nginx/
    ```
 
 3. **Add user to appropriate group**:
@@ -343,23 +343,23 @@ Credentials in sops secret: `vmalert_htpasswd`
 
 ```bash
 # Query VictoriaMetrics
-ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
+ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
 
 # List all metric names
-ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
+ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
 
 # Get label values
-ssh cheetah 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
+ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
 ```
 
 ### Check Alert Status
 
 ```bash
 # vmalert firing alerts
-ssh cheetah 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
+ssh wolf 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 
 # Alertmanager alerts
-ssh cheetah 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
+ssh wolf 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
 
 ### Grafana Dashboard Reload
@@ -367,12 +367,12 @@ ssh cheetah 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 Dashboards auto-reload every 10 seconds. To force reload:
 
 ```bash
-ssh cheetah systemctl restart grafana
+ssh wolf systemctl restart grafana
 ```
 
 ## Retention Policy
 
-Configured in `nix/hosts/cheetah/configuration.nix`:
+Configured in `nix/hosts/wolf/configuration.nix`:
 
 ```nix
 monitoringStack = {
@@ -391,7 +391,7 @@ The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
 
 **Labels available for filtering:**
 
-- `host` - Server hostname (cheetah, tiger, dino)
+- `host` - Server hostname (wolf, tiger, dino)
 - `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `scheme` - Protocol (http, https)
 - `method` - HTTP method (GET, POST, PUT, DELETE)
@@ -525,7 +525,7 @@ These require client-side JavaScript tracking (like Google Analytics, Matomo, Pl
 # Install GoAccess
 # Add to system packages, run as cron job
 
-ssh cheetah 'goaccess /var/log/nginx/access.log \
+ssh wolf 'goaccess /var/log/nginx/access.log \
   --log-format=COMBINED \
   --output=/var/www/stats/index.html \
   --real-time-html'

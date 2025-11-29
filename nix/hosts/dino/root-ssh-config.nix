@@ -13,8 +13,8 @@
         StrictHostKeyChecking accept-new
         ConnectTimeout 10
 
-      Host cheetah
-        HostName ns100099.ip-147-135-1.us
+      Host wolf
+        HostName ns568215.ip-51-79-99.net
         User svc.deploy
         IdentityFile /root/.ssh/id_ed25519
         StrictHostKeyChecking accept-new

@@ -12,12 +12,6 @@ build-dino:
 	  .#nixosConfigurations.dino.config.system.build.toplevel \
 	  --family c7i
 
-.PHONY: build-cheetah
-build-cheetah:
-	./build-remote-auto x86_64-linux 64 \
-	  .#nixosConfigurations.cheetah.config.system.build.toplevel \
-	  --family c6i
-
 # Quick test with small instance (automatic spot selection)
 .PHONY: test
 test:
@@ -56,7 +50,6 @@ help:
 	@echo "Build Targets (automatic spot selection, provision, build, cleanup):"
 	@echo "  build-tiger    - Build tiger system (96+ vCPU AMD EPYC)"
 	@echo "  build-dino     - Build dino system (64+ vCPU Intel)"
-	@echo "  build-cheetah  - Build cheetah system (64+ vCPU Intel)"
 	@echo "  test           - Quick test build (4+ vCPU)"
 	@echo ""
 	@echo "Spot Instance Advisor:"
