@@ -64,6 +64,10 @@
     "d /mnt/storage/downloads 0755 root root -"
     "d /mnt/storage/downloads/complete 0775 root media -"
     "d /mnt/storage/downloads/incomplete 0775 root media -"
+    # Media directories - 0775 allows media group members to read/write
+    "d /mnt/storage/media 0775 root media -"
+    "d /mnt/storage/media/movies 0775 root media -"
+    "d /mnt/storage/media/tv 0775 root media -"
   ];
 
   systemFoundry = {
