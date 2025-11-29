@@ -84,6 +84,9 @@ in
     # Configure systemd service to use supplementary groups
     systemd.services.radarr.serviceConfig = mkIf (cfg.extraGroups != [ ]) {
       SupplementaryGroups = cfg.extraGroups;
+      # Set umask to 0002 so files are created with group read/write (664)
+      # This allows other media group members to access media files
+      UMask = "0002";
     };
 
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
