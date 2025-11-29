@@ -267,7 +267,7 @@ in
                 prompt_prefix="[cached] "
               else
                 # Cache miss - fetch and cache
-                aws_profiles=$(${pkgs.gnugrep}/bin/grep '\[profile .*\]' "${config.home.homeDirectory}/.aws/config" | ${pkgs.coreutils}/bin/cut -d' ' -f2 | ${pkgs.coreutils}/bin/rev | ${pkgs.coreutils}/bin/cut -c 2- | ${pkgs.coreutils}/bin/rev)
+                aws_profiles=$(${pkgs.gnugrep}/bin/grep '\[profile .*\]' "${config.home.homeDirectory}/.aws/config" | ${pkgs.coreutils}/bin/cut -d' ' -f2 | ${pkgs.util-linux}/bin/rev | ${pkgs.coreutils}/bin/cut -c 2- | ${pkgs.util-linux}/bin/rev)
                 _cache_set "aws_profiles" "$aws_profiles"
                 prompt_prefix=""
               fi
