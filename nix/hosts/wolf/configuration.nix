@@ -31,6 +31,7 @@
   # Enable ZFS support
   boot.supportedFilesystems = [ "zfs" ];
   boot.zfs.forceImportRoot = false;
+  boot.zfs.extraPools = [ "storage" ];
 
   # ZFS memory tuning for 16GB RAM system optimized for media streaming
   boot.kernelParams = [
