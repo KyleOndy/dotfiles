@@ -563,6 +563,16 @@ in
               SAVEHIST=0
               echo "Private mode enabled"
             }
+
+            serve() {
+              local port=''${1:-8000}
+              local ip=$(${pkgs.iproute2}/bin/ip -4 addr show scope global | ${pkgs.gnugrep}/bin/grep -oP '(?<=inet\s)\d+(\.\d+){3}' | ${pkgs.coreutils}/bin/head -n1)
+              echo "Starting HTTP server on all interfaces (port $port)"
+              echo "  Local:   http://localhost:$port"
+              [[ -n "$ip" ]] && echo "  Network: http://$ip:$port"
+              echo "Press Ctrl+C to stop"
+              ${pkgs.python3}/bin/python3 -m http.server --bind 0.0.0.0 "$port"
+            }
           ''
         ];
       };
