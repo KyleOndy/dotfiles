@@ -53,10 +53,17 @@
   # Allow svc.deploy to write to website directory
   users.users."svc.deploy".extraGroups = [ "nginx" ];
 
-  # Ensure website directory exists with proper permissions
-  # 0775 allows nginx group members (including svc.deploy) to write
+  # Create media group for shared access to downloads/media
+  users.groups.media = { };
+
+  # Ensure directories exist with proper permissions
   systemd.tmpfiles.rules = [
+    # Website directory - 0775 allows nginx group members (including svc.deploy) to write
     "d /var/www/kyleondy.com 0775 nginx nginx -"
+    # Download directories - 0775 allows media group members to read/write
+    "d /mnt/storage/downloads 0755 root root -"
+    "d /mnt/storage/downloads/complete 0775 root media -"
+    "d /mnt/storage/downloads/incomplete 0775 root media -"
   ];
 
   systemFoundry = {
