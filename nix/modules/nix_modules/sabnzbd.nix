@@ -82,6 +82,9 @@ in
     # Configure systemd service to use supplementary groups
     systemd.services.sabnzbd.serviceConfig = mkIf (cfg.extraGroups != [ ]) {
       SupplementaryGroups = cfg.extraGroups;
+      # Set umask to 0002 so files are created with group read/write (664)
+      # This allows other media group members (sonarr, radarr, etc.) to access downloaded files
+      UMask = "0002";
     };
 
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
