@@ -276,13 +276,18 @@
       domainName = "jellyfin.apps.ondy.org";
       provisionCert = true;
     };
+
+    jellyseerr = {
+      enable = true;
+      domainName = "jellyseerr.apps.ondy.org";
+      provisionCert = true;
+    };
   };
 
   # Jellyfin user permissions for media access
   users.users.jellyfin.extraGroups = [ "media" ];
   systemd.services.jellyfin.serviceConfig = {
     SupplementaryGroups = [ "media" ];
-    UMask = "0002";
   };
 
   # SOPS secrets for monitoring
