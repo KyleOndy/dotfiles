@@ -113,6 +113,10 @@
         enable = true;
         provisionCert = true;
         domain = "loki.apps.ondy.org";
+        instanceInterfaceNames = [
+          "eno3"
+          "lo"
+        ];
       };
 
       grafana = {
