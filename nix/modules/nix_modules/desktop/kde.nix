@@ -31,5 +31,9 @@ in
       konsole
       oxygen
     ];
+
+    environment.systemPackages = with pkgs; [
+      kdePackages.partitionmanager
+    ];
   };
 }
