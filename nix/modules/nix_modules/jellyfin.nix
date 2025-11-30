@@ -80,6 +80,12 @@ in
       provisionCert = cfg.provisionCert;
     };
 
+    # Define rate limit zone for Jellyfin authentication endpoint
+    services.nginx.commonHttpConfig = mkAfter ''
+      # Rate limit zone for Jellyfin authentication (10 requests/minute per IP)
+      limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
+    '';
+
     # Add rate-limited location for auth endpoint
     services.nginx.virtualHosts."${cfg.domainName}".locations."/Users/AuthenticateByName" = {
       proxyPass = "http://127.0.0.1:8096";
