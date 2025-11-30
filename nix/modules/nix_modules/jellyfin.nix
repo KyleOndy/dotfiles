@@ -53,6 +53,13 @@ in
         };
       };
     };
+
+    transcodeCleanupInterval = mkOption {
+      type = types.str;
+      default = "6 hours";
+      description = "How old transcode files must be before cleanup (e.g., '6 hours', '1 day', '30 minutes')";
+      example = "12 hours";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -97,14 +104,15 @@ in
 
         '';
       };
-      jellyfin-transcode-cleanp = {
+      jellyfin-transcode-cleanup = {
         startAt = "*-*-* 04:00:00";
         path = with pkgs; [
           fd
         ];
         script = ''
-          # six hours feels reasonable, but is just an arbitrary guess
-          fd --type=file --changed-before="6 hours" . ${stateDir}/transcodes/ -X rm -v --
+          if [ -d "${stateDir}/transcodes" ]; then
+            fd --type=file --changed-before="${cfg.transcodeCleanupInterval}" . ${stateDir}/transcodes/ -X rm -v --
+          fi
         '';
 
       };
