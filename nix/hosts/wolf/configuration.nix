@@ -78,11 +78,6 @@
         credentialsSecret = "apps_ondy_org_route53";
       };
 
-      appendHttpConfig = ''
-        # Rate limit zone for Jellyfin authentication (10 requests/minute per IP)
-        limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
-      '';
-
       sites = {
         # Main website
         "www.kyleondy.com" = {
