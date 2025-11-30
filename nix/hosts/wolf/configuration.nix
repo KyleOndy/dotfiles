@@ -275,6 +275,7 @@
       group = "media";
       domainName = "jellyfin.apps.ondy.org";
       provisionCert = true;
+      transcodeCleanupInterval = "36 hours";
     };
 
     jellyseerr = {
