@@ -15,6 +15,8 @@ Clean up git history using AI-friendly automation patterns. Accepts any git ref:
 
 **IMPORTANT**: Claude cannot use interactive editors. This command uses `GIT_SEQUENCE_EDITOR` with `sed` for programmatic rebase automation instead of manual editor interaction.
 
+**CRITICAL**: The `reword` command does NOT work with `GIT_SEQUENCE_EDITOR` - git skips the editor and keeps the original message! Use `edit` + `git commit --amend` instead (see Pattern 7).
+
 ## Common Use Cases
 
 - Squash multiple WIP commits into meaningful units
@@ -238,16 +240,50 @@ GIT_SEQUENCE_EDITOR="sed -i -e 's/^pick abc123/edit abc123/' -e '/^pick.*debug/d
 sed -i 's/^pick abc123/edit abc123/'
 
 # Reword specific commit
-sed -i 's/^pick abc123/reword abc123/'
+# WARNING: 'reword' does NOT work with GIT_SEQUENCE_EDITOR!
+# Use 'edit' instead - see Pattern 7
+sed -i 's/^pick abc123/edit abc123/'
 
 # Drop specific commit by SHA
 sed -i '/^pick abc123/d'
 
 # Squash commits with "WIP" in message
 sed -i '/^pick.*WIP/s/pick/squash/'
+```
 
-# Change all picks to rewords
-sed -i 's/^pick/reword/'
+### Pattern 7: Rewrite Commit Messages (Programmatic)
+
+**Use when**: You need to change specific commit messages without interactive editing
+
+**CRITICAL**: The `reword` command does NOT work with `GIT_SEQUENCE_EDITOR` - git skips the editor and keeps the original message!
+
+**Solution**: Use `edit` to pause the rebase, then `git commit --amend` to change the message.
+
+```bash
+BASE="${1:-main}"
+
+# Step 1: Mark commits for editing
+GIT_SEQUENCE_EDITOR="sed -i \
+  -e 's/^pick abc123/edit abc123/' \
+  -e 's/^pick def456/edit def456/' \
+" git rebase -i --autostash "$BASE"
+
+# Step 2: When rebase pauses at each commit, amend and continue
+git commit --amend -m "new message for abc123"
+git rebase --continue
+
+git commit --amend -m "new message for def456"
+git rebase --continue
+```
+
+**Example**:
+
+```
+Before: abc123 feat(soruce): update all
+        def456 prepping dns cutover
+
+After:  abc123 chore: update flake.lock inputs
+        def456 feat(tf): add wolf IP variable for DNS migration
 ```
 
 ## Decision Framework
@@ -259,22 +295,26 @@ Use this flowchart to choose your pattern:
    YES → Use Pattern 4 (Autosquash)
    NO  → Continue to #2
 
-2. Do you want ONE final commit?
-   YES → Use Pattern 1 (Squash all into one)
+2. Do you need to REWRITE commit messages?
+   YES → Use Pattern 7 (Rewrite messages with edit + amend)
    NO  → Continue to #3
 
-3. Do you need to DROP specific commits?
-   YES → Use Pattern 3 (Drop by pattern)
+3. Do you want ONE final commit?
+   YES → Use Pattern 1 (Squash all into one)
    NO  → Continue to #4
 
-4. Do you want to keep first commit message only?
-   YES → Use Pattern 5 (Fixup all)
+4. Do you need to DROP specific commits?
+   YES → Use Pattern 3 (Drop by pattern)
    NO  → Continue to #5
 
-5. Multiple logical commits but need cleanup?
+5. Do you want to keep first commit message only?
+   YES → Use Pattern 5 (Fixup all)
+   NO  → Continue to #6
+
+6. Multiple logical commits but need cleanup?
    → Use Pattern 2 (Keep first separate) or Pattern 6 (Custom)
 
-6. Complex restructuring needed?
+7. Complex restructuring needed?
    → See "Advanced: Manual Rebase" section below
 ```
 
@@ -492,12 +532,14 @@ pick abc123 fix typo
 
 ```bash
 pick    # Use commit as-is
-reword  # Change commit message
-edit    # Pause to amend commit
+reword  # Change commit message (requires interactive editor - humans only!)
+edit    # Pause to amend commit (AI agents: use this + git commit --amend)
 squash  # Combine with previous, keep both messages
 fixup   # Combine with previous, discard this message
 drop    # Remove commit entirely
 ```
+
+**Note for AI Agents**: When using `GIT_SEQUENCE_EDITOR`, the `reword` command does not work - use `edit` instead and run `git commit --amend -m "message"` when the rebase pauses.
 
 ### Starting Manual Rebase
 
