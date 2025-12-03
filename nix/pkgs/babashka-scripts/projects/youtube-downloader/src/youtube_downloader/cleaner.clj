@@ -72,9 +72,44 @@
 
 
 (defn clean-empty-directories
-  "Remove empty directories"
-  [& _]
-  (println "  Skipping empty directory cleanup (simplified for now)"))
+  "Remove empty directories from temp directory (bottom-up, iteratively)"
+  [temp-dir & {:keys [dry-run]
+               :or {dry-run false}}]
+  (let [find-empty-dirs (fn []
+                          (->> (fs/glob temp-dir "**")
+                               (filter fs/directory?)
+                               (filter #(not= (fs/normalize %) (fs/normalize temp-dir)))
+                               (sort-by #(- (count (fs/components %))))
+                               (filter #(empty? (fs/list-dir %)))))
+        total-removed (atom 0)
+        total-failed (atom 0)]
+
+    (if dry-run
+      ;; Dry run: just count what would be removed
+      (let [empty-dirs (find-empty-dirs)]
+        (if (empty? empty-dirs)
+          (println "Cleaning empty directories: 0 found")
+          (do
+            (println (format "Cleaning empty directories: %d found" (count empty-dirs)))
+            (println "  [DRY RUN] Would remove empty directories"))))
+
+      ;; Actual cleanup: loop until no more empty dirs
+      (loop [empty-dirs (find-empty-dirs)
+             iteration 1]
+        (if (empty? empty-dirs)
+          (when (> @total-removed 0)
+            (println (format "  ✓ Removed %d directories, %d failed" @total-removed @total-failed)))
+          (do
+            (when (= iteration 1)
+              (println (format "Cleaning empty directories: %d found" (count empty-dirs))))
+            (doseq [d empty-dirs]
+              (try
+                (fs/delete d)
+                (swap! total-removed inc)
+                (catch Exception _
+                  (swap! total-failed inc))))
+            ;; Check again for newly-empty parent directories
+            (recur (find-empty-dirs) (inc iteration))))))))
 
 
 (defn count-total-videos
@@ -136,8 +171,7 @@
     (clean-incomplete-downloads media-dir :dry-run dry-run)
 
     ;; Clean empty directories
-    (when-not dry-run
-      (clean-empty-directories temp-dir media-dir))
+    (clean-empty-directories temp-dir :dry-run dry-run)
 
     ;; Clean old logs
     (cleanup-old-logs data-dir :dry-run dry-run)
@@ -154,4 +188,4 @@
   [config]
   (let [{:keys [temp-dir media-dir]} config]
     (move-downloads temp-dir media-dir)
-    (clean-empty-directories temp-dir media-dir)))
+    (clean-empty-directories temp-dir)))
