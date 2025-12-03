@@ -165,8 +165,9 @@
 
       vmagent = {
         enable = true;
-        # Send metrics to wolf VictoriaMetrics over WireGuard (no auth on private network)
-        remoteWriteUrl = "http://10.10.0.1:8428/api/v1/write";
+        # Send metrics to wolf VictoriaMetrics over internet with bearer token auth
+        remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
+        bearerTokenFile = config.sops.secrets.monitoring_token_bear.path;
         scrapeConfigs = [
           {
             job_name = "node";
@@ -206,8 +207,9 @@
 
       promtail = {
         enable = true;
-        # Send logs to wolf Loki over WireGuard (no auth on private network)
-        lokiUrl = "http://10.10.0.1:3100/loki/api/v1/push";
+        # Send logs to wolf Loki over internet with bearer token auth
+        lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
+        bearerTokenFile = config.sops.secrets.monitoring_token_bear.path;
         extraLabels = {
           host = "bear";
         };
@@ -225,6 +227,13 @@
     };
     tdarr_api_key = {
       mode = "0400";
+    };
+    monitoring_token_bear = {
+      # vmagent/promtail services run as DynamicUser, which means they can't be
+      # assigned file ownership directly. Using mode 0444 allows the services to
+      # read it. This is acceptable since the token is only used for authentication
+      # to our own VictoriaMetrics/Loki instances, not external services.
+      mode = "0444";
     };
   };
 
