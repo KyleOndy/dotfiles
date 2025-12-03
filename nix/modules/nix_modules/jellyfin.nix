@@ -88,6 +88,12 @@ in
               proxy_ssl_server_name on;
               # required when the server wants to use HTTP Authentication
               proxy_pass_header Authorization;
+
+              # Increase timeouts for large media files and slow transcodes
+              # Blu-ray ISOs over NFS can take 60+ seconds to probe
+              proxy_read_timeout 300s;
+              proxy_send_timeout 300s;
+              proxy_buffering off;
             '';
           };
 
