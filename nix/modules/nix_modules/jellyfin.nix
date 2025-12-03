@@ -72,12 +72,40 @@ in
         group = cfg.group;
         openFirewall = true;
       };
-    };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:8096";
-      provisionCert = cfg.provisionCert;
+      # nginx reverse proxy with WebSocket support
+      nginx = {
+        enable = true;
+        virtualHosts."${cfg.domainName}" = {
+          enableACME = cfg.provisionCert;
+          forceSSL = cfg.provisionCert;
+
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:8096";
+            proxyWebsockets = true;
+            extraConfig = ''
+              # required when the target is also TLS server with multiple hosts
+              proxy_ssl_server_name on;
+              # required when the server wants to use HTTP Authentication
+              proxy_pass_header Authorization;
+            '';
+          };
+
+          locations."/Users/AuthenticateByName" = {
+            proxyPass = "http://127.0.0.1:8096";
+            extraConfig = ''
+              limit_req zone=jellyfin_auth burst=3 nodelay;
+              limit_req_status 429;
+            '';
+          };
+
+          extraConfig = ''
+            # Use prometheus log format for metrics collection
+            access_log /var/log/nginx/access.log prometheus;
+            error_log /var/log/nginx/${cfg.domainName}.error error;
+          '';
+        };
+      };
     };
 
     # Define rate limit zone for Jellyfin authentication endpoint
@@ -86,14 +114,26 @@ in
       limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
     '';
 
-    # Add rate-limited location for auth endpoint
-    services.nginx.virtualHosts."${cfg.domainName}".locations."/Users/AuthenticateByName" = {
-      proxyPass = "http://127.0.0.1:8096";
-      extraConfig = ''
-        limit_req zone=jellyfin_auth burst=3 nodelay;
-        limit_req_status 429;
-      '';
+    # ACME certificate configuration (when provisionCert is enabled)
+    security.acme = mkIf cfg.provisionCert {
+      acceptTerms = true;
+      defaults.email = config.systemFoundry.nginxReverseProxy.acme.email;
+      certs."${cfg.domainName}" = {
+        dnsProvider = config.systemFoundry.nginxReverseProxy.acme.dnsProvider;
+        environmentFile =
+          config.sops.secrets.${config.systemFoundry.nginxReverseProxy.acme.credentialsSecret}.path;
+        webroot = null;
+      };
     };
+
+    # Allow nginx to read ACME certificates
+    users.users.nginx.extraGroups = mkIf cfg.provisionCert [ "acme" ];
+
+    # Open firewall for HTTPS (HTTP already opened by nginxReverseProxy if used elsewhere)
+    networking.firewall.allowedTCPPorts = mkIf cfg.provisionCert [
+      80
+      443
+    ];
 
     systemd.services = {
       # jellyfin provides no native backup, so zip, compress it, and copy it over
