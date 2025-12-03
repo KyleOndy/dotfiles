@@ -28,6 +28,24 @@ in
     hostName = "tiger";
     hostId = "48661cc0";
     useDHCP = lib.mkDefault true;
+
+    # WireGuard tunnel to wolf for NFS and Tdarr
+    wireguard.interfaces.wg0 = {
+      ips = [ "10.10.0.3/24" ];
+      listenPort = 51820;
+      privateKeyFile = config.sops.secrets.wireguard_private_key_tiger.path;
+      peers = [
+        {
+          # wolf peer
+          publicKey = "S7jDjWEY/0RrPsIshmRU1rgr4gC+eL4POf0OlujofW8=";
+          endpoint = "51.79.99.201:51820";
+          allowedIPs = [ "10.10.0.1/32" ];
+          persistentKeepalive = 25;
+        }
+      ];
+    };
+
+    firewall.allowedUDPPorts = [ 51820 ];
   };
 
   time.timeZone = "America/New_York";
@@ -155,6 +173,18 @@ in
       device = "storage/photos";
       fsType = "zfs";
       neededForBoot = false;
+    };
+    # NFS mount for wolf's media over WireGuard
+    "/mnt/wolf-media" = {
+      device = "10.10.0.1:/mnt/storage/media";
+      fsType = "nfs";
+      options = [
+        "nfsvers=4.2"
+        "soft"
+        "timeo=30"
+        "retrans=2"
+        "_netdev" # Mount after network is up
+      ];
     };
   };
 
@@ -419,6 +449,24 @@ in
           "@theaudaciousreport"
         ];
       };
+
+      # Tdarr node for hardware transcoding with Intel QuickSync
+      tdarr.node = {
+        enable = true;
+        serverUrl = "http://10.10.0.1:8266";
+        mediaPath = "/mnt/wolf-media";
+        nodeName = "tiger";
+        gpuWorkers = 1;
+        cpuWorkers = 2;
+        enableGpu = true;
+        pathTranslators = [
+          {
+            from = "/mnt/storage/media";
+            to = "/mnt/wolf-media";
+          }
+        ];
+        apiKeyFile = config.sops.secrets.tdarr_api_key.path;
+      };
     };
 
   hardware = {
@@ -531,6 +579,12 @@ in
       # This is acceptable since the token is only used for authentication to
       # our own VictoriaMetrics instance, not external services.
       mode = "0444";
+    };
+    wireguard_private_key_tiger = {
+      mode = "0400";
+    };
+    tdarr_api_key = {
+      mode = "0400";
     };
   };
 

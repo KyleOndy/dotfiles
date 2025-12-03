@@ -108,6 +108,9 @@
   };
 
   systemFoundry = {
+    # Enable Docker for OCI containers
+    docker.enable = true;
+
     nginxReverseProxy = {
       acme = {
         email = "kyle@ondy.org";
@@ -125,13 +128,22 @@
       transcodeCleanupInterval = "36 hours";
     };
 
-    # AV1 to H.264 transcoding service
-    av1Transcoder = {
+    # Tdarr node for hardware transcoding with Intel QuickSync
+    tdarr.node = {
       enable = true;
+      serverUrl = "http://10.10.0.1:8266";
       mediaPath = "/mnt/media";
-      quality = 20; # High quality, similar to CRF 20
-      enableTimer = true; # Run daily at 3 AM
-      timerSchedule = "03:00";
+      nodeName = "bear";
+      gpuWorkers = 1;
+      cpuWorkers = 2;
+      enableGpu = true;
+      pathTranslators = [
+        {
+          from = "/mnt/storage/media";
+          to = "/mnt/media";
+        }
+      ];
+      apiKeyFile = config.sops.secrets.tdarr_api_key.path;
     };
 
     # Monitoring agents - send metrics/logs to wolf over WireGuard
@@ -209,6 +221,9 @@
       mode = "0400";
     };
     apps_ondy_org_route53 = {
+      mode = "0400";
+    };
+    tdarr_api_key = {
       mode = "0400";
     };
   };

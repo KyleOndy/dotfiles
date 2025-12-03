@@ -24,6 +24,11 @@
           publicKey = "br9DBxgicT4P1Heey05srTXJU+9TOuIWH38ZhXmbvRo=";
           allowedIPs = [ "10.10.0.2/32" ];
         }
+        {
+          # tiger peer
+          publicKey = "xv9v5sg/RL4NY+Wq2+LofjtzuUJLarTYH2fkHjCD2gg=";
+          allowedIPs = [ "10.10.0.3/32" ];
+        }
       ];
     };
 
@@ -320,14 +325,26 @@
       domainName = "tdarr.apps.ondy.org";
       provisionCert = true;
       seededApiKeyFile = config.sops.secrets.tdarr_api_key.path;
+
+      # Flow management - import H.264 compatibility flow and assign to libraries
+      flows = [
+        {
+          name = "H.264 Compatibility Flow";
+          file = ./tdarr-compatibility-flow.json;
+        }
+      ];
+      libraryFlowAssignments = {
+        "TV" = "nixos-h264-compat";
+        "Movies" = "nixos-h264-compat";
+      };
     };
   };
 
-  # NFS server - export media to bear over WireGuard
+  # NFS server - export media to bear and tiger over WireGuard
   services.nfs.server = {
     enable = true;
     exports = ''
-      /mnt/storage/media 10.10.0.2(rw,sync,no_subtree_check,no_root_squash)
+      /mnt/storage/media 10.10.0.2(rw,sync,no_subtree_check,no_root_squash) 10.10.0.3(rw,sync,no_subtree_check,no_root_squash)
     '';
   };
 
