@@ -5,7 +5,7 @@ variable "ondy_org_top_level_apps" {
   ]
 }
 
-variable "ondy_org_apps_subdomains" {
+variable "wolf_apps_subdomains" {
   type = list(string)
   default = [
     "grafana",
@@ -16,7 +16,6 @@ variable "ondy_org_apps_subdomains" {
 
     # media managment
     "bazarr",
-    "jellyfin",
     "jellyseerr",
     "lidarr",
     "prowlarr",
@@ -24,5 +23,13 @@ variable "ondy_org_apps_subdomains" {
     "readarr",
     "sabnzbd",
     "sonarr",
+    "tdarr",
+  ]
+}
+
+variable "bear_apps_subdomains" {
+  type = list(string)
+  default = [
+    "jellyfin",
   ]
 }

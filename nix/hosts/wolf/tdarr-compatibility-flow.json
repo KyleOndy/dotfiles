@@ -1,0 +1,285 @@
+{
+  "_id": "nixos-h264-compat",
+  "name": "Compatibility - H264 MKV AAC",
+  "description": "Transcode to H.264 with Intel QSV for maximum device compatibility. Ensures MKV container and AAC audio track.",
+  "tags": "video,h264,compatibility,qsv,mkv,aac",
+  "flowPlugins": [
+    {
+      "name": "Input File",
+      "sourceRepo": "Community",
+      "pluginName": "inputFile",
+      "version": "1.0.0",
+      "id": "input001",
+      "position": { "x": 400, "y": 50 }
+    },
+    {
+      "name": "Check Video Codec",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "chkcodec1",
+      "position": { "x": 400, "y": 150 },
+      "inputsDB": {
+        "codecs": "h264"
+      }
+    },
+    {
+      "name": "Check File Extension (MKV)",
+      "sourceRepo": "Community",
+      "pluginName": "checkFileExtension",
+      "version": "1.0.0",
+      "id": "chkext01",
+      "position": { "x": 200, "y": 250 },
+      "inputsDB": {
+        "extensions": "mkv"
+      }
+    },
+    {
+      "name": "Already H264 - Check Container",
+      "sourceRepo": "Community",
+      "pluginName": "checkFileExtension",
+      "version": "1.0.0",
+      "id": "chkext02",
+      "position": { "x": 600, "y": 250 },
+      "inputsDB": {
+        "extensions": "mkv"
+      }
+    },
+    {
+      "name": "FFmpeg Start (Transcode)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "id": "ffstart1",
+      "position": { "x": 200, "y": 350 }
+    },
+    {
+      "name": "FFmpeg Start (Remux Only)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "id": "ffstart2",
+      "position": { "x": 600, "y": 350 }
+    },
+    {
+      "name": "Set H264 QSV Encoder",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "setenc01",
+      "position": { "x": 200, "y": 450 },
+      "inputsDB": {
+        "videoEncoder": "h264_qsv",
+        "ffmpegPreset": "medium",
+        "ffmpegQuality": "22",
+        "hardwareDecoding": false,
+        "hardwareType": "qsv"
+      }
+    },
+    {
+      "name": "Set Container MKV",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "id": "setcont1",
+      "position": { "x": 200, "y": 550 },
+      "inputsDB": {
+        "container": "mkv"
+      }
+    },
+    {
+      "name": "Set Container MKV (Remux)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "id": "setcont2",
+      "position": { "x": 600, "y": 450 },
+      "inputsDB": {
+        "container": "mkv"
+      }
+    },
+    {
+      "name": "Ensure AAC Audio",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandEnsureAudioStream",
+      "version": "1.0.0",
+      "id": "ensaac1",
+      "position": { "x": 200, "y": 650 },
+      "inputsDB": {
+        "audioCodec": "aac",
+        "audioChannels": "2",
+        "audioBitrate": "192k"
+      }
+    },
+    {
+      "name": "Ensure AAC Audio (Remux)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandEnsureAudioStream",
+      "version": "1.0.0",
+      "id": "ensaac2",
+      "position": { "x": 600, "y": 550 },
+      "inputsDB": {
+        "audioCodec": "aac",
+        "audioChannels": "2",
+        "audioBitrate": "192k"
+      }
+    },
+    {
+      "name": "Execute FFmpeg (Transcode)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "id": "ffexec1",
+      "position": { "x": 200, "y": 750 }
+    },
+    {
+      "name": "Execute FFmpeg (Remux)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "id": "ffexec2",
+      "position": { "x": 600, "y": 650 }
+    },
+    {
+      "name": "Replace Original (Transcode)",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "id": "replace1",
+      "position": { "x": 200, "y": 850 }
+    },
+    {
+      "name": "Replace Original (Remux)",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "id": "replace2",
+      "position": { "x": 600, "y": 750 }
+    },
+    {
+      "name": "Already Compliant - No Change",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "id": "comment1",
+      "position": { "x": 800, "y": 350 },
+      "inputsDB": {
+        "comment": "File already H.264 in MKV container - no transcoding needed"
+      }
+    }
+  ],
+  "flowEdges": [
+    {
+      "source": "input001",
+      "sourceHandle": "1",
+      "target": "chkcodec1",
+      "targetHandle": null,
+      "id": "e001"
+    },
+    {
+      "source": "chkcodec1",
+      "sourceHandle": "1",
+      "target": "chkext02",
+      "targetHandle": null,
+      "id": "e002"
+    },
+    {
+      "source": "chkcodec1",
+      "sourceHandle": "2",
+      "target": "chkext01",
+      "targetHandle": null,
+      "id": "e003"
+    },
+    {
+      "source": "chkext01",
+      "sourceHandle": "1",
+      "target": "ffstart1",
+      "targetHandle": null,
+      "id": "e004"
+    },
+    {
+      "source": "chkext01",
+      "sourceHandle": "2",
+      "target": "ffstart1",
+      "targetHandle": null,
+      "id": "e005"
+    },
+    {
+      "source": "chkext02",
+      "sourceHandle": "1",
+      "target": "comment1",
+      "targetHandle": null,
+      "id": "e006"
+    },
+    {
+      "source": "chkext02",
+      "sourceHandle": "2",
+      "target": "ffstart2",
+      "targetHandle": null,
+      "id": "e007"
+    },
+    {
+      "source": "ffstart1",
+      "sourceHandle": "1",
+      "target": "setenc01",
+      "targetHandle": null,
+      "id": "e008"
+    },
+    {
+      "source": "setenc01",
+      "sourceHandle": "1",
+      "target": "setcont1",
+      "targetHandle": null,
+      "id": "e009"
+    },
+    {
+      "source": "setcont1",
+      "sourceHandle": "1",
+      "target": "ensaac1",
+      "targetHandle": null,
+      "id": "e010"
+    },
+    {
+      "source": "ensaac1",
+      "sourceHandle": "1",
+      "target": "ffexec1",
+      "targetHandle": null,
+      "id": "e011"
+    },
+    {
+      "source": "ffexec1",
+      "sourceHandle": "1",
+      "target": "replace1",
+      "targetHandle": null,
+      "id": "e012"
+    },
+    {
+      "source": "ffstart2",
+      "sourceHandle": "1",
+      "target": "setcont2",
+      "targetHandle": null,
+      "id": "e013"
+    },
+    {
+      "source": "setcont2",
+      "sourceHandle": "1",
+      "target": "ensaac2",
+      "targetHandle": null,
+      "id": "e014"
+    },
+    {
+      "source": "ensaac2",
+      "sourceHandle": "1",
+      "target": "ffexec2",
+      "targetHandle": null,
+      "id": "e015"
+    },
+    {
+      "source": "ffexec2",
+      "sourceHandle": "1",
+      "target": "replace2",
+      "targetHandle": null,
+      "id": "e016"
+    }
+  ]
+}
