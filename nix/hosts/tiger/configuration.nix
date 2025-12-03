@@ -440,6 +440,7 @@ in
           # tech
           "@AdamJames-tv"
           "@KRAZAM"
+          "@programmersarealsohuman5909" # Kai Lentit
 
           # outdoor
           "@bronandjacob"
