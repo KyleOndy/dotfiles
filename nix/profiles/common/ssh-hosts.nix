@@ -35,6 +35,11 @@ with lib;
         user = "kyle";
         identityFile = "~/.ssh/id_ed25519";
       };
+      "bear" = {
+        hostname = "ns102788.ip-147-135-8.us";
+        user = "kyle";
+        identityFile = "~/.ssh/id_ed25519";
+      };
     };
   };
 }
