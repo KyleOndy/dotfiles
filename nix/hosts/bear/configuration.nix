@@ -108,9 +108,6 @@
   };
 
   systemFoundry = {
-    # Enable Docker for OCI containers
-    docker.enable = true;
-
     nginxReverseProxy = {
       acme = {
         email = "kyle@ondy.org";
@@ -128,22 +125,13 @@
       transcodeCleanupInterval = "36 hours";
     };
 
-    # Tdarr node for hardware transcoding with Intel QuickSync
-    tdarr.node = {
+    # AV1 to H.264 transcoding service
+    av1Transcoder = {
       enable = true;
-      serverUrl = "http://10.10.0.1:8266";
       mediaPath = "/mnt/media";
-      nodeName = "bear";
-      gpuWorkers = 1;
-      cpuWorkers = 2;
-      enableGpu = true;
-      pathTranslators = [
-        {
-          from = "/mnt/storage/media";
-          to = "/mnt/media";
-        }
-      ];
-      apiKeyFile = config.sops.secrets.tdarr_api_key.path;
+      quality = 20; # High quality, similar to CRF 20
+      enableTimer = true; # Run daily at 3 AM
+      timerSchedule = "03:00";
     };
 
     # Monitoring agents - send metrics/logs to wolf over WireGuard
@@ -165,9 +153,8 @@
 
       vmagent = {
         enable = true;
-        # Send metrics to wolf VictoriaMetrics over internet with bearer token auth
-        remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
-        bearerTokenFile = config.sops.secrets.monitoring_token_bear.path;
+        # Send metrics to wolf VictoriaMetrics over WireGuard (no auth on private network)
+        remoteWriteUrl = "http://10.10.0.1:8428/api/v1/write";
         scrapeConfigs = [
           {
             job_name = "node";
@@ -207,9 +194,8 @@
 
       promtail = {
         enable = true;
-        # Send logs to wolf Loki over internet with bearer token auth
-        lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
-        bearerTokenFile = config.sops.secrets.monitoring_token_bear.path;
+        # Send logs to wolf Loki over WireGuard (no auth on private network)
+        lokiUrl = "http://10.10.0.1:3100/loki/api/v1/push";
         extraLabels = {
           host = "bear";
         };
@@ -224,16 +210,6 @@
     };
     apps_ondy_org_route53 = {
       mode = "0400";
-    };
-    tdarr_api_key = {
-      mode = "0400";
-    };
-    monitoring_token_bear = {
-      # vmagent/promtail services run as DynamicUser, which means they can't be
-      # assigned file ownership directly. Using mode 0444 allows the services to
-      # read it. This is acceptable since the token is only used for authentication
-      # to our own VictoriaMetrics/Loki instances, not external services.
-      mode = "0444";
     };
   };
 
