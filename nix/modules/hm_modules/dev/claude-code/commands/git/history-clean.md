@@ -73,11 +73,11 @@ Display: `Created backup branch: [branch_name]`
 
 ### 3. Handle Uncommitted Changes
 
-**Option 1 (Recommended): Use --autostash**
+#### Option 1 (Recommended): Use --autostash
 
 The `--autostash` flag (used in all patterns below) automatically stashes uncommitted changes before the rebase and reapplies them afterward. No action needed.
 
-**Option 2: Create a WIP commit**
+#### Option 2: Create a WIP commit
 
 If you want uncommitted changes to be part of the history:
 
@@ -134,7 +134,7 @@ GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash "$B
 
 **Example**:
 
-```
+```text
 Before: feat: add login → WIP: fix styling → fix typo → add validation
 After:  feat: add complete login form with validation
 ```
@@ -152,7 +152,7 @@ GIT_SEQUENCE_EDITOR="sed -i '3,$ s/^pick/squash/'" git rebase -i --autostash "$B
 
 **Example**:
 
-```
+```text
 Before: feat: add login → fix: address review comments → fix: typo → refactor: cleanup
 After:  feat: add login
         fix: address review comments and cleanup
@@ -172,7 +172,7 @@ GIT_SEQUENCE_EDITOR="sed -i '/^pick.*\($PATTERN\)/d'" git rebase -i --autostash 
 
 **Example**:
 
-```
+```text
 Before: feat: add feature → debug: add logging → more debug → feat: polish
 After:  feat: add feature → feat: polish
 ```
@@ -215,7 +215,7 @@ GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/fixup/'" git rebase -i --autostash "$BA
 
 **Example**:
 
-```
+```text
 Before: feat: add login → fix whitespace → fix typo → address comments
 After:  feat: add login  (other messages discarded)
 ```
@@ -278,7 +278,7 @@ git rebase --continue
 
 **Example**:
 
-```
+```text
 Before: abc123 feat(soruce): update all
         def456 prepping dns cutover
 
@@ -290,7 +290,7 @@ After:  abc123 chore: update flake.lock inputs
 
 Use this flowchart to choose your pattern:
 
-```
+```text
 1. Do you have fixup!/squash! commits?
    YES → Use Pattern 4 (Autosquash)
    NO  → Continue to #2
@@ -417,14 +417,14 @@ git rebase --skip  # Skip current commit entirely (during rebase)
 
 Run `git log --oneline main..HEAD` to see:
 
-```
+```text
 abc123 fix typo
 def456 WIP: add validation
 ghi789 WIP: fix styling
 jkl012 feat: add login form
 ```
 
-**Use Pattern 1: Squash all**
+#### Use Pattern 1: Squash all
 
 Run the following command:
 
@@ -434,7 +434,7 @@ GIT_SEQUENCE_EDITOR="sed -i '2,$ s/^pick/squash/'" git rebase -i --autostash mai
 
 **Result:** One commit with all changes
 
-```
+```text
 xyz789 feat: add complete login form with validation and styling
 ```
 
@@ -444,14 +444,14 @@ xyz789 feat: add complete login form with validation and styling
 
 Run `git log --oneline main..HEAD` to see:
 
-```
+```text
 abc123 remove debug
 def456 add more debug
 ghi789 debug: add logging
 jkl012 feat: add feature
 ```
 
-**Use Pattern 3: Drop by pattern**
+#### Use Pattern 3: Drop by pattern
 
 Run the following command to drop all commits containing "debug":
 
@@ -461,7 +461,7 @@ GIT_SEQUENCE_EDITOR="sed -i '/^pick.*debug/d'" git rebase -i --autostash main
 
 **Result:** Only feature commit remains
 
-```
+```text
 jkl012 feat: add feature
 ```
 
@@ -497,7 +497,7 @@ GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --autostash main
 
 **Result:** All fixups automatically squashed into original commit
 
-```
+```text
 abc123 feat: add authentication (with all fixes included)
 ```
 
@@ -530,7 +530,7 @@ pick abc123 fix typo
 
 ### Manual Rebase Commands
 
-```bash
+```text
 pick    # Use commit as-is
 reword  # Change commit message (requires interactive editor - humans only!)
 edit    # Pause to amend commit (AI agents: use this + git commit --amend)
