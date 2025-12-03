@@ -56,7 +56,7 @@ in
           tree2 = "tree -L 2 $@";
           tree3 = "tree -L 3 $@";
           y = "bat --language yaml $@";
-          ygron = "yq --output-format=props"; # like gron, for yaml
+          ygron = "yq-go --output-format=props"; # like gron, for yaml
         };
         # The double single quote `''` is to escape the `${` character
         # combination that nix wants to replace with a variable. Its not some
@@ -332,8 +332,8 @@ in
                 unset AWS_REGION
               else
                 KUBECONFIG="$config_dir/$kubeconfig"
-                AWS_PROFILE=$(${pkgs.yq}/bin/yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
-                AWS_REGION=$(${pkgs.yq}/bin/yq '.users[].user.exec.args' "$KUBECONFIG" | ${pkgs.ripgrep}/bin/rg -F -e '--region' -A1 | ${pkgs.coreutils}/bin/tail -n1 | ${pkgs.coreutils}/bin/cut -d' ' -f2)
+                AWS_PROFILE=$(${pkgs.yq-go}/bin/yq-go '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
+                AWS_REGION=$(${pkgs.yq-go}/bin/yq-go '.users[].user.exec.args' "$KUBECONFIG" | ${pkgs.ripgrep}/bin/rg -F -e '--region' -A1 | ${pkgs.coreutils}/bin/tail -n1 | ${pkgs.coreutils}/bin/cut -d' ' -f2)
 
                 # This checks if the cluster is AWS
                 # TODO: handle GKE cluster
