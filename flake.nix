@@ -328,6 +328,14 @@
           hostname = "wolf";
           profile = "server";
         };
+        bear = mkNixosSystem {
+          hostname = "bear";
+          profile = "server";
+          includeModules = [
+            inputs.disko.nixosModules.disko
+            ./nix/hosts/bear/nix-anywhere/disk-config.nix
+          ];
+        };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -440,6 +448,15 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.wolf;
+            };
+          };
+          bear = {
+            fastConnection = false;
+            hostname = "147.135.8.156";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.bear;
             };
           };
         };
