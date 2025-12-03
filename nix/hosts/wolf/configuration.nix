@@ -12,6 +12,34 @@
     hostName = "wolf";
     # Required for ZFS - derived from /etc/machine-id
     hostId = "8a3c5d2e";
+
+    # WireGuard tunnel for NFS and monitoring from bear
+    wireguard.interfaces.wg0 = {
+      ips = [ "10.10.0.1/24" ];
+      listenPort = 51820;
+      privateKeyFile = config.sops.secrets.wireguard_private_key_wolf.path;
+      peers = [
+        {
+          # bear peer
+          publicKey = "br9DBxgicT4P1Heey05srTXJU+9TOuIWH38ZhXmbvRo=";
+          allowedIPs = [ "10.10.0.2/32" ];
+        }
+      ];
+    };
+
+    firewall = {
+      allowedUDPPorts = [ 51820 ]; # WireGuard
+      # Allow NFS, VictoriaMetrics, Loki, and Tdarr on WireGuard interface only
+      interfaces.wg0 = {
+        allowedTCPPorts = [
+          2049 # NFS
+          111 # NFS portmapper
+          8428 # VictoriaMetrics
+          3100 # Loki
+          8266 # Tdarr server
+        ];
+      };
+    };
   };
 
   time.timeZone = "America/New_York";
@@ -54,7 +82,10 @@
   users.users."svc.deploy".extraGroups = [ "nginx" ];
 
   # Create media group for shared access to downloads/media
-  users.groups.media = { };
+  # Explicitly set GID to ensure consistency across NFS mounts (bear uses same GID)
+  users.groups.media = {
+    gid = 983;
+  };
 
   # Ensure directories exist with proper permissions
   systemd.tmpfiles.rules = [
@@ -71,6 +102,9 @@
   ];
 
   systemFoundry = {
+    # Enable Docker for OCI containers
+    docker.enable = true;
+
     nginxReverseProxy = {
       acme = {
         email = "kyle@ondy.org";
@@ -266,7 +300,7 @@
     };
 
     jellyfin = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "jellyfin.apps.ondy.org";
       provisionCert = true;
@@ -278,15 +312,26 @@
       domainName = "jellyseerr.apps.ondy.org";
       provisionCert = true;
     };
+
+    # Tdarr server for media transcoding
+    tdarr.server = {
+      enable = true;
+      mediaPath = "/mnt/storage/media";
+      domainName = "tdarr.apps.ondy.org";
+      provisionCert = true;
+      seededApiKeyFile = config.sops.secrets.tdarr_api_key.path;
+    };
   };
 
-  # Jellyfin user permissions for media access
-  users.users.jellyfin.extraGroups = [ "media" ];
-  systemd.services.jellyfin.serviceConfig = {
-    SupplementaryGroups = [ "media" ];
+  # NFS server - export media to bear over WireGuard
+  services.nfs.server = {
+    enable = true;
+    exports = ''
+      /mnt/storage/media 10.10.0.2(rw,sync,no_subtree_check,no_root_squash)
+    '';
   };
 
-  # SOPS secrets for monitoring
+  # SOPS secrets for monitoring and WireGuard
   sops.secrets = {
     monitoring_token_tiger = {
       # Used by sops template for runtime hash computation and nginx auth
@@ -299,6 +344,12 @@
     monitoring_token_wolf = {
       # Used by sops template for runtime hash computation and nginx auth
       mode = "0444";
+    };
+    wireguard_private_key_wolf = {
+      mode = "0400";
+    };
+    tdarr_api_key = {
+      mode = "0400";
     };
   };
 
