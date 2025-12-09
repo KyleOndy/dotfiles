@@ -1,7 +1,5 @@
 (ns youtube-downloader.anti-bot
-  "Bot detection mitigation strategies"
-  (:require
-    [clojure.string :as str]))
+  "Bot detection mitigation strategies")
 
 
 (def user-agents
@@ -30,7 +28,7 @@
 
 (defn calculate-channel-delay
   "Calculate delay between channels with jitter"
-  [channel-index total-channels base-delay]
+  [channel-index total-channels]
   (let [;; With only 5 videos per channel, we can use shorter delays
         min-delay 30   ; 30 seconds minimum
         max-delay 120  ; 2 minutes maximum
