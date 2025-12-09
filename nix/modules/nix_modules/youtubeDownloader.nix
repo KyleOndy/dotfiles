@@ -80,7 +80,7 @@ in
     environment.systemPackages = [ pkgs.babashka-scripts ];
 
     systemd = {
-      services.yt-dowload-and-clean = {
+      services.yt-download-and-clean = {
         enable = true;
         description = "Downloads Youtube videos and cleans up Jellyfin";
         startAt = "*-*-* 4:00:00"; # 4 am
@@ -132,7 +132,7 @@ in
           exec ${pkgs.babashka-scripts}/bin/youtube-downloader
         '';
       };
-      timers.yt-dowload-and-clean.timerConfig.RandomizedDelaySec = "15m";
+      timers.yt-download-and-clean.timerConfig.RandomizedDelaySec = "15m";
     };
   };
 }
