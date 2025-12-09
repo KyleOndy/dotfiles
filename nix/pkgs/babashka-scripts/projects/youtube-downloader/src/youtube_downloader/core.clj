@@ -45,7 +45,7 @@
 (defn download-all-channels
   "Download videos from all configured channels"
   [config]
-  (let [{:keys [channels sleep-between-channels]} config
+  (let [{:keys [channels]} config
         shuffled-channels (anti-bot/shuffle-channels channels)
         total-channels (count shuffled-channels)]
 
@@ -77,8 +77,7 @@
               ;; Calculate delay to next channel
               delay-seconds (anti-bot/calculate-channel-delay
                               channel-index
-                              total-channels
-                              sleep-between-channels)]
+                              total-channels)]
 
           ;; Record metrics for this channel
           (obs/record-channel-duration (:name current-channel) duration-seconds)
