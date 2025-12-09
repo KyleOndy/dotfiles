@@ -53,9 +53,9 @@
                    jitter? true}}]
   (let [delay (* base-delay (Math/pow 2 attempt))
         capped-delay (min delay max-delay)]
-    (if jitter?
-      (+ capped-delay (rand-int (/ capped-delay 2)))
-      capped-delay)))
+    (long (if jitter?
+            (+ capped-delay (rand-int (int (/ capped-delay 2))))
+            capped-delay))))
 
 
 (defn should-retry?
