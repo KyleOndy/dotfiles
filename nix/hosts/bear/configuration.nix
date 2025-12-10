@@ -49,6 +49,11 @@
   };
   boot.loader.efi.canTouchEfiVariables = false;
 
+  # mdadm configuration for software RAID
+  boot.swraid.mdadmConf = ''
+    MAILADDR root
+  '';
+
   # NFS mount for media over WireGuard from wolf
   fileSystems."/mnt/media" = {
     device = "10.10.0.1:/mnt/storage/media";

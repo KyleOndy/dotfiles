@@ -22,6 +22,8 @@ in
       "aarch64-linux"
       "armv7l-linux"
     ];
+    # Disable legacy containers (conflicts with stateVersion < 22.05)
+    enableContainers = false;
   };
 
   networking = {
