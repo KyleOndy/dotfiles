@@ -139,7 +139,7 @@ remove_worktree() {
   local force=${2:-false}
 
   if [[ "$DRY_RUN" == true ]]; then
-    echo -e "${YELLOW}[DRY-RUN]${NC} Would remove: $path"
+    echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would remove: $path"
     return 0
   fi
 
@@ -153,9 +153,9 @@ remove_worktree() {
   fi
 
   if [[ $result -eq 0 ]]; then
-    echo -e "${GREEN}✓${NC} Removed: $path"
+    echo -e "${COLOR_GREEN}✓${COLOR_RESET} Removed: $path"
   else
-    echo -e "${RED}✗${NC} Failed to remove: $path"
+    echo -e "${COLOR_RED}✗${COLOR_RESET} Failed to remove: $path"
     return 1
   fi
 }
@@ -229,19 +229,19 @@ interactive_cleanup() {
     echo "  - $display_path ($branch)"
 
     if [[ "$has_changes" == "true" ]]; then
-      echo -e "    ${YELLOW}⚠ Warning: Has uncommitted changes${NC}"
+      echo -e "    ${COLOR_YELLOW}⚠ Warning: Has uncommitted changes${COLOR_RESET}"
       has_warnings=true
     fi
 
     if [[ "$has_unpushed" == "true" ]]; then
-      echo -e "    ${YELLOW}⚠ Warning: Has unpushed commits${NC}"
+      echo -e "    ${COLOR_YELLOW}⚠ Warning: Has unpushed commits${COLOR_RESET}"
       has_warnings=true
     fi
   done
 
   echo ""
   if [[ "$has_warnings" == true ]]; then
-    echo -e "${YELLOW}Some worktrees have uncommitted changes or unpushed commits.${NC}"
+    echo -e "${COLOR_YELLOW}Some worktrees have uncommitted changes or unpushed commits.${COLOR_RESET}"
     read -p "Are you sure you want to remove these worktrees? [y/N] " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -269,7 +269,7 @@ interactive_cleanup() {
   done
 
   echo ""
-  echo -e "${GREEN}Cleanup complete.${NC}"
+  echo -e "${COLOR_GREEN}Cleanup complete.${COLOR_RESET}"
 }
 
 # Automated cleanup based on criteria
@@ -345,7 +345,7 @@ automated_cleanup() {
 
   if [[ "$DRY_RUN" == true ]]; then
     echo ""
-    echo -e "${YELLOW}[DRY-RUN] No worktrees were removed.${NC}"
+    echo -e "${COLOR_YELLOW}[DRY-RUN] No worktrees were removed.${COLOR_RESET}"
     exit 0
   fi
 
@@ -365,7 +365,7 @@ automated_cleanup() {
   done
 
   echo ""
-  echo -e "${GREEN}Cleanup complete.${NC}"
+  echo -e "${COLOR_GREEN}Cleanup complete.${COLOR_RESET}"
 }
 
 # Prune and maintenance
@@ -374,8 +374,8 @@ run_maintenance() {
   echo ""
 
   if [[ "$DRY_RUN" == true ]]; then
-    echo -e "${YELLOW}[DRY-RUN]${NC} Would run: git worktree prune"
-    echo -e "${YELLOW}[DRY-RUN]${NC} Would run: git gc --auto"
+    echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would run: git worktree prune"
+    echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would run: git gc --auto"
   else
     echo "Pruning worktrees..."
     git worktree prune -v
@@ -385,7 +385,7 @@ run_maintenance() {
     git gc --auto
 
     echo ""
-    echo -e "${GREEN}✓ Maintenance complete.${NC}"
+    echo -e "${COLOR_GREEN}✓ Maintenance complete.${COLOR_RESET}"
   fi
 }
 
