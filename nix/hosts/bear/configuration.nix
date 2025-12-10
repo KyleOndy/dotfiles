@@ -50,7 +50,19 @@
   boot.loader.efi.canTouchEfiVariables = false;
 
   # mdadm configuration for software RAID
-  boot.swraid.mdadmConf = ''
+  # Use PROGRAM to log events to journald (picked up by promtail)
+  environment.etc."mdadm-alert.sh" = {
+    mode = "0755";
+    text = ''
+      #!${pkgs.bash}/bin/bash
+      # Log mdadm events to journald
+      # Arguments: event device component
+      ${pkgs.util-linux}/bin/logger -t mdadm -p daemon.warning "RAID event: $1 on device $2 component $3"
+    '';
+  };
+
+  environment.etc."mdadm.conf".text = ''
+    PROGRAM /etc/mdadm-alert.sh
     MAILADDR root
   '';
 
