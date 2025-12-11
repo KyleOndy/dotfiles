@@ -2,6 +2,46 @@
 
 This directory contains the NixOS configuration for a VictoriaMetrics-based monitoring stack with Grafana, Loki, and Alertmanager.
 
+## Git Worktree Structure
+
+**CRITICAL**: This repository uses git worktrees. Each branch lives in its own directory under `/home/kyle/src/dotfiles/`.
+
+### Directory Layout
+
+```
+/home/kyle/src/dotfiles/
+├── .bare/           # Bare repository (DO NOT use for file operations)
+├── kube-context/    # Worktree for kube-context branch
+├── main/            # Worktree for main branch
+├── bear/            # Worktree for bear branch
+└── ...              # Other feature branch worktrees
+```
+
+### Important Rules for File Operations
+
+When working in a worktree, **always use the worktree root as the base directory** for all file operations:
+
+- ✅ **Correct**: `/home/kyle/src/dotfiles/kube-context/nix/modules/...`
+- ❌ **Wrong**: `/home/kyle/src/dotfiles/nix/modules/...` (ambiguous - which worktree?)
+- ❌ **Wrong**: `/home/kyle/src/dotfiles/.bare/...` (bare repo has no working files)
+
+### Finding the Current Worktree Root
+
+```bash
+git rev-parse --show-toplevel
+# Returns: /home/kyle/src/dotfiles/kube-context
+```
+
+### Why This Matters
+
+Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. Using the wrong path will result in:
+
+- File not found errors
+- Editing the wrong worktree's files
+- Confusion about which branch is being modified
+
+**Always verify you're in the correct worktree before starting work.**
+
 ## Architecture Overview
 
 ### Server Components (wolf)
