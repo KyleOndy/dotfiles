@@ -35,7 +35,12 @@ in
           "\${custom.git-worktree}"
           "$git_state" # REBASING, MERGING, etc (starship built-in)
           "$nix_shell"
+          "$python"
+          "$golang"
+          "$java"
           "$aws"
+          "$gcloud"
+          "$azure"
           "$kubernetes"
           "$cmd_duration"
           "$line_break" # NEW LINE (explicit two-line prompt)
@@ -93,6 +98,37 @@ in
         cmd_duration = {
           min_time = 500;
           format = "took [$duration]($style) ";
+        };
+
+        # Kubernetes context - show current cluster
+        kubernetes = {
+          disabled = false;
+          format = "[$context]($style) ";
+          style = "cyan bold";
+        };
+
+        # Python version - shows in Python projects
+        python = {
+          disabled = false;
+          format = "via [$symbol($version )]($style)";
+        };
+
+        # Go version - shows in Go projects
+        golang = {
+          disabled = false;
+          format = "via [$symbol($version )]($style)";
+        };
+
+        # Google Cloud project
+        gcloud = {
+          disabled = false;
+          format = "on [$symbol$project]($style) ";
+        };
+
+        # Azure subscription
+        azure = {
+          disabled = false;
+          format = "on [$symbol($subscription)]($style) ";
         };
 
         # Additional useful modules enabled by default
