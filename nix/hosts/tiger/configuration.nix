@@ -14,7 +14,10 @@ in
   boot = {
     # Use the systemd-boot EFI boot loader.
     loader = {
-      systemd-boot.enable = true;
+      systemd-boot = {
+        enable = true;
+        configurationLimit = 20; # Keep only 20 generations in /boot
+      };
       efi.canTouchEfiVariables = true;
     };
     supportedFilesystems = [ "zfs" ];
