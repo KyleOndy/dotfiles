@@ -26,6 +26,9 @@ stdenv.mkDerivation {
       cp -r ./lib/* $out/lib/
     fi
 
+    # Fix common.sh paths in scripts to use absolute path
+    sed -i -e "s|source \"\''${SCRIPT_DIR}/../lib/common.sh\"|source \"$out/lib/common.sh\"|" $out/bin/* || true
+
     mkdir -p $out/share/zsh/site-functions
     find ./completions \( -type f -o -type l \) \
         -exec cp -pL {} $out/share/zsh/site-functions \;
