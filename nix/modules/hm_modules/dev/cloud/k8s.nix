@@ -21,6 +21,7 @@ in
       kubectl-node-shell
       kubectx
       kubernetes-helm
+      kustomize
       kind
     ];
   };
