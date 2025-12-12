@@ -16,6 +16,7 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
+      step-cli
       htop
       lsof
       nettools
