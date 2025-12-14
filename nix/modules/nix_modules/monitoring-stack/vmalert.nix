@@ -71,8 +71,12 @@ in
         - name: systemd_health
           interval: 30s
           rules:
+            # Exclude drkonqi-coredump-processor@* services - these are KDE's transient
+            # crash dump processors that often timeout during session disruptions (logout,
+            # display server restart). The underlying application crash is the real issue,
+            # not the processor failure. These create noise without actionable information.
             - alert: SystemdServiceFailed
-              expr: node_systemd_unit_state{state="failed"} == 1
+              expr: node_systemd_unit_state{state="failed",name!~"drkonqi-.*"} == 1
               for: 5m
               labels:
                 severity: critical
