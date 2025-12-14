@@ -560,6 +560,7 @@
         apps.teams.enable = true;
         media.latex.enable = true;
         wm.kde.enable = true;
+        gaming.emulators.enable = true;
       };
       dev = {
         terraform.enable = lib.mkForce true;
