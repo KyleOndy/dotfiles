@@ -43,6 +43,7 @@ in
         # todo: make a key for just deploys
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtqba65kXXovFMhf0fR02pTlBJ8/w1bj24wqJuQmUZ+ kyle@dino"
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACXOhBDxjR0LAbLo0oIPSC9yY4ni7aoZB7Mt+WJ/GpU root@dino" # for nix distributed builds
         ];
       };
     };
