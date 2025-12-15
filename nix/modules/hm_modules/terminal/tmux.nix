@@ -76,6 +76,12 @@ in
         run ${pkgs.tmux-gruvbox}/gruvbox-tpm.tmux
         set -g @tmux-gruvbox 'dark256'
 
+        # Make active pane border more visible
+        set-option -g pane-active-border-style "fg=colour214,bg=default"
+        set-option -g pane-border-style "fg=colour237,bg=default"
+        set-option -g pane-border-indicators both
+        set-option -g pane-border-lines heavy
+
         ## Theme settings mixed with colors (unfortunately, but there is no cleaner way)
         set-option -g status-justify "left"
         set-option -g status-left-style none
