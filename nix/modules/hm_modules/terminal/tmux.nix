@@ -20,7 +20,14 @@ in
       escapeTime = 0;
       terminal = "screen-256color";
       sensibleOnTop = false; # do not inject other configuration
+      baseIndex = 1; # start window numbering at 1
       extraConfig = ''
+        # start pane numbering at 1 (matches window base index)
+        set -g pane-base-index 1
+
+        # keep window numbers sequential when closing windows
+        set -g renumber-windows on
+
         # do not allow tmux to rename windows
         set -g allow-rename off
 
@@ -67,6 +74,26 @@ in
         bind-key -T copy-mode-vi 'M-k' select-pane -U
         bind-key -T copy-mode-vi 'M-l' select-pane -R
         bind-key -T copy-mode-vi 'M-\' select-pane -l
+
+        # ----------------------
+        # Window Navigation
+        # ----------------------
+        # prefix + 0-9 for window switching is built-in
+        # prefix + n/p for next/previous is built-in
+        bind-key Tab last-window
+
+        # ----------------------
+        # Window/Pane Reorganization
+        # ----------------------
+        # move windows left/right (no default for this)
+        bind-key < swap-window -t -1 \; select-window -t -1
+        bind-key > swap-window -t +1 \; select-window -t +1
+
+        # resize panes with prefix + arrow (repeatable)
+        bind-key -r Left resize-pane -L 5
+        bind-key -r Down resize-pane -D 5
+        bind-key -r Up resize-pane -U 5
+        bind-key -r Right resize-pane -R 5
 
         # open a new split or window in the current directory
         bind '"' split-window -c "#{pane_current_path}"
