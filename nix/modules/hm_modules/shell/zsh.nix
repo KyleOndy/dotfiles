@@ -63,6 +63,12 @@ in
         # fancy bash trick. In the bash source, the double quotes do not
         # appear.
         initContent = lib.mkMerge [
+          # mkOrder 100 runs before mkBefore (order 500) and before Home Manager's
+          # compinit call (order 500). This ensures fpath is set before completion
+          # system initialization.
+          (lib.mkOrder 100 ''
+            fpath=(~/.local/share/zsh/site-functions $fpath)
+          '')
           (lib.mkBefore ''
             # do this early, so I can overwrite settings as I want.
             source ${pkgs.zsh-vi-mode}/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
