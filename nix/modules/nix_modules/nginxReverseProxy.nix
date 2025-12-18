@@ -90,6 +90,15 @@ in
                 or the site name if no extraDomainNames are specified.
               '';
             };
+            redirectTo = mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = ''
+                Redirect all requests to this domain (301 redirect).
+                Can be used with provisionCert for HTTPS redirect sites.
+              '';
+              example = "www.example.com";
+            };
             enableSSLVerify = mkOption {
               type = types.bool;
               default = false;
@@ -147,12 +156,21 @@ in
       ++ lib.flatten (
         lib.mapAttrsToList (name: siteCfg: [
           {
-            assertion = siteCfg.proxyPass != null || siteCfg.staticRoot != null || siteCfg.isDefault;
-            message = "nginxReverseProxy.${name}: must specify either proxyPass, staticRoot, or isDefault";
+            assertion =
+              siteCfg.proxyPass != null
+              || siteCfg.staticRoot != null
+              || siteCfg.isDefault
+              || siteCfg.redirectTo != null;
+            message = "nginxReverseProxy.${name}: must specify either proxyPass, staticRoot, isDefault, or redirectTo";
           }
           {
             assertion = !(siteCfg.proxyPass != null && siteCfg.staticRoot != null);
             message = "nginxReverseProxy.${name}: proxyPass and staticRoot are mutually exclusive";
+          }
+          {
+            assertion =
+              !(siteCfg.redirectTo != null && (siteCfg.proxyPass != null || siteCfg.staticRoot != null));
+            message = "nginxReverseProxy.${name}: redirectTo is mutually exclusive with proxyPass and staticRoot";
           }
         ]) enabledSites
       );
@@ -282,6 +300,13 @@ in
                 {
                   "/" = {
                     return = "301 https://${redirectTarget}$request_uri";
+                  };
+                }
+              else if siteCfg.redirectTo != null then
+                # Redirect site: redirect all traffic to target domain
+                {
+                  "/" = {
+                    return = "301 https://${siteCfg.redirectTo}$request_uri";
                   };
                 }
               else if siteCfg.staticRoot != null then
