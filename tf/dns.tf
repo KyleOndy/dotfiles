@@ -2,7 +2,6 @@ locals {
   wolf_dns = ["ns568215.ip-51-79-99.net"]
   wolf_ip = ["51.79.99.201"]
   bear_dns = ["ns102788.ip-147-135-8.us"]
-
 }
 
 ## ondy.org
@@ -15,7 +14,7 @@ resource "aws_route53_record" "ondy_org_apex" {
   name    = "ondy.org"
   type    = "A"
   ttl     = "300"
-  records = ["147.135.1.147"]
+  records = local.wolf_ip
 }
 
 resource "aws_route53_record" "ondy_org_wolf_apps" {
