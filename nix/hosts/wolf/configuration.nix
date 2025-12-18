@@ -126,6 +126,22 @@
           route53HostedZoneId = "Z0855021CRZ8TKMBC7EC";
         };
 
+        # Redirect apex domain to www
+        "kyleondy.com" = {
+          enable = true;
+          provisionCert = true;
+          redirectTo = "www.kyleondy.com";
+          route53HostedZoneId = "Z0855021CRZ8TKMBC7EC";
+        };
+
+        # Redirect ondy.org to www.kyleondy.com (requires DNS update to point to wolf)
+        "ondy.org" = {
+          enable = true;
+          provisionCert = true;
+          redirectTo = "www.kyleondy.com";
+          # route53HostedZoneId not specified - lego will auto-detect the zone
+        };
+
         # Default catch-all server that redirects to www.kyleondy.com
         "_" = {
           enable = true;
