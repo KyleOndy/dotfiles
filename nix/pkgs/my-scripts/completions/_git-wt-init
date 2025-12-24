@@ -1,0 +1,13 @@
+#compdef git-wt-init
+# vi: ft=zsh
+
+# Completion for git-wt-init
+# Usage: git wt-init [name]
+
+_git-wt-init() {
+  _arguments \
+    '(-h --help)'{-h,--help}'[Show help message]' \
+    '1:directory name:_files -/'
+}
+
+_git-wt-init "$@"
