@@ -19,7 +19,7 @@ usage: git wt-feature-branch <name> [base]
 
 Create a new git worktree with branch, or checkout an existing branch.
 
-Home mode (1 argument):
+Home mode (1-2 arguments):
   git wt-feature-branch add-starship
     → path: {repo}/add-starship/
     → branch: add-starship (new)
@@ -29,6 +29,11 @@ Home mode (1 argument):
     → path: {repo}/feature/something/
     → branch: feature-something (new)
     → base: auto-detected
+
+  git wt-feature-branch my-feature origin/develop
+    → path: {repo}/my-feature/
+    → branch: my-feature (new)
+    → base: origin/develop (specified)
 
 Work mode (2+ arguments):
   git wt-feature-branch DEV-123 fix-the-thing
@@ -113,31 +118,29 @@ if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
   # Set flag to indicate we're checking out existing branch
   checkout_existing=true
 
-elif [[ $# -eq 1 ]]; then
-  # HOME MODE: Single argument
-  # Supports both simple names and nested paths
-  name="$1"
-  base_branch=$(get_default_branch)
-
-  feature_path="${wt_root}/${name}"
-  branch_name="${name//\//-}"  # Convert slashes to hyphens
-  checkout_existing=false
-
-elif [[ $# -ge 2 ]]; then
-  # WORK MODE: Ticket + name
+elif [[ $# -ge 2 ]] && is_valid_jira_ticket "${1^^}"; then
+  # WORK MODE: Ticket + name (detected by valid Jira ticket format)
   ticket="${1^^}"  # Uppercase ticket
   name="$2"
   base_branch=${3:-$(get_default_branch)}
-
-  # Validate Jira ticket format
-  if ! is_valid_jira_ticket "$ticket"; then
-    die "Invalid ticket format '$ticket'. Expected format: PROJ-123"
-  fi
 
   feature_path="${wt_root}/${ticket}/${name}"
   branch_name="${ticket}-${name}"
   checkout_existing=false
 
+elif [[ $# -eq 1 ]] || [[ $# -eq 2 ]]; then
+  # HOME MODE: name [base]
+  # Supports both simple names and nested paths
+  name="$1"
+  base_branch=${2:-$(get_default_branch)}
+
+  feature_path="${wt_root}/${name}"
+  branch_name="${name//\//-}"  # Convert slashes to hyphens
+  checkout_existing=false
+
+else
+  # Ambiguous or invalid input
+  die "Invalid arguments. Use -h for help."
 fi
 
 # Create worktree
