@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+# Initialize a new repository with git worktree workflow
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+# Show help text
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  cat << 'EOF'
+usage: git wt-init [name]
+
+Initialize a new repository with git worktree workflow.
+
+Creates a directory with:
+  .bare/    - Bare repository
+  .git      - Points to .bare
+  main/     - Initial worktree for main branch
+
+Arguments:
+  name  - Directory name (optional, defaults to current directory basename)
+
+Examples:
+  git wt-init my-project
+    → Creates ./my-project/ with main/ worktree
+
+  cd my-project && git wt-init
+    → Initializes current directory with main/ worktree
+
+After initializing, use git wt-feature-branch to create feature worktrees.
+EOF
+  exit 0
+fi
+
+# Determine directory
+if [[ $# -eq 0 ]]; then
+  # Use current directory
+  name="."
+  dir_name=$(basename "$(pwd)")
+else
+  name="$1"
+  dir_name="$1"
+fi
+
+readonly default_branch="main"
+
+# Handle current directory vs new directory
+if [[ "$name" == "." ]]; then
+  # Check if already a git repo
+  if [[ -d ".git" || -d ".bare" || -f ".git" ]]; then
+    die "Current directory is already a git repository"
+  fi
+else
+  # Create new directory
+  if [[ -e "$name" ]]; then
+    die "Directory '$name' already exists"
+  fi
+  mkdir "$name"
+  cd "$name" || die "Failed to change to directory: $name"
+fi
+
+# Initialize bare repository
+log_info "Initializing bare repository..."
+git init --bare .bare
+
+# Set up git directory pointer
+echo "gitdir: ./.bare" > .git
+
+# Configure for worktree workflow
+git config core.bare false
+git config core.worktree ..
+
+# Create initial worktree
+log_info "Creating worktree for '$default_branch'..."
+git worktree add "$default_branch"
+
+# Create initial commit
+cd "$default_branch" || die "Failed to change to directory: $default_branch"
+git commit --allow-empty -m "Initial commit"
+
+# Success summary
+echo ""
+log_info "Repository initialized for worktree workflow"
+log_info "Directory: $dir_name/"
+log_info "Initial worktree: $dir_name/$default_branch/"
+echo ""
+echo "To start working:"
+echo "  cd $dir_name/$default_branch"
+echo ""
+echo "To create feature worktrees:"
+echo "  git wt-feature-branch <name>"
