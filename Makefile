@@ -61,17 +61,17 @@ apply: ## Apply the current config without persisting it
 
 .PHONY: deploy-rs
 deploy-rs:
-	deploy -- .#$(HOSTNAME)
+	deploy .#$(HOSTNAME)
 
 .PHONY: deploy-rs-all
 deploy-rs-all:
 	nix flake check -L
-	deploy --skip-checks -- .
+	deploy --skip-checks .
 
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry:
 	nix flake check -L
-	deploy --skip-checks --dry-activate -- .
+	deploy --skip-checks --dry-activate .
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color
