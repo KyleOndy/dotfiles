@@ -352,6 +352,7 @@ in
 
         watched_channels = [
           # cycling
+          "@BeauMiles"
           "@BermPeakExpress"
           "@bike2reality814"
           "@BIKEPACKINGcom"
@@ -366,6 +367,7 @@ in
           "@EFProCycling"
           "@FarBeyond-EFPC"
           "@FullBeansCyclingCompany"
+          "@hennapalosaari_"
           "@howtheracewaswon"
           "@JackScottkeogh"
           "@jasperverkuijl"
@@ -374,6 +376,7 @@ in
           "@joffreymaluski"
           "@joshibbett"
           "@justinasleveika"
+          "@katrinahase"
           "@KDubzDidWhat"
           "@KeepSmilingAdventures"
           "@lesperitdelbikepacking"
@@ -391,6 +394,7 @@ in
           "@SethsBikeHacks"
           "@sofianeshl"
           "@sportscientist" # Stephen Seiler
+          "@stephanwieser"
           "@TailfinCycling"
           "@TENTISTHENEWRENT"
           "@the_dirtbags"
