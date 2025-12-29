@@ -485,10 +485,15 @@ in
               local code="$1"
               if [[ -z $code ]]; then
                 echo "Usage: man-http <status code>"
-                exit 0
+                return 0
               fi
 
-              open "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/$code"
+              local url="https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/$code"
+              if [[ "$OSTYPE" == "darwin"* ]]; then
+                open "$url"
+              else
+                xdg-open "$url"
+              fi
             }
 
             print_http_status_codes() {
