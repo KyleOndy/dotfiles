@@ -29,6 +29,6 @@ key 2
 key 3
 keytocard
 3
-ygg
+y
 save
 " | gpg --batch --command-fd 0 --status-fd 2 --edit-key $KEYID
