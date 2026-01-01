@@ -921,6 +921,291 @@ make build-cogsworth-image
 # (Note: deploy-rs not yet configured for cogsworth)
 ```
 
+## SD Card Wear Reduction (Cogsworth)
+
+Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell). Cogsworth implements aggressive optimizations to minimize SD card writes and extend card lifespan.
+
+### Implementation Overview
+
+**Module**: `nix/modules/nix_modules/sd-card-optimization.nix`
+**Enabled in**: `nix/hosts/cogsworth/configuration.nix:422`
+
+### What's Stored in RAM vs SD Card
+
+#### RAM (tmpfs) - Lost on Power Failure
+
+- **`/tmp`** (512MB tmpfs)
+  - Chromium profile (fresh each boot)
+  - Application temporary files
+  - Session data
+- **`/var/log`** (256MB tmpfs)
+  - All system logs
+  - Systemd journal (max 50MB, 1 hour retention)
+  - Service logs
+  - **Safe because**: Promtail forwards all logs to Loki on wolf
+
+#### SD Card - Persists Across Reboots
+
+- **`/nix/store`** - NixOS packages (read-mostly, rarely written)
+- **`/etc`** - System configuration (written only on upgrades)
+- **`/var/lib/cogsworth`** - Application state (minimal writes)
+- **`/var/lib/cogsworth-watchdog/failure_count`** - Watchdog state (writes every 30s)
+- **`/opt/cogsworth`** - Java uberjar (written only on updates)
+
+### Optimizations Applied
+
+#### 1. tmpfs Mounts
+
+```nix
+fileSystems."/tmp" = {
+  fsType = "tmpfs";
+  options = [ "mode=1777" "nosuid" "nodev" "size=512M" ];
+};
+
+fileSystems."/var/log" = {
+  fsType = "tmpfs";
+  options = [ "mode=0755" "nosuid" "nodev" "noexec" "size=256M" ];
+};
+```
+
+#### 2. Systemd Journal Configuration
+
+```ini
+# Store journal in RAM only
+Storage=volatile
+RuntimeMaxUse=50M
+MaxRetentionSec=1h
+
+# Reduce write frequency - batch writes
+SyncIntervalSec=60s
+```
+
+#### 3. Root Filesystem Mount Options
+
+```nix
+fileSystems."/" = {
+  device = "/dev/disk/by-label/NIXOS_SD";
+  fsType = "ext4";
+  options = [ "noatime" "nodiratime" ];
+};
+```
+
+**Effect**: File reads don't update access times, eliminating millions of tiny writes.
+
+#### 4. zram Compressed Swap
+
+```nix
+zramSwap = {
+  enable = true;
+  memoryPercent = 25;  # Use up to 25% of RAM
+  algorithm = "zstd";  # Fast compression
+};
+```
+
+**Purpose**: Emergency memory pressure handled in RAM, not SD card.
+
+#### 5. Kernel VM Tuning
+
+```nix
+boot.kernel.sysctl = {
+  "vm.dirty_ratio" = 80;              # More RAM buffering before flush
+  "vm.dirty_background_ratio" = 50;   # Background flush threshold
+  "vm.dirty_expire_centisecs" = 6000; # 60 seconds before dirty pages written
+  "vm.swappiness" = 10;               # Prefer RAM over swap
+};
+```
+
+**Effect**: Batch more writes together, reducing total write operations.
+
+### Monitoring SD Card Health
+
+#### Check Filesystem Writes
+
+```bash
+# View I/O statistics for SD card
+ssh cogsworth "iostat -x 5 3 mmcblk0"
+
+# Check dirty page writeback rate
+ssh cogsworth "watch -n 1 'cat /proc/vmstat | grep dirty'"
+```
+
+#### Verify tmpfs Usage
+
+```bash
+# Check RAM filesystem usage
+ssh cogsworth "df -h | grep tmpfs"
+
+# Expected output:
+# tmpfs      512M   4.0K  512M   1% /tmp
+# tmpfs      256M    52M  204M  21% /var/log
+```
+
+#### Check Journal Size
+
+```bash
+ssh cogsworth "journalctl --disk-usage"
+# Should show: "Archived and active journals take up XXM in the file system"
+# Should be < 50MB and in /run/log/journal (RAM)
+```
+
+#### Verify No Swap on SD Card
+
+```bash
+ssh cogsworth "swapon --show"
+# Should show zram0 or empty (no SD card swap)
+```
+
+### Trade-offs and Caveats
+
+#### ⚠️ Logs Lost on Power Failure
+
+**Problem**: Unexpected power loss means recent logs (< 1 hour) are gone.
+
+**Mitigation**:
+
+- Promtail continuously forwards logs to Loki on wolf
+- Query Loki for historical logs: `{host="cogsworth"}`
+- Most logs available within 30 seconds of generation
+
+**Recovery**: After power failure, check Loki for events before crash.
+
+#### ⚠️ Debugging Without Network
+
+**Problem**: If WiFi is down, can't access Loki logs.
+
+**Mitigation**:
+
+- systemd journal still available in RAM (1 hour)
+- SSH over local network still works
+- Physical access to view `journalctl` output
+
+**Workaround**: Temporarily disable optimization to debug network issues:
+
+```nix
+# In cogsworth configuration.nix
+systemFoundry.sdCardOptimization.enable = false;
+```
+
+#### ⚠️ Limited Temp Space
+
+**Problem**: `/tmp` only 512MB - could fill up with large files.
+
+**Current Usage**: Chromium profile ~100MB max, logs forwarding ~10MB.
+
+**Mitigation**: Increase `tmpfsSize` if needed (plenty of RAM available).
+
+#### ⚠️ Some State Lost on Reboot
+
+**Example**: Watchdog failure counter resets on reboot.
+
+**Impact**: Minimal - services start fresh anyway.
+
+### Tuning Parameters
+
+All settings in `nix/hosts/cogsworth/configuration.nix:422`:
+
+```nix
+systemFoundry.sdCardOptimization = {
+  enable = true;
+  tmpfsSize = "512M";      # /tmp size (increase if needed)
+  logTmpfsSize = "256M";   # /var/log size (increase for verbose logging)
+  journalMaxSize = "50M";  # Max journal in RAM
+  enableZram = true;       # Compressed swap in RAM
+  zramSize = 512;          # zram size in MB
+};
+```
+
+#### Recommended Adjustments
+
+**More aggressive (ultra-low writes)**:
+
+```nix
+tmpfsSize = "1G";        # More temp space
+logTmpfsSize = "128M";   # Less log storage
+journalMaxSize = "30M";  # Minimal journal
+enableZram = false;      # No swap at all
+```
+
+**More conservative (safer debugging)**:
+
+```nix
+tmpfsSize = "1G";        # Plenty of temp space
+logTmpfsSize = "512M";   # Keep more logs
+journalMaxSize = "100M"; # More journal history
+enableZram = true;       # Emergency swap available
+```
+
+### Expected SD Card Lifespan
+
+#### Without Optimizations
+
+- Typical logging: 50MB/hour = 1.2GB/day
+- With 10,000 write cycles: ~33 days to failure
+- With 100,000 cycles: ~330 days (< 1 year)
+
+#### With Optimizations
+
+- Only NixOS upgrades and state writes
+- Estimated: 10-50MB/day (mostly system metadata)
+- With 10,000 cycles: ~20 years
+- With 100,000 cycles: **200+ years**
+
+**In practice**: SD card will outlive the Raspberry Pi hardware.
+
+### Testing the Optimization
+
+#### Verify tmpfs Mounts Active
+
+```bash
+ssh cogsworth "mount | grep tmpfs | grep -E '(tmp|log)'"
+
+# Expected:
+# tmpfs on /tmp type tmpfs (rw,nosuid,nodev,size=524288k)
+# tmpfs on /var/log type tmpfs (rw,nosuid,nodev,noexec,size=262144k)
+```
+
+#### Check Journal is Volatile
+
+```bash
+ssh cogsworth "systemctl status systemd-journald | grep Storage"
+# Should show: Storage=volatile
+```
+
+#### Monitor Write Operations
+
+```bash
+# Before optimization (hypothetical):
+ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
+# w/s might show 50-100 writes/sec
+
+# After optimization:
+ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
+# w/s should show 0-5 writes/sec (mostly metadata)
+```
+
+### Deployment
+
+After modifying SD card optimization:
+
+```bash
+# Build new SD image
+make build-cogsworth-image
+
+# Flash to SD card
+sudo dd if=result/sd-image/nixos-sd-image-*.img of=/dev/sdX bs=4M status=progress
+```
+
+### Disabling Optimization
+
+To temporarily disable (for debugging):
+
+```nix
+# In nix/hosts/cogsworth/configuration.nix
+systemFoundry.sdCardOptimization.enable = false;
+```
+
+Rebuild and reboot. Logs will persist to SD card, but wear will increase.
+
 ## References
 
 - [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)

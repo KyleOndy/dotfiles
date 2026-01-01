@@ -5,7 +5,117 @@
   modulesPath,
   ...
 }:
+let
+  # Boot splash screen image - portrait mode (1080x1920) for 90° rotated display
+  # Used by Plymouth during Linux boot (not firmware)
+  splashImage =
+    pkgs.runCommand "cogsworth-splash.png"
+      {
+        nativeBuildInputs = [ pkgs.imagemagick ];
+      }
+      ''
+        # Create splash with Cogsworth branding
+        convert -size 1080x1920 xc:'#1a1b26' \
+          -gravity center \
+          -pointsize 120 \
+          -fill '#7aa2f7' \
+          -font ${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSans-Bold.ttf \
+          -annotate +0-200 'Cogsworth' \
+          -pointsize 60 \
+          -fill '#9ece6a' \
+          -annotate +0-50 '📅' \
+          -pointsize 48 \
+          -fill '#a9b1d6' \
+          -annotate +0+100 'Starting...' \
+          $out
+      '';
 
+  # Plymouth boot splash theme
+  plymouthTheme =
+    pkgs.runCommand "cogsworth-plymouth-theme"
+      {
+        nativeBuildInputs = [ pkgs.imagemagick ];
+      }
+      ''
+            mkdir -p $out/share/plymouth/themes/cogsworth
+
+            # Copy main splash image
+            cp ${splashImage} $out/share/plymouth/themes/cogsworth/splash.png
+
+            # Create simple spinner animation (rotating dots)
+            for i in {0..9}; do
+              angle=$((i * 36))
+              convert -size 100x100 xc:none \
+                -fill '#7aa2f7' \
+                -draw "circle 50,50 50,20" \
+                -fill '#7aa2f750' \
+                -draw "rotate $angle circle 50,50 50,20" \
+                $out/share/plymouth/themes/cogsworth/spinner-$i.png
+            done
+
+            # Plymouth theme configuration
+            cat > $out/share/plymouth/themes/cogsworth/cogsworth.plymouth <<EOF
+        [Plymouth Theme]
+        Name=Cogsworth
+        Description=Cogsworth Kiosk Boot Splash
+        ModuleName=script
+
+        [script]
+        ImageDir=/share/plymouth/themes/cogsworth
+        ScriptFile=/share/plymouth/themes/cogsworth/cogsworth.script
+        EOF
+
+            # Plymouth animation script
+            cat > $out/share/plymouth/themes/cogsworth/cogsworth.script <<'SCRIPT'
+        # Background color (Tokyo Night dark)
+        Window.SetBackgroundTopColor(0.10, 0.11, 0.15);
+        Window.SetBackgroundBottomColor(0.10, 0.11, 0.15);
+
+        # Main splash image
+        splash_image = Image("splash.png");
+        splash_sprite = Sprite(splash_image);
+        splash_sprite.SetPosition(
+          Window.GetWidth() / 2 - splash_image.GetWidth() / 2,
+          Window.GetHeight() / 2 - splash_image.GetHeight() / 2,
+          0
+        );
+
+        # Loading spinner
+        for (i = 0; i < 10; i++) {
+          spinner_images[i] = Image("spinner-" + i + ".png");
+        }
+
+        spinner_sprite = Sprite();
+        spinner_sprite.SetPosition(
+          Window.GetWidth() / 2 - 50,
+          Window.GetHeight() / 2 + 300,
+          1
+        );
+
+        fun refresh_callback() {
+          spinner_index = Math.Int((Plymouth.GetTime() * 10) % 10);
+          spinner_sprite.SetImage(spinner_images[spinner_index]);
+        }
+
+        Plymouth.SetRefreshFunction(refresh_callback);
+
+        # Boot message display
+        message_sprite = Sprite();
+        message_sprite.SetPosition(
+          Window.GetWidth() / 2,
+          Window.GetHeight() - 100,
+          2
+        );
+
+        fun message_callback(text) {
+          image = Image.Text(text, 0.62, 0.65, 0.71);
+          message_sprite.SetImage(image);
+        }
+
+        Plymouth.SetMessageFunction(message_callback);
+        SCRIPT
+      '';
+in
 {
   imports = [
     # SD card image builder for aarch64
@@ -57,6 +167,16 @@
   sdImage.compressImage = false; # Faster builds
   boot.supportedFilesystems.zfs = lib.mkForce false; # Not needed, speeds up build
 
+  # Reduce SD card wear by disabling access time updates
+  fileSystems."/" = lib.mkForce {
+    device = "/dev/disk/by-label/NIXOS_SD";
+    fsType = "ext4";
+    options = [
+      "noatime"
+      "nodiratime"
+    ];
+  };
+
   # Embed SSH host keys in SD image
   # NOTE: SSH key must be in image before boot because sops-nix uses it to decrypt other secrets.
   # The key is decrypted locally by the Makefile and passed via COGSWORTH_SSH_KEY env var
@@ -81,6 +201,9 @@
   # Raspberry Pi 4 GPU configuration
   hardware.raspberry-pi."4" = {
     fkms-3d.enable = true; # V3D renderer for GPU acceleration
+
+    # Firmware boot splash (shows during bootloader/firmware stage)
+    apply-overlays-dtmerge.enable = true;
   };
 
   # Tier 3 Watchdog: Hardware watchdog timer
@@ -94,6 +217,21 @@
     runtimeTime = "30s"; # Reboot if systemd doesn't ping within 30s
     rebootTime = "2min"; # Reboot timeout if normal reboot fails
   };
+
+  # Boot splash screen configuration
+  boot.plymouth = {
+    enable = true;
+    theme = "cogsworth";
+    themePackages = [ plymouthTheme ];
+  };
+
+  # Quiet boot - hide kernel messages for clean splash screen experience
+  boot.kernelParams = [
+    "quiet"
+    "splash"
+    "plymouth.ignore-serial-consoles"
+    "vt.global_cursor_default=0"
+  ];
 
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
   # Calibration matrix transforms touch coordinates to match rotated display
@@ -180,9 +318,15 @@
     after = [
       "network-online.target"
       "cogsworth-ready.service"
+      "plymouth-quit.service"
     ];
     wants = [ "network-online.target" ];
     requires = [ "cogsworth-ready.service" ];
+
+    # Gracefully quit Plymouth before starting Cage
+    preStart = ''
+      ${pkgs.plymouth}/bin/plymouth quit --retain-splash || true
+    '';
 
     # Auto-restart on failure (e.g., after deploy-rs, crashes, etc.)
     serviceConfig = {
@@ -425,6 +569,18 @@
         host = "cogsworth";
       };
     };
+  };
+
+  # SD card wear reduction - minimize writes to extend card lifespan
+  # Logs stored in RAM (acceptable since promtail forwards to Loki)
+  # Chromium profile and temp files use tmpfs instead of SD card
+  systemFoundry.sdCardOptimization = {
+    enable = true;
+    tmpfsSize = "512M"; # /tmp in RAM (chromium profile, etc.)
+    logTmpfsSize = "256M"; # /var/log in RAM
+    journalMaxSize = "50M"; # systemd journal max size in RAM
+    enableZram = true; # Compressed swap in RAM for emergencies
+    zramSize = 512; # 512MB zram swap
   };
 
   system.stateVersion = "25.05";
