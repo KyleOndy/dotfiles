@@ -254,7 +254,7 @@ in
       mkdir -p "$CHROME_DATA_DIR"
 
       exec ${pkgs.chromium}/bin/chromium \
-        --start-fullscreen \
+        --kiosk \
         --noerrdialogs \
         --disable-infobars \
         --no-first-run \
