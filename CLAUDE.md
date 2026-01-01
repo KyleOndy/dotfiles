@@ -595,6 +595,332 @@ Add GeoIP database to map IPs to locations.
 
 **For true visitor analytics, you need client-side tracking (JavaScript).**
 
+## Cogsworth Kiosk Watchdog Architecture
+
+The Cogsworth Raspberry Pi kiosk implements a **three-tier watchdog system** for maximum reliability and automatic recovery from failures.
+
+### Tier 1: Enhanced Systemd Restart Policy
+
+**Purpose**: Handle service crashes and immediate failures
+
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:181-217`):
+
+```nix
+Restart = "always";
+RestartSec = "5s";
+StartLimitBurst = 10;           # Allow 10 restarts
+StartLimitIntervalSec = 120;    # Within 2 minutes
+StartLimitAction = "none";      # Don't give up permanently
+```
+
+**Recovery scenarios**:
+
+- Java process crashes
+- Out of memory errors
+- Segmentation faults
+- Unhandled exceptions
+
+**Behavior**:
+
+- Automatic restart after 5 seconds
+- Allows up to 10 restarts in 2 minutes
+- Won't permanently fail from transient issues
+- Counter resets after issue resolves
+
+### Tier 2: Health Check Watchdog
+
+**Purpose**: Detect hung/frozen states where process runs but doesn't respond
+
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:252-313`):
+
+**Components**:
+
+1. `cogsworth-watchdog.service` - Oneshot service that checks HTTP health
+2. `cogsworth-watchdog.timer` - Runs every 30 seconds
+
+**How it works**:
+
+```bash
+# Every 30 seconds:
+1. Check if http://127.0.0.1:8080/ responds within 5 seconds
+2. If success: Reset failure counter
+3. If failure: Increment failure counter
+4. If failures >= 3: Restart cogsworth.service
+```
+
+**State tracking**:
+
+- Failure count stored in `/var/lib/cogsworth-watchdog/failure_count`
+- Requires 3 consecutive failures (90 seconds total)
+- Prevents false positives from transient network issues
+
+**Recovery scenarios**:
+
+- HTTP server hung but process alive
+- Deadlocked threads
+- Infinite loops in request handlers
+- Resource exhaustion preventing responses
+
+**Monitoring**:
+
+```bash
+# View watchdog status
+ssh cogsworth journalctl -u cogsworth-watchdog -f
+
+# Check current failure count
+ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
+
+# View timer schedule
+ssh cogsworth systemctl list-timers cogsworth-watchdog
+```
+
+### Tier 3: Hardware Watchdog
+
+**Purpose**: Ultimate failsafe - reboot system if kernel hangs
+
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:82-92`):
+
+```nix
+boot.kernelModules = [ "bcm2835_wdt" ];  # Raspberry Pi watchdog
+systemd.watchdog = {
+  runtimeTime = "30s";   # Reboot if systemd doesn't ping within 30s
+  rebootTime = "2min";   # Force reboot if graceful reboot hangs
+};
+```
+
+**How it works**:
+
+1. Kernel module exposes `/dev/watchdog` device
+2. Systemd periodically "feeds" the watchdog (sends keepalive)
+3. If systemd hangs/dies, watchdog not fed
+4. Hardware timer expires → hard reboot
+
+**Recovery scenarios**:
+
+- Kernel panic
+- Systemd deadlock
+- Critical system process hang
+- GPU driver crash
+
+**Verification**:
+
+```bash
+# Check watchdog module loaded
+ssh cogsworth lsmod | grep bcm2835_wdt
+
+# Check systemd watchdog status
+ssh cogsworth systemctl show-environment | grep WATCHDOG
+
+# View hardware watchdog device
+ssh cogsworth ls -la /dev/watchdog*
+```
+
+### Recovery Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Cogsworth Application Running                       │
+└──────────────────┬──────────────────────────────────┘
+                   │
+                   ▼
+         ┌─────────────────────┐
+         │  Failure Occurs?    │
+         └─────────┬───────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    │              │              │
+    ▼              ▼              ▼
+┌───────┐    ┌──────────┐   ┌─────────┐
+│Crash  │    │  Hung    │   │ Kernel  │
+│Process│    │ Process  │   │  Panic  │
+└───┬───┘    └────┬─────┘   └────┬────┘
+    │             │              │
+    ▼             ▼              ▼
+┌───────┐    ┌──────────┐   ┌─────────┐
+│Tier 1 │    │ Tier 2   │   │ Tier 3  │
+│Systemd│    │ Health   │   │Hardware │
+│Restart│    │ Watchdog │   │Watchdog │
+└───┬───┘    └────┬─────┘   └────┬────┘
+    │             │              │
+    │  5 sec      │  90 sec      │  Hard
+    │  delay      │  delay       │ Reboot
+    │             │              │
+    └─────────────┴──────────────┘
+                   │
+                   ▼
+         Service Recovered
+```
+
+### Testing the Watchdog
+
+#### Test Tier 1: Process Crash
+
+```bash
+# SSH to cogsworth
+ssh cogsworth
+
+# Kill the Java process (simulates crash)
+sudo killall -9 java
+
+# Watch service restart
+journalctl -u cogsworth -f
+
+# Expected: Service restarts within 5 seconds
+```
+
+#### Test Tier 2: Hung Process
+
+Since cogsworth doesn't expose a way to simulate a hang, test manually:
+
+```bash
+# SSH to cogsworth
+ssh cogsworth
+
+# Block port 8080 with iptables (simulates hung server)
+sudo iptables -I INPUT -p tcp --dport 8080 -j DROP
+
+# Watch watchdog detect failure
+journalctl -u cogsworth-watchdog -f
+
+# Expected output:
+# Health check failed (attempt 1/3)
+# Health check failed (attempt 2/3)
+# Health check failed (attempt 3/3)
+# WATCHDOG TRIGGERED - Restarting cogsworth.service
+
+# Cleanup: Remove iptables rule
+sudo iptables -D INPUT -p tcp --dport 8080 -j DROP
+```
+
+#### Test Tier 3: Hardware Watchdog
+
+**WARNING**: This will reboot the system!
+
+```bash
+# Disable systemd watchdog feeding (kernel will reboot in 30s)
+ssh cogsworth "echo c | sudo tee /proc/sysrq-trigger"
+
+# Expected: System reboots within 30-60 seconds
+```
+
+### Watchdog Tuning Parameters
+
+All values can be adjusted in `nix/hosts/cogsworth/configuration.nix`:
+
+| Parameter               | Location | Default | Purpose                             |
+| ----------------------- | -------- | ------- | ----------------------------------- |
+| `RestartSec`            | Line 184 | 5s      | Delay between restart attempts      |
+| `StartLimitBurst`       | Line 188 | 10      | Max restarts before giving up       |
+| `StartLimitIntervalSec` | Line 189 | 120s    | Time window for burst limit         |
+| `OnUnitActiveSec`       | Line 310 | 30s     | Health check interval               |
+| `FAILURE_THRESHOLD`     | Line 267 | 3       | Consecutive failures before restart |
+| `runtimeTime`           | Line 90  | 30s     | Hardware watchdog timeout           |
+
+**Recommended adjustments**:
+
+- **Faster recovery**: Reduce `RestartSec` to 2s and health check interval to 15s
+- **More tolerance**: Increase `FAILURE_THRESHOLD` to 5 (150s of downtime)
+- **Production hardening**: Keep defaults for balance of recovery speed vs. stability
+
+### Monitoring Watchdog Activity
+
+**View real-time watchdog logs**:
+
+```bash
+ssh cogsworth journalctl -u cogsworth-watchdog -f
+```
+
+**Check restart count** (Tier 1):
+
+```bash
+ssh cogsworth systemctl show cogsworth.service -p NRestarts
+```
+
+**View failure history** (Tier 2):
+
+```bash
+ssh cogsworth "grep 'WATCHDOG TRIGGERED' /var/log/journal/*/*"
+```
+
+**Check if hardware watchdog is active** (Tier 3):
+
+```bash
+ssh cogsworth cat /sys/class/watchdog/watchdog0/state
+# Should show: active
+```
+
+### Integration with Monitoring Stack
+
+The watchdog logs are automatically collected by promtail and available in Loki:
+
+**Query watchdog activity in Grafana**:
+
+```logql
+# All watchdog events
+{host="cogsworth", unit="cogsworth-watchdog.service"}
+
+# Watchdog triggers only
+{host="cogsworth", unit="cogsworth-watchdog.service"} |= "WATCHDOG TRIGGERED"
+
+# Service restart events
+{host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"
+```
+
+**Create alerts for excessive restarts**:
+
+```promql
+# Alert if cogsworth restarted more than 5 times in 1 hour
+count_over_time({host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"[1h]) > 5
+```
+
+### Troubleshooting
+
+**Watchdog timer not running**:
+
+```bash
+ssh cogsworth systemctl status cogsworth-watchdog.timer
+ssh cogsworth systemctl start cogsworth-watchdog.timer
+```
+
+**Excessive restarts (hitting burst limit)**:
+
+```bash
+# Check systemd restart limit status
+ssh cogsworth systemctl show cogsworth.service -p NRestarts -p Result
+
+# Reset service if it hit the limit
+ssh cogsworth sudo systemctl reset-failed cogsworth.service
+ssh cogsworth sudo systemctl start cogsworth.service
+```
+
+**False positive health checks**:
+
+- Increase `FAILURE_THRESHOLD` from 3 to 5
+- Increase `--max-time` in curl from 5s to 10s
+- Check if cogsworth startup time exceeds 60s (increase `OnBootSec`)
+
+**Hardware watchdog not enabled**:
+
+```bash
+# Verify kernel module loaded
+ssh cogsworth lsmod | grep bcm2835_wdt
+
+# If not loaded, rebuild with the configuration:
+nix build .#nixosConfigurations.cogsworth.config.system.build.sdImage
+```
+
+### Deployment
+
+After modifying watchdog configuration:
+
+```bash
+# Build and flash new SD card image
+make build-cogsworth-image
+
+# Or if cogsworth is already running, use deploy-rs
+# (Note: deploy-rs not yet configured for cogsworth)
+```
+
 ## References
 
 - [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)
@@ -603,3 +929,6 @@ Add GeoIP database to map IPs to locations.
 - [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/best-practices/)
 - [Prometheus Exporters](https://prometheus.io/docs/instrumenting/exporters/)
 - [prometheus-nginxlog-exporter](https://github.com/martin-helmich/prometheus-nginxlog-exporter)
+- [systemd.service - Restart behavior](https://www.freedesktop.org/software/systemd/man/systemd.service.html#Restart=)
+- [systemd Watchdog](https://www.freedesktop.org/software/systemd/man/systemd.service.html#WatchdogSec=)
+- [Raspberry Pi Hardware Watchdog](https://www.raspberrypi.com/documentation/computers/config_txt.html#watchdog)
