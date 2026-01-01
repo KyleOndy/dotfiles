@@ -228,6 +228,152 @@ in
               annotations:
                 summary: "YouTube downloader failure rate is {{ $value | humanizePercentage }}"
                 description: "More than 30% of channel downloads are failing."
+
+        # Cogsworth kiosk monitoring
+        - name: cogsworth_monitoring
+          interval: 30s
+          rules:
+            - alert: CogsworthServiceDown
+              expr: node_systemd_unit_state{host="cogsworth",name="cogsworth.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth application is down"
+                description: "Cogsworth service has been unavailable for 5 minutes on the kiosk"
+
+            - alert: CogsworthWatchdogTriggered
+              expr: increase(node_systemd_service_restart_total{host="cogsworth",name="cogsworth.service"}[15m]) > 2
+              for: 1m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth watchdog triggered {{ $value }} restarts"
+                description: "Cogsworth service has been restarted {{ $value }} times in the last 15 minutes. The three-tier watchdog may be recovering from failures."
+
+            - alert: CogsworthHighMemory
+              expr: (1 - (node_memory_MemAvailable_bytes{host="cogsworth"} / node_memory_MemTotal_bytes{host="cogsworth"})) > 0.80
+              for: 10m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
+                description: "Raspberry Pi memory usage is above 80% on cogsworth. Pi has limited RAM (Java heap: 64-256MB)."
+
+            - alert: CogsworthHighMemoryCritical
+              expr: (1 - (node_memory_MemAvailable_bytes{host="cogsworth"} / node_memory_MemTotal_bytes{host="cogsworth"})) > 0.90
+              for: 5m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
+                description: "Raspberry Pi memory usage is critically high (>90%) on cogsworth. Risk of OOM killer."
+
+            - alert: CogsworthKioskDown
+              expr: node_systemd_unit_state{host="cogsworth",name="cage-tty1.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth kiosk display is down"
+                description: "Cage compositor (kiosk display) has been down for 5 minutes on cogsworth"
+
+            - alert: CogsworthHighCPUTemp
+              expr: node_hwmon_temp_celsius{host="cogsworth"} > 70
+              for: 10m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth CPU temperature is {{ $value }}°C"
+                description: "Raspberry Pi CPU temperature exceeds 70°C. Check cooling/ventilation."
+
+            # Cogsworth application metrics - Critical alerts
+            - alert: CalendarSyncCriticallyStale
+              expr: time() - cogsworth_sync_last_success_timestamp_seconds > 3600
+              for: 5m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "Calendar sync critically stale for {{ $labels.member_id }}"
+                description: "Calendar for {{ $labels.member_id }} ({{ $labels.calendar_type }}) has not synced successfully in over 1 hour."
+
+            - alert: HighSyncErrorRate
+              expr: sum(rate(cogsworth_sync_total{status="error"}[15m])) / sum(rate(cogsworth_sync_total[15m])) > 0.2
+              for: 10m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "High sync error rate: {{ $value | humanizePercentage }}"
+                description: "More than 20% of calendar sync operations are failing."
+
+            - alert: HTTPTimeoutSpike
+              expr: sum(rate(cogsworth_http_client_errors_total{error_type="timeout"}[5m])) > 0.1
+              for: 5m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "HTTP timeout spike detected"
+                description: "Experiencing {{ $value }} timeouts/sec when fetching calendars from iCloud/webcal."
+
+            - alert: CogsworthMetricsDown
+              expr: up{job="cogsworth"} == 0
+              for: 2m
+              labels:
+                severity: critical
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth metrics endpoint is down"
+                description: "Cannot scrape metrics from Cogsworth application endpoint at :8080/metrics."
+
+            # Cogsworth application metrics - Warning alerts
+            - alert: CalendarSyncStale
+              expr: time() - cogsworth_sync_last_success_timestamp_seconds > 1800
+              for: 5m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Calendar sync stale for {{ $labels.member_id }}"
+                description: "Calendar for {{ $labels.member_id }} ({{ $labels.calendar_type }}) has not synced in over 30 minutes."
+
+            - alert: SlowSyncOperations
+              expr: histogram_quantile(0.95, sum by (le) (rate(cogsworth_sync_duration_seconds_bucket[5m]))) > 5
+              for: 15m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Sync operations are slow"
+                description: "P95 sync duration is {{ $value }}s (threshold: 5s). Calendar fetches may be experiencing latency."
+
+            - alert: HighHTTPLatency
+              expr: histogram_quantile(0.95, sum by (le) (rate(cogsworth_http_client_request_duration_seconds_bucket[5m]))) > 10
+              for: 10m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "High HTTP latency to calendar services"
+                description: "P95 HTTP latency is {{ $value }}s (threshold: 10s). Check iCloud/webcal service status."
+
+            - alert: CacheEventsDropped
+              expr: (cogsworth_cache_events_total - cogsworth_cache_events_total offset 1h) / (cogsworth_cache_events_total offset 1h) < -0.5
+              for: 5m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cached events dropped for {{ $labels.member_id }}"
+                description: "Cache for {{ $labels.member_id }} has dropped by more than 50%. This may indicate sync issues or calendar data loss."
     '';
 
     systemd.services.vmalert = {

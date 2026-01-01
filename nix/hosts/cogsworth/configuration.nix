@@ -18,6 +18,10 @@
   # WiFi credentials from sops
   sops.secrets.home_wifi_ssid = { };
   sops.secrets.home_wifi_password = { };
+  sops.secrets.monitoring_token_cogsworth = {
+    # vmagent/promtail use DynamicUser, need world-readable
+    mode = "0444";
+  };
 
   # wpa_supplicant secrets file template
   sops.templates."wpa-secrets".content = ''
@@ -376,6 +380,52 @@
     htop
     wlr-randr # For runtime display rotation
   ];
+
+  # Monitoring stack - send metrics and logs to wolf
+  systemFoundry.monitoringStack = {
+    enable = true;
+
+    nodeExporter.enable = true;
+
+    vmagent = {
+      enable = true;
+      remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
+      bearerTokenFile = config.sops.secrets.monitoring_token_cogsworth.path;
+      scrapeConfigs = [
+        {
+          job_name = "node";
+          static_configs = [
+            {
+              targets = [ "127.0.0.1:9100" ];
+              labels = {
+                host = "cogsworth";
+              };
+            }
+          ];
+        }
+        {
+          job_name = "cogsworth";
+          static_configs = [
+            {
+              targets = [ "127.0.0.1:8080" ];
+              labels = {
+                host = "cogsworth";
+              };
+            }
+          ];
+        }
+      ];
+    };
+
+    promtail = {
+      enable = true;
+      lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
+      bearerTokenFile = config.sops.secrets.monitoring_token_cogsworth.path;
+      extraLabels = {
+        host = "cogsworth";
+      };
+    };
+  };
 
   system.stateVersion = "25.05";
 }
