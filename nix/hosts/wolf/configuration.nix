@@ -382,6 +382,10 @@
       # Used by sops template for runtime hash computation and nginx auth
       mode = "0444";
     };
+    monitoring_token_cogsworth = {
+      # Used by sops template for runtime hash computation and nginx auth
+      mode = "0444";
+    };
     wireguard_private_key_wolf = {
       mode = "0400";
     };
@@ -413,6 +417,7 @@
       dino_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_dino.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       wolf_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_wolf.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
       bear_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_bear.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
+      cogsworth_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_cogsworth.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
 
       # Write metrics token map for nginx (VictoriaMetrics ingestion)
       cat > /run/monitoring-token-hashes/metrics-map.conf <<EOF
@@ -423,6 +428,7 @@
         "$dino_hash" "1";
         "$wolf_hash" "1";
         "$bear_hash" "1";
+        "$cogsworth_hash" "1";
         default "";
       }
       EOF
@@ -436,6 +442,7 @@
         "$dino_hash" "1";
         "$wolf_hash" "1";
         "$bear_hash" "1";
+        "$cogsworth_hash" "1";
         default "";
       }
       EOF

@@ -343,7 +343,7 @@
         cogsworth = mkNixosSystem {
           hostname = "cogsworth";
           system = "aarch64-linux";
-          profile = "server";
+          profile = "kiosk";
           hardwareModules = [
             inputs.nixos-hardware.nixosModules.raspberry-pi-4
           ];
@@ -477,6 +477,7 @@
             };
           };
           cogsworth = {
+            fastConnection = false; # WiFi connection - use longer timeouts
             hostname = "cogsworth";
             profiles.system = {
               sshUser = "svc.deploy";

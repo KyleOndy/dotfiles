@@ -217,5 +217,20 @@ in
       source = ./dashboards/applications/youtube-downloader-alerts.json;
       mode = "0644";
     };
+
+    environment.etc."grafana-dashboards/applications/cogsworth-overview.json" = {
+      source = ./dashboards/applications/cogsworth-overview.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/applications/cogsworth-sync-performance.json" = {
+      source = ./dashboards/applications/cogsworth-sync-performance.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/applications/cogsworth-http-health.json" = {
+      source = ./dashboards/applications/cogsworth-http-health.json;
+      mode = "0644";
+    };
   };
 }

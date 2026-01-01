@@ -595,6 +595,631 @@ Add GeoIP database to map IPs to locations.
 
 **For true visitor analytics, you need client-side tracking (JavaScript).**
 
+## Cogsworth Kiosk Watchdog Architecture
+
+The Cogsworth Raspberry Pi kiosk implements a **three-tier watchdog system** for maximum reliability and automatic recovery from failures.
+
+### Tier 1: Enhanced Systemd Restart Policy
+
+**Purpose**: Handle service crashes and immediate failures
+
+**Implementation** (both `cogsworth.service` and `cage-tty1.service`):
+
+```nix
+Restart = "always";
+RestartSec = "5s";
+StartLimitBurst = 10;           # Allow 10 restarts
+StartLimitIntervalSec = 120;    # Within 2 minutes
+StartLimitAction = "none";      # Don't give up permanently
+```
+
+**Configuration locations**:
+
+- `cogsworth.service`: `nix/hosts/cogsworth/configuration.nix:344-403`
+- `cage-tty1.service`: `nix/hosts/cogsworth/configuration.nix:316-346`
+
+**Recovery scenarios**:
+
+- Java process crashes (cogsworth)
+- Chromium/Cage crashes (cage-tty1)
+- Wayland compositor errors (cage-tty1)
+- Out of memory errors
+- Segmentation faults
+- Unhandled exceptions
+
+**Behavior**:
+
+- Automatic restart after 5 seconds
+- Allows up to 10 restarts in 2 minutes
+- Won't permanently fail from transient issues (thanks to `StartLimitAction = "none"`)
+- If restart limit is hit, Tier 2 watchdog will detect and use `reset-failed` to recover
+- Counter resets after issue resolves
+
+### Tier 2: Health Check Watchdog
+
+**Purpose**: Detect hung/frozen states or service failures and automatically recover
+
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:442-527`):
+
+**Components**:
+
+1. `cogsworth-watchdog.service` - Oneshot service that checks health of both cogsworth and cage
+2. `cogsworth-watchdog.timer` - Runs every 30 seconds
+
+**How it works**:
+
+```bash
+# Every 30 seconds:
+1. Check if http://127.0.0.1:8080/ responds within 5 seconds (cogsworth HTTP health)
+2. Check if cage-tty1.service is active (kiosk display running)
+3. For each check:
+   - If success: Reset failure counter
+   - If failure: Increment failure counter
+   - If failures >= 3: Run `reset-failed` then `restart` service
+```
+
+**State tracking**:
+
+- Cogsworth failure count: `/var/lib/cogsworth-watchdog/failure_count`
+- Cage failure count: `/var/lib/cogsworth-watchdog/cage_failure_count`
+- Requires 3 consecutive failures (90 seconds total)
+- Prevents false positives from transient network issues
+
+**Recovery scenarios**:
+
+- HTTP server hung but process alive (cogsworth)
+- Kiosk display crashed/exited (cage-tty1)
+- Service hit systemd restart limit (reset-failed clears it)
+- Deadlocked threads
+- Infinite loops in request handlers
+- Resource exhaustion preventing responses
+
+**Monitoring**:
+
+```bash
+# View watchdog status
+ssh cogsworth journalctl -u cogsworth-watchdog -f
+
+# Check current failure counts
+ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
+ssh cogsworth cat /var/lib/cogsworth-watchdog/cage_failure_count
+
+# View timer schedule
+ssh cogsworth systemctl list-timers cogsworth-watchdog
+```
+
+### Tier 3: Hardware Watchdog
+
+**Purpose**: Ultimate failsafe - reboot system if kernel hangs
+
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:82-92`):
+
+```nix
+boot.kernelModules = [ "bcm2835_wdt" ];  # Raspberry Pi watchdog
+systemd.watchdog = {
+  runtimeTime = "30s";   # Reboot if systemd doesn't ping within 30s
+  rebootTime = "2min";   # Force reboot if graceful reboot hangs
+};
+```
+
+**How it works**:
+
+1. Kernel module exposes `/dev/watchdog` device
+2. Systemd periodically "feeds" the watchdog (sends keepalive)
+3. If systemd hangs/dies, watchdog not fed
+4. Hardware timer expires → hard reboot
+
+**Recovery scenarios**:
+
+- Kernel panic
+- Systemd deadlock
+- Critical system process hang
+- GPU driver crash
+
+**Verification**:
+
+```bash
+# Check watchdog module loaded
+ssh cogsworth lsmod | grep bcm2835_wdt
+
+# Check systemd watchdog status
+ssh cogsworth systemctl show-environment | grep WATCHDOG
+
+# View hardware watchdog device
+ssh cogsworth ls -la /dev/watchdog*
+```
+
+### Recovery Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────┐
+│ Cogsworth Application Running                       │
+└──────────────────┬──────────────────────────────────┘
+                   │
+                   ▼
+         ┌─────────────────────┐
+         │  Failure Occurs?    │
+         └─────────┬───────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    │              │              │
+    ▼              ▼              ▼
+┌───────┐    ┌──────────┐   ┌─────────┐
+│Crash  │    │  Hung    │   │ Kernel  │
+│Process│    │ Process  │   │  Panic  │
+└───┬───┘    └────┬─────┘   └────┬────┘
+    │             │              │
+    ▼             ▼              ▼
+┌───────┐    ┌──────────┐   ┌─────────┐
+│Tier 1 │    │ Tier 2   │   │ Tier 3  │
+│Systemd│    │ Health   │   │Hardware │
+│Restart│    │ Watchdog │   │Watchdog │
+└───┬───┘    └────┬─────┘   └────┬────┘
+    │             │              │
+    │  5 sec      │  90 sec      │  Hard
+    │  delay      │  delay       │ Reboot
+    │             │              │
+    └─────────────┴──────────────┘
+                   │
+                   ▼
+         Service Recovered
+```
+
+### Testing the Watchdog
+
+#### Test Tier 1: Process Crash
+
+```bash
+# SSH to cogsworth
+ssh cogsworth
+
+# Kill the Java process (simulates crash)
+sudo killall -9 java
+
+# Watch service restart
+journalctl -u cogsworth -f
+
+# Expected: Service restarts within 5 seconds
+```
+
+#### Test Tier 2: Hung Process
+
+Since cogsworth doesn't expose a way to simulate a hang, test manually:
+
+```bash
+# SSH to cogsworth
+ssh cogsworth
+
+# Block port 8080 with iptables (simulates hung server)
+sudo iptables -I INPUT -p tcp --dport 8080 -j DROP
+
+# Watch watchdog detect failure
+journalctl -u cogsworth-watchdog -f
+
+# Expected output:
+# Health check failed (attempt 1/3)
+# Health check failed (attempt 2/3)
+# Health check failed (attempt 3/3)
+# WATCHDOG TRIGGERED - Restarting cogsworth.service
+
+# Cleanup: Remove iptables rule
+sudo iptables -D INPUT -p tcp --dport 8080 -j DROP
+```
+
+#### Test Tier 3: Hardware Watchdog
+
+**WARNING**: This will reboot the system!
+
+```bash
+# Disable systemd watchdog feeding (kernel will reboot in 30s)
+ssh cogsworth "echo c | sudo tee /proc/sysrq-trigger"
+
+# Expected: System reboots within 30-60 seconds
+```
+
+### Watchdog Tuning Parameters
+
+All values can be adjusted in `nix/hosts/cogsworth/configuration.nix`:
+
+| Parameter               | Location | Default | Purpose                             |
+| ----------------------- | -------- | ------- | ----------------------------------- |
+| `RestartSec`            | Line 184 | 5s      | Delay between restart attempts      |
+| `StartLimitBurst`       | Line 188 | 10      | Max restarts before giving up       |
+| `StartLimitIntervalSec` | Line 189 | 120s    | Time window for burst limit         |
+| `OnUnitActiveSec`       | Line 310 | 30s     | Health check interval               |
+| `FAILURE_THRESHOLD`     | Line 267 | 3       | Consecutive failures before restart |
+| `runtimeTime`           | Line 90  | 30s     | Hardware watchdog timeout           |
+
+**Recommended adjustments**:
+
+- **Faster recovery**: Reduce `RestartSec` to 2s and health check interval to 15s
+- **More tolerance**: Increase `FAILURE_THRESHOLD` to 5 (150s of downtime)
+- **Production hardening**: Keep defaults for balance of recovery speed vs. stability
+
+### Monitoring Watchdog Activity
+
+**View real-time watchdog logs**:
+
+```bash
+ssh cogsworth journalctl -u cogsworth-watchdog -f
+```
+
+**Check restart count** (Tier 1):
+
+```bash
+ssh cogsworth systemctl show cogsworth.service -p NRestarts
+```
+
+**View failure history** (Tier 2):
+
+```bash
+ssh cogsworth "grep 'WATCHDOG TRIGGERED' /var/log/journal/*/*"
+```
+
+**Check if hardware watchdog is active** (Tier 3):
+
+```bash
+ssh cogsworth cat /sys/class/watchdog/watchdog0/state
+# Should show: active
+```
+
+### Integration with Monitoring Stack
+
+The watchdog logs are automatically collected by promtail and available in Loki:
+
+**Query watchdog activity in Grafana**:
+
+```logql
+# All watchdog events
+{host="cogsworth", unit="cogsworth-watchdog.service"}
+
+# Watchdog triggers only
+{host="cogsworth", unit="cogsworth-watchdog.service"} |= "WATCHDOG TRIGGERED"
+
+# Service restart events
+{host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"
+```
+
+**Create alerts for excessive restarts**:
+
+```promql
+# Alert if cogsworth restarted more than 5 times in 1 hour
+count_over_time({host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"[1h]) > 5
+```
+
+### Troubleshooting
+
+**Watchdog timer not running**:
+
+```bash
+ssh cogsworth systemctl status cogsworth-watchdog.timer
+ssh cogsworth systemctl start cogsworth-watchdog.timer
+```
+
+**Excessive restarts (hitting burst limit)**:
+
+```bash
+# Check systemd restart limit status
+ssh cogsworth systemctl show cogsworth.service -p NRestarts -p Result
+
+# Reset service if it hit the limit
+ssh cogsworth sudo systemctl reset-failed cogsworth.service
+ssh cogsworth sudo systemctl start cogsworth.service
+```
+
+**False positive health checks**:
+
+- Increase `FAILURE_THRESHOLD` from 3 to 5
+- Increase `--max-time` in curl from 5s to 10s
+- Check if cogsworth startup time exceeds 60s (increase `OnBootSec`)
+
+**Hardware watchdog not enabled**:
+
+```bash
+# Verify kernel module loaded
+ssh cogsworth lsmod | grep bcm2835_wdt
+
+# If not loaded, rebuild with the configuration:
+nix build .#nixosConfigurations.cogsworth.config.system.build.sdImage
+```
+
+### Deployment
+
+After modifying watchdog configuration:
+
+```bash
+# Build and flash new SD card image
+make build-cogsworth-image
+
+# Or if cogsworth is already running, use deploy-rs
+# (Note: deploy-rs not yet configured for cogsworth)
+```
+
+## SD Card Wear Reduction (Cogsworth)
+
+Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell). Cogsworth implements aggressive optimizations to minimize SD card writes and extend card lifespan.
+
+### Implementation Overview
+
+**Module**: `nix/modules/nix_modules/sd-card-optimization.nix`
+**Enabled in**: `nix/hosts/cogsworth/configuration.nix:422`
+
+### What's Stored in RAM vs SD Card
+
+#### RAM (tmpfs) - Lost on Power Failure
+
+- **`/tmp`** (512MB tmpfs)
+  - Chromium profile (fresh each boot)
+  - Application temporary files
+  - Session data
+- **`/var/log`** (256MB tmpfs)
+  - All system logs
+  - Systemd journal (max 50MB, 1 hour retention)
+  - Service logs
+  - **Safe because**: Promtail forwards all logs to Loki on wolf
+
+#### SD Card - Persists Across Reboots
+
+- **`/nix/store`** - NixOS packages (read-mostly, rarely written)
+- **`/etc`** - System configuration (written only on upgrades)
+- **`/var/lib/cogsworth`** - Application state (minimal writes)
+- **`/var/lib/cogsworth-watchdog/failure_count`** - Watchdog state (writes every 30s)
+- **`/opt/cogsworth`** - Java uberjar (written only on updates)
+
+### Optimizations Applied
+
+#### 1. tmpfs Mounts
+
+```nix
+fileSystems."/tmp" = {
+  fsType = "tmpfs";
+  options = [ "mode=1777" "nosuid" "nodev" "size=512M" ];
+};
+
+fileSystems."/var/log" = {
+  fsType = "tmpfs";
+  options = [ "mode=0755" "nosuid" "nodev" "noexec" "size=256M" ];
+};
+```
+
+#### 2. Systemd Journal Configuration
+
+```ini
+# Store journal in RAM only
+Storage=volatile
+RuntimeMaxUse=50M
+MaxRetentionSec=1h
+
+# Reduce write frequency - batch writes
+SyncIntervalSec=60s
+```
+
+#### 3. Root Filesystem Mount Options
+
+```nix
+fileSystems."/" = {
+  device = "/dev/disk/by-label/NIXOS_SD";
+  fsType = "ext4";
+  options = [ "noatime" "nodiratime" ];
+};
+```
+
+**Effect**: File reads don't update access times, eliminating millions of tiny writes.
+
+#### 4. zram Compressed Swap
+
+```nix
+zramSwap = {
+  enable = true;
+  memoryPercent = 25;  # Use up to 25% of RAM
+  algorithm = "zstd";  # Fast compression
+};
+```
+
+**Purpose**: Emergency memory pressure handled in RAM, not SD card.
+
+#### 5. Kernel VM Tuning
+
+```nix
+boot.kernel.sysctl = {
+  "vm.dirty_ratio" = 80;              # More RAM buffering before flush
+  "vm.dirty_background_ratio" = 50;   # Background flush threshold
+  "vm.dirty_expire_centisecs" = 6000; # 60 seconds before dirty pages written
+  "vm.swappiness" = 10;               # Prefer RAM over swap
+};
+```
+
+**Effect**: Batch more writes together, reducing total write operations.
+
+### Monitoring SD Card Health
+
+#### Check Filesystem Writes
+
+```bash
+# View I/O statistics for SD card
+ssh cogsworth "iostat -x 5 3 mmcblk0"
+
+# Check dirty page writeback rate
+ssh cogsworth "watch -n 1 'cat /proc/vmstat | grep dirty'"
+```
+
+#### Verify tmpfs Usage
+
+```bash
+# Check RAM filesystem usage
+ssh cogsworth "df -h | grep tmpfs"
+
+# Expected output:
+# tmpfs      512M   4.0K  512M   1% /tmp
+# tmpfs      256M    52M  204M  21% /var/log
+```
+
+#### Check Journal Size
+
+```bash
+ssh cogsworth "journalctl --disk-usage"
+# Should show: "Archived and active journals take up XXM in the file system"
+# Should be < 50MB and in /run/log/journal (RAM)
+```
+
+#### Verify No Swap on SD Card
+
+```bash
+ssh cogsworth "swapon --show"
+# Should show zram0 or empty (no SD card swap)
+```
+
+### Trade-offs and Caveats
+
+#### ⚠️ Logs Lost on Power Failure
+
+**Problem**: Unexpected power loss means recent logs (< 1 hour) are gone.
+
+**Mitigation**:
+
+- Promtail continuously forwards logs to Loki on wolf
+- Query Loki for historical logs: `{host="cogsworth"}`
+- Most logs available within 30 seconds of generation
+
+**Recovery**: After power failure, check Loki for events before crash.
+
+#### ⚠️ Debugging Without Network
+
+**Problem**: If WiFi is down, can't access Loki logs.
+
+**Mitigation**:
+
+- systemd journal still available in RAM (1 hour)
+- SSH over local network still works
+- Physical access to view `journalctl` output
+
+**Workaround**: Temporarily disable optimization to debug network issues:
+
+```nix
+# In cogsworth configuration.nix
+systemFoundry.sdCardOptimization.enable = false;
+```
+
+#### ⚠️ Limited Temp Space
+
+**Problem**: `/tmp` only 512MB - could fill up with large files.
+
+**Current Usage**: Chromium profile ~100MB max, logs forwarding ~10MB.
+
+**Mitigation**: Increase `tmpfsSize` if needed (plenty of RAM available).
+
+#### ⚠️ Some State Lost on Reboot
+
+**Example**: Watchdog failure counter resets on reboot.
+
+**Impact**: Minimal - services start fresh anyway.
+
+### Tuning Parameters
+
+All settings in `nix/hosts/cogsworth/configuration.nix:422`:
+
+```nix
+systemFoundry.sdCardOptimization = {
+  enable = true;
+  tmpfsSize = "512M";      # /tmp size (increase if needed)
+  logTmpfsSize = "256M";   # /var/log size (increase for verbose logging)
+  journalMaxSize = "50M";  # Max journal in RAM
+  enableZram = true;       # Compressed swap in RAM
+  zramSize = 512;          # zram size in MB
+};
+```
+
+#### Recommended Adjustments
+
+**More aggressive (ultra-low writes)**:
+
+```nix
+tmpfsSize = "1G";        # More temp space
+logTmpfsSize = "128M";   # Less log storage
+journalMaxSize = "30M";  # Minimal journal
+enableZram = false;      # No swap at all
+```
+
+**More conservative (safer debugging)**:
+
+```nix
+tmpfsSize = "1G";        # Plenty of temp space
+logTmpfsSize = "512M";   # Keep more logs
+journalMaxSize = "100M"; # More journal history
+enableZram = true;       # Emergency swap available
+```
+
+### Expected SD Card Lifespan
+
+#### Without Optimizations
+
+- Typical logging: 50MB/hour = 1.2GB/day
+- With 10,000 write cycles: ~33 days to failure
+- With 100,000 cycles: ~330 days (< 1 year)
+
+#### With Optimizations
+
+- Only NixOS upgrades and state writes
+- Estimated: 10-50MB/day (mostly system metadata)
+- With 10,000 cycles: ~20 years
+- With 100,000 cycles: **200+ years**
+
+**In practice**: SD card will outlive the Raspberry Pi hardware.
+
+### Testing the Optimization
+
+#### Verify tmpfs Mounts Active
+
+```bash
+ssh cogsworth "mount | grep tmpfs | grep -E '(tmp|log)'"
+
+# Expected:
+# tmpfs on /tmp type tmpfs (rw,nosuid,nodev,size=524288k)
+# tmpfs on /var/log type tmpfs (rw,nosuid,nodev,noexec,size=262144k)
+```
+
+#### Check Journal is Volatile
+
+```bash
+ssh cogsworth "systemctl status systemd-journald | grep Storage"
+# Should show: Storage=volatile
+```
+
+#### Monitor Write Operations
+
+```bash
+# Before optimization (hypothetical):
+ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
+# w/s might show 50-100 writes/sec
+
+# After optimization:
+ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
+# w/s should show 0-5 writes/sec (mostly metadata)
+```
+
+### Deployment
+
+After modifying SD card optimization:
+
+```bash
+# Build new SD image
+make build-cogsworth-image
+
+# Flash to SD card
+sudo dd if=result/sd-image/nixos-sd-image-*.img of=/dev/sdX bs=4M status=progress
+```
+
+### Disabling Optimization
+
+To temporarily disable (for debugging):
+
+```nix
+# In nix/hosts/cogsworth/configuration.nix
+systemFoundry.sdCardOptimization.enable = false;
+```
+
+Rebuild and reboot. Logs will persist to SD card, but wear will increase.
+
 ## References
 
 - [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)
@@ -603,3 +1228,6 @@ Add GeoIP database to map IPs to locations.
 - [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/best-practices/)
 - [Prometheus Exporters](https://prometheus.io/docs/instrumenting/exporters/)
 - [prometheus-nginxlog-exporter](https://github.com/martin-helmich/prometheus-nginxlog-exporter)
+- [systemd.service - Restart behavior](https://www.freedesktop.org/software/systemd/man/systemd.service.html#Restart=)
+- [systemd Watchdog](https://www.freedesktop.org/software/systemd/man/systemd.service.html#WatchdogSec=)
+- [Raspberry Pi Hardware Watchdog](https://www.raspberrypi.com/documentation/computers/config_txt.html#watchdog)
