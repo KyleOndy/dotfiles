@@ -477,6 +477,7 @@
             };
           };
           cogsworth = {
+            fastConnection = false; # WiFi connection - use longer timeouts
             hostname = "cogsworth";
             profiles.system = {
               sshUser = "svc.deploy";

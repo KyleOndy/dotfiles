@@ -603,7 +603,7 @@ The Cogsworth Raspberry Pi kiosk implements a **three-tier watchdog system** for
 
 **Purpose**: Handle service crashes and immediate failures
 
-**Implementation** (`nix/hosts/cogsworth/configuration.nix:181-217`):
+**Implementation** (both `cogsworth.service` and `cage-tty1.service`):
 
 ```nix
 Restart = "always";
@@ -613,9 +613,16 @@ StartLimitIntervalSec = 120;    # Within 2 minutes
 StartLimitAction = "none";      # Don't give up permanently
 ```
 
+**Configuration locations**:
+
+- `cogsworth.service`: `nix/hosts/cogsworth/configuration.nix:344-403`
+- `cage-tty1.service`: `nix/hosts/cogsworth/configuration.nix:316-346`
+
 **Recovery scenarios**:
 
-- Java process crashes
+- Java process crashes (cogsworth)
+- Chromium/Cage crashes (cage-tty1)
+- Wayland compositor errors (cage-tty1)
 - Out of memory errors
 - Segmentation faults
 - Unhandled exceptions
@@ -624,39 +631,45 @@ StartLimitAction = "none";      # Don't give up permanently
 
 - Automatic restart after 5 seconds
 - Allows up to 10 restarts in 2 minutes
-- Won't permanently fail from transient issues
+- Won't permanently fail from transient issues (thanks to `StartLimitAction = "none"`)
+- If restart limit is hit, Tier 2 watchdog will detect and use `reset-failed` to recover
 - Counter resets after issue resolves
 
 ### Tier 2: Health Check Watchdog
 
-**Purpose**: Detect hung/frozen states where process runs but doesn't respond
+**Purpose**: Detect hung/frozen states or service failures and automatically recover
 
-**Implementation** (`nix/hosts/cogsworth/configuration.nix:252-313`):
+**Implementation** (`nix/hosts/cogsworth/configuration.nix:442-527`):
 
 **Components**:
 
-1. `cogsworth-watchdog.service` - Oneshot service that checks HTTP health
+1. `cogsworth-watchdog.service` - Oneshot service that checks health of both cogsworth and cage
 2. `cogsworth-watchdog.timer` - Runs every 30 seconds
 
 **How it works**:
 
 ```bash
 # Every 30 seconds:
-1. Check if http://127.0.0.1:8080/ responds within 5 seconds
-2. If success: Reset failure counter
-3. If failure: Increment failure counter
-4. If failures >= 3: Restart cogsworth.service
+1. Check if http://127.0.0.1:8080/ responds within 5 seconds (cogsworth HTTP health)
+2. Check if cage-tty1.service is active (kiosk display running)
+3. For each check:
+   - If success: Reset failure counter
+   - If failure: Increment failure counter
+   - If failures >= 3: Run `reset-failed` then `restart` service
 ```
 
 **State tracking**:
 
-- Failure count stored in `/var/lib/cogsworth-watchdog/failure_count`
+- Cogsworth failure count: `/var/lib/cogsworth-watchdog/failure_count`
+- Cage failure count: `/var/lib/cogsworth-watchdog/cage_failure_count`
 - Requires 3 consecutive failures (90 seconds total)
 - Prevents false positives from transient network issues
 
 **Recovery scenarios**:
 
-- HTTP server hung but process alive
+- HTTP server hung but process alive (cogsworth)
+- Kiosk display crashed/exited (cage-tty1)
+- Service hit systemd restart limit (reset-failed clears it)
 - Deadlocked threads
 - Infinite loops in request handlers
 - Resource exhaustion preventing responses
@@ -667,8 +680,9 @@ StartLimitAction = "none";      # Don't give up permanently
 # View watchdog status
 ssh cogsworth journalctl -u cogsworth-watchdog -f
 
-# Check current failure count
+# Check current failure counts
 ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
+ssh cogsworth cat /var/lib/cogsworth-watchdog/cage_failure_count
 
 # View timer schedule
 ssh cogsworth systemctl list-timers cogsworth-watchdog
