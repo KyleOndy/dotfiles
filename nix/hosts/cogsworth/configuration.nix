@@ -402,6 +402,9 @@
       User = "cogsworth";
       Group = "cogsworth";
 
+      # Add system binaries to PATH so vcgencmd and other tools are available
+      Environment = "PATH=/run/current-system/sw/bin:$PATH";
+
       # JRE execution with JVM tuning for Raspberry Pi
       ExecStart = ''
         ${pkgs.jre_headless}/bin/java \

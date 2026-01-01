@@ -577,6 +577,14 @@ in
               echo "Private mode enabled"
             }
 
+            wt_notes() {
+              local git_dir
+              git_dir="$(git rev-parse --git-common-dir 2>/dev/null)" || {
+                echo "Not in a git worktree" >&2
+                return 1
+              }
+              $EDITOR "$(dirname "$git_dir")/notes.txt"
+            }
           ''
         ];
       };
