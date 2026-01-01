@@ -124,6 +124,15 @@ iso: ## build install media with my customizations
 sdcard: ## build install media with my customizations
 	nix build .#nixosConfigurations.sd_card.config.system.build.sdImage
 
+.PHONY: sdcard-cogsworth
+sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
+	@echo "Decrypting SSH host key locally..."
+	@export COGSWORTH_SSH_KEY=$$(sops -d nix/hosts/cogsworth/keys/ssh_host_ed25519_key.sops) && \
+		echo "Building SD image (this takes a while)..." && \
+		nix build --impure .#nixosConfigurations.cogsworth.config.system.build.sdImage && \
+		echo "Done! Image at: result/sd-image/" || \
+		(echo "Build failed"; exit 1)
+
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system
 	nix-collect-garbage --delete-older-than 7d
