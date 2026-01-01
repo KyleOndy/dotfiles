@@ -5,117 +5,6 @@
   modulesPath,
   ...
 }:
-let
-  # Boot splash screen image - portrait mode (1080x1920) for 90° rotated display
-  # Used by Plymouth during Linux boot (not firmware)
-  splashImage =
-    pkgs.runCommand "cogsworth-splash.png"
-      {
-        nativeBuildInputs = [ pkgs.imagemagick ];
-      }
-      ''
-        # Create splash with Cogsworth branding
-        convert -size 1080x1920 xc:'#1a1b26' \
-          -gravity center \
-          -pointsize 120 \
-          -fill '#7aa2f7' \
-          -font ${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSans-Bold.ttf \
-          -annotate +0-200 'Cogsworth' \
-          -pointsize 60 \
-          -fill '#9ece6a' \
-          -annotate +0-50 '📅' \
-          -pointsize 48 \
-          -fill '#a9b1d6' \
-          -annotate +0+100 'Starting...' \
-          $out
-      '';
-
-  # Plymouth boot splash theme
-  plymouthTheme =
-    pkgs.runCommand "cogsworth-plymouth-theme"
-      {
-        nativeBuildInputs = [ pkgs.imagemagick ];
-      }
-      ''
-            mkdir -p $out/share/plymouth/themes/cogsworth
-
-            # Copy main splash image
-            cp ${splashImage} $out/share/plymouth/themes/cogsworth/splash.png
-
-            # Create simple spinner animation (rotating dots)
-            for i in {0..9}; do
-              angle=$((i * 36))
-              convert -size 100x100 xc:none \
-                -fill '#7aa2f7' \
-                -draw "circle 50,50 50,20" \
-                -fill '#7aa2f750' \
-                -draw "rotate $angle circle 50,50 50,20" \
-                $out/share/plymouth/themes/cogsworth/spinner-$i.png
-            done
-
-            # Plymouth theme configuration
-            cat > $out/share/plymouth/themes/cogsworth/cogsworth.plymouth <<EOF
-        [Plymouth Theme]
-        Name=Cogsworth
-        Description=Cogsworth Kiosk Boot Splash
-        ModuleName=script
-
-        [script]
-        ImageDir=/share/plymouth/themes/cogsworth
-        ScriptFile=/share/plymouth/themes/cogsworth/cogsworth.script
-        EOF
-
-            # Plymouth animation script
-            cat > $out/share/plymouth/themes/cogsworth/cogsworth.script <<'SCRIPT'
-        # Background color (Tokyo Night dark)
-        Window.SetBackgroundTopColor(0.10, 0.11, 0.15);
-        Window.SetBackgroundBottomColor(0.10, 0.11, 0.15);
-
-        # Main splash image
-        splash_image = Image("splash.png");
-        splash_sprite = Sprite(splash_image);
-        splash_sprite.SetPosition(
-          Window.GetWidth() / 2 - splash_image.GetWidth() / 2,
-          Window.GetHeight() / 2 - splash_image.GetHeight() / 2,
-          0
-        );
-
-        # Loading spinner
-        for (i = 0; i < 10; i++) {
-          spinner_images[i] = Image("spinner-" + i + ".png");
-        }
-
-        spinner_sprite = Sprite();
-        spinner_sprite.SetPosition(
-          Window.GetWidth() / 2 - 50,
-          Window.GetHeight() / 2 + 300,
-          1
-        );
-
-        fun refresh_callback() {
-          spinner_index = Math.Int((Plymouth.GetTime() * 10) % 10);
-          spinner_sprite.SetImage(spinner_images[spinner_index]);
-        }
-
-        Plymouth.SetRefreshFunction(refresh_callback);
-
-        # Boot message display
-        message_sprite = Sprite();
-        message_sprite.SetPosition(
-          Window.GetWidth() / 2,
-          Window.GetHeight() - 100,
-          2
-        );
-
-        fun message_callback(text) {
-          image = Image.Text(text, 0.62, 0.65, 0.71);
-          message_sprite.SetImage(image);
-        }
-
-        Plymouth.SetMessageFunction(message_callback);
-        SCRIPT
-      '';
-in
 {
   imports = [
     # SD card image builder for aarch64
@@ -198,6 +87,11 @@ in
       chmod 644 ./files/etc/ssh/ssh_host_ed25519_key.pub
     '';
 
+  # Disable rainbow splash for cleaner boot experience
+  sdImage.populateFirmwareCommands = lib.mkAfter ''
+    echo "disable_splash=1" >> ./firmware/config.txt
+  '';
+
   # Raspberry Pi 4 GPU configuration
   hardware.raspberry-pi."4" = {
     fkms-3d.enable = true; # V3D renderer for GPU acceleration
@@ -218,19 +112,9 @@ in
     rebootTime = "2min"; # Reboot timeout if normal reboot fails
   };
 
-  # Boot splash screen configuration
-  boot.plymouth = {
-    enable = true;
-    theme = "cogsworth";
-    themePackages = [ plymouthTheme ];
-  };
-
-  # Quiet boot - hide kernel messages for clean splash screen experience
+  # Rotate framebuffer console to match physical display orientation (90° clockwise)
   boot.kernelParams = [
-    "quiet"
-    "splash"
-    "plymouth.ignore-serial-consoles"
-    "vt.global_cursor_default=0"
+    "fbcon=rotate:1" # 1 = 90° clockwise
   ];
 
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
@@ -318,15 +202,9 @@ in
     after = [
       "network-online.target"
       "cogsworth-ready.service"
-      "plymouth-quit.service"
     ];
     wants = [ "network-online.target" ];
     requires = [ "cogsworth-ready.service" ];
-
-    # Gracefully quit Plymouth before starting Cage
-    preStart = ''
-      ${pkgs.plymouth}/bin/plymouth quit --retain-splash || true
-    '';
 
     # Auto-restart on failure (e.g., after deploy-rs, crashes, etc.)
     serviceConfig = {
@@ -392,6 +270,7 @@ in
       # Working directory for any file operations
       WorkingDirectory = "/var/lib/cogsworth";
       StateDirectory = "cogsworth";
+      ReadWritePaths = [ "/run/cogsworth" ];
     };
 
     # Allow up to 10 restarts in 2 minutes before giving up
@@ -538,8 +417,31 @@ in
     };
   };
 
+  # Cogsworth reboot request handler
+  # Monitors /run/cogsworth/reboot-request and triggers system reboot when present
+  systemd.services.cogsworth-reboot = {
+    description = "Cogsworth Reboot Handler";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/cogsworth/reboot-request";
+      ExecStart = "${pkgs.systemd}/bin/systemctl reboot";
+    };
+  };
+
+  systemd.paths.cogsworth-reboot = {
+    description = "Watch for Cogsworth reboot requests";
+    wantedBy = [ "multi-user.target" ];
+    pathConfig = {
+      PathExists = "/run/cogsworth/reboot-request";
+      Unit = "cogsworth-reboot.service";
+    };
+  };
+
   # Mutable JAR location for development
-  systemd.tmpfiles.rules = [ "d /opt/cogsworth 0755 cogsworth cogsworth -" ];
+  systemd.tmpfiles.rules = [
+    "d /opt/cogsworth 0755 cogsworth cogsworth -"
+    "d /run/cogsworth 0755 cogsworth cogsworth -"
+  ];
 
   # Enable SSH for remote management
   services.openssh = {
