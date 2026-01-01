@@ -79,6 +79,18 @@
     fkms-3d.enable = true; # V3D renderer for GPU acceleration
   };
 
+  # Tier 3 Watchdog: Hardware watchdog timer
+  # Ultimate failsafe - reboots system if kernel hangs
+  # Raspberry Pi 4 has built-in bcm2835_wdt watchdog
+  boot.kernelModules = [ "bcm2835_wdt" ];
+
+  # Enable systemd hardware watchdog support
+  # Systemd will feed the watchdog; if systemd hangs, RPi reboots
+  systemd.watchdog = {
+    runtimeTime = "30s"; # Reboot if systemd doesn't ping within 30s
+    rebootTime = "2min"; # Reboot timeout if normal reboot fails
+  };
+
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
   # Calibration matrix transforms touch coordinates to match rotated display
   # Matrix "0 -1 1 1 0 0" rotates touch input 90° CCW to match physical rotation
@@ -134,6 +146,19 @@
   };
   users.groups.cogsworth = { };
 
+  # Allow cogsworth user to reboot system without password
+  security.sudo.extraRules = [
+    {
+      users = [ "cogsworth" ];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl reboot";
+          options = [ "NOPASSWD" ];
+        }
+      ];
+    }
+  ];
+
   # Chromium policies for kiosk hardening
   programs.chromium = {
     enable = true;
@@ -154,6 +179,17 @@
     ];
     wants = [ "network-online.target" ];
     requires = [ "cogsworth-ready.service" ];
+
+    # Auto-restart on failure (e.g., after deploy-rs, crashes, etc.)
+    serviceConfig = {
+      Restart = "always";
+      RestartSec = "5s";
+    };
+
+    # Allow up to 10 restarts in 2 minutes before giving up
+    # These go in [Unit] section, not [Service]
+    startLimitBurst = 10;
+    startLimitIntervalSec = 120;
   };
 
   # Cogsworth application service - runs the Java uberjar
@@ -178,7 +214,8 @@
           -jar /opt/cogsworth/cogsworth.jar
       '';
 
-      # Restart policy
+      # Tier 1 Watchdog: Enhanced restart policy
+      # Aggressively restart on any failure type
       Restart = "always";
       RestartSec = "5s";
 
@@ -202,6 +239,18 @@
       # Working directory for any file operations
       WorkingDirectory = "/var/lib/cogsworth";
       StateDirectory = "cogsworth";
+    };
+
+    # Allow up to 10 restarts in 2 minutes before giving up
+    # Default is 5 restarts in 10 seconds which is too restrictive
+    # These go in [Unit] section, not [Service]
+    startLimitBurst = 10;
+    startLimitIntervalSec = 120;
+
+    # If service hits restart limit, reset the counter after 5 minutes
+    # This prevents permanent failure from transient issues
+    unitConfig = {
+      StartLimitAction = "none";
     };
   };
 
@@ -235,6 +284,69 @@
       echo "ERROR: Cogsworth did not become ready within 60 seconds"
       exit 1
     '';
+  };
+
+  # Tier 2 Watchdog: Health check monitor
+  # Detects when cogsworth is running but hung/unresponsive
+  systemd.services.cogsworth-watchdog = {
+    description = "Cogsworth health check watchdog";
+    after = [ "cogsworth.service" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root"; # Needs root to restart services
+    };
+
+    script = ''
+      set -e
+
+      STATE_FILE="/var/lib/cogsworth-watchdog/failure_count"
+      FAILURE_THRESHOLD=3  # Restart after 3 consecutive failures (90 seconds)
+
+      # Ensure state directory exists
+      mkdir -p "$(dirname "$STATE_FILE")"
+
+      # Read current failure count (default to 0)
+      if [ -f "$STATE_FILE" ]; then
+        FAILURES=$(cat "$STATE_FILE")
+      else
+        FAILURES=0
+      fi
+
+      # Check if cogsworth is responding
+      if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/ >/dev/null 2>&1; then
+        # Health check passed - reset failure counter
+        if [ "$FAILURES" -gt 0 ]; then
+          echo "$(date): Health check recovered (was $FAILURES failures)"
+        fi
+        echo "0" > "$STATE_FILE"
+      else
+        # Health check failed - increment counter
+        FAILURES=$((FAILURES + 1))
+        echo "$FAILURES" > "$STATE_FILE"
+        echo "$(date): Health check failed (attempt $FAILURES/$FAILURE_THRESHOLD)"
+
+        # Restart cogsworth if threshold reached
+        if [ "$FAILURES" -ge "$FAILURE_THRESHOLD" ]; then
+          echo "$(date): WATCHDOG TRIGGERED - Restarting cogsworth.service"
+          systemctl restart cogsworth.service
+          # Reset counter after restart
+          echo "0" > "$STATE_FILE"
+        fi
+      fi
+    '';
+  };
+
+  # Timer to run watchdog every 30 seconds
+  systemd.timers.cogsworth-watchdog = {
+    description = "Cogsworth health check watchdog timer";
+    wantedBy = [ "timers.target" ];
+
+    timerConfig = {
+      OnBootSec = "2min"; # Start 2 minutes after boot (let cogsworth stabilize)
+      OnUnitActiveSec = "30s"; # Run every 30 seconds
+      AccuracySec = "5s"; # Allow 5 second timing flexibility
+    };
   };
 
   # Mutable JAR location for development
