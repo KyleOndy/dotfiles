@@ -338,6 +338,11 @@ in
     # These go in [Unit] section, not [Service]
     startLimitBurst = 10;
     startLimitIntervalSec = 120;
+
+    # Prevent permanent failure - allow watchdog to recover
+    unitConfig = {
+      StartLimitAction = "none";
+    };
   };
 
   # Cogsworth application service - runs the Java uberjar
@@ -435,10 +440,13 @@ in
   };
 
   # Tier 2 Watchdog: Health check monitor
-  # Detects when cogsworth is running but hung/unresponsive
+  # Detects when services are running but hung/unresponsive or failed
   systemd.services.cogsworth-watchdog = {
-    description = "Cogsworth health check watchdog";
-    after = [ "cogsworth.service" ];
+    description = "Cogsworth and Cage health check watchdog";
+    after = [
+      "cogsworth.service"
+      "cage-tty1.service"
+    ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -448,38 +456,71 @@ in
     script = ''
       set -e
 
-      STATE_FILE="/var/lib/cogsworth-watchdog/failure_count"
+      STATE_DIR="/var/lib/cogsworth-watchdog"
+      COGSWORTH_STATE_FILE="$STATE_DIR/failure_count"
+      CAGE_STATE_FILE="$STATE_DIR/cage_failure_count"
       FAILURE_THRESHOLD=3  # Restart after 3 consecutive failures (90 seconds)
 
       # Ensure state directory exists
-      mkdir -p "$(dirname "$STATE_FILE")"
+      mkdir -p "$STATE_DIR"
 
-      # Read current failure count (default to 0)
-      if [ -f "$STATE_FILE" ]; then
-        FAILURES=$(cat "$STATE_FILE")
+      # --- Check cogsworth HTTP health ---
+      if [ -f "$COGSWORTH_STATE_FILE" ]; then
+        FAILURES=$(cat "$COGSWORTH_STATE_FILE")
       else
         FAILURES=0
       fi
 
-      # Check if cogsworth is responding
       if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/ >/dev/null 2>&1; then
         # Health check passed - reset failure counter
         if [ "$FAILURES" -gt 0 ]; then
-          echo "$(date): Health check recovered (was $FAILURES failures)"
+          echo "$(date): Cogsworth health check recovered (was $FAILURES failures)"
         fi
-        echo "0" > "$STATE_FILE"
+        echo "0" > "$COGSWORTH_STATE_FILE"
       else
         # Health check failed - increment counter
         FAILURES=$((FAILURES + 1))
-        echo "$FAILURES" > "$STATE_FILE"
-        echo "$(date): Health check failed (attempt $FAILURES/$FAILURE_THRESHOLD)"
+        echo "$FAILURES" > "$COGSWORTH_STATE_FILE"
+        echo "$(date): Cogsworth health check failed (attempt $FAILURES/$FAILURE_THRESHOLD)"
 
         # Restart cogsworth if threshold reached
         if [ "$FAILURES" -ge "$FAILURE_THRESHOLD" ]; then
           echo "$(date): WATCHDOG TRIGGERED - Restarting cogsworth.service"
+          # Reset failed state first (handles restart limit scenario)
+          systemctl reset-failed cogsworth.service || true
           systemctl restart cogsworth.service
           # Reset counter after restart
-          echo "0" > "$STATE_FILE"
+          echo "0" > "$COGSWORTH_STATE_FILE"
+        fi
+      fi
+
+      # --- Check cage-tty1 systemd state ---
+      if [ -f "$CAGE_STATE_FILE" ]; then
+        CAGE_FAILURES=$(cat "$CAGE_STATE_FILE")
+      else
+        CAGE_FAILURES=0
+      fi
+
+      if systemctl is-active --quiet cage-tty1.service; then
+        # Service is running - reset failure counter
+        if [ "$CAGE_FAILURES" -gt 0 ]; then
+          echo "$(date): cage-tty1 recovered (was $CAGE_FAILURES failures)"
+        fi
+        echo "0" > "$CAGE_STATE_FILE"
+      else
+        # Service is not active - increment counter
+        CAGE_FAILURES=$((CAGE_FAILURES + 1))
+        echo "$CAGE_FAILURES" > "$CAGE_STATE_FILE"
+        echo "$(date): cage-tty1 not active (attempt $CAGE_FAILURES/$FAILURE_THRESHOLD)"
+
+        # Restart cage if threshold reached
+        if [ "$CAGE_FAILURES" -ge "$FAILURE_THRESHOLD" ]; then
+          echo "$(date): WATCHDOG TRIGGERED - Restarting cage-tty1.service"
+          # Reset failed state first (handles restart limit scenario)
+          systemctl reset-failed cage-tty1.service || true
+          systemctl restart cage-tty1.service
+          # Reset counter after restart
+          echo "0" > "$CAGE_STATE_FILE"
         fi
       fi
     '';
@@ -487,7 +528,7 @@ in
 
   # Timer to run watchdog every 30 seconds
   systemd.timers.cogsworth-watchdog = {
-    description = "Cogsworth health check watchdog timer";
+    description = "Cogsworth and Cage health check watchdog timer";
     wantedBy = [ "timers.target" ];
 
     timerConfig = {
