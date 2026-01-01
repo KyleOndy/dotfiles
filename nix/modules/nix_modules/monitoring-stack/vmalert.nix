@@ -621,6 +621,9 @@ in
       description = "vmalert - evaluation of alerting rules";
       wantedBy = [ "multi-user.target" ];
       after = [ "network.target" ];
+      restartTriggers = [
+        config.environment.etc."vmalert/rules.yml".text
+      ];
 
       serviceConfig = {
         Type = "simple";
@@ -637,24 +640,6 @@ in
         '';
         Restart = "on-failure";
         RestartSec = "5s";
-      };
-    };
-
-    # Auto-reload vmalert when rules file changes
-    systemd.paths.vmalert-rules-watcher = {
-      description = "Watch vmalert rules file for changes";
-      wantedBy = [ "multi-user.target" ];
-      pathConfig = {
-        PathModified = "/etc/vmalert/rules.yml";
-        Unit = "vmalert-reload.service";
-      };
-    };
-
-    systemd.services.vmalert-reload = {
-      description = "Reload vmalert after rules change";
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${pkgs.systemd}/bin/systemctl reload-or-restart vmalert.service";
       };
     };
 

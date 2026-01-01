@@ -92,6 +92,7 @@ in
             // optionalAttrs (cfg.smtp.server != "") {
               email_configs = map (recipient: {
                 to = recipient;
+                send_resolved = true;
               }) cfg.smtp.to;
             }
           )
