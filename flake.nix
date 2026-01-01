@@ -71,6 +71,10 @@
           homeModule = ./nix/profiles/desktop.nix;
           needsDesktop = true;
         };
+        kiosk = {
+          homeModule = ./nix/profiles/kiosk.nix;
+          needsDesktop = false;
+        };
       };
 
       # nixCats configuration for Neovim
@@ -336,6 +340,19 @@
             ./nix/hosts/bear/nix-anywhere/disk-config.nix
           ];
         };
+        cogsworth = mkNixosSystem {
+          hostname = "cogsworth";
+          system = "aarch64-linux";
+          profile = "server";
+          hardwareModules = [
+            inputs.nixos-hardware.nixosModules.raspberry-pi-4
+          ];
+          extraConfig = {
+            home-manager.users.kyle = {
+              hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
+            };
+          };
+        };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -457,6 +474,14 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.bear;
+            };
+          };
+          cogsworth = {
+            hostname = "cogsworth";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.cogsworth;
             };
           };
         };

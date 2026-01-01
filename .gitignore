@@ -35,3 +35,6 @@ target/
 
 .cpcache/
 .clojure-mcp/
+
+# Decrypted host key (temporary during SD card builds)
+nix/hosts/cogsworth/keys/ssh_host_ed25519_key
