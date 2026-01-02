@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Bash(pytest:*), Bash(go test:*), Bash(npm test:*), Bash(cargo test:*), Bash(make test:*), Bash(git:*)
+allowed-tools: Read, Bash(pytest:*), Bash(go test:*), Bash(npm test:*), Bash(cargo test:*), Bash(make test:*), Bash(git:*), AskUserQuestion
 description: Run tests and verify implementation before commit
 ---
 
@@ -126,8 +126,6 @@ curl -X POST http://localhost:5000/api/register \
 
 Have you completed all manual verification steps?
 
-````
-
 **If no manual steps in plan:**
 
 Check what was changed:
@@ -145,17 +143,30 @@ Based on your changes, please verify:
 - [ ] Verify error handling works correctly
 
 Have you completed these verification steps?
-````
+```
 
-### 6. Ask User for Manual Verification Status
+### 6. Confirm Manual Verification
 
 **If automated tests PASSED:**
 
-Wait for user response about manual verification:
+Use the AskUserQuestion tool:
 
-- User says "yes/done/complete" → Proceed to success summary
-- User says "no/not yet" → Remind them to complete and run `/task:test` again
-- User describes issues → Note them and suggest fixing
+**Question:** "Automated tests passed. Have you completed the manual verification steps?"
+**Header:** "Manual Tests"
+**Options:**
+
+- Label: "Yes, all verified"
+  Description: "Manual testing complete - ready to commit"
+- Label: "Still testing"
+  Description: "I need more time to verify manually"
+- Label: "Found issues"
+  Description: "Manual testing revealed problems to fix"
+
+**Handle responses:**
+
+- "Yes, all verified" → Proceed to success summary, ready for /task:done
+- "Still testing" → Remind them of the checklist, end session
+- "Found issues" → Ask what issues they found, note them for fixing
 
 **If automated tests FAILED:**
 
@@ -320,7 +331,7 @@ tests/unit/test_email.py::test_missing_email PASSED
 Have you completed all manual verification steps?
 ```
 
-**User responds: "yes"**
+### After user confirms manual testing
 
 ```text
 ✅ All Tests Passed

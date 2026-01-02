@@ -1,3 +1,9 @@
+---
+allowed-tools: Read
+model: claude-3-5-haiku-20241022
+description: Show current requirement gathering progress and continue
+---
+
 # Check Requirements Status
 
 Show current requirement gathering progress and continue.
