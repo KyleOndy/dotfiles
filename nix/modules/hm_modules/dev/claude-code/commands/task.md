@@ -1,5 +1,6 @@
 ---
 allowed-tools: Read, Bash(git:*)
+model: claude-3-5-haiku-20241022
 description: Smart context-aware task status and command suggestions
 ---
 
