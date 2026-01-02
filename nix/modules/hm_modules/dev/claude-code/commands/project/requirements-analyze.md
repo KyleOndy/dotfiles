@@ -1,5 +1,6 @@
 ---
 allowed-tools: Read, LS
+model: claude-3-5-haiku-20241022
 description: Display detailed information about the active requirement gathering session
 ---
 

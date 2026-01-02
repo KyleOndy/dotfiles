@@ -1,3 +1,9 @@
+---
+allowed-tools: Read
+model: claude-3-5-haiku-20241022
+description: Quick correction when deviating from requirements gathering rules
+---
+
 # Requirements Gathering Reminder
 
 Quick correction when deviating from requirements gathering rules.
