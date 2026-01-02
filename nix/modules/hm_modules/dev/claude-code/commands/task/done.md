@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(git:*), Bash(make:*), Bash(npm:*), Bash(cargo:*), Bash(pytest:*), Bash(go:*)
+allowed-tools: Read, Write, Edit, Bash(git:*), Bash(make:*), Bash(npm:*), Bash(cargo:*), Bash(pytest:*), Bash(go:*), AskUserQuestion
 description: Review implementation, remove completed task, and create commit
 ---
 
@@ -27,23 +27,23 @@ Check if `/task:test` was run recently by looking for indicators:
 - Have tests been modified or created? (`git status`)
 - Are there uncommitted changes that suggest work is still in progress?
 
-**If you skipped `/task:test`:**
+**If /task:test was not clearly run:**
 
-```text
-⚠️ Recommended: Run /task:test first
+Use the AskUserQuestion tool:
 
-/task:test provides:
-- Automated test execution with clear pass/fail status
-- Manual verification checklist from your plan
-- Iterative testing workflow (test → fix → test)
+**Question:** "It looks like /task:test wasn't run. Would you like to run it before committing?"
+**Header:** "Testing"
+**Options:**
 
-Do you want to run /task:test before committing? (yes/no/skip)
-```
+- Label: "Yes, run tests first (Recommended)"
+  Description: "Stop here and run /task:test to verify implementation"
+- Label: "Skip testing"
+  Description: "Continue with commit - I'll take responsibility for testing"
 
-**User responses:**
+**Handle responses:**
 
-- **Yes** → Stop and tell user to run `/task:test`, then return to `/task:done`
-- **No/Skip** → Continue with `/task:done` (user takes responsibility)
+- "Yes, run tests first" → Stop and direct user to run `/task:test`, then return
+- "Skip testing" → Continue with `/task:done` workflow
 
 **If tests were clearly run** (test files modified, no major concerns):
 
@@ -95,21 +95,23 @@ Run tests one final time as a safety check:
 
 **If tests fail:**
 
-```text
-❌ Tests are failing
+Use the AskUserQuestion tool:
 
-This suggests testing wasn't completed properly.
+**Question:** "Tests are failing. How would you like to proceed?"
+**Header:** "Test Failure"
+**Options:**
 
-Recommendation:
-1. Run /task:test to see detailed test output and manual verification checklist
-2. Fix issues iteratively using /task:test
-3. Return to /task:done when tests pass
+- Label: "Fix tests now (Recommended)"
+  Description: "Run /task:test to see failures and fix iteratively"
+- Label: "View failures here"
+  Description: "Show me the failing tests in this session"
 
-Do you want to fix the tests now or skip this check? (fix/skip)
-```
+Note: Do NOT offer a "skip" option - tests must pass before commit.
 
-- **fix** → Stop, direct user to run `/task:test`
-- **skip** → DO NOT ALLOW - tests must pass before commit
+**Handle responses:**
+
+- "Fix tests now" → Direct user to run `/task:test`
+- "View failures here" → Show test output, then re-prompt after fixes
 
 ### 4. Check for Simpler Approaches
 
@@ -123,9 +125,21 @@ Take a moment to reflect:
 
 **If a simpler approach is apparent:**
 
-1. Explain the simpler approach to the user
-2. Ask if they want to refactor before committing
-3. Wait for user decision
+Use the AskUserQuestion tool:
+
+**Question:** "I noticed a simpler approach is possible. Would you like to refactor before committing?"
+**Header:** "Refactor?"
+**Options:**
+
+- Label: "Yes, refactor first"
+  Description: "Implement the simpler approach before committing"
+- Label: "No, commit as-is"
+  Description: "The current implementation is acceptable"
+
+**Handle responses:**
+
+- "Yes, refactor first" → Explain the simpler approach and implement it
+- "No, commit as-is" → Continue with commit
 
 **If the implementation is good as-is:**
 
@@ -137,7 +151,7 @@ Take a moment to reflect:
 
 Use the Read tool to read `TASKS.md` and extract the first task (the one being completed):
 
-```
+```text
 Task Title: [first heading]
 Task Context: [context under first heading]
 ```
@@ -203,7 +217,7 @@ Use conventional commits defaults:
 
 **Message Structure:**
 
-```
+```text
 <type>(<scope>): <description>
 
 <body (optional)>
@@ -232,7 +246,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 Simple feature:
 
-```
+```text
 feat(auth): add email validation to registration
 
 Validates email format before creating user records. Uses existing
@@ -245,7 +259,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 Bug fix:
 
-```
+```text
 fix(api): handle null values in user profile endpoint
 
 Previously threw 500 error when optional fields were null. Now returns
@@ -258,7 +272,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 Test addition:
 
-```
+```text
 test(auth): add registration validation test cases
 
 Cover valid emails, invalid formats, missing email, and duplicate
@@ -357,7 +371,7 @@ Use git commands to verify:
 
 Provide completion summary:
 
-```
+```text
 ✅ Task Completed and Committed
 
 Commit: [hash] [type]([scope]): [description]
@@ -381,7 +395,7 @@ Next Steps:
 
 **If tests are failing:**
 
-```
+```text
 ❌ Cannot complete task - tests are failing
 
 Test Failures:
@@ -433,7 +447,7 @@ Likely you need to run `/task:decompose` first.
 
 ## Example Complete Flow
 
-```
+```text
 📋 Implementation Review
 
 ✓ Code is simple and clear

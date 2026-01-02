@@ -1,5 +1,5 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Edit, Glob, AskUserQuestion
 argument-hint: [--analyze] [--optimize] [--suggest] [--organize]
 description: Analyze and optimize Claude Code permissions across settings files
 ---
@@ -16,6 +16,34 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
 - Knowledge of common tool usage patterns in the project
 
 ## Workflow
+
+### Initial Setup
+
+**Determine action to perform:**
+
+If no action flag (--analyze, --optimize, --suggest, --organize) was provided, use the AskUserQuestion tool:
+
+**Question:** "What would you like to do with Claude Code permissions?"
+**Header:** "Action"
+**Options:**
+
+- Label: "Full analysis and optimization (Recommended)"
+  Description: "Analyze, detect redundancies, optimize, and provide recommendations"
+- Label: "Analyze only"
+  Description: "Review current permissions and show summary without changes"
+- Label: "Optimize and suggest"
+  Description: "Find redundancies and provide optimized settings.json"
+- Label: "Organize by category"
+  Description: "Group permissions by tool type and usage patterns"
+
+**Handle responses:**
+
+- "Full analysis and optimization" → Perform all steps (1-7)
+- "Analyze only" → Perform steps 1-4, then generate report without optimization suggestions
+- "Optimize and suggest" → Perform steps 1-6, focusing on optimization
+- "Organize by category" → Perform steps 1-2, 4, then organize and report by category
+
+### Workflow Steps
 
 1. **Load Current Settings**
    - Read .claude/settings.json (shared team settings)
@@ -60,7 +88,30 @@ Intelligent Claude Code permission management system that analyzes, optimizes, a
    - Provide migration commands/instructions
    - Include MCP server configurations
 
-7. **Report Generation**
+**Confirm before applying changes:**
+
+If recommendations would modify settings files, use the AskUserQuestion tool:
+
+**Question:** "Ready to apply the optimized permissions to settings.json?"
+**Header:** "Apply Changes"
+**Options:**
+
+- Label: "Show recommendations only"
+  Description: "Display the optimized settings without writing changes (Recommended)"
+- Label: "Apply to settings.json"
+  Description: "Write the optimized permissions to .claude/settings.json"
+- Label: "Cancel"
+  Description: "Exit without applying or showing recommendations"
+
+**Handle responses:**
+
+- "Show recommendations only" → Display optimized configuration in report, don't write files
+- "Apply to settings.json" → Write optimized settings to .claude/settings.json and backup original
+- "Cancel" → Exit without changes
+
+### Final Report
+
+1. **Report Generation**
    - Summary of current permission state
    - Redundancy analysis with specific examples
    - Optimization opportunities ranked by impact

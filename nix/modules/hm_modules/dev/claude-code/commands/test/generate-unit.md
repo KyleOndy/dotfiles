@@ -1,5 +1,5 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Grep, Glob, Bash(npm test:*), Bash(pytest:*), Bash(go test:*), Bash(cargo test:*), Bash(make test:*), AskUserQuestion
 description: Generate comprehensive test suite with unit, integration, and end-to-end tests following testing best practices
 ---
 
@@ -15,6 +15,34 @@ Comprehensive test suite generation with unit, integration, and end-to-end tests
 - CI/CD pipeline supports test execution
 
 ## Workflow
+
+### Initial Setup
+
+**Determine test types to generate:**
+
+Use the AskUserQuestion tool to determine which test types should be generated:
+
+**Question:** "Which test types should I generate?"
+**Header:** "Test Types"
+**Options:**
+
+- Label: "All types (Recommended)"
+  Description: "Generate unit, integration, and end-to-end tests for comprehensive coverage"
+- Label: "Unit tests only"
+  Description: "Generate unit tests for individual functions and methods"
+- Label: "Integration tests only"
+  Description: "Generate integration tests for component interactions"
+- Label: "E2E tests only"
+  Description: "Generate end-to-end tests for user workflows"
+
+**Handle responses:**
+
+- "All types" → Generate all test types (steps 3-5)
+- "Unit tests only" → Focus on Unit Test Generation (step 3)
+- "Integration tests only" → Focus on Integration Test Creation (step 4)
+- "E2E tests only" → Focus on End-to-End Test Development (step 5)
+
+### Workflow Steps
 
 1. **Code Analysis**
    - Analyze function signatures and interfaces
@@ -46,7 +74,30 @@ Comprehensive test suite generation with unit, integration, and end-to-end tests
    - Validate UI interactions
    - Test cross-browser compatibility
 
-6. **Test Infrastructure**
+**Confirm test file locations:**
+
+Before writing test files, use the AskUserQuestion tool to confirm locations:
+
+**Question:** "Ready to write test files to the project?"
+**Header:** "Confirm"
+**Options:**
+
+- Label: "Write all test files (Recommended)"
+  Description: "Create test files in appropriate test directories"
+- Label: "Show test content first"
+  Description: "Display generated tests without writing files"
+- Label: "Write unit tests only"
+  Description: "Create only unit test files (skip integration and e2e)"
+
+**Handle responses:**
+
+- "Write all test files" → Create all generated test files in project
+- "Show test content first" → Display test content for review, ask again before writing
+- "Write unit tests only" → Create only unit test files
+
+### Infrastructure Setup
+
+1. **Test Infrastructure**
    - Set up test fixtures and data
    - Configure test environment
    - Create test utilities and helpers
