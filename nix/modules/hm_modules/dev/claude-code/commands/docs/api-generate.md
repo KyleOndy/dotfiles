@@ -1,5 +1,5 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Write, Grep, Glob, WebFetch, AskUserQuestion
 argument-hint: [--version version] [--examples data-source] [--format openapi|graphql]
 description: Generate comprehensive API documentation with automatic schema extraction, example generation, and interactive documentation
 ---
@@ -16,6 +16,34 @@ Comprehensive API documentation generation with automatic schema extraction, exa
 - Example data and test cases available
 
 ## Workflow
+
+### Initial Setup
+
+**Determine API documentation format:**
+
+If no `--format` argument was provided, use the AskUserQuestion tool:
+
+**Question:** "Which API documentation format should be generated?"
+**Header:** "Format"
+**Options:**
+
+- Label: "OpenAPI/Swagger (Recommended)"
+  Description: "REST API documentation with interactive explorer"
+- Label: "GraphQL"
+  Description: "GraphQL schema documentation with playground"
+- Label: "Both OpenAPI and GraphQL"
+  Description: "Generate documentation for both REST and GraphQL APIs"
+- Label: "Custom/Markdown"
+  Description: "Custom markdown-based API documentation"
+
+**Handle responses:**
+
+- "OpenAPI/Swagger" → Focus on REST API documentation with OpenAPI spec
+- "GraphQL" → Focus on GraphQL schema and query documentation
+- "Both OpenAPI and GraphQL" → Generate documentation for both API types
+- "Custom/Markdown" → Create markdown-based API documentation
+
+### Documentation Steps
 
 1. **API Discovery and Analysis**
    - Scan codebase for API endpoints and methods

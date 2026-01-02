@@ -1,5 +1,5 @@
 ---
-allowed-tools: all
+allowed-tools: Read, Grep, Glob, LSP, AskUserQuestion
 argument-hint: [--module module-name] [--focus performance|security|maintainability]
 description: Analyze code for refactoring opportunities with automated smell detection
 ---
@@ -16,6 +16,37 @@ Systematic code refactoring analysis with automated detection of code smells, du
 - Version control history for change patterns
 
 ## Workflow
+
+### Initial Setup
+
+**Determine analysis focus:**
+
+If no `--focus` argument was provided, use the AskUserQuestion tool to determine the analysis focus:
+
+**Question:** "Which aspect of the code should I focus the refactoring analysis on?"
+**Header:** "Focus Area"
+**Options:**
+
+- Label: "All areas (Recommended)"
+  Description: "Comprehensive analysis covering code smells, architecture, performance, and maintainability"
+- Label: "Performance only"
+  Description: "Focus on performance bottlenecks, inefficient algorithms, and optimization opportunities"
+- Label: "Security only"
+  Description: "Focus on security vulnerabilities, unsafe patterns, and risk mitigation"
+- Label: "Maintainability only"
+  Description: "Focus on code complexity, test coverage, and documentation quality"
+- Label: "Architecture only"
+  Description: "Focus on module dependencies, coupling, and design patterns"
+
+**Handle responses:**
+
+- "All areas" → Perform all analysis steps (1-6) below
+- "Performance only" → Focus on Performance Analysis (step 3) and relevant recommendations
+- "Security only" → Focus on security-related code smells and architecture issues
+- "Maintainability only" → Focus on Maintainability Assessment (step 4) and code smells
+- "Architecture only" → Focus on Architecture Analysis (step 2)
+
+### Analysis Steps
 
 1. **Code Smell Detection**
    - Identify long methods and large classes

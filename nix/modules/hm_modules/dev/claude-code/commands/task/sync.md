@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(git:*)
+allowed-tools: Read, Write, Edit, Bash(git:*), AskUserQuestion
 description: Review last commit and check/update task list for validity
 ---
 
@@ -123,24 +123,35 @@ Example with status markers:
 - Remove `[IN PROGRESS]` if work hasn't actually started yet
 - Add `[BLOCKED]` with explanation if dependencies are missing
 
-### 6. Identify Blockers
+### 6. Handle Blockers
 
-If any tasks are blocked, STOP and report to user:
+**If any tasks are blocked:**
 
-**Blocker Types:**
+Use the AskUserQuestion tool:
+
+**Question:** "I've identified a blocker for the next task. How would you like to proceed?"
+**Header:** "Blocked"
+**Options:**
+
+- Label: "Provide guidance now"
+  Description: "I'll answer the questions/provide the missing information"
+- Label: "Skip to different task"
+  Description: "Move this task down and work on something else"
+- Label: "Mark blocked and stop"
+  Description: "Update TASKS.md with [BLOCKED] status and pause work"
+
+**Handle responses:**
+
+- "Provide guidance now" → Wait for user input, then continue workflow
+- "Skip to different task" → Reorder TASKS.md and proceed to /task:plan
+- "Mark blocked and stop" → Add [BLOCKED] marker and end session
+
+**Blocker Types to Identify:**
 
 - **Missing information**: Task requires clarification or decision
 - **External dependency**: Waiting on user input, API access, etc.
 - **Technical uncertainty**: Unclear how to implement without research
 - **Assumption invalidated**: Core assumption no longer holds
-
-**When blocked:**
-
-1. Mark the blocked task with `[BLOCKED]` status in TASKS.md
-2. Clearly state which task is blocked and why
-3. Explain what's needed to unblock
-4. Ask user for input/decision
-5. DO NOT proceed to `/task:plan` until unblocked
 
 Example of marking a task as blocked:
 
@@ -154,7 +165,7 @@ Need to decide: Which JWT library? Token expiration time? Refresh tokens?
 
 Provide a concise summary:
 
-```
+```text
 📋 Task Sync Complete
 
 Last Commit: [hash] [message]
@@ -172,7 +183,7 @@ Blocking Issues: [if any]
 
 If no blockers exist:
 
-```
+```text
 ✅ Ready to proceed with next task
 Run /task:plan to begin deep planning
 ```
@@ -181,7 +192,7 @@ Run /task:plan to begin deep planning
 
 ### Scenario 1: Task List is Valid
 
-```
+```text
 📋 Task Sync Complete
 
 Last Commit: abc123f feat(auth): add password hashing utility
@@ -199,7 +210,7 @@ Create POST /api/register endpoint that accepts email/password and creates user 
 
 ### Scenario 2: Reordering Needed
 
-```
+```text
 📋 Task Sync Complete
 
 Last Commit: def456a feat(db): add email uniqueness constraint
@@ -214,7 +225,7 @@ Status: Ready for /task:plan
 
 ### Scenario 3: Blocked
 
-```
+```text
 📋 Task Sync Complete
 
 Last Commit: ghi789b feat(api): add registration endpoint structure
