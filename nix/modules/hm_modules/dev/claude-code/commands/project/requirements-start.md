@@ -1,3 +1,8 @@
+---
+allowed-tools: Read, Write, LS, Bash(mkdir:*), Bash(date:*), AskUserQuestion, WebSearch
+description: Start Requirements Gathering
+---
+
 # Start Requirements Gathering
 
 Begin gathering requirements for: $ARGUMENTS

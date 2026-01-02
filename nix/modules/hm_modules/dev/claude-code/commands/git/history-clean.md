@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(git:*), Bash(sed:*), Read, Grep
+allowed-tools: Bash(git:*), Bash(sed:*), Read, Grep, AskUserQuestion
 argument-hint: [--base <ref>]
 description: AI-friendly git history cleanup with automated rebase patterns
 ---
@@ -61,6 +61,26 @@ Run `git rev-parse --verify "$BASE"` to check if the reference is valid.
 
 Run `git log --oneline "$BASE..HEAD"` to display the commits that will be affected by the rebase.
 
+**Confirm before proceeding:**
+
+⚠️ **WARNING**: This is a destructive operation that will rewrite git history!
+
+Use the AskUserQuestion tool:
+
+**Question:** "Ready to clean git history? This will rewrite commits and create a backup branch."
+**Header:** "Safety Check"
+**Options:**
+
+- Label: "Yes, create backup and proceed (Recommended)"
+  Description: "Create timestamped backup branch and continue with history cleanup"
+- Label: "Cancel"
+  Description: "Exit without making any changes"
+
+**Handle responses:**
+
+- "Yes, create backup and proceed" → Continue to create backup branch
+- "Cancel" → Exit without taking any action
+
 ### 2. Create Backup Branch
 
 **Create a timestamped backup branch:**
@@ -115,9 +135,60 @@ You can pipe to grep: `git log --oneline "$BASE..HEAD" | grep -E "^[a-f0-9]+ (fi
 
 If fixup commits exist, use **Pattern 4 (Autosquash)** below.
 
+**Select cleanup pattern:**
+
+Based on the commit analysis above, use the AskUserQuestion tool to help select the appropriate pattern:
+
+**Question:** "Which history cleanup pattern should we use?"
+**Header:** "Pattern"
+**Options:**
+
+- Label: "Pattern 1: Squash all into one"
+  Description: "Combine all commits into a single commit (for one logical change)"
+- Label: "Pattern 2: Keep first commit separate"
+  Description: "Keep first commit as-is, squash the rest (first is significant)"
+- Label: "Pattern 3: Drop debug/WIP commits"
+  Description: "Remove temporary commits matching a pattern"
+- Label: "Pattern 4: Autosquash fixup commits"
+  Description: "Automatically squash fixup!/squash! commits (fully automated)"
+- Label: "Pattern 5: Fixup all"
+  Description: "Keep first commit message only, discard others"
+- Label: "Pattern 6: Custom sed transformation"
+  Description: "Use custom sed commands for complex transformations"
+- Label: "Pattern 7: Rewrite commit messages"
+  Description: "Change specific commit messages programmatically"
+
+**Handle responses:**
+
+- "Pattern 1" → Execute Pattern 1 (Squash all)
+- "Pattern 2" → Execute Pattern 2 (Keep first separate)
+- "Pattern 3" → Ask for pattern to match, then execute Pattern 3
+- "Pattern 4" → Execute Pattern 4 (Autosquash)
+- "Pattern 5" → Execute Pattern 5 (Fixup all)
+- "Pattern 6" → Ask for sed commands, then execute Pattern 6
+- "Pattern 7" → Ask for commits and new messages, then execute Pattern 7
+
 ## 🚀 Automated Rebase Patterns
 
-Choose the appropriate pattern based on your analysis above.
+**Execute the selected pattern based on user choice above.**
+
+**Before executing any pattern:**
+
+Use the AskUserQuestion tool for final confirmation:
+
+**Question:** "Ready to execute [Pattern Name]? This will rewrite git history."
+**Header:** "Final Confirmation"
+**Options:**
+
+- Label: "Execute now (Recommended)"
+  Description: "Run the rebase with the selected pattern"
+- Label: "Cancel"
+  Description: "Exit without rebasing - backup branch already created"
+
+**Handle responses:**
+
+- "Execute now" → Proceed with executing the selected pattern's git rebase command
+- "Cancel" → Exit (backup branch remains for future use)
 
 ### Pattern 1: Squash All Commits Into One
 

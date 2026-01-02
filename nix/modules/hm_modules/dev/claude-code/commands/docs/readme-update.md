@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, LS, WebFetch
+allowed-tools: Read, Write, Edit, LS, WebFetch, AskUserQuestion
 argument-hint: [--highlight-features] [--audience developers|users]
 description: Maintain comprehensive README with automatic content generation, project analysis, and documentation best practices
 ---
@@ -16,6 +16,58 @@ Comprehensive README maintenance with automatic content generation, project anal
 - License and contribution guidelines
 
 ## Workflow
+
+### Initial Setup
+
+**Determine target audience:**
+
+If no `--audience` argument was provided, use the AskUserQuestion tool:
+
+**Question:** "Who is the primary audience for this README?"
+**Header:** "Audience"
+**Options:**
+
+- Label: "Both developers and users (Recommended)"
+  Description: "Balanced README with installation, usage, and development info"
+- Label: "End users only"
+  Description: "Focus on installation, usage, and features"
+- Label: "Developers only"
+  Description: "Focus on architecture, development setup, and contributing"
+
+**Handle responses:**
+
+- "Both developers and users" → Include all sections (installation, usage, development)
+- "End users only" → Focus on installation, usage examples, and features
+- "Developers only" → Focus on architecture, development setup, API docs, contributing
+
+**Determine sections to update:**
+
+Use the AskUserQuestion tool to select which sections need updating:
+
+**Question:** "Which sections of the README should be updated?"
+**Header:** "Sections"
+**Options:**
+
+- Label: "All sections (Recommended)"
+  Description: "Comprehensive update of entire README"
+- Label: "Project description and features"
+  Description: "Update overview, purpose, and feature list"
+- Label: "Installation and setup"
+  Description: "Update installation instructions and dependencies"
+- Label: "Usage and examples"
+  Description: "Update code examples and usage guides"
+- Label: "Contributing and development"
+  Description: "Update development setup and contribution guidelines"
+
+**Handle responses:**
+
+- "All sections" → Perform comprehensive update (all steps)
+- "Project description and features" → Focus on steps 2 (Content Structure) and 3 (Badges)
+- "Installation and setup" → Focus on step 2 and verify installation instructions
+- "Usage and examples" → Focus on step 2 and update examples
+- "Contributing and development" → Focus on step 5 (Contribution Guidelines)
+
+### Update Steps
 
 1. **Project Analysis**
    - Scan project structure and files

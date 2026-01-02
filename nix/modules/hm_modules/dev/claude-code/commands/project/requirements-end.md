@@ -1,3 +1,8 @@
+---
+allowed-tools: Read, Write, Edit, LS, Bash(rm:*), AskUserQuestion
+description: End Requirements Gathering
+---
+
 # End Requirements Gathering
 
 Finalize the current requirement gathering session.

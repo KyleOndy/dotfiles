@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Glob
+allowed-tools: Read, Write, Glob, AskUserQuestion
 description: Parse PLANNING.md and generate structured TASKS.md
 ---
 
@@ -131,15 +131,24 @@ Run `/task` to see your current status and suggested next steps.
 
 **If TASKS.md already exists:**
 
-```text
-⚠️ TASKS.md already exists
+Use the AskUserQuestion tool:
 
-Do you want to:
-1. Replace it with a new task list from PLANNING.md
-2. Cancel and keep existing TASKS.md
+**Question:** "TASKS.md already exists. What would you like to do?"
+**Header:** "Overwrite?"
+**Options:**
 
-Run `/task` to see your current task status before deciding.
-```
+- Label: "Replace with new tasks"
+  Description: "Overwrite existing TASKS.md with fresh decomposition from PLANNING.md"
+- Label: "Keep existing"
+  Description: "Cancel and preserve current task list"
+- Label: "Append new tasks"
+  Description: "Add new tasks from PLANNING.md after existing tasks"
+
+**Handle responses:**
+
+- "Replace with new tasks" → Overwrite TASKS.md with new decomposition
+- "Keep existing" → Cancel operation, no changes made
+- "Append new tasks" → Parse PLANNING.md and append to existing TASKS.md
 
 ## Tips
 

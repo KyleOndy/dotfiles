@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(npm:*), Bash(yarn:*), Bash(make:*), Bash(./bin/*:*)
+allowed-tools: Read, Write, Edit, Bash(npm:*), Bash(yarn:*), Bash(make:*), Bash(pytest:*), Bash(go test:*), Bash(./bin/*:*), AskUserQuestion
 argument-hint: [--type api|database|service] [--service service-name]
 description: Create comprehensive integration test suite for API endpoints, database interactions, external services, and inter-component communication
 ---
@@ -16,6 +16,34 @@ Comprehensive integration test suite creation for API endpoints, database intera
 - External service test environments or mocks
 
 ## Workflow
+
+### Initial Setup
+
+**Determine integration test focus:**
+
+If no `--type` argument was provided, use the AskUserQuestion tool:
+
+**Question:** "Which integration test type should I create?"
+**Header:** "Test Type"
+**Options:**
+
+- Label: "All integration types (Recommended)"
+  Description: "Create API, database, and service integration tests"
+- Label: "API tests only"
+  Description: "Focus on HTTP endpoint and GraphQL testing"
+- Label: "Database tests only"
+  Description: "Focus on database operations and transactions"
+- Label: "Service tests only"
+  Description: "Focus on inter-service communication and messaging"
+
+**Handle responses:**
+
+- "All integration types" → Create all test types (steps 3-5)
+- "API tests only" → Focus on API Integration Tests (step 3)
+- "Database tests only" → Focus on Database Integration Tests (step 4)
+- "Service tests only" → Focus on Service Integration Tests (step 5)
+
+### Workflow Steps
 
 1. **Integration Points Analysis**
    - Map service boundaries and interfaces

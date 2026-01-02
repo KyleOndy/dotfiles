@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, LS, Glob, Grep, WebFetch
+allowed-tools: Read, Write, Edit, LS, Glob, Grep, WebFetch, LSP, AskUserQuestion
 argument-hint: [--layer data-layer|service-layer|ui-layer] [--focus scalability|security|performance]
 description: Comprehensive architecture documentation and review with system design analysis, component mapping, and technical debt assessment
 ---
@@ -16,6 +16,37 @@ Comprehensive architecture documentation and review with system design analysis,
 - Performance and scalability metrics
 
 ## Workflow
+
+### Initial Setup
+
+**Determine review focus:**
+
+If no `--focus` argument was provided, use the AskUserQuestion tool:
+
+**Question:** "What aspect of the architecture should I focus on?"
+**Header:** "Focus Area"
+**Options:**
+
+- Label: "Comprehensive review (Recommended)"
+  Description: "Complete architecture analysis covering all aspects"
+- Label: "Scalability"
+  Description: "Focus on system scalability and performance bottlenecks"
+- Label: "Security"
+  Description: "Focus on security architecture and vulnerabilities"
+- Label: "Maintainability"
+  Description: "Focus on code organization and technical debt"
+- Label: "Component interactions"
+  Description: "Focus on service boundaries and communication patterns"
+
+**Handle responses:**
+
+- "Comprehensive review" → Perform all review steps (1-6)
+- "Scalability" → Focus on step 1 and performance/scalability analysis
+- "Security" → Focus on security patterns and vulnerability assessment
+- "Maintainability" → Focus on step 3 (Technical Debt Assessment)
+- "Component interactions" → Focus on steps 1-2 (System and Component Analysis)
+
+### Review Steps
 
 1. **System Architecture Analysis**
    - Map system components and services

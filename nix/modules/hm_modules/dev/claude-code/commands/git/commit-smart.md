@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(git:*), Read, LS
+allowed-tools: Bash(git:*), Read, LS, AskUserQuestion
 argument-hint: [--preview] [--split]
 description: Create contextual commits based on chat history and current changes
 ---
@@ -33,13 +33,34 @@ Use the Bash tool to run these commands:
 
 **Determine staging strategy:**
 
-- If there are staged files: Use those for the commit
-- If no staged files but there are unstaged files: Stage all changes with `git add -A`
+- If there are staged files: Use those for the commit and proceed
 - If no changes at all: Report "No changes to commit" and exit
+- If no staged files but there are unstaged files: Prompt user for staging decision
+
+**If unstaged files exist:**
+
+Use the AskUserQuestion tool:
+
+**Question:** "No files are staged. How would you like to proceed?"
+**Header:** "Staging"
+**Options:**
+
+- Label: "Stage all changes (Recommended)"
+  Description: "Stage all unstaged files and create one commit"
+- Label: "Stage selectively"
+  Description: "I'll use git add to stage specific files first"
+- Label: "Cancel"
+  Description: "Exit without committing"
+
+**Handle responses:**
+
+- "Stage all changes" → Run `git add -A` and continue with commit
+- "Stage selectively" → Exit with message to run `git add` first
+- "Cancel" → Exit without taking action
 
 **Report summary:**
 
-```
+```text
 📊 Change Summary:
   Staged files: [count]
   Unstaged files: [count]
@@ -86,7 +107,7 @@ Use these git commands:
 
 **Report the analysis:**
 
-```
+```text
 📁 File Analysis:
   Code files: [count]
   Config files: [count]
@@ -153,7 +174,7 @@ If no scope is applicable, use: `<type>: <description>`
 
 **Report the proposed message:**
 
-```
+```text
 💬 Proposed commit message:
   [type]([scope]): [description]
 ```
@@ -164,7 +185,7 @@ If no scope is applicable, use: `<type>: <description>`
 
 Display a review of what will be committed:
 
-```
+```text
 🔍 Final Review:
   Type: [commit_type]
   Scope: [scope] (if applicable)
@@ -180,9 +201,32 @@ If the command was invoked with `--preview` flag:
 - Display: `To commit, run the command without --preview`
 - Exit without creating the commit
 
+**Confirm commit creation:**
+
+If not in preview mode, ask for user confirmation before committing:
+
+Use the AskUserQuestion tool:
+
+**Question:** "Ready to create this commit?"
+**Header:** "Commit"
+**Options:**
+
+- Label: "Yes, commit now (Recommended)"
+  Description: "Create the commit with the proposed message"
+- Label: "Edit message first"
+  Description: "I want to modify the commit message"
+- Label: "Cancel"
+  Description: "Don't create the commit"
+
+**Handle responses:**
+
+- "Yes, commit now" → Proceed with creating the commit
+- "Edit message first" → Ask user for their preferred message, then commit with their message
+- "Cancel" → Exit without creating commit
+
 **Create the commit:**
 
-If not in preview mode, create the commit using:
+After user confirms, create the commit using:
 
 ```bash
 git commit -m "[commit_message]"
@@ -211,7 +255,7 @@ After successful commit:
 - Run `git log -1 --oneline` to show the commit
 - Display the commit summary:
 
-```
+```text
 📋 Summary:
 [hash] [commit message]
 ```
