@@ -66,6 +66,12 @@
     ];
   };
 
+  # Mount /tmp as tmpfs - reduces SD card wear and matches current system state
+  boot.tmp = {
+    cleanOnBoot = true;
+    useTmpfs = true;
+  };
+
   # Embed SSH host keys in SD image
   # NOTE: SSH key must be in image before boot because sops-nix uses it to decrypt other secrets.
   # The key is decrypted locally by the Makefile and passed via COGSWORTH_SSH_KEY env var
@@ -98,6 +104,9 @@
 
     # Firmware boot splash (shows during bootloader/firmware stage)
     apply-overlays-dtmerge.enable = true;
+
+    # Enable ARM I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
+    i2c1.enable = true;
   };
 
   # Tier 3 Watchdog: Hardware watchdog timer
@@ -169,8 +178,12 @@
     isSystemUser = true;
     group = "cogsworth";
     description = "Cogsworth application service user";
+    extraGroups = [ "i2c" ];
   };
   users.groups.cogsworth = { };
+
+  # Add I2C access for kyle user (for development/debugging)
+  users.users.kyle.extraGroups = [ "i2c" ];
 
   # Allow cogsworth user to reboot system without password
   security.sudo.extraRules = [
@@ -437,6 +450,26 @@
     };
   };
 
+  # Cogsworth shutdown request handler
+  # Monitors /run/cogsworth/shutdown-request and triggers system shutdown when present
+  systemd.services.cogsworth-shutdown = {
+    description = "Cogsworth Shutdown Handler";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/cogsworth/shutdown-request";
+      ExecStart = "${pkgs.systemd}/bin/systemctl poweroff";
+    };
+  };
+
+  systemd.paths.cogsworth-shutdown = {
+    description = "Watch for Cogsworth shutdown requests";
+    wantedBy = [ "multi-user.target" ];
+    pathConfig = {
+      PathExists = "/run/cogsworth/shutdown-request";
+      Unit = "cogsworth-shutdown.service";
+    };
+  };
+
   # Mutable JAR location for development
   systemd.tmpfiles.rules = [
     "d /opt/cogsworth 0755 cogsworth cogsworth -"
@@ -466,6 +499,39 @@
     neovim
     htop
     wlr-randr # For runtime display rotation
+    (writeShellScriptBin "edit-pi-config" ''
+      set -euo pipefail
+
+      FIRMWARE_DEV="/dev/disk/by-label/FIRMWARE"
+      MOUNT_POINT="/mnt"
+      CONFIG_FILE="$MOUNT_POINT/config.txt"
+
+      if [[ ! -e "$FIRMWARE_DEV" ]]; then
+        echo "Error: FIRMWARE partition not found at $FIRMWARE_DEV"
+        exit 1
+      fi
+
+      if mountpoint -q "$MOUNT_POINT"; then
+        echo "Error: $MOUNT_POINT is already mounted"
+        exit 1
+      fi
+
+      cleanup() {
+        if mountpoint -q "$MOUNT_POINT"; then
+          echo "Unmounting $MOUNT_POINT..."
+          sudo umount "$MOUNT_POINT"
+        fi
+      }
+      trap cleanup EXIT
+
+      echo "Mounting FIRMWARE partition..."
+      sudo mount "$FIRMWARE_DEV" "$MOUNT_POINT"
+
+      echo "Opening $CONFIG_FILE for editing..."
+      sudo nvim "$CONFIG_FILE"
+
+      echo "Done."
+    '')
   ];
 
   # Monitoring stack - send metrics and logs to wolf
