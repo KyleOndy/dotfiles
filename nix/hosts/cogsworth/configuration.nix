@@ -94,8 +94,10 @@
     '';
 
   # Disable rainbow splash for cleaner boot experience
+  # Enable UART0 (PL011) on GPIO 14/15 for SEN0557 presence sensor
   sdImage.populateFirmwareCommands = lib.mkAfter ''
     echo "disable_splash=1" >> ./firmware/config.txt
+    echo "enable_uart=1" >> ./firmware/config.txt
   '';
 
   # Raspberry Pi 4 GPU configuration
@@ -108,6 +110,44 @@
     # Enable ARM I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
     i2c1.enable = true;
   };
+
+  # Disable Bluetooth to free PL011 UART for SEN0557 presence sensor
+  # This creates /dev/ttyAMA1 on GPIO 14/15 (pins 8/10)
+  hardware.deviceTree.overlays = [
+    {
+      name = "disable-bt-overlay";
+      dtsText = ''
+        /dts-v1/;
+        /plugin/;
+        / {
+          compatible = "brcm,bcm2711";
+          fragment@0 {
+            target = <&bt>;
+            __overlay__ {
+              status = "disabled";
+            };
+          };
+        };
+      '';
+    }
+    {
+      name = "uart0-gpio14-overlay";
+      dtsText = ''
+        /dts-v1/;
+        /plugin/;
+        / {
+          compatible = "brcm,bcm2711";
+          fragment@0 {
+            target = <&uart0>;
+            __overlay__ {
+              pinctrl-0 = <&uart0_gpio14>;
+              status = "okay";
+            };
+          };
+        };
+      '';
+    }
+  ];
 
   # Tier 3 Watchdog: Hardware watchdog timer
   # Ultimate failsafe - reboots system if kernel hangs
@@ -178,12 +218,18 @@
     isSystemUser = true;
     group = "cogsworth";
     description = "Cogsworth application service user";
-    extraGroups = [ "i2c" ];
+    extraGroups = [
+      "i2c"
+      "dialout"
+    ];
   };
   users.groups.cogsworth = { };
 
   # Add I2C access for kyle user (for development/debugging)
-  users.users.kyle.extraGroups = [ "i2c" ];
+  users.users.kyle.extraGroups = [
+    "i2c"
+    "dialout"
+  ];
 
   # Allow cogsworth user to reboot system without password
   security.sudo.extraRules = [
