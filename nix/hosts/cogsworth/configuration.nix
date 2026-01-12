@@ -112,9 +112,9 @@
     rebootTime = "2min"; # Reboot timeout if normal reboot fails
   };
 
-  # Rotate framebuffer console to match physical display orientation (90° clockwise)
+  # Rotate framebuffer console to match physical display orientation (270° clockwise)
   boot.kernelParams = [
-    "fbcon=rotate:1" # 1 = 90° clockwise
+    "fbcon=rotate:3" # 3 = 270° clockwise (90° + 180°)
   ];
 
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
