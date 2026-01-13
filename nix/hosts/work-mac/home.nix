@@ -57,6 +57,13 @@
     };
   };
 
+  # Enable Karabiner for trackball button remapping and PC-style shortcuts
+  hmFoundry.desktop.input.karabiner = {
+    enable = true;
+    kensingtonExpert.enable = true;
+    pcStyle.enable = true;
+  };
+
   # Enable work context for shell completions (Jira tickets, etc.)
   home.sessionVariables = {
     DOTS_CONTEXT = "work";

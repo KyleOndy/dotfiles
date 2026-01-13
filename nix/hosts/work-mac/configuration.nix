@@ -47,7 +47,7 @@
     };
 
     # Default casks (can be overridden with lib.mkForce in work.nix)
-    casks = lib.mkDefault [ ];
+    casks = lib.mkDefault [ "karabiner-elements" ];
 
     # Default brews (can be overridden with lib.mkForce in work.nix)
     brews = lib.mkDefault [ ];
@@ -56,7 +56,7 @@
   # macOS system preferences
   system = {
     # Primary user for homebrew and system defaults
-    primaryUser = "kyle.ondy";
+    primaryUser = "kondy";
 
     # System version (managed by nix-darwin)
     stateVersion = 5;

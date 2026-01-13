@@ -40,6 +40,7 @@ in
           cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
           cdg = "cd $(git root)";
+          claude-caffeine = "systemd-inhibit --what=idle:sleep:handle-lid-switch --who='Claude Code' --why='Active AI coding session' claude";
           e = "sort -u | xargs --no-run-if-empty -- $EDITOR --";
           f = "foundry";
           g = "git";
