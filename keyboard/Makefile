@@ -1,13 +1,14 @@
-DOCKER_IMAGE=ergodox_ez:kyleondy
-QMK_RELEASE=0.17.0
+.PHONY: build flash clean
 
-.PHONY: build-docker
-build-docker:
-	docker build --build-arg QMK_RELEASE=$(QMK_RELEASE) -t $(DOCKER_IMAGE) .
+# Build the firmware
+build:
+	nix build ..#ergodox-firmware
 
-.PHONY: flash
-flash:
-	sudo teensy-loader-cli -mmcu=atmega32u4 -w ergodox_ez_kyleondy.hex -v
+# Flash the firmware to the keyboard
+# Requires keyboard to be in bootloader mode (press reset button or QK_BOOT key)
+flash: build
+	teensy-loader-cli -mmcu=atmega32u4 -w ../result/ergodox_ez_base_kyleondy.hex -v
 
-ergodox_ez_kyleondy.hex: build-docker keymap.c
-	docker run --rm -v $(shell pwd):/qmk_firmware/keyboards/ergodox_ez/keymaps/kyleondy/ $(DOCKER_IMAGE)
+# Clean build artifacts
+clean:
+	rm -rf ../result

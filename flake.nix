@@ -289,7 +289,12 @@
       devShells = forAllSystems (system: {
         default = inputs.nixpkgs.legacyPackages.${system}.mkShell {
           inherit (self.checks.${system}.pre-commit-check) shellHook;
-          buildInputs = self.checks.${system}.pre-commit-check.enabledPackages;
+          buildInputs =
+            self.checks.${system}.pre-commit-check.enabledPackages
+            ++ (with inputs.nixpkgs.legacyPackages.${system}; [
+              qmk
+              teensy-loader-cli
+            ]);
 
           # Skip nix flake check in smart-test hook to speed up claude-code
           CLAUDE_SKIP_NIX_TESTS = "true";
@@ -308,6 +313,45 @@
         {
           # Expose internal packages for direct building and benchmarking
           git-worktree-prompt = pkgs.git-worktree-prompt;
+
+          # Ergodox EZ firmware
+          ergodox-firmware = pkgs.callPackage ./keyboard { };
+        }
+      );
+
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = overlays;
+            config = { };
+          };
+        in
+        {
+          flash-ergodox = {
+            type = "app";
+            program = toString (
+              pkgs.writeShellScript "flash-ergodox" ''
+                set -e
+                echo "Building Ergodox EZ firmware..."
+                ${pkgs.nix}/bin/nix build .#ergodox-firmware
+                echo ""
+                echo "Firmware built successfully!"
+                echo ""
+                echo "Put your keyboard in bootloader mode:"
+                echo "  - Press the physical reset button on the Ergodox EZ, OR"
+                echo "  - Press the QK_BOOT key (Layer + bottom-left corner)"
+                echo ""
+                read -p "Press Enter once the keyboard is in bootloader mode..."
+                echo ""
+                echo "Flashing firmware..."
+                ${pkgs.teensy-loader-cli}/bin/teensy-loader-cli -mmcu=atmega32u4 -w result/ergodox_ez_base_kyleondy.hex -v
+                echo ""
+                echo "✓ Firmware flashed successfully!"
+              ''
+            );
+          };
         }
       );
 

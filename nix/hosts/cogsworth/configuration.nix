@@ -94,10 +94,9 @@
     '';
 
   # Disable rainbow splash for cleaner boot experience
-  # Enable UART0 (PL011) on GPIO 14/15 for SEN0557 presence sensor
   sdImage.populateFirmwareCommands = lib.mkAfter ''
+    chmod +w ./firmware/config.txt
     echo "disable_splash=1" >> ./firmware/config.txt
-    echo "enable_uart=1" >> ./firmware/config.txt
   '';
 
   # Raspberry Pi 4 GPU configuration
@@ -111,37 +110,30 @@
     i2c1.enable = true;
   };
 
-  # Disable Bluetooth to free PL011 UART for SEN0557 presence sensor
-  # This creates /dev/ttyAMA1 on GPIO 14/15 (pins 8/10)
+  # Enable UART5 on GPIO12/13 (pins 32/33) for SEN0557 presence sensor
+  # Device will appear as /dev/ttyAMA1
   hardware.deviceTree.overlays = [
     {
-      name = "disable-bt-overlay";
+      name = "uart5-overlay";
       dtsText = ''
         /dts-v1/;
         /plugin/;
         / {
           compatible = "brcm,bcm2711";
           fragment@0 {
-            target = <&bt>;
+            target = <&uart5>;
             __overlay__ {
-              status = "disabled";
+              pinctrl-names = "default";
+              pinctrl-0 = <&uart5_pins>;
+              status = "okay";
             };
           };
-        };
-      '';
-    }
-    {
-      name = "uart0-gpio14-overlay";
-      dtsText = ''
-        /dts-v1/;
-        /plugin/;
-        / {
-          compatible = "brcm,bcm2711";
-          fragment@0 {
-            target = <&uart0>;
+          fragment@1 {
+            target = <&uart5_pins>;
             __overlay__ {
-              pinctrl-0 = <&uart0_gpio14>;
-              status = "okay";
+              brcm,pins = <12 13>;
+              brcm,function = <4>; /* alt4 */
+              brcm,pull = <0 2>;
             };
           };
         };
