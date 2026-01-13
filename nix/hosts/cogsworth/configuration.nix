@@ -93,11 +93,11 @@
       chmod 644 ./files/etc/ssh/ssh_host_ed25519_key.pub
     '';
 
-  # Disable rainbow splash for cleaner boot experience
+  # Disable rainbow splash and enable UART4 for SEN0557 sensor
   sdImage.populateFirmwareCommands = lib.mkAfter ''
     chmod +w ./firmware/config.txt
     echo "disable_splash=1" >> ./firmware/config.txt
-    echo "dtparam=audio=off" >> ./firmware/config.txt
+    echo "dtoverlay=uart4" >> ./firmware/config.txt
   '';
 
   # Raspberry Pi 4 GPU configuration
@@ -111,31 +111,34 @@
     i2c1.enable = true;
   };
 
-  # Enable UART5 on GPIO12/13 (pins 32/33) for SEN0557 presence sensor
-  # Device will appear as /dev/ttyAMA1
-  # Note: Audio is disabled via dtparam=audio=off in config.txt to free these GPIO pins
+  # Enable UART4 on GPIO8/9 (pins 24/21) for SEN0557 sensor
   hardware.deviceTree.overlays = [
     {
-      name = "uart5-overlay";
+      name = "uart4-complete";
       dtsText = ''
         /dts-v1/;
         /plugin/;
+
         / {
           compatible = "brcm,bcm2711";
+
           fragment@0 {
-            target = <&uart5>;
+            target-path = "/soc/gpio@7e200000";
             __overlay__ {
-              pinctrl-names = "default";
-              pinctrl-0 = <&uart5_pins>;
-              status = "okay";
+              uart4_pins: uart4_pins {
+                brcm,pins = <8 9>;
+                brcm,function = <4>; /* alt4 = UART */
+                brcm,pull = <0 2>; /* TX no-pull, RX pull-up */
+              };
             };
           };
+
           fragment@1 {
-            target = <&uart5_pins>;
+            target-path = "/soc/serial@7e201600";
             __overlay__ {
-              brcm,pins = <12 13>;
-              brcm,function = <4>; /* alt4 */
-              brcm,pull = <0 2>;
+              pinctrl-names = "default";
+              pinctrl-0 = <&uart4_pins>;
+              status = "okay";
             };
           };
         };
@@ -164,6 +167,8 @@
   # Calibration matrix transforms touch coordinates to match rotated display
   # Matrix "0 -1 1 1 0 0" rotates touch input 90° CCW to match physical rotation
   services.udev.extraRules = ''
+    # GPIO character device access for gpio group
+    SUBSYSTEM=="gpio", KERNEL=="gpiochip[0-9]*", GROUP="gpio", MODE="0660"
     SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="HDMI-A-1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
   '';
 
@@ -206,6 +211,7 @@
     extraGroups = [ "video" ]; # Required for GPU/DRI access
   };
   users.groups.kiosk = { };
+  users.groups.gpio = { };
 
   # Cogsworth application user (system user for running Java uberjar)
   users.users.cogsworth = {
@@ -215,12 +221,14 @@
     extraGroups = [
       "i2c"
       "dialout"
+      "gpio"
     ];
   };
   users.groups.cogsworth = { };
 
   # Add I2C access for kyle user (for development/debugging)
   users.users.kyle.extraGroups = [
+    "gpio"
     "i2c"
     "dialout"
   ];
