@@ -97,6 +97,7 @@
   sdImage.populateFirmwareCommands = lib.mkAfter ''
     chmod +w ./firmware/config.txt
     echo "disable_splash=1" >> ./firmware/config.txt
+    echo "dtparam=audio=off" >> ./firmware/config.txt
   '';
 
   # Raspberry Pi 4 GPU configuration
@@ -112,6 +113,7 @@
 
   # Enable UART5 on GPIO12/13 (pins 32/33) for SEN0557 presence sensor
   # Device will appear as /dev/ttyAMA1
+  # Note: Audio is disabled via dtparam=audio=off in config.txt to free these GPIO pins
   hardware.deviceTree.overlays = [
     {
       name = "uart5-overlay";
