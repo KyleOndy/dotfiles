@@ -194,3 +194,7 @@ build-wsl-dry: ## Dry-run build of work-wsl home-manager configuration
 .PHONY: deploy-wsl
 deploy-wsl: ## Deploy work-wsl home-manager configuration
 	nix run --impure .#homeConfigurations."kyle@work-wsl".activationPackage
+
+.PHONY: flash-ergodox
+flash-ergodox:
+	nix run .#flash-ergodox
