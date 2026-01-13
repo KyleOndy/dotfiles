@@ -71,6 +71,10 @@ in
         }
       ];
 
+      shortcuts = {
+        "org.kde.spectacle.desktop"."RectangularRegionScreenShot" = "F20";
+      };
+
       configFile = {
         "baloofilerc"."Basic Settings"."Indexing-Enabled".value = false;
         "kwinrc"."NightColor"."Active".value = true;

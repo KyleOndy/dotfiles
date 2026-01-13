@@ -110,38 +110,38 @@
 
     # Enable ARM I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
     i2c1.enable = true;
+
+    # Enable GPIO access with proper udev rules and iomem=relaxed kernel param
+    gpio.enable = true;
   };
 
-  # Disable Bluetooth to free PL011 UART for SEN0557 presence sensor
-  # This creates /dev/ttyAMA1 on GPIO 14/15 (pins 8/10)
+  # Enable UART4 on GPIO8/9 (pins 24/21) for SEN0557 sensor
   hardware.deviceTree.overlays = [
     {
-      name = "disable-bt-overlay";
+      name = "uart4-complete";
       dtsText = ''
         /dts-v1/;
         /plugin/;
+
         / {
           compatible = "brcm,bcm2711";
+
           fragment@0 {
-            target = <&bt>;
+            target-path = "/soc/gpio@7e200000";
             __overlay__ {
-              status = "disabled";
+              uart4_pins: uart4_pins {
+                brcm,pins = <8 9>;
+                brcm,function = <3>; /* alt4 = UART4 TXD/RXD */
+                brcm,pull = <0 2>; /* TX no-pull, RX pull-up */
+              };
             };
           };
-        };
-      '';
-    }
-    {
-      name = "uart0-gpio14-overlay";
-      dtsText = ''
-        /dts-v1/;
-        /plugin/;
-        / {
-          compatible = "brcm,bcm2711";
-          fragment@0 {
-            target = <&uart0>;
+
+          fragment@1 {
+            target-path = "/soc/serial@7e201800"; /* UART4 */
             __overlay__ {
-              pinctrl-0 = <&uart0_gpio14>;
+              pinctrl-names = "default";
+              pinctrl-0 = <&uart4_pins>;
               status = "okay";
             };
           };
@@ -256,13 +256,21 @@
   # Rotate framebuffer console to match physical display orientation (270° clockwise)
   boot.kernelParams = [
     "fbcon=rotate:3" # 3 = 270° clockwise (90° + 180°)
+    "iomem=relaxed" # Required for GPIO memory access on NixOS
+    "strict-devmem=0" # Allow pigpio to access GPIO memory
   ];
+
+  # Use Raspberry Pi specific kernel for GPIO support
+  boot.kernelPackages = pkgs.linuxPackages_rpi4;
 
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
   # Calibration matrix transforms touch coordinates to match rotated display
   # Matrix "0 -1 1 1 0 0" rotates touch input 90° CCW to match physical rotation
   services.udev.extraRules = ''
     SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="HDMI-A-1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
+
+    # Allow video group access to vchiq (for vcgencmd)
+    SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
   # Cage kiosk configuration
@@ -311,6 +319,7 @@
     group = "cogsworth";
     description = "Cogsworth application service user";
     extraGroups = [
+      "video"
       "i2c"
       "dialout"
       "gpio"
@@ -321,9 +330,14 @@
 
   # Add I2C access for kyle user (for development/debugging)
   users.users.kyle.extraGroups = [
+    "gpio"
     "i2c"
     "dialout"
   ];
+
+  # Enable lingering so systemd spawns user instance at boot
+  # Required for home-manager user services on systems where kyle doesn't log in
+  users.users.kyle.linger = true;
 
   # Allow cogsworth user to reboot system without password
   security.sudo.extraRules = [
@@ -377,6 +391,7 @@
   };
 
   # Cogsworth application service - runs the Java uberjar
+
   systemd.services.cogsworth = {
     description = "Cogsworth display application";
     wantedBy = [ "multi-user.target" ];
