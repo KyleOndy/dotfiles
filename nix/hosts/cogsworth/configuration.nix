@@ -173,7 +173,7 @@
     SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="HDMI-A-1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
 
     # Allow video group access to vchiq (for vcgencmd)
-    SUBSYSTEM=="vchiq", MODE="0660", GROUP="video"
+    SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
   # Cage kiosk configuration
