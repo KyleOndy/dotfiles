@@ -164,7 +164,12 @@
   # Rotate framebuffer console to match physical display orientation (270° clockwise)
   boot.kernelParams = [
     "fbcon=rotate:3" # 3 = 270° clockwise (90° + 180°)
+    "iomem=relaxed" # Required for GPIO memory access on NixOS
+    "strict-devmem=0" # Allow pigpio to access GPIO memory
   ];
+
+  # Use Raspberry Pi specific kernel for GPIO support
+  boot.kernelPackages = pkgs.linuxPackages_rpi4;
 
   # Map touchscreen to HDMI output with 90° clockwise rotation calibration
   # Calibration matrix transforms touch coordinates to match rotated display
@@ -293,6 +298,7 @@
   };
 
   # Cogsworth application service - runs the Java uberjar
+
   systemd.services.cogsworth = {
     description = "Cogsworth display application";
     wantedBy = [ "multi-user.target" ];
