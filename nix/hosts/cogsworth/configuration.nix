@@ -547,6 +547,7 @@
     neovim
     htop
     wlr-randr # For runtime display rotation
+    libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
     (writeShellScriptBin "edit-pi-config" ''
       set -euo pipefail
 
