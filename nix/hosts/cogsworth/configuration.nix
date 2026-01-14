@@ -109,6 +109,9 @@
 
     # Enable ARM I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
     i2c1.enable = true;
+
+    # Enable GPIO access with proper udev rules and iomem=relaxed kernel param
+    gpio.enable = true;
   };
 
   # Enable UART4 on GPIO8/9 (pins 24/21) for SEN0557 sensor
@@ -167,8 +170,6 @@
   # Calibration matrix transforms touch coordinates to match rotated display
   # Matrix "0 -1 1 1 0 0" rotates touch input 90° CCW to match physical rotation
   services.udev.extraRules = ''
-    # GPIO character device access for gpio group
-    SUBSYSTEM=="gpio", KERNEL=="gpiochip[0-9]*", GROUP="gpio", MODE="0660"
     SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="HDMI-A-1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
   '';
 
@@ -211,7 +212,6 @@
     extraGroups = [ "video" ]; # Required for GPU/DRI access
   };
   users.groups.kiosk = { };
-  users.groups.gpio = { };
 
   # Cogsworth application user (system user for running Java uberjar)
   users.users.cogsworth = {
