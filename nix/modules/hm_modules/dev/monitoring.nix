@@ -65,9 +65,9 @@ let
     echo "Comment: ''${COMMENT}"
     echo ""
 
-    # Send to Alertmanager
-    RESPONSE=$(ssh wolf "curl -s -X POST -H 'Content-Type: application/json' \
-      -d \"''${PAYLOAD}\" http://127.0.0.1:9093/api/v2/silences")
+    # Send to Alertmanager via stdin to avoid shell escaping issues
+    RESPONSE=$(echo "''${PAYLOAD}" | ssh wolf "curl -s -X POST -H 'Content-Type: application/json' \
+      -d @- http://127.0.0.1:9093/api/v2/silences")
 
     # Check if successful
     if echo "$RESPONSE" | ${pkgs.jq}/bin/jq -e '.silenceID' > /dev/null 2>&1; then
