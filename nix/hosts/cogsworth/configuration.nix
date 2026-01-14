@@ -233,6 +233,10 @@
     "dialout"
   ];
 
+  # Enable lingering so systemd spawns user instance at boot
+  # Required for home-manager user services on systems where kyle doesn't log in
+  users.users.kyle.linger = true;
+
   # Allow cogsworth user to reboot system without password
   security.sudo.extraRules = [
     {
