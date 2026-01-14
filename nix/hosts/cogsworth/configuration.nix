@@ -130,14 +130,14 @@
             __overlay__ {
               uart4_pins: uart4_pins {
                 brcm,pins = <8 9>;
-                brcm,function = <4>; /* alt4 = UART */
+                brcm,function = <3>; /* alt4 = UART4 TXD/RXD */
                 brcm,pull = <0 2>; /* TX no-pull, RX pull-up */
               };
             };
           };
 
           fragment@1 {
-            target-path = "/soc/serial@7e201600";
+            target-path = "/soc/serial@7e201800"; /* UART4 */
             __overlay__ {
               pinctrl-names = "default";
               pinctrl-0 = <&uart4_pins>;
