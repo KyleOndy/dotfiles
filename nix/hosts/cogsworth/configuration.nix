@@ -98,6 +98,7 @@
     chmod +w ./firmware/config.txt
     echo "disable_splash=1" >> ./firmware/config.txt
     echo "dtoverlay=uart4" >> ./firmware/config.txt
+    echo "dtparam=i2s=on" >> ./firmware/config.txt
   '';
 
   # Raspberry Pi 4 GPU configuration
@@ -147,12 +148,103 @@
         };
       '';
     }
+    {
+      name = "i2s-audio-combined";
+      dtsText = ''
+        /dts-v1/;
+        /plugin/;
+
+        / {
+          compatible = "brcm,bcm2711";
+
+          fragment@0 {
+            target = <&i2s>;
+            __overlay__ {
+              #sound-dai-cells = <0>;
+              status = "okay";
+            };
+          };
+
+          fragment@1 {
+            target-path = "/";
+            __overlay__ {
+              max98357a_codec: max98357a {
+                #sound-dai-cells = <0>;
+                compatible = "maxim,max98357a";
+                sdmode-gpios = <&gpio 4 0>;
+                status = "okay";
+              };
+            };
+          };
+
+          fragment@2 {
+            target-path = "/";
+            __overlay__ {
+              ics43432_codec: ics43432 {
+                #sound-dai-cells = <0>;
+                compatible = "invensense,ics43432";
+                status = "okay";
+              };
+            };
+          };
+
+          fragment@3 {
+            target-path = "/";
+            __overlay__ {
+              cogsworth_soundcard: cogsworth-sound {
+                compatible = "simple-audio-card";
+                simple-audio-card,name = "cogsworth-audio";
+                status = "okay";
+
+                simple-audio-card,dai-link@0 {
+                  reg = <0>;
+                  format = "i2s";
+                  bitclock-master = <&p_cpu_dai>;
+                  frame-master = <&p_cpu_dai>;
+
+                  p_cpu_dai: cpu {
+                    sound-dai = <&i2s>;
+                  };
+
+                  p_codec_dai: codec {
+                    sound-dai = <&max98357a_codec>;
+                  };
+                };
+
+                simple-audio-card,dai-link@1 {
+                  reg = <1>;
+                  format = "i2s";
+                  bitclock-master = <&c_cpu_dai>;
+                  frame-master = <&c_cpu_dai>;
+
+                  c_cpu_dai: cpu {
+                    sound-dai = <&i2s>;
+                  };
+
+                  c_codec_dai: codec {
+                    sound-dai = <&ics43432_codec>;
+                  };
+                };
+              };
+            };
+          };
+        };
+      '';
+    }
   ];
 
   # Tier 3 Watchdog: Hardware watchdog timer
   # Ultimate failsafe - reboots system if kernel hangs
   # Raspberry Pi 4 has built-in bcm2835_wdt watchdog
-  boot.kernelModules = [ "bcm2835_wdt" ];
+  boot.kernelModules = [
+    "bcm2835_wdt"
+    # I2S audio modules for MAX98357A speaker and ICS-43434 microphone
+    "snd_soc_bcm2835_i2s"
+    "snd_soc_max98357a"
+    "snd_soc_ics43432"
+    "snd_soc_simple_card"
+    "snd_soc_simple_card_utils"
+  ];
 
   # Enable systemd hardware watchdog support
   # Systemd will feed the watchdog; if systemd hangs, RPi reboots
@@ -231,6 +323,7 @@
       "i2c"
       "dialout"
       "gpio"
+      "audio"
     ];
   };
   users.groups.cogsworth = { };
@@ -565,6 +658,7 @@
     htop
     wlr-randr # For runtime display rotation
     libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
+    alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
     (writeShellScriptBin "edit-pi-config" ''
       set -euo pipefail
 
