@@ -1,4 +1,8 @@
 {
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
   "model": "opusplan",
   "statusLine": {
     "type": "command",
