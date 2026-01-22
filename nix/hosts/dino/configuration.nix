@@ -561,6 +561,10 @@
         media.latex.enable = true;
         wm.kde.enable = true;
         gaming.emulators.enable = true;
+        input.trackball = {
+          enable = true;
+          kensingtonExpert.enable = true;
+        };
       };
       dev = {
         terraform.enable = lib.mkForce true;

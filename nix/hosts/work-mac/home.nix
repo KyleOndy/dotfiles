@@ -57,6 +57,12 @@
     };
   };
 
+  # Enable Karabiner for trackball button remapping
+  hmFoundry.desktop.input.karabiner = {
+    enable = true;
+    kensingtonExpert.enable = true;
+  };
+
   # Enable work context for shell completions (Jira tickets, etc.)
   home.sessionVariables = {
     DOTS_CONTEXT = "work";

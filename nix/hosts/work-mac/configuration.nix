@@ -47,7 +47,7 @@
     };
 
     # Default casks (can be overridden with lib.mkForce in work.nix)
-    casks = lib.mkDefault [ ];
+    casks = lib.mkDefault [ "karabiner-elements" ];
 
     # Default brews (can be overridden with lib.mkForce in work.nix)
     brews = lib.mkDefault [ ];
