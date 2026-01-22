@@ -50,7 +50,7 @@ let
     // optionalAttrs (conditions != [ ]) { inherit conditions; };
 
   # Kensington Expert Trackball rules
-  kensingtonExpertRules = mkIf cfg.kensingtonExpert.enable [
+  kensingtonExpertRules = optionals cfg.kensingtonExpert.enable [
     {
       description = "Kensington Expert Trackball Button Remapping";
       manipulators = [
@@ -133,7 +133,7 @@ let
 
   # PC-style core shortcuts (Ctrl+C/V/X/Z/etc. → Cmd equivalents)
   # Excluded in terminals to preserve Ctrl+C as SIGINT
-  pcCoreShortcuts = mkIf (cfg.pcStyle.enable && cfg.pcStyle.coreShortcuts.enable) [
+  pcCoreShortcuts = optionals (cfg.pcStyle.enable && cfg.pcStyle.coreShortcuts.enable) [
     {
       description = "PC-style core shortcuts (Ctrl → Cmd)";
       manipulators =
@@ -245,7 +245,7 @@ let
   ];
 
   # PC-style navigation (Ctrl+Arrows, Home/End)
-  pcNavigation = mkIf (cfg.pcStyle.enable && cfg.pcStyle.navigation.enable) [
+  pcNavigation = optionals (cfg.pcStyle.enable && cfg.pcStyle.navigation.enable) [
     {
       description = "PC-style navigation";
       manipulators =
@@ -365,7 +365,7 @@ let
   ];
 
   # PC-style app switching (Alt+Tab, Alt+F4)
-  pcAppSwitching = mkIf (cfg.pcStyle.enable && cfg.pcStyle.appSwitching.enable) [
+  pcAppSwitching = optionals (cfg.pcStyle.enable && cfg.pcStyle.appSwitching.enable) [
     {
       description = "PC-style app switching";
       manipulators = [
@@ -425,7 +425,7 @@ let
   ];
 
   # Browser-specific controls (only in browsers)
-  pcBrowserControls = mkIf (cfg.pcStyle.enable && cfg.pcStyle.browserControls.enable) [
+  pcBrowserControls = optionals (cfg.pcStyle.enable && cfg.pcStyle.browserControls.enable) [
     {
       description = "PC-style browser controls";
       manipulators =
@@ -533,7 +533,7 @@ let
   ];
 
   # System shortcuts (PrintScreen, lock, task manager)
-  pcSystemShortcuts = mkIf (cfg.pcStyle.enable && cfg.pcStyle.systemShortcuts.enable) [
+  pcSystemShortcuts = optionals (cfg.pcStyle.enable && cfg.pcStyle.systemShortcuts.enable) [
     {
       description = "PC-style system shortcuts";
       manipulators = [
