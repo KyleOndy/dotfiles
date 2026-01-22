@@ -387,7 +387,7 @@
         cogsworth = mkNixosSystem {
           hostname = "cogsworth";
           system = "aarch64-linux";
-          profile = "server";
+          profile = "kiosk";
           hardwareModules = [
             inputs.nixos-hardware.nixosModules.raspberry-pi-4
           ];
