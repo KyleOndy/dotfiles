@@ -348,7 +348,7 @@ in
         # Conservative defaults - only check 5 most recent videos per channel
         max_videos_default = 5;
         max_videos_initial = 30; # First run gets more to populate archive
-        download_shorts = false; # Global default: no shorts
+        download_shorts = true; # Global default: download shorts for all channels
 
         watched_channels = [
           # cycling
@@ -432,14 +432,18 @@ in
 
           # entertainment
           "@2MuchColinFurze"
+          "@BeastPhilanthropy"
           "@Ben_Brainard"
           "@CaptainDisillusion"
           "@CharlieBerens"
           "@colinfurze"
           "@DudeDad"
+          "@Gossip.Goblin"
           "@GxAce"
           "@kaptainkristian"
           "@kurzgesagt"
+          "@MrBeast"
+          "@MrBeast2"
           "@PracticalEngineeringChannel"
           "@RudyAyoub"
           "@SampsonBoatCo"
