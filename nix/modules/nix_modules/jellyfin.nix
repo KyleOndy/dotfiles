@@ -60,6 +60,24 @@ in
       description = "How old transcode files must be before cleanup (e.g., '6 hours', '1 day', '30 minutes')";
       example = "12 hours";
     };
+
+    debugAuthLogging = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable debug-level logging for authentication (helps diagnose invalid token issues)";
+    };
+
+    transcodeDebugLogging = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable debug-level logging for transcoding operations";
+    };
+
+    installPlaybackReportingPlugin = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Automatically install the Playback Reporting plugin for play history tracking";
+    };
   };
 
   config = mkIf cfg.enable {
@@ -141,6 +159,63 @@ in
       443
     ];
 
+    # Configure debug logging when enabled
+    systemd.tmpfiles.rules = mkIf (cfg.debugAuthLogging || cfg.transcodeDebugLogging) [
+      ''f+ ${stateDir}/config/logging.json 0640 ${cfg.user} ${cfg.group} - ${
+        pkgs.writeText "jellyfin-logging.json" (
+          builtins.toJSON {
+            Serilog = {
+              MinimumLevel = {
+                Default = "Information";
+                Override = {
+                  Microsoft = "Warning";
+                  System = "Warning";
+                }
+                // optionalAttrs cfg.debugAuthLogging {
+                  "Jellyfin.Api.Auth" = "Debug";
+                  "Microsoft.AspNetCore.Authentication" = "Debug";
+                }
+                // optionalAttrs cfg.transcodeDebugLogging {
+                  "MediaBrowser.MediaEncoding.Transcoding" = "Debug";
+                  "MediaBrowser.Controller.MediaEncoding" = "Debug";
+                };
+              };
+              WriteTo = [
+                {
+                  Name = "Console";
+                  Args = {
+                    outputTemplate = "[{Timestamp:HH:mm:ss}] [{Level:u3}] [{ThreadId}] {SourceContext}: {Message:lj}{NewLine}{Exception}";
+                  };
+                }
+                {
+                  Name = "Async";
+                  Args = {
+                    configure = [
+                      {
+                        Name = "File";
+                        Args = {
+                          path = "%JELLYFIN_LOG_DIR%//log_.log";
+                          rollingInterval = "Day";
+                          retainedFileCountLimit = 3;
+                          rollOnFileSizeLimit = true;
+                          fileSizeLimitBytes = 100000000;
+                          outputTemplate = "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] [{ThreadId}] {SourceContext}: {Message}{NewLine}{Exception}";
+                        };
+                      }
+                    ];
+                  };
+                }
+              ];
+              Enrich = [
+                "FromLogContext"
+                "WithThreadId"
+              ];
+            };
+          }
+        )
+      }''
+    ];
+
     systemd.services = {
       # jellyfin provides no native backup, so zip, compress it, and copy it over
       jellyfin-backup = mkIf cfg.backup.enable {
@@ -167,6 +242,57 @@ in
           fi
         '';
 
+      };
+    };
+
+    # Install Playback Reporting plugin if enabled
+    systemd.services.jellyfin-install-playback-reporting = mkIf cfg.installPlaybackReportingPlugin {
+      description = "Install Jellyfin Playback Reporting Plugin";
+      wantedBy = [ "jellyfin.service" ];
+      before = [ "jellyfin.service" ];
+      path = with pkgs; [
+        unzip
+        curl
+        coreutils
+      ];
+      script =
+        let
+          pluginDir = "${stateDir}/plugins/Jellyfin.Plugin.PlaybackReporting";
+          # Using version 15.0.0.0 which is compatible with Jellyfin 10.8+
+          pluginUrl = "https://github.com/jellyfin/jellyfin-plugin-playbackreporting/releases/download/15.0.0.0/playback_reporting_15.0.0.0.zip";
+        in
+        ''
+          # Create plugins directory if it doesn't exist
+          mkdir -p ${stateDir}/plugins
+
+          # Only install if not already present
+          if [ ! -d "${pluginDir}" ]; then
+            echo "Installing Playback Reporting plugin..."
+
+            # Download plugin
+            curl -L -o /tmp/playback_reporting.zip "${pluginUrl}"
+
+            # Create plugin directory
+            mkdir -p "${pluginDir}"
+
+            # Extract plugin
+            unzip -o /tmp/playback_reporting.zip -d "${pluginDir}"
+
+            # Clean up
+            rm /tmp/playback_reporting.zip
+
+            # Set ownership
+            chown -R ${cfg.user}:${cfg.group} "${pluginDir}"
+
+            echo "Playback Reporting plugin installed successfully"
+          else
+            echo "Playback Reporting plugin already installed"
+          fi
+        '';
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = "root"; # Need root to chown
       };
     };
   };

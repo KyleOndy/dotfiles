@@ -143,6 +143,9 @@
       domainName = "jellyfin.apps.ondy.org";
       provisionCert = true;
       transcodeCleanupInterval = "36 hours";
+      debugAuthLogging = true;
+      transcodeDebugLogging = true;
+      installPlaybackReportingPlugin = true;
     };
 
     # Tdarr node for hardware transcoding with Intel QuickSync
@@ -178,6 +181,20 @@
 
       nginxlogExporter = {
         enable = true;
+      };
+
+      jellyfinExporter = {
+        enable = true;
+        jellyfinUrl = "http://127.0.0.1:8096";
+        apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+        enableActivityCollector = true;
+      };
+
+      jellyfinPlaycount = {
+        enable = true;
+        jellyfinUrl = "http://127.0.0.1:8096";
+        apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+        monitorAllUsers = true;
       };
 
       vmagent = {
@@ -219,6 +236,17 @@
               }
             ];
           }
+          {
+            job_name = "jellyfin-exporter";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9594" ];
+                labels = {
+                  host = "bear";
+                };
+              }
+            ];
+          }
         ];
       };
 
@@ -230,6 +258,21 @@
         extraLabels = {
           host = "bear";
         };
+        extraScrapeConfigs = [
+          {
+            job_name = "jellyfin";
+            static_configs = [
+              {
+                targets = [ "localhost" ];
+                labels = {
+                  job = "jellyfin";
+                  host = "bear";
+                  __path__ = "/var/lib/jellyfin/log/*.log";
+                };
+              }
+            ];
+          }
+        ];
       };
     };
   };
@@ -244,6 +287,10 @@
     };
     tdarr_api_key = {
       mode = "0400";
+    };
+    jellyfin_api_key = {
+      # jellyfin-exporter and jellyfin-playcount services run as DynamicUser
+      mode = "0444";
     };
     monitoring_token_bear = {
       # vmagent/promtail services run as DynamicUser, which means they can't be

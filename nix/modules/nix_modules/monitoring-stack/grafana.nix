@@ -55,6 +55,7 @@ in
         datasources.settings.datasources = [
           {
             name = "VictoriaMetrics";
+            uid = "victoriametrics";
             type = "prometheus";
             access = "proxy";
             url = "http://${config.systemFoundry.monitoringStack.victoriametrics.listenAddress}:${toString config.systemFoundry.monitoringStack.victoriametrics.port}";
@@ -62,12 +63,14 @@ in
           }
           {
             name = "Loki";
+            uid = "loki";
             type = "loki";
             access = "proxy";
             url = "http://${config.systemFoundry.monitoringStack.loki.listenAddress}:${toString config.systemFoundry.monitoringStack.loki.port}";
           }
           {
             name = "Alertmanager";
+            uid = "alertmanager";
             type = "alertmanager";
             access = "proxy";
             url = "http://${config.systemFoundry.monitoringStack.alertmanager.listenAddress}:${toString config.systemFoundry.monitoringStack.alertmanager.port}";
@@ -129,6 +132,153 @@ in
               }
             ];
             resetPolicies = [ 1 ];
+          };
+          rules.settings = {
+            apiVersion = 1;
+            groups = [
+              {
+                orgId = 1;
+                name = "jellyfin_log_alerts";
+                folder = "Media Services";
+                interval = "1m";
+                rules = [
+                  {
+                    uid = "jellyfin-transcode-failure";
+                    title = "Jellyfin Transcode Failure";
+                    condition = "B";
+                    data = [
+                      {
+                        refId = "A";
+                        queryType = "";
+                        relativeTimeRange = {
+                          from = 300;
+                          to = 0;
+                        };
+                        datasourceUid = "loki";
+                        model = {
+                          expr = ''sum(count_over_time({host="bear",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
+                          queryType = "range";
+                          refId = "A";
+                        };
+                      }
+                      {
+                        refId = "B";
+                        queryType = "";
+                        relativeTimeRange = {
+                          from = 0;
+                          to = 0;
+                        };
+                        datasourceUid = "-100";
+                        model = {
+                          conditions = [
+                            {
+                              evaluator = {
+                                params = [ 0 ];
+                                type = "gt";
+                              };
+                              operator = {
+                                type = "and";
+                              };
+                              query = {
+                                params = [ "B" ];
+                              };
+                              type = "query";
+                            }
+                          ];
+                          datasource = {
+                            type = "__expr__";
+                            uid = "-100";
+                          };
+                          expression = "A";
+                          reducer = "last";
+                          refId = "B";
+                          type = "threshold";
+                        };
+                      }
+                    ];
+                    noDataState = "NoData";
+                    execErrState = "Error";
+                    for = "5m";
+                    annotations = {
+                      summary = "Jellyfin transcoding failures detected on bear";
+                      description = "FFmpeg transcode failures occurred in the last 5 minutes";
+                    };
+                    labels = {
+                      severity = "critical";
+                      service = "jellyfin";
+                      host = "bear";
+                    };
+                  }
+                  {
+                    uid = "jellyfin-playback-error";
+                    title = "Jellyfin Playback Error";
+                    condition = "B";
+                    data = [
+                      {
+                        refId = "A";
+                        queryType = "";
+                        relativeTimeRange = {
+                          from = 300;
+                          to = 0;
+                        };
+                        datasourceUid = "loki";
+                        model = {
+                          expr = ''sum(count_over_time({host="bear",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
+                          queryType = "range";
+                          refId = "A";
+                        };
+                      }
+                      {
+                        refId = "B";
+                        queryType = "";
+                        relativeTimeRange = {
+                          from = 0;
+                          to = 0;
+                        };
+                        datasourceUid = "-100";
+                        model = {
+                          conditions = [
+                            {
+                              evaluator = {
+                                params = [ 2 ];
+                                type = "gt";
+                              };
+                              operator = {
+                                type = "and";
+                              };
+                              query = {
+                                params = [ "B" ];
+                              };
+                              type = "query";
+                            }
+                          ];
+                          datasource = {
+                            type = "__expr__";
+                            uid = "-100";
+                          };
+                          expression = "A";
+                          reducer = "last";
+                          refId = "B";
+                          type = "threshold";
+                        };
+                      }
+                    ];
+                    noDataState = "NoData";
+                    execErrState = "Error";
+                    for = "5m";
+                    annotations = {
+                      summary = "Jellyfin playback errors detected on bear";
+                      description = "More than 2 playback errors occurred in the last 5 minutes";
+                    };
+                    labels = {
+                      severity = "warning";
+                      service = "jellyfin";
+                      host = "bear";
+                    };
+                  }
+                ];
+              }
+            ];
           };
         };
       };
@@ -230,6 +380,21 @@ in
 
     environment.etc."grafana-dashboards/applications/cogsworth-http-health.json" = {
       source = ./dashboards/applications/cogsworth-http-health.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/applications/media-services-wolf-bear.json" = {
+      source = ./dashboards/applications/media-services-wolf-bear.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/applications/arr-stack-health.json" = {
+      source = ./dashboards/applications/arr-stack-health.json;
+      mode = "0644";
+    };
+
+    environment.etc."grafana-dashboards/applications/jellyfin-operational.json" = {
+      source = ./dashboards/applications/jellyfin-operational.json;
       mode = "0644";
     };
   };

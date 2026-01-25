@@ -37,6 +37,7 @@
       "Bash(make:*)",
       "Bash(nix:*)",
       "Bash(bb:*)",
+      "Bash(deploy:*)",
       "WebSearch"
     ]
   },

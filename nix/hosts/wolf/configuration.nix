@@ -219,6 +219,46 @@
         enable = true;
       };
 
+      # Exportarr for *arr services metrics
+      exportarr = {
+        enable = true;
+
+        sonarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.sonarr_api_key.path;
+        };
+
+        radarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.radarr_api_key.path;
+        };
+
+        lidarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.lidarr_api_key.path;
+        };
+
+        readarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.readarr_api_key.path;
+        };
+
+        prowlarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.prowlarr_api_key.path;
+        };
+
+        bazarr = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.bazarr_api_key.path;
+        };
+
+        sabnzbd = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.sabnzbd_api_key.path;
+        };
+      };
+
       vmagent = {
         enable = true;
         # Send metrics to local VictoriaMetrics instance
@@ -254,6 +294,91 @@
                 targets = [ "127.0.0.1:4040" ];
                 labels = {
                   host = "wolf";
+                };
+              }
+            ];
+          }
+          # Exportarr metrics for *arr services
+          {
+            job_name = "exportarr-sonarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9707" ];
+                labels = {
+                  host = "wolf";
+                  service = "sonarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-radarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9708" ];
+                labels = {
+                  host = "wolf";
+                  service = "radarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-lidarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9709" ];
+                labels = {
+                  host = "wolf";
+                  service = "lidarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-readarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9710" ];
+                labels = {
+                  host = "wolf";
+                  service = "readarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-prowlarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9711" ];
+                labels = {
+                  host = "wolf";
+                  service = "prowlarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-bazarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9712" ];
+                labels = {
+                  host = "wolf";
+                  service = "bazarr";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-sabnzbd";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9713" ];
+                labels = {
+                  host = "wolf";
+                  service = "sabnzbd";
                 };
               }
             ];
@@ -391,6 +516,29 @@
     };
     tdarr_api_key = {
       mode = "0400";
+    };
+
+    # Exportarr API keys for *arr services
+    sonarr_api_key = {
+      mode = "0444";
+    };
+    radarr_api_key = {
+      mode = "0444";
+    };
+    lidarr_api_key = {
+      mode = "0444";
+    };
+    readarr_api_key = {
+      mode = "0444";
+    };
+    prowlarr_api_key = {
+      mode = "0444";
+    };
+    bazarr_api_key = {
+      mode = "0444";
+    };
+    sabnzbd_api_key = {
+      mode = "0444";
     };
   };
 

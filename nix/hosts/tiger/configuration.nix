@@ -216,7 +216,7 @@ in
       };
 
       sonarr = {
-        enable = true;
+        enable = false;
         group = mediaGroup;
         domainName = "sonarr.${domain}";
         provisionCert = true;
@@ -226,7 +226,7 @@ in
         };
       };
       radarr = {
-        enable = true;
+        enable = false;
         group = mediaGroup;
         domainName = "radarr.${domain}";
         provisionCert = true;
@@ -255,7 +255,7 @@ in
         };
       };
       nzbhydra2 = {
-        enable = true;
+        enable = false;
         domainName = "nzbhydra.${domain}";
         provisionCert = true;
         backup = {
@@ -264,7 +264,7 @@ in
         };
       };
       nzbget = {
-        enable = true;
+        enable = false;
         group = mediaGroup;
         domainName = "nzbget.${domain}";
         provisionCert = true;
@@ -588,6 +588,7 @@ in
   };
   sops.secrets = {
     jellyfin_api_token = { };
+    namecheap = { };
     monitoring_token_tiger = {
       # vmagent service runs as DynamicUser, which means it can't be assigned
       # file ownership directly. Using mode 0444 allows the service to read it.
