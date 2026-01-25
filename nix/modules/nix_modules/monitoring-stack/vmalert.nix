@@ -94,14 +94,186 @@ in
                 description: "Service {{ $labels.name }} has restarted more than 5 times in the last 15 minutes on {{ $labels.instance }}"
 
             - alert: JellyfinDown
-              expr: node_systemd_unit_state{host="wolf",name="jellyfin.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="bear",name="jellyfin.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: jellyfin
               annotations:
-                summary: "Jellyfin service is down on wolf"
+                summary: "Jellyfin service is down on bear"
                 description: "Jellyfin has been unavailable for 5 minutes"
+
+        # Wolf Media Services
+        - name: media_services_wolf
+          interval: 30s
+          rules:
+            - alert: SonarrDown
+              expr: node_systemd_unit_state{host="wolf",name="sonarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: sonarr
+              annotations:
+                summary: "Sonarr service is down on wolf"
+                description: "Sonarr has been unavailable for 5 minutes"
+
+            - alert: RadarrDown
+              expr: node_systemd_unit_state{host="wolf",name="radarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: radarr
+              annotations:
+                summary: "Radarr service is down on wolf"
+                description: "Radarr has been unavailable for 5 minutes"
+
+            - alert: LidarrDown
+              expr: node_systemd_unit_state{host="wolf",name="lidarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: lidarr
+              annotations:
+                summary: "Lidarr service is down on wolf"
+                description: "Lidarr has been unavailable for 5 minutes"
+
+            - alert: ReadarrDown
+              expr: node_systemd_unit_state{host="wolf",name="readarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: readarr
+              annotations:
+                summary: "Readarr service is down on wolf"
+                description: "Readarr has been unavailable for 5 minutes"
+
+            - alert: ProwlarrDown
+              expr: node_systemd_unit_state{host="wolf",name="prowlarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: prowlarr
+              annotations:
+                summary: "Prowlarr service is down on wolf"
+                description: "Prowlarr has been unavailable for 5 minutes"
+
+            - alert: BazarrDown
+              expr: node_systemd_unit_state{host="wolf",name="bazarr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: bazarr
+              annotations:
+                summary: "Bazarr service is down on wolf"
+                description: "Bazarr has been unavailable for 5 minutes"
+
+            - alert: SABnzbdDown
+              expr: node_systemd_unit_state{host="wolf",name="sabnzbd.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: sabnzbd
+              annotations:
+                summary: "SABnzbd service is down on wolf"
+                description: "SABnzbd has been unavailable for 5 minutes"
+
+            - alert: JellyseerrDown
+              expr: node_systemd_unit_state{host="wolf",name="jellyseerr.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: jellyseerr
+              annotations:
+                summary: "Jellyseerr service is down on wolf"
+                description: "Jellyseerr has been unavailable for 5 minutes"
+
+            - alert: TdarrServerDown
+              expr: node_systemd_unit_state{host="wolf",name="podman-tdarr-server.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: tdarr
+              annotations:
+                summary: "Tdarr server container is down on wolf"
+                description: "Tdarr server has been unavailable for 5 minutes"
+
+        # Bear Media Services
+        - name: media_services_bear
+          interval: 30s
+          rules:
+            - alert: TdarrNodeDown
+              expr: node_systemd_unit_state{host="bear",name="podman-tdarr-node.service",state="active"} != 1
+              for: 5m
+              labels:
+                severity: critical
+                service: tdarr
+              annotations:
+                summary: "Tdarr node container is down on bear"
+                description: "Tdarr transcoding node has been unavailable for 5 minutes"
+
+        # Arr Queue Health (exportarr metrics)
+        - name: arr_queue_health
+          interval: 60s
+          rules:
+            - alert: SonarrQueueHigh
+              expr: sonarr_queue_total > 50
+              for: 5m
+              labels:
+                severity: warning
+                service: sonarr
+              annotations:
+                summary: "Sonarr queue depth is high: {{ $value }} items"
+                description: "Sonarr has more than 50 items in queue for 5+ minutes"
+
+            - alert: SonarrQueueStalled
+              expr: increase(sonarr_queue_total[30m]) == 0 AND sonarr_queue_total > 0
+              for: 30m
+              labels:
+                severity: warning
+                service: sonarr
+              annotations:
+                summary: "Sonarr queue appears stalled"
+                description: "Sonarr queue has not changed in 30 minutes with {{ $value }} items"
+
+            - alert: RadarrQueueHigh
+              expr: radarr_queue_total > 50
+              for: 5m
+              labels:
+                severity: warning
+                service: radarr
+              annotations:
+                summary: "Radarr queue depth is high: {{ $value }} items"
+                description: "Radarr has more than 50 items in queue for 5+ minutes"
+
+            - alert: RadarrQueueStalled
+              expr: increase(radarr_queue_total[30m]) == 0 AND radarr_queue_total > 0
+              for: 30m
+              labels:
+                severity: warning
+                service: radarr
+              annotations:
+                summary: "Radarr queue appears stalled"
+                description: "Radarr queue has not changed in 30 minutes with {{ $value }} items"
+
+            - alert: SABnzbdQueueHigh
+              expr: sabnzbd_queue_total > 20
+              for: 5m
+              labels:
+                severity: warning
+                service: sabnzbd
+              annotations:
+                summary: "SABnzbd queue depth is high: {{ $value }} items"
+                description: "SABnzbd has more than 20 items in queue"
+
+            - alert: SABnzbdDownloadFailed
+              expr: increase(sabnzbd_downloads_failed_total[1h]) > 5
+              for: 5m
+              labels:
+                severity: critical
+                service: sabnzbd
+              annotations:
+                summary: "SABnzbd has {{ $value }} failed downloads in past hour"
+                description: "SABnzbd download failure rate is elevated"
 
         # Disk space monitoring
         - name: disk_space
@@ -126,9 +298,38 @@ in
                 summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
+            # Special rule for wolf /mnt/storage - allow lower free space (media library fills up)
+            - alert: WolfMediaDiskSpaceLow
+              expr: (node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="wolf",mountpoint="/mnt/storage"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Low disk space on wolf media storage"
+                description: "Wolf /mnt/storage is below 5% free. Current: {{ $value | humanizePercentage }}"
+
+            - alert: WolfMediaDiskSpaceCritical
+              expr: (node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="wolf",mountpoint="/mnt/storage"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Critical disk space on wolf media storage"
+                description: "Wolf /mnt/storage is below 3% free. Current: {{ $value | humanizePercentage }}"
+
+            # Predictive alert for wolf media storage
+            - alert: WolfMediaWillFillSoon
+              expr: predict_linear(node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"}[24h], 7*24*3600) < 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Wolf media storage will fill within 7 days"
+                description: "Based on the last 24 hours, /mnt/storage on wolf will fill up within 7 days"
+
             # Default disk space alerts for all other filesystems
             - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: warning
@@ -137,7 +338,7 @@ in
                 description: "Disk space is below 15% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: critical

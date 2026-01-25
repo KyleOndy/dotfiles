@@ -21,6 +21,9 @@ in
     ./zfs_exporter.nix
     ./nginx_exporter.nix
     ./nginxlog_exporter.nix
+    ./exportarr.nix
+    ./jellyfin-exporter.nix
+    ./jellyfin-playcount.nix
   ];
 
   options.systemFoundry.monitoringStack = {

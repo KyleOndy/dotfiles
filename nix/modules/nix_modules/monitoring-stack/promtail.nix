@@ -34,6 +34,27 @@ in
         environment = "production";
       };
     };
+
+    extraScrapeConfigs = mkOption {
+      type = types.listOf types.attrs;
+      default = [ ];
+      description = "Additional scrape configurations to add to promtail";
+      example = [
+        {
+          job_name = "jellyfin";
+          static_configs = [
+            {
+              targets = [ "localhost" ];
+              labels = {
+                job = "jellyfin";
+                host = "bear";
+                __path__ = "/var/lib/jellyfin/log/*.log";
+              };
+            }
+          ];
+        }
+      ];
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -42,8 +63,10 @@ in
       "d /var/lib/promtail 0755 promtail promtail -"
     ];
 
-    # Grant promtail access to nginx logs
-    users.users.promtail.extraGroups = mkIf config.services.nginx.enable [ "nginx" ];
+    # Grant promtail access to nginx and jellyfin logs
+    users.users.promtail.extraGroups =
+      (optional config.services.nginx.enable "nginx")
+      ++ (optional config.services.jellyfin.enable "media");
 
     services.promtail = {
       enable = true;
@@ -107,7 +130,8 @@ in
               }
             ];
           }
-        ];
+        ]
+        ++ cfg.extraScrapeConfigs;
       };
     };
   };
