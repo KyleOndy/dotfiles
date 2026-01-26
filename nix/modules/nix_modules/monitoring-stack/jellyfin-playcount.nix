@@ -233,6 +233,7 @@ in
     # Ensure textfile directory exists and is writable
     systemd.tmpfiles.rules = [
       "d ${cfg.textfileDirectory} 0775 node-exporter node-exporter -"
+      "Z ${cfg.textfileDirectory} 0775 node-exporter node-exporter -"
       "f ${cfg.textfileDirectory}/jellyfin-playcounts.prom 0664 jellyfin-playcount node-exporter -"
     ];
   };

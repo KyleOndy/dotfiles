@@ -316,8 +316,8 @@
     },
     {
       "datasource": {
-        "type": "loki",
-        "uid": "loki"
+        "type": "prometheus",
+        "uid": "victoriametrics"
       },
       "fieldConfig": {
         "defaults": {
