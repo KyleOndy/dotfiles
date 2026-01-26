@@ -254,7 +254,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "(1 - (node_filesystem_avail_bytes{host=\"wolf\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"wolf\",mountpoint=\"/mnt/storage\"})) * 100",
+          "expr": "zfs_pool_allocated_bytes{pool=\"storage\",host=\"wolf\"} / zfs_pool_size_bytes{pool=\"storage\",host=\"wolf\"} * 100",
           "legendFormat": "Wolf Media Storage",
           "refId": "A"
         }
@@ -341,7 +341,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_filesystem_avail_bytes{host=\"wolf\",mountpoint=\"/mnt/storage\"}",
+          "expr": "zfs_pool_size_bytes{pool=\"storage\",host=\"wolf\"} - zfs_pool_allocated_bytes{pool=\"storage\",host=\"wolf\"}",
           "legendFormat": "Available",
           "refId": "A"
         }
