@@ -211,6 +211,26 @@ in
                 summary: "Tdarr node container is down on bear"
                 description: "Tdarr transcoding node has been unavailable for 5 minutes"
 
+            - alert: JellyfinPlaycountExportFailed
+              expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="bear"} == 1
+              for: 1m
+              labels:
+                severity: warning
+                service: jellyfin
+              annotations:
+                summary: "Jellyfin playcount export failed on {{ $labels.host }}"
+                description: "The jellyfin-playcount-exporter service failed. Check logs with: journalctl -u jellyfin-playcount-exporter"
+
+            - alert: JellyfinPlaycountExportStale
+              expr: (time() - jellyfin_playcount_export_timestamp) > 93600
+              for: 5m
+              labels:
+                severity: warning
+                service: jellyfin
+              annotations:
+                summary: "Jellyfin playcount export is stale"
+                description: "No successful playcount export in over 26 hours (schedule is daily)"
+
         # Arr Queue Health (exportarr metrics)
         - name: arr_queue_health
           interval: 60s

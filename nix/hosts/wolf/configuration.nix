@@ -100,10 +100,17 @@
     "d /mnt/storage/downloads 0755 root root -"
     "d /mnt/storage/downloads/complete 0775 root media -"
     "d /mnt/storage/downloads/incomplete 0775 root media -"
+    # Download category directories (match SABnzbd categories)
+    "d /mnt/storage/downloads/complete/movies 0775 root media -"
+    "d /mnt/storage/downloads/complete/tv 0775 root media -"
+    "d /mnt/storage/downloads/complete/music 0775 root media -"
+    "d /mnt/storage/downloads/complete/books 0775 root media -"
     # Media directories - 0775 allows media group members to read/write
     "d /mnt/storage/media 0775 root media -"
     "d /mnt/storage/media/movies 0775 root media -"
     "d /mnt/storage/media/tv 0775 root media -"
+    "d /mnt/storage/media/music 0775 root media -"
+    "d /mnt/storage/media/books 0775 root media -"
   ];
 
   systemFoundry = {
@@ -219,6 +226,10 @@
         enable = true;
       };
 
+      zfsExporter = {
+        enable = true;
+      };
+
       # Exportarr for *arr services metrics
       exportarr = {
         enable = true;
@@ -292,6 +303,17 @@
             static_configs = [
               {
                 targets = [ "127.0.0.1:4040" ];
+                labels = {
+                  host = "wolf";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "zfs";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9134" ];
                 labels = {
                   host = "wolf";
                 };

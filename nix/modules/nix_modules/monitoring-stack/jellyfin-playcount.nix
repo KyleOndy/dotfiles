@@ -18,6 +18,7 @@ let
     import urllib.request
     import urllib.error
     from datetime import datetime
+    from time import time
 
     API_KEY_FILE = "${cfg.apiKeyFile}"
     JELLYFIN_URL = "${cfg.jellyfinUrl}"
@@ -124,6 +125,10 @@ let
         for item_type, count in global_never_played_counts.items():
             all_metrics.append(f"jellyfin_never_played_items_total{{type=\"{item_type}\"}} {count}")
 
+        # Add export success metrics
+        all_metrics.append(f"jellyfin_playcount_export_timestamp {int(time())}")
+        all_metrics.append(f"jellyfin_playcount_export_metrics_total {len(all_metrics)}")
+
         metrics = all_metrics
 
         # Write metrics to temp file then rename (atomic update)
@@ -136,6 +141,10 @@ let
             f.write("# TYPE jellyfin_item_added_timestamp gauge\n")
             f.write("# HELP jellyfin_never_played_items_total Count of items that have never been played\n")
             f.write("# TYPE jellyfin_never_played_items_total gauge\n")
+            f.write("# HELP jellyfin_playcount_export_timestamp Unix timestamp of last successful export\n")
+            f.write("# TYPE jellyfin_playcount_export_timestamp gauge\n")
+            f.write("# HELP jellyfin_playcount_export_metrics_total Total metrics exported in last run\n")
+            f.write("# TYPE jellyfin_playcount_export_metrics_total gauge\n")
             for metric in metrics:
                 f.write(metric + "\n")
 
