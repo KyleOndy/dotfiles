@@ -197,6 +197,26 @@ in
                 summary: "Tdarr server container is down on wolf"
                 description: "Tdarr server has been unavailable for 5 minutes"
 
+            - alert: TdarrHighErrorRate
+              expr: increase(tdarr_library_transcodes{status="error",library_name="all"}[1h]) > 10
+              for: 5m
+              labels:
+                severity: warning
+                service: tdarr
+              annotations:
+                summary: "High Tdarr transcode error rate"
+                description: "More than 10 transcode errors in the last hour"
+
+            - alert: TdarrNodeOffline
+              expr: count(tdarr_node_info) < 2
+              for: 10m
+              labels:
+                severity: critical
+                service: tdarr
+              annotations:
+                summary: "Tdarr node offline"
+                description: "Expected 2 nodes (bear, tiger), only {{ $value }} online"
+
         # Bear Media Services
         - name: media_services_bear
           interval: 30s

@@ -86,6 +86,9 @@
   # Allow svc.deploy to write to website directory
   users.users."svc.deploy".extraGroups = [ "nginx" ];
 
+  # Allow kyle to access Tdarr API key and media files
+  users.users.kyle.extraGroups = [ "media" ];
+
   # Create media group for shared access to downloads/media
   # Explicitly set GID to ensure consistency across NFS mounts (bear uses same GID)
   users.groups.media = {
@@ -270,6 +273,13 @@
         };
       };
 
+      # Tdarr metrics exporter
+      tdarrExporter = {
+        enable = true;
+        tdarrUrl = "http://127.0.0.1:8265";
+        apiKeyFile = config.sops.secrets.tdarr_api_key.path;
+      };
+
       vmagent = {
         enable = true;
         # Send metrics to local VictoriaMetrics instance
@@ -401,6 +411,18 @@
                 labels = {
                   host = "wolf";
                   service = "sabnzbd";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "tdarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9595" ];
+                labels = {
+                  host = "wolf";
+                  service = "tdarr";
                 };
               }
             ];
@@ -537,7 +559,8 @@
       mode = "0400";
     };
     tdarr_api_key = {
-      mode = "0400";
+      mode = "0440";
+      group = "media";
     };
 
     # Exportarr API keys for *arr services
@@ -561,6 +584,96 @@
     };
     sabnzbd_api_key = {
       mode = "0444";
+    };
+  };
+
+  # Tdarr notification script for Sonarr/Radarr integration
+  # This script is called by Sonarr/Radarr after media imports to trigger Tdarr scans
+  environment.etc."scripts/tdarr-notify.sh" = {
+    mode = "0755";
+    text = ''
+      #!${pkgs.bash}/bin/bash
+      set -eo pipefail
+
+      TDARR_URL="http://127.0.0.1:8265"
+      TDARR_API_KEY="$(cat ${config.sops.secrets.tdarr_api_key.path})"
+
+      # Library IDs from Tdarr metrics: tdarr_library_transcodes{library_id="...",library_name="..."}
+      TV_LIBRARY_ID="Q_Q4-iQT7"
+      MOVIES_LIBRARY_ID="5sRp_iSwq"
+
+      # Sonarr uses sonarr_episodefile_path, Radarr uses radarr_moviefile_path
+      # Use explicit empty string defaults to handle unset variables
+      FILE_PATH="''${sonarr_episodefile_path:-}"
+      if [[ -z "$FILE_PATH" ]]; then
+        FILE_PATH="''${radarr_moviefile_path:-}"
+      fi
+
+      if [[ -z "$FILE_PATH" ]]; then
+        echo "No file path provided"
+        exit 0
+      fi
+
+      # Determine library based on path
+      if [[ "$FILE_PATH" == */tv/* ]]; then
+        LIBRARY_ID="$TV_LIBRARY_ID"
+      else
+        LIBRARY_ID="$MOVIES_LIBRARY_ID"
+      fi
+
+      if [[ -z "$LIBRARY_ID" ]]; then
+        echo "No library ID configured for path: $FILE_PATH"
+        exit 0
+      fi
+
+      ${pkgs.curl}/bin/curl -s -X POST "''${TDARR_URL}/api/v2/scan-files" \
+        -H "Content-Type: application/json" \
+        -H "x-api-key: ''${TDARR_API_KEY}" \
+        -d "{\"data\":{\"scanConfig\":{\"dbID\":\"''${LIBRARY_ID}\",\"arrayOrPath\":[\"''${FILE_PATH}\"],\"mode\":\"scanFolderWatcher\"}}}"
+    '';
+  };
+
+  # Tdarr failure summary script - query API for failed jobs
+  environment.systemPackages = [
+    (pkgs.writeShellScriptBin "tdarr-failure-summary" ''
+      export PATH="${
+        lib.makeBinPath [
+          pkgs.curl
+          pkgs.jq
+          pkgs.coreutils
+        ]
+      }"
+      export TDARR_API_KEY_FILE="${config.sops.secrets.tdarr_api_key.path}"
+      exec ${pkgs.bash}/bin/bash ${./tdarr-failure-summary.sh} "$@"
+    '')
+  ];
+
+  # Systemd service and timer for daily failure report
+  systemd.services.tdarr-failure-report = {
+    description = "Tdarr Daily Failure Summary";
+    after = [ "podman-tdarr-server.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.writeShellScript "tdarr-failure-report-wrapper" ''
+        export TDARR_API_KEY_FILE="${config.sops.secrets.tdarr_api_key.path}"
+        export PATH="${
+          lib.makeBinPath [
+            pkgs.curl
+            pkgs.jq
+            pkgs.coreutils
+          ]
+        }"
+        ${pkgs.bash}/bin/bash ${./tdarr-failure-summary.sh} 1
+      ''}";
+    };
+  };
+
+  systemd.timers.tdarr-failure-report = {
+    description = "Timer for Tdarr Daily Failure Summary";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 06:00:00";
+      Persistent = true;
     };
   };
 

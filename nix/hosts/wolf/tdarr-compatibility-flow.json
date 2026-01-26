@@ -1,8 +1,8 @@
 {
-  "_id": "nixos-h264-compat",
-  "name": "Compatibility - H264 MKV AAC",
-  "description": "Transcode to H.264 with Intel QSV for maximum device compatibility. Ensures MKV container and AAC audio track.",
-  "tags": "video,h264,compatibility,qsv,mkv,aac",
+  "_id": "nixos-audio-normalization",
+  "name": "Audio Normalization - AAC + Subtitle Cleanup",
+  "description": "Preserve original video codec. Add AAC audio tracks for device compatibility (iOS/web). Remove PGS/DVD subtitles that cannot direct-stream. Standardize on MKV container.",
+  "tags": "audio,aac,compatibility,mkv,subtitle-cleanup",
   "flowPlugins": [
     {
       "name": "Input File",
@@ -10,70 +10,27 @@
       "pluginName": "inputFile",
       "version": "1.0.0",
       "id": "input001",
-      "position": { "x": 400, "y": 50 }
+      "position": { "x": 400, "y": 100 }
     },
     {
-      "name": "Check Video Codec",
-      "sourceRepo": "Community",
-      "pluginName": "checkVideoCodec",
-      "version": "1.0.0",
-      "id": "chkcodec1",
-      "position": { "x": 400, "y": 150 },
-      "inputsDB": {
-        "codecs": "h264"
-      }
-    },
-    {
-      "name": "Check File Extension (MKV)",
-      "sourceRepo": "Community",
-      "pluginName": "checkFileExtension",
-      "version": "1.0.0",
-      "id": "chkext01",
-      "position": { "x": 200, "y": 250 },
-      "inputsDB": {
-        "extensions": "mkv"
-      }
-    },
-    {
-      "name": "Already H264 - Check Container",
-      "sourceRepo": "Community",
-      "pluginName": "checkFileExtension",
-      "version": "1.0.0",
-      "id": "chkext02",
-      "position": { "x": 600, "y": 250 },
-      "inputsDB": {
-        "extensions": "mkv"
-      }
-    },
-    {
-      "name": "FFmpeg Start (Transcode)",
+      "name": "FFmpeg Start",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandStart",
       "version": "1.0.0",
       "id": "ffstart1",
-      "position": { "x": 200, "y": 350 }
+      "position": { "x": 400, "y": 200 }
     },
     {
-      "name": "FFmpeg Start (Remux Only)",
+      "name": "Remove PGS/DVD Subtitles",
       "sourceRepo": "Community",
-      "pluginName": "ffmpegCommandStart",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
       "version": "1.0.0",
-      "id": "ffstart2",
-      "position": { "x": 600, "y": 350 }
-    },
-    {
-      "name": "Set H264 QSV Encoder",
-      "sourceRepo": "Community",
-      "pluginName": "ffmpegCommandSetVideoEncoder",
-      "version": "1.0.0",
-      "id": "setenc01",
-      "position": { "x": 200, "y": 450 },
+      "id": "rempgs01",
+      "position": { "x": 400, "y": 300 },
       "inputsDB": {
-        "videoEncoder": "h264_qsv",
-        "ffmpegPreset": "medium",
-        "ffmpegQuality": "22",
-        "hardwareDecoding": false,
-        "hardwareType": "qsv"
+        "propertyToCheck": "codec_name",
+        "valuesToRemove": "hdmv_pgs_subtitle,dvd_subtitle",
+        "condition": "include"
       }
     },
     {
@@ -82,29 +39,42 @@
       "pluginName": "ffmpegCommandSetContainer",
       "version": "1.0.0",
       "id": "setcont1",
-      "position": { "x": 200, "y": 550 },
+      "position": { "x": 400, "y": 400 },
       "inputsDB": {
         "container": "mkv"
       }
     },
     {
-      "name": "Set Container MKV (Remux)",
+      "name": "Check for EAC3 Audio",
       "sourceRepo": "Community",
-      "pluginName": "ffmpegCommandSetContainer",
+      "pluginName": "checkAudioCodec",
       "version": "1.0.0",
-      "id": "setcont2",
-      "position": { "x": 600, "y": 450 },
+      "id": "chkeac3-1",
+      "position": { "x": 400, "y": 500 },
       "inputsDB": {
-        "container": "mkv"
+        "codecs": "eac3"
       }
     },
     {
-      "name": "Ensure AAC Audio",
+      "name": "Add AAC 5.1 from EAC3",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandEnsureAudioStream",
+      "version": "1.0.0",
+      "id": "addaac51-1",
+      "position": { "x": 300, "y": 600 },
+      "inputsDB": {
+        "audioCodec": "aac",
+        "audioChannels": "6",
+        "audioBitrate": "384k"
+      }
+    },
+    {
+      "name": "Ensure AAC Stereo Fallback",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandEnsureAudioStream",
       "version": "1.0.0",
       "id": "ensaac1",
-      "position": { "x": 200, "y": 650 },
+      "position": { "x": 500, "y": 600 },
       "inputsDB": {
         "audioCodec": "aac",
         "audioChannels": "2",
@@ -112,174 +82,87 @@
       }
     },
     {
-      "name": "Ensure AAC Audio (Remux)",
-      "sourceRepo": "Community",
-      "pluginName": "ffmpegCommandEnsureAudioStream",
-      "version": "1.0.0",
-      "id": "ensaac2",
-      "position": { "x": 600, "y": 550 },
-      "inputsDB": {
-        "audioCodec": "aac",
-        "audioChannels": "2",
-        "audioBitrate": "192k"
-      }
-    },
-    {
-      "name": "Execute FFmpeg (Transcode)",
+      "name": "Execute FFmpeg",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandExecute",
       "version": "1.0.0",
       "id": "ffexec1",
-      "position": { "x": 200, "y": 750 }
+      "position": { "x": 400, "y": 700 }
     },
     {
-      "name": "Execute FFmpeg (Remux)",
-      "sourceRepo": "Community",
-      "pluginName": "ffmpegCommandExecute",
-      "version": "1.0.0",
-      "id": "ffexec2",
-      "position": { "x": 600, "y": 650 }
-    },
-    {
-      "name": "Replace Original (Transcode)",
+      "name": "Replace Original File",
       "sourceRepo": "Community",
       "pluginName": "replaceOriginalFile",
       "version": "1.0.0",
       "id": "replace1",
-      "position": { "x": 200, "y": 850 }
-    },
-    {
-      "name": "Replace Original (Remux)",
-      "sourceRepo": "Community",
-      "pluginName": "replaceOriginalFile",
-      "version": "1.0.0",
-      "id": "replace2",
-      "position": { "x": 600, "y": 750 }
-    },
-    {
-      "name": "Already Compliant - No Change",
-      "sourceRepo": "Community",
-      "pluginName": "comment",
-      "version": "1.0.0",
-      "id": "comment1",
-      "position": { "x": 800, "y": 350 },
-      "inputsDB": {
-        "comment": "File already H.264 in MKV container - no transcoding needed"
-      }
+      "position": { "x": 400, "y": 800 }
     }
   ],
   "flowEdges": [
     {
       "source": "input001",
       "sourceHandle": "1",
-      "target": "chkcodec1",
+      "target": "ffstart1",
       "targetHandle": null,
       "id": "e001"
     },
     {
-      "source": "chkcodec1",
+      "source": "ffstart1",
       "sourceHandle": "1",
-      "target": "chkext02",
+      "target": "rempgs01",
       "targetHandle": null,
       "id": "e002"
     },
     {
-      "source": "chkcodec1",
-      "sourceHandle": "2",
-      "target": "chkext01",
+      "source": "rempgs01",
+      "sourceHandle": "1",
+      "target": "setcont1",
       "targetHandle": null,
       "id": "e003"
     },
     {
-      "source": "chkext01",
+      "source": "setcont1",
       "sourceHandle": "1",
-      "target": "ffstart1",
+      "target": "chkeac3-1",
       "targetHandle": null,
       "id": "e004"
     },
     {
-      "source": "chkext01",
+      "source": "chkeac3-1",
+      "sourceHandle": "1",
+      "target": "addaac51-1",
+      "targetHandle": null,
+      "id": "e005",
+      "comment": "EAC3 found - add 5.1 AAC track"
+    },
+    {
+      "source": "chkeac3-1",
       "sourceHandle": "2",
-      "target": "ffstart1",
-      "targetHandle": null,
-      "id": "e005"
-    },
-    {
-      "source": "chkext02",
-      "sourceHandle": "1",
-      "target": "comment1",
-      "targetHandle": null,
-      "id": "e006"
-    },
-    {
-      "source": "chkext02",
-      "sourceHandle": "2",
-      "target": "ffstart2",
-      "targetHandle": null,
-      "id": "e007"
-    },
-    {
-      "source": "ffstart1",
-      "sourceHandle": "1",
-      "target": "setenc01",
-      "targetHandle": null,
-      "id": "e008"
-    },
-    {
-      "source": "setenc01",
-      "sourceHandle": "1",
-      "target": "setcont1",
-      "targetHandle": null,
-      "id": "e009"
-    },
-    {
-      "source": "setcont1",
-      "sourceHandle": "1",
       "target": "ensaac1",
       "targetHandle": null,
-      "id": "e010"
+      "id": "e006",
+      "comment": "No EAC3 - ensure stereo AAC exists"
+    },
+    {
+      "source": "addaac51-1",
+      "sourceHandle": "1",
+      "target": "ffexec1",
+      "targetHandle": null,
+      "id": "e007"
     },
     {
       "source": "ensaac1",
       "sourceHandle": "1",
       "target": "ffexec1",
       "targetHandle": null,
-      "id": "e011"
+      "id": "e008"
     },
     {
       "source": "ffexec1",
       "sourceHandle": "1",
       "target": "replace1",
       "targetHandle": null,
-      "id": "e012"
-    },
-    {
-      "source": "ffstart2",
-      "sourceHandle": "1",
-      "target": "setcont2",
-      "targetHandle": null,
-      "id": "e013"
-    },
-    {
-      "source": "setcont2",
-      "sourceHandle": "1",
-      "target": "ensaac2",
-      "targetHandle": null,
-      "id": "e014"
-    },
-    {
-      "source": "ensaac2",
-      "sourceHandle": "1",
-      "target": "ffexec2",
-      "targetHandle": null,
-      "id": "e015"
-    },
-    {
-      "source": "ffexec2",
-      "sourceHandle": "1",
-      "target": "replace2",
-      "targetHandle": null,
-      "id": "e016"
+      "id": "e009"
     }
   ]
 }
