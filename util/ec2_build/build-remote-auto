@@ -12,101 +12,101 @@ BUILD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Comprehensive cleanup function that ALWAYS runs
 cleanup() {
-  local exit_code=$?
+	local exit_code=$?
 
-  # Always attempt cleanup if we have the required variables
-  if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ] && [ -n "${AZ_INDEX:-}" ]; then
-    echo ""
-    echo "Cleanup triggered (exit code: $exit_code)"
+	# Always attempt cleanup if we have the required variables
+	if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ] && [ -n "${AZ_INDEX:-}" ]; then
+		echo ""
+		echo "Cleanup triggered (exit code: $exit_code)"
 
-    cd "$BUILD_DIR"
+		cd "$BUILD_DIR"
 
-    # Kill any background processes
-    jobs -p | xargs -r kill 2>/dev/null || true
+		# Kill any background processes
+		jobs -p | xargs -r kill 2>/dev/null || true
 
-    # Terraform destroy with retry
-    local max_attempts=3
-    local attempt=0
+		# Terraform destroy with retry
+		local max_attempts=3
+		local attempt=0
 
-    while [ $attempt -lt $max_attempts ]; do
-      if terraform destroy -auto-approve \
-        -var="instance_type=$INSTANCE_TYPE" \
-        -var="architecture=$AWS_ARCH" \
-        -var="availability_zone_index=$AZ_INDEX" \
-        -var="gccarch_feature=${TARGET_GCCARCH:-}" \
-        2>&1 | tee /tmp/terraform-destroy.log; then
-        echo "Instance terminated successfully"
-        rm -f /tmp/terraform-destroy.log
-        break
-      else
-        attempt=$((attempt + 1))
-        echo "WARNING: Destroy attempt $attempt/$max_attempts failed"
+		while [ $attempt -lt $max_attempts ]; do
+			if terraform destroy -auto-approve \
+				-var="instance_type=$INSTANCE_TYPE" \
+				-var="architecture=$AWS_ARCH" \
+				-var="availability_zone_index=$AZ_INDEX" \
+				-var="gccarch_feature=${TARGET_GCCARCH:-}" \
+				2>&1 | tee /tmp/terraform-destroy.log; then
+				echo "Instance terminated successfully"
+				rm -f /tmp/terraform-destroy.log
+				break
+			else
+				attempt=$((attempt + 1))
+				echo "WARNING: Destroy attempt $attempt/$max_attempts failed"
 
-        if [ $attempt -eq $max_attempts ]; then
-          echo "ERROR: Terraform destroy failed after $max_attempts attempts"
-          echo "EMERGENCY: Attempting direct AWS termination"
+				if [ $attempt -eq $max_attempts ]; then
+					echo "ERROR: Terraform destroy failed after $max_attempts attempts"
+					echo "EMERGENCY: Attempting direct AWS termination"
 
-          if command -v aws &> /dev/null; then
-            instance_id=$(terraform output -raw instance_id 2>/dev/null || echo "")
-            if [ -n "$instance_id" ]; then
-              echo "Terminating instance $instance_id directly..."
-              aws ec2 terminate-instances --instance-ids "$instance_id" || true
-            fi
-          fi
+					if command -v aws &>/dev/null; then
+						instance_id=$(terraform output -raw instance_id 2>/dev/null || echo "")
+						if [ -n "$instance_id" ]; then
+							echo "Terminating instance $instance_id directly..."
+							aws ec2 terminate-instances --instance-ids "$instance_id" || true
+						fi
+					fi
 
-          echo ""
-          echo "ERROR: MANUAL INTERVENTION MAY BE REQUIRED"
-          echo "   Directory: $BUILD_DIR"
-          echo "   Manual cleanup command:"
-          echo "     cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\" -var=\"availability_zone_index=$AZ_INDEX\" -var=\"gccarch_feature=${TARGET_GCCARCH:-}\""
-          echo "   Or run: ./emergency-cleanup"
-          echo ""
-          echo "Terraform destroy log:"
-          cat /tmp/terraform-destroy.log
-        else
-          sleep 5
-        fi
-      fi
-    done
-  fi
+					echo ""
+					echo "ERROR: MANUAL INTERVENTION MAY BE REQUIRED"
+					echo "   Directory: $BUILD_DIR"
+					echo "   Manual cleanup command:"
+					echo "     cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\" -var=\"availability_zone_index=$AZ_INDEX\" -var=\"gccarch_feature=${TARGET_GCCARCH:-}\""
+					echo "   Or run: ./emergency-cleanup"
+					echo ""
+					echo "Terraform destroy log:"
+					cat /tmp/terraform-destroy.log
+				else
+					sleep 5
+				fi
+			fi
+		done
+	fi
 
-  if [ $exit_code -ne 0 ]; then
-    echo "ERROR: Build failed with exit code $exit_code"
+	if [ $exit_code -ne 0 ]; then
+		echo "ERROR: Build failed with exit code $exit_code"
 
-    # If we have terraform variables set, print manual cleanup command
-    if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ] && [ -n "${AZ_INDEX:-}" ]; then
-      echo ""
-      echo "Manual cleanup command (if needed):"
-      echo "  cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\" -var=\"availability_zone_index=$AZ_INDEX\" -var=\"gccarch_feature=${TARGET_GCCARCH:-}\""
-      echo "  Or run: ./emergency-cleanup"
-    fi
-  fi
+		# If we have terraform variables set, print manual cleanup command
+		if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ] && [ -n "${AZ_INDEX:-}" ]; then
+			echo ""
+			echo "Manual cleanup command (if needed):"
+			echo "  cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\" -var=\"availability_zone_index=$AZ_INDEX\" -var=\"gccarch_feature=${TARGET_GCCARCH:-}\""
+			echo "  Or run: ./emergency-cleanup"
+		fi
+	fi
 
-  exit $exit_code
+	exit $exit_code
 }
 
 # Register cleanup for ALL exit conditions
-trap cleanup EXIT      # Normal exit
-trap cleanup INT       # Ctrl+C
-trap cleanup TERM      # Kill signal
-trap cleanup ERR       # Error (with set -e)
+trap cleanup EXIT # Normal exit
+trap cleanup INT  # Ctrl+C
+trap cleanup TERM # Kill signal
+trap cleanup ERR  # Error (with set -e)
 
 # Validate arguments
 if [ $# -lt 3 ]; then
-  echo "Usage: $0 <architecture> <min-vcpus> <build-target> [--family <family>]"
-  echo ""
-  echo "Arguments:"
-  echo "  architecture : System architecture (x86_64-linux or aarch64-linux)"
-  echo "  min-vcpus    : Minimum vCPUs needed (e.g., 32, 64, 96)"
-  echo "  build-target : Nix flake target to build"
-  echo "  --family     : Optional instance family (c6a, c7i, c6g, c7g)"
-  echo ""
-  echo "Examples:"
-  echo "  $0 x86_64-linux 96 .#nixosConfigurations.tiger.config.system.build.toplevel --family c6a"
-  echo "  $0 x86_64-linux 64 .#nixosConfigurations.dino.config.system.build.toplevel --family c7i"
-  echo ""
-  echo "This script automatically selects the best available spot instance."
-  exit 1
+	echo "Usage: $0 <architecture> <min-vcpus> <build-target> [--family <family>]"
+	echo ""
+	echo "Arguments:"
+	echo "  architecture : System architecture (x86_64-linux or aarch64-linux)"
+	echo "  min-vcpus    : Minimum vCPUs needed (e.g., 32, 64, 96)"
+	echo "  build-target : Nix flake target to build"
+	echo "  --family     : Optional instance family (c6a, c7i, c6g, c7g)"
+	echo ""
+	echo "Examples:"
+	echo "  $0 x86_64-linux 96 .#nixosConfigurations.tiger.config.system.build.toplevel --family c6a"
+	echo "  $0 x86_64-linux 64 .#nixosConfigurations.dino.config.system.build.toplevel --family c7i"
+	echo ""
+	echo "This script automatically selects the best available spot instance."
+	exit 1
 fi
 
 ARCH="$1"
@@ -117,47 +117,47 @@ FAMILY=""
 # Parse optional --family argument
 shift 3 || true
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    --family)
-      FAMILY="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1"
-      exit 1
-      ;;
-  esac
+	case $1 in
+	--family)
+		FAMILY="$2"
+		shift 2
+		;;
+	*)
+		echo "Unknown option: $1"
+		exit 1
+		;;
+	esac
 done
 
 # Validate architecture
-if [[ "$ARCH" != "x86_64-linux" ]] && [[ "$ARCH" != "aarch64-linux" ]]; then
-  echo "ERROR: Architecture must be 'x86_64-linux' or 'aarch64-linux'"
-  exit 1
+if [[ $ARCH != "x86_64-linux" ]] && [[ $ARCH != "aarch64-linux" ]]; then
+	echo "ERROR: Architecture must be 'x86_64-linux' or 'aarch64-linux'"
+	exit 1
 fi
 
 # Determine AWS architecture from Nix architecture
 AWS_ARCH="amd64"
-if [[ "$ARCH" == "aarch64-linux" ]]; then
-  AWS_ARCH="arm64"
+if [[ $ARCH == "aarch64-linux" ]]; then
+	AWS_ARCH="arm64"
 fi
 
 # Extract system name from build target for CPU architecture matching
 # Example: .#nixosConfigurations.dino.config... -> dino
 TARGET_SYSTEM=""
-if [[ "$BUILD_TARGET" =~ nixosConfigurations\.([^.]+) ]]; then
-  TARGET_SYSTEM="${BASH_REMATCH[1]}"
+if [[ $BUILD_TARGET =~ nixosConfigurations\.([^.]+) ]]; then
+	TARGET_SYSTEM="${BASH_REMATCH[1]}"
 fi
 
 # Map target system to required CPU architecture
 # This ensures the builder advertises features matching the target's requirements
 TARGET_GCCARCH=""
 case "$TARGET_SYSTEM" in
-  dino)
-    TARGET_GCCARCH="gccarch-alderlake"
-    ;;
-  tiger)
-    TARGET_GCCARCH="gccarch-znver3"
-    ;;
+dino)
+	TARGET_GCCARCH="gccarch-alderlake"
+	;;
+tiger)
+	TARGET_GCCARCH="gccarch-znver3"
+	;;
 esac
 
 echo "Analyzing spot instance availability..."
@@ -168,19 +168,19 @@ cd "$BUILD_DIR"
 # Run spot advisor to get best instance
 spot_output=$(mktemp)
 if [ -n "$FAMILY" ]; then
-  if ! ./select-best-spot "$AWS_ARCH" "$MIN_VCPUS" --family "$FAMILY" > "$spot_output"; then
-    echo "ERROR: Could not determine best spot instance"
-    cat "$spot_output"
-    rm -f "$spot_output"
-    exit 1
-  fi
+	if ! ./select-best-spot "$AWS_ARCH" "$MIN_VCPUS" --family "$FAMILY" >"$spot_output"; then
+		echo "ERROR: Could not determine best spot instance"
+		cat "$spot_output"
+		rm -f "$spot_output"
+		exit 1
+	fi
 else
-  if ! ./select-best-spot "$AWS_ARCH" "$MIN_VCPUS" > "$spot_output"; then
-    echo "ERROR: Could not determine best spot instance"
-    cat "$spot_output"
-    rm -f "$spot_output"
-    exit 1
-  fi
+	if ! ./select-best-spot "$AWS_ARCH" "$MIN_VCPUS" >"$spot_output"; then
+		echo "ERROR: Could not determine best spot instance"
+		cat "$spot_output"
+		rm -f "$spot_output"
+		exit 1
+	fi
 fi
 
 # Display the recommendation
@@ -190,16 +190,16 @@ echo ""
 # Extract recommended instance type from output
 INSTANCE_TYPE=$(grep "^Instance Type:" "$spot_output" | awk '{print $3}')
 if [ -z "$INSTANCE_TYPE" ]; then
-  echo "ERROR: Could not parse recommended instance type"
-  cat "$spot_output"
-  rm -f "$spot_output"
-  exit 1
+	echo "ERROR: Could not parse recommended instance type"
+	cat "$spot_output"
+	rm -f "$spot_output"
+	exit 1
 fi
 
 # Extract AZ index if available
 AZ_INDEX=0
 if grep -q "availability_zone_index=" "$spot_output"; then
-  AZ_INDEX=$(grep "availability_zone_index=" "$spot_output" | grep -oP 'availability_zone_index=\K[0-9]+' | head -1)
+	AZ_INDEX=$(grep "availability_zone_index=" "$spot_output" | grep -oP 'availability_zone_index=\K[0-9]+' | head -1)
 fi
 
 rm -f "$spot_output"
@@ -212,10 +212,10 @@ echo ""
 # Provision instance
 terraform init -upgrade
 terraform apply -auto-approve \
-  -var="instance_type=$INSTANCE_TYPE" \
-  -var="architecture=$AWS_ARCH" \
-  -var="availability_zone_index=$AZ_INDEX" \
-  -var="gccarch_feature=$TARGET_GCCARCH"
+	-var="instance_type=$INSTANCE_TYPE" \
+	-var="architecture=$AWS_ARCH" \
+	-var="availability_zone_index=$AZ_INDEX" \
+	-var="gccarch_feature=$TARGET_GCCARCH"
 
 echo ""
 echo "Manual cleanup command (if automatic cleanup fails):"
@@ -233,7 +233,7 @@ echo ""
 output_json="$(terraform output -json)"
 host=$(echo "$output_json" | jq -r '.ec2_dns.value')
 keypair_path=$(echo "$output_json" | jq -r '.keypair_file.value')
-keypair_path=$(realpath "$keypair_path")  # Ensure absolute path for nix build
+keypair_path=$(realpath "$keypair_path") # Ensure absolute path for nix build
 
 echo "Instance: $host"
 echo "SSH Key: $keypair_path"
@@ -243,17 +243,17 @@ echo "Waiting for SSH to be available..."
 max_attempts=60
 attempt=0
 until ssh -i "$keypair_path" \
-  -o ConnectTimeout=5 \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'echo SSH ready' 2>/dev/null; do
+	-o ConnectTimeout=5 \
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'echo SSH ready' 2>/dev/null; do
 
-  attempt=$((attempt + 1))
-  if [ $attempt -ge $max_attempts ]; then
-    echo "ERROR: Timeout waiting for SSH (${max_attempts} attempts)"
-    exit 1
-  fi
-  sleep 5
+	attempt=$((attempt + 1))
+	if [ $attempt -ge $max_attempts ]; then
+		echo "ERROR: Timeout waiting for SSH (${max_attempts} attempts)"
+		exit 1
+	fi
+	sleep 5
 done
 
 echo "SSH connection established"
@@ -261,9 +261,9 @@ echo "SSH connection established"
 # Get CPU count from the instance itself (most accurate)
 echo "Detecting CPU count..."
 cpu_count=$(ssh -i "$keypair_path" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'nproc --all')
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'nproc --all')
 
 echo "Instance has $cpu_count vCPUs"
 
@@ -275,9 +275,9 @@ sleep 30
 echo ""
 echo "===== DEBUG: Remote System Verification ====="
 ssh -i "$keypair_path" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" bash <<'VERIFY'
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" bash <<'VERIFY'
 echo "1. Checking amazon-init service status:"
 systemctl status amazon-init --no-pager 2>&1 || echo "   amazon-init service not found or failed"
 echo ""
@@ -309,9 +309,9 @@ echo ""
 # Fetch host key for security
 echo "Fetching host key..."
 host_key=$(ssh -i "$keypair_path" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub')
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub')
 
 # Determine GCC architecture features
 features="benchmark,big-parallel,kvm"
@@ -320,23 +320,23 @@ cpu_desc="Generic"
 # Use target system's required CPU architecture if available
 # This allows newer CPUs to build for older target architectures
 if [ -n "$TARGET_GCCARCH" ]; then
-  features="${features},${TARGET_GCCARCH}"
-  cpu_desc="${cpu_desc} (targeting ${TARGET_SYSTEM}: ${TARGET_GCCARCH})"
-  echo "Building for target system: $TARGET_SYSTEM (requires $TARGET_GCCARCH)"
+	features="${features},${TARGET_GCCARCH}"
+	cpu_desc="${cpu_desc} (targeting ${TARGET_SYSTEM}: ${TARGET_GCCARCH})"
+	echo "Building for target system: $TARGET_SYSTEM (requires $TARGET_GCCARCH)"
 else
-  # Fall back to instance-based detection
-  if [[ "$INSTANCE_TYPE" == c6a.* ]] || [[ "$INSTANCE_TYPE" == c7a.* ]]; then
-    # AMD EPYC (Zen 3/4)
-    features="${features},gccarch-znver3"
-    cpu_desc="AMD EPYC (Zen 3/4)"
-  elif [[ "$INSTANCE_TYPE" == c6i.* ]] || [[ "$INSTANCE_TYPE" == c7i.* ]]; then
-    # Intel Xeon (Ice Lake / Sapphire Rapids)
-    features="${features},gccarch-skylake"
-    cpu_desc="Intel Xeon (Ice Lake+)"
-  elif [[ "$INSTANCE_TYPE" == c6g.* ]] || [[ "$INSTANCE_TYPE" == c7g.* ]]; then
-    # ARM Graviton
-    cpu_desc="ARM Graviton"
-  fi
+	# Fall back to instance-based detection
+	if [[ $INSTANCE_TYPE == c6a.* ]] || [[ $INSTANCE_TYPE == c7a.* ]]; then
+		# AMD EPYC (Zen 3/4)
+		features="${features},gccarch-znver3"
+		cpu_desc="AMD EPYC (Zen 3/4)"
+	elif [[ $INSTANCE_TYPE == c6i.* ]] || [[ $INSTANCE_TYPE == c7i.* ]]; then
+		# Intel Xeon (Ice Lake / Sapphire Rapids)
+		features="${features},gccarch-skylake"
+		cpu_desc="Intel Xeon (Ice Lake+)"
+	elif [[ $INSTANCE_TYPE == c6g.* ]] || [[ $INSTANCE_TYPE == c7g.* ]]; then
+		# ARM Graviton
+		cpu_desc="ARM Graviton"
+	fi
 fi
 
 echo ""
@@ -351,14 +351,14 @@ echo ""
 
 # Build with remote builder
 echo "Starting remote build..."
-cd "$BUILD_DIR/../.."  # Back to dotfiles root
+cd "$BUILD_DIR/../.." # Back to dotfiles root
 
 nix build "$BUILD_TARGET" \
-  --max-jobs 0 \
-  --builders "ssh://root@${host}?ssh-key=${keypair_path} ${ARCH} - ${cpu_count} 1 ${features} - ${host_key}" \
-  --option builders-use-substitutes true \
-  --keep-going \
-  --log-format bar-with-logs
+	--max-jobs 0 \
+	--builders "ssh://root@${host}?ssh-key=${keypair_path} ${ARCH} - ${cpu_count} 1 ${features} - ${host_key}" \
+	--option builders-use-substitutes true \
+	--keep-going \
+	--log-format bar-with-logs
 
 echo ""
 echo "Build complete!"

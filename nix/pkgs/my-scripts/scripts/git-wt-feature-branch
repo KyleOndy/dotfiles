@@ -12,7 +12,7 @@ wt_root=$(require_worktree_repo)
 
 # Function to show help
 show_help() {
-  cat << 'EOF'
+	cat <<'EOF'
 usage: git wt-feature-branch <name> [base]
        git wt-feature-branch <ticket> <name> [base]
        git wt-feature-branch --existing <branch> [prefix]
@@ -61,86 +61,86 @@ Existing branch mode (--existing/-e flag):
 
 Notes:
   - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
-  - Work mode requires valid Jira format (PROJ-123)
-  - Existing mode accepts any prefix (JIRA tickets, TRIVIAL, CHORE, etc.)
+  - Work mode requires valid ticket format (PROJ-123)
+  - Existing mode accepts any prefix (Linear tickets, TRIVIAL, CHORE, etc.)
   - The script auto-detects mode based on flags and argument count
 EOF
-  exit 0
+	exit 0
 }
 
 # Check for help flags first
-if [[ "$1" == "-h" || "$1" == "--help" || $# -eq 0 ]]; then
-  show_help
+if [[ $1 == "-h" || $1 == "--help" || $# -eq 0 ]]; then
+	show_help
 fi
 
 # Auto-detect mode based on argument count and flags
-if [[ "$1" == "--existing" || "$1" == "-e" ]]; then
-  # EXISTING BRANCH MODE: Checkout existing branch into worktree
-  shift
-  branch_name="$1"
-  folder_prefix="${2:-}"  # Optional namespace/prefix
+if [[ $1 == "--existing" || $1 == "-e" ]]; then
+	# EXISTING BRANCH MODE: Checkout existing branch into worktree
+	shift
+	branch_name="$1"
+	folder_prefix="${2:-}" # Optional namespace/prefix
 
-  if [[ -z "$branch_name" ]]; then
-    die "Branch name required when using --existing"
-  fi
+	if [[ -z $branch_name ]]; then
+		die "Branch name required when using --existing"
+	fi
 
-  # Determine base branch using auto-detection
-  base_branch=$(get_default_branch)
+	# Determine base branch using auto-detection
+	base_branch=$(get_default_branch)
 
-  # Build worktree path based on optional prefix
-  if [[ -n "$folder_prefix" ]]; then
-    feature_path="${wt_root}/${folder_prefix}/${branch_name}"
-  else
-    feature_path="${wt_root}/${branch_name}"
-  fi
+	# Build worktree path based on optional prefix
+	if [[ -n $folder_prefix ]]; then
+		feature_path="${wt_root}/${folder_prefix}/${branch_name}"
+	else
+		feature_path="${wt_root}/${branch_name}"
+	fi
 
-  # Validate that branch exists (check local first, then remote)
-  log_info "Checking if branch exists..."
+	# Validate that branch exists (check local first, then remote)
+	log_info "Checking if branch exists..."
 
-  if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
-    # Local branch exists
-    branch_source="local"
-  elif git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
-    # Remote branch exists
-    branch_source="remote"
-  else
-    # Branch not found anywhere
-    log_error "Branch '${branch_name}' not found locally or in remote"
-    echo "" >&2
-    echo "Available local branches:" >&2
-    git branch --list | sed 's/^[\* ]*/  /' | head -10 >&2
-    echo "" >&2
-    echo "Available remote branches:" >&2
-    git branch -r | grep -v HEAD | sed 's/origin\//  /' | head -10 >&2
-    exit 1
-  fi
+	if git show-ref --verify --quiet "refs/heads/${branch_name}"; then
+		# Local branch exists
+		branch_source="local"
+	elif git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
+		# Remote branch exists
+		branch_source="remote"
+	else
+		# Branch not found anywhere
+		log_error "Branch '${branch_name}' not found locally or in remote"
+		echo "" >&2
+		echo "Available local branches:" >&2
+		git branch --list | sed 's/^[\* ]*/  /' | head -10 >&2
+		echo "" >&2
+		echo "Available remote branches:" >&2
+		git branch -r | grep -v HEAD | sed 's/origin\//  /' | head -10 >&2
+		exit 1
+	fi
 
-  # Set flag to indicate we're checking out existing branch
-  checkout_existing=true
+	# Set flag to indicate we're checking out existing branch
+	checkout_existing=true
 
-elif [[ $# -ge 2 ]] && is_valid_jira_ticket "${1^^}"; then
-  # WORK MODE: Ticket + name (detected by valid Jira ticket format)
-  ticket="${1^^}"  # Uppercase ticket
-  name="$2"
-  base_branch=${3:-$(get_default_branch)}
+elif [[ $# -ge 2 ]] && is_valid_ticket_id "${1^^}"; then
+	# WORK MODE: Ticket + name (detected by valid ticket ID format)
+	ticket="${1^^}" # Uppercase ticket
+	name="$2"
+	base_branch=${3:-$(get_default_branch)}
 
-  feature_path="${wt_root}/${ticket}/${name}"
-  branch_name="${ticket}-${name}"
-  checkout_existing=false
+	feature_path="${wt_root}/${ticket}/${name}"
+	branch_name="${ticket}-${name}"
+	checkout_existing=false
 
 elif [[ $# -eq 1 ]] || [[ $# -eq 2 ]]; then
-  # HOME MODE: name [base]
-  # Supports both simple names and nested paths
-  name="$1"
-  base_branch=${2:-$(get_default_branch)}
+	# HOME MODE: name [base]
+	# Supports both simple names and nested paths
+	name="$1"
+	base_branch=${2:-$(get_default_branch)}
 
-  feature_path="${wt_root}/${name}"
-  branch_name="${name//\//-}"  # Convert slashes to hyphens
-  checkout_existing=false
+	feature_path="${wt_root}/${name}"
+	branch_name="${name//\//-}" # Convert slashes to hyphens
+	checkout_existing=false
 
 else
-  # Ambiguous or invalid input
-  die "Invalid arguments. Use -h for help."
+	# Ambiguous or invalid input
+	die "Invalid arguments. Use -h for help."
 fi
 
 # Create worktree
@@ -148,40 +148,40 @@ log_info "Fetching latest from remote..."
 git fetch
 
 log_info "Creating worktree..."
-if [[ "$checkout_existing" == true ]]; then
-  # Checkout existing branch (no -b flag)
-  # For local branches, use the branch name directly
-  # For remote branches, use the branch name and it will track the remote
-  if [[ "$branch_source" == "local" ]]; then
-    git worktree add --no-checkout "$feature_path" "$branch_name"
-  else
-    # Remote branch - checkout will create local tracking branch
-    git worktree add --no-checkout "$feature_path" "$branch_name"
-  fi
+if [[ $checkout_existing == true ]]; then
+	# Checkout existing branch (no -b flag)
+	# For local branches, use the branch name directly
+	# For remote branches, use the branch name and it will track the remote
+	if [[ $branch_source == "local" ]]; then
+		git worktree add --no-checkout "$feature_path" "$branch_name"
+	else
+		# Remote branch - checkout will create local tracking branch
+		git worktree add --no-checkout "$feature_path" "$branch_name"
+	fi
 else
-  # Create new branch
-  git worktree add --no-checkout -b "${branch_name}" "$feature_path" "$base_branch"
+	# Create new branch
+	git worktree add --no-checkout -b "${branch_name}" "$feature_path" "$base_branch"
 fi
 
 # Set up git-crypt for new worktree if configured
 if git config --get filter.git-crypt.smudge &>/dev/null; then
-  log_info "Setting up git-crypt..."
+	log_info "Setting up git-crypt..."
 
-  # Get the worktree's git directory
-  worktree_git_dir=$(git -C "$feature_path" rev-parse --git-dir)
+	# Get the worktree's git directory
+	worktree_git_dir=$(git -C "$feature_path" rev-parse --git-dir)
 
-  # Create git-crypt keys directory
-  mkdir -p "$worktree_git_dir/git-crypt/keys"
+	# Create git-crypt keys directory
+	mkdir -p "$worktree_git_dir/git-crypt/keys"
 
-  # Decrypt the symmetric key from the repo using GPG
-  # Try each .gpg file (in case multiple collaborators) and use the first successful decryption
-  for gpg_key in .git-crypt/keys/default/0/*.gpg; do
-    if [ -f "$gpg_key" ]; then
-      if gpg --decrypt --quiet "$gpg_key" > "$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
-        break
-      fi
-    fi
-  done
+	# Decrypt the symmetric key from the repo using GPG
+	# Try each .gpg file (in case multiple collaborators) and use the first successful decryption
+	for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+		if [ -f "$gpg_key" ]; then
+			if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+				break
+			fi
+		fi
+	done
 fi
 
 # Checkout files after git-crypt is unlocked
@@ -191,10 +191,10 @@ log_info "Checking out files..."
 echo ""
 log_info "Created worktree: ${feature_path}"
 log_info "Branch: ${branch_name}"
-if [[ "$checkout_existing" == true ]]; then
-  log_info "Source: ${branch_source} branch"
+if [[ $checkout_existing == true ]]; then
+	log_info "Source: ${branch_source} branch"
 else
-  log_info "Based on: ${base_branch}"
+	log_info "Based on: ${base_branch}"
 fi
 echo ""
 echo "To start working:"

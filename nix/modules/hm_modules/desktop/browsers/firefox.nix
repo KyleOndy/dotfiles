@@ -40,6 +40,10 @@ in
             "extensions.pocket.enabled" = false;
             "browser.newtabpage.activity-stream.showSponsored" = false;
             "browser.newtabpage.activity-stream.showSponsoredTopSites" = false;
+            "browser.newtabpage.activity-stream.feeds.section.topstories" = false;
+            "browser.newtabpage.activity-stream.section.highlights.includePocket" = false;
+            "browser.newtabpage.activity-stream.feeds.recommendationprovider" = false;
+            "browser.newtabpage.activity-stream.discoverystream.enabled" = false;
 
             # WebRTC IP Leak Protection
             "media.peerconnection.ice.default_address_only" = true;

@@ -263,7 +263,7 @@
         };
 
         bazarr = {
-          enable = true;
+          enable = false;
           apiKeyFile = config.sops.secrets.bazarr_api_key.path;
         };
 
@@ -392,18 +392,6 @@
             ];
           }
           {
-            job_name = "exportarr-bazarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9712" ];
-                labels = {
-                  host = "wolf";
-                  service = "bazarr";
-                };
-              }
-            ];
-          }
-          {
             job_name = "exportarr-sabnzbd";
             static_configs = [
               {
@@ -455,7 +443,7 @@
     };
 
     bazarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "bazarr.apps.ondy.org";
       provisionCert = true;

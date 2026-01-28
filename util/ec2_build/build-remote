@@ -5,88 +5,88 @@ BUILD_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Comprehensive cleanup function that ALWAYS runs
 cleanup() {
-  local exit_code=$?
+	local exit_code=$?
 
-  # Always attempt cleanup if we have the required variables
-  if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ]; then
-    echo ""
-    echo "Cleanup triggered (exit code: $exit_code)"
+	# Always attempt cleanup if we have the required variables
+	if [ -n "${INSTANCE_TYPE:-}" ] && [ -n "${AWS_ARCH:-}" ]; then
+		echo ""
+		echo "Cleanup triggered (exit code: $exit_code)"
 
-    cd "$BUILD_DIR"
+		cd "$BUILD_DIR"
 
-    # Kill any background processes
-    jobs -p | xargs -r kill 2>/dev/null || true
+		# Kill any background processes
+		jobs -p | xargs -r kill 2>/dev/null || true
 
-    # Terraform destroy with retry
-    local max_attempts=3
-    local attempt=0
+		# Terraform destroy with retry
+		local max_attempts=3
+		local attempt=0
 
-    while [ $attempt -lt $max_attempts ]; do
-      if terraform destroy -auto-approve \
-        -var="instance_type=$INSTANCE_TYPE" \
-        -var="architecture=$AWS_ARCH" \
-        2>&1 | tee /tmp/terraform-destroy.log; then
-        echo "Instance terminated successfully"
-        rm -f /tmp/terraform-destroy.log
-        break
-      else
-        attempt=$((attempt + 1))
-        echo "WARNING: Destroy attempt $attempt/$max_attempts failed"
+		while [ $attempt -lt $max_attempts ]; do
+			if terraform destroy -auto-approve \
+				-var="instance_type=$INSTANCE_TYPE" \
+				-var="architecture=$AWS_ARCH" \
+				2>&1 | tee /tmp/terraform-destroy.log; then
+				echo "Instance terminated successfully"
+				rm -f /tmp/terraform-destroy.log
+				break
+			else
+				attempt=$((attempt + 1))
+				echo "WARNING: Destroy attempt $attempt/$max_attempts failed"
 
-        if [ $attempt -eq $max_attempts ]; then
-          echo "ERROR: Terraform destroy failed after $max_attempts attempts"
-          echo "EMERGENCY: Attempting direct AWS termination"
+				if [ $attempt -eq $max_attempts ]; then
+					echo "ERROR: Terraform destroy failed after $max_attempts attempts"
+					echo "EMERGENCY: Attempting direct AWS termination"
 
-          if command -v aws &> /dev/null; then
-            instance_id=$(terraform output -raw instance_id 2>/dev/null || echo "")
-            if [ -n "$instance_id" ]; then
-              echo "Terminating instance $instance_id directly..."
-              aws ec2 terminate-instances --instance-ids "$instance_id" || true
-            fi
-          fi
+					if command -v aws &>/dev/null; then
+						instance_id=$(terraform output -raw instance_id 2>/dev/null || echo "")
+						if [ -n "$instance_id" ]; then
+							echo "Terminating instance $instance_id directly..."
+							aws ec2 terminate-instances --instance-ids "$instance_id" || true
+						fi
+					fi
 
-          echo ""
-          echo "ERROR: MANUAL INTERVENTION MAY BE REQUIRED"
-          echo "   Directory: $BUILD_DIR"
-          echo "   Manual cleanup command:"
-          echo "     cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\""
-          echo "   Or run: ./emergency-cleanup"
-          echo ""
-          echo "Terraform destroy log:"
-          cat /tmp/terraform-destroy.log
-        else
-          sleep 5
-        fi
-      fi
-    done
-  fi
+					echo ""
+					echo "ERROR: MANUAL INTERVENTION MAY BE REQUIRED"
+					echo "   Directory: $BUILD_DIR"
+					echo "   Manual cleanup command:"
+					echo "     cd $BUILD_DIR && terraform destroy -auto-approve -var=\"instance_type=$INSTANCE_TYPE\" -var=\"architecture=$AWS_ARCH\""
+					echo "   Or run: ./emergency-cleanup"
+					echo ""
+					echo "Terraform destroy log:"
+					cat /tmp/terraform-destroy.log
+				else
+					sleep 5
+				fi
+			fi
+		done
+	fi
 
-  if [ $exit_code -ne 0 ]; then
-    echo "ERROR: Build failed with exit code $exit_code"
-  fi
+	if [ $exit_code -ne 0 ]; then
+		echo "ERROR: Build failed with exit code $exit_code"
+	fi
 
-  exit $exit_code
+	exit $exit_code
 }
 
 # Register cleanup for ALL exit conditions
-trap cleanup EXIT      # Normal exit
-trap cleanup INT       # Ctrl+C
-trap cleanup TERM      # Kill signal
-trap cleanup ERR       # Error (with set -e)
+trap cleanup EXIT # Normal exit
+trap cleanup INT  # Ctrl+C
+trap cleanup TERM # Kill signal
+trap cleanup ERR  # Error (with set -e)
 
 # Validate arguments
 if [ $# -lt 3 ]; then
-  echo "Usage: $0 <instance-type> <architecture> <build-target>"
-  echo ""
-  echo "Arguments:"
-  echo "  instance-type  : EC2 instance type (e.g., c6a.24xlarge, c7i.16xlarge)"
-  echo "  architecture   : System architecture (x86_64-linux or aarch64-linux)"
-  echo "  build-target   : Nix flake target to build"
-  echo ""
-  echo "Examples:"
-  echo "  $0 c6a.24xlarge x86_64-linux .#nixosConfigurations.tiger.config.system.build.toplevel"
-  echo "  $0 c7g.16xlarge aarch64-linux .#myPackage"
-  exit 1
+	echo "Usage: $0 <instance-type> <architecture> <build-target>"
+	echo ""
+	echo "Arguments:"
+	echo "  instance-type  : EC2 instance type (e.g., c6a.24xlarge, c7i.16xlarge)"
+	echo "  architecture   : System architecture (x86_64-linux or aarch64-linux)"
+	echo "  build-target   : Nix flake target to build"
+	echo ""
+	echo "Examples:"
+	echo "  $0 c6a.24xlarge x86_64-linux .#nixosConfigurations.tiger.config.system.build.toplevel"
+	echo "  $0 c7g.16xlarge aarch64-linux .#myPackage"
+	exit 1
 fi
 
 INSTANCE_TYPE="$1"
@@ -94,15 +94,15 @@ ARCH="$2"
 BUILD_TARGET="$3"
 
 # Validate architecture
-if [[ "$ARCH" != "x86_64-linux" ]] && [[ "$ARCH" != "aarch64-linux" ]]; then
-  echo "ERROR: Architecture must be 'x86_64-linux' or 'aarch64-linux'"
-  exit 1
+if [[ $ARCH != "x86_64-linux" ]] && [[ $ARCH != "aarch64-linux" ]]; then
+	echo "ERROR: Architecture must be 'x86_64-linux' or 'aarch64-linux'"
+	exit 1
 fi
 
 # Determine AWS architecture from Nix architecture
 AWS_ARCH="amd64"
-if [[ "$ARCH" == "aarch64-linux" ]]; then
-  AWS_ARCH="arm64"
+if [[ $ARCH == "aarch64-linux" ]]; then
+	AWS_ARCH="arm64"
 fi
 
 echo "Provisioning $INSTANCE_TYPE builder for $ARCH..."
@@ -113,8 +113,8 @@ cd "$BUILD_DIR"
 # Provision instance
 terraform init -upgrade
 terraform apply -auto-approve \
-  -var="instance_type=$INSTANCE_TYPE" \
-  -var="architecture=$AWS_ARCH"
+	-var="instance_type=$INSTANCE_TYPE" \
+	-var="architecture=$AWS_ARCH"
 
 echo ""
 echo "Manual cleanup command (if automatic cleanup fails):"
@@ -125,7 +125,7 @@ echo ""
 output_json="$(terraform output -json)"
 host=$(echo "$output_json" | jq -r '.ec2_dns.value')
 keypair_path=$(echo "$output_json" | jq -r '.keypair_file.value')
-keypair_path=$(realpath "$keypair_path")  # Ensure absolute path for nix build
+keypair_path=$(realpath "$keypair_path") # Ensure absolute path for nix build
 
 echo "Instance: $host"
 echo "SSH Key: $keypair_path"
@@ -135,17 +135,17 @@ echo "Waiting for SSH to be available..."
 max_attempts=60
 attempt=0
 until ssh -i "$keypair_path" \
-  -o ConnectTimeout=5 \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'echo SSH ready' 2>/dev/null; do
+	-o ConnectTimeout=5 \
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'echo SSH ready' 2>/dev/null; do
 
-  attempt=$((attempt + 1))
-  if [ $attempt -ge $max_attempts ]; then
-    echo "ERROR: Timeout waiting for SSH (${max_attempts} attempts)"
-    exit 1
-  fi
-  sleep 5
+	attempt=$((attempt + 1))
+	if [ $attempt -ge $max_attempts ]; then
+		echo "ERROR: Timeout waiting for SSH (${max_attempts} attempts)"
+		exit 1
+	fi
+	sleep 5
 done
 
 echo "SSH connection established"
@@ -153,34 +153,34 @@ echo "SSH connection established"
 # Get CPU count from the instance itself (most accurate)
 echo "Detecting CPU count..."
 cpu_count=$(ssh -i "$keypair_path" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'nproc --all')
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'nproc --all')
 
 echo "Instance has $cpu_count vCPUs"
 
 # Fetch host key for security
 echo "Fetching host key..."
 host_key=$(ssh -i "$keypair_path" \
-  -o StrictHostKeyChecking=no \
-  -o UserKnownHostsFile=/dev/null \
-  "root@$host" 'base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub')
+	-o StrictHostKeyChecking=no \
+	-o UserKnownHostsFile=/dev/null \
+	"root@$host" 'base64 -w0 /etc/ssh/ssh_host_ed25519_key.pub')
 
 # Determine GCC architecture features based on instance family
 features="benchmark,big-parallel,kvm"
 cpu_desc="Generic"
 
-if [[ "$INSTANCE_TYPE" == c6a.* ]] || [[ "$INSTANCE_TYPE" == c7a.* ]]; then
-  # AMD EPYC (Zen 3/4)
-  features="${features},gccarch-znver3"
-  cpu_desc="AMD EPYC (Zen 3/4)"
-elif [[ "$INSTANCE_TYPE" == c6i.* ]] || [[ "$INSTANCE_TYPE" == c7i.* ]]; then
-  # Intel Xeon (Ice Lake / Sapphire Rapids)
-  features="${features},gccarch-skylake"
-  cpu_desc="Intel Xeon (Ice Lake+)"
-elif [[ "$INSTANCE_TYPE" == c6g.* ]] || [[ "$INSTANCE_TYPE" == c7g.* ]]; then
-  # ARM Graviton
-  cpu_desc="ARM Graviton"
+if [[ $INSTANCE_TYPE == c6a.* ]] || [[ $INSTANCE_TYPE == c7a.* ]]; then
+	# AMD EPYC (Zen 3/4)
+	features="${features},gccarch-znver3"
+	cpu_desc="AMD EPYC (Zen 3/4)"
+elif [[ $INSTANCE_TYPE == c6i.* ]] || [[ $INSTANCE_TYPE == c7i.* ]]; then
+	# Intel Xeon (Ice Lake / Sapphire Rapids)
+	features="${features},gccarch-skylake"
+	cpu_desc="Intel Xeon (Ice Lake+)"
+elif [[ $INSTANCE_TYPE == c6g.* ]] || [[ $INSTANCE_TYPE == c7g.* ]]; then
+	# ARM Graviton
+	cpu_desc="ARM Graviton"
 fi
 
 echo ""
@@ -195,13 +195,13 @@ echo ""
 
 # Build with remote builder
 echo "Starting remote build..."
-cd "$BUILD_DIR/../.."  # Back to dotfiles root
+cd "$BUILD_DIR/../.." # Back to dotfiles root
 
 nix build "$BUILD_TARGET" \
-  --max-jobs 0 \
-  --builders "ssh://root@${host}?ssh-key=${keypair_path} ${ARCH} - ${cpu_count} 1 ${features} - ${host_key}" \
-  --keep-going \
-  --log-format bar-with-logs
+	--max-jobs 0 \
+	--builders "ssh://root@${host}?ssh-key=${keypair_path} ${ARCH} - ${cpu_count} 1 ${features} - ${host_key}" \
+	--keep-going \
+	--log-format bar-with-logs
 
 echo ""
 echo "Build complete!"

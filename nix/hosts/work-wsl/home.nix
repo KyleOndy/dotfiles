@@ -23,6 +23,9 @@
 
     # Build tools for WSL (clang and cmake are provided by dev/core.nix)
     gnumake
+
+    # Linear CLI for issue tracking
+    linear-cli
   ];
 
   # WSL-specific shell configuration
@@ -38,7 +41,7 @@
     };
 
     sessionVariables = {
-      # Enable work context for shell completions (Jira tickets, etc.)
+      # Enable work context for shell completions (Linear tickets, etc.)
       DOTS_CONTEXT = "work";
 
       # Use Windows browser for opening URLs

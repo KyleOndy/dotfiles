@@ -57,3 +57,11 @@ autocmd("TermOpen", {
     vim.cmd([[highlight TermCursor ctermfg=red]])
   end,
 })
+
+-- Mojo file type detection
+autocmd({ "BufRead", "BufNewFile" }, {
+  pattern = { "*.mojo", "*.🔥" },
+  callback = function()
+    vim.bo.filetype = "mojo"
+  end,
+})

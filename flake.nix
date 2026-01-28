@@ -38,6 +38,7 @@
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
     };
+    mac-app-util.url = "github:hraban/mac-app-util";
   };
   outputs =
     { self, ... }@inputs:
@@ -213,6 +214,7 @@
           modules = [
             ./nix/hosts/${hostname}/configuration.nix
             inputs.home-manager.darwinModules.home-manager
+            inputs.mac-app-util.darwinModules.default
           ]
           ++ includeModules
           ++ [
@@ -232,6 +234,7 @@
                   sharedModules =
                     hmCoreModules
                     ++ [ nixCatsHomeModule ]
+                    ++ [ inputs.mac-app-util.homeManagerModules.default ]
                     ++ (
                       if isDesktop then
                         hmDesktopModules
@@ -268,6 +271,7 @@
                 excludes = [ "flake.lock" ];
               };
               shellcheck.enable = true;
+              shfmt.enable = true;
               stylua.enable = true;
               pkg_version = {
                 enable = false;
@@ -461,7 +465,7 @@
       darwinConfigurations.work-mac = mkDarwinSystem {
         hostname = "work-mac";
         profile = "desktop";
-        username = "kyle.ondy";
+        username = "kondy";
       };
 
       homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
@@ -514,6 +518,7 @@
           bear = {
             fastConnection = false;
             hostname = "147.135.8.156";
+            confirmTimeout = 60;
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";

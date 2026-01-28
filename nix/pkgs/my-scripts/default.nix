@@ -4,6 +4,7 @@
   stdenv,
   pkgs,
   ffmpeg,
+  gawk,
 }:
 
 stdenv.mkDerivation {
@@ -14,6 +15,7 @@ stdenv.mkDerivation {
 
   buildInputs = [
     ffmpeg
+    gawk
   ];
 
   installPhase = ''
@@ -34,6 +36,10 @@ stdenv.mkDerivation {
         -exec cp -pL {} $out/share/zsh/site-functions \;
 
     sed -i -e "s|source dots_common\.bash|source $out/share/zsh/site-functions/dots_common\.bash|" $out/share/zsh/site-functions/* || true
+
+    # Replace gawk with absolute Nix store path for runtime availability
+    substituteInPlace $out/share/zsh/site-functions/dots_common.bash \
+      --replace-fail "gawk" "${gawk}/bin/gawk"
   '';
 
   meta = with lib; {

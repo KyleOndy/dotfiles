@@ -10,8 +10,8 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 set_strict_mode
 
 # Show help text
-if [[ "$1" == "-h" || "$1" == "--help" || $# -eq 0 ]]; then
-  cat << 'EOF'
+if [[ $1 == "-h" || $1 == "--help" || $# -eq 0 ]]; then
+	cat <<'EOF'
 usage: git wt-clone <url> [name]
 
 Clone a repository and set it up for git worktree workflow.
@@ -34,7 +34,7 @@ Examples:
 
 After cloning, use git wt-feature-branch to create feature worktrees.
 EOF
-  exit 0
+	exit 0
 fi
 
 readonly url=$1
@@ -42,13 +42,13 @@ readonly basename=${url##*/}
 readonly name=${2:-${basename%.*}}
 
 # Validate inputs
-if [[ -z "$url" ]]; then
-  die "Repository URL required
+if [[ -z $url ]]; then
+	die "Repository URL required
 Usage: git wt-clone <url> [name]"
 fi
 
-if [[ -e "$name" ]]; then
-  die "Directory '$name' already exists"
+if [[ -e $name ]]; then
+	die "Directory '$name' already exists"
 fi
 
 # Detect default branch
@@ -66,7 +66,7 @@ log_info "Cloning repository..."
 git clone --bare "$url" .bare
 
 # Set up git directory pointer
-echo "gitdir: ./.bare" > .git
+echo "gitdir: ./.bare" >.git
 
 # Configure remote fetch
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
@@ -80,23 +80,23 @@ git worktree add --no-checkout "$default_branch" "$default_branch"
 
 # Set up git-crypt for new worktree if configured
 if git config --get filter.git-crypt.smudge &>/dev/null; then
-  log_info "Setting up git-crypt..."
+	log_info "Setting up git-crypt..."
 
-  # Get the worktree's git directory
-  worktree_git_dir=$(git -C "$default_branch" rev-parse --git-dir)
+	# Get the worktree's git directory
+	worktree_git_dir=$(git -C "$default_branch" rev-parse --git-dir)
 
-  # Create git-crypt keys directory
-  mkdir -p "$worktree_git_dir/git-crypt/keys"
+	# Create git-crypt keys directory
+	mkdir -p "$worktree_git_dir/git-crypt/keys"
 
-  # Decrypt the symmetric key from the repo using GPG
-  # Try each .gpg file (in case multiple collaborators) and use the first successful decryption
-  for gpg_key in .git-crypt/keys/default/0/*.gpg; do
-    if [ -f "$gpg_key" ]; then
-      if gpg --decrypt --quiet "$gpg_key" > "$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
-        break
-      fi
-    fi
-  done
+	# Decrypt the symmetric key from the repo using GPG
+	# Try each .gpg file (in case multiple collaborators) and use the first successful decryption
+	for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+		if [ -f "$gpg_key" ]; then
+			if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+				break
+			fi
+		fi
+	done
 fi
 
 # Checkout files after git-crypt is unlocked

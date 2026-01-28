@@ -15,104 +15,104 @@ FAMILY=""
 # Parse optional --family argument
 shift 2 || true
 while [[ $# -gt 0 ]]; do
-  case $1 in
-    --family)
-      FAMILY="$2"
-      shift 2
-      ;;
-    *)
-      echo "Unknown option: $1"
-      exit 1
-      ;;
-  esac
+	case $1 in
+	--family)
+		FAMILY="$2"
+		shift 2
+		;;
+	*)
+		echo "Unknown option: $1"
+		exit 1
+		;;
+	esac
 done
 
 if [ -n "$FAMILY" ]; then
-  echo "Finding best $FAMILY spot instance for $ARCH with >=$MIN_VCPUS vCPUs in $REGION..."
+	echo "Finding best $FAMILY spot instance for $ARCH with >=$MIN_VCPUS vCPUs in $REGION..."
 else
-  echo "Finding best spot instance for $ARCH with >=$MIN_VCPUS vCPUs in $REGION..."
+	echo "Finding best spot instance for $ARCH with >=$MIN_VCPUS vCPUs in $REGION..."
 fi
 echo ""
 
 # Define instance families with vCPU counts
-if [[ "$ARCH" == "amd64" ]]; then
-  # AMD EPYC and Intel instances
-  declare -A INSTANCE_VCPUS=(
-    ["c6a.xlarge"]=4
-    ["c6a.2xlarge"]=8
-    ["c6a.4xlarge"]=16
-    ["c6a.8xlarge"]=32
-    ["c6a.12xlarge"]=48
-    ["c6a.16xlarge"]=64
-    ["c6a.24xlarge"]=96
-    ["c6a.32xlarge"]=128
-    ["c6a.48xlarge"]=192
-    ["c7i.xlarge"]=4
-    ["c7i.2xlarge"]=8
-    ["c7i.4xlarge"]=16
-    ["c7i.8xlarge"]=32
-    ["c7i.12xlarge"]=48
-    ["c7i.16xlarge"]=64
-    ["c7i.24xlarge"]=96
-    ["c7i.48xlarge"]=192
-    ["c6i.xlarge"]=4
-    ["c6i.2xlarge"]=8
-    ["c6i.4xlarge"]=16
-    ["c6i.8xlarge"]=32
-    ["c6i.12xlarge"]=48
-    ["c6i.16xlarge"]=64
-    ["c6i.24xlarge"]=96
-    ["c6i.32xlarge"]=128
-  )
-  PRODUCT="Linux/UNIX"
-elif [[ "$ARCH" == "arm64" ]]; then
-  # ARM Graviton instances
-  declare -A INSTANCE_VCPUS=(
-    ["c6g.xlarge"]=4
-    ["c6g.2xlarge"]=8
-    ["c6g.4xlarge"]=16
-    ["c6g.8xlarge"]=32
-    ["c6g.12xlarge"]=48
-    ["c6g.16xlarge"]=64
-    ["c7g.xlarge"]=4
-    ["c7g.2xlarge"]=8
-    ["c7g.4xlarge"]=16
-    ["c7g.8xlarge"]=32
-    ["c7g.12xlarge"]=48
-    ["c7g.16xlarge"]=64
-  )
-  PRODUCT="Linux/UNIX"
+if [[ $ARCH == "amd64" ]]; then
+	# AMD EPYC and Intel instances
+	declare -A INSTANCE_VCPUS=(
+		["c6a.xlarge"]=4
+		["c6a.2xlarge"]=8
+		["c6a.4xlarge"]=16
+		["c6a.8xlarge"]=32
+		["c6a.12xlarge"]=48
+		["c6a.16xlarge"]=64
+		["c6a.24xlarge"]=96
+		["c6a.32xlarge"]=128
+		["c6a.48xlarge"]=192
+		["c7i.xlarge"]=4
+		["c7i.2xlarge"]=8
+		["c7i.4xlarge"]=16
+		["c7i.8xlarge"]=32
+		["c7i.12xlarge"]=48
+		["c7i.16xlarge"]=64
+		["c7i.24xlarge"]=96
+		["c7i.48xlarge"]=192
+		["c6i.xlarge"]=4
+		["c6i.2xlarge"]=8
+		["c6i.4xlarge"]=16
+		["c6i.8xlarge"]=32
+		["c6i.12xlarge"]=48
+		["c6i.16xlarge"]=64
+		["c6i.24xlarge"]=96
+		["c6i.32xlarge"]=128
+	)
+	PRODUCT="Linux/UNIX"
+elif [[ $ARCH == "arm64" ]]; then
+	# ARM Graviton instances
+	declare -A INSTANCE_VCPUS=(
+		["c6g.xlarge"]=4
+		["c6g.2xlarge"]=8
+		["c6g.4xlarge"]=16
+		["c6g.8xlarge"]=32
+		["c6g.12xlarge"]=48
+		["c6g.16xlarge"]=64
+		["c7g.xlarge"]=4
+		["c7g.2xlarge"]=8
+		["c7g.4xlarge"]=16
+		["c7g.8xlarge"]=32
+		["c7g.12xlarge"]=48
+		["c7g.16xlarge"]=64
+	)
+	PRODUCT="Linux/UNIX"
 else
-  echo "ERROR: Architecture must be 'amd64' or 'arm64'"
-  exit 1
+	echo "ERROR: Architecture must be 'amd64' or 'arm64'"
+	exit 1
 fi
 
 # Filter instances that meet vCPU requirement and optional family filter
 CANDIDATE_INSTANCES=()
 for instance in "${!INSTANCE_VCPUS[@]}"; do
-  # Check vCPU requirement
-  if [ "${INSTANCE_VCPUS[$instance]}" -lt "$MIN_VCPUS" ]; then
-    continue
-  fi
+	# Check vCPU requirement
+	if [ "${INSTANCE_VCPUS[$instance]}" -lt "$MIN_VCPUS" ]; then
+		continue
+	fi
 
-  # Check family filter if specified
-  if [ -n "$FAMILY" ]; then
-    instance_family=$(echo "$instance" | cut -d'.' -f1)
-    if [ "$instance_family" != "$FAMILY" ]; then
-      continue
-    fi
-  fi
+	# Check family filter if specified
+	if [ -n "$FAMILY" ]; then
+		instance_family=$(echo "$instance" | cut -d'.' -f1)
+		if [ "$instance_family" != "$FAMILY" ]; then
+			continue
+		fi
+	fi
 
-  CANDIDATE_INSTANCES+=("$instance")
+	CANDIDATE_INSTANCES+=("$instance")
 done
 
 if [ ${#CANDIDATE_INSTANCES[@]} -eq 0 ]; then
-  if [ -n "$FAMILY" ]; then
-    echo "ERROR: No $FAMILY instances found with >=$MIN_VCPUS vCPUs"
-  else
-    echo "ERROR: No instances found with >=$MIN_VCPUS vCPUs"
-  fi
-  exit 1
+	if [ -n "$FAMILY" ]; then
+		echo "ERROR: No $FAMILY instances found with >=$MIN_VCPUS vCPUs"
+	else
+		echo "ERROR: No instances found with >=$MIN_VCPUS vCPUs"
+	fi
+	exit 1
 fi
 
 echo "Checking spot availability for ${#CANDIDATE_INSTANCES[@]} candidate instances..."
@@ -120,70 +120,70 @@ echo ""
 
 # Get current spot prices
 prices=$(aws ec2 describe-spot-price-history \
-  --region "$REGION" \
-  --instance-types "${CANDIDATE_INSTANCES[@]}" \
-  --product-descriptions "$PRODUCT" \
-  --max-items 100 \
-  --query 'SpotPriceHistory[*].[InstanceType,SpotPrice,AvailabilityZone]' \
-  --output text 2>/dev/null || echo "")
+	--region "$REGION" \
+	--instance-types "${CANDIDATE_INSTANCES[@]}" \
+	--product-descriptions "$PRODUCT" \
+	--max-items 100 \
+	--query 'SpotPriceHistory[*].[InstanceType,SpotPrice,AvailabilityZone]' \
+	--output text 2>/dev/null || echo "")
 
 if [ -z "$prices" ]; then
-  echo "ERROR: Could not retrieve spot price data. Check AWS credentials."
-  exit 1
+	echo "ERROR: Could not retrieve spot price data. Check AWS credentials."
+	exit 1
 fi
 
 # Get unique prices per instance type (latest only)
 declare -A INSTANCE_PRICES
 declare -A INSTANCE_AZS
 while read -r instance price az; do
-  if [ -z "${INSTANCE_PRICES[$instance]:-}" ]; then
-    INSTANCE_PRICES[$instance]=$price
-    # shellcheck disable=SC2034  # INSTANCE_AZS reserved for future AZ-aware selection
-    INSTANCE_AZS[$instance]=$az
-  fi
-done <<< "$prices"
+	if [ -z "${INSTANCE_PRICES[$instance]:-}" ]; then
+		INSTANCE_PRICES[$instance]=$price
+		# shellcheck disable=SC2034  # INSTANCE_AZS reserved for future AZ-aware selection
+		INSTANCE_AZS[$instance]=$az
+	fi
+done <<<"$prices"
 
 # Calculate spot placement scores if we have enough instances
 BEST_AZ=""
 BEST_AZ_SCORE=0
 
 if [ ${#CANDIDATE_INSTANCES[@]} -ge 3 ]; then
-  echo "Calculating spot placement scores..."
+	echo "Calculating spot placement scores..."
 
-  # Use up to 5 instances for scoring (AWS recommendation)
-  score_instances=("${CANDIDATE_INSTANCES[@]:0:5}")
+	# Use up to 5 instances for scoring (AWS recommendation)
+	score_instances=("${CANDIDATE_INSTANCES[@]:0:5}")
 
-  # Get list of AZs in this region for filtering
-  region_azs=$(aws ec2 describe-availability-zones \
-    --region "$REGION" \
-    --query 'AvailabilityZones[*].ZoneId' \
-    --output text 2>/dev/null || echo "")
+	# Get list of AZs in this region for filtering
+	region_azs=$(aws ec2 describe-availability-zones \
+		--region "$REGION" \
+		--query 'AvailabilityZones[*].ZoneId' \
+		--output text 2>/dev/null || echo "")
 
-  placement_scores=$(aws ec2 get-spot-placement-scores \
-    --region "$REGION" \
-    --instance-types "${score_instances[@]}" \
-    --target-capacity 1 \
-    --single-availability-zone \
-    --query 'SpotPlacementScores[*].[AvailabilityZoneId,Score]' \
-    --output text 2>/dev/null || echo "")
+	placement_scores=$(aws ec2 get-spot-placement-scores \
+		--region "$REGION" \
+		--instance-types "${score_instances[@]}" \
+		--target-capacity 1 \
+		--single-availability-zone \
+		--query 'SpotPlacementScores[*].[AvailabilityZoneId,Score]' \
+		--output text 2>/dev/null || echo "")
 
-  if [ -n "$placement_scores" ] && [ -n "$region_azs" ]; then
-    # Find AZ with highest score, filtering to only AZs in this region
-    while read -r az_id score; do
-      # Check if this AZ is in our region
-      if echo "$region_azs" | grep -qw "$az_id"; then
-        if (( $(echo "$score > $BEST_AZ_SCORE" | bc -l 2>/dev/null || echo "0") )); then
-          BEST_AZ=$az_id
-          BEST_AZ_SCORE=$score
-        fi
-      fi
-    done <<< "$placement_scores"
+	if [ -n "$placement_scores" ] && [ -n "$region_azs" ]; then
+		# Find AZ with highest score, filtering to only AZs in this region
+		while read -r az_id score; do
+			# Check if this AZ is in our region
+			if echo "$region_azs" | grep -qw "$az_id"; then
+				if (($(echo "$score > $BEST_AZ_SCORE" | bc -l 2>/dev/null || echo "0"))); then
+					BEST_AZ=$az_id
+					BEST_AZ_SCORE=$score
+				fi
+			fi
+		done <<<"$placement_scores"
 
-    if [ -n "$BEST_AZ" ]; then
-      echo "Best AZ: $BEST_AZ (score: $BEST_AZ_SCORE/10)"
-      echo ""
-    fi
-  fi
+		if [ -n "$BEST_AZ" ]; then
+			echo "Best AZ: $BEST_AZ (score: $BEST_AZ_SCORE/10)"
+			echo ""
+		fi
+	fi
 fi
 
 # Rank instances by price (lower is better for cost)
@@ -192,20 +192,20 @@ echo "---------------------------------------------------"
 
 RANKED_INSTANCES=()
 for instance in "${CANDIDATE_INSTANCES[@]}"; do
-  # Only rank instances we have price data for
-  if [ -z "${INSTANCE_PRICES[$instance]:-}" ]; then
-    continue
-  fi
+	# Only rank instances we have price data for
+	if [ -z "${INSTANCE_PRICES[$instance]:-}" ]; then
+		continue
+	fi
 
-  price="${INSTANCE_PRICES[$instance]}"
-  vcpus="${INSTANCE_VCPUS[$instance]}"
-  price_per_vcpu=$(awk "BEGIN {printf \"%.6f\", $price / $vcpus}")
-  RANKED_INSTANCES+=("$price_per_vcpu|$price|$instance|$vcpus")
+	price="${INSTANCE_PRICES[$instance]}"
+	vcpus="${INSTANCE_VCPUS[$instance]}"
+	price_per_vcpu=$(awk "BEGIN {printf \"%.6f\", $price / $vcpus}")
+	RANKED_INSTANCES+=("$price_per_vcpu|$price|$instance|$vcpus")
 done
 
 if [ ${#RANKED_INSTANCES[@]} -eq 0 ]; then
-  echo "ERROR: No pricing data available for candidate instances"
-  exit 1
+	echo "ERROR: No pricing data available for candidate instances"
+	exit 1
 fi
 
 # Sort by absolute price (cheapest first)
@@ -215,15 +215,15 @@ unset IFS
 
 # Display ranked options
 for i in "${!SORTED[@]}"; do
-  IFS='|' read -r price_per_vcpu price instance vcpus <<< "${SORTED[$i]}"
-  printf "%d. %-18s %3d vCPUs  $%.4f/hr  ($%.6f per vCPU)\n" \
-    $((i+1)) "$instance" "$vcpus" "$price" "$price_per_vcpu"
+	IFS='|' read -r price_per_vcpu price instance vcpus <<<"${SORTED[$i]}"
+	printf "%d. %-18s %3d vCPUs  $%.4f/hr  ($%.6f per vCPU)\n" \
+		$((i + 1)) "$instance" "$vcpus" "$price" "$price_per_vcpu"
 done
 
 echo ""
 
 # Select best instance (cheapest absolute price that meets requirements)
-IFS='|' read -r price_per_vcpu price best_instance vcpus <<< "${SORTED[0]}"
+IFS='|' read -r price_per_vcpu price best_instance vcpus <<<"${SORTED[0]}"
 
 # Determine CPU features and description for the selected instance
 instance_family=$(echo "$best_instance" | cut -d'.' -f1)
@@ -231,22 +231,22 @@ cpu_features=""
 cpu_description=""
 
 case "$instance_family" in
-  c6a|c7a)
-    cpu_features="gccarch-znver3"
-    cpu_description="AMD EPYC (Zen 3/4)"
-    ;;
-  c6i|c7i)
-    cpu_features="gccarch-skylake"
-    cpu_description="Intel Xeon (Ice Lake / Sapphire Rapids)"
-    ;;
-  c6g|c7g)
-    cpu_features=""
-    cpu_description="ARM Graviton"
-    ;;
-  *)
-    cpu_features=""
-    cpu_description="Generic"
-    ;;
+c6a | c7a)
+	cpu_features="gccarch-znver3"
+	cpu_description="AMD EPYC (Zen 3/4)"
+	;;
+c6i | c7i)
+	cpu_features="gccarch-skylake"
+	cpu_description="Intel Xeon (Ice Lake / Sapphire Rapids)"
+	;;
+c6g | c7g)
+	cpu_features=""
+	cpu_description="ARM Graviton"
+	;;
+*)
+	cpu_features=""
+	cpu_description="Generic"
+	;;
 esac
 
 echo "RECOMMENDATION:"
@@ -254,42 +254,44 @@ echo "==============="
 echo "Instance Type:    $best_instance"
 echo "Instance Family:  $instance_family ($cpu_description)"
 if [ -n "$cpu_features" ]; then
-  echo "CPU Features:     $cpu_features"
+	echo "CPU Features:     $cpu_features"
 fi
 echo "vCPUs:            $vcpus"
 echo "Spot Price:       \$$price/hour"
 echo "Architecture:     $ARCH"
 if [ -n "$BEST_AZ" ]; then
-  echo "Best AZ:          $BEST_AZ (score: $BEST_AZ_SCORE/10)"
+	echo "Best AZ:          $BEST_AZ (score: $BEST_AZ_SCORE/10)"
 fi
 echo ""
 
 # Map AZ ID to index
 if [ -n "$BEST_AZ" ]; then
-  # Get list of all AZs in region
-  all_azs=$(aws ec2 describe-availability-zones \
-    --region "$REGION" \
-    --query 'AvailabilityZones[*].ZoneId' \
-    --output text)
+	# Get list of all AZs in region
+	all_azs=$(aws ec2 describe-availability-zones \
+		--region "$REGION" \
+		--query 'AvailabilityZones[*].ZoneId' \
+		--output text)
 
-  az_index=0
-  for az in $all_azs; do
-    if [ "$az" == "$BEST_AZ" ]; then
-      break
-    fi
-    az_index=$((az_index + 1))
-  done
+	az_index=0
+	for az in $all_azs; do
+		if [ "$az" == "$BEST_AZ" ]; then
+			break
+		fi
+		az_index=$((az_index + 1))
+	done
 
-  echo "Terraform command:"
-  echo "terraform apply -auto-approve \\"
-  echo "  -var=\"instance_type=$best_instance\" \\"
-  echo "  -var=\"architecture=$ARCH\" \\"
-  echo "  -var=\"availability_zone_index=$az_index\""
+	echo "Terraform command:"
+	# shellcheck disable=SC1003
+	echo 'terraform apply -auto-approve' '\'
+	echo "  -var=\"instance_type=$best_instance\" \\"
+	echo "  -var=\"architecture=$ARCH\" \\"
+	echo "  -var=\"availability_zone_index=$az_index\""
 else
-  echo "Terraform command:"
-  echo "terraform apply -auto-approve \\"
-  echo "  -var=\"instance_type=$best_instance\" \\"
-  echo "  -var=\"architecture=$ARCH\""
+	echo "Terraform command:"
+	# shellcheck disable=SC1003
+	echo 'terraform apply -auto-approve' '\'
+	echo "  -var=\"instance_type=$best_instance\" \\"
+	echo "  -var=\"architecture=$ARCH\""
 fi
 
 echo ""

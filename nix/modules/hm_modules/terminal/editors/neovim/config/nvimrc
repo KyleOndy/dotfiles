@@ -67,6 +67,9 @@ if has("persistent_undo")
     set undofile
 endif
 
+" Disable undo for temp files - paths too long and undo not needed
+autocmd BufWritePre /tmp/*,/private/var/folders/* setlocal noundofile
+
 " Give more space for displaying messages. Useful for diagnostics
 set cmdheight=2
 

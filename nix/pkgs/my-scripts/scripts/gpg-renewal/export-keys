@@ -5,12 +5,12 @@ dte=$(date +%Y-%m-%d)
 backup_location="${1}/${dte}"
 mkdir "$backup_location"
 
-gpg --armor --export kyle@ondy.org > "${backup_location}/public.key"
-gpg --armor --export-secret-keys kyle@ondy.org > "${backup_location}/secret.key"
-gpg --armor --export-secret-subkeys kyle@ondy.org > "${backup_location}/secret-subkeys.key"
+gpg --armor --export kyle@ondy.org >"${backup_location}/public.key"
+gpg --armor --export-secret-keys kyle@ondy.org >"${backup_location}/secret.key"
+gpg --armor --export-secret-subkeys kyle@ondy.org >"${backup_location}/secret-subkeys.key"
 printf "y
 0
 I've lost control of this key
 
 y
-" | gpg --command-fd 0 --status-fd 2 --generate-revocation kyle@ondy.org > "${backup_location}/revocation"
+" | gpg --command-fd 0 --status-fd 2 --generate-revocation kyle@ondy.org >"${backup_location}/revocation"

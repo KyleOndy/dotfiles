@@ -109,6 +109,13 @@ in
         set-option -g pane-border-indicators both
         set-option -g pane-border-lines heavy
 
+        # Dim inactive panes to highlight the active one
+        set -g window-style 'bg=colour236'
+        set -g window-active-style 'bg=colour235'
+
+        # Copy-mode selection/cursor style (orange to match theme)
+        set-option -g mode-style "bg=colour214,fg=colour235,bold"
+
         ## Theme settings mixed with colors (unfortunately, but there is no cleaner way)
         set-option -g status-justify "left"
         set-option -g status-left-style none

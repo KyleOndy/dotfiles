@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -e
 
-sudo kill -9 "$(ps ax | rg 'coreaudio[a-z]'  | awk '{print $1}')"
+sudo kill -9 "$(ps ax | rg 'coreaudio[a-z]' | awk '{print $1}')"

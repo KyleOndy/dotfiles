@@ -238,6 +238,31 @@ nvim_lsp.lua_ls.setup({
   },
 })
 
+-- Configure clangd (C/C++ Language Server)
+nvim_lsp.clangd.setup({
+  on_attach = on_attach,
+  cmd = { "clangd", "--background-index", "--clang-tidy" },
+})
+
+-- Configure MLIR Language Server
+nvim_lsp.mlir_lsp_server.setup({
+  on_attach = on_attach,
+})
+
+-- Configure Ruff (Python linting/formatting)
+nvim_lsp.ruff.setup({
+  on_attach = function(client, bufnr)
+    -- Disable hover to avoid conflicts with pyright
+    client.server_capabilities.hoverProvider = false
+    on_attach(client, bufnr)
+  end,
+})
+
+-- Configure Mojo Language Server (requires mojo-lsp-server from Modular)
+nvim_lsp.mojo.setup({
+  on_attach = on_attach,
+})
+
 -- Set up other simple LSP servers
 local servers = {
   "clojure_lsp",

@@ -19,20 +19,19 @@ life_expectancy=75
 
 birth_timestamp=$(date -d "$birthdate" +%s)
 current_timestamp=$(date +%s)
-weeks_passed=$(( (current_timestamp - birth_timestamp) / 604800 ))
+weeks_passed=$(((current_timestamp - birth_timestamp) / 604800))
 total_weeks=$((life_expectancy * 52))
 weeks_remaining=$((total_weeks - weeks_passed))
-spent=$(( weeks_passed * 100 / total_weeks ))
+spent=$((weeks_passed * 100 / total_weeks))
 width=$(tput cols)
 red_blocks=$((weeks_passed * width / total_weeks))
 
 echo "$name, only $weeks_remaining Sundays remain - $spent% ($weeks_passed) Sundays spent"
-for (( block=0; block<width; block++ )); do
-  if (( block <= red_blocks ))
-  then
-    echo -ne "${COLOR_BLOCK_RED}"
-  else
-    echo -ne "${COLOR_BLOCK_GREEN}"
-  fi
+for ((block = 0; block < width; block++)); do
+	if ((block <= red_blocks)); then
+		echo -ne "${COLOR_BLOCK_RED}"
+	else
+		echo -ne "${COLOR_BLOCK_GREEN}"
+	fi
 done
 echo

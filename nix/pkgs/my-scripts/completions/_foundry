@@ -33,7 +33,7 @@ _foundry() {
     (args)
       case $line[1] in
         (w|work|workon)
-          _arguments "1: :(($(_jira_tickets_cached)))" && ret=0
+          _arguments "1: :(($(_linear_tickets_cached)))" && ret=0
           ;;
       esac
   esac

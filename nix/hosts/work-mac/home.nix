@@ -46,9 +46,10 @@
     # Disable all desktop features to isolate i686 issue
     apps.discord.enable = lib.mkForce false;
     apps.slack.enable = lib.mkForce false;
-    browsers.firefox.enable = lib.mkForce false;
+    browsers.firefox.enable = lib.mkForce true;
     gaming.steam.enable = lib.mkForce false;
     term.foot.enable = lib.mkForce false;
+    term.alacritty.enable = true;
     term.wezterm.enable = lib.mkForce false;
     wm.i3.enable = lib.mkForce false;
     media = {
@@ -64,17 +65,49 @@
     pcStyle.enable = true;
   };
 
-  # Enable work context for shell completions (Jira tickets, etc.)
+  # Enable Hammerspoon for app quick-switching
+  hmFoundry.desktop.input.hammerspoon = {
+    enable = true;
+    extraConfig = ''
+      -- Forward delete moves to trash in Finder
+      hs.hotkey.bind({}, "forwarddelete", function()
+        local app = hs.application.frontmostApplication()
+        if app:bundleID() == "com.apple.finder" then
+          hs.eventtap.keyStroke({"cmd"}, "delete")
+        end
+      end)
+    '';
+  };
+
+  # Enable work context for shell completions (Linear tickets, etc.)
   home.sessionVariables = {
     DOTS_CONTEXT = "work";
   };
 
-  # Enable Java development tools for work
-  hmFoundry.dev.java.enable = true;
+  # Enable development modules
+  hmFoundry.dev = {
+    git.userEmail = "kondy@modular.com";
+    java.enable = true;
+    claude-code.enable = true;
+    kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
+    nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
+    sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils
+    go.installGo = false; # Use Homebrew Go for CGO compatibility on macOS
+
+    # Enable Colima background service
+    docker.service = {
+      enable = true;
+      cpu = 4;
+      memory = 8;
+      disk = 100;
+    };
+  };
 
   # packages I use at work, but not persoanlly, that do not need to be kept
   # secret in the work fork.
   home.packages = with pkgs; [
-    k9s
+    # k9s now provided by kubernetes module
+    linear-cli
+    gh # GitHub CLI
   ];
 }

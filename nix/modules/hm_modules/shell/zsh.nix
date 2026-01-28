@@ -56,6 +56,7 @@ in
           tree1 = "tree -L 1 $@";
           tree2 = "tree -L 2 $@";
           tree3 = "tree -L 3 $@";
+          work = "cd ${config.home.homeDirectory}/work";
           y = "bat --language yaml $@";
           ygron = "yq --output-format=props"; # like gron, for yaml
         };
@@ -430,6 +431,26 @@ in
               done
 
               ${pkgs.git}/bin/git "$@"
+            }
+
+            linear() {
+              # Wrapper for linear CLI that fetches API key from pass
+              # Only available in work context
+              if [[ "''${DOTS_CONTEXT:-home}" != "work" ]]; then
+                echo "Error: Linear CLI is only available in work context" >&2
+                return 1
+              fi
+
+              # Get API key from pass
+              local api_key
+              if ! api_key=$(${pkgs.pass}/bin/pass linear.app/kondy@modular.com/api_key 2>/dev/null); then
+                echo "Error: Failed to retrieve Linear API key from pass" >&2
+                echo "Expected key path: linear.app/kondy@modular.com/api_key" >&2
+                return 1
+              fi
+
+              # Call actual linear binary with API key set
+              LINEAR_API_KEY="$api_key" ${pkgs.linear-cli}/bin/linear "$@"
             }
 
             # tmux-fzf config

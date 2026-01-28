@@ -18,6 +18,10 @@
       nixd # Nix language server (feature-rich, nixpkgs-aware)
       # Alternative: nil (faster but limited nixpkgs docs)
       lua-language-server # Lua LSP (for neovim config)
+      clang-tools # clangd + clang-format for C/C++
+      llvmPackages.mlir # mlir-lsp-server for MLIR
+      ruff # Python linting/formatting LSP
+      bazel-buildtools # buildifier for Bazel/Starlark
       # Tools
       ripgrep
       fd
@@ -55,6 +59,10 @@
         p.diff
         p.git_rebase
         p.comment
+        p.c
+        p.cpp
+        p.mlir
+        p.starlark
       ]))
       # Fuzzy finder
       telescope-nvim
@@ -101,6 +109,7 @@
       vim-gnupg
       vim-helm
       vim-hocon
+      vim-bazel
       # UI
       which-key-nvim
     ];
