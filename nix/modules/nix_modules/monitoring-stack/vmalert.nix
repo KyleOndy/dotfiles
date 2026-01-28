@@ -157,16 +157,6 @@ in
                 summary: "Prowlarr service is down on wolf"
                 description: "Prowlarr has been unavailable for 5 minutes"
 
-            - alert: BazarrDown
-              expr: node_systemd_unit_state{host="wolf",name="bazarr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: bazarr
-              annotations:
-                summary: "Bazarr service is down on wolf"
-                description: "Bazarr has been unavailable for 5 minutes"
-
             - alert: SABnzbdDown
               expr: node_systemd_unit_state{host="wolf",name="sabnzbd.service",state="active"} != 1
               for: 5m
@@ -273,7 +263,7 @@ in
                 service: sonarr
               annotations:
                 summary: "Sonarr queue appears stalled"
-                description: "Sonarr queue has not changed in 30 minutes with {{ $value }} items"
+                description: "Sonarr queue has items stuck - no movement in 30 minutes"
 
             - alert: RadarrQueueHigh
               expr: radarr_queue_total > 50
@@ -293,7 +283,7 @@ in
                 service: radarr
               annotations:
                 summary: "Radarr queue appears stalled"
-                description: "Radarr queue has not changed in 30 minutes with {{ $value }} items"
+                description: "Radarr queue has items stuck - no movement in 30 minutes"
 
             - alert: SABnzbdQueueHigh
               expr: sabnzbd_queue_total > 20

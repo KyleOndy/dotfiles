@@ -117,6 +117,7 @@ in
         golang = {
           disabled = false;
           format = "via [$symbol($version )]($style)";
+          detect_folders = [ ]; # Don't scan for Go directories - faster
         };
 
         # Google Cloud project

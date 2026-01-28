@@ -14,7 +14,7 @@ let
     "^com\\.googlecode\\.iterm2$"
     "^co\\.zeit\\.hyperterm$"
     "^co\\.zeit\\.hyper$"
-    "^io\\.alacritty$"
+    "^org\\.alacritty$" # Updated from io.alacritty to match Home Manager installation
     "^net\\.kovidgoyal\\.kitty$"
   ];
 
@@ -54,7 +54,7 @@ let
     {
       description = "Kensington Expert Trackball Button Remapping";
       manipulators = [
-        # Bottom-left button (button3) -> Left click (button1)
+        # Top-left button (button3) -> Region screenshot (cmd+shift+4)
         {
           type = "basic";
           from = {
@@ -62,7 +62,11 @@ let
           };
           to = [
             {
-              pointing_button = "button1";
+              key_code = "4";
+              modifiers = [
+                "left_command"
+                "left_shift"
+              ];
             }
           ];
           conditions = [
@@ -71,7 +75,7 @@ let
               identifiers = [
                 {
                   vendor_id = 1149; # Kensington
-                  product_id = 32794; # Expert Trackball
+                  product_id = 4128; # Expert Mouse/Trackball (0x1020)
                 }
               ];
             }
@@ -94,13 +98,13 @@ let
               identifiers = [
                 {
                   vendor_id = 1149;
-                  product_id = 32794;
+                  product_id = 4128; # Expert Mouse/Trackball (0x1020)
                 }
               ];
             }
           ];
         }
-        # Top-left button (button1) -> Region screenshot (cmd+shift+4)
+        # Bottom-left button (button1) -> Left click (button1)
         {
           type = "basic";
           from = {
@@ -108,11 +112,7 @@ let
           };
           to = [
             {
-              key_code = "4";
-              modifiers = [
-                "left_command"
-                "left_shift"
-              ];
+              pointing_button = "button1";
             }
           ];
           conditions = [
@@ -121,7 +121,7 @@ let
               identifiers = [
                 {
                   vendor_id = 1149;
-                  product_id = 32794;
+                  product_id = 4128; # Expert Mouse/Trackball (0x1020)
                 }
               ];
             }
@@ -191,6 +191,28 @@ let
             key_code = "t";
             modifiers = [ "left_command" ];
           }) # New Tab
+          # Reopen closed tab (Ctrl+Shift+T -> Cmd+Shift+T)
+          (mkManipulator {
+            from = {
+              key_code = "t";
+              modifiers = {
+                mandatory = [
+                  "control"
+                  "shift"
+                ];
+              };
+            };
+            to = [
+              {
+                key_code = "t";
+                modifiers = [
+                  "left_command"
+                  "left_shift"
+                ];
+              }
+            ];
+            conditions = [ (mkExclusionCondition terminalApps) ];
+          })
           (mkShortcut "f" {
             key_code = "f";
             modifiers = [ "left_command" ];
@@ -634,6 +656,21 @@ let
             }
           ];
         })
+        # Shift+Insert -> Cmd+V (paste, PC/Linux style)
+        (mkManipulator {
+          from = {
+            key_code = "insert";
+            modifiers = {
+              mandatory = [ "shift" ];
+            };
+          };
+          to = [
+            {
+              key_code = "v";
+              modifiers = [ "left_command" ];
+            }
+          ];
+        })
       ];
     }
   ];
@@ -654,9 +691,23 @@ let
       {
         name = "Default";
         selected = true;
+        virtual_hid_keyboard = {
+          keyboard_type_v2 = cfg.keyboardType;
+        };
         complex_modifications = {
           rules = allRules;
         };
+        devices = optionals cfg.kensingtonExpert.enable [
+          {
+            identifiers = {
+              vendor_id = 1149;
+              product_id = 4128;
+              is_pointing_device = true;
+            };
+            ignore = false;
+            manipulate_caps_lock_led = false;
+          }
+        ];
       }
     ];
   };
@@ -666,6 +717,16 @@ in
 {
   options.hmFoundry.desktop.input.karabiner = {
     enable = mkEnableOption "Karabiner-Elements configuration";
+
+    keyboardType = mkOption {
+      type = types.enum [
+        "ansi"
+        "iso"
+        "jis"
+      ];
+      default = "ansi";
+      description = "Keyboard type for virtual HID keyboard";
+    };
 
     kensingtonExpert = {
       enable = mkEnableOption "Kensington Expert Trackball button remapping";
@@ -718,9 +779,12 @@ in
 
   config = mkIf (pkgs.stdenv.isDarwin && cfg.enable) {
     # Create Karabiner config if any feature is enabled
-    home.file.".config/karabiner/karabiner.json" = mkIf (
-      cfg.kensingtonExpert.enable || cfg.pcStyle.enable
-    ) { text = karabinerConfigJson; };
+    home.file.".config/karabiner/karabiner.json" =
+      mkIf (cfg.kensingtonExpert.enable || cfg.pcStyle.enable)
+        {
+          text = karabinerConfigJson;
+          force = true;
+        };
 
     # Note: Karabiner-Elements itself should be installed via Homebrew
     # See work-mac configuration.nix for the homebrew.casks configuration

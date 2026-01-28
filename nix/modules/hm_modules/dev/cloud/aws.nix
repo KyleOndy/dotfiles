@@ -19,7 +19,7 @@ in
       awscli2
     ];
 
-    programs.zsh.initExtra = ''
+    programs.zsh.initContent = ''
       # AWS CLI completion requires bashcompinit for bash-style completers
       autoload -Uz bashcompinit && bashcompinit
       complete -C '${pkgs.awscli2}/bin/aws_completer' aws

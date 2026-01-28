@@ -16,24 +16,24 @@ echo ""
 # Test GPG signing to unlock YubiKey GPG key
 log_highlight "Testing GPG signing (will prompt for YubiKey PIN)..."
 if echo "test" | gpg --clearsign --default-key DB0E3C33491F91C9 >/dev/null 2>&1; then
-    log_info "GPG signing successful - YubiKey unlocked"
+	log_info "GPG signing successful - YubiKey unlocked"
 else
-    log_error "GPG signing failed"
+	log_error "GPG signing failed"
 fi
 echo ""
 
 # Test SSH authentication to unlock SSH key
 log_highlight "Testing SSH authentication (will prompt for SSH key passphrase)..."
 if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
-    log_info "SSH authentication successful - SSH agent unlocked"
+	log_info "SSH authentication successful - SSH agent unlocked"
 else
-    # Try to add the key explicitly if connection failed but might be for other reasons
-    if ssh-add -l >/dev/null 2>&1; then
-        log_info "SSH keys already in agent"
-    else
-        ssh-add
-        log_info "SSH key added to agent"
-    fi
+	# Try to add the key explicitly if connection failed but might be for other reasons
+	if ssh-add -l >/dev/null 2>&1; then
+		log_info "SSH keys already in agent"
+	else
+		ssh-add
+		log_info "SSH key added to agent"
+	fi
 fi
 echo ""
 
@@ -42,18 +42,18 @@ echo ""
 
 # Read GPG agent cache settings from config
 if [ -f ~/.gnupg/gpg-agent.conf ]; then
-    default_ttl=$(grep -E "^default-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
-    default_ttl_ssh=$(grep -E "^default-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
-    max_ttl=$(grep -E "^max-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
-    max_ttl_ssh=$(grep -E "^max-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+	default_ttl=$(grep -E "^default-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+	default_ttl_ssh=$(grep -E "^default-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+	max_ttl=$(grep -E "^max-cache-ttl " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
+	max_ttl_ssh=$(grep -E "^max-cache-ttl-ssh " ~/.gnupg/gpg-agent.conf | awk '{print $2}')
 
-    echo "GPG Agent Cache Settings:"
-    echo "  - GPG Key Default TTL: $(seconds_to_human "$default_ttl") (${default_ttl}s)"
-    echo "  - GPG Key Max TTL: $(seconds_to_human "$max_ttl") (${max_ttl}s)"
-    echo "  - SSH Key Default TTL: $(seconds_to_human "$default_ttl_ssh") (${default_ttl_ssh}s)"
-    echo "  - SSH Key Max TTL: $(seconds_to_human "$max_ttl_ssh") (${max_ttl_ssh}s)"
+	echo "GPG Agent Cache Settings:"
+	echo "  - GPG Key Default TTL: $(seconds_to_human "$default_ttl") (${default_ttl}s)"
+	echo "  - GPG Key Max TTL: $(seconds_to_human "$max_ttl") (${max_ttl}s)"
+	echo "  - SSH Key Default TTL: $(seconds_to_human "$default_ttl_ssh") (${default_ttl_ssh}s)"
+	echo "  - SSH Key Max TTL: $(seconds_to_human "$max_ttl_ssh") (${max_ttl_ssh}s)"
 else
-    echo "GPG Agent config not found at ~/.gnupg/gpg-agent.conf"
+	echo "GPG Agent config not found at ~/.gnupg/gpg-agent.conf"
 fi
 echo ""
 

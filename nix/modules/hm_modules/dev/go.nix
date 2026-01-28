@@ -10,13 +10,24 @@ let
 in
 {
   options.hmFoundry.dev.go = {
-    enable = mkEnableOption "golang";
+    enable = mkEnableOption "golang development tools";
+
+    installGo = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether to install Go itself. Set to false to use system/Homebrew Go.";
+    };
   };
 
   config = mkIf cfg.enable {
-    programs.go = {
+    programs.go = mkIf cfg.installGo {
       enable = true;
       package = pkgs.go;
     };
+
+    home.packages = with pkgs; [
+      golangci-lint
+      ko
+    ];
   };
 }

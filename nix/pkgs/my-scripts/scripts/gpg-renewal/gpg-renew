@@ -2,7 +2,7 @@
 
 # Show help message
 show_help() {
-    cat <<EOF
+	cat <<EOF
 GPG Key Renewal Script
 
 Usage: $(basename "$0") [OPTIONS] <backup-parent-directory>
@@ -48,9 +48,9 @@ EOF
 }
 
 # Check for help flag before sourcing libraries
-if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-    show_help
-    exit 0
+if [[ ${1:-} == "-h" || ${1:-} == "--help" ]]; then
+	show_help
+	exit 0
 fi
 
 # Source common library
@@ -65,10 +65,10 @@ readonly KEYID="kyle@ondy.org"
 readonly FINGERPRINT="3C799D26057B64E6D907B0ACDB0E3C33491F91C9"
 readonly EXPIRY="100d"
 readonly KEYSERVERS=(
-    "hkps://keys.openpgp.org"
-    "hkps://keyserver.ubuntu.com"
-    "hkp://pgp.mit.edu"
-    "hkp://keys.gnupg.net"
+	"hkps://keys.openpgp.org"
+	"hkps://keyserver.ubuntu.com"
+	"hkp://pgp.mit.edu"
+	"hkp://keys.gnupg.net"
 )
 
 # Global variables
@@ -80,117 +80,117 @@ PASSPHRASE=""
 
 # Cleanup function
 cleanup() {
-    if [[ -d "${GNUPGHOME:-}" && "$GNUPGHOME" == /run/user/*/gpg-renew.* || "$GNUPGHOME" == /dev/shm/gpg-renew.* || "$GNUPGHOME" == /tmp/gpg-renew.* ]]; then
-        log_info "Cleaning up temporary GNUPGHOME: $GNUPGHOME"
-        rm -rf "$GNUPGHOME"
-    fi
+	if [[ -d ${GNUPGHOME:-} && $GNUPGHOME == /run/user/*/gpg-renew.* || $GNUPGHOME == /dev/shm/gpg-renew.* || $GNUPGHOME == /tmp/gpg-renew.* ]]; then
+		log_info "Cleaning up temporary GNUPGHOME: $GNUPGHOME"
+		rm -rf "$GNUPGHOME"
+	fi
 }
 
 # Parse command line arguments
 parse_args() {
-    if [[ $# -ne 1 ]]; then
-        show_help
-        exit 1
-    fi
+	if [[ $# -ne 1 ]]; then
+		show_help
+		exit 1
+	fi
 
-    BACKUP_PARENT_DIR="${1%/}"  # Remove trailing slash
+	BACKUP_PARENT_DIR="${1%/}" # Remove trailing slash
 }
 
 # Detect pinentry program from existing config or PATH
 detect_pinentry() {
-    # Try user's gpg-agent.conf first
-    local config="$HOME/.gnupg/gpg-agent.conf"
-    if [[ -f "$config" ]]; then
-        local configured
-        configured=$(grep -E '^pinentry-program' "$config" | awk '{print $2}')
-        if [[ -n "$configured" && -x "$configured" ]]; then
-            echo "$configured"
-            return 0
-        fi
-    fi
+	# Try user's gpg-agent.conf first
+	local config="$HOME/.gnupg/gpg-agent.conf"
+	if [[ -f $config ]]; then
+		local configured
+		configured=$(grep -E '^pinentry-program' "$config" | awk '{print $2}')
+		if [[ -n $configured && -x $configured ]]; then
+			echo "$configured"
+			return 0
+		fi
+	fi
 
-    # Fall back to PATH lookup
-    for cmd in pinentry-curses pinentry-gtk-2 pinentry-gnome3 pinentry; do
-        if command -v "$cmd" &>/dev/null; then
-            command -v "$cmd"
-            return 0
-        fi
-    done
+	# Fall back to PATH lookup
+	for cmd in pinentry-curses pinentry-gtk-2 pinentry-gnome3 pinentry; do
+		if command -v "$cmd" &>/dev/null; then
+			command -v "$cmd"
+			return 0
+		fi
+	done
 
-    return 1
+	return 1
 }
 
 # Pre-flight checks
 preflight_checks() {
-    log_info "Running pre-flight checks..."
+	log_info "Running pre-flight checks..."
 
-    # Check required commands
-    require_command gpg
-    require_command gpg-agent
-    require_command gpg-connect-agent
-    require_command mktemp
-    require_command awk
-    require_command sha256sum
+	# Check required commands
+	require_command gpg
+	require_command gpg-agent
+	require_command gpg-connect-agent
+	require_command mktemp
+	require_command awk
+	require_command sha256sum
 
-    # Verify pinentry is available
-    if ! detect_pinentry &>/dev/null; then
-        die "No pinentry found. Configure pinentry-program in ~/.gnupg/gpg-agent.conf or install a pinentry variant"
-    fi
+	# Verify pinentry is available
+	if ! detect_pinentry &>/dev/null; then
+		die "No pinentry found. Configure pinentry-program in ~/.gnupg/gpg-agent.conf or install a pinentry variant"
+	fi
 
-    # Check backup parent directory exists
-    validate_directory "$BACKUP_PARENT_DIR" "Backup parent directory"
+	# Check backup parent directory exists
+	validate_directory "$BACKUP_PARENT_DIR" "Backup parent directory"
 
-    log_info "Pre-flight checks passed"
+	log_info "Pre-flight checks passed"
 }
 
 # Auto-detect latest backup directory
 detect_latest_backup() {
-    log_info "Detecting latest backup in $BACKUP_PARENT_DIR..."
+	log_info "Detecting latest backup in $BACKUP_PARENT_DIR..."
 
-    # Find directories matching date pattern YYYY-MM-DD (and YYYY-MM-DD_*)
-    local backup_dirs=()
-    while IFS= read -r -d '' dir; do
-        local basename
-        basename=$(basename "$dir")
-        # Match YYYY-MM-DD or YYYY-MM-DD_*
-        if [[ "$basename" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}(_.*)?$ ]]; then
-            backup_dirs+=("$dir")
-        fi
-    done < <(find "$BACKUP_PARENT_DIR" -mindepth 1 -maxdepth 1 -type d -print0)
+	# Find directories matching date pattern YYYY-MM-DD (and YYYY-MM-DD_*)
+	local backup_dirs=()
+	while IFS= read -r -d '' dir; do
+		local basename
+		basename=$(basename "$dir")
+		# Match YYYY-MM-DD or YYYY-MM-DD_*
+		if [[ $basename =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}(_.*)?$ ]]; then
+			backup_dirs+=("$dir")
+		fi
+	done < <(find "$BACKUP_PARENT_DIR" -mindepth 1 -maxdepth 1 -type d -print0)
 
-    [[ ${#backup_dirs[@]} -gt 0 ]] || die "No dated backup directories found in $BACKUP_PARENT_DIR"
+	[[ ${#backup_dirs[@]} -gt 0 ]] || die "No dated backup directories found in $BACKUP_PARENT_DIR"
 
-    # Sort and get latest
-    LATEST_BACKUP_DIR=$(printf '%s\n' "${backup_dirs[@]}" | sort -r | head -1)
+	# Sort and get latest
+	LATEST_BACKUP_DIR=$(printf '%s\n' "${backup_dirs[@]}" | sort -r | head -1)
 
-    log_info "Latest backup: $LATEST_BACKUP_DIR"
+	log_info "Latest backup: $LATEST_BACKUP_DIR"
 
-    # Verify secret.key exists
-    validate_file "$LATEST_BACKUP_DIR/secret.key" "Secret key file"
+	# Verify secret.key exists
+	validate_file "$LATEST_BACKUP_DIR/secret.key" "Secret key file"
 }
 
 # Setup secure temporary GNUPGHOME
 setup_gnupghome() {
-    log_info "Setting up secure temporary GNUPGHOME..."
+	log_info "Setting up secure temporary GNUPGHOME..."
 
-    # Priority order: XDG_RUNTIME_DIR > /dev/shm > /tmp
-    local base_dir
-    if [[ -d "${XDG_RUNTIME_DIR:-}" ]]; then
-        base_dir="$XDG_RUNTIME_DIR"
-    elif [[ -d /dev/shm ]]; then
-        base_dir="/dev/shm"
-    else
-        base_dir="/tmp"
-    fi
+	# Priority order: XDG_RUNTIME_DIR > /dev/shm > /tmp
+	local base_dir
+	if [[ -d ${XDG_RUNTIME_DIR:-} ]]; then
+		base_dir="$XDG_RUNTIME_DIR"
+	elif [[ -d /dev/shm ]]; then
+		base_dir="/dev/shm"
+	else
+		base_dir="/tmp"
+	fi
 
-    GNUPGHOME=$(mktemp -d "$base_dir/gpg-renew.XXXXXX")
-    chmod 700 "$GNUPGHOME"
-    export GNUPGHOME
+	GNUPGHOME=$(mktemp -d "$base_dir/gpg-renew.XXXXXX")
+	chmod 700 "$GNUPGHOME"
+	export GNUPGHOME
 
-    log_info "GNUPGHOME: $GNUPGHOME (tmpfs, will auto-cleanup)"
+	log_info "GNUPGHOME: $GNUPGHOME (tmpfs, will auto-cleanup)"
 
-    # Configure gpg-agent for loopback pinentry (no GUI prompts)
-    cat > "$GNUPGHOME/gpg-agent.conf" <<EOF
+	# Configure gpg-agent for loopback pinentry (no GUI prompts)
+	cat >"$GNUPGHOME/gpg-agent.conf" <<EOF
 pinentry-program $(detect_pinentry)
 allow-loopback-pinentry
 allow-preset-passphrase
@@ -198,115 +198,115 @@ default-cache-ttl 3600
 max-cache-ttl 7200
 EOF
 
-    # Kill any existing agent for this GNUPGHOME and start fresh
-    gpgconf --kill gpg-agent 2>/dev/null || true
+	# Kill any existing agent for this GNUPGHOME and start fresh
+	gpgconf --kill gpg-agent 2>/dev/null || true
 
-    # Start the agent explicitly (ensures it reads our config)
-    gpg-connect-agent /bye &>/dev/null || true
+	# Start the agent explicitly (ensures it reads our config)
+	gpg-connect-agent /bye &>/dev/null || true
 }
 
 # Collect passphrase early (before any operation that might prompt)
 collect_passphrase() {
-    log_info "You will be prompted for your passphrase once..."
-    read -r -s -p "Enter passphrase for $KEYID: " PASSPHRASE
-    echo  # newline after password input
+	log_info "You will be prompted for your passphrase once..."
+	read -r -s -p "Enter passphrase for $KEYID: " PASSPHRASE
+	echo # newline after password input
 
-    # Store passphrase in file descriptor for gpg --passphrase-fd
-    exec 3<<<"$PASSPHRASE"
+	# Store passphrase in file descriptor for gpg --passphrase-fd
+	exec 3<<<"$PASSPHRASE"
 }
 
 # Import keys from backup
 import_keys() {
-    log_info "Importing keys from $LATEST_BACKUP_DIR/secret.key..."
-    gpg --batch --pinentry-mode loopback --passphrase-fd 3 \
-        --import "$LATEST_BACKUP_DIR/secret.key"
+	log_info "Importing keys from $LATEST_BACKUP_DIR/secret.key..."
+	gpg --batch --pinentry-mode loopback --passphrase-fd 3 \
+		--import "$LATEST_BACKUP_DIR/secret.key"
 
-    # Reopen FD for next operation
-    exec 3<<<"$PASSPHRASE"
+	# Reopen FD for next operation
+	exec 3<<<"$PASSPHRASE"
 
-    log_info "Keys imported successfully"
-    gpg --list-secret-keys "$KEYID"
+	log_info "Keys imported successfully"
+	gpg --list-secret-keys "$KEYID"
 }
 
 # Cache passphrase for all keygrips
 cache_passphrase() {
-    log_info "Caching passphrase for all keygrips..."
+	log_info "Caching passphrase for all keygrips..."
 
-    # Get all keygrips for the key
-    local keygrips
-    keygrips=$(gpg --with-keygrip --list-secret-keys "$KEYID" | awk '/Keygrip/ {print $3}')
+	# Get all keygrips for the key
+	local keygrips
+	keygrips=$(gpg --with-keygrip --list-secret-keys "$KEYID" | awk '/Keygrip/ {print $3}')
 
-    # Convert to hex
-    local hex_passphrase
-    hex_passphrase=$(echo -n "$PASSPHRASE" | xxd -p -c 256)
+	# Convert to hex
+	local hex_passphrase
+	hex_passphrase=$(echo -n "$PASSPHRASE" | xxd -p -c 256)
 
-    # Preset passphrase for each keygrip
-    while IFS= read -r keygrip; do
-        [[ -n "$keygrip" ]] || continue
-        gpg-connect-agent "PRESET_PASSPHRASE $keygrip -1 $hex_passphrase" /bye &>/dev/null || \
-            log_warn "Failed to preset passphrase for keygrip $keygrip"
-    done <<< "$keygrips"
+	# Preset passphrase for each keygrip
+	while IFS= read -r keygrip; do
+		[[ -n $keygrip ]] || continue
+		gpg-connect-agent "PRESET_PASSPHRASE $keygrip -1 $hex_passphrase" /bye &>/dev/null ||
+			log_warn "Failed to preset passphrase for keygrip $keygrip"
+	done <<<"$keygrips"
 
-    log_info "Passphrase cached for all keygrips"
+	log_info "Passphrase cached for all keygrips"
 }
 
 # Extend key expiration
 extend_expiration() {
-    log_info "Extending key expiration to $EXPIRY..."
+	log_info "Extending key expiration to $EXPIRY..."
 
-    # Extend master key
-    gpg --quick-set-expire "$FINGERPRINT" "$EXPIRY"
+	# Extend master key
+	gpg --quick-set-expire "$FINGERPRINT" "$EXPIRY"
 
-    # Get all subkey fingerprints (including expired ones)
-    # The '*' wildcard only works for non-expired subkeys, so we enumerate explicitly
-    local subkey_fprs
-    subkey_fprs=$(gpg --list-keys --with-colons --with-subkey-fingerprints "$KEYID" | \
-        awk -F: '/^sub:/ { in_sub=1; next } /^fpr:/ && in_sub { print $10; in_sub=0 }')
+	# Get all subkey fingerprints (including expired ones)
+	# The '*' wildcard only works for non-expired subkeys, so we enumerate explicitly
+	local subkey_fprs
+	subkey_fprs=$(gpg --list-keys --with-colons --with-subkey-fingerprints "$KEYID" |
+		awk -F: '/^sub:/ { in_sub=1; next } /^fpr:/ && in_sub { print $10; in_sub=0 }')
 
-    if [[ -n "$subkey_fprs" ]]; then
-        log_info "Extending subkeys..."
-        # shellcheck disable=SC2086
-        gpg --quick-set-expire "$FINGERPRINT" "$EXPIRY" $subkey_fprs
-    fi
+	if [[ -n $subkey_fprs ]]; then
+		log_info "Extending subkeys..."
+		# shellcheck disable=SC2086
+		gpg --quick-set-expire "$FINGERPRINT" "$EXPIRY" $subkey_fprs
+	fi
 
-    log_info "Key expiration extended successfully"
+	log_info "Key expiration extended successfully"
 }
 
 # Export keys to new backup directory
 export_keys() {
-    # Create date-stamped export directory
-    EXPORT_DIR="$BACKUP_PARENT_DIR/$(date +%Y-%m-%d)"
+	# Create date-stamped export directory
+	EXPORT_DIR="$BACKUP_PARENT_DIR/$(date +%Y-%m-%d)"
 
-    if [[ -d "$EXPORT_DIR" ]]; then
-        log_warn "Export directory already exists: $EXPORT_DIR"
-        log_info "Appending timestamp to avoid overwrite..."
-        EXPORT_DIR="$BACKUP_PARENT_DIR/$(date +%Y-%m-%d_%H%M%S)"
-    fi
+	if [[ -d $EXPORT_DIR ]]; then
+		log_warn "Export directory already exists: $EXPORT_DIR"
+		log_info "Appending timestamp to avoid overwrite..."
+		EXPORT_DIR="$BACKUP_PARENT_DIR/$(date +%Y-%m-%d_%H%M%S)"
+	fi
 
-    mkdir -p "$EXPORT_DIR"
-    log_info "Exporting keys to $EXPORT_DIR..."
+	mkdir -p "$EXPORT_DIR"
+	log_info "Exporting keys to $EXPORT_DIR..."
 
-    # Export secret keys
-    gpg --armor --export-secret-keys "$KEYID" > "$EXPORT_DIR/secret.key"
-    log_debug "Exported secret.key"
+	# Export secret keys
+	gpg --armor --export-secret-keys "$KEYID" >"$EXPORT_DIR/secret.key"
+	log_debug "Exported secret.key"
 
-    # Export secret subkeys
-    gpg --armor --export-secret-subkeys "$KEYID" > "$EXPORT_DIR/secret_sub.key"
-    log_debug "Exported secret_sub.key"
+	# Export secret subkeys
+	gpg --armor --export-secret-subkeys "$KEYID" >"$EXPORT_DIR/secret_sub.key"
+	log_debug "Exported secret_sub.key"
 
-    # Export public key
-    gpg --armor --export "$KEYID" > "$EXPORT_DIR/public.key"
-    log_debug "Exported public.key"
+	# Export public key
+	gpg --armor --export "$KEYID" >"$EXPORT_DIR/public.key"
+	log_debug "Exported public.key"
 
-    log_info "Keys exported successfully"
+	log_info "Keys exported successfully"
 }
 
 # Generate revocation certificate
 generate_revocation() {
-    log_info "Generating revocation certificate..."
+	log_info "Generating revocation certificate..."
 
-    gpg --output "$EXPORT_DIR/revocation.key" \
-        --command-fd 0 --gen-revoke "$KEYID" <<EOF
+	gpg --output "$EXPORT_DIR/revocation.key" \
+		--command-fd 0 --gen-revoke "$KEYID" <<EOF
 y
 1
 Pre-generated during key renewal $(date +%Y-%m-%d). If this certificate was used, assume key compromise.
@@ -314,63 +314,63 @@ Pre-generated during key renewal $(date +%Y-%m-%d). If this certificate was used
 y
 EOF
 
-    log_info "Revocation certificate generated"
+	log_info "Revocation certificate generated"
 }
 
 # Verify exports
 verify_exports() {
-    log_info "Verifying exported keys..."
+	log_info "Verifying exported keys..."
 
-    # Check all expected files exist and are not empty
-    for file in secret.key secret_sub.key public.key revocation.key; do
-        local path="$EXPORT_DIR/$file"
-        validate_file "$path" "$file"
-        [[ -s "$path" ]] || die "Export verification failed: $path is empty"
-    done
+	# Check all expected files exist and are not empty
+	for file in secret.key secret_sub.key public.key revocation.key; do
+		local path="$EXPORT_DIR/$file"
+		validate_file "$path" "$file"
+		[[ -s $path ]] || die "Export verification failed: $path is empty"
+	done
 
-    # Generate checksums
-    (cd "$EXPORT_DIR" && sha256sum ./*.key > SHA256SUMS)
-    log_info "Checksums generated: $EXPORT_DIR/SHA256SUMS"
+	# Generate checksums
+	(cd "$EXPORT_DIR" && sha256sum ./*.key >SHA256SUMS)
+	log_info "Checksums generated: $EXPORT_DIR/SHA256SUMS"
 
-    # Verify public key can be imported (dry-run)
-    gpg --import-options show-only --import "$EXPORT_DIR/public.key" &>/dev/null || \
-        die "Export verification failed: public.key is invalid"
+	# Verify public key can be imported (dry-run)
+	gpg --import-options show-only --import "$EXPORT_DIR/public.key" &>/dev/null ||
+		die "Export verification failed: public.key is invalid"
 
-    log_info "Export verification passed"
+	log_info "Export verification passed"
 }
 
 # Upload to keyservers
 upload_to_keyservers() {
-    log_info "Uploading public key to keyservers..."
+	log_info "Uploading public key to keyservers..."
 
-    local uploaded=0
-    for server in "${KEYSERVERS[@]}"; do
-        log_info "Uploading to $server..."
-        if gpg --keyserver "$server" --send-keys "$FINGERPRINT" 2>&1 | tee /dev/stderr; then
-            log_info "Successfully uploaded to $server"
-            ((uploaded++))
-        else
-            log_warn "Failed to upload to $server (continuing...)"
-        fi
-    done
+	local uploaded=0
+	for server in "${KEYSERVERS[@]}"; do
+		log_info "Uploading to $server..."
+		if gpg --keyserver "$server" --send-keys "$FINGERPRINT" 2>&1 | tee /dev/stderr; then
+			log_info "Successfully uploaded to $server"
+			((uploaded++))
+		else
+			log_warn "Failed to upload to $server (continuing...)"
+		fi
+	done
 
-    if [[ $uploaded -eq 0 ]]; then
-        log_warn "Failed to upload to any keyserver"
-    else
-        log_info "Uploaded to $uploaded/${#KEYSERVERS[@]} keyservers"
-    fi
+	if [[ $uploaded -eq 0 ]]; then
+		log_warn "Failed to upload to any keyserver"
+	else
+		log_info "Uploaded to $uploaded/${#KEYSERVERS[@]} keyservers"
+	fi
 }
 
 # Copy public key to home directory
 copy_public_key() {
-    log_info "Copying public key to ~/public.key..."
-    cp "$EXPORT_DIR/public.key" "$HOME/public.key"
-    log_info "Public key copied to ~/public.key"
+	log_info "Copying public key to ~/public.key..."
+	cp "$EXPORT_DIR/public.key" "$HOME/public.key"
+	log_info "Public key copied to ~/public.key"
 }
 
 # Print summary
 print_summary() {
-    cat <<EOF
+	cat <<EOF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 GPG Renewal Complete
@@ -401,25 +401,25 @@ EOF
 
 # Main function
 main() {
-    trap cleanup EXIT
+	trap cleanup EXIT
 
-    parse_args "$@"
-    preflight_checks
-    detect_latest_backup
-    setup_gnupghome
-    collect_passphrase
-    import_keys
-    cache_passphrase
-    extend_expiration
-    export_keys
-    generate_revocation
-    verify_exports
-    upload_to_keyservers
-    copy_public_key
-    print_summary
+	parse_args "$@"
+	preflight_checks
+	detect_latest_backup
+	setup_gnupghome
+	collect_passphrase
+	import_keys
+	cache_passphrase
+	extend_expiration
+	export_keys
+	generate_revocation
+	verify_exports
+	upload_to_keyservers
+	copy_public_key
+	print_summary
 
-    # Clear passphrase from memory
-    PASSPHRASE=""
+	# Clear passphrase from memory
+	PASSPHRASE=""
 }
 
 main "$@"

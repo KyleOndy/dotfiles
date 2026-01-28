@@ -7,17 +7,17 @@ step=100
 i=${step}
 
 for commit in $(git -C "$nixpkgs_master" log --oneline --pretty=format:%H); do
-  if [[ $i -lt $step ]]; then
-    #echo "skipping $i"
-    ((i++))
-    continue
-  fi
+	if [[ $i -lt $step ]]; then
+		#echo "skipping $i"
+		((i++))
+		continue
+	fi
 
-  git --no-pager -C "$nixpkgs_master" show "$commit"
-  sed -i -E "s|(nixpkgs.url = \"github:nixos/nixpkgs/).*(\";)|\1${commit}\2|" flake.nix
-  make HOSTNAME="$hostname" build && exit 0
-  echo
-  echo "= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = "
-  echo
-  i=1
+	git --no-pager -C "$nixpkgs_master" show "$commit"
+	sed -i -E "s|(nixpkgs.url = \"github:nixos/nixpkgs/).*(\";)|\1${commit}\2|" flake.nix
+	make HOSTNAME="$hostname" build && exit 0
+	echo
+	echo "= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = "
+	echo
+	i=1
 done

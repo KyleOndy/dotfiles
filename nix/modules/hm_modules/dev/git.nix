@@ -104,11 +104,11 @@ in
         options = {
           syntax-theme = "gruvbox-dark";
           line-numbers = true;
-          # Higher contrast backgrounds
-          minus-style = "syntax #330011";
-          minus-emph-style = "syntax #80002a";
-          plus-style = "syntax #001a00";
-          plus-emph-style = "syntax #003300";
+          # Very high contrast backgrounds optimized for Night Shift warmth 90
+          minus-style = "syntax #8a2535";
+          minus-emph-style = "syntax #b03545";
+          plus-style = "syntax #2a5a2a";
+          plus-emph-style = "syntax #3a7a3a";
         };
       };
       signing = {

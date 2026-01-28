@@ -10,8 +10,8 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 set_strict_mode
 
 # Show help text
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-  cat << 'EOF'
+if [[ $1 == "-h" || $1 == "--help" ]]; then
+	cat <<'EOF'
 usage: git wt-init [name]
 
 Initialize a new repository with git worktree workflow.
@@ -33,34 +33,34 @@ Examples:
 
 After initializing, use git wt-feature-branch to create feature worktrees.
 EOF
-  exit 0
+	exit 0
 fi
 
 # Determine directory
 if [[ $# -eq 0 ]]; then
-  # Use current directory
-  name="."
-  dir_name=$(basename "$(pwd)")
+	# Use current directory
+	name="."
+	dir_name=$(basename "$(pwd)")
 else
-  name="$1"
-  dir_name="$1"
+	name="$1"
+	dir_name="$1"
 fi
 
 readonly default_branch="main"
 
 # Handle current directory vs new directory
-if [[ "$name" == "." ]]; then
-  # Check if already a git repo
-  if [[ -d ".git" || -d ".bare" || -f ".git" ]]; then
-    die "Current directory is already a git repository"
-  fi
+if [[ $name == "." ]]; then
+	# Check if already a git repo
+	if [[ -d ".git" || -d ".bare" || -f ".git" ]]; then
+		die "Current directory is already a git repository"
+	fi
 else
-  # Create new directory
-  if [[ -e "$name" ]]; then
-    die "Directory '$name' already exists"
-  fi
-  mkdir "$name"
-  cd "$name" || die "Failed to change to directory: $name"
+	# Create new directory
+	if [[ -e $name ]]; then
+		die "Directory '$name' already exists"
+	fi
+	mkdir "$name"
+	cd "$name" || die "Failed to change to directory: $name"
 fi
 
 # Initialize bare repository
@@ -68,7 +68,7 @@ log_info "Initializing bare repository..."
 git init --bare .bare
 
 # Set up git directory pointer
-echo "gitdir: ./.bare" > .git
+echo "gitdir: ./.bare" >.git
 
 # Configure for worktree workflow
 git config core.bare false
