@@ -18,5 +18,11 @@ in
     home.packages = with pkgs; [
       awscli2
     ];
+
+    programs.zsh.initExtra = ''
+      # AWS CLI completion requires bashcompinit for bash-style completers
+      autoload -Uz bashcompinit && bashcompinit
+      complete -C '${pkgs.awscli2}/bin/aws_completer' aws
+    '';
   };
 }
