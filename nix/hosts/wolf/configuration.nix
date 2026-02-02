@@ -621,6 +621,122 @@
     '';
   };
 
+  # Subtitle extraction script for Sonarr/Radarr integration (Tier 1)
+  # This script extracts embedded subtitles to sidecar .srt files on media import
+  # Prevents Jellyfin transcoding delays caused by subtitle extraction
+  # Manual setup required: Add to Sonarr/Radarr Settings > Connect > Custom Script
+  environment.etc."scripts/subtitle-extract-notify.sh" = {
+    mode = "0755";
+    text = ''
+      #!${pkgs.bash}/bin/bash
+      set -euo pipefail
+
+      export PATH="${
+        lib.makeBinPath [
+          pkgs.ffmpeg-headless
+          pkgs.jq
+          pkgs.coreutils
+          pkgs.gnugrep
+        ]
+      }"
+
+      # Get file path from Sonarr or Radarr environment variables
+      FILE_PATH="''${sonarr_episodefile_path:-}"
+      if [[ -z "$FILE_PATH" ]]; then
+        FILE_PATH="''${radarr_moviefile_path:-}"
+      fi
+
+      if [[ -z "$FILE_PATH" ]]; then
+        echo "No file path provided by Sonarr/Radarr"
+        exit 0
+      fi
+
+      # Only process MKV files
+      if [[ "$FILE_PATH" != *.mkv ]]; then
+        echo "Skipping non-MKV file: $FILE_PATH"
+        exit 0
+      fi
+
+      echo "Extracting subtitles from: $FILE_PATH"
+
+      # Extract base directory and filename
+      BASE_DIR=$(dirname "$FILE_PATH")
+      BASE_NAME=$(basename "$FILE_PATH" .mkv)
+      BASE_PATH="$BASE_DIR/$BASE_NAME"
+
+      # Get subtitle stream info as JSON
+      SUBTITLE_STREAMS=$(${pkgs.ffmpeg-headless}/bin/ffprobe -v error -select_streams s \
+        -show_entries stream=index,codec_name:stream_tags=language,title \
+        -of json "$FILE_PATH" 2>/dev/null || echo '{"streams":[]}')
+
+      # Filter for text-based subtitle formats (skip PGS/DVD bitmap subs)
+      TEXT_SUBS=$(echo "$SUBTITLE_STREAMS" | ${pkgs.jq}/bin/jq -r '
+        .streams[] |
+        select(.codec_name == "subrip" or .codec_name == "ass" or .codec_name == "mov_text" or .codec_name == "srt") |
+        "\(.index)|\(.tags.language // "und")|\(.tags.title // "")"
+      ')
+
+      if [[ -z "$TEXT_SUBS" ]]; then
+        echo "No text-based subtitles found in $FILE_PATH"
+        exit 0
+      fi
+
+      # Track which language codes we've seen to handle duplicates
+      declare -A LANG_COUNTS
+
+      echo "$TEXT_SUBS" | while IFS='|' read -r STREAM_IDX LANG TITLE; do
+        # Map common 3-letter codes to 2-letter (ISO 639-2 to ISO 639-1)
+        case "$LANG" in
+          eng) LANG="en" ;;
+          spa) LANG="es" ;;
+          fre|fra) LANG="fr" ;;
+          ger|deu) LANG="de" ;;
+          ita) LANG="it" ;;
+          por) LANG="pt" ;;
+          jpn) LANG="ja" ;;
+          kor) LANG="ko" ;;
+          chi|zho) LANG="zh" ;;
+          rus) LANG="ru" ;;
+          und) LANG="und" ;;
+        esac
+
+        # Determine suffix based on title (e.g., "SDH", "forced", "cc")
+        SUFFIX=""
+        if echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "sdh"; then
+          SUFFIX=".sdh"
+        elif echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "forced"; then
+          SUFFIX=".forced"
+        elif echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "cc\|closed.caption"; then
+          SUFFIX=".cc"
+        fi
+
+        # Handle duplicate languages by appending count
+        COUNT=''${LANG_COUNTS[$LANG]:-0}
+        LANG_COUNTS[$LANG]=$((COUNT + 1))
+        if [[ $COUNT -gt 0 ]]; then
+          SUFFIX="$SUFFIX.$COUNT"
+        fi
+
+        # Construct output filename: basename.lang[.suffix].srt
+        OUTPUT_FILE="''${BASE_PATH}.''${LANG}''${SUFFIX}.srt"
+
+        # Skip if sidecar already exists
+        if [[ -f "$OUTPUT_FILE" ]]; then
+          echo "Sidecar already exists: $OUTPUT_FILE"
+          continue
+        fi
+
+        # Extract subtitle stream to srt format
+        if ${pkgs.ffmpeg-headless}/bin/ffmpeg -v error -i "$FILE_PATH" \
+            -map "0:$STREAM_IDX" -c:s srt "$OUTPUT_FILE" 2>/dev/null; then
+          echo "Extracted: $OUTPUT_FILE (stream $STREAM_IDX: $LANG''${TITLE:+ - $TITLE})"
+        else
+          echo "Failed to extract stream $STREAM_IDX from $FILE_PATH" >&2
+        fi
+      done
+    '';
+  };
+
   # Tdarr failure summary script - query API for failed jobs
   environment.systemPackages = [
     (pkgs.writeShellScriptBin "tdarr-failure-summary" ''
