@@ -120,11 +120,12 @@ Test login success, invalid credentials, expired tokens, and middleware protecti
 ```text
 ❌ PLANNING.md not found
 
-Before running /task:decompose, you need a planning document.
+Before running /task:decompose, you need a planning document in the project root.
 
 Options:
-1. Create PLANNING.md with your high-level plan
-2. Use /task directly - it will guide you through the workflow
+1. Create PLANNING.md manually with your high-level plan
+2. If you just finished iterating on a plan with Claude, ask Claude to write it to PLANNING.md before exiting
+3. Use /task directly - it will guide you through the workflow
 
 Run `/task` to see your current status and suggested next steps.
 ```
