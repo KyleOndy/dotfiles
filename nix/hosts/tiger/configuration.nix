@@ -447,7 +447,10 @@ in
           "@PracticalEngineeringChannel"
           "@RudyAyoub"
           "@SampsonBoatCo"
-          "@theslappablejerk"
+          {
+            name = "@theslappablejerk";
+            download_shorts = false;
+          }
           "@treykennedy"
           "@whistlindiesel"
 

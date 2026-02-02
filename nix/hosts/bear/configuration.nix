@@ -148,6 +148,17 @@
       installPlaybackReportingPlugin = true;
     };
 
+    # Subtitle extractor (Tier 2: batch timer-based extraction)
+    # Scans media library hourly for missing subtitle sidecars
+    # Prevents Jellyfin transcoding delays caused by subtitle extraction
+    subtitleExtractor = {
+      enable = true;
+      mediaPath = "/mnt/media";
+      schedule = "hourly";
+      user = "jellyfin";
+      group = "media";
+    };
+
     # Tdarr node for hardware transcoding with Intel QuickSync
     tdarr.node = {
       enable = true;
