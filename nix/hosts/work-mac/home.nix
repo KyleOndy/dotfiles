@@ -82,6 +82,7 @@
   # Enable work context for shell completions (Linear tickets, etc.)
   home.sessionVariables = {
     DOTS_CONTEXT = "work";
+    PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
   };
 
   # Enable development modules
@@ -106,8 +107,11 @@
   # packages I use at work, but not persoanlly, that do not need to be kept
   # secret in the work fork.
   home.packages = with pkgs; [
-    # k9s now provided by kubernetes module
-    linear-cli
+    argocd # ArgoCD CLI
     gh # GitHub CLI
+    linear-cli
+    pdm # Python Development Master
+    pulumi
+    pulumi-python
   ];
 }
