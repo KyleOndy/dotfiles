@@ -38,6 +38,8 @@
       "Bash(nix:*)",
       "Bash(bb:*)",
       "Bash(deploy:*)",
+      "Bash(ssh wolf:*)",
+      "Bash(ssh bear:*)",
       "WebSearch"
     ]
   },
