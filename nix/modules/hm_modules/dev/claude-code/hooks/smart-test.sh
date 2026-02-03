@@ -34,6 +34,12 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	exit 0
 fi
 
+# Check if all tests should be skipped
+if [[ ${CLAUDE_SKIP_ALL_TESTS:-false} == "true" ]]; then
+	log "All tests skipped (CLAUDE_SKIP_ALL_TESTS=true)"
+	exit 0
+fi
+
 # Get project root
 PROJECT_ROOT=$(git rev-parse --show-toplevel)
 cd "$PROJECT_ROOT"
