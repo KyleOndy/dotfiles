@@ -112,6 +112,6 @@
     linear-cli
     pdm # Python Development Master
     pulumi
-    pulumi-python
+    pkgs.pulumiPackages.pulumi-python
   ];
 }
