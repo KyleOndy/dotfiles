@@ -120,6 +120,11 @@
     pkgs.pulumiPackages.pulumi-python
   ];
 
+  # Ensure modularml directory exists before linking Claude.md
+  home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
+    mkdir -p $HOME/src/modularml
+  '';
+
   # Manage Claude.md for modularml project
   home.file."src/modularml/Claude.md" = {
     source = ./modularml-CLAUDE.md;
