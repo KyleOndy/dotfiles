@@ -85,6 +85,11 @@
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
   };
 
+  # Override src alias to point to modularml workspace
+  programs.zsh.shellAliases = {
+    src = lib.mkForce "cd /Users/kondy/src/modularml";
+  };
+
   # Enable development modules
   hmFoundry.dev = {
     git.userEmail = "kondy@modular.com";
