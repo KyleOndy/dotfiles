@@ -114,4 +114,10 @@
     pulumi
     pkgs.pulumiPackages.pulumi-python
   ];
+
+  # Manage Claude.md for work-repos project
+  home.file."src/work-repos/Claude.md" = {
+    source = ./work-repos-CLAUDE.md;
+    force = true; # Override existing file if present
+  };
 }
