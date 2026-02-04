@@ -38,8 +38,8 @@ require("which-key").add({
   -- Git operations
   { "<leader>g", group = "git" },
   { "<leader>gg", "<cmd>tab Git<cr>", desc = "Git status" },
-  { "<leader>gb", "<cmd>GBrowse<cr>", desc = "Browse file/selection in browser", mode = { "n", "v" } },
-  { "<leader>gB", "<cmd>GBrowse!<cr>", desc = "Copy file/selection URL to clipboard", mode = { "n", "v" } },
+  { "<leader>gb", ":GBrowse<cr>", desc = "Browse file/selection in browser", mode = { "n", "v" } },
+  { "<leader>gB", ":GBrowse!<cr>", desc = "Copy file/selection URL to clipboard", mode = { "n", "v" } },
   { "<leader>gd", "<cmd>Gdiffsplit<cr>", desc = "Diff this file" },
   { "<leader>gh", "<cmd>Gitsigns preview_hunk<cr>", desc = "Preview git hunk" },
   { "<leader>gl", "<cmd>Gitsigns toggle_current_line_blame<cr>", desc = "Toggle line blame" },
