@@ -114,4 +114,10 @@
     pulumi
     pkgs.pulumiPackages.pulumi-python
   ];
+
+  # Manage Claude.md for modularml project
+  home.file."src/modularml/Claude.md" = {
+    source = ./modularml-CLAUDE.md;
+    force = true; # Override existing file if present
+  };
 }
