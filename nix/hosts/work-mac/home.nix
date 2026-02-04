@@ -120,6 +120,11 @@
     pkgs.pulumiPackages.pulumi-python
   ];
 
+  # Ensure work-repos directory exists before linking Claude.md
+  home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
+    mkdir -p $HOME/src/work-repos
+  '';
+
   # Manage Claude.md for work-repos project
   home.file."src/work-repos/Claude.md" = {
     source = ./work-repos-CLAUDE.md;
