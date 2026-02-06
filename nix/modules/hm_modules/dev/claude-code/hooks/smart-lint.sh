@@ -52,6 +52,12 @@ if [[ $CWD == *".claude/plans/"* ]] || [[ $CWD == *".claude/task-plans/"* ]]; th
 	exit 0
 fi
 
+# Skip linting if CLAUDE_SKIP_LINT is set
+if [[ ${CLAUDE_SKIP_LINT:-false} == "true" ]] || [[ ${CLAUDE_SKIP_LINT:-0} == "1" ]]; then
+	log "Skipping lint (CLAUDE_SKIP_LINT is set)"
+	exit 0
+fi
+
 # Check if we're in a git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	log "Not in a git repository, skipping linting"
