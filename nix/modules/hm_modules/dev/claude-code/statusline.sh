@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code Statusline
-# Displays: git branch | model | session cost | session duration
+# Displays: git branch | model | context usage | session cost | session duration
 
 set -euo pipefail
 
@@ -33,6 +33,21 @@ else
 	duration=""
 fi
 
+# Extract context window usage percentage (truncate to integer)
+context_pct=$(echo "$input" | jq -r '.context_window.used_percentage // 0 | floor')
+
+# Extract context window size and format (200k or 1M)
+context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
+if [ "$context_size" != "0" ] && [ "$context_size" != "null" ]; then
+	if [ "$context_size" -ge 1000000 ]; then
+		context_size_formatted="$((context_size / 1000000))M"
+	else
+		context_size_formatted="$((context_size / 1000))k"
+	fi
+else
+	context_size_formatted=""
+fi
+
 # Build output
 output=""
 
@@ -45,6 +60,13 @@ fi
 if [ -n "$model" ]; then
 	[ -n "$output" ] && output="$output | "
 	output="${output}${model}"
+fi
+
+# Context window usage
+if [ -n "$context_size_formatted" ] && [ "$context_pct" != "0" ]; then
+	context_display="Ctx: ${context_pct}%/${context_size_formatted}"
+	[ -n "$output" ] && output="$output | "
+	output="${output}${context_display}"
 fi
 
 # Session cost
