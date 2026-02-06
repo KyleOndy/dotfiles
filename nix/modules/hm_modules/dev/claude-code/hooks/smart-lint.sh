@@ -28,14 +28,46 @@ warn() {
 	echo -e "${YELLOW}[smart-lint WARN]${NC} $1" >&2
 }
 
+# Read JSON input from Claude Code (contains file information)
+INPUT=$(cat)
+
+# Parse JSON to get the file path if available
+FILE_PATH=""
+if command -v jq >/dev/null 2>&1 && [ -n "$INPUT" ]; then
+	FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // ""' 2>/dev/null || echo "")
+fi
+
+# Early exit: Skip linting for Claude plan files
+# Check both the file path and current working directory
+if [ -n "$FILE_PATH" ]; then
+	if [[ $FILE_PATH == *".claude/plans/"* ]] || [[ $FILE_PATH == *".claude/task-plans/"* ]]; then
+		log "Skipping lint for Claude plan file: $FILE_PATH"
+		exit 0
+	fi
+fi
+
+CWD=$(pwd)
+if [[ $CWD == *".claude/plans/"* ]] || [[ $CWD == *".claude/task-plans/"* ]]; then
+	log "Skipping lint in Claude plans directory"
+	exit 0
+fi
+
 # Check if we're in a git repository
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 	log "Not in a git repository, skipping linting"
 	exit 0
 fi
 
-# Get list of modified files (excluding deleted files)
-MODIFIED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD 2>/dev/null || git ls-files --modified --others --exclude-standard)
+# Get list of modified files
+# Priority: Use the specific file from hook input, otherwise fallback to git detection
+if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
+	log "Linting specific file from hook: $FILE_PATH"
+	MODIFIED_FILES="$FILE_PATH"
+else
+	# Fallback: Detect modified files from git working tree
+	# Use git status instead of git diff HEAD~1 HEAD to catch actual working tree changes
+	MODIFIED_FILES=$(git ls-files --modified --others --exclude-standard 2>/dev/null || echo "")
+fi
 
 if [[ -z $MODIFIED_FILES ]]; then
 	log "No modified files detected"
