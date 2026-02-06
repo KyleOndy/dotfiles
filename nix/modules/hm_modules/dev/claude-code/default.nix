@@ -70,9 +70,6 @@ in
         # Python ecosystem
         ruff # python linting and formatting (use regular version to avoid conflicts)
 
-        # Go ecosystem
-        go # includes gofmt, go vet, go test
-
         # Clojure ecosystem
         clj-kondo # clojure linting
         babashka # fast clojure scripting
