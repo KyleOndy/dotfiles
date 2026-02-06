@@ -124,6 +124,13 @@ in
       };
     };
   };
+
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 35d";
+  };
+
   users = {
     # for backup reasons
     users = {
