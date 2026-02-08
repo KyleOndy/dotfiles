@@ -273,6 +273,14 @@
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
+  # Disable automatic VT gettys - this kiosk uses cage on tty1 and SSH for management.
+  # systemd-getty-generator creates getty@tty1 want links during daemon-reload,
+  # and switch-to-configuration restarts getty.target which starts getty@tty1,
+  # which conflicts with cage-tty1 and causes deploy failures.
+  services.logind.extraConfig = ''
+    NAutoVTs=0
+  '';
+
   # Cage kiosk configuration
   services.cage = {
     enable = true;
@@ -377,6 +385,15 @@
     serviceConfig = {
       Restart = "always";
       RestartSec = "5s";
+
+      # Chromium doesn't respond to SIGTERM cleanly due to its multi-process
+      # architecture (renderer, GPU, utility processes). Without these settings,
+      # systemd waits 90 seconds for graceful shutdown, then SIGKILL, causing
+      # deploy-rs to see a "failed" unit and trigger rollback. Since this is a
+      # kiosk with no user state to preserve, forceful termination is acceptable.
+      TimeoutStopSec = "10s";
+      KillMode = "mixed";
+      SendSIGKILL = true;
     };
 
     # Allow up to 10 restarts in 2 minutes before giving up
@@ -396,6 +413,7 @@
     description = "Cogsworth display application";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
+    restartIfChanged = false; # Prevent cascade that stops cage-tty1 during deploys
 
     serviceConfig = {
       Type = "simple";
@@ -462,6 +480,7 @@
     description = "Wait for Cogsworth application to be ready";
     after = [ "cogsworth.service" ];
     requires = [ "cogsworth.service" ];
+    restartIfChanged = false; # Prevent cascade that stops cage-tty1 during deploys
 
     serviceConfig = {
       Type = "oneshot";
