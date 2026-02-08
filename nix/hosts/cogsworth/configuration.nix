@@ -273,10 +273,14 @@
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
-  # Disable automatic VT gettys - this kiosk uses cage on tty1 and SSH for management.
-  # systemd-getty-generator creates getty@tty1 want links during daemon-reload,
-  # and switch-to-configuration restarts getty.target which starts getty@tty1,
-  # which conflicts with cage-tty1 and causes deploy failures.
+  # Disable getty on tty1 - this kiosk uses cage on tty1 and SSH for management.
+  # Masking both getty@tty1 and autovt@tty1 prevents systemd-getty-generator
+  # from starting either during daemon-reload, which would conflict with cage-tty1
+  # and cause deploy failures.
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@tty1".enable = false;
+
+  # Also prevent logind from auto-spawning gettys on other VTs.
   services.logind.extraConfig = ''
     NAutoVTs=0
   '';
