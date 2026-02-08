@@ -73,6 +73,7 @@
     ensureProfiles = {
       environmentFiles = [
         config.sops.templates."nm-home-wifi-env".path
+        config.sops.templates."nm-unifi-wg-env".path
       ];
       profiles = {
         home-wifi = {
@@ -97,6 +98,29 @@
             method = "auto";
           };
         };
+        unifi-wg = {
+          connection = {
+            id = "Unifi WireGuard";
+            type = "wireguard";
+            interface-name = "unifi-wg";
+            autoconnect = false;
+          };
+          wireguard = {
+            private-key = "$UNIFI_WG_PRIVATE_KEY";
+          };
+          "wireguard-peer.r4+6mEOGrmldIt+aSAYGzEDLMppbugpkyq2oBfxDo1M=" = {
+            endpoint = "$UNIFI_WG_ENDPOINT";
+            allowed-ips = "0.0.0.0/0;";
+          };
+          ipv4 = {
+            method = "manual";
+            address1 = "192.168.5.2/32";
+            dns = "192.168.5.1;";
+          };
+          ipv6 = {
+            method = "disabled";
+          };
+        };
       };
     };
   };
@@ -105,6 +129,12 @@
   sops.secrets = {
     home_wifi_ssid = { };
     home_wifi_password = { };
+    unifi_wireguard_private_key = {
+      mode = "0400";
+    };
+    unifi_wireguard_endpoint = {
+      mode = "0400";
+    };
     monitoring_token_dino = {
       # vmagent service runs as DynamicUser, which means it can't be assigned
       # file ownership directly. Using mode 0444 allows the service to read it.
@@ -130,6 +160,13 @@
     content = ''
       HOME_WIFI_SSID="${config.sops.placeholder.home_wifi_ssid}"
       HOME_WIFI_PASSWORD="${config.sops.placeholder.home_wifi_password}"
+    '';
+  };
+
+  sops.templates."nm-unifi-wg-env" = {
+    content = ''
+      UNIFI_WG_PRIVATE_KEY="${config.sops.placeholder.unifi_wireguard_private_key}"
+      UNIFI_WG_ENDPOINT="${config.sops.placeholder.unifi_wireguard_endpoint}"
     '';
   };
 
