@@ -22,8 +22,35 @@ let
         pkgs.findutils
         pkgs.coreutils
         pkgs.gnugrep
+        pkgs.mkvtoolnix-cli
       ]
     }"
+
+    # Function to clear default flag on all subtitle tracks
+    clear_default_flag() {
+      local input_file="$1"
+      # Get count of subtitle tracks
+      local sub_count=$(ffprobe -v error -select_streams s -show_entries stream=index -of csv=p=0 "$input_file" 2>/dev/null | wc -l)
+      if [[ "$sub_count" -eq 0 ]]; then
+        return 0
+      fi
+
+      # Preserve original ownership (mkvpropedit changes it when run as root)
+      local original_owner=$(stat -c "%u:%g" "$input_file" 2>/dev/null)
+
+      # Clear default flag on all subtitle tracks
+      local args=()
+      for i in $(seq 1 "$sub_count"); do
+        args+=(--edit "track:s$i" --set flag-default=0)
+      done
+
+      if mkvpropedit "$input_file" "''${args[@]}" 2>/dev/null; then
+        # Restore original ownership if it changed
+        if [[ -n "$original_owner" ]]; then
+          chown "$original_owner" "$input_file" 2>/dev/null || true
+        fi
+      fi
+    }
 
     # Function to extract subtitles from a single file
     extract_subtitles() {
@@ -107,11 +134,13 @@ let
     if [[ -f "$TARGET" ]]; then
       # Single file mode
       if [[ "$TARGET" == *.mkv ]]; then
+        clear_default_flag "$TARGET"
         extract_subtitles "$TARGET"
       fi
     elif [[ -d "$TARGET" ]]; then
       # Directory mode: find all .mkv files
       while read -r mkv_file; do
+        clear_default_flag "$mkv_file"
         extract_subtitles "$mkv_file" || echo "Skipping: $mkv_file" >&2
       done < <(find "$TARGET" -type f -name "*.mkv")
     else
