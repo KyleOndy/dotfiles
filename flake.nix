@@ -3,6 +3,10 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
     # https://github.com/NixOS/nixpkgs/pull/427631
     nixpkgs-master.url = "github:nixos/nixpkgs/master";
+    claude-code-nix = {
+      url = "github:sadjow/claude-code-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
     home-manager = {
       url = "github:nix-community/home-manager/release-25.05";
@@ -52,6 +56,10 @@
           master = import inputs.nixpkgs-master {
             inherit (final) system config;
           };
+        })
+
+        (final: _prev: {
+          claude-code = inputs.claude-code-nix.packages.${final.system}.default;
         })
       ];
 

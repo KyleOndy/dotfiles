@@ -107,6 +107,10 @@ update/home-manager: ## Update just home-manager source
 update/nur: ## Update just the nur source
 	nix flake update nur
 
+.PHONY: update/claude-code
+update/claude-code: ## Update just claude-code source
+	nix flake update claude-code-nix
+
 .PHONY: check
 check: ## Run nix checks
 	nix flake check

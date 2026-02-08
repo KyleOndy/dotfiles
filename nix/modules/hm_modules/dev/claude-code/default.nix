@@ -62,7 +62,7 @@ in
     home.packages =
       with pkgs;
       [
-        master.claude-code
+        claude-code
 
         # Core tools used by smart-lint.sh and smart-test.sh
         gitAndTools.gitFull # for detecting modified files (matches git.nix module)
