@@ -497,6 +497,7 @@
       # deploy-rs
       deploy = {
         fastConnection = true;
+        confirmTimeout = 300;
         nodes = {
           dino = {
             hostname = "dino";
@@ -526,7 +527,6 @@
           bear = {
             fastConnection = false;
             hostname = "147.135.8.156";
-            confirmTimeout = 60;
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
