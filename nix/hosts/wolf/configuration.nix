@@ -513,6 +513,17 @@
     };
   };
 
+  # Subtitle extractor - runs on wolf where files live (not over NFS)
+  # Scans media library hourly for missing subtitle sidecars and clears default subtitle flags
+  # Prevents Jellyfin transcoding delays caused by subtitle burn-in
+  systemFoundry.subtitleExtractor = {
+    enable = true;
+    mediaPath = "/mnt/storage/media";
+    schedule = "hourly";
+    user = "root"; # Needs root for chown to preserve file ownership
+    group = "root";
+  };
+
   # NFS server - export media to bear and tiger over WireGuard
   services.nfs.server = {
     enable = true;
