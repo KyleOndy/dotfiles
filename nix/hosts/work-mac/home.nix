@@ -113,6 +113,7 @@
   # secret in the work fork.
   home.packages = with pkgs; [
     argocd # ArgoCD CLI
+    coder # Provision remote development environments via Terraform
     gh # GitHub CLI
     linear-cli
     pdm # Python Development Master
@@ -130,4 +131,30 @@
     source = ./modularml-CLAUDE.md;
     force = true; # Override existing file if present
   };
+
+  # Coder remote development SSH config
+  programs.ssh.matchBlocks = {
+    "coder.*" = {
+      extraOptions = {
+        ConnectTimeout = "0";
+        StrictHostKeyChecking = "no";
+        UserKnownHostsFile = "/dev/null";
+        LogLevel = "ERROR";
+      };
+      proxyCommand = ''coder --global-config "$HOME/Library/Application Support/coderv2" ssh --stdio --ssh-host-prefix coder. %h'';
+    };
+    "*.coder" = {
+      extraOptions = {
+        ConnectTimeout = "0";
+        StrictHostKeyChecking = "no";
+        UserKnownHostsFile = "/dev/null";
+        LogLevel = "ERROR";
+      };
+    };
+  };
+
+  programs.ssh.extraConfig = lib.mkAfter ''
+    Match host *.coder !exec "coder connect exists %h"
+      ProxyCommand coder --global-config "$HOME/Library/Application Support/coderv2" ssh --stdio --hostname-suffix coder %h
+  '';
 }
