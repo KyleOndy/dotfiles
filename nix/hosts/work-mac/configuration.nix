@@ -72,6 +72,8 @@
     stateVersion = 5;
 
     defaults = {
+      # Disable Globe/Fn key emoji picker
+      hitoolbox.AppleFnUsageType = lib.mkDefault "Do Nothing";
       # Dock preferences
       dock = {
         autohide = lib.mkDefault true;
@@ -197,6 +199,9 @@
             "184" = {
               enabled = false;
             }; # Cmd+Shift+5 (screenshot options panel)
+            "164" = {
+              enabled = false;
+            }; # Ctrl+Cmd+Space (Emoji & Symbols / Character Viewer)
           };
         };
       };
