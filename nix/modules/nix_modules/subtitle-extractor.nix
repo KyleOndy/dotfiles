@@ -68,7 +68,7 @@ let
       local text_subs=$(echo "$subtitle_streams" | jq -r '
         .streams[] |
         select(.codec_name == "subrip" or .codec_name == "ass" or .codec_name == "mov_text" or .codec_name == "srt") |
-        "\(.index)|\(.tags.language // "und")|\(.tags.title // "")"
+        "\(.index)|\(.tags.language // "" | if . == "" then "und" else . end)|\(.tags.title // "")"
       ')
 
       if [[ -z "$text_subs" ]]; then
@@ -79,6 +79,14 @@ let
       declare -A lang_counts
 
       while IFS='|' read -r stream_idx lang title; do
+        # Language tag handling:
+        # ffprobe subtitle tracks produce varied language values:
+        #   - ISO 639-2 3-letter codes: "eng", "spa", "fre", "cze", etc.
+        #   - ISO 639-1 2-letter codes: "en", "es", etc. (pass through as-is)
+        #   - Empty string "": track exists but has no language tag value
+        #   - "und": explicitly marked undetermined (from jq null fallback)
+        # We normalize common 3-letter codes to 2-letter, and treat empty/missing as "und".
+
         # Map common 3-letter codes to 2-letter (ISO 639-2 to ISO 639-1)
         case "$lang" in
           eng) lang="en" ;;
@@ -93,6 +101,9 @@ let
           rus) lang="ru" ;;
           und) lang="und" ;;
         esac
+
+        # Belt-and-suspenders: ensure lang is never empty (fallback for edge cases)
+        [[ -z "$lang" ]] && lang="und"
 
         # Determine suffix based on title (e.g., "SDH", "forced", "cc")
         local suffix=""
