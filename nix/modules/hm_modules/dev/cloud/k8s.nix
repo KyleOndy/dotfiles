@@ -16,11 +16,14 @@ in
 
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
+      helmfile
       k9s
       kubectl
       kubectl-node-shell
       kubectx
-      kubernetes-helm
+      (wrapHelm kubernetes-helm {
+        plugins = [ kubernetes-helmPlugins.helm-diff ];
+      })
       kustomize
       kind
     ];

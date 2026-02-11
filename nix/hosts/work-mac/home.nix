@@ -119,6 +119,7 @@
     pdm # Python Development Master
     pulumi
     pkgs.pulumiPackages.pulumi-python
+    gemini-cli
   ];
 
   # Ensure modularml directory exists before linking Claude.md
