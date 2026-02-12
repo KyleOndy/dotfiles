@@ -247,53 +247,53 @@ in
           rules:
             - alert: SonarrQueueHigh
               expr: sonarr_queue_total > 50
-              for: 5m
+              for: 4h
               labels:
                 severity: warning
                 service: sonarr
               annotations:
                 summary: "Sonarr queue depth is high: {{ $value }} items"
-                description: "Sonarr has more than 50 items in queue for 5+ minutes"
+                description: "Sonarr has more than 50 items in queue for 4+ hours"
 
             - alert: SonarrQueueStalled
-              expr: increase(sonarr_queue_total[30m]) == 0 AND sonarr_queue_total > 0
-              for: 30m
+              expr: increase(sonarr_queue_total[6h]) == 0 AND sonarr_queue_total > 0
+              for: 6h
               labels:
                 severity: warning
                 service: sonarr
               annotations:
                 summary: "Sonarr queue appears stalled"
-                description: "Sonarr queue has items stuck - no movement in 30 minutes"
+                description: "Sonarr queue has items stuck - no movement in 6 hours"
 
             - alert: RadarrQueueHigh
               expr: radarr_queue_total > 50
-              for: 5m
+              for: 4h
               labels:
                 severity: warning
                 service: radarr
               annotations:
                 summary: "Radarr queue depth is high: {{ $value }} items"
-                description: "Radarr has more than 50 items in queue for 5+ minutes"
+                description: "Radarr has more than 50 items in queue for 4+ hours"
 
             - alert: RadarrQueueStalled
-              expr: increase(radarr_queue_total[30m]) == 0 AND radarr_queue_total > 0
-              for: 30m
+              expr: increase(radarr_queue_total[6h]) == 0 AND radarr_queue_total > 0
+              for: 6h
               labels:
                 severity: warning
                 service: radarr
               annotations:
                 summary: "Radarr queue appears stalled"
-                description: "Radarr queue has items stuck - no movement in 30 minutes"
+                description: "Radarr queue has items stuck - no movement in 6 hours"
 
             - alert: SABnzbdQueueHigh
               expr: sabnzbd_queue_total > 20
-              for: 5m
+              for: 4h
               labels:
                 severity: warning
                 service: sabnzbd
               annotations:
                 summary: "SABnzbd queue depth is high: {{ $value }} items"
-                description: "SABnzbd has more than 20 items in queue"
+                description: "SABnzbd has more than 20 items in queue for 4+ hours"
 
             - alert: SABnzbdDownloadFailed
               expr: increase(sabnzbd_downloads_failed_total[1h]) > 5
