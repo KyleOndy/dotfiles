@@ -55,7 +55,7 @@ let
               ":${lib.replaceStrings [ "-" ] [ "_" ] k} ${formatValue v}"
           ) spec;
         in
-        '':${name} {${lib.concatStringsSep "\n           " parts}}'';
+        ":${name} {${lib.concatStringsSep "\n           " parts}}";
     in
     ''
       {:aliases
@@ -227,7 +227,7 @@ in
           # tpope to the rescue again
           {
             plugin = vim-sexp-mappings-for-regular-people;
-            config = '''';
+            config = "";
           }
 
           # https://github.com/PaterJason/nvim-treesitter-sexp
