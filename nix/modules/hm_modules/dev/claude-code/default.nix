@@ -13,12 +13,12 @@ let
 in
 {
   options.hmFoundry.dev.claude-code = {
-    enable = mkEnableOption "Claude Code configuration and intelligent hooks";
+    enable = mkEnableOption "Claude Code configuration";
 
     enableHooks = mkOption {
       type = types.bool;
       default = true;
-      description = "Enable intelligent post-tool-use and notification hooks";
+      description = "Enable notification hooks";
     };
     enableCommands = mkOption {
       type = types.bool;
@@ -30,24 +30,6 @@ in
       type = types.bool;
       default = false;
       description = "Enable desktop notifications for Claude Code operations";
-    };
-
-    clojureFormatting = {
-      enable = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Enable Clojure code formatting in hooks";
-      };
-
-      formatter = mkOption {
-        type = types.enum [
-          "cljstyle"
-          "zprint"
-          "cljfmt"
-        ];
-        default = "cljstyle";
-        description = "Clojure formatter to use";
-      };
     };
 
     projectMemory = mkOption {
@@ -63,63 +45,16 @@ in
       with pkgs;
       [
         claude-code
-
-        # Core tools used by smart-lint.sh and smart-test.sh
-        gitAndTools.gitFull # for detecting modified files (matches git.nix module)
-
-        # Python ecosystem
-        ruff # python linting and formatting (use regular version to avoid conflicts)
-
-        # Clojure ecosystem
-        clj-kondo # clojure linting
-        babashka # fast clojure scripting
-
-        # Nix ecosystem
-        nixfmt-rfc-style # nix formatting
-
-        # Shell ecosystem
-        shellcheck # shell script linting
-        shfmt # shell script formatting
-
-        # Haskell ecosystem (if haskell module is enabled)
-
-        # JavaScript/TypeScript ecosystem
-        nodePackages.prettier # js/ts formatting
-
-        # SQL ecosystem
-        sqlfluff # sql linting and formatting
-
-        # Markdown ecosystem
-        markdownlint-cli2 # markdown linting
-
-        # General development tools
-        gnumake # for Makefile-based testing
-
+        gitAndTools.gitFull # for git operations (matches git.nix module)
       ]
       ++ optionals cfg.enableNotifications [
         libnotify # for notify-send desktop notifications
-      ]
-      ++ optionals cfg.clojureFormatting.enable (
-        if cfg.clojureFormatting.formatter == "cljstyle" then
-          [ cljstyle ]
-        else if cfg.clojureFormatting.formatter == "zprint" then
-          [ zprint ]
-        else
-          [ clojure-lsp ] # includes cljfmt
-      );
+      ];
 
     # Create .claude directory and configuration files
     home.file =
       # Hook files (conditional)
       (optionalAttrs cfg.enableHooks {
-        ".claude/hooks/smart-lint.sh" = {
-          source = ./hooks/smart-lint.sh;
-          executable = true;
-        };
-        ".claude/hooks/smart-test.sh" = {
-          source = ./hooks/smart-test.sh;
-          executable = true;
-        };
         ".claude/hooks/ntfy-notifier.sh" = {
           source = ./hooks/ntfy-notifier.sh;
           executable = true;
@@ -169,11 +104,5 @@ in
         ".claude/commands/.keep".text = "";
         ".claude/task-plans/.keep".text = "";
       };
-
-    # Set environment variables for hook configuration
-    home.sessionVariables = mkIf cfg.enableHooks {
-      CLAUDE_CLOJURE_FORMATTING = if cfg.clojureFormatting.enable then "true" else "false";
-      CLAUDE_CLOJURE_FORMATTER = cfg.clojureFormatting.formatter;
-    };
   };
 }

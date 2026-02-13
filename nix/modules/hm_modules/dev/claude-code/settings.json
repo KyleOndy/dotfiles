@@ -10,23 +10,6 @@
     "padding": 0
   },
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|MultiEdit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/smart-lint.sh",
-            "timeout": 60000
-          },
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/smart-test.sh",
-            "timeout": 300000
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
