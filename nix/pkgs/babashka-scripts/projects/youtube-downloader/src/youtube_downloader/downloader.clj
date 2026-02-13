@@ -16,7 +16,9 @@
   (let [filters (cond-> []
                   ;; Basic availability filtering - start minimal
                   true (conj "!is_private"
-                             "availability=public")
+                             "availability=public"
+                             "live_status!=is_live"
+                             "live_status!=is_upcoming")
 
                   ;; Skip shorts if not wanted
                   (not (:download-shorts channel-config))
