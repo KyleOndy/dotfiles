@@ -85,6 +85,9 @@
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
   };
 
+  # Add Homebrew to PATH for all managed shells (including Claude Code)
+  home.sessionPath = [ "/opt/homebrew/bin" ];
+
   # Override src alias to point to modularml workspace
   programs.zsh.shellAliases = {
     src = lib.mkForce "cd /Users/kondy/src/modularml";

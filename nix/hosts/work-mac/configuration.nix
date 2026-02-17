@@ -60,7 +60,7 @@
     ];
 
     # Default brews (can be overridden with lib.mkForce in work.nix)
-    brews = lib.mkDefault [ "go" ]; # Use Homebrew Go for CGO compatibility
+    brews = [ "go" ]; # Use Homebrew Go for CGO compatibility
   };
 
   # macOS system preferences
