@@ -120,6 +120,7 @@
     argocd # ArgoCD CLI
     coder # Provision remote development environments via Terraform
     gh # GitHub CLI
+    lasso
     linear-cli
     pdm # Python Development Master
     pulumi
