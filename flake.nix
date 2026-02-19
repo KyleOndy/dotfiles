@@ -325,6 +325,7 @@
         {
           # Expose internal packages for direct building and benchmarking
           git-worktree-prompt = pkgs.git-worktree-prompt;
+          lasso = pkgs.lasso;
 
           # Ergodox EZ firmware
           ergodox-firmware = pkgs.callPackage ./keyboard { };
