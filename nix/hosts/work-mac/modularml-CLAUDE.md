@@ -190,3 +190,32 @@ When creating AWS resources manually (via console/clickops):
 - `Ticket`: CLIN-nnnn (determine from current work context if possible)
 
 These tags ensure proper resource attribution and tracking.
+
+## Scratch Directory
+
+Use `~/work/tickets/CLIN-<number>/` for temporary files, intermediate artifacts, plans, and anything else that doesn't belong in the source repository.
+
+### Determining the Ticket ID
+
+**From the worktree path** (preferred): The directory name contains the ticket ID.
+
+```
+/Users/kondy/src/modularml/mammoth/CLIN-708/shadow-traffic
+                                    ^^^^^^^^
+                                    CLIN-708
+```
+
+**From the git branch name**:
+
+```bash
+git branch --show-current
+# e.g. CLIN-708/shadow-traffic → ticket is CLIN-708
+```
+
+### Creating the Directory
+
+```bash
+mkdir -p ~/work/tickets/CLIN-708
+```
+
+No required subdirectory conventions — keep it flat or organize however suits the task.
