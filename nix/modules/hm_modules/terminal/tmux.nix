@@ -144,7 +144,7 @@ in
         #     character, so reverse the string under the assumption that the
         #     load is the last part of the output.
         #   - the xargs is to strip a leading whitespace
-        set-option -ga status-right "[ #(uptime | rev | cut -d':' -f1 | rev | xargs | sed -e 's/,//g') ]"
+        set-option -ga status-right "#[fg=colour246,bg=colour239] [ #(uptime | rev | cut -d':' -f1 | rev | xargs | sed -e 's/,//g') ]"
         # local time
         set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M%Z/#(TZ="UTC" date +'%%H:%%M%%Z') (#(date +'%z'))"
         set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
