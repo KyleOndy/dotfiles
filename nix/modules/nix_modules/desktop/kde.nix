@@ -16,7 +16,14 @@ in
   config = mkIf cfg.enable {
     services = {
       displayManager = {
-        sddm.enable = true;
+        sddm = {
+          enable = true;
+          settings = {
+            Users = {
+              HideUsers = "svc.deploy,svc.syncoid";
+            };
+          };
+        };
         defaultSession = "plasma";
       };
       desktopManager.plasma6 = {
