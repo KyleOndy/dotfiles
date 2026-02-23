@@ -11,21 +11,21 @@
         Port 2332
         IdentityFile /root/.ssh/id_ed25519
         StrictHostKeyChecking accept-new
-        ConnectTimeout 10
+        ConnectTimeout 3
 
       Host wolf
         HostName ns568215.ip-51-79-99.net
         User svc.deploy
         IdentityFile /root/.ssh/id_ed25519
         StrictHostKeyChecking accept-new
-        ConnectTimeout 10
+        ConnectTimeout 3
 
       Host dino dino.lan.1ella.com
         HostName dino.lan.1ella.com
         User svc.deploy
         IdentityFile /root/.ssh/id_ed25519
         StrictHostKeyChecking accept-new
-        ConnectTimeout 10
+        ConnectTimeout 3
 
       # Default settings for all hosts
       Host *
