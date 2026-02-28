@@ -114,6 +114,9 @@
     "d /mnt/storage/media/tv 0775 root media -"
     "d /mnt/storage/media/music 0775 root media -"
     "d /mnt/storage/media/books 0775 root media -"
+    # Staging area for files not indexed by Jellyfin
+    # setgid (2775) so subdirs inherit the media group automatically
+    "d /mnt/storage/media/tmp 2775 root media -"
   ];
 
   systemFoundry = {
@@ -527,9 +530,19 @@
   # NFS server - export media to bear and tiger over WireGuard
   services.nfs.server = {
     enable = true;
+    nproc = 16; # Increase from default 8 to handle concurrent ops (playback + library scans + *arr activity)
     exports = ''
-      /mnt/storage/media 10.10.0.2(rw,sync,no_subtree_check,no_root_squash) 10.10.0.3(rw,sync,no_subtree_check,no_root_squash)
+      /mnt/storage/media 10.10.0.2(rw,async,no_subtree_check,no_root_squash) 10.10.0.3(rw,async,no_subtree_check,no_root_squash)
     '';
+  };
+
+  # TCP buffer tuning for NFS over WireGuard
+  # Larger buffers fill the bandwidth-delay product, reducing stalls on sequential reads
+  boot.kernel.sysctl = {
+    "net.core.rmem_max" = 16777216;
+    "net.core.wmem_max" = 16777216;
+    "net.ipv4.tcp_rmem" = "4096 1048576 16777216";
+    "net.ipv4.tcp_wmem" = "4096 1048576 16777216";
   };
 
   # SOPS secrets for monitoring and WireGuard
