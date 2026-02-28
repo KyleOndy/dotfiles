@@ -76,7 +76,38 @@
       "timeo=30"
       "retrans=2"
       "_netdev" # Mount after network is up
+      "noatime" # Don't update access times over NFS — eliminates spurious write RPCs
+      "acregmin=60" # Min file attribute cache: 60s (was 3s) — safe for media-only share
+      "acregmax=600" # Max file attribute cache: 10min (was 60s) — files change only on import
+      "acdirmin=60" # Min dir attribute cache: 60s (was 30s)
+      "acdirmax=600" # Max dir attribute cache: 10min (was 60s) — reduces RPCs for 14K files
     ];
+  };
+
+  # Set NFS readahead to 16 MB after mount (default is 128 KB — too small for GB-sized media files)
+  # The BDI (Backing Device Info) readahead controls how much the kernel prefetches ahead of reads,
+  # directly reducing stalls when Jellyfin starts playing a new file.
+  systemd.services.nfs-readahead = {
+    description = "Set NFS readahead for media mount";
+    after = [ "mnt-media.mount" ];
+    requires = [ "mnt-media.mount" ];
+    wantedBy = [ "mnt-media.mount" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.writeShellScript "nfs-readahead" ''
+        bdi=$(${pkgs.util-linux}/bin/findmnt -n -o MAJ:MIN /mnt/media)
+        echo 16384 > /sys/class/bdi/"$bdi"/read_ahead_kb
+      ''}";
+    };
+  };
+
+  # TCP buffer tuning for NFS over WireGuard
+  # Larger buffers fill the bandwidth-delay product, reducing stalls on sequential reads
+  boot.kernel.sysctl = {
+    "net.core.rmem_max" = 16777216;
+    "net.core.wmem_max" = 16777216;
+    "net.ipv4.tcp_rmem" = "4096 1048576 16777216";
+    "net.ipv4.tcp_wmem" = "4096 1048576 16777216";
   };
 
   # Intel QuickSync hardware transcoding support
