@@ -24,6 +24,9 @@
     allowDiscards = true;
   };
 
+  # Resume device for hibernate — swap file lives inside the LUKS container
+  boot.resumeDevice = "/dev/mapper/crypted";
+
   fileSystems."/" = {
     device = "/dev/mapper/crypted";
     fsType = "ext4";
@@ -36,6 +39,14 @@
       "dmask=0022"
     ];
   };
+
+  # 64 GiB swap file inside the LUKS container — required for hibernate
+  swapDevices = [
+    {
+      device = "/var/lib/swapfile";
+      size = 64 * 1024; # 64 GiB — must be >= RAM for hibernate
+    }
+  ];
 
   boot.initrd.availableKernelModules = [
     "xhci_pci" # USB 3.0
@@ -56,6 +67,7 @@
   boot.kernelParams = [
     "acpi_osi=\"!Windows 2020\""
     "mem_sleep_default=deep" # Enable deeper S3 sleep state for better power savings
+    "resume_offset=149016576" # Physical offset of /var/lib/swapfile for hibernate resume
   ];
 
   # Enable Framework battery charge control via cros_charge-control driver
@@ -587,8 +599,11 @@
 
   # Configure systemd-logind to let KDE PowerDevil handle power button
   # Otherwise logind intercepts power button before KDE can handle it
-  services.logind.extraConfig = ''
-    HandlePowerKey=ignore
+  services.logind.powerKey = "ignore";
+
+  # Suspend to RAM first, then auto-hibernate after 2 hours
+  systemd.sleep.extraConfig = ''
+    HibernateDelaySec=2h
   '';
 
   # Dino-specific home-manager user configuration
@@ -632,6 +647,7 @@
           enable = true;
           idleTimeout = 540; # Dim after 9 minutes (before display turns off)
         };
+        whenSleepingEnter = "standbyThenHibernate"; # Suspend then hibernate after 2h
         whenLaptopLidClosed = "sleep"; # Still sleep when lid closes
         inhibitLidActionWhenExternalMonitorConnected = true; # Don't sleep with external monitor
         powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
@@ -650,13 +666,14 @@
           enable = true;
           idleTimeout = 120; # Dim after 2 minutes
         };
+        whenSleepingEnter = "standbyThenHibernate"; # Suspend then hibernate after 2h
         whenLaptopLidClosed = "sleep";
         powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       lowBattery = {
         autoSuspend = {
-          action = "sleep"; # Aggressive sleep when battery is low
+          action = "hibernate"; # Hibernate directly when battery is low
           idleTimeout = 120; # After 2 minutes of inactivity
         };
         turnOffDisplay = {
@@ -667,14 +684,14 @@
           enable = true;
           idleTimeout = 30; # Dim after 30 seconds
         };
-        whenLaptopLidClosed = "sleep";
+        whenLaptopLidClosed = "hibernate"; # Hibernate on lid close when low battery
         powerButtonAction = "nothing"; # Prevent race condition when waking from sleep
       };
 
       batteryLevels = {
         lowLevel = 20; # Low battery at 20%
         criticalLevel = 5; # Critical battery at 5%
-        criticalAction = "sleep"; # Sleep at critical battery
+        criticalAction = "hibernate"; # Hibernate at critical battery to preserve state
       };
     };
 
