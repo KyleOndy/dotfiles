@@ -325,11 +325,13 @@
         {
           # Expose internal packages for direct building and benchmarking
           git-worktree-prompt = pkgs.git-worktree-prompt;
-          lasso = pkgs.lasso;
 
           # Ergodox EZ firmware
           ergodox-firmware = pkgs.callPackage ./keyboard { };
         }
+        // (inputs.nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
+          lasso = pkgs.lasso;
+        })
       );
 
       apps = forAllSystems (
