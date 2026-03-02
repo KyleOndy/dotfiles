@@ -59,10 +59,16 @@
       "spotify"
     ];
 
+    # Homebrew taps for additional formula sources
+    taps = [
+      "datadog-labs/pack"
+    ];
+
     # Default brews (can be overridden with lib.mkForce in work.nix)
     brews = [
       "go"
       "golangci-lint"
+      "datadog-labs/pack/pup"
     ]; # Use Homebrew for CGO compatibility and Go version sync
   };
 
