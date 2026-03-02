@@ -1,8 +1,8 @@
 {
-  "_id": "nixos-audio-normalization",
-  "name": "Audio Normalization - AAC + Subtitle Cleanup",
-  "description": "Preserve original video codec. Add AAC audio tracks for device compatibility (iOS/web). Remove PGS/DVD subtitles that cannot direct-stream. Standardize on MKV container.",
-  "tags": "audio,aac,compatibility,mkv,subtitle-cleanup",
+  "_id": "nixos-h264-compat",
+  "name": "Compatibility - H.264 + AAC + Subtitle Cleanup",
+  "description": "Re-encode HEVC video to H.264 for Roku/device compatibility. Add AAC audio tracks (iOS/web). Remove PGS/DVD subtitles that cannot direct-stream. Standardize on MKV container. Non-HEVC video is copied as-is.",
+  "tags": "audio,aac,compatibility,mkv,subtitle-cleanup,hevc,h264",
   "flowPlugins": [
     {
       "name": "Input File",
@@ -21,12 +21,40 @@
       "position": { "x": 400, "y": 200 }
     },
     {
+      "name": "Check for HEVC Video",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "chkhevc01",
+      "position": { "x": 400, "y": 300 },
+      "inputsDB": {
+        "codec": "hevc"
+      }
+    },
+    {
+      "name": "Re-encode HEVC to H.264",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "setvenc01",
+      "position": { "x": 250, "y": 400 },
+      "inputsDB": {
+        "outputCodec": "h264",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "medium",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": 22,
+        "hardwareEncoding": "false",
+        "forceEncoding": "true"
+      }
+    },
+    {
       "name": "Remove PGS/DVD Subtitles",
       "sourceRepo": "Community",
       "pluginName": "ffmpegCommandRemoveStreamByProperty",
       "version": "1.0.0",
       "id": "rempgs01",
-      "position": { "x": 400, "y": 300 },
+      "position": { "x": 400, "y": 500 },
       "inputsDB": {
         "propertyToCheck": "codec_name",
         "valuesToRemove": "hdmv_pgs_subtitle,dvd_subtitle",
@@ -39,7 +67,7 @@
       "pluginName": "ffmpegCommandSetContainer",
       "version": "1.0.0",
       "id": "setcont1",
-      "position": { "x": 400, "y": 400 },
+      "position": { "x": 400, "y": 600 },
       "inputsDB": {
         "container": "mkv"
       }
@@ -50,7 +78,7 @@
       "pluginName": "checkAudioCodec",
       "version": "1.0.0",
       "id": "chkeac3-1",
-      "position": { "x": 400, "y": 500 },
+      "position": { "x": 400, "y": 700 },
       "inputsDB": {
         "codecs": "eac3"
       }
@@ -61,7 +89,7 @@
       "pluginName": "ffmpegCommandEnsureAudioStream",
       "version": "1.0.0",
       "id": "addaac51-1",
-      "position": { "x": 300, "y": 600 },
+      "position": { "x": 300, "y": 800 },
       "inputsDB": {
         "audioCodec": "aac",
         "audioChannels": "6",
@@ -74,7 +102,7 @@
       "pluginName": "ffmpegCommandEnsureAudioStream",
       "version": "1.0.0",
       "id": "ensaac1",
-      "position": { "x": 500, "y": 600 },
+      "position": { "x": 500, "y": 800 },
       "inputsDB": {
         "audioCodec": "aac",
         "audioChannels": "2",
@@ -87,7 +115,7 @@
       "pluginName": "ffmpegCommandExecute",
       "version": "1.0.0",
       "id": "ffexec1",
-      "position": { "x": 400, "y": 700 }
+      "position": { "x": 400, "y": 900 }
     },
     {
       "name": "Replace Original File",
@@ -95,7 +123,7 @@
       "pluginName": "replaceOriginalFile",
       "version": "1.0.0",
       "id": "replace1",
-      "position": { "x": 400, "y": 800 }
+      "position": { "x": 400, "y": 1000 }
     }
   ],
   "flowEdges": [
@@ -109,9 +137,32 @@
     {
       "source": "ffstart1",
       "sourceHandle": "1",
-      "target": "rempgs01",
+      "target": "chkhevc01",
       "targetHandle": null,
       "id": "e002"
+    },
+    {
+      "source": "chkhevc01",
+      "sourceHandle": "1",
+      "target": "setvenc01",
+      "targetHandle": null,
+      "id": "evid01",
+      "comment": "HEVC found - re-encode to H.264"
+    },
+    {
+      "source": "chkhevc01",
+      "sourceHandle": "2",
+      "target": "rempgs01",
+      "targetHandle": null,
+      "id": "evid02",
+      "comment": "Not HEVC - copy video as-is"
+    },
+    {
+      "source": "setvenc01",
+      "sourceHandle": "1",
+      "target": "rempgs01",
+      "targetHandle": null,
+      "id": "evid03"
     },
     {
       "source": "rempgs01",
