@@ -347,7 +347,7 @@ in
       };
 
       youtubeDownloader = {
-        enable = true;
+        enable = false;
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/scratch-big/youtube-downloads";
         sleep_between_channels = 180;
@@ -513,91 +513,7 @@ in
     LIBVA_DRIVER_NAME = "iHD";
   };
 
-  # TODO: move to module if it works and I like it
-  systemd = {
-    services = {
-      jellyfin-prune = {
-        enable = true;
-        startAt = "*-*-* 04:00:00"; # 4am
-        path = with pkgs; [
-          bashInteractive
-          curl
-          fd
-          jq
-        ];
-        environment = {
-          TOKEN_FILE = config.sops.secrets.jellyfin_api_token.path;
-          DATA_DIR = config.systemFoundry.youtubeDownloader.data_dir;
-        };
-        script = ''
-          #!/usr/bin/env bash
-          set -euo pipefail
-
-          TOKEN=$(cat $TOKEN_FILE)
-          TODAY="$(date +%Y-%m-%d)"
-          TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
-          WORKING_DIR="$DATA_DIR/yt-jelly-sync"
-          echo "TODAY: $TODAY"
-          echo "TWO_DAYS_AGO: $TWO_DAYS_AGO"
-          echo "WORKING_DIR: $WORKING_DIR"
-
-          print_watched_vids() {
-            curl -sS -X 'GET' \
-              'https://jellyfin.apps.dmz.1ella.com/Items?userId=8e521e5f-b1e2-479a-a57d-65a25b276504&recursive=true&parentId=2f958036-93af-1464-2fd4-a2bec23b34f5&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
-              -H 'accept: application/json' \
-              -H "Authorization: MediaBrowser Token=\"$TOKEN\"" | jq -r '.Items[] | select(.UserData.PlayCount >= 1) | .Path'
-          }
-
-          update_lib() {
-            curl -Ss -X 'POST' \
-              'https://jellyfin.apps.dmz.1ella.com/ScheduledTasks/Running/7738148ffcd07979c7ceb148e06b3aed' \
-              -H 'accept: */*' \
-              -H "Authorization: MediaBrowser Token=\"$TOKEN\"" \
-              -d ""
-          }
-
-          main() {
-            vids=$(print_watched_vids)
-
-            [[ -d "$WORKING_DIR" ]] || mkdir "$WORKING_DIR"
-            echo "$vids" | sort > "$WORKING_DIR/$TODAY.txt"
-
-            temp_file=$(mktemp)
-            fd --type=f --changed-before "$TWO_DAYS_AGO" . "$WORKING_DIR" -0 | xargs -0 -r ls -t1d > "$temp_file" 2>/dev/null || true
-            old_vids_file=$(head -n1 "$temp_file" 2>/dev/null || true)
-            rm -f "$temp_file"
-            if ! [[ -f "$old_vids_file" ]]; then
-              echo "Can not find an old enough file. We'll try again tomorrow."
-              exit 0
-            fi
-
-            vids_to_remove=$(comm -12 "$WORKING_DIR/$TODAY.txt" "$old_vids_file")
-
-          if [[ -z "$vids_to_remove" ]]; then
-            echo "No videos to remove"
-            exit 0
-          fi
-
-            echo "$vids_to_remove" | while read -r vid; do
-              if [[ -f "$vid" ]]; then
-                rm -v "$vid"
-              else
-                echo "Can not find $vid"
-              fi
-            done
-
-            fd --type=directory --type=empty . /mnt/media/yt -X rmdir -v
-            echo "Updating library"
-            update_lib
-          }
-
-          main
-        '';
-      };
-    };
-  };
   sops.secrets = {
-    jellyfin_api_token = { };
     namecheap = { };
     monitoring_token_tiger = {
       # vmagent service runs as DynamicUser, which means it can't be assigned
