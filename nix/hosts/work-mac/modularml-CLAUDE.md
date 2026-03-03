@@ -219,3 +219,31 @@ mkdir -p ~/work/tickets/CLIN-708
 ```
 
 No required subdirectory conventions — keep it flat or organize however suits the task.
+
+## Investigating Upstream Dependencies
+
+When you need to read or search code in external repositories (upstream libraries, services, dependencies), **clone the repository locally** rather than using `gh api`, `gh` CLI, or web fetching.
+
+### Why Clone Locally?
+
+- Full access to Read, Grep, and Glob tools for effective code search
+- No GitHub API rate limits or base64-encoded content to deal with
+- Can search across files, trace call chains, and understand structure
+- Git history available for `git log`, `git blame`, etc.
+
+### Where to Clone
+
+Clone into the ticket's scratch directory:
+
+```bash
+# Structure: ~/work/tickets/CLIN-<number>/repos/<org>/<repo>
+mkdir -p ~/work/tickets/CLIN-708/repos/some-org
+git clone https://github.com/some-org/some-repo.git ~/work/tickets/CLIN-708/repos/some-org/some-repo
+```
+
+### Rules
+
+1. **Always check first** — before cloning, check if the repo already exists in the scratch dir
+2. **Use full clones** — do not use `--depth 1`; full history is needed for blame and log
+3. **Never clone into the source repository** — upstream code goes in the scratch dir, not the worktree
+4. **Clean up is automatic** — repos are scoped to the ticket and removed with it
