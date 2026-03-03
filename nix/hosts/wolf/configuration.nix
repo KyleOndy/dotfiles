@@ -117,6 +117,9 @@
     # Staging area for files not indexed by Jellyfin
     # setgid (2775) so subdirs inherit the media group automatically
     "d /mnt/storage/media/tmp 2775 root media -"
+    # YouTube downloader media and temp directories
+    "d /mnt/storage/media/yt 0775 root media -"
+    "d /mnt/storage/downloads/youtube-temp 0755 root root -"
   ];
 
   systemFoundry = {
@@ -527,6 +530,227 @@
     group = "root";
   };
 
+  # YouTube downloader - downloads videos from subscribed channels to ZFS pool
+  # Media lives at /mnt/storage/media/yt, NFS-exported to bear where Jellyfin runs
+  systemFoundry.youtubeDownloader = {
+    enable = true;
+    media_dir = "/mnt/storage/media/yt";
+    temp_dir = "/mnt/storage/downloads/youtube-temp";
+    sleep_between_channels = 180;
+    max_videos_default = 5;
+    max_videos_initial = 30;
+    download_shorts = true;
+
+    watched_channels = [
+      # cycling
+      "@BeauMiles"
+      "@BermPeakExpress"
+      "@bike2reality814"
+      "@BIKEPACKINGcom"
+      "@BikePak"
+      "@chadweberg1" # Chad Weberg
+      "@ChumbaUSABikes"
+      "@Cycling366"
+      "@Danny_MacAskill"
+      "@DirtyTeethMTB"
+      "@duzer"
+      "@DylanJohnsonCycling"
+      "@EFProCycling"
+      "@FarBeyond-EFPC"
+      "@FullBeansCyclingCompany"
+      "@hennapalosaari_"
+      "@howtheracewaswon"
+      "@JackScottkeogh"
+      "@jasperverkuijl"
+      "@jjjjustin"
+      "@joe.nation"
+      "@joffreymaluski"
+      "@joshibbett"
+      "@justinasleveika"
+      "@katrinahase"
+      "@KDubzDidWhat"
+      "@KeepSmilingAdventures"
+      "@lesperitdelbikepacking"
+      "@MediocreAmateur"
+      "@MickTurnbullFilms"
+      "@msoleilblais74"
+      "@omniumcargo"
+      "@panoramacycles"
+      "@PatrickMcGrady1"
+      "@PaulComponentEngineering"
+      "@pnwbikepacking"
+      "@raphafilms"
+      "@RideProductionsNZ"
+      "@RousLigon"
+      "@SethsBikeHacks"
+      "@sofianeshl"
+      "@sportscientist" # Stephen Seiler
+      "@stephanwieser"
+      "@TailfinCycling"
+      "@TENTISTHENEWRENT"
+      "@the_dirtbags"
+      "@themountainraces"
+      "@TheVCAdventures" # The Vegan Cyclist
+      "@tristanbogaard"
+      "@tristantakevideo"
+      "@TurnCycling"
+      "@ValleyPreferredCyclingCenter"
+      "@wattwagon"
+      "@wheelstowaves"
+      "@worstretirementever" # Phil Gaimon
+
+      # science
+      "@AlphaPhoenixChannel"
+      "@BetaPhoenixChannel"
+      "@miniminuteman773"
+
+      # maker
+      "@aaedmusa"
+      "@BennettStirton"
+      "@dkbuilds"
+      "@lostartpress"
+      "@MarkRober"
+      "@matthiaswandel"
+      "@Paul.Sellers"
+      "@propdepartment"
+      "@RexKrueger"
+      "@StuffMadeHere"
+      "@StuffMadeHere2"
+      "@tested"
+      "@theslowmoguys"
+      "@TomStantonEngineering"
+      "@WoodByWrightHowTo"
+
+      # entertainment
+      "@2MuchColinFurze"
+      "@BeastPhilanthropy"
+      "@Ben_Brainard"
+      "@CaptainDisillusion"
+      "@CharlieBerens"
+      "@colinfurze"
+      "@DudeDad"
+      "@Gossip.Goblin"
+      "@GxAce"
+      "@kaptainkristian"
+      "@kurzgesagt"
+      "@MrBeast"
+      "@MrBeast2"
+      "@PracticalEngineeringChannel"
+      "@RudyAyoub"
+      "@SampsonBoatCo"
+      {
+        name = "@theslappablejerk";
+        download_shorts = false;
+      }
+      "@treykennedy"
+      "@whistlindiesel"
+
+      # tech
+      "@AdamJames-tv"
+      "@KRAZAM"
+      "@programmersarealsohuman5909" # Kai Lentit
+
+      # outdoor
+      "@bronandjacob"
+      "@ChrisburkardStudio"
+      "@courtneyevewhite"
+      "@RabEquipment"
+      "@theaudaciousreport"
+    ];
+  };
+
+  # Jellyfin prune - deletes watched YouTube videos from disk after 2 days
+  # Jellyfin runs on bear (NFS client); bear returns paths like /mnt/media/yt/...
+  # which must be translated to wolf's /mnt/storage/media/yt/... for deletion.
+  # TODO: Before deploying, update userId and parentId by querying bear's Jellyfin:
+  #   curl -s 'https://jellyfin.apps.ondy.org/Users' \
+  #     -H 'Authorization: MediaBrowser Token="<api_key>"' | jq '.[] | {Name, Id}'
+  #   curl -s 'https://jellyfin.apps.ondy.org/Library/VirtualFolders' \
+  #     -H 'Authorization: MediaBrowser Token="<api_key>"' | jq '.[] | {Name, ItemId}'
+  #   curl -s 'https://jellyfin.apps.ondy.org/ScheduledTasks' \
+  #     -H 'Authorization: MediaBrowser Token="<api_key>"' \
+  #     | jq '.[] | select(.Name | test("Scan")) | {Name, Id}'
+  systemd.services.jellyfin-prune = {
+    enable = true;
+    startAt = "*-*-* 05:00:00"; # 5am (1 hour after downloader at 4am)
+    path = with pkgs; [
+      bashInteractive
+      curl
+      fd
+      jq
+    ];
+    environment = {
+      TOKEN_FILE = config.sops.secrets.jellyfin_api_token.path;
+      DATA_DIR = config.systemFoundry.youtubeDownloader.data_dir;
+    };
+    script = ''
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      TOKEN=$(cat $TOKEN_FILE)
+      TODAY="$(date +%Y-%m-%d)"
+      TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
+      WORKING_DIR="$DATA_DIR/yt-jelly-sync"
+      echo "TODAY: $TODAY"
+      echo "TWO_DAYS_AGO: $TWO_DAYS_AGO"
+      echo "WORKING_DIR: $WORKING_DIR"
+
+      print_watched_vids() {
+        curl -sS -X 'GET' \
+          'https://jellyfin.apps.ondy.org/Items?userId=TODO_UPDATE_USER_ID&recursive=true&parentId=TODO_UPDATE_PARENT_ID&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
+          -H 'accept: application/json' \
+          -H "Authorization: MediaBrowser Token=\"$TOKEN\"" | jq -r '.Items[] | select(.UserData.PlayCount >= 1) | .Path'
+      }
+
+      update_lib() {
+        curl -Ss -X 'POST' \
+          'https://jellyfin.apps.ondy.org/ScheduledTasks/Running/TODO_UPDATE_TASK_ID' \
+          -H 'accept: */*' \
+          -H "Authorization: MediaBrowser Token=\"$TOKEN\"" \
+          -d ""
+      }
+
+      main() {
+        # Bear (NFS client) returns paths like /mnt/media/yt/...
+        # Translate to wolf's local paths at /mnt/storage/media/yt/...
+        vids=$(print_watched_vids | sed 's|^/mnt/media/|/mnt/storage/media/|')
+
+        [[ -d "$WORKING_DIR" ]] || mkdir "$WORKING_DIR"
+        echo "$vids" | sort > "$WORKING_DIR/$TODAY.txt"
+
+        temp_file=$(mktemp)
+        fd --type=f --changed-before "$TWO_DAYS_AGO" . "$WORKING_DIR" -0 | xargs -0 -r ls -t1d > "$temp_file" 2>/dev/null || true
+        old_vids_file=$(head -n1 "$temp_file" 2>/dev/null || true)
+        rm -f "$temp_file"
+        if ! [[ -f "$old_vids_file" ]]; then
+          echo "Can not find an old enough file. We'll try again tomorrow."
+          exit 0
+        fi
+
+        vids_to_remove=$(comm -12 "$WORKING_DIR/$TODAY.txt" "$old_vids_file")
+
+        if [[ -z "$vids_to_remove" ]]; then
+          echo "No videos to remove"
+          exit 0
+        fi
+
+        echo "$vids_to_remove" | while read -r vid; do
+          if [[ -f "$vid" ]]; then
+            rm -v "$vid"
+          else
+            echo "Can not find $vid"
+          fi
+        done
+
+        fd --type=directory --type=empty . /mnt/storage/media/yt -X rmdir -v
+        echo "Updating library"
+        update_lib
+      }
+
+      main
+    '';
+  };
+
   # NFS server - export media to bear and tiger over WireGuard
   services.nfs.server = {
     enable = true;
@@ -597,6 +821,7 @@
     sabnzbd_api_key = {
       mode = "0444";
     };
+    jellyfin_api_token = { };
   };
 
   # Tdarr notification script for Sonarr/Radarr integration
