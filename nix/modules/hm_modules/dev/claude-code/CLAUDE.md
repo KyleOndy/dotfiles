@@ -106,6 +106,15 @@ Keep functions small and focused. Prefer explicit over implicit approaches. Dele
 - Keep documentation close to code
 - Update docs when behavior changes
 
+## References and Citations
+
+When making claims about tools, libraries, APIs, configurations, or language behavior:
+
+- Always provide a link to the official documentation or source code
+- Use permalinks pinned to a specific version (e.g., GitHub tagged release or commit SHA, versioned docs URL)
+- Include section anchors or line number references when possible (e.g., `#section-name`, `#L42-L50`)
+- Prefer primary sources (official docs, source code) over blog posts or Stack Overflow
+
 ## Problem-Solving Approach
 
 1. **Understand the problem fully** before coding
