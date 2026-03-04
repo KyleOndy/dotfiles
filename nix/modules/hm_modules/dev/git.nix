@@ -308,6 +308,7 @@ in
     };
 
     home.packages = with pkgs; [
+      gh
       git-crypt
       git-lfs
       pre-commit
