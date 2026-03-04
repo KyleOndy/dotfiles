@@ -50,6 +50,10 @@ Parser implementations are in src/parser/ (https://github.com/modularml/mojo/tre
 3. **Include both formats** - Always provide the relative path for local navigation AND the GitHub URL for web access
 4. **Line number ranges** - Use `L123-L456` format for multi-line references, `L123` for single lines
 
+## Character Set
+
+**ASCII only in code.** Do not use unicode characters, emojis, or non-ASCII symbols in code, comments, commit messages, or PR descriptions. Stick to the printable ASCII range (0x20-0x7E).
+
 ## Repository Information
 
 - **Repository**: <https://github.com/modularml/mojo>
