@@ -439,7 +439,7 @@ in
           interval: 60s
           rules:
             - alert: YTDownloaderStale
-              expr: (time() - yt_last_run_timestamp) > 172800
+              expr: (time() - max(yt_last_run_timestamp)) > 172800
               for: 1m
               labels:
                 severity: critical
