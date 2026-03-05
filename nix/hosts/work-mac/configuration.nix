@@ -61,6 +61,7 @@
 
     # Homebrew taps for additional formula sources
     taps = [
+      "chipmk/tap"
       "datadog-labs/pack"
     ];
 
@@ -68,6 +69,7 @@
     brews = [
       "go"
       "golangci-lint"
+      "chipmk/tap/docker-mac-net-connect"
       "datadog-labs/pack/pup"
     ]; # Use Homebrew for CGO compatibility and Go version sync
   };
@@ -247,6 +249,17 @@
         ''
       ];
       RunAtLoad = true;
+    };
+  };
+
+  # DNS resolution for forge dev cluster
+  # More-specific entries take priority; catch-all handles *.forge.test
+  services.dnsmasq = {
+    enable = true;
+    addresses = {
+      "forge-1.forge.test" = "172.20.201.1";
+      "forge-2.forge.test" = "172.20.202.1";
+      "forge.test" = "172.20.200.1";
     };
   };
 
