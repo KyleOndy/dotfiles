@@ -9,14 +9,12 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Path to the notification sound
 SOUND_FILE="$PROJECT_ROOT/assets/notification.wav"
 
-# Check if any meeting/communication app is running and lower volume
+# Lower volume during active Zoom calls
+# CptHost only spawns during an active call (unlike background processes zoom.us, ZoomPhone, etc.)
 VOLUME_FACTOR=1.0
-for app in zoom teams; do
-	if pgrep -i "$app" >/dev/null 2>&1; then
-		VOLUME_FACTOR=0.3 # 30% volume when in a meeting
-		break
-	fi
-done
+if pgrep -if "CptHost" >/dev/null 2>&1; then
+	VOLUME_FACTOR=0.3
+fi
 
 # Play custom notification sound
 if [ -f "$SOUND_FILE" ]; then
