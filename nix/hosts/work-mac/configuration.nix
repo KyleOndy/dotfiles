@@ -182,6 +182,7 @@
           Battery = 18; # Always show battery icon
           Bluetooth = 18; # Always show Bluetooth icon
           WiFi = 18; # Always show WiFi icon
+          Display = 18; # Always show display/screen mirroring icon
         };
 
         # Disable macOS screenshot shortcuts so Shottr can intercept them
