@@ -7,6 +7,23 @@
 with lib;
 let
   cfg = config.hmFoundry.terminal.tmux;
+  # Claude Code tmux tab indicator: generates powerline-style tab format
+  mkTabFmt =
+    { bg, fg }:
+    "#[fg=colour237]#[bg=${bg}]#[noitalics]#[fg=${fg}]#[bg=${bg}] #I #[fg=${fg}]#[bg=${bg}] #W #[fg=${bg}]#[bg=colour237]#[noitalics]";
+  waitingFmt = mkTabFmt {
+    bg = "colour175";
+    fg = "colour237";
+  }; # purple
+  doneFmt = mkTabFmt {
+    bg = "colour142";
+    fg = "colour237";
+  }; # green
+  normalFmt = mkTabFmt {
+    bg = "colour239";
+    fg = "colour223";
+  }; # grey
+  claudeAwareWindowFmt = "#{?#{==:#{@claude_state},waiting},${waitingFmt},#{?#{==:#{@claude_state},done},${doneFmt},${normalFmt}}}";
 in
 {
   options.hmFoundry.terminal.tmux = {
@@ -154,7 +171,7 @@ in
 
 
         set-window-option -g window-status-current-format "#[fg=colour237, bg=colour214, nobold, noitalics, nounderscore]#[fg=colour239, bg=colour214] #I #[fg=colour239, bg=colour214, bold] #W #[fg=colour214, bg=colour237, nobold, noitalics, nounderscore]"
-        set-window-option -g window-status-format "#[fg=colour237,bg=colour239,noitalics]#[fg=colour223,bg=colour239] #I #[fg=colour223, bg=colour239] #W #[fg=colour239, bg=colour237, noitalics]"
+        set-window-option -g window-status-format "${claudeAwareWindowFmt}"
 
         # ----------------------
         # tmux-fzf

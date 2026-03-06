@@ -67,6 +67,10 @@ in
           source = ./hooks/notification-bell.sh;
           executable = true;
         };
+        ".claude/hooks/tmux-indicator.sh" = {
+          source = ./hooks/tmux-indicator.sh;
+          executable = true;
+        };
         ".claude/assets/notification.wav" = {
           source = ./assets/notification.wav;
           executable = true;
