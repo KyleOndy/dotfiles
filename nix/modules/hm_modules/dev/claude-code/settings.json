@@ -10,12 +10,28 @@
     "padding": 0
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
             "timeout": 5000
           }
         ]
@@ -27,6 +43,17 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/notification-bell.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
             "timeout": 5000
           }
         ]
