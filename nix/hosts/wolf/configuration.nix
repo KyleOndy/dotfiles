@@ -623,7 +623,6 @@
 
       # entertainment
       "@2MuchColinFurze"
-      "@BeastPhilanthropy"
       "@Ben_Brainard"
       "@CaptainDisillusion"
       "@CharlieBerens"
@@ -633,8 +632,6 @@
       "@GxAce"
       "@kaptainkristian"
       "@kurzgesagt"
-      "@MrBeast"
-      "@MrBeast2"
       "@PracticalEngineeringChannel"
       "@RudyAyoub"
       "@SampsonBoatCo"
