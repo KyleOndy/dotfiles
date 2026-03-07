@@ -9,7 +9,7 @@
   # Use the systemd-boot EFI boot loader.
   boot = {
     loader.systemd-boot.enable = true;
-    loader.efi.canTouchEfiVariables = true;
+    loader.efi.canTouchEfiVariables = false;
     blacklistedKernelModules = [
       "hid_sensor_hub"
     ];
