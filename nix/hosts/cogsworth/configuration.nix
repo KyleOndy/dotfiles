@@ -309,6 +309,7 @@
         --ozone-platform=wayland \
         --enable-features=UseOzonePlatform \
         --enable-virtual-keyboard \
+        --disable-pinch \
         --remote-debugging-port=9222 \
         http://127.0.0.1:8080
     '';
