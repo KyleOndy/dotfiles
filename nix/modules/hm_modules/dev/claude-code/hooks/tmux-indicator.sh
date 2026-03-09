@@ -10,21 +10,26 @@ command -v tmux >/dev/null 2>&1 || exit 0
 
 INPUT=$(cat)
 HOOK_EVENT=""
+NOTIFICATION_TYPE=""
 if command -v jq >/dev/null 2>&1; then
 	HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // ""')
+	NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.notification_type // ""')
 fi
-
-WINDOW_ID=$(tmux display-message -t "$TMUX_PANE" -p '#{window_id}' 2>/dev/null) || exit 0
 
 case "$HOOK_EVENT" in
 Stop)
-	tmux set-option -w -t "$WINDOW_ID" @claude_state waiting 2>/dev/null || true
+	tmux set-option -p -t "$TMUX_PANE" @claude_state waiting 2>/dev/null || true
 	;;
 SessionEnd)
-	tmux set-option -w -t "$WINDOW_ID" @claude_state "done" 2>/dev/null || true
+	tmux set-option -p -u -t "$TMUX_PANE" @claude_state 2>/dev/null || true
 	;;
 UserPromptSubmit)
-	tmux set-option -wu -t "$WINDOW_ID" @claude_state 2>/dev/null || true
+	tmux set-option -p -t "$TMUX_PANE" @claude_state working 2>/dev/null || true
+	;;
+Notification)
+	if [ "$NOTIFICATION_TYPE" = "permission_prompt" ]; then
+		tmux set-option -p -t "$TMUX_PANE" @claude_state waiting 2>/dev/null || true
+	fi
 	;;
 esac
 

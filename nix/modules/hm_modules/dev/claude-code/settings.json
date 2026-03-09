@@ -46,6 +46,16 @@
             "timeout": 5000
           }
         ]
+      },
+      {
+        "matcher": "permission_prompt",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5000
+          }
+        ]
       }
     ],
     "SessionEnd": [

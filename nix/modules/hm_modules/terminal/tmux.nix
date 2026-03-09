@@ -7,23 +7,25 @@
 with lib;
 let
   cfg = config.hmFoundry.terminal.tmux;
-  # Claude Code tmux tab indicator: generates powerline-style tab format
+  # Powerline glyph characters (U+E0B0 solid arrow, U+E0B1 thin separator)
+  arrow = builtins.fromJSON ''"\ue0b0"'';
+  sep = builtins.fromJSON ''"\ue0b1"'';
+  # Aggregate per-pane Claude icons via external script
+  claudeIconSuffix = "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
   mkTabFmt =
     { bg, fg }:
-    "#[fg=colour237]#[bg=${bg}]#[noitalics]#[fg=${fg}]#[bg=${bg}] #I #[fg=${fg}]#[bg=${bg}] #W #[fg=${bg}]#[bg=colour237]#[noitalics]";
-  waitingFmt = mkTabFmt {
-    bg = "colour175";
-    fg = "colour237";
-  }; # purple
-  doneFmt = mkTabFmt {
-    bg = "colour142";
-    fg = "colour237";
-  }; # green
-  normalFmt = mkTabFmt {
+    "#[fg=colour237]#[bg=${bg}]#[noitalics]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[noitalics]${arrow}";
+  mkCurrentTabFmt =
+    { bg, fg }:
+    "#[fg=colour237]#[bg=${bg}]#[nobold]#[noitalics]#[nounderscore]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}]#[bold] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[nobold]#[noitalics]#[nounderscore]${arrow}";
+  windowFmt = mkTabFmt {
     bg = "colour239";
     fg = "colour223";
-  }; # grey
-  claudeAwareWindowFmt = "#{?#{==:#{@claude_state},waiting},${waitingFmt},#{?#{==:#{@claude_state},done},${doneFmt},${normalFmt}}}";
+  };
+  currentWindowFmt = mkCurrentTabFmt {
+    bg = "colour214";
+    fg = "colour239";
+  };
 in
 {
   options.hmFoundry.terminal.tmux = {
@@ -170,8 +172,8 @@ in
 
 
 
-        set-window-option -g window-status-current-format "#[fg=colour237, bg=colour214, nobold, noitalics, nounderscore]#[fg=colour239, bg=colour214] #I #[fg=colour239, bg=colour214, bold] #W #[fg=colour214, bg=colour237, nobold, noitalics, nounderscore]"
-        set-window-option -g window-status-format "${claudeAwareWindowFmt}"
+        set-window-option -g window-status-current-format "${currentWindowFmt}"
+        set-window-option -g window-status-format "${windowFmt}"
 
         # ----------------------
         # tmux-fzf

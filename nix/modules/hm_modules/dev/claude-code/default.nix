@@ -71,6 +71,10 @@ in
           source = ./hooks/tmux-indicator.sh;
           executable = true;
         };
+        ".claude/hooks/tmux-claude-icons.sh" = {
+          source = ./hooks/tmux-claude-icons.sh;
+          executable = true;
+        };
         ".claude/assets/notification.wav" = {
           source = ./assets/notification.wav;
           executable = true;
