@@ -14,5 +14,6 @@ self: super: {
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   vscode-ls = super.callPackage ./vscode-ls { };
   battery-draw = super.callPackage ./battery-draw { };
+  bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
 }

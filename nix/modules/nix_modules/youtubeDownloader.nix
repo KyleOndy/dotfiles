@@ -80,10 +80,30 @@ in
     environment.systemPackages = [ pkgs.babashka-scripts ];
 
     systemd = {
+      services.bgutil-pot-server = {
+        enable = true;
+        description = "bgutil PO token provider HTTP server for yt-dlp";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" ];
+
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${pkgs.bgutil-ytdlp-pot-server}/bin/bgutil-ytdlp-pot-server";
+          Restart = "on-failure";
+          RestartSec = "5s";
+          DynamicUser = true;
+          StateDirectory = "bgutil-pot-server";
+        };
+      };
+
       services.yt-download-and-clean = {
         enable = true;
         description = "Downloads Youtube videos and cleans up Jellyfin";
         startAt = "*-*-* 4:00:00"; # 4 am
+
+        # Ensure bgutil PO token server is running before downloading
+        wants = [ "bgutil-pot-server.service" ];
+        after = [ "bgutil-pot-server.service" ];
 
         # Set environment variables for the Babashka script
         environment =
@@ -104,6 +124,11 @@ in
                   max_videos = ch.max_videos or cfg.max_videos_default;
                 }
             ) cfg.watched_channels;
+
+            # yt-dlp (Python 3.13) discovers plugins via yt_dlp_plugins in sys.path.
+            # PYTHONPATH is prepended to sys.path before the yt-dlp wrapper's site.addsitedir calls.
+            # The bgutil HTTP plugin (getpot_bgutil_http.py) auto-connects to 127.0.0.1:4416.
+            bgutil-plugin = pkgs.master.python313Packages.bgutil-ytdlp-pot-provider;
           in
           {
             YT_MEDIA_DIR = cfg.media_dir;
@@ -117,6 +142,8 @@ in
             YT_SLEEP_BETWEEN_CHANNELS = toString cfg.sleep_between_channels;
             # Metrics textfile directory for node_exporter
             TEXTFILE_DIRECTORY = "/var/lib/prometheus-node-exporter-text-files";
+            # Make the bgutil yt-dlp plugin discoverable by yt-dlp's Python plugin scanner
+            PYTHONPATH = "${bgutil-plugin}/${bgutil-plugin.pythonModule.sitePackages}";
           };
 
         # Add required tools to PATH
