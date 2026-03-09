@@ -9,7 +9,7 @@
 
 stdenv.mkDerivation {
   pname = "my-scripts";
-  version = "20250203";
+  version = "20260309";
 
   src = ./.;
 

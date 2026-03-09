@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# shellcheck shell=bash
+# vi: ft=bash
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+extract_cookies() {
+	local tmpfile="$1"
+	# Remove file so yt-dlp creates it fresh (reading an empty file fails format check)
+	rm -f "$tmpfile"
+	log_info "Extracting YouTube cookies from Firefox..."
+	yt-dlp \
+		--cookies-from-browser firefox \
+		--cookies "$tmpfile" \
+		--skip-download \
+		--no-playlist \
+		"https://www.youtube.com/watch?v=jNQXAC9IVRw"
+}
+
+validate_cookies() {
+	local tmpfile="$1"
+
+	if [[ ! -s $tmpfile ]]; then
+		die "Cookie file is empty after extraction"
+	fi
+
+	if ! grep -q "# Netscape HTTP Cookie File" "$tmpfile"; then
+		die "Cookie file missing Netscape header — extraction may have failed"
+	fi
+
+	if ! grep -q "\.youtube\.com" "$tmpfile"; then
+		die "No .youtube.com cookies found in extracted file"
+	fi
+}
+
+has_session_cookies() {
+	local tmpfile="$1"
+	grep -qE "\.youtube\.com.*\s(SID|LOGIN_INFO|SSID)\s" "$tmpfile"
+}
+
+tmpfile=""
+trap 'rm -f "$tmpfile"' EXIT
+
+main() {
+	require_command yt-dlp
+	require_command ssh
+
+	tmpfile="$(mktemp --suffix=.cookies.txt)"
+
+	extract_cookies "$tmpfile"
+	validate_cookies "$tmpfile"
+
+	if ! has_session_cookies "$tmpfile"; then
+		log_warn "No YouTube session cookies found — opening Firefox..."
+		firefox "https://www.youtube.com" &
+		read -rp "Press Enter once you're logged into YouTube..."
+		log_info "Re-extracting cookies..."
+		extract_cookies "$tmpfile"
+		validate_cookies "$tmpfile"
+		if ! has_session_cookies "$tmpfile"; then
+			die "Still no YouTube session cookies after login — please log in and try again"
+		fi
+	fi
+
+	log_info "YouTube session cookies found"
+
+	local cookie_count
+	cookie_count="$(grep -c "\.youtube\.com" "$tmpfile")"
+	log_info "Found ${cookie_count} YouTube cookies"
+
+	log_info "Pushing cookies to wolf..."
+	ssh wolf "sudo tee /var/lib/youtube-downloader/cookies.txt > /dev/null" <"$tmpfile"
+
+	log_info "Done. Cookies will be used by the next yt-dlp run."
+}
+
+main "$@"
