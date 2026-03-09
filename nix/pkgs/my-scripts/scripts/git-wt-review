@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+# Get worktree root
+wt_root=$(require_worktree_repo)
+
+# Function to show help
+show_help() {
+	cat <<'EOF'
+usage: git wt-review <pr-number>
+       git wt-review <github-pr-url>
+       git wt-review <branch-name>
+
+Checkout a PR or branch into a review worktree.
+
+Examples:
+  git wt-review 1964
+    → Looks up PR #1964 branch via gh, creates worktree at {repo}/reviews/<branch>/
+
+  git wt-review https://github.com/owner/repo/pull/1964
+    → Extracts PR number from URL, same as above
+
+  git wt-review mrt/request-inspection-v2
+    → Uses branch name directly, creates worktree at {repo}/reviews/mrt/request-inspection-v2/
+
+Notes:
+  - Requires 'gh' (GitHub CLI) when using PR number or URL
+  - Branch must exist on remote
+  - Worktrees are created under {repo}/reviews/ for easy identification
+EOF
+	exit 0
+}
+
+# Check for help flags
+if [[ ${1:-} == "-h" || ${1:-} == "--help" || $# -eq 0 ]]; then
+	show_help
+fi
+
+input="$1"
+
+# Parse input to resolve branch name
+if [[ $input =~ ^[0-9]+$ ]]; then
+	# PR number
+	require_command gh "Install GitHub CLI: https://cli.github.com/"
+	log_info "Looking up PR #${input}..."
+	branch_name=$(gh pr view "$input" --json headRefName -q .headRefName)
+	if [[ -z $branch_name ]]; then
+		die "Could not find branch for PR #${input}"
+	fi
+	log_info "Found branch: ${branch_name}"
+elif [[ $input == *"github.com"* ]]; then
+	# GitHub PR URL — extract the PR number
+	pr_number=$(echo "$input" | sed -E 's|.*/pull/([0-9]+).*|\1|')
+	if [[ -z $pr_number || ! $pr_number =~ ^[0-9]+$ ]]; then
+		die "Could not extract PR number from URL: ${input}"
+	fi
+	require_command gh "Install GitHub CLI: https://cli.github.com/"
+	log_info "Looking up PR #${pr_number}..."
+	branch_name=$(gh pr view "$pr_number" --json headRefName -q .headRefName)
+	if [[ -z $branch_name ]]; then
+		die "Could not find branch for PR #${pr_number}"
+	fi
+	log_info "Found branch: ${branch_name}"
+else
+	# Branch name used directly
+	branch_name="$input"
+fi
+
+# Fetch latest remote refs
+log_info "Fetching latest from remote..."
+git fetch
+
+# Validate branch exists on remote
+if ! git show-ref --verify --quiet "refs/remotes/origin/${branch_name}"; then
+	log_error "Branch '${branch_name}' not found on remote"
+	echo "" >&2
+	echo "Available remote branches:" >&2
+	git branch -r | grep -v HEAD | sed 's/  origin\//  /' | head -20 >&2
+	exit 1
+fi
+
+# Build worktree path under reviews/
+feature_path="${wt_root}/reviews/${branch_name}"
+
+# Create worktree
+log_info "Creating review worktree..."
+git worktree add --no-checkout "$feature_path" "$branch_name"
+
+# Set up git-crypt for new worktree if configured
+if git config --get filter.git-crypt.smudge &>/dev/null; then
+	log_info "Setting up git-crypt..."
+
+	worktree_git_dir=$(git -C "$feature_path" rev-parse --git-dir)
+	mkdir -p "$worktree_git_dir/git-crypt/keys"
+
+	for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+		if [ -f "$gpg_key" ]; then
+			if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+				break
+			fi
+		fi
+	done
+fi
+
+# Checkout files
+log_info "Checking out files..."
+(cd "$feature_path" && git checkout "${branch_name}")
+
+echo ""
+log_info "Created review worktree: ${feature_path}"
+log_info "Branch: ${branch_name}"
+echo ""
+echo "To start reviewing:"
+echo "  cd ${feature_path}"
