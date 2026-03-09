@@ -61,6 +61,14 @@ let
       sleep 5
     done
 
+    ${optionalString (cfg.service.sysctls != [ ]) ''
+      # Apply kernel sysctl settings inside the VM
+      echo "Applying kernel settings..."
+      ${concatMapStringsSep "\n" (s: ''
+        docker run --rm --privileged alpine sysctl -w "${s}" || true
+      '') cfg.service.sysctls}
+    ''}
+
     # Keep process alive for launchd
     echo "Colima started successfully, monitoring for shutdown signals..."
     tail -f /dev/null &
@@ -147,6 +155,13 @@ in
         ];
         description = "Additional arguments to pass to colima start";
       };
+
+      sysctls = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        example = [ "fs.inotify.max_user_instances=1024" ];
+        description = "Kernel sysctl settings to apply inside the Colima VM after startup.";
+      };
     };
   };
 
@@ -172,9 +187,9 @@ in
     };
 
     programs.zsh.shellAliases = mkIf pkgs.stdenv.isDarwin {
-      colima-start = "colima start --cpu 4 --memory 8 --disk 100 --verbose=false 2>/dev/null";
-      colima-start-rosetta = "colima start --cpu 4 --memory 8 --disk 100 --vm-type vz --vz-rosetta --verbose=false 2>/dev/null";
-      colima-start-k8s = "colima start --cpu 4 --memory 8 --disk 100 --kubernetes --verbose=false 2>/dev/null";
+      colima-start = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --verbose=false 2>/dev/null";
+      colima-start-rosetta = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --vm-type vz --vz-rosetta --verbose=false 2>/dev/null";
+      colima-start-k8s = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --kubernetes --verbose=false 2>/dev/null";
     };
 
     # Colima launchd service (macOS only)

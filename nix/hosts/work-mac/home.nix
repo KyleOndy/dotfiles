@@ -108,9 +108,13 @@
     # Enable Colima background service
     docker.service = {
       enable = true;
-      cpu = 4;
-      memory = 8;
+      cpu = 12;
+      memory = 40;
       disk = 100;
+      vmType = "vz";
+      # Required for running multiple kind clusters (each node runs systemd).
+      # Default of 128 is exhausted with mirrors + 3 clusters running concurrently.
+      sysctls = [ "fs.inotify.max_user_instances=1024" ];
     };
   };
 
