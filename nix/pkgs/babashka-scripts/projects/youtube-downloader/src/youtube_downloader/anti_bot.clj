@@ -95,11 +95,11 @@
     (if suggested-wait
       (do
         (println (format "Rate limited. Waiting %d seconds as requested..."
-                         (/ suggested-wait 1000)))
+                         (quot suggested-wait 1000)))
         (Thread/sleep suggested-wait))
       (do
         (println (format "Rate limited. Waiting %d seconds (attempt %d)..."
-                         (/ backoff-wait 1000)
+                         (quot backoff-wait 1000)
                          (inc attempt)))
         (Thread/sleep backoff-wait)))))
 
