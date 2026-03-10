@@ -40,23 +40,39 @@
 
 
 (defn migrate-shared-archive
-  "Migrate from shared archive to per-channel archives"
-  [data-dir channels]
+  "Migrate from shared archive to per-channel archives.
+   Does NOT copy the shared archive to each channel - that would bloat every
+   channel's seen file with all other channels' video IDs. Instead, channels
+   start fresh and rebuild their archives via max-videos-initial."
+  [data-dir _channels]
   (let [old-archive (str data-dir "/youtube-dl-seen.conf")
         migration-marker (str old-archive ".migrated")]
     (when (and (fs/exists? old-archive)
-               (not (fs/exists? migration-marker))
-               (not-empty channels))
-      (println "Migrating shared archive to per-channel archives...")
-      ;; Copy to each channel's archive
-      (doseq [channel channels]
-        (let [channel-archive (channel-archive-path data-dir (:name channel))]
-          (when-not (fs/exists? channel-archive)
-            (println (str "  Copying to " (sanitize-channel-name (:name channel))))
-            (fs/copy old-archive channel-archive))))
-      ;; Mark as migrated
+               (not (fs/exists? migration-marker)))
+      (println "Migrating shared archive: retiring old shared file.")
+      (println "  Each channel will rebuild its archive on next run.")
       (fs/move old-archive migration-marker)
       (println "Migration completed"))))
+
+
+(defn cleanup-bloated-archives
+  "One-time cleanup of per-channel archives that were bloated by the old
+   migration copying the entire shared archive into every channel's file.
+   Detects this by the presence of .migrated marker (old migration ran)
+   without .archives-cleaned marker (this cleanup already ran)."
+  [data-dir]
+  (let [migrated-marker (str data-dir "/youtube-dl-seen.conf.migrated")
+        cleaned-marker (str data-dir "/.archives-cleaned")]
+    (when (and (fs/exists? migrated-marker)
+               (not (fs/exists? cleaned-marker)))
+      (let [archive-files (fs/glob data-dir "youtube-dl-seen-*.conf")]
+        (when (seq archive-files)
+          (println (str "Cleaning up " (count archive-files) " bloated per-channel archives..."))
+          (doseq [f archive-files]
+            (println (str "  Removing " (fs/file-name f)))
+            (fs/delete f))
+          (println "Each channel will rebuild its archive on next download.")))
+      (spit cleaned-marker (str (java.time.Instant/now) "\n")))))
 
 
 (defn archive-exists?
@@ -117,6 +133,7 @@
 
     ;; Run migration before returning config
     (migrate-shared-archive data-dir channels)
+    (cleanup-bloated-archives data-dir)
 
     {:media-dir media-dir
      :data-dir data-dir
