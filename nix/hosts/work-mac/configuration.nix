@@ -34,6 +34,7 @@
 
   # Enable TouchID for sudo (nice quality of life improvement)
   security.pam.services.sudo_local.touchIdAuth = lib.mkDefault true;
+  security.pam.services.sudo_local.reattach = lib.mkDefault true;
 
   # Night Shift CLI tool
   environment.systemPackages = [ pkgs.nightlight ];
