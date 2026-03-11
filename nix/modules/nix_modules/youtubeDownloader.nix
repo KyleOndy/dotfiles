@@ -99,7 +99,7 @@ in
       services.yt-download-and-clean = {
         enable = true;
         description = "Downloads Youtube videos and cleans up Jellyfin";
-        startAt = "*-*-* 4:00:00"; # 4 am
+        startAt = "*-*-* 3:00:00"; # 3 am
 
         # Ensure bgutil PO token server is running before downloading
         wants = [ "bgutil-pot-server.service" ];

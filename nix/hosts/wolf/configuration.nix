@@ -669,7 +669,7 @@
   #     | jq '.[] | select(.Name | test("Scan")) | {Name, Id}'
   systemd.services.jellyfin-prune = {
     enable = true;
-    startAt = "*-*-* 05:00:00"; # 5am (1 hour after downloader at 4am)
+    startAt = "*-*-* 06:00:00"; # 6am (3 hours after downloader at 3am)
     path = with pkgs; [
       bashInteractive
       curl
@@ -747,6 +747,8 @@
       main
     '';
   };
+
+  systemd.timers.jellyfin-prune.timerConfig.RandomizedDelaySec = "15m";
 
   # NFS server - export media to bear and tiger over WireGuard
   services.nfs.server = {
