@@ -677,7 +677,7 @@
       jq
     ];
     environment = {
-      TOKEN_FILE = config.sops.secrets.jellyfin_api_token.path;
+      TOKEN_FILE = config.sops.secrets.jellyfin_api_key.path;
       DATA_DIR = config.systemFoundry.youtubeDownloader.data_dir;
     };
     script = ''
@@ -694,14 +694,14 @@
 
       print_watched_vids() {
         curl -sS -X 'GET' \
-          'https://jellyfin.apps.ondy.org/Items?userId=TODO_UPDATE_USER_ID&recursive=true&parentId=TODO_UPDATE_PARENT_ID&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
+          'https://jellyfin.apps.ondy.org/Items?userId=04156d27514048bdbe6fc0adb8c28499&recursive=true&parentId=e59b37148e0ff06f0d35b0c3c714e75c&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
           -H 'accept: application/json' \
           -H "Authorization: MediaBrowser Token=\"$TOKEN\"" | jq -r '.Items[] | select(.UserData.PlayCount >= 1) | .Path'
       }
 
       update_lib() {
         curl -Ss -X 'POST' \
-          'https://jellyfin.apps.ondy.org/ScheduledTasks/Running/TODO_UPDATE_TASK_ID' \
+          'https://jellyfin.apps.ondy.org/ScheduledTasks/Running/7738148ffcd07979c7ceb148e06b3aed' \
           -H 'accept: */*' \
           -H "Authorization: MediaBrowser Token=\"$TOKEN\"" \
           -d ""
@@ -818,7 +818,7 @@
     sabnzbd_api_key = {
       mode = "0444";
     };
-    jellyfin_api_token = { };
+    jellyfin_api_key = { };
   };
 
   # Tdarr notification script for Sonarr/Radarr integration
