@@ -3,6 +3,7 @@
     "commit": "",
     "pr": ""
   },
+  "voiceEnabled": true,
   "model": "opusplan",
   "statusLine": {
     "type": "command",
