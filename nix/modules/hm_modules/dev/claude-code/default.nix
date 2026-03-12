@@ -39,11 +39,16 @@ in
           options = {
             name = mkOption {
               type = types.str;
-              description = "Skill directory name (becomes ~/.claude/skills/<name>/)";
+              description = "Skill name (becomes ~/.claude/skills/<name>/ or ~/.claude/skills/<name>.md)";
             };
             source = mkOption {
               type = types.path;
-              description = "Path to the skill directory";
+              description = "Path to the skill directory or file";
+            };
+            isFile = mkOption {
+              type = types.bool;
+              default = false;
+              description = "If true, source is a single .md file installed as ~/.claude/skills/<name>/SKILL.md";
             };
           };
         }
@@ -134,7 +139,13 @@ in
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (
         listToAttrs (
-          map (skill: nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }) cfg.skills
+          map (
+            skill:
+            if skill.isFile then
+              nameValuePair ".claude/skills/${skill.name}/SKILL.md" { source = skill.source; }
+            else
+              nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }
+          ) cfg.skills
         )
       ))
       # Directory structure (always created)

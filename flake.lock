@@ -58,6 +58,38 @@
         "type": "github"
       }
     },
+    "claude-skills-rohitg00": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1771766863,
+        "narHash": "sha256-edWwT/KlF/rUpTWMqdkREY1Yd9WOgbQu7IxIZ4p/Cbw=",
+        "owner": "rohitg00",
+        "repo": "awesome-claude-code-toolkit",
+        "rev": "59009ad6be354bf9098624ed04819357864a5289",
+        "type": "github"
+      },
+      "original": {
+        "owner": "rohitg00",
+        "repo": "awesome-claude-code-toolkit",
+        "type": "github"
+      }
+    },
+    "claude-skills-voltagent": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772507380,
+        "narHash": "sha256-k++QhahPGxI6fBz/UqB6tUGKcUjb/CQA3bXgA6SyNH8=",
+        "owner": "VoltAgent",
+        "repo": "awesome-claude-code-subagents",
+        "rev": "87321636a1c666283d8f17398b45c2644395044b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "VoltAgent",
+        "repo": "awesome-claude-code-subagents",
+        "type": "github"
+      }
+    },
     "deploy-rs": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -615,6 +647,8 @@
       "inputs": {
         "claude-code-nix": "claude-code-nix",
         "claude-skills-jeffallan": "claude-skills-jeffallan",
+        "claude-skills-rohitg00": "claude-skills-rohitg00",
+        "claude-skills-voltagent": "claude-skills-voltagent",
         "deploy-rs": "deploy-rs",
         "disko": "disko",
         "flake-utils": "flake-utils_2",

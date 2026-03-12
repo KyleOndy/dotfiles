@@ -47,6 +47,14 @@
       url = "github:jeffallan/claude-skills";
       flake = false;
     };
+    claude-skills-voltagent = {
+      url = "github:VoltAgent/awesome-claude-code-subagents";
+      flake = false;
+    };
+    claude-skills-rohitg00 = {
+      url = "github:rohitg00/awesome-claude-code-toolkit";
+      flake = false;
+    };
   };
   outputs =
     { self, ... }@inputs:

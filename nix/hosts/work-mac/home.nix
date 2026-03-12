@@ -107,6 +107,22 @@
           name = "golang-pro";
           source = "${inputs.claude-skills-jeffallan}/skills/golang-pro";
         }
+        {
+          name = "k8s-general";
+          source = pkgs.runCommand "k8s-general-skill.md" { } ''
+            sed 's/^name: kubernetes-specialist/name: k8s-general/' \
+              ${inputs.claude-skills-voltagent}/categories/03-infrastructure/kubernetes-specialist.md > $out
+          '';
+          isFile = true;
+        }
+        {
+          name = "k8s-operator";
+          source = pkgs.runCommand "k8s-operator-skill.md" { } ''
+            sed 's/^name: kubernetes-specialist/name: k8s-operator/' \
+              ${inputs.claude-skills-rohitg00}/agents/infrastructure/kubernetes-specialist.md > $out
+          '';
+          isFile = true;
+        }
       ];
     };
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
