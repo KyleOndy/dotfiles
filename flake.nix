@@ -43,6 +43,10 @@
       url = "github:BirdeeHub/nixCats-nvim";
     };
     mac-app-util.url = "github:hraban/mac-app-util";
+    claude-skills-jeffallan = {
+      url = "github:jeffallan/claude-skills";
+      flake = false;
+    };
   };
   outputs =
     { self, ... }@inputs:

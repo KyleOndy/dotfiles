@@ -5,6 +5,7 @@
   lib,
   pkgs,
   config,
+  inputs,
   ...
 }:
 with lib;
@@ -24,6 +25,31 @@ in
       type = types.bool;
       default = true;
       description = "Enable slash commands";
+    };
+
+    enableSkills = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Enable skills";
+    };
+
+    skills = mkOption {
+      type = types.listOf (
+        types.submodule {
+          options = {
+            name = mkOption {
+              type = types.str;
+              description = "Skill directory name (becomes ~/.claude/skills/<name>/)";
+            };
+            source = mkOption {
+              type = types.path;
+              description = "Path to the skill directory";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = "Claude Code skills to install";
     };
 
     enableNotifications = mkOption {
@@ -105,6 +131,12 @@ in
         ".claude/commands/test/".source = ./commands/test;
         ".claude/commands/forge/".source = ./commands/forge;
       })
+      # Skill files (conditional)
+      // (optionalAttrs cfg.enableSkills (
+        listToAttrs (
+          map (skill: nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }) cfg.skills
+        )
+      ))
       # Directory structure (always created)
       // {
         # Create necessary directory structure

@@ -4,6 +4,7 @@
 {
   lib,
   pkgs,
+  inputs,
   ...
 }:
 {
@@ -99,7 +100,15 @@
   hmFoundry.dev = {
     git.userEmail = "kondy@modular.com";
     java.enable = true;
-    claude-code.enable = true;
+    claude-code = {
+      enable = true;
+      skills = [
+        {
+          name = "golang-pro";
+          source = "${inputs.claude-skills-jeffallan}/skills/golang-pro";
+        }
+      ];
+    };
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils

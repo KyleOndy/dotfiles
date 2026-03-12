@@ -42,6 +42,22 @@
         "type": "github"
       }
     },
+    "claude-skills-jeffallan": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1772832518,
+        "narHash": "sha256-cS3oW7IjEWO4tPXMo2GJ53SCzjHhNyqinQl+tY9ZMF4=",
+        "owner": "jeffallan",
+        "repo": "claude-skills",
+        "rev": "3bf9a24b76a7c122f1fc05e83929fbc84e1c207a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "jeffallan",
+        "repo": "claude-skills",
+        "type": "github"
+      }
+    },
     "deploy-rs": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -598,6 +614,7 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
+        "claude-skills-jeffallan": "claude-skills-jeffallan",
         "deploy-rs": "deploy-rs",
         "disko": "disko",
         "flake-utils": "flake-utils_2",
