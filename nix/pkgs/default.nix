@@ -1,5 +1,4 @@
-self: super:
-{
+self: super: {
   babashka-scripts = super.callPackage ./babashka-scripts { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
   concourse = super.callPackage ./concourse { };
@@ -14,9 +13,6 @@ self: super:
   pragmata-pro = super.callPackage ./pragmata-pro { };
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   vscode-ls = super.callPackage ./vscode-ls { };
-  zsh-histdb = super.callPackage ./zsh-histdb { };
-}
-// super.lib.optionalAttrs super.stdenv.isLinux {
-  # Linux-only packages
   battery-draw = super.callPackage ./battery-draw { };
+  zsh-histdb = super.callPackage ./zsh-histdb { };
 }

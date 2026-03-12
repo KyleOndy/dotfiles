@@ -11,3 +11,4 @@ name = "battery-draw"
 path = "src/main.rs"
 
 [dependencies]
+battery = "0.7.8"
