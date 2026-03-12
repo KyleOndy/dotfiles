@@ -17,7 +17,7 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
       nix-index
-      nixfmt-rfc-style
+      nixfmt
       nixpkgs-fmt
       nixpkgs-review
     ];

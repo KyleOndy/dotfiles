@@ -90,10 +90,12 @@ in
       UMask = "0002";
     };
 
-    nixpkgs.config.permittedInsecurePackages = [
-      "aspnetcore-runtime-6.0.36"
-      "dotnet-sdk-6.0.428"
-    ];
+    nixpkgs.config.allowInsecurePredicate =
+      pkg:
+      builtins.elem (lib.getName pkg) [
+        "aspnetcore-runtime"
+        "dotnet-sdk"
+      ];
 
     systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
       enable = true;

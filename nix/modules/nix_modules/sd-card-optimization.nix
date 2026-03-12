@@ -116,11 +116,10 @@ in
 
     # Reduce systemd unit logging verbosity
     # Limits what gets written to journal
-    systemd.extraConfig = ''
-      # Reduce log verbosity for systemd itself
-      LogLevel=notice
-      DumpCore=no
-    '';
+    systemd.settings.Manager = {
+      LogLevel = "notice";
+      DumpCore = false;
+    };
 
     # Disable coredumps (they write to disk)
     systemd.coredump.enable = false;

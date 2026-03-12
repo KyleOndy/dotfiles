@@ -248,9 +248,9 @@
 
   # Enable systemd hardware watchdog support
   # Systemd will feed the watchdog; if systemd hangs, RPi reboots
-  systemd.watchdog = {
-    runtimeTime = "30s"; # Reboot if systemd doesn't ping within 30s
-    rebootTime = "2min"; # Reboot timeout if normal reboot fails
+  systemd.settings.Manager = {
+    RuntimeWatchdogSec = "30s"; # Reboot if systemd doesn't ping within 30s
+    RebootWatchdogSec = "2min"; # Reboot timeout if normal reboot fails
   };
 
   # Rotate framebuffer console to match physical display orientation (270° clockwise)
@@ -281,9 +281,7 @@
   systemd.services."autovt@tty1".enable = false;
 
   # Also prevent logind from auto-spawning gettys on other VTs.
-  services.logind.extraConfig = ''
-    NAutoVTs=0
-  '';
+  services.logind.settings.Login.NAutoVTs = 0;
 
   # Cage kiosk configuration
   services.cage = {

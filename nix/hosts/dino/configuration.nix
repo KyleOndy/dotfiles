@@ -355,7 +355,7 @@
   # Base system packages
   environment.systemPackages = with pkgs; [
     curl
-    gitAndTools.git
+    git
     gnumake
     rsync
     neovim
@@ -599,7 +599,7 @@
 
   # Configure systemd-logind to let KDE PowerDevil handle power button
   # Otherwise logind intercepts power button before KDE can handle it
-  services.logind.powerKey = "ignore";
+  services.logind.settings.Login.HandlePowerKey = "ignore";
 
   # Suspend to RAM first, then auto-hibernate after 2 hours
   systemd.sleep.extraConfig = ''

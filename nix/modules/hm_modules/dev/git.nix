@@ -21,107 +21,95 @@ in
   config = mkIf cfg.enable {
     programs.git = {
       enable = true;
-      package = pkgs.gitAndTools.gitFull; # all the tools
-      aliases = {
-        # Sometimes I forget what I've configured. Show all currently configured
-        # alias, sorted. To make it a bit prettier I output this in column
-        # format, abusing the `#` character assuming the octothorpe will not
-        # appear in my alias.
-        alias = "! git config --get-regexp ^alias | sed 's/alias\.//'  | sed 's/ /#/' | column -s'#' -t";
-        # patch add. Easiest way to keep commits small.
-        ap = "add -p";
-        # track file, effectively staging the file without any content
-        track = "add -N";
-        # easy way to open commit in $EDITOR
-        cm = "commit";
-        # reword the last commit
-        reword = "commit --amend";
-        # less typing
-        cp = "cherry-pick";
-        # add staged changes to last commit, keeping that message
-        forgot = "commit --amend -C HEAD";
-        # quickly create a commit with a message on the command line.
-        cmm = "commit -m";
-        # show to root directory of the git repo
-        root = "rev-parse --show-toplevel";
-        # show diff with words highlighted.
-        wdiff = "diff --color-words";
-        # quickly checkout a branch.
-        co = "checkout";
-        # quickly checkout a new branch from current HEAD
-        cob = "checkout -b";
-        # see what is currently staged
-        cdiff = "diff --cached";
-        # undo the last commit.
-        undo = "reset HEAD~1 --mixed";
-        # unstate all pending changes
-        unstage = "reset HEAD";
-        # status is _just_ too long to type.
-        s = "status";
-        # same with fetch
-        f = "fetch";
-
-        # show what files are ignored by the .gitignore
-        ignored = "ls-files . --ignored --exclude-standard --others";
-        # show what files are currently untracked
-        untracked = "ls-files . --exclude-standard --others";
-        # a hacky, and not gaurented way, to print the url of the webui of a repo.
-        url = "! git config remote.origin.url | cut -d@ -f2 | tr : /";
-        # edit all files that are changed in the current working directory.
-        edit = "! $EDITOR $(git diff --name-only)";
-        # list all local branches, sorted by last commit date.
-        recent = "branch --verbose --sort=-committerdate";
-        # pull down latest changes and rebase against default origin. This is run
-        # before starting any work on a branch.
-        sync = "! git fetch --all --prune; git rebase --rebase-merges --autostash && git status";
-        # add everything to a commit to comeback to later
-        wip = "! git add -A && git commit -m 'WIP: savepoint via alias.' -m 'No pre-commit hooks have been run' --no-verify --no-gpg-sign";
-        # like wip, but probably not coming back, reset to last commit too.
-        ditch = "! git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard";
-        # show the upstream
-        upstream = "rev-parse --abbrev-ref --symbolic-full-name @{upstream}";
-        # Delete the remote version of the current branch
-        unpublish = "! git push origin :$(git branch-name)";
-        # get info from the git log
-        lg = "log --graph --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'";
-        # Grep the log
-        loggrep = "log -E -i --grep";
-        # when gpg-agent crashes on me, I can recover the commit with this alias. I
-        # _feel_ like there should be a better way to handle this, but it is better
-        # than nothing. This is set as a shell command so no matter how deep we are
-        # in the tree of this repository, the command is executed at the root on the
-        # repo so our file path is always correct.
-        fix-commit = "! git commit --edit --file=$(git rev-parse --git-dir)/COMMIT_EDITMSG";
-        # easily follow the history of a single file
-        file-history = "log -p -M --follow --stat";
-        # easily fixup to latest commit
-        fixup = "commit --fixup=HEAD";
-        # non-interactively apply the current staged files to a ref
-        amend-to = "! f() { git commit --fixup \"$1\" && GIT_SEQUENCE_EDITOR=true git rebase --interactive --autosquash \"$1^\";}; f";
-      };
-      delta = {
-        enable = true;
-        options = {
-          syntax-theme = "gruvbox-dark";
-          line-numbers = true;
-          # Very high contrast backgrounds optimized for Night Shift warmth 90
-          minus-style = "syntax #8a2535";
-          minus-emph-style = "syntax #b03545";
-          plus-style = "syntax #2a5a2a";
-          plus-emph-style = "syntax #3a7a3a";
-        };
-      };
+      package = pkgs.gitFull; # all the tools
       signing = {
         # signed commits don't _really_ help, because no one will ever verify
         # them, but they give a fancy 'verified' badge in gitlab and github.
         key = "DB0E3C33491F91C9"; # pragma: allowlist secret
         signByDefault = true;
       };
-      userEmail = cfg.userEmail;
-      userName = "Kyle Ondy";
+      settings = {
+        alias = {
+          # Sometimes I forget what I've configured. Show all currently configured
+          # alias, sorted. To make it a bit prettier I output this in column
+          # format, abusing the `#` character assuming the octothorpe will not
+          # appear in my alias.
+          alias = "! git config --get-regexp ^alias | sed 's/alias\.//'  | sed 's/ /#/' | column -s'#' -t";
+          # patch add. Easiest way to keep commits small.
+          ap = "add -p";
+          # track file, effectively staging the file without any content
+          track = "add -N";
+          # easy way to open commit in $EDITOR
+          cm = "commit";
+          # reword the last commit
+          reword = "commit --amend";
+          # less typing
+          cp = "cherry-pick";
+          # add staged changes to last commit, keeping that message
+          forgot = "commit --amend -C HEAD";
+          # quickly create a commit with a message on the command line.
+          cmm = "commit -m";
+          # show to root directory of the git repo
+          root = "rev-parse --show-toplevel";
+          # show diff with words highlighted.
+          wdiff = "diff --color-words";
+          # quickly checkout a branch.
+          co = "checkout";
+          # quickly checkout a new branch from current HEAD
+          cob = "checkout -b";
+          # see what is currently staged
+          cdiff = "diff --cached";
+          # undo the last commit.
+          undo = "reset HEAD~1 --mixed";
+          # unstate all pending changes
+          unstage = "reset HEAD";
+          # status is _just_ too long to type.
+          s = "status";
+          # same with fetch
+          f = "fetch";
 
-      # things that home-manager doesn't explictly handle
-      extraConfig = {
+          # show what files are ignored by the .gitignore
+          ignored = "ls-files . --ignored --exclude-standard --others";
+          # show what files are currently untracked
+          untracked = "ls-files . --exclude-standard --others";
+          # a hacky, and not gaurented way, to print the url of the webui of a repo.
+          url = "! git config remote.origin.url | cut -d@ -f2 | tr : /";
+          # edit all files that are changed in the current working directory.
+          edit = "! $EDITOR $(git diff --name-only)";
+          # list all local branches, sorted by last commit date.
+          recent = "branch --verbose --sort=-committerdate";
+          # pull down latest changes and rebase against default origin. This is run
+          # before starting any work on a branch.
+          sync = "! git fetch --all --prune; git rebase --rebase-merges --autostash && git status";
+          # add everything to a commit to comeback to later
+          wip = "! git add -A && git commit -m 'WIP: savepoint via alias.' -m 'No pre-commit hooks have been run' --no-verify --no-gpg-sign";
+          # like wip, but probably not coming back, reset to last commit too.
+          ditch = "! git add -A && git commit -m 'TMP: Save before clean reset' && git reset HEAD~1 --hard";
+          # show the upstream
+          upstream = "rev-parse --abbrev-ref --symbolic-full-name @{upstream}";
+          # Delete the remote version of the current branch
+          unpublish = "! git push origin :$(git branch-name)";
+          # get info from the git log
+          lg = "log --graph --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'";
+          # Grep the log
+          loggrep = "log -E -i --grep";
+          # when gpg-agent crashes on me, I can recover the commit with this alias. I
+          # _feel_ like there should be a better way to handle this, but it is better
+          # than nothing. This is set as a shell command so no matter how deep we are
+          # in the tree of this repository, the command is executed at the root on the
+          # repo so our file path is always correct.
+          fix-commit = "! git commit --edit --file=$(git rev-parse --git-dir)/COMMIT_EDITMSG";
+          # easily follow the history of a single file
+          file-history = "log -p -M --follow --stat";
+          # easily fixup to latest commit
+          fixup = "commit --fixup=HEAD";
+          # non-interactively apply the current staged files to a ref
+          amend-to = "! f() { git commit --fixup \"$1\" && GIT_SEQUENCE_EDITOR=true git rebase --interactive --autosquash \"$1^\";}; f";
+        };
+        user = {
+          email = cfg.userEmail;
+          name = "Kyle Ondy";
+        };
         core = {
           # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
           # can be used to determine the state of a repository at a point in history.
@@ -261,6 +249,19 @@ in
           enabled = true;
           autoupdate = true;
         };
+      };
+    };
+    programs.delta = {
+      enable = true;
+      enableGitIntegration = true;
+      options = {
+        syntax-theme = "gruvbox-dark";
+        line-numbers = true;
+        # Very high contrast backgrounds optimized for Night Shift warmth 90
+        minus-style = "syntax #8a2535";
+        minus-emph-style = "syntax #b03545";
+        plus-style = "syntax #2a5a2a";
+        plus-emph-style = "syntax #3a7a3a";
       };
     };
     xdg = {

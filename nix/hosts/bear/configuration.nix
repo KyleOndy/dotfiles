@@ -76,6 +76,9 @@
       "timeo=30"
       "retrans=2"
       "_netdev" # Mount after network is up
+      "nofail" # Don't block boot on mount failure
+      "x-systemd.mount-timeout=30s" # Fail after 30s instead of hanging forever
+      "x-systemd.requires=wireguard-wg0.service" # Wait for WireGuard before mounting
       "noatime" # Don't update access times over NFS — eliminates spurious write RPCs
       "acregmin=60" # Min file attribute cache: 60s (was 3s) — safe for media-only share
       "acregmax=600" # Max file attribute cache: 10min (was 60s) — files change only on import

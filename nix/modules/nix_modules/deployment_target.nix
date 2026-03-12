@@ -56,9 +56,7 @@ in
         };
       };
       # TODO: do I still need RuntimeDirectorySize?
-      logind.extraConfig = ''
-        RuntimeDirectorySize=8G
-      '';
+      logind.settings.Login.RuntimeDirectorySize = "8G";
     };
 
     nixpkgs.config.allowUnfree = true;
@@ -127,7 +125,7 @@ in
         defaults = {
           email = "kyle@ondy.org";
           dnsProvider = "namecheap";
-          credentialsFile = config.sops.secrets.namecheap.path;
+          environmentFile = config.sops.secrets.namecheap.path;
         };
       };
     };

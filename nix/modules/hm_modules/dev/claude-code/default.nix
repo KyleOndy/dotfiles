@@ -76,7 +76,7 @@ in
       with pkgs;
       [
         claude-code
-        gitAndTools.gitFull # for git operations (matches git.nix module)
+        gitFull # for git operations (matches git.nix module)
       ]
       ++ optionals cfg.enableNotifications [
         libnotify # for notify-send desktop notifications

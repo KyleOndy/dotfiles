@@ -1,7 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.05";
-    # https://github.com/NixOS/nixpkgs/pull/427631
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
     nixpkgs-master.url = "github:nixos/nixpkgs/master";
     claude-code-nix = {
       url = "github:sadjow/claude-code-nix";
@@ -9,12 +8,12 @@
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
     home-manager = {
-      url = "github:nix-community/home-manager/release-25.05";
+      url = "github:nix-community/home-manager/release-25.11";
       # packages installed via home-manager use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nix-darwin = {
-      url = "github:LnL7/nix-darwin/nix-darwin-25.05";
+      url = "github:LnL7/nix-darwin/nix-darwin-25.11";
       # packages installed via nix-darwin use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -66,12 +65,13 @@
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {
-            inherit (final) system config;
+            inherit (final.stdenv.hostPlatform) system;
+            inherit (final) config;
           };
         })
 
         (final: _prev: {
-          claude-code = inputs.claude-code-nix.packages.${final.system}.default;
+          claude-code = inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}.default;
         })
       ];
 
@@ -285,7 +285,7 @@
             src = ./.;
             hooks = {
               black.enable = true;
-              nixfmt-rfc-style.enable = true;
+              nixfmt.enable = true;
               prettier = {
                 enable = true;
                 excludes = [ "flake.lock" ];
@@ -356,6 +356,7 @@
         {
           flash-ergodox = {
             type = "app";
+            meta.description = "Flash Ergodox EZ firmware";
             program = toString (
               pkgs.writeShellScript "flash-ergodox" ''
                 set -e

@@ -6,12 +6,15 @@ with lib;
 {
   programs.ssh = {
     enable = true;
-    extraConfig = ''
-      IdentitiesOnly yes
-      SendEnv LANG LC_*
-    '';
+    enableDefaultConfig = false;
 
     matchBlocks = {
+      "*" = {
+        extraOptions = {
+          IdentitiesOnly = "yes";
+          SendEnv = "LANG LC_*";
+        };
+      };
       "*.compute-1.amazonaws.com" = {
         extraOptions = {
           UserKnownHostsFile = "/dev/null";

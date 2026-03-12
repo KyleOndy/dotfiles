@@ -196,6 +196,9 @@ in
         "timeo=30"
         "retrans=2"
         "_netdev" # Mount after network is up
+        "nofail" # Don't block boot on mount failure
+        "x-systemd.mount-timeout=30s" # Fail after 30s instead of hanging forever
+        "x-systemd.requires=wireguard-wg0.service" # Wait for WireGuard before mounting
       ];
     };
   };

@@ -79,7 +79,7 @@ in
       certs = {
         "${config.services.grafana.domain}" = {
           dnsProvider = "namecheap";
-          credentialsFile = config.sops.secrets.namecheap.path;
+          environmentFile = config.sops.secrets.namecheap.path;
           extraDomainNames = [ ];
         };
       };
