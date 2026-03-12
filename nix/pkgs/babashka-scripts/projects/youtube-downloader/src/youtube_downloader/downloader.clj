@@ -232,20 +232,32 @@
                   (anti-bot/handle-rate-limit (:err result) attempt))
                 (Thread/sleep (anti-bot/exponential-backoff attempt))
                 (recur (inc attempt)))
-              (do
-                ;; Non-retryable error - log and skip
-                (when-let [video-id (extract-video-id (:err result))]
-                  (log/warn "Adding video to skip list"
-                            {:channel channel-name
-                             :video_id video-id
-                             :error_type (name (:type error-info))})
-                  (add-to-skip-list (:data-dir global-config)
-                                    video-id
-                                    (name (:type error-info))))
-                (obs/record-download-failure channel-name (:type error-info))
-                (assoc result
-                       :error_type (:type error-info)
-                       :error-msg (first (str/split-lines (:err result)))))))))))) ; closes assoc, do, if, let error-info, cond, let result, loop, let cmd, defn
+              (let [video-id (extract-video-id (:err result))]
+                (if video-id
+                  (do
+                    ;; Gracefully handled: unavailable video added to skip list
+                    (log/warn "Adding video to skip list"
+                              {:channel channel-name
+                               :video_id video-id
+                               :error_type (name (:type error-info))})
+                    (add-to-skip-list (:data-dir global-config)
+                                      video-id
+                                      (name (:type error-info)))
+                    (obs/record-error (:type error-info) channel-name)
+                    (obs/record-download-success channel-name)
+                    (assoc result
+                           :exit 0
+                           :error_type (:type error-info)
+                           :error-msg (first (str/split-lines (:err result)))))
+                  (do
+                    ;; Genuine failure: no recoverable video ID
+                    (log/error "Non-retryable error with no recoverable video ID"
+                               {:channel channel-name
+                                :error_type (name (:type error-info))})
+                    (obs/record-download-failure channel-name (:type error-info))
+                    (assoc result
+                           :error_type (:type error-info)
+                           :error-msg (first (str/split-lines (:err result)))))))))))) ; closes if, let video-id, do, if, let error-info, cond, let result, loop, let cmd, defn
 
 (defn download-channel
   "Download videos from a single channel"
