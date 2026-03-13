@@ -78,14 +78,40 @@ in
     };
     security.sudo.wheelNeedsPassword = false;
 
-    # Prevent sshd from restarting during activation (fixes deploy-rs magic rollback)
-    # When sshd restarts, it kills the SSH connection that deploy-rs uses to confirm
-    # deployment, causing timeouts and automatic rollback.
-    # Note: SSH config changes won't apply until manual 'systemctl restart sshd'
-    systemd.services.sshd = {
-      restartIfChanged = false;
-      restartTriggers = lib.mkForce [ ];
-    };
+    # Prevent critical services from restarting during activation.
+    #
+    # sshd: deploy-rs uses the SSH connection to confirm deployment. If sshd
+    # restarts, the connection drops, causing timeouts and automatic rollback.
+    #
+    # WireGuard: Hosts with NFS mounts over WireGuard (bear, tiger) hang during
+    # daemon-reexec when the tunnel goes down — the NFS unmount blocks systemd.
+    # Both the interface and peer services must be pinned — removing a peer tears
+    # down the tunnel even when the interface stays up.
+    #
+    # Changes to these services take effect on next reboot.
+    systemd.services = {
+      sshd = {
+        restartIfChanged = false;
+        restartTriggers = lib.mkForce [ ];
+      };
+    }
+    // lib.optionalAttrs (config.networking.wireguard.interfaces ? wg0) (
+      {
+        wireguard-wg0 = {
+          restartIfChanged = false;
+          restartTriggers = lib.mkForce [ ];
+        };
+      }
+      // lib.listToAttrs (
+        map (
+          peer:
+          lib.nameValuePair "wireguard-wg0-peer-${peer.name}" {
+            restartIfChanged = false;
+            restartTriggers = lib.mkForce [ ];
+          }
+        ) config.networking.wireguard.interfaces.wg0.peers
+      )
+    );
 
     # this file path _feels_ suspect, but works
     sops.defaultSopsFile = ./../../secrets/secrets.yaml;
