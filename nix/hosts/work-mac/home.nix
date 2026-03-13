@@ -84,6 +84,8 @@
   home.sessionVariables = {
     DOTS_CONTEXT = "work";
     DOTFILES = lib.mkForce "/Users/kondy/src/kyleondy/dotfiles/main";
+    SRC_WORK = "/Users/kondy/src/work-repos";
+    WORK = "/Users/kondy/work";
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
     CC = "/usr/bin/cc"; # Use system clang for C compilation (macOS SDK compatibility)
   };
