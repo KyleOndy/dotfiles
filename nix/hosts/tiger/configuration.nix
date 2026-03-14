@@ -118,13 +118,7 @@ in
         http_port 9080
         https_port 9443
       '';
-      virtualHosts = {
-        "jellyfin.apps.home.1ella.com" = {
-          extraConfig = ''
-            reverse_proxy http://127.0.0.1:8096
-          '';
-        };
-      };
+      virtualHosts = { };
     };
   };
 
@@ -214,7 +208,6 @@ in
 
   # media managment
   users.groups."${mediaGroup}".members = [
-    config.systemFoundry.jellyfin.user
     config.systemFoundry.nzbget.user
     config.systemFoundry.bazarr.user
     config.systemFoundry.radarr.user
@@ -263,16 +256,6 @@ in
           destinationPath = "${backup_path}/bazarr/";
         };
       };
-      jellyfin = {
-        enable = true;
-        group = mediaGroup;
-        domainName = "jellyfin.${domain}";
-        provisionCert = true;
-        backup = {
-          enable = false; # not worth it, easy to set back up
-          destinationPath = "${backup_path}/jellyfin/";
-        };
-      };
       nzbhydra2 = {
         enable = false;
         domainName = "nzbhydra.${domain}";
@@ -302,8 +285,8 @@ in
         # Enable node exporter for system metrics
         nodeExporter.enable = true;
 
-        # Enable nginx log exporter for web traffic analytics
-        nginxlogExporter.enable = true;
+        # nginxlogExporter disabled: nginx is not running on tiger (was enabled by jellyfin)
+        nginxlogExporter.enable = false;
 
         # Send metrics to wolf's VictoriaMetrics instance
         vmagent = {
@@ -327,17 +310,6 @@ in
               static_configs = [
                 {
                   targets = [ "127.0.0.1:9134" ];
-                  labels = {
-                    host = "tiger";
-                  };
-                }
-              ];
-            }
-            {
-              job_name = "nginxlog";
-              static_configs = [
-                {
-                  targets = [ "127.0.0.1:4040" ];
                   labels = {
                     host = "tiger";
                   };
