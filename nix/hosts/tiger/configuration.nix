@@ -20,7 +20,10 @@ in
       };
       efi.canTouchEfiVariables = true;
     };
-    supportedFilesystems = [ "zfs" ];
+    supportedFilesystems = [
+      "zfs"
+      "nfs"
+    ];
     binfmt.emulatedSystems = [
       "aarch64-linux"
       "armv7l-linux"
@@ -186,22 +189,28 @@ in
       fsType = "zfs";
       neededForBoot = false;
     };
-    # NFS mount for wolf's media over WireGuard
-    "/mnt/wolf-media" = {
-      device = "10.10.0.1:/mnt/storage/media";
-      fsType = "nfs";
-      options = [
-        "nfsvers=4.2"
-        "soft"
-        "timeo=30"
-        "retrans=2"
-        "_netdev" # Mount after network is up
-        "nofail" # Don't block boot on mount failure
-        "x-systemd.mount-timeout=30s" # Fail after 30s instead of hanging forever
-        "x-systemd.requires=wireguard-wg0.service" # Wait for WireGuard before mounting
-      ];
-    };
   };
+
+  # NFS mount for wolf's media over WireGuard
+  # Uses systemd.mounts instead of fileSystems so switch-to-configuration can
+  # find the unit file (fileSystems + fstab-generator puts it in /run, which
+  # the NixOS 25.11 Rust activator can't open).
+  systemd.mounts = [
+    {
+      what = "10.10.0.1:/mnt/storage/media";
+      where = "/mnt/wolf-media";
+      type = "nfs";
+      options = "nfsvers=4.2,soft,timeo=30,retrans=2";
+      after = [
+        "wireguard-wg0.service"
+        "network-online.target"
+      ];
+      requires = [ "wireguard-wg0.service" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "remote-fs.target" ];
+      mountConfig.TimeoutSec = "30s";
+    }
+  ];
 
   # media managment
   users.groups."${mediaGroup}".members = [

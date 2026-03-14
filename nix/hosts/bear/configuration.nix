@@ -48,6 +48,7 @@
     devices = [ "nodev" ];
   };
   boot.loader.efi.canTouchEfiVariables = false;
+  boot.supportedFilesystems = [ "nfs" ];
 
   # mdadm configuration for software RAID
   # Use PROGRAM to log events to journald (picked up by promtail)
@@ -67,25 +68,25 @@
   '';
 
   # NFS mount for media over WireGuard from wolf
-  fileSystems."/mnt/media" = {
-    device = "10.10.0.1:/mnt/storage/media";
-    fsType = "nfs";
-    options = [
-      "nfsvers=4.2"
-      "soft"
-      "timeo=30"
-      "retrans=2"
-      "_netdev" # Mount after network is up
-      "nofail" # Don't block boot on mount failure
-      "x-systemd.mount-timeout=30s" # Fail after 30s instead of hanging forever
-      "x-systemd.requires=wireguard-wg0.service" # Wait for WireGuard before mounting
-      "noatime" # Don't update access times over NFS — eliminates spurious write RPCs
-      "acregmin=60" # Min file attribute cache: 60s (was 3s) — safe for media-only share
-      "acregmax=600" # Max file attribute cache: 10min (was 60s) — files change only on import
-      "acdirmin=60" # Min dir attribute cache: 60s (was 30s)
-      "acdirmax=600" # Max dir attribute cache: 10min (was 60s) — reduces RPCs for 14K files
-    ];
-  };
+  # Uses systemd.mounts instead of fileSystems so switch-to-configuration can
+  # find the unit file (fileSystems + fstab-generator puts it in /run, which
+  # the NixOS 25.11 Rust activator can't open).
+  systemd.mounts = [
+    {
+      what = "10.10.0.1:/mnt/storage/media";
+      where = "/mnt/media";
+      type = "nfs";
+      options = "nfsvers=4.2,soft,timeo=30,retrans=2,noatime,acregmin=60,acregmax=600,acdirmin=60,acdirmax=600";
+      after = [
+        "wireguard-wg0.service"
+        "network-online.target"
+      ];
+      requires = [ "wireguard-wg0.service" ];
+      wants = [ "network-online.target" ];
+      wantedBy = [ "remote-fs.target" ];
+      mountConfig.TimeoutSec = "30s";
+    }
+  ];
 
   # Set NFS readahead to 16 MB after mount (default is 128 KB — too small for GB-sized media files)
   # The BDI (Backing Device Info) readahead controls how much the kernel prefetches ahead of reads,
@@ -98,7 +99,7 @@
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.writeShellScript "nfs-readahead" ''
-        bdi=$(${pkgs.util-linux}/bin/findmnt -n -o MAJ:MIN /mnt/media)
+        bdi=$(${pkgs.util-linux}/bin/findmnt -n -o MAJ:MIN /mnt/media | ${pkgs.coreutils}/bin/tr -d ' ')
         echo 16384 > /sys/class/bdi/"$bdi"/read_ahead_kb
       ''}";
     };
@@ -113,11 +114,10 @@
     "net.ipv4.tcp_wmem" = "4096 1048576 16777216";
   };
 
-  # Intel QuickSync hardware transcoding support
+  # Intel VA-API hardware transcoding support (Kaby Lake i7-7700K)
   hardware.graphics = {
     enable = true;
     extraPackages = with pkgs; [
-      vpl-gpu-rt # Intel oneVPL GPU runtime
       intel-media-driver # VA-API driver (iHD)
       libvdpau-va-gl # VDPAU compatibility
       intel-compute-runtime # OpenCL for tonemapping and subtitle burn-in
@@ -147,15 +147,23 @@
   # Jellyfin user permissions for media access and hardware transcoding
   users.users.jellyfin.extraGroups = [
     "media"
-    "render" # Intel QuickSync GPU access
-    "video" # Intel QuickSync GPU access
+    "render" # Intel GPU access for VA-API transcoding
+    "video" # Intel GPU access for VA-API transcoding
   ];
-  systemd.services.jellyfin.serviceConfig = {
-    SupplementaryGroups = [
-      "media"
-      "render"
-      "video"
-    ];
+  systemd.services.jellyfin = {
+    after = [ "mnt-media.mount" ];
+    requires = [ "mnt-media.mount" ];
+    serviceConfig = {
+      SupplementaryGroups = [
+        "media"
+        "render"
+        "video"
+      ];
+    };
+  };
+  systemd.services.podman-tdarr-node = {
+    after = [ "mnt-media.mount" ];
+    requires = [ "mnt-media.mount" ];
   };
 
   systemFoundry = {
