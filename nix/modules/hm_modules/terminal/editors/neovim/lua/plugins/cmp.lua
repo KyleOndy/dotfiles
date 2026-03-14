@@ -44,5 +44,6 @@ cmp.setup.cmdline(":", {
   }),
 })
 
--- Set up LSP capabilities
+-- Apply cmp LSP capabilities to all servers globally
 local capabilities = require("cmp_nvim_lsp").default_capabilities(vim.lsp.protocol.make_client_capabilities())
+vim.lsp.config("*", { capabilities = capabilities })
