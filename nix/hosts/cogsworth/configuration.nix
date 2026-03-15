@@ -309,7 +309,7 @@
         --enable-virtual-keyboard \
         --disable-pinch \
         --remote-debugging-port=9222 \
-        http://127.0.0.1:8080
+        --app=http://127.0.0.1:8080
     '';
     extraArguments = [
       "-s" # Disable VT switching
