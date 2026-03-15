@@ -310,20 +310,57 @@
           // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
       });
 
-      devShells = forAllSystems (system: {
-        default = inputs.nixpkgs.legacyPackages.${system}.mkShell {
-          inherit (self.checks.${system}.pre-commit-check) shellHook;
-          buildInputs =
-            self.checks.${system}.pre-commit-check.enabledPackages
-            ++ (with inputs.nixpkgs.legacyPackages.${system}; [
-              qmk
-              teensy-loader-cli
-            ]);
+      devShells = forAllSystems (
+        system:
+        let
+          pkgs = inputs.nixpkgs.legacyPackages.${system};
 
-          # Skip nix flake check in smart-test hook to speed up claude-code
-          CLAUDE_SKIP_NIX_TESTS = "true";
-        };
-      });
+          clojure-mcp-light =
+            let
+              src = pkgs.fetchFromGitHub {
+                owner = "bhauman";
+                repo = "clojure-mcp-light";
+                rev = "v0.2.2";
+                hash = "sha256-PzYQ6WBlApjGbiAy+FS7QC+Mriqr9Jq6d5cr0LZ2Unk=";
+              };
+              parinferish = pkgs.fetchurl {
+                url = "https://repo.clojars.org/parinferish/parinferish/0.8.0/parinferish-0.8.0.jar";
+                hash = "sha256-vMEwpv0kRgnL8oVzwyjUxnO3cg01sMCYJNZFCOn6PA4=";
+              };
+              cljfmt-jar = pkgs.fetchurl {
+                url = "https://repo.clojars.org/dev/weavejester/cljfmt/0.15.5/cljfmt-0.15.5.jar";
+                hash = "sha256-0I8a/MmTtwhco8PC7IhiGKJSx7zYIyqTNYa7WJcBYOQ=";
+              };
+              classpath = "${src}/src:${parinferish}:${cljfmt-jar}";
+              mkTool =
+                name: ns:
+                pkgs.writeShellScriptBin name ''
+                  exec ${pkgs.babashka}/bin/bb -cp "${classpath}" -m ${ns} "$@"
+                '';
+            in
+            pkgs.symlinkJoin {
+              name = "clojure-mcp-light-0.2.2";
+              paths = [
+                (mkTool "clj-nrepl-eval" "clojure-mcp-light.nrepl-eval")
+                (mkTool "clj-paren-repair-claude-hook" "clojure-mcp-light.hook")
+                (mkTool "clj-paren-repair" "clojure-mcp-light.paren-repair")
+              ];
+            };
+        in
+        {
+          default = pkgs.mkShell {
+            inherit (self.checks.${system}.pre-commit-check) shellHook;
+            buildInputs = self.checks.${system}.pre-commit-check.enabledPackages ++ [
+              pkgs.qmk
+              pkgs.teensy-loader-cli
+              clojure-mcp-light
+            ];
+
+            # Skip nix flake check in smart-test hook to speed up claude-code
+            CLAUDE_SKIP_NIX_TESTS = "true";
+          };
+        }
+      );
 
       packages = forAllSystems (
         system:

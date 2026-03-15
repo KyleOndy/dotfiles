@@ -1220,6 +1220,35 @@ systemFoundry.sdCardOptimization.enable = false;
 
 Rebuild and reboot. Logs will persist to SD card, but wear will increase.
 
+## Clojure & Babashka Development
+
+### REPL Tools
+
+The dev shell provides `clj-nrepl-eval` for stateless nREPL evaluation and `clj-paren-repair-claude-hook` for automatic Clojure delimiter repair on file writes.
+
+### Starting a REPL
+
+```bash
+clojure -M:nrepl    # Start nREPL on port 7888
+```
+
+### Evaluating via nREPL
+
+```bash
+# Simple expression
+clj-nrepl-eval -p 7888 '(+ 1 1)'
+
+# Multi-line with heredoc
+clj-nrepl-eval -p 7888 <<'EOF'
+(do (require '[my.namespace] :reload)
+    (my.namespace/some-fn))
+EOF
+```
+
+### Paren Repair
+
+The `clj-paren-repair-claude-hook` fires automatically on every Edit/Write via Claude Code's PostToolUse hook — no action needed. It fixes unbalanced delimiters and applies cljfmt formatting.
+
 ## References
 
 - [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)

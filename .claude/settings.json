@@ -37,12 +37,13 @@
       "Bash(make:*)",
       "Bash(nix:*)",
       "Bash(bb:*)",
+      "Bash(clj-nrepl-eval:*)",
+      "Bash(clj-paren-repair:*)",
       "Bash(deploy:*)",
       "Bash(ssh wolf:*)",
       "Bash(ssh bear:*)",
       "WebSearch"
     ]
   },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["clojure-mcp"]
+  "enableAllProjectMcpServers": true
 }
