@@ -383,6 +383,11 @@ in
       mode = "0644";
     };
 
+    environment.etc."grafana-dashboards/applications/cogsworth-request-performance.json" = {
+      source = ./dashboards/applications/cogsworth-request-performance.json;
+      mode = "0644";
+    };
+
     environment.etc."grafana-dashboards/applications/media-services-wolf-bear.json" = {
       source = ./dashboards/applications/media-services-wolf-bear.json;
       mode = "0644";
