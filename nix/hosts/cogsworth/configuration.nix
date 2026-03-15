@@ -298,6 +298,7 @@
 
       exec ${pkgs.chromium}/bin/chromium \
         --kiosk \
+        --start-maximized \
         --noerrdialogs \
         --disable-infobars \
         --no-first-run \
@@ -305,7 +306,6 @@
         --disable-restore-session-state \
         --user-data-dir="$CHROME_DATA_DIR" \
         --ozone-platform=wayland \
-        --enable-features=UseOzonePlatform \
         --enable-virtual-keyboard \
         --disable-pinch \
         --remote-debugging-port=9222 \
