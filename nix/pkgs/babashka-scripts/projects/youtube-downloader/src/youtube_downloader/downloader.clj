@@ -257,7 +257,7 @@
                     (obs/record-download-failure channel-name (:type error-info))
                     (assoc result
                            :error_type (:type error-info)
-                           :error-msg (first (str/split-lines (:err result)))))))))))) ; closes if, let video-id, do, if, let error-info, cond, let result, loop, let cmd, defn
+                           :error-msg (first (str/split-lines (:err result))))))))))))))  ; closes assoc, do, if, let video-id, if, let error-info, cond, let result, loop, let cmd, defn
 
 (defn download-channel
   "Download videos from a single channel"
