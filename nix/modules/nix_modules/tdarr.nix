@@ -462,7 +462,7 @@ in
           "${nodeCfg.stateDir}/configs:/app/configs"
           "${nodeCfg.stateDir}/logs:/app/logs"
           "${nodeCfg.cacheDir}:/temp"
-          "${nodeCfg.mediaPath}:${nodeCfg.mediaPath}"
+          "${nodeCfg.mediaPath}:${nodeCfg.mediaPath}:rslave"
         ];
         extraOptions = [ "--network=host" ] ++ optional nodeCfg.enableGpu "--device=/dev/dri:/dev/dri";
       };
@@ -503,11 +503,11 @@ in
               -v ${nodeCfg.stateDir}/configs:/app/configs \
               -v ${nodeCfg.stateDir}/logs:/app/logs \
               -v ${nodeCfg.cacheDir}:/temp \
-              -v ${nodeCfg.mediaPath}:${nodeCfg.mediaPath} \
+              -v ${nodeCfg.mediaPath}:${nodeCfg.mediaPath}:rslave \
               ${
                 optionalString (
                   nodeCfg.pathTranslators != [ ]
-                ) "-v ${nodeCfg.mediaPath}:${(builtins.head nodeCfg.pathTranslators).from}"
+                ) "-v ${nodeCfg.mediaPath}:${(builtins.head nodeCfg.pathTranslators).from}:rslave"
               } \
               --network=host \
               ${optionalString nodeCfg.enableGpu "--device=/dev/dri:/dev/dri"} \
