@@ -84,7 +84,6 @@
   home.sessionVariables = {
     DOTS_CONTEXT = "work";
     DOTFILES = lib.mkForce "/Users/kondy/src/kyleondy/dotfiles/main";
-    SRC_WORK = "/Users/kondy/src/work-repos";
     WORK = "/Users/kondy/work";
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
     CC = "/usr/bin/cc"; # Use system clang for C compilation (macOS SDK compatibility)
@@ -92,11 +91,6 @@
 
   # Add Homebrew to PATH for all managed shells (including Claude Code)
   home.sessionPath = [ "/opt/homebrew/bin" ];
-
-  # Override src alias to point to work-repos workspace
-  programs.zsh.shellAliases = {
-    src = lib.mkForce "cd /Users/kondy/src/work-repos";
-  };
 
   # Enable development modules
   hmFoundry.dev = {
@@ -150,24 +144,12 @@
   home.packages = with pkgs; [
     argocd # ArgoCD CLI
     coder # Provision remote development environments via Terraform
-    lasso
     linear-cli
     pdm # Python Development Master
     pulumi
     pkgs.pulumiPackages.pulumi-python
     gemini-cli
   ];
-
-  # Ensure work-repos directory exists before linking Claude.md
-  home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
-    mkdir -p $HOME/src/work-repos
-  '';
-
-  # Manage Claude.md for work-repos project
-  home.file."src/work-repos/Claude.md" = {
-    source = ./work-repos-CLAUDE.md;
-    force = true; # Override existing file if present
-  };
 
   # Coder remote development SSH config
   programs.ssh.matchBlocks = {

@@ -433,26 +433,6 @@ in
               ${pkgs.git}/bin/git "$@"
             }
 
-            linear() {
-              # Wrapper for linear CLI that fetches API key from pass
-              # Only available in work context
-              if [[ "''${DOTS_CONTEXT:-home}" != "work" ]]; then
-                echo "Error: Linear CLI is only available in work context" >&2
-                return 1
-              fi
-
-              # Get API key from pass
-              local api_key
-              if ! api_key=$(${pkgs.pass}/bin/pass linear.app/kondy@modular.com/api_key 2>/dev/null); then
-                echo "Error: Failed to retrieve Linear API key from pass" >&2
-                echo "Expected key path: linear.app/kondy@modular.com/api_key" >&2
-                return 1
-              fi
-
-              # Call actual linear binary with API key set
-              LINEAR_API_KEY="$api_key" ${pkgs.linear-cli}/bin/linear "$@"
-            }
-
             # tmux-fzf config
             # https://github.com/sainnhe/tmux-fzf
             export TMUX_FZF_ORDER="window|session|pane|command|keybinding"

@@ -130,11 +130,9 @@ in
         ".claude/commands/code/".source = ./commands/code;
         ".claude/commands/docs/".source = ./commands/docs;
         ".claude/commands/git/".source = ./commands/git;
-        ".claude/commands/linear/".source = ./commands/linear;
         ".claude/commands/project/".source = ./commands/project;
         ".claude/commands/task/".source = ./commands/task;
         ".claude/commands/test/".source = ./commands/test;
-        ".claude/commands/forge/".source = ./commands/forge;
       })
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (

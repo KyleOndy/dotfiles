@@ -341,9 +341,7 @@
           # Ergodox EZ firmware
           ergodox-firmware = pkgs.callPackage ./keyboard { };
         }
-        // (inputs.nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin {
-          lasso = pkgs.lasso;
-        })
+        // (inputs.nixpkgs.lib.optionalAttrs pkgs.stdenv.isDarwin { })
       );
 
       apps = forAllSystems (
