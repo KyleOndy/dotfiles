@@ -80,9 +80,6 @@
   # Allow svc.deploy to write to website directory
   users.users."svc.deploy".extraGroups = [ "nginx" ];
 
-  # Allow kyle to access Tdarr API key and media files
-  users.users.kyle.extraGroups = [ "media" ];
-
   # Create media group for shared access to downloads/media
   users.groups.media = {
     gid = 983;
@@ -103,17 +100,6 @@
   # System packages
   environment.systemPackages = with pkgs; [
     intel-gpu-tools # intel_gpu_top for monitoring GPU usage
-    (pkgs.writeShellScriptBin "tdarr-failure-summary" ''
-      export PATH="${
-        lib.makeBinPath [
-          pkgs.curl
-          pkgs.jq
-          pkgs.coreutils
-        ]
-      }"
-      export TDARR_API_KEY_FILE="${config.sops.secrets.tdarr_api_key.path}"
-      exec ${pkgs.bash}/bin/bash ${./tdarr-failure-summary.sh} "$@"
-    '')
   ];
 
   # Ensure directories exist with proper permissions
@@ -295,13 +281,6 @@
         };
       };
 
-      # Tdarr metrics exporter
-      tdarrExporter = {
-        enable = true;
-        tdarrUrl = "http://127.0.0.1:8265";
-        apiKeyFile = config.sops.secrets.tdarr_api_key.path;
-      };
-
       vmagent = {
         enable = true;
         # Send metrics to local VictoriaMetrics instance
@@ -337,18 +316,6 @@
                 targets = [ "127.0.0.1:4040" ];
                 labels = {
                   host = "elk";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "tdarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9595" ];
-                labels = {
-                  host = "elk";
-                  service = "tdarr";
                 };
               }
             ];
@@ -459,39 +426,6 @@
       provisionCert = true;
     };
 
-    # Tdarr server for media transcoding
-    tdarr.server = {
-      enable = true;
-      mediaPath = "/mnt/storage/media";
-      domainName = "tdarr.apps.ondy.org";
-      provisionCert = true;
-      seededApiKeyFile = config.sops.secrets.tdarr_api_key.path;
-
-      # Flow management - import H.264 compatibility flow and assign to libraries
-      flows = [
-        {
-          name = "H.264 Compatibility Flow";
-          file = ./tdarr-compatibility-flow.json;
-        }
-      ];
-      libraryFlowAssignments = {
-        "TV" = "nixos-h264-compat";
-        "Movies" = "nixos-h264-compat";
-      };
-    };
-
-    # Tdarr node - local, single combined node (no path translators needed)
-    tdarr.node = {
-      enable = true;
-      serverUrl = "http://127.0.0.1:8266";
-      mediaPath = "/mnt/storage/media";
-      nodeName = "elk";
-      gpuWorkers = 1;
-      cpuWorkers = 4; # More CPU workers since only node
-      enableGpu = true;
-      # No pathTranslators — media is local
-      apiKeyFile = config.sops.secrets.tdarr_api_key.path;
-    };
   };
 
   # Subtitle extractor - scans media library hourly for missing subtitle sidecars
@@ -716,47 +650,6 @@
 
   systemd.timers.jellyfin-prune.timerConfig.RandomizedDelaySec = "15m";
 
-  # Tdarr notification script for Sonarr/Radarr integration
-  environment.etc."scripts/tdarr-notify.sh" = {
-    mode = "0755";
-    text = ''
-      #!${pkgs.bash}/bin/bash
-      set -eo pipefail
-
-      TDARR_URL="http://127.0.0.1:8265"
-      TDARR_API_KEY="$(cat ${config.sops.secrets.tdarr_api_key.path})"
-
-      TV_LIBRARY_ID="Q_Q4-iQT7"
-      MOVIES_LIBRARY_ID="5sRp_iSwq"
-
-      FILE_PATH="''${sonarr_episodefile_path:-}"
-      if [[ -z "$FILE_PATH" ]]; then
-        FILE_PATH="''${radarr_moviefile_path:-}"
-      fi
-
-      if [[ -z "$FILE_PATH" ]]; then
-        echo "No file path provided"
-        exit 0
-      fi
-
-      if [[ "$FILE_PATH" == */tv/* ]]; then
-        LIBRARY_ID="$TV_LIBRARY_ID"
-      else
-        LIBRARY_ID="$MOVIES_LIBRARY_ID"
-      fi
-
-      if [[ -z "$LIBRARY_ID" ]]; then
-        echo "No library ID configured for path: $FILE_PATH"
-        exit 0
-      fi
-
-      ${pkgs.curl}/bin/curl -s -X POST "''${TDARR_URL}/api/v2/scan-files" \
-        -H "Content-Type: application/json" \
-        -H "x-api-key: ''${TDARR_API_KEY}" \
-        -d "{\"data\":{\"scanConfig\":{\"dbID\":\"''${LIBRARY_ID}\",\"arrayOrPath\":[\"''${FILE_PATH}\"],\"mode\":\"scanFolderWatcher\"}}}"
-    '';
-  };
-
   # Subtitle extraction script for Sonarr/Radarr integration
   environment.etc."scripts/subtitle-extract-notify.sh" = {
     mode = "0755";
@@ -858,35 +751,6 @@
     '';
   };
 
-  # Systemd service and timer for daily Tdarr failure report
-  systemd.services.tdarr-failure-report = {
-    description = "Tdarr Daily Failure Summary";
-    after = [ "podman-tdarr-server.service" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.writeShellScript "tdarr-failure-report-wrapper" ''
-        export TDARR_API_KEY_FILE="${config.sops.secrets.tdarr_api_key.path}"
-        export PATH="${
-          lib.makeBinPath [
-            pkgs.curl
-            pkgs.jq
-            pkgs.coreutils
-          ]
-        }"
-        ${pkgs.bash}/bin/bash ${./tdarr-failure-summary.sh} 1
-      ''}";
-    };
-  };
-
-  systemd.timers.tdarr-failure-report = {
-    description = "Timer for Tdarr Daily Failure Summary";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "*-*-* 06:00:00";
-      Persistent = true;
-    };
-  };
-
   # Runtime computation of SHA-256 hashes from monitoring tokens
   # The service reads tokens from sops secrets and writes nginx map files to /run/monitoring-token-hashes
   # Phase 1: elk receives from elk, dino, cogsworth.
@@ -944,10 +808,6 @@
     };
     monitoring_token_cogsworth = {
       mode = "0444";
-    };
-    tdarr_api_key = {
-      mode = "0440";
-      group = "media";
     };
     sonarr_api_key = {
       mode = "0444";

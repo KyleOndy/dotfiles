@@ -46,8 +46,6 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
 | Service            | Unit Name                         | Port | Health Check                             |
 | ------------------ | --------------------------------- | ---- | ---------------------------------------- |
 | Jellyfin           | jellyfin.service                  | 8096 | <http://127.0.0.1:8096/health>           |
-| Tdarr Server       | tdarr-server.service              | 8266 | <http://127.0.0.1:8266/api/v2/status>    |
-| Tdarr Node         | tdarr-node.service                | 8267 | Check logs                               |
 | Subtitle Extractor | subtitle-extractor.service/.timer | -    | systemctl list-timers subtitle-extractor |
 | vmagent            | vmagent.service                   | 8429 | <http://127.0.0.1:8429/health>           |
 | promtail           | promtail.service                  | 3101 | <http://127.0.0.1:3101/ready>            |
@@ -79,15 +77,11 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
                     WireGuard VPN (wg0)
                               │
 ┌─────────────────────────────────────────────────────────────┐
-│ BEAR (Compute + Transcoding + Playback)                     │
+│ BEAR (Compute + Playback)                                    │
 │                                                             │
 │  NFS Mount: wolf:/tiger-pool/media → /mnt/media            │
 │                                                             │
 │  Jellyfin (playback) → reads → /mnt/media                   │
-│                                                             │
-│  Tdarr (transcoding):                                       │
-│    Server → manages jobs                                    │
-│    Node → QuickSync GPU → transcodes → writes /mnt/media   │
 │                                                             │
 │  Metrics/Logs → vmagent/promtail → wolf                     │
 └─────────────────────────────────────────────────────────────┘
@@ -102,9 +96,6 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
 3a. Subtitle webhook extracts sidecar .srt files on import (wolf)
 3b. Hourly timer backfills any missing .srt sidecars (bear)
 4. Jellyfin (bear:8096) scans /mnt/media (NFS mount)
-5. Tdarr Server (bear:8266) watches /mnt/media for new files
-6. Tdarr Node (bear:8267) picks up jobs, transcodes with QuickSync
-7. Transcoded files written back to /mnt/media → wolf:/tiger-pool/media
 ```
 
 ## Interactive Triage
@@ -306,28 +297,6 @@ ssh bear journalctl -u jellyfin -n 100 | grep -i "error\|scan"
 ssh bear 'curl -s http://127.0.0.1:8096/health | jq .'
 ```
 
-#### Step 4: Tdarr (Transcoding)
-
-```bash
-# Check Tdarr server status
-ssh bear systemctl status tdarr-server
-
-# Check Tdarr node status
-ssh bear systemctl status tdarr-node
-
-# Check Tdarr server API
-ssh bear 'curl -s http://127.0.0.1:8266/api/v2/status | jq .'
-
-# Check Tdarr node logs (GPU access, transcode errors)
-ssh bear journalctl -u tdarr-node -n 100
-
-# Check GPU availability (QuickSync)
-ssh bear ls -la /dev/dri/renderD128
-
-# Check Tdarr node can write to NFS
-ssh bear touch /mnt/media/.tdarr-write-test && ssh bear rm /mnt/media/.tdarr-write-test
-```
-
 #### Full Pipeline Health Check
 
 ```bash
@@ -337,7 +306,7 @@ for svc in sabnzbd sonarr radarr lidarr readarr; do
   ssh wolf systemctl is-active $svc
 done
 
-for svc in jellyfin tdarr-server tdarr-node; do
+for svc in jellyfin; do
   echo "=== $svc on bear ==="
   ssh bear systemctl is-active $svc
 done
@@ -392,9 +361,6 @@ ssh bear mount | grep nfs
 echo "=== WireGuard (bear) ==="
 ssh bear wg show wg0 | grep -E "(interface|peer|latest handshake)"
 
-# GPU access (Tdarr)
-echo "=== GPU access (bear) ==="
-ssh bear ls -la /dev/dri/renderD128
 ```
 
 ### 7. Metrics Query Reference
@@ -457,7 +423,7 @@ ssh wolf 'curl -s -G "http://127.0.0.1:3100/loki/api/v1/query_range" \
 
 ### Stale NFS Mount (bear)
 
-**Symptoms**: Jellyfin/Tdarr can't access /mnt/media, `df -h` hangs on NFS mount
+**Symptoms**: Jellyfin can't access /mnt/media, `df -h` hangs on NFS mount
 
 **Cause**: Network interruption, WireGuard reconnection, NFS server restart
 
@@ -467,14 +433,6 @@ ssh wolf 'curl -s -G "http://127.0.0.1:3100/loki/api/v1/query_range" \
 ssh bear sudo systemctl restart wolf-media.mount
 ssh bear ls -la /mnt/media  # Verify mount works
 ```
-
-### Tdarr Node GPU Access Denied
-
-**Symptoms**: Tdarr node logs show "cannot access /dev/dri/renderD128"
-
-**Cause**: User not in `render` or `video` group
-
-**Fix**: Check NixOS config for `tdarr-node` user groups, verify GPU device permissions
 
 ### Service Hit Restart Limit
 

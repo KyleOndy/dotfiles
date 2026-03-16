@@ -161,11 +161,6 @@
       ];
     };
   };
-  systemd.services.podman-tdarr-node = {
-    after = [ "mnt-media.mount" ];
-    requires = [ "mnt-media.mount" ];
-  };
-
   systemFoundry = {
     # Enable Docker for OCI containers
     docker.enable = true;
@@ -188,24 +183,6 @@
       debugAuthLogging = true;
       transcodeDebugLogging = true;
       installPlaybackReportingPlugin = true;
-    };
-
-    # Tdarr node for hardware transcoding with Intel QuickSync
-    tdarr.node = {
-      enable = true;
-      serverUrl = "http://10.10.0.1:8266";
-      mediaPath = "/mnt/media";
-      nodeName = "bear";
-      gpuWorkers = 1;
-      cpuWorkers = 2;
-      enableGpu = true;
-      pathTranslators = [
-        {
-          from = "/mnt/storage/media";
-          to = "/mnt/media";
-        }
-      ];
-      apiKeyFile = config.sops.secrets.tdarr_api_key.path;
     };
 
     # Monitoring agents - send metrics/logs to wolf over WireGuard
@@ -325,9 +302,6 @@
       mode = "0400";
     };
     apps_ondy_org_route53 = {
-      mode = "0400";
-    };
-    tdarr_api_key = {
       mode = "0400";
     };
     jellyfin_api_key = {

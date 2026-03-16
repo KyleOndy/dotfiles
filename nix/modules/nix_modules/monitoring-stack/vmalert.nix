@@ -177,50 +177,10 @@ in
                 summary: "Jellyseerr service is down on wolf"
                 description: "Jellyseerr has been unavailable for 5 minutes"
 
-            - alert: TdarrServerDown
-              expr: node_systemd_unit_state{host="wolf",name="podman-tdarr-server.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: tdarr
-              annotations:
-                summary: "Tdarr server container is down on wolf"
-                description: "Tdarr server has been unavailable for 5 minutes"
-
-            - alert: TdarrHighErrorRate
-              expr: increase(tdarr_library_transcodes{status="error",library_name="all"}[1h]) > 10
-              for: 5m
-              labels:
-                severity: warning
-                service: tdarr
-              annotations:
-                summary: "High Tdarr transcode error rate"
-                description: "More than 10 transcode errors in the last hour"
-
-            - alert: TdarrNodeOffline
-              expr: count(tdarr_node_info) < 2
-              for: 10m
-              labels:
-                severity: critical
-                service: tdarr
-              annotations:
-                summary: "Tdarr node offline"
-                description: "Expected 2 nodes (bear, tiger), only {{ $value }} online"
-
         # Bear Media Services
         - name: media_services_bear
           interval: 30s
           rules:
-            - alert: TdarrNodeDown
-              expr: node_systemd_unit_state{host="bear",name="podman-tdarr-node.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: tdarr
-              annotations:
-                summary: "Tdarr node container is down on bear"
-                description: "Tdarr transcoding node has been unavailable for 5 minutes"
-
             - alert: JellyfinPlaycountExportFailed
               expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="bear"} == 1
               for: 1m

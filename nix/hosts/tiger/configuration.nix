@@ -37,7 +37,7 @@ in
     hostId = "48661cc0";
     useDHCP = lib.mkDefault true;
 
-    # WireGuard tunnel to wolf for NFS and Tdarr
+    # WireGuard tunnel to wolf for NFS
     wireguard.interfaces.wg0 = {
       ips = [ "10.10.0.3/24" ];
       listenPort = 51820;
@@ -330,23 +330,6 @@ in
         };
       };
 
-      # Tdarr node for hardware transcoding with Intel QuickSync
-      tdarr.node = {
-        enable = true;
-        serverUrl = "http://10.10.0.1:8266";
-        mediaPath = "/mnt/wolf-media";
-        nodeName = "tiger";
-        gpuWorkers = 1;
-        cpuWorkers = 2;
-        enableGpu = true;
-        pathTranslators = [
-          {
-            from = "/mnt/storage/media";
-            to = "/mnt/wolf-media";
-          }
-        ];
-        apiKeyFile = config.sops.secrets.tdarr_api_key.path;
-      };
     };
 
   hardware = {
@@ -378,9 +361,6 @@ in
       mode = "0444";
     };
     wireguard_private_key_tiger = {
-      mode = "0400";
-    };
-    tdarr_api_key = {
       mode = "0400";
     };
   };

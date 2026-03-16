@@ -23,7 +23,6 @@ variable "wolf_apps_subdomains" {
     "readarr",
     "sabnzbd",
     "sonarr",
-    "tdarr",
   ]
 }
 

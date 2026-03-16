@@ -403,9 +403,5 @@ in
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/applications/tdarr.json" = {
-      source = ./dashboards/applications/tdarr.json;
-      mode = "0644";
-    };
   };
 }

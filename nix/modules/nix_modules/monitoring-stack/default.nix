@@ -24,7 +24,6 @@ in
     ./exportarr.nix
     ./jellyfin-exporter.nix
     ./jellyfin-playcount.nix
-    ./tdarr-exporter.nix
   ];
 
   options.systemFoundry.monitoringStack = {
