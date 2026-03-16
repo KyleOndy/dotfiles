@@ -1,0 +1,219 @@
+{
+  "_id": "nixos-h264-compat",
+  "name": "Compatibility - H.264 + AAC + Subtitle Cleanup",
+  "description": "Re-encode HEVC video to H.264 for Roku/device compatibility. Add AAC audio tracks (iOS/web). Remove PGS/DVD subtitles that cannot direct-stream. Standardize on MKV container. Non-HEVC video is copied as-is.",
+  "tags": "audio,aac,compatibility,mkv,subtitle-cleanup,hevc,h264",
+  "flowPlugins": [
+    {
+      "name": "Input File",
+      "sourceRepo": "Community",
+      "pluginName": "inputFile",
+      "version": "1.0.0",
+      "id": "input001",
+      "position": { "x": 400, "y": 100 }
+    },
+    {
+      "name": "FFmpeg Start",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "id": "ffstart1",
+      "position": { "x": 400, "y": 200 }
+    },
+    {
+      "name": "Check for HEVC Video",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "id": "chkhevc01",
+      "position": { "x": 400, "y": 300 },
+      "inputsDB": {
+        "codec": "hevc"
+      }
+    },
+    {
+      "name": "Re-encode HEVC to H.264",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "id": "setvenc01",
+      "position": { "x": 250, "y": 400 },
+      "inputsDB": {
+        "outputCodec": "h264",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "medium",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": 22,
+        "hardwareEncoding": "false",
+        "forceEncoding": "true"
+      }
+    },
+    {
+      "name": "Remove PGS/DVD Subtitles",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandRemoveStreamByProperty",
+      "version": "1.0.0",
+      "id": "rempgs01",
+      "position": { "x": 400, "y": 500 },
+      "inputsDB": {
+        "propertyToCheck": "codec_name",
+        "valuesToRemove": "hdmv_pgs_subtitle,dvd_subtitle",
+        "condition": "include"
+      }
+    },
+    {
+      "name": "Set Container MKV",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "id": "setcont1",
+      "position": { "x": 400, "y": 600 },
+      "inputsDB": {
+        "container": "mkv"
+      }
+    },
+    {
+      "name": "Check for EAC3 Audio",
+      "sourceRepo": "Community",
+      "pluginName": "checkAudioCodec",
+      "version": "1.0.0",
+      "id": "chkeac3-1",
+      "position": { "x": 400, "y": 700 },
+      "inputsDB": {
+        "codecs": "eac3"
+      }
+    },
+    {
+      "name": "Add AAC 5.1 from EAC3",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandEnsureAudioStream",
+      "version": "1.0.0",
+      "id": "addaac51-1",
+      "position": { "x": 300, "y": 800 },
+      "inputsDB": {
+        "audioCodec": "aac",
+        "audioChannels": "6",
+        "audioBitrate": "384k"
+      }
+    },
+    {
+      "name": "Ensure AAC Stereo Fallback",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandEnsureAudioStream",
+      "version": "1.0.0",
+      "id": "ensaac1",
+      "position": { "x": 500, "y": 800 },
+      "inputsDB": {
+        "audioCodec": "aac",
+        "audioChannels": "2",
+        "audioBitrate": "192k"
+      }
+    },
+    {
+      "name": "Execute FFmpeg",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "id": "ffexec1",
+      "position": { "x": 400, "y": 900 }
+    },
+    {
+      "name": "Replace Original File",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "id": "replace1",
+      "position": { "x": 400, "y": 1000 }
+    }
+  ],
+  "flowEdges": [
+    {
+      "source": "input001",
+      "sourceHandle": "1",
+      "target": "ffstart1",
+      "targetHandle": null,
+      "id": "e001"
+    },
+    {
+      "source": "ffstart1",
+      "sourceHandle": "1",
+      "target": "chkhevc01",
+      "targetHandle": null,
+      "id": "e002"
+    },
+    {
+      "source": "chkhevc01",
+      "sourceHandle": "1",
+      "target": "setvenc01",
+      "targetHandle": null,
+      "id": "evid01",
+      "comment": "HEVC found - re-encode to H.264"
+    },
+    {
+      "source": "chkhevc01",
+      "sourceHandle": "2",
+      "target": "rempgs01",
+      "targetHandle": null,
+      "id": "evid02",
+      "comment": "Not HEVC - copy video as-is"
+    },
+    {
+      "source": "setvenc01",
+      "sourceHandle": "1",
+      "target": "rempgs01",
+      "targetHandle": null,
+      "id": "evid03"
+    },
+    {
+      "source": "rempgs01",
+      "sourceHandle": "1",
+      "target": "setcont1",
+      "targetHandle": null,
+      "id": "e003"
+    },
+    {
+      "source": "setcont1",
+      "sourceHandle": "1",
+      "target": "chkeac3-1",
+      "targetHandle": null,
+      "id": "e004"
+    },
+    {
+      "source": "chkeac3-1",
+      "sourceHandle": "1",
+      "target": "addaac51-1",
+      "targetHandle": null,
+      "id": "e005",
+      "comment": "EAC3 found - add 5.1 AAC track"
+    },
+    {
+      "source": "chkeac3-1",
+      "sourceHandle": "2",
+      "target": "ensaac1",
+      "targetHandle": null,
+      "id": "e006",
+      "comment": "No EAC3 - ensure stereo AAC exists"
+    },
+    {
+      "source": "addaac51-1",
+      "sourceHandle": "1",
+      "target": "ffexec1",
+      "targetHandle": null,
+      "id": "e007"
+    },
+    {
+      "source": "ensaac1",
+      "sourceHandle": "1",
+      "target": "ffexec1",
+      "targetHandle": null,
+      "id": "e008"
+    },
+    {
+      "source": "ffexec1",
+      "sourceHandle": "1",
+      "target": "replace1",
+      "targetHandle": null,
+      "id": "e009"
+    }
+  ]
+}

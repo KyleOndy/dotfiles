@@ -447,6 +447,15 @@
             ./nix/hosts/bear/nix-anywhere/disk-config.nix
           ];
         };
+        elk = mkNixosSystem {
+          hostname = "elk";
+          profile = "server";
+          includeModules = [
+            ./nix/hosts/elk/root-ssh-config.nix
+            inputs.disko.nixosModules.disko
+            ./nix/hosts/elk/nix-anywhere/disk-config.nix
+          ];
+        };
         cogsworth = mkNixosSystem {
           hostname = "cogsworth";
           system = "aarch64-linux";
@@ -591,6 +600,15 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.cogsworth;
+            };
+          };
+          elk = {
+            fastConnection = false;
+            hostname = "37.27.70.102";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.elk;
             };
           };
         };

@@ -9,6 +9,7 @@ keys:
   - &dino age1t0eyg4vswkrry0ff0uzrfflyfmxkzctz9ngay7k2z0k3mgt9t9zqm7z0sn
   - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
   - &wolf age1hf20rzjwdsvtuhjd7wvxyh0sdha8wzdnfhcl3mztpn3ughplx34sn03642
+  - &elk age1t6aj3v8j6ecehdpr978x4hgu5u9y98gtkw47scyzhfssnzrvs9ssye2tst
 
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
@@ -20,6 +21,7 @@ creation_rules:
           - *bear
           - *cogsworth
           - *dino
+          - *elk
           - *tiger
           - *wolf
         pgp:

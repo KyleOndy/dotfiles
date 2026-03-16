@@ -20,6 +20,13 @@
         StrictHostKeyChecking accept-new
         ConnectTimeout 3
 
+      Host elk
+        HostName 37.27.70.102
+        User svc.deploy
+        IdentityFile /root/.ssh/id_ed25519
+        StrictHostKeyChecking accept-new
+        ConnectTimeout 3
+
       Host dino dino.lan.1ella.com
         HostName dino.lan.1ella.com
         User svc.deploy
