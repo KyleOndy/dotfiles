@@ -161,7 +161,7 @@ in
 
     # Configure debug logging when enabled
     systemd.tmpfiles.rules = mkIf (cfg.debugAuthLogging || cfg.transcodeDebugLogging) [
-      "f+ ${stateDir}/config/logging.json 0640 ${cfg.user} ${cfg.group} - ${
+      "L+ ${stateDir}/config/logging.json - ${cfg.user} ${cfg.group} - ${
         pkgs.writeText "jellyfin-logging.json" (
           builtins.toJSON {
             Serilog = {
