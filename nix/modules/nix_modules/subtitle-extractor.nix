@@ -196,9 +196,11 @@ in
         description = "Batch subtitle extraction from MKV files";
         after = [
           "network.target"
-          "nfs-client.target"
+          "remote-fs.target"
         ];
-        requires = [ "nfs-client.target" ];
+        unitConfig = {
+          ConditionPathIsMountPoint = cfg.mediaPath;
+        };
 
         serviceConfig = {
           Type = "oneshot";
