@@ -650,6 +650,18 @@
     "d /run/fprintd-guard 0755 root root -"
   ];
 
+  # Restart fprintd after suspend resume — hardware loses connection and needs
+  # re-initialization. Runs after systemd-suspend.service (i.e., on wakeup).
+  systemd.services.fprintd-suspend-resume = {
+    description = "Restart fprintd after suspend resume";
+    after = [ "systemd-suspend.service" ];
+    wantedBy = [ "suspend.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl restart fprintd.service";
+    };
+  };
+
   # After password unlock on the lock screen post-hibernate, restart fprintd
   # so subsequent unlocks can use fingerprint again.
   security.pam.services.kde.rules.auth.fprintd-restore = {
