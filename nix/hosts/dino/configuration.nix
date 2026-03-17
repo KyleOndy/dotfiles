@@ -620,6 +620,55 @@
     HibernateDelaySec=2h
   '';
 
+  # Fingerprint reader configuration
+  # - Fingerprint works as alternative to password (not required)
+  # - Fingerprint available for lock screen and sudo
+  # - Password required on fresh boot (SDDM) and hibernate resume (security)
+  services.fprintd.enable = true;
+
+  # Require password at SDDM login (fresh boot) — no fingerprint at login screen
+  security.pam.services.sddm.fprintAuth = false;
+
+  # Stop fprintd before hibernate so lock screen requires password on resume.
+  # Ordered via hibernate.target which fires for both direct hibernate AND
+  # the hibernate phase of suspend-then-hibernate (after the 2h delay),
+  # but NOT for regular suspend.
+  systemd.services.fprintd-hibernate-guard = {
+    description = "Stop fprintd before hibernate to require password on resume";
+    before = [ "systemd-hibernate.service" ];
+    wantedBy = [ "hibernate.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = pkgs.writeShellScript "fprintd-hibernate-guard" ''
+        touch /run/fprintd-guard/hibernate-lock
+        ${pkgs.systemd}/bin/systemctl stop fprintd.service || true
+      '';
+    };
+  };
+
+  systemd.tmpfiles.rules = [
+    "d /run/fprintd-guard 0755 root root -"
+  ];
+
+  # After password unlock on the lock screen post-hibernate, restart fprintd
+  # so subsequent unlocks can use fingerprint again.
+  security.pam.services.kde.rules.auth.fprintd-restore = {
+    order = 99999;
+    control = "optional";
+    modulePath = "${pkgs.pam}/lib/security/pam_exec.so";
+    args = [
+      "quiet"
+      (toString (
+        pkgs.writeShellScript "fprintd-restore" ''
+          if [ -f /run/fprintd-guard/hibernate-lock ]; then
+            rm -f /run/fprintd-guard/hibernate-lock
+            ${pkgs.systemd}/bin/systemctl start fprintd.service || true
+          fi
+        ''
+      ))
+    ];
+  };
+
   # Dino-specific home-manager user configuration
   home-manager.users.kyle = {
     hmFoundry = {

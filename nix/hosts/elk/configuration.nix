@@ -648,8 +648,6 @@
     '';
   };
 
-  systemd.timers.jellyfin-prune.timerConfig.RandomizedDelaySec = "15m";
-
   # Subtitle extraction script for Sonarr/Radarr integration
   environment.etc."scripts/subtitle-extract-notify.sh" = {
     mode = "0755";
