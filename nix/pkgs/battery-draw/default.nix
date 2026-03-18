@@ -1,8 +1,6 @@
 {
   lib,
-  stdenv,
   rustPlatform,
-  darwin,
 }:
 
 rustPlatform.buildRustPackage {
@@ -14,14 +12,6 @@ rustPlatform.buildRustPackage {
   cargoLock = {
     lockFile = ./Cargo.lock;
   };
-
-  buildInputs = lib.optionals stdenv.hostPlatform.isDarwin (
-    with darwin.apple_sdk.frameworks;
-    [
-      IOKit
-      CoreFoundation
-    ]
-  );
 
   meta = with lib; {
     description = "Fast battery power usage monitoring for tmux status bars";
