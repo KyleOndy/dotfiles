@@ -44,6 +44,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
+            "timeout": 5000
+          },
+          {
+            "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
             "timeout": 5000
           }
@@ -127,6 +132,17 @@
       }
     ],
     "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
       {
         "hooks": [
           {

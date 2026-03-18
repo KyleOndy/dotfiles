@@ -58,6 +58,9 @@ Notification)
 PreCompact)
 	set_state CMP
 	;;
+PostCompact)
+	set_state RUN
+	;;
 SessionEnd)
 	tmux set-option -p -u -t "$TMUX_PANE" @claude_state 2>/dev/null || true
 	;;
