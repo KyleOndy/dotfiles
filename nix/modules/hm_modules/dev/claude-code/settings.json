@@ -39,6 +39,17 @@
         ]
       }
     ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [

@@ -44,6 +44,9 @@ SubagentStop)
 Stop)
 	set_state IDL
 	;;
+StopFailure)
+	set_state FAIL
+	;;
 Notification)
 	if [ "$NOTIFICATION_TYPE" = "permission_prompt" ] &&
 		[ "$PERMISSION_MODE" != "acceptEdits" ] &&
