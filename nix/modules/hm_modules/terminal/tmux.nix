@@ -50,6 +50,9 @@ in
         # do not allow tmux to rename windows
         set -g allow-rename off
 
+        # allow programs to emit terminal-specific escape sequences through tmux
+        set -g allow-passthrough on
+
         # set scrollback history to 10000 (10k)
         set -g history-limit 10000
 
