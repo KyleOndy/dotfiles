@@ -29,6 +29,11 @@
           publicKey = "xv9v5sg/RL4NY+Wq2+LofjtzuUJLarTYH2fkHjCD2gg=";
           allowedIPs = [ "10.10.0.3/32" ];
         }
+        {
+          # elk peer
+          publicKey = "CazlW0qeEGWqGP8+vHccezHBrpmjcjYqDpJjGELdOCA=";
+          allowedIPs = [ "10.10.0.4/32" ];
+        }
       ];
     };
 
@@ -712,7 +717,7 @@
     enable = true;
     nproc = 16; # Increase from default 8 to handle concurrent ops (playback + library scans + *arr activity)
     exports = ''
-      /mnt/storage/media 10.10.0.2(rw,async,no_subtree_check,no_root_squash) 10.10.0.3(rw,async,no_subtree_check,no_root_squash)
+      /mnt/storage/media 10.10.0.2(rw,async,no_subtree_check,no_root_squash) 10.10.0.3(rw,async,no_subtree_check,no_root_squash) 10.10.0.4(ro,async,no_subtree_check,no_root_squash)
     '';
   };
 

@@ -14,10 +14,25 @@
     hostId = "a7f3b1d2";
 
     firewall = {
-      # No WireGuard - all services are local
       allowedTCPPorts = [
         80
         443
+      ];
+      allowedUDPPorts = [ 51820 ]; # WireGuard
+    };
+
+    wireguard.interfaces.wg0 = {
+      ips = [ "10.10.0.4/24" ];
+      listenPort = 51820;
+      privateKeyFile = config.sops.secrets.wireguard_private_key_elk.path;
+      peers = [
+        {
+          # wolf peer
+          publicKey = "S7jDjWEY/0RrPsIshmRU1rgr4gC+eL4POf0OlujofW8=";
+          endpoint = "51.79.99.201:51820";
+          allowedIPs = [ "10.10.0.1/32" ];
+          persistentKeepalive = 25;
+        }
       ];
     };
   };
@@ -38,6 +53,16 @@
     devices = [ "nodev" ];
   };
   boot.loader.efi.canTouchEfiVariables = false;
+
+  boot.supportedFilesystems = [ "nfs" ];
+
+  # TCP buffer tuning for NFS over WireGuard
+  boot.kernel.sysctl = {
+    "net.core.rmem_max" = 16777216;
+    "net.core.wmem_max" = 16777216;
+    "net.ipv4.tcp_rmem" = "4096 1048576 16777216";
+    "net.ipv4.tcp_wmem" = "4096 1048576 16777216";
+  };
 
   boot.binfmt.emulatedSystems = [
     "aarch64-linux"
@@ -100,6 +125,26 @@
   # System packages
   environment.systemPackages = with pkgs; [
     intel-gpu-tools # intel_gpu_top for monitoring GPU usage
+    (writeShellScriptBin "media-migration-status" ''
+      export PATH="${
+        lib.makeBinPath [
+          coreutils
+          gnugrep
+          gnused
+          util-linux
+        ]
+      }"
+      ${builtins.readFile ./scripts/media-migration-status.sh}
+    '')
+    (writeShellScriptBin "media-migration-sync" ''
+      export PATH="${
+        lib.makeBinPath [
+          coreutils
+          rsync
+        ]
+      }"
+      ${builtins.readFile ./scripts/media-migration-sync.sh}
+    '')
   ];
 
   # Ensure directories exist with proper permissions
@@ -115,15 +160,20 @@
     "d /mnt/storage/downloads/complete/tv 0775 root media -"
     "d /mnt/storage/downloads/complete/music 0775 root media -"
     "d /mnt/storage/downloads/complete/books 0775 root media -"
-    # Media directories - 0775 allows media group members to read/write
-    "d /mnt/storage/media 0775 root media -"
-    "d /mnt/storage/media/movies 0775 root media -"
-    "d /mnt/storage/media/tv 0775 root media -"
-    "d /mnt/storage/media/music 0775 root media -"
-    "d /mnt/storage/media/books 0775 root media -"
+    # Local media backing directories (upper layer for overlayfs)
+    "d /mnt/storage/media-local 0775 root media -"
+    "d /mnt/storage/media-local/movies 0775 root media -"
+    "d /mnt/storage/media-local/tv 0775 root media -"
+    "d /mnt/storage/media-local/music 0775 root media -"
+    "d /mnt/storage/media-local/books 0775 root media -"
     # Staging area for files not indexed by Jellyfin
     # setgid (2775) so subdirs inherit the media group automatically
-    "d /mnt/storage/media/tmp 2775 root media -"
+    "d /mnt/storage/media-local/tmp 2775 root media -"
+    "d /mnt/storage/media-local/yt 0775 root media -"
+    # Overlay mount point and support directories
+    "d /mnt/storage/media 0775 root media -"
+    "d /mnt/wolf-media 0755 root root -"
+    "d /mnt/storage/media-overlay-work 0775 root media -"
   ];
 
   systemFoundry = {
@@ -562,6 +612,110 @@
     ];
   };
 
+  # NFS mount for wolf's media over WireGuard (lower layer for overlayfs)
+  # No wantedBy — media-mount-setup.service controls when this is started
+  systemd.mounts = [
+    {
+      what = "10.10.0.1:/mnt/storage/media";
+      where = "/mnt/wolf-media";
+      type = "nfs";
+      options = "nfsvers=4.2,soft,timeo=30,retrans=2,noatime,acregmin=60,acregmax=600,acdirmin=60,acdirmax=600,ro";
+      after = [
+        "wireguard-wg0.service"
+        "network-online.target"
+      ];
+      requires = [ "wireguard-wg0.service" ];
+      wants = [ "network-online.target" ];
+      mountConfig.TimeoutSec = "30s";
+    }
+  ];
+
+  # Mount media overlay (wolf NFS lower + elk local upper) with graceful fallback
+  systemd.services.media-mount-setup = {
+    description = "Mount media overlay (wolf NFS + elk local) or fallback to local-only";
+    after = [
+      "wireguard-wg0.service"
+      "network-online.target"
+      "local-fs.target"
+    ];
+    wants = [
+      "wireguard-wg0.service"
+      "network-online.target"
+    ];
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = with pkgs; [
+      util-linux
+      coreutils
+      systemd
+    ];
+    script = ''
+      set -euo pipefail
+
+      if mountpoint -q /mnt/storage/media; then
+        echo "/mnt/storage/media already mounted"
+        exit 0
+      fi
+
+      # Try NFS mount via systemd
+      if systemctl start mnt-wolf\\x2dmedia.mount 2>/dev/null && mountpoint -q /mnt/wolf-media; then
+        echo "NFS available, mounting overlay"
+        mount -t overlay overlay \
+          -o lowerdir=/mnt/wolf-media,upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
+          /mnt/storage/media
+        echo "Overlay active: elk-local + wolf-NFS"
+      else
+        echo "Wolf unavailable, bind-mounting local media only"
+        mount --bind /mnt/storage/media-local /mnt/storage/media
+        echo "Local-only mode active"
+      fi
+    '';
+  };
+
+  # Upgrade local-only bind-mount to overlay when wolf comes online
+  systemd.services.media-mount-upgrade = {
+    description = "Upgrade local-only media mount to overlay if wolf becomes available";
+    serviceConfig.Type = "oneshot";
+    path = with pkgs; [
+      util-linux
+      coreutils
+      systemd
+    ];
+    script = ''
+      set -euo pipefail
+      MOUNT_TYPE=$(findmnt -n -o FSTYPE /mnt/storage/media 2>/dev/null || echo "none")
+      if [ "$MOUNT_TYPE" = "overlay" ]; then
+        exit 0  # already overlay
+      fi
+
+      if systemctl start mnt-wolf\\x2dmedia.mount 2>/dev/null && mountpoint -q /mnt/wolf-media; then
+        echo "Wolf available, upgrading to overlay"
+        umount /mnt/storage/media
+        mount -t overlay overlay \
+          -o lowerdir=/mnt/wolf-media,upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
+          /mnt/storage/media
+        echo "Upgraded to overlay mode"
+      fi
+    '';
+  };
+
+  systemd.timers.media-mount-upgrade = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5min";
+      OnUnitActiveSec = "10min";
+    };
+  };
+
+  # Jellyfin must wait for media to be mounted
+  systemd.services.jellyfin = {
+    after = [ "media-mount-setup.service" ];
+    requires = [ "media-mount-setup.service" ];
+  };
+
   # Jellyfin prune - deletes watched YouTube videos from disk after 2 days
   # Jellyfin and media are both local on elk — no path translation needed.
   # TODO: Before deploying, update userId and parentId by querying elk's Jellyfin:
@@ -795,6 +949,9 @@
 
   # SOPS secrets
   sops.secrets = {
+    wireguard_private_key_elk = {
+      mode = "0400";
+    };
     apps_ondy_org_route53 = {
       mode = "0400";
     };
