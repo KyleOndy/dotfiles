@@ -114,6 +114,9 @@ in
           # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
           # can be used to determine the state of a repository at a point in history.
           logAllRefUpdates = "always";
+          # automatically pick a comment character that doesn't conflict with
+          # lines starting with '#' in commit messages.
+          commentChar = "auto";
         };
         interactive = {
           # when in --patch mode, take your input without having to hit enter. Greatly
