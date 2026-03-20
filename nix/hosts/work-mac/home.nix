@@ -149,6 +149,7 @@
     pulumi
     pkgs.pulumiPackages.pulumi-python
     gemini-cli
+    ssm-session-manager-plugin # AWS Systems Manager Session Manager
   ];
 
   # Coder remote development SSH config
