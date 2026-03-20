@@ -135,6 +135,7 @@ in
       export PATH="${
         lib.makeBinPath [
           coreutils
+          findutils
           gnugrep
           gnused
           util-linux
