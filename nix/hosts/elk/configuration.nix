@@ -117,6 +117,7 @@ in
   };
 
   # Jellyfin user permissions for media access and hardware transcoding
+  users.users.kyle.extraGroups = [ "media" ];
   users.users.jellyfin.extraGroups = [
     "media"
     "render" # Intel GPU access for VA-API transcoding
@@ -147,7 +148,9 @@ in
       export PATH="${
         lib.makeBinPath [
           coreutils
+          findutils
           rsync
+          util-linux
         ]
       }"
       ${builtins.readFile ./scripts/media-migration-sync.sh}
@@ -168,15 +171,14 @@ in
     "d /mnt/storage/downloads/complete/music 0775 root media -"
     "d /mnt/storage/downloads/complete/books 0775 root media -"
     # Local media backing directories (upper layer for overlayfs)
-    "d /mnt/storage/media-local 0775 root media -"
-    "d /mnt/storage/media-local/movies 0775 root media -"
-    "d /mnt/storage/media-local/tv 0775 root media -"
-    "d /mnt/storage/media-local/music 0775 root media -"
-    "d /mnt/storage/media-local/books 0775 root media -"
-    # Staging area for files not indexed by Jellyfin
-    # setgid (2775) so subdirs inherit the media group automatically
+    # setgid (2775) so subdirs created by rsync inherit the media group
+    "d /mnt/storage/media-local 2775 root media -"
+    "d /mnt/storage/media-local/movies 2775 root media -"
+    "d /mnt/storage/media-local/tv 2775 root media -"
+    "d /mnt/storage/media-local/music 2775 root media -"
+    "d /mnt/storage/media-local/books 2775 root media -"
     "d /mnt/storage/media-local/tmp 2775 root media -"
-    "d /mnt/storage/media-local/yt 0775 root media -"
+    "d /mnt/storage/media-local/yt 2775 root media -"
     # Overlay mount point and support directories
     "d /mnt/storage/media 0775 root media -"
     "d /mnt/wolf-media 0755 root root -"
