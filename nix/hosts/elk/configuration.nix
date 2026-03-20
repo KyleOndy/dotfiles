@@ -4,7 +4,13 @@
   lib,
   ...
 }:
-
+let
+  wolfNfs = {
+    src = "10.10.0.1:/mnt/storage/media";
+    mountPoint = "/mnt/wolf-media";
+    opts = "nfsvers=4.2,soft,timeo=30,retrans=2,noatime,acregmin=60,acregmax=600,acdirmin=60,acdirmax=600,ro";
+  };
+in
 {
   imports = [ ./hardware-configuration.nix ];
 
@@ -612,24 +618,6 @@
     ];
   };
 
-  # NFS mount for wolf's media over WireGuard (lower layer for overlayfs)
-  # No wantedBy — media-mount-setup.service controls when this is started
-  systemd.mounts = [
-    {
-      what = "10.10.0.1:/mnt/storage/media";
-      where = "/mnt/wolf-media";
-      type = "nfs";
-      options = "nfsvers=4.2,soft,timeo=30,retrans=2,noatime,acregmin=60,acregmax=600,acdirmin=60,acdirmax=600,ro";
-      after = [
-        "wireguard-wg0.service"
-        "network-online.target"
-      ];
-      requires = [ "wireguard-wg0.service" ];
-      wants = [ "network-online.target" ];
-      mountConfig.TimeoutSec = "30s";
-    }
-  ];
-
   # Mount media overlay (wolf NFS lower + elk local upper) with graceful fallback
   systemd.services.media-mount-setup = {
     description = "Mount media overlay (wolf NFS + elk local) or fallback to local-only";
@@ -650,7 +638,7 @@
     path = with pkgs; [
       util-linux
       coreutils
-      systemd
+      nfs-utils
     ];
     script = ''
       set -euo pipefail
@@ -660,11 +648,12 @@
         exit 0
       fi
 
-      # Try NFS mount via systemd
-      if systemctl start mnt-wolf\\x2dmedia.mount 2>/dev/null && mountpoint -q /mnt/wolf-media; then
+      # Try direct NFS mount (avoids systemd unit entering failed state on timeout)
+      if mount -t nfs -o ${wolfNfs.opts} ${wolfNfs.src} ${wolfNfs.mountPoint} 2>/dev/null \
+        && mountpoint -q ${wolfNfs.mountPoint}; then
         echo "NFS available, mounting overlay"
         mount -t overlay overlay \
-          -o lowerdir=/mnt/wolf-media,upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
+          -o lowerdir=${wolfNfs.mountPoint},upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
           /mnt/storage/media
         echo "Overlay active: elk-local + wolf-NFS"
       else
@@ -682,7 +671,7 @@
     path = with pkgs; [
       util-linux
       coreutils
-      systemd
+      nfs-utils
     ];
     script = ''
       set -euo pipefail
@@ -691,11 +680,15 @@
         exit 0  # already overlay
       fi
 
-      if systemctl start mnt-wolf\\x2dmedia.mount 2>/dev/null && mountpoint -q /mnt/wolf-media; then
+      if ! mountpoint -q ${wolfNfs.mountPoint}; then
+        mount -t nfs -o ${wolfNfs.opts} ${wolfNfs.src} ${wolfNfs.mountPoint} 2>/dev/null || true
+      fi
+
+      if mountpoint -q ${wolfNfs.mountPoint}; then
         echo "Wolf available, upgrading to overlay"
         umount /mnt/storage/media
         mount -t overlay overlay \
-          -o lowerdir=/mnt/wolf-media,upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
+          -o lowerdir=${wolfNfs.mountPoint},upperdir=/mnt/storage/media-local,workdir=/mnt/storage/media-overlay-work \
           /mnt/storage/media
         echo "Upgraded to overlay mode"
       fi
