@@ -31,7 +31,7 @@
         }
         {
           # elk peer
-          publicKey = "CazlW0qeEGWqGP8+vHccezHBrpmjcjYqDpJjGELdOCA=";
+          publicKey = "YBD4Si2FqaM0VxK0cvubNcDokXA2Uo1ymxjATg4GsEc=";
           allowedIPs = [ "10.10.0.4/32" ];
         }
       ];
