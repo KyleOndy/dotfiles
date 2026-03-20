@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Read JSON input from stdin
-input=$(cat)
+input=$(tee /tmp/statusline-debug.json)
 
 # Extract current working directory
 cwd=$(echo "$input" | jq -r '.cwd // .workspace.current_dir')
