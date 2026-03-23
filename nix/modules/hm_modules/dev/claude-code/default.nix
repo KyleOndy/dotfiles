@@ -138,7 +138,10 @@ in
       })
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (
-        listToAttrs (
+        {
+          ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
+        }
+        // listToAttrs (
           map (
             skill:
             if skill.isFile then
