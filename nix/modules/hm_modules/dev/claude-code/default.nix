@@ -135,6 +135,7 @@ in
         ".claude/commands/task/".source = ./commands/task;
         ".claude/commands/test/".source = ./commands/test;
         ".claude/commands/forge/".source = ./commands/forge;
+        ".claude/commands/helm/".source = ./commands/helm;
       })
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (
