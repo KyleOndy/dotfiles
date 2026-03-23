@@ -46,6 +46,10 @@ The diff shows **what** changed. The body explains **why**:
 
 Wrap at 72 characters. Separate from subject with a blank line.
 
+Use markdown formatting in the body: triple-backtick fenced code blocks
+for command output or code snippets, single backticks for inline code
+references.
+
 ## Receipts Rule
 
 Every non-trivial claim in the body needs at least one piece of evidence:
