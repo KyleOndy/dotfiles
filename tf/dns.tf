@@ -74,6 +74,22 @@ resource "aws_route53_record" "ondy_org_txt_atproto" {
   records = ["did=did:plc:2qod5zgss7zqpbockr7syiqg"]
 }
 
+resource "aws_route53_record" "ondy_org_infra_elk" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "elk.infra.ondy.org"
+  type    = "A"
+  ttl     = "300"
+  records = ["37.27.70.102"]
+}
+
+resource "aws_route53_record" "ondy_org_infra_elk_wildcard" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "*.elk.infra.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  records = ["elk.infra.ondy.org"]
+}
+
 output "ondy_org_nameservers" {
   value = aws_route53_zone.ondy_org.name_servers
 }
