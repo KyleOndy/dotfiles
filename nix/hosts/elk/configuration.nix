@@ -305,37 +305,37 @@ in
         enable = true;
 
         sonarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.sonarr_api_key.path;
         };
 
         radarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.radarr_api_key.path;
         };
 
         lidarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.lidarr_api_key.path;
         };
 
         readarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.readarr_api_key.path;
         };
 
         prowlarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.prowlarr_api_key.path;
         };
 
         bazarr = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.bazarr_api_key.path;
         };
 
         sabnzbd = {
-          enable = false;
+          enable = true;
           apiKeyFile = config.sops.secrets.sabnzbd_api_key.path;
         };
       };
@@ -390,6 +390,83 @@ in
               }
             ];
           }
+          {
+            job_name = "exportarr-sonarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9707" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-radarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9708" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-lidarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9709" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-readarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9710" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-prowlarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9711" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-bazarr";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9712" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
+          {
+            job_name = "exportarr-sabnzbd";
+            static_configs = [
+              {
+                targets = [ "127.0.0.1:9713" ];
+                labels = {
+                  host = "elk";
+                };
+              }
+            ];
+          }
         ];
       };
 
@@ -419,51 +496,51 @@ in
     };
 
     prowlarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "prowlarr.apps.ondy.org";
+      domainName = "prowlarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     sabnzbd = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "sabnzbd.apps.ondy.org";
+      domainName = "sabnzbd.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     bazarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "bazarr.apps.ondy.org";
+      domainName = "bazarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     lidarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "lidarr.apps.ondy.org";
+      domainName = "lidarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     radarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "radarr.apps.ondy.org";
+      domainName = "radarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     readarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "readarr.apps.ondy.org";
+      domainName = "readarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
     sonarr = {
-      enable = false;
+      enable = true;
       group = "media";
-      domainName = "sonarr.apps.ondy.org";
+      domainName = "sonarr.elk.infra.ondy.org";
       provisionCert = true;
     };
 
@@ -517,7 +594,7 @@ in
 
   # YouTube downloader - downloads videos from subscribed channels
   systemFoundry.youtubeDownloader = {
-    enable = false;
+    enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
     sleep_between_channels = 180;
