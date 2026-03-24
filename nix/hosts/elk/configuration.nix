@@ -487,6 +487,25 @@ in
 
   };
 
+  # Infra domain aliases — test services at {service}.elk.infra.ondy.org before swinging public DNS
+  services.nginx.virtualHosts = {
+    "jellyfin.apps.ondy.org".serverAliases = [ "jellyfin.elk.infra.ondy.org" ];
+    "jellyseerr.apps.ondy.org".serverAliases = [ "jellyseerr.elk.infra.ondy.org" ];
+    "grafana.apps.ondy.org".serverAliases = [ "grafana.elk.infra.ondy.org" ];
+    "metrics.apps.ondy.org".serverAliases = [ "metrics.elk.infra.ondy.org" ];
+    "loki.apps.ondy.org".serverAliases = [ "loki.elk.infra.ondy.org" ];
+    "vmalert.apps.ondy.org".serverAliases = [ "vmalert.elk.infra.ondy.org" ];
+  };
+
+  security.acme.certs = {
+    "jellyfin.apps.ondy.org".extraDomainNames = [ "jellyfin.elk.infra.ondy.org" ];
+    "jellyseerr.apps.ondy.org".extraDomainNames = [ "jellyseerr.elk.infra.ondy.org" ];
+    "grafana.apps.ondy.org".extraDomainNames = [ "grafana.elk.infra.ondy.org" ];
+    "metrics.apps.ondy.org".extraDomainNames = [ "metrics.elk.infra.ondy.org" ];
+    "loki.apps.ondy.org".extraDomainNames = [ "loki.elk.infra.ondy.org" ];
+    "vmalert.apps.ondy.org".extraDomainNames = [ "vmalert.elk.infra.ondy.org" ];
+  };
+
   # Subtitle extractor - scans media library hourly for missing subtitle sidecars
   systemFoundry.subtitleExtractor = {
     enable = true;
