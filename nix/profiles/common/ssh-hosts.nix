@@ -15,7 +15,7 @@ with lib;
           SendEnv = "LANG LC_*";
         };
       };
-      "*.compute-1.amazonaws.com" = {
+      "*.amazonaws.com" = {
         extraOptions = {
           UserKnownHostsFile = "/dev/null";
           StrictHostKeyChecking = "no";
