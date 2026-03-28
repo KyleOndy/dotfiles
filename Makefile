@@ -4,6 +4,15 @@ ALLOW_BROKEN=false
 ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
+# Work config override. Set to the work repo path on work machines to inject
+# work-specific configuration. Example:
+#   make build-mac WORK_CONFIG=/Users/kondy/work
+#   export WORK_CONFIG=/Users/kondy/work && make deploy
+WORK_CONFIG ?=
+ifdef WORK_CONFIG
+  WORK_INPUT_FLAG = --override-input work-config path:$(WORK_CONFIG)
+endif
+
 # Binary cache configuration
 CACHE_HOST=wolf
 CACHE_URL=ssh://$(CACHE_HOST)
@@ -49,15 +58,15 @@ diff-current-system:
 
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
-	$(SWITCH) --flake .#$(HOSTNAME) switch
+	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
 
 .PHONY: boot
 boot: ## Deploy currently defined configuration for next boot
-	$(SWITCH) --flake .#$(HOSTNAME) boot
+	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) boot
 
 .PHONY: apply
 apply: ## Apply the current config without persisting it
-	$(SWITCH) --flake .#$(HOSTNAME) test
+	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) test
 
 .PHONY: deploy-rs
 deploy-rs:
@@ -167,33 +176,37 @@ cache-push-all: cache-push-dino cache-push-wolf ## Push all system closures to b
 
 # macOS-specific targets
 .PHONY: build-mac
-build-mac: ## Build work-mac darwin configuration
-	nix build $(IMPURE) .#darwinConfigurations.work-mac.system
+build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system
 
 .PHONY: build-mac-dry
 build-mac-dry: ## Dry-run build of work-mac darwin configuration
-	nix build $(IMPURE) .#darwinConfigurations.work-mac.system --dry-run
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system --dry-run
 
 .PHONY: test-mac
 test-mac: ## Test work-mac configuration evaluation
-	nix eval $(IMPURE) .#darwinConfigurations.work-mac.config.system.stateVersion
+	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.system.stateVersion
 
 .PHONY: test-mac-home
 test-mac-home: ## Test work-mac home-manager configuration
-	nix eval $(IMPURE) .#darwinConfigurations.work-mac.config.home-manager.users.'"kyle.ondy"'.home.homeDirectory
+	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.home-manager.users.'"kyle.ondy"'.home.homeDirectory
+
+.PHONY: deploy-mac
+deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
+	darwin-rebuild $(IMPURE) $(WORK_INPUT_FLAG) --flake .#work-mac switch
 
 # WSL-specific targets
 .PHONY: build-wsl
-build-wsl: ## Build work-wsl home-manager configuration
-	nix build --impure .#homeConfigurations."kyle@work-wsl".activationPackage
+build-wsl: ## Build work-wsl home-manager configuration (set WORK_CONFIG=/path/to/work for work config)
+	nix build --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage
 
 .PHONY: build-wsl-dry
 build-wsl-dry: ## Dry-run build of work-wsl home-manager configuration
-	nix build --impure .#homeConfigurations."kyle@work-wsl".activationPackage --dry-run
+	nix build --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage --dry-run
 
 .PHONY: deploy-wsl
-deploy-wsl: ## Deploy work-wsl home-manager configuration
-	nix run --impure .#homeConfigurations."kyle@work-wsl".activationPackage
+deploy-wsl: ## Deploy work-wsl home-manager configuration (set WORK_CONFIG=/path/to/work for work config)
+	nix run --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage
 
 .PHONY: flash-ergodox
 flash-ergodox:

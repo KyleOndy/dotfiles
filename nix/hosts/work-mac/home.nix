@@ -10,7 +10,7 @@
 {
   # The desktop profile is imported via mkDarwinSystem in flake.nix
   # This file provides macOS-specific overrides
-  imports = [ ] ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
+  imports = [ ];
 
   # The desktop profile provides:
   # - Full development tools (kubernetes, aws, terraform, docker, etc.)
@@ -139,13 +139,12 @@
     };
   };
 
-  # packages I use at work, but not persoanlly, that do not need to be kept
-  # secret in the work fork.
+  # packages I use at work, but not personally, that do not need to be kept
+  # in the private work config.
   home.packages = with pkgs; [
     argocd # ArgoCD CLI
     coder # Provision remote development environments via Terraform
     linear-cli
-    opencode
     pdm # Python Development Master
     pulumi
     pkgs.pulumiPackages.pulumi-python

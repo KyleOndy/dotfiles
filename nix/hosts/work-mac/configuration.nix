@@ -6,9 +6,7 @@
   ...
 }:
 {
-  # Conditional import of work-specific overrides
-  # Work forks should create work.nix in this directory with company-specific config
-  imports = [ ] ++ lib.optional (builtins.pathExists ./work.nix) ./work.nix;
+  imports = [ ];
 
   # Nix configuration
   nix = {

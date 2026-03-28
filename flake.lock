@@ -663,7 +663,8 @@
         "nur": "nur",
         "plasma-manager": "plasma-manager",
         "pre-commit-hooks": "pre-commit-hooks",
-        "sops-nix": "sops-nix"
+        "sops-nix": "sops-nix",
+        "work-config": "work-config"
       }
     },
     "sops-nix": {
@@ -812,6 +813,17 @@
         "repo": "flake-utils",
         "type": "github"
       }
+    },
+    "work-config": {
+      "locked": {
+        "path": "./nix/work-config-stub",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nix/work-config-stub",
+        "type": "path"
+      },
+      "parent": []
     }
   },
   "root": "root",

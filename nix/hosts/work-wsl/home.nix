@@ -10,8 +10,7 @@
   # Import the server profile - WSL is used as a terminal-only environment
   imports = [
     ../../profiles/server.nix
-  ]
-  ++ lib.optional (builtins.pathExists ./work-home.nix) ./work-home.nix;
+  ];
 
   # Enable Java development tools for work
   hmFoundry.dev.java.enable = true;

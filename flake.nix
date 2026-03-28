@@ -54,6 +54,9 @@
       url = "github:rohitg00/awesome-claude-code-toolkit";
       flake = false;
     };
+    # Work-specific configuration. Default is a no-op stub.
+    # Override on work machines: --override-input work-config path:/Users/kondy/work
+    work-config.url = "path:./nix/work-config-stub";
   };
   outputs =
     { self, ... }@inputs:
@@ -235,6 +238,7 @@
             ./nix/hosts/${hostname}/configuration.nix
             inputs.home-manager.darwinModules.home-manager
             inputs.mac-app-util.darwinModules.default
+            inputs.work-config.darwinModule
           ]
           ++ includeModules
           ++ [
@@ -255,6 +259,7 @@
                     hmCoreModules
                     ++ [ nixCatsHomeModule ]
                     ++ [ inputs.mac-app-util.homeManagerModules.default ]
+                    ++ [ inputs.work-config.homeManagerModule ]
                     ++ (
                       if isDesktop then
                         hmDesktopModules
@@ -533,6 +538,7 @@
         modules =
           hmCoreModules
           ++ [ nixCatsHomeModule ]
+          ++ [ inputs.work-config.homeManagerModule ]
           ++ [
             ./nix/hosts/work-wsl/home.nix
             {
