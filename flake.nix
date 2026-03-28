@@ -431,21 +431,9 @@
             ./disko-config.nix
           ];
         };
-        tiger = mkNixosSystem {
-          hostname = "tiger";
-          profile = "desktop";
-        };
         wolf = mkNixosSystem {
           hostname = "wolf";
           profile = "server";
-        };
-        bear = mkNixosSystem {
-          hostname = "bear";
-          profile = "server";
-          includeModules = [
-            inputs.disko.nixosModules.disko
-            ./nix/hosts/bear/nix-anywhere/disk-config.nix
-          ];
         };
         elk = mkNixosSystem {
           hostname = "elk";
@@ -567,14 +555,6 @@
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.dino;
             };
           };
-          tiger = {
-            hostname = "tiger";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
-            };
-          };
           wolf = {
             fastConnection = false;
             hostname = "51.79.99.201";
@@ -582,15 +562,6 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.wolf;
-            };
-          };
-          bear = {
-            fastConnection = false;
-            hostname = "147.135.8.156";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.bear;
             };
           };
           cogsworth = {

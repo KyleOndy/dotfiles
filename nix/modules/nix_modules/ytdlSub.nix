@@ -168,10 +168,19 @@ in
             };
 
             ytdl_options = {
+              # TODO: remove once existing channels have backfilled to 20 videos.
+              # The built-in preset sets this to true, which prevents backfilling
+              # channels first indexed under the old 2-week date filter.
+              break_on_existing = false;
               cookiefile = "${cfg.data_dir}/cookies.txt";
               format = "bestvideo+bestaudio/best";
               noprogress = true;
               playlistend = cfg.max_videos;
+              extractor_args = {
+                youtube = {
+                  player_client = [ "web" ];
+                };
+              };
             };
 
             overrides = {
@@ -223,7 +232,11 @@ in
     systemd.services.ytdl-sub-youtube = {
       wants = [ "bgutil-pot-server.service" ];
       after = [ "bgutil-pot-server.service" ];
-      environment.PYTHONPATH = "${bgutil-plugin}/${bgutil-plugin.pythonModule.sitePackages}";
+      environment = {
+        PYTHONPATH = "${bgutil-plugin}/${bgutil-plugin.pythonModule.sitePackages}";
+        XDG_CACHE_HOME = "/var/cache/ytdl-sub";
+      };
+      serviceConfig.CacheDirectory = "ytdl-sub";
     };
   };
 }

@@ -10,6 +10,12 @@ let
 in
 {
   options.systemFoundry.nginxReverseProxy = {
+    enable = mkOption {
+      type = types.bool;
+      default = false;
+      description = "Enable the nginx reverse proxy. When false and no sites are configured, nginx is not started.";
+    };
+
     acme = {
       email = mkOption {
         type = types.str;
@@ -138,7 +144,8 @@ in
       sitesWithCerts = lib.filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites;
       anyNeedsCerts = sitesWithCerts != { };
     in
-    mkIf anySiteEnabled {
+    # Enable when explicitly opted-in OR when sites are registered (backward compat for existing hosts)
+    mkIf (cfg.enable || anySiteEnabled) {
       assertions = [
         {
           assertion = !anyNeedsCerts || (cfg.acme ? email && cfg.acme.email != "");
@@ -174,7 +181,7 @@ in
           }
         ]) enabledSites
       );
-      services.nginx = {
+      services.nginx = mkIf (enabledSites != { }) {
         enable = true;
 
         recommendedGzipSettings = true;
@@ -379,10 +386,6 @@ in
       ) (filterAttrs (_: siteCfg: siteCfg.provisionCert) enabledSites);
 
       users.users.nginx.extraGroups = [ "acme" ];
-      sops.secrets.${cfg.acme.credentialsSecret} = {
-        owner = "acme";
-        group = "acme";
-      };
       networking.firewall.allowedTCPPorts = [
         80
         443

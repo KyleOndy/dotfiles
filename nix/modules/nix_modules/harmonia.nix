@@ -39,12 +39,22 @@ in
       signKeyPaths = [ "/var/lib/secrets/harmonia.secret" ];
     };
 
-    # harmonia runs on :5000, proxy it via nginx with TLS
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      provisionCert = cfg.provisionCert;
-      proxyPass = "http://127.0.0.1:5000";
-      route53HostedZoneId = "Z0365859SHHFAPNR0QXN";
-    };
+    # harmonia runs on :5000, proxy it via nginx or caddy with TLS
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          provisionCert = cfg.provisionCert;
+          proxyPass = "http://127.0.0.1:5000";
+          route53HostedZoneId = "Z0365859SHHFAPNR0QXN";
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          provisionCert = cfg.provisionCert;
+          proxyPass = "http://127.0.0.1:5000";
+        };
   };
 }

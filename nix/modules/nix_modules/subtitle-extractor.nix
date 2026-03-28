@@ -131,9 +131,15 @@ let
         fi
 
         # Extract subtitle stream to srt format
-        if ffmpeg -v error -i "$input_file" -map "0:$stream_idx" -c:s srt "$output_file" 2>/dev/null; then
-          echo "Extracted: $output_file (stream $stream_idx: $lang''${title:+ - $title})"
+        if ffmpeg -nostdin -v error -i "$input_file" -map "0:$stream_idx" -c:s srt "$output_file" 2>/dev/null; then
+          if [[ ! -s "$output_file" ]]; then
+            rm -f "$output_file"
+            echo "Removed empty sidecar: $output_file" >&2
+          else
+            echo "Extracted: $output_file (stream $stream_idx: $lang''${title:+ - $title})"
+          fi
         else
+          rm -f "$output_file"
           echo "Failed to extract stream $stream_idx from $input_file" >&2
         fi
       done <<< "$text_subs"

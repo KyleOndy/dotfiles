@@ -21,13 +21,6 @@ with lib;
           StrictHostKeyChecking = "no";
         };
       };
-      "tiger tiger.dmz.1ella.com" = {
-        # 10.25.89.5
-        hostname = "tiger.dmz.1ella.com";
-        user = "kyle";
-        port = 2332;
-        identityFile = "~/.ssh/id_ed25519";
-      };
       "dino" = {
         hostname = "dino.lan.1ella.com";
         user = "kyle";
@@ -35,11 +28,6 @@ with lib;
       };
       "wolf" = {
         hostname = "ns568215.ip-51-79-99.net";
-        user = "kyle";
-        identityFile = "~/.ssh/id_ed25519";
-      };
-      "bear" = {
-        hostname = "ns102788.ip-147-135-8.us";
         user = "kyle";
         identityFile = "~/.ssh/id_ed25519";
       };

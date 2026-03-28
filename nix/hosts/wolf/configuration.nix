@@ -13,22 +13,12 @@
     # Required for ZFS - derived from /etc/machine-id
     hostId = "8a3c5d2e";
 
-    # WireGuard tunnel for NFS and monitoring from bear
+    # WireGuard tunnel for NFS
     wireguard.interfaces.wg0 = {
       ips = [ "10.10.0.1/24" ];
       listenPort = 51820;
       privateKeyFile = config.sops.secrets.wireguard_private_key_wolf.path;
       peers = [
-        {
-          # bear peer
-          publicKey = "br9DBxgicT4P1Heey05srTXJU+9TOuIWH38ZhXmbvRo=";
-          allowedIPs = [ "10.10.0.2/32" ];
-        }
-        {
-          # tiger peer
-          publicKey = "xv9v5sg/RL4NY+Wq2+LofjtzuUJLarTYH2fkHjCD2gg=";
-          allowedIPs = [ "10.10.0.3/32" ];
-        }
         {
           # elk peer
           publicKey = "YBD4Si2FqaM0VxK0cvubNcDokXA2Uo1ymxjATg4GsEc=";
@@ -39,13 +29,10 @@
 
     firewall = {
       allowedUDPPorts = [ 51820 ]; # WireGuard
-      # Allow NFS, VictoriaMetrics, and Loki on WireGuard interface only
       interfaces.wg0 = {
         allowedTCPPorts = [
           2049 # NFS
           111 # NFS portmapper
-          8428 # VictoriaMetrics
-          3100 # Loki
         ];
       };
     };
@@ -91,7 +78,7 @@
   users.users."svc.deploy".extraGroups = [ "nginx" ];
 
   # Create media group for shared access to downloads/media
-  # Explicitly set GID to ensure consistency across NFS mounts (bear uses same GID)
+  # Explicitly set GID to ensure consistency across NFS mounts
   users.groups.media = {
     gid = 983;
   };
@@ -137,7 +124,7 @@
       sites = {
         # Main website
         "www.kyleondy.com" = {
-          enable = true;
+          enable = false;
           provisionCert = true;
           staticRoot = "/var/www/kyleondy.com";
           route53HostedZoneId = "Z0855021CRZ8TKMBC7EC";
@@ -145,7 +132,7 @@
 
         # Redirect apex domain to www
         "kyleondy.com" = {
-          enable = true;
+          enable = false;
           provisionCert = true;
           redirectTo = "www.kyleondy.com";
           route53HostedZoneId = "Z0855021CRZ8TKMBC7EC";
@@ -153,7 +140,7 @@
 
         # Redirect ondy.org to www.kyleondy.com (requires DNS update to point to wolf)
         "ondy.org" = {
-          enable = true;
+          enable = false;
           provisionCert = true;
           redirectTo = "www.kyleondy.com";
           # route53HostedZoneId not specified - lego will auto-detect the zone
@@ -161,7 +148,7 @@
 
         # Default catch-all server that redirects to www.kyleondy.com
         "_" = {
-          enable = true;
+          enable = false;
           isDefault = true;
           extraDomainNames = [ "www.kyleondy.com" ];
         };
@@ -169,262 +156,20 @@
     };
 
     harmonia = {
-      enable = true;
+      enable = false;
       domainName = "nix-cache.apps.ondy.org";
       provisionCert = true;
     };
 
-    # VictoriaMetrics-based monitoring stack
-    monitoringStack = {
-      enable = true;
-      domain = "apps.ondy.org";
-
-      # Retention configuration
-      retention = {
-        metrics = 400; # days
-        logs = 400; # days
-      };
-
-      # Bearer token authentication - hashes computed at runtime from sops secrets
-      # The systemd service monitoring-token-hash-generator generates nginx map files
-      # at /run/monitoring-token-hashes/*.conf which are included by nginx at runtime
-      # No tokenHashes needed here - nginx includes the maps directly
-
-      # Server-side components (central monitoring server)
-      victoriametrics = {
-        enable = true;
-        provisionCert = true;
-        domain = "metrics.apps.ondy.org";
-      };
-
-      loki = {
-        enable = true;
-        provisionCert = true;
-        domain = "loki.apps.ondy.org";
-        instanceInterfaceNames = [
-          "eno3"
-          "lo"
-        ];
-      };
-
-      grafana = {
-        enable = true;
-        provisionCert = true;
-        domain = "grafana.apps.ondy.org";
-      };
-
-      alertmanager = {
-        enable = true;
-      };
-
-      vmalert = {
-        enable = true;
-        provisionCert = true;
-        domain = "vmalert.apps.ondy.org";
-      };
-
-      # Local monitoring agents (wolf monitors itself)
-      nodeExporter = {
-        enable = true;
-      };
-
-      nginxExporter = {
-        enable = true;
-      };
-
-      nginxlogExporter = {
-        enable = true;
-      };
-
-      zfsExporter = {
-        enable = true;
-      };
-
-      # Exportarr for *arr services metrics
-      exportarr = {
-        enable = true;
-
-        sonarr = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.sonarr_api_key.path;
-        };
-
-        radarr = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.radarr_api_key.path;
-        };
-
-        lidarr = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.lidarr_api_key.path;
-        };
-
-        readarr = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.readarr_api_key.path;
-        };
-
-        prowlarr = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.prowlarr_api_key.path;
-        };
-
-        bazarr = {
-          enable = false;
-          apiKeyFile = config.sops.secrets.bazarr_api_key.path;
-        };
-
-        sabnzbd = {
-          enable = true;
-          apiKeyFile = config.sops.secrets.sabnzbd_api_key.path;
-        };
-      };
-
-      vmagent = {
-        enable = true;
-        # Send metrics to local VictoriaMetrics instance
-        remoteWriteUrl = "http://127.0.0.1:8428/api/v1/write";
-        # Scrape local exporters
-        scrapeConfigs = [
-          {
-            job_name = "node";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9100" ];
-                labels = {
-                  host = "wolf";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "nginx";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9113" ];
-                labels = {
-                  host = "wolf";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "nginxlog";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:4040" ];
-                labels = {
-                  host = "wolf";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "zfs";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9134" ];
-                labels = {
-                  host = "wolf";
-                };
-              }
-            ];
-          }
-          # Exportarr metrics for *arr services
-          {
-            job_name = "exportarr-sonarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9707" ];
-                labels = {
-                  host = "wolf";
-                  service = "sonarr";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "exportarr-radarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9708" ];
-                labels = {
-                  host = "wolf";
-                  service = "radarr";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "exportarr-lidarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9709" ];
-                labels = {
-                  host = "wolf";
-                  service = "lidarr";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "exportarr-readarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9710" ];
-                labels = {
-                  host = "wolf";
-                  service = "readarr";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "exportarr-prowlarr";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9711" ];
-                labels = {
-                  host = "wolf";
-                  service = "prowlarr";
-                };
-              }
-            ];
-          }
-          {
-            job_name = "exportarr-sabnzbd";
-            static_configs = [
-              {
-                targets = [ "127.0.0.1:9713" ];
-                labels = {
-                  host = "wolf";
-                  service = "sabnzbd";
-                };
-              }
-            ];
-          }
-        ];
-      };
-
-      promtail = {
-        enable = true;
-        # Send logs to local Loki instance
-        lokiUrl = "http://127.0.0.1:3100/loki/api/v1/push";
-        extraLabels = {
-          host = "wolf";
-        };
-      };
-    };
-
     prowlarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "prowlarr.apps.ondy.org";
       provisionCert = true;
     };
 
     sabnzbd = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "sabnzbd.apps.ondy.org";
       provisionCert = true;
@@ -438,160 +183,41 @@
     };
 
     lidarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "lidarr.apps.ondy.org";
       provisionCert = true;
     };
 
     radarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "radarr.apps.ondy.org";
       provisionCert = true;
     };
 
     readarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "readarr.apps.ondy.org";
       provisionCert = true;
     };
 
     sonarr = {
-      enable = true;
+      enable = false;
       group = "media";
       domainName = "sonarr.apps.ondy.org";
       provisionCert = true;
     };
 
-    jellyfin = {
-      enable = false;
-      group = "media";
-      domainName = "jellyfin.apps.ondy.org";
-      provisionCert = true;
-      transcodeCleanupInterval = "36 hours";
-    };
-
-    jellyseerr = {
-      enable = true;
-      domainName = "jellyseerr.apps.ondy.org";
-      provisionCert = true;
-    };
-
   };
 
-  # Subtitle extractor - runs on wolf where files live (not over NFS)
-  # Scans media library hourly for missing subtitle sidecars and clears default subtitle flags
-  # Prevents Jellyfin transcoding delays caused by subtitle burn-in
-  systemFoundry.subtitleExtractor = {
-    enable = true;
-    mediaPath = "/mnt/storage/media";
-    schedule = "hourly";
-    user = "root"; # Needs root for chown to preserve file ownership
-    group = "root";
-  };
-
-  # Jellyfin prune - deletes watched YouTube videos from disk after 2 days
-  # Jellyfin runs on bear (NFS client); bear returns paths like /mnt/media/yt/...
-  # which must be translated to wolf's /mnt/storage/media/yt/... for deletion.
-  # TODO: Before deploying, update userId and parentId by querying bear's Jellyfin:
-  #   curl -s 'https://jellyfin.apps.ondy.org/Users' \
-  #     -H 'Authorization: MediaBrowser Token="<api_key>"' | jq '.[] | {Name, Id}'
-  #   curl -s 'https://jellyfin.apps.ondy.org/Library/VirtualFolders' \
-  #     -H 'Authorization: MediaBrowser Token="<api_key>"' | jq '.[] | {Name, ItemId}'
-  #   curl -s 'https://jellyfin.apps.ondy.org/ScheduledTasks' \
-  #     -H 'Authorization: MediaBrowser Token="<api_key>"' \
-  #     | jq '.[] | select(.Name | test("Scan")) | {Name, Id}'
-  systemd.services.jellyfin-prune = {
-    enable = true;
-    startAt = "*-*-* 06:00:00"; # 6am (3 hours after downloader at 3am)
-    path = with pkgs; [
-      bashInteractive
-      curl
-      fd
-      jq
-    ];
-    environment = {
-      TOKEN_FILE = config.sops.secrets.jellyfin_api_key.path;
-      DATA_DIR = "/var/lib/youtube-downloader";
-    };
-    script = ''
-      #!/usr/bin/env bash
-      set -euo pipefail
-
-      TOKEN=$(cat $TOKEN_FILE)
-      TODAY="$(date +%Y-%m-%d)"
-      TWO_DAYS_AGO="$(date -d "$TODAY - 2 days" +%Y-%m-%d)"
-      WORKING_DIR="$DATA_DIR/yt-jelly-sync"
-      echo "TODAY: $TODAY"
-      echo "TWO_DAYS_AGO: $TWO_DAYS_AGO"
-      echo "WORKING_DIR: $WORKING_DIR"
-
-      print_watched_vids() {
-        curl -sS -X 'GET' \
-          'https://jellyfin.apps.ondy.org/Items?userId=04156d27514048bdbe6fc0adb8c28499&recursive=true&parentId=e59b37148e0ff06f0d35b0c3c714e75c&fields=Path&enableUserData=true&enableTotalRecordCount=false&enableImages=false' \
-          -H 'accept: application/json' \
-          -H "Authorization: MediaBrowser Token=\"$TOKEN\"" | jq -r '.Items[] | select(.UserData.PlayCount >= 1) | .Path'
-      }
-
-      update_lib() {
-        curl -Ss -X 'POST' \
-          'https://jellyfin.apps.ondy.org/ScheduledTasks/Running/7738148ffcd07979c7ceb148e06b3aed' \
-          -H 'accept: */*' \
-          -H "Authorization: MediaBrowser Token=\"$TOKEN\"" \
-          -d ""
-      }
-
-      main() {
-        # Bear (NFS client) returns paths like /mnt/media/yt/...
-        # Translate to wolf's local paths at /mnt/storage/media/yt/...
-        vids=$(print_watched_vids | sed 's|^/mnt/media/|/mnt/storage/media/|')
-
-        [[ -d "$WORKING_DIR" ]] || mkdir "$WORKING_DIR"
-        echo "$vids" | sort > "$WORKING_DIR/$TODAY.txt"
-
-        temp_file=$(mktemp)
-        fd --type=f --changed-before "$TWO_DAYS_AGO" . "$WORKING_DIR" -0 | xargs -0 -r ls -t1d > "$temp_file" 2>/dev/null || true
-        old_vids_file=$(head -n1 "$temp_file" 2>/dev/null || true)
-        rm -f "$temp_file"
-        if ! [[ -f "$old_vids_file" ]]; then
-          echo "Can not find an old enough file. We'll try again tomorrow."
-          exit 0
-        fi
-
-        vids_to_remove=$(comm -12 "$WORKING_DIR/$TODAY.txt" "$old_vids_file")
-
-        if [[ -z "$vids_to_remove" ]]; then
-          echo "No videos to remove"
-          exit 0
-        fi
-
-        echo "$vids_to_remove" | while read -r vid; do
-          if [[ -f "$vid" ]]; then
-            rm -v "$vid"
-          else
-            echo "Can not find $vid"
-          fi
-        done
-
-        fd --type=directory --type=empty . /mnt/storage/media/yt -X rmdir -v
-        echo "Updating library"
-        update_lib
-      }
-
-      main
-    '';
-  };
-
-  systemd.timers.jellyfin-prune.timerConfig.RandomizedDelaySec = "15m";
-
-  # NFS server - export media to bear and tiger over WireGuard
+  # NFS server - export media to elk over WireGuard
   services.nfs.server = {
     enable = true;
     nproc = 16; # Increase from default 8 to handle concurrent ops (playback + library scans + *arr activity)
     exports = ''
-      /mnt/storage/media 10.10.0.2(rw,async,no_subtree_check,no_root_squash) 10.10.0.3(rw,async,no_subtree_check,no_root_squash) 10.10.0.4(ro,async,no_subtree_check,no_root_squash)
+      /mnt/storage/media 10.10.0.4(ro,async,no_subtree_check,no_root_squash)
     '';
   };
 
@@ -604,228 +230,10 @@
     "net.ipv4.tcp_wmem" = "4096 1048576 16777216";
   };
 
-  # SOPS secrets for monitoring and WireGuard
   sops.secrets = {
-    monitoring_token_tiger = {
-      # Used by sops template for runtime hash computation and nginx auth
-      mode = "0444";
-    };
-    monitoring_token_dino = {
-      # Used by sops template for runtime hash computation and nginx auth
-      mode = "0444";
-    };
-    monitoring_token_wolf = {
-      # Used by sops template for runtime hash computation and nginx auth
-      mode = "0444";
-    };
-    monitoring_token_bear = {
-      # Used by sops template for runtime hash computation and nginx auth
-      mode = "0444";
-    };
-    monitoring_token_cogsworth = {
-      # Used by sops template for runtime hash computation and nginx auth
-      mode = "0444";
-    };
     wireguard_private_key_wolf = {
       mode = "0400";
     };
-    # Exportarr API keys for *arr services
-    sonarr_api_key = {
-      mode = "0444";
-    };
-    radarr_api_key = {
-      mode = "0444";
-    };
-    lidarr_api_key = {
-      mode = "0444";
-    };
-    readarr_api_key = {
-      mode = "0444";
-    };
-    prowlarr_api_key = {
-      mode = "0444";
-    };
-    bazarr_api_key = {
-      mode = "0444";
-    };
-    sabnzbd_api_key = {
-      mode = "0444";
-    };
-    jellyfin_api_key = { };
-  };
-
-  # Subtitle extraction script for Sonarr/Radarr integration (Tier 1)
-  # This script extracts embedded subtitles to sidecar .srt files on media import
-  # Prevents Jellyfin transcoding delays caused by subtitle extraction
-  # Manual setup required: Add to Sonarr/Radarr Settings > Connect > Custom Script
-  environment.etc."scripts/subtitle-extract-notify.sh" = {
-    mode = "0755";
-    text = ''
-      #!${pkgs.bash}/bin/bash
-      set -euo pipefail
-
-      export PATH="${
-        lib.makeBinPath [
-          pkgs.ffmpeg-headless
-          pkgs.jq
-          pkgs.coreutils
-          pkgs.gnugrep
-        ]
-      }"
-
-      # Get file path from Sonarr or Radarr environment variables
-      FILE_PATH="''${sonarr_episodefile_path:-}"
-      if [[ -z "$FILE_PATH" ]]; then
-        FILE_PATH="''${radarr_moviefile_path:-}"
-      fi
-
-      if [[ -z "$FILE_PATH" ]]; then
-        echo "No file path provided by Sonarr/Radarr"
-        exit 0
-      fi
-
-      # Only process MKV files
-      if [[ "$FILE_PATH" != *.mkv ]]; then
-        echo "Skipping non-MKV file: $FILE_PATH"
-        exit 0
-      fi
-
-      echo "Extracting subtitles from: $FILE_PATH"
-
-      # Extract base directory and filename
-      BASE_DIR=$(dirname "$FILE_PATH")
-      BASE_NAME=$(basename "$FILE_PATH" .mkv)
-      BASE_PATH="$BASE_DIR/$BASE_NAME"
-
-      # Get subtitle stream info as JSON
-      SUBTITLE_STREAMS=$(${pkgs.ffmpeg-headless}/bin/ffprobe -v error -select_streams s \
-        -show_entries stream=index,codec_name:stream_tags=language,title \
-        -of json "$FILE_PATH" 2>/dev/null || echo '{"streams":[]}')
-
-      # Filter for text-based subtitle formats (skip PGS/DVD bitmap subs)
-      TEXT_SUBS=$(echo "$SUBTITLE_STREAMS" | ${pkgs.jq}/bin/jq -r '
-        .streams[] |
-        select(.codec_name == "subrip" or .codec_name == "ass" or .codec_name == "mov_text" or .codec_name == "srt") |
-        "\(.index)|\(.tags.language // "und")|\(.tags.title // "")"
-      ')
-
-      if [[ -z "$TEXT_SUBS" ]]; then
-        echo "No text-based subtitles found in $FILE_PATH"
-        exit 0
-      fi
-
-      # Track which language codes we've seen to handle duplicates
-      declare -A LANG_COUNTS
-
-      echo "$TEXT_SUBS" | while IFS='|' read -r STREAM_IDX LANG TITLE; do
-        # Map common 3-letter codes to 2-letter (ISO 639-2 to ISO 639-1)
-        case "$LANG" in
-          eng) LANG="en" ;;
-          spa) LANG="es" ;;
-          fre|fra) LANG="fr" ;;
-          ger|deu) LANG="de" ;;
-          ita) LANG="it" ;;
-          por) LANG="pt" ;;
-          jpn) LANG="ja" ;;
-          kor) LANG="ko" ;;
-          chi|zho) LANG="zh" ;;
-          rus) LANG="ru" ;;
-          und) LANG="und" ;;
-        esac
-
-        # Determine suffix based on title (e.g., "SDH", "forced", "cc")
-        SUFFIX=""
-        if echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "sdh"; then
-          SUFFIX=".sdh"
-        elif echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "forced"; then
-          SUFFIX=".forced"
-        elif echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "cc\|closed.caption"; then
-          SUFFIX=".cc"
-        fi
-
-        # Handle duplicate languages by appending count
-        COUNT=''${LANG_COUNTS[$LANG]:-0}
-        LANG_COUNTS[$LANG]=$((COUNT + 1))
-        if [[ $COUNT -gt 0 ]]; then
-          SUFFIX="$SUFFIX.$COUNT"
-        fi
-
-        # Construct output filename: basename.lang[.suffix].srt
-        OUTPUT_FILE="''${BASE_PATH}.''${LANG}''${SUFFIX}.srt"
-
-        # Skip if sidecar already exists
-        if [[ -f "$OUTPUT_FILE" ]]; then
-          echo "Sidecar already exists: $OUTPUT_FILE"
-          continue
-        fi
-
-        # Extract subtitle stream to srt format
-        if ${pkgs.ffmpeg-headless}/bin/ffmpeg -v error -i "$FILE_PATH" \
-            -map "0:$STREAM_IDX" -c:s srt "$OUTPUT_FILE" 2>/dev/null; then
-          echo "Extracted: $OUTPUT_FILE (stream $STREAM_IDX: $LANG''${TITLE:+ - $TITLE})"
-        else
-          echo "Failed to extract stream $STREAM_IDX from $FILE_PATH" >&2
-        fi
-      done
-    '';
-  };
-
-  # Runtime computation of SHA-256 hashes from monitoring tokens
-  # Hash computation is now handled by a systemd service that runs at boot
-  # The service reads tokens from sops secrets and writes nginx map files to /run/monitoring-token-hashes
-  systemd.services.monitoring-token-hash-generator = {
-    description = "Generate SHA-256 hashes for monitoring bearer tokens";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "sops-nix.service" ];
-    before = [ "nginx.service" ];
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-
-    script = ''
-      # Ensure runtime directory exists
-      mkdir -p /run/monitoring-token-hashes
-
-      # Read tokens from sops secrets and compute SHA-256 hashes
-      tiger_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_tiger.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
-      dino_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_dino.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
-      wolf_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_wolf.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
-      bear_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_bear.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
-      cogsworth_hash=$(${pkgs.coreutils}/bin/cat ${config.sops.secrets.monitoring_token_cogsworth.path} | ${pkgs.coreutils}/bin/sha256sum | ${pkgs.coreutils}/bin/cut -d' ' -f1)
-
-      # Write metrics token map for nginx (VictoriaMetrics ingestion)
-      cat > /run/monitoring-token-hashes/metrics-map.conf <<EOF
-      # Validate token hash for VictoriaMetrics ingestion
-      # Clients must send SHA-256 hash of their token as the bearer token
-      map \$bearer_token \$valid_metrics_token {
-        "$tiger_hash" "1";
-        "$dino_hash" "1";
-        "$wolf_hash" "1";
-        "$bear_hash" "1";
-        "$cogsworth_hash" "1";
-        default "";
-      }
-      EOF
-
-      # Write logs token map for nginx (Loki ingestion)
-      cat > /run/monitoring-token-hashes/logs-map.conf <<EOF
-      # Validate token hash for Loki ingestion
-      # Clients must send SHA-256 hash of their token as the bearer token
-      map \$bearer_token \$valid_logs_token {
-        "$tiger_hash" "1";
-        "$dino_hash" "1";
-        "$wolf_hash" "1";
-        "$bear_hash" "1";
-        "$cogsworth_hash" "1";
-        default "";
-      }
-      EOF
-
-      # Set permissions so nginx can read them
-      chmod 644 /run/monitoring-token-hashes/*.conf
-    '';
   };
 
   # This value determines the NixOS release from which the default

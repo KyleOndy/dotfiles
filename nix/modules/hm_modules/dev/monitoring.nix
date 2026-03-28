@@ -25,7 +25,7 @@ let
       echo "Examples:"
       echo "  $0 cogsworth '7 days' 'Maintenance window'"
       echo "  $0 wolf '2 hours' 'Testing updates'"
-      echo "  $0 tiger '1 week'"
+      echo "  $0 elk '1 week'"
       echo ""
       echo "Duration format: Any format accepted by 'date -d' (e.g., '7 days', '2 hours', '1 week')"
       exit 1
@@ -66,7 +66,7 @@ let
     echo ""
 
     # Send to Alertmanager via stdin to avoid shell escaping issues
-    RESPONSE=$(echo "''${PAYLOAD}" | ssh wolf "curl -s -X POST -H 'Content-Type: application/json' \
+    RESPONSE=$(echo "''${PAYLOAD}" | ssh elk "curl -s -X POST -H 'Content-Type: application/json' \
       -d @- http://127.0.0.1:9093/api/v2/silences")
 
     # Check if successful

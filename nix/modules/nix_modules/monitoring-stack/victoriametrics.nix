@@ -51,20 +51,36 @@ in
       retentionPeriod = "${toString cfg.retentionPeriod}d";
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
-      enable = true;
-      proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
-      provisionCert = cfg.provisionCert;
-      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-      extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
-        # Require valid bearer token for write endpoints
-        if ($request_uri ~ "^/api/v1/(write|import)") {
-          set $auth_check "$valid_metrics_token";
-        }
-        if ($auth_check = "") {
-          return 401 "Unauthorized: Invalid or missing bearer token\n";
-        }
-      '';
-    };
+    # nginx reverse proxy (bearer token auth on write endpoints)
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+          provisionCert = cfg.provisionCert;
+          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
+          extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
+            # Require valid bearer token for write endpoints
+            if ($request_uri ~ "^/api/v1/(write|import)") {
+              set $auth_check "$valid_metrics_token";
+            }
+            if ($auth_check = "") {
+              return 401 "Unauthorized: Invalid or missing bearer token\n";
+            }
+          '';
+        };
+
+    # Caddy reverse proxy (basic auth on write endpoints)
+    systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+          basicAuth = parentCfg.monitoringBasicAuth;
+          basicAuthPaths = [
+            "/api/v1/write"
+            "/api/v1/import*"
+          ];
+        };
   };
 }

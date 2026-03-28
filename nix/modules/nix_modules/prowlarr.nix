@@ -82,11 +82,21 @@ in
     # 2. Using bind mounts with different permissions
     # 3. Configuring prowlarr to only index (not access files directly)
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:9696";
-      provisionCert = cfg.provisionCert;
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:9696";
+          provisionCert = cfg.provisionCert;
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:9696";
+          provisionCert = cfg.provisionCert;
+        };
 
     systemd.services.prowlarr-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";

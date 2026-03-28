@@ -12,14 +12,6 @@ the near future.
 
 ## Tau
 
-## Tiger (Future)
-
-Catchall host.
-
-- ZFS
-- Media management
-- Nix build hosts, x86_64-linux and aarch-64-linux via emulation.
-
 ## Cat (Future)
 
 Utility host on trusted lan.

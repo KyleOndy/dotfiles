@@ -41,7 +41,6 @@
       "Bash(clj-paren-repair:*)",
       "Bash(deploy:*)",
       "Bash(ssh wolf:*)",
-      "Bash(ssh bear:*)",
       "WebSearch"
     ]
   },

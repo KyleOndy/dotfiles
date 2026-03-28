@@ -69,6 +69,8 @@ in
         DOMAIN_CLIENT=http://localhost:${toString cfg.port}
         DOMAIN_SERVER=http://localhost:${toString cfg.port}
         NO_INDEX=true
+        ALLOW_REGISTRATION=true
+        ALLOW_UNVERIFIED_EMAIL_LOGIN=true
         JWT_SECRET=${config.sops.placeholder.librechat_jwt_secret}
         JWT_REFRESH_SECRET=${config.sops.placeholder.librechat_jwt_refresh_secret}
         CREDS_KEY=${config.sops.placeholder.librechat_creds_key}

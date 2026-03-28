@@ -180,11 +180,6 @@ make cleanup        # Clean up old generations and optimize store
   - Claude Code integration with notifications
   - Gaming and media capabilities
 
-- **`tiger`**: Home server
-  - Media services (Jellyfin, Sonarr, Radarr)
-  - Binary cache and build services
-  - Network storage and backup
-
 - **`wolf`**: Remote server
   - Lightweight services
   - Monitoring and alerting
