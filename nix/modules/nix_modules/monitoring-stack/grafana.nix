@@ -156,7 +156,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="bear",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
+                          expr = ''sum(count_over_time({host="elk",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -200,13 +200,13 @@ in
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
-                      summary = "Jellyfin transcoding failures detected on bear";
+                      summary = "Jellyfin transcoding failures detected on elk";
                       description = "FFmpeg transcode failures occurred in the last 5 minutes";
                     };
                     labels = {
                       severity = "critical";
                       service = "jellyfin";
-                      host = "bear";
+                      host = "elk";
                     };
                   }
                   {
@@ -223,7 +223,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="bear",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
+                          expr = ''sum(count_over_time({host="elk",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -267,13 +267,13 @@ in
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
-                      summary = "Jellyfin playback errors detected on bear";
+                      summary = "Jellyfin playback errors detected on elk";
                       description = "More than 2 playback errors occurred in the last 5 minutes";
                     };
                     labels = {
                       severity = "warning";
                       service = "jellyfin";
-                      host = "bear";
+                      host = "elk";
                     };
                   }
                 ];
@@ -284,12 +284,21 @@ in
       };
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:${toString cfg.port}";
-      provisionCert = cfg.provisionCert;
-      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
+          provisionCert = cfg.provisionCert;
+          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
+        };
 
     sops.secrets.grafana_admin_password = {
       owner = "grafana";
@@ -315,25 +324,9 @@ in
       mode = "0644";
     };
 
-    # Storage dashboards
-    environment.etc."grafana-dashboards/storage/zfs-storage.json" = {
-      source = ./dashboards/storage/zfs-storage.json;
-      mode = "0644";
-    };
-
     # Network dashboards
-    environment.etc."grafana-dashboards/network/nginx-exporter.json" = {
-      source = ./dashboards/network/nginx-exporter.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/network/nginx-log-metrics.json" = {
-      source = ./dashboards/network/nginx-log-metrics.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/network/nginx-vhost-details.json" = {
-      source = ./dashboards/network/nginx-vhost-details.json;
+    environment.etc."grafana-dashboards/network/caddy-overview.json" = {
+      source = ./dashboards/network/caddy-overview.json;
       mode = "0644";
     };
 
@@ -360,11 +353,6 @@ in
 
     environment.etc."grafana-dashboards/applications/cogsworth-request-performance.json" = {
       source = ./dashboards/applications/cogsworth-request-performance.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/media-services-wolf-bear.json" = {
-      source = ./dashboards/applications/media-services-wolf-bear.json;
       mode = "0644";
     };
 

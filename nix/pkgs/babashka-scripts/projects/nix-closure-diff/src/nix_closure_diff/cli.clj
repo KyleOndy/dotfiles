@@ -11,7 +11,7 @@
    ["-n" "--commit-new COMMIT" "New commit hash to compare to"
     :default "beddaecc"]
    ["-s" "--systems SYSTEMS" "Comma-separated list of systems to compare"
-    :default ["dino" "wolf" "tiger"]
+    :default ["dino" "wolf" "elk"]
     :parse-fn #(str/split % #",")]
    ["-o" "--output OUTPUT" "Output file for the report"
     :default "closure-comparison-report.md"]
@@ -33,7 +33,7 @@
         "Examples:"
         "  bb nix-closure-diff.bb                                    # Compare default commits"
         "  bb nix-closure-diff.bb -c abc123 -n def456               # Compare specific commits"
-        "  bb nix-closure-diff.bb -s dino,tiger -o my-report.md     # Compare specific systems"
+        "  bb nix-closure-diff.bb -s dino,elk -o my-report.md       # Compare specific systems"
         ""]
        (str/join \newline)))
 

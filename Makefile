@@ -158,16 +158,12 @@ git-status:
 cache-push-dino: ## Push dino system closure to binary cache
 	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.dino.config.system.build.toplevel
 
-.PHONY: cache-push-tiger
-cache-push-tiger: ## Push tiger system closure to binary cache
-	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.tiger.config.system.build.toplevel
-
 .PHONY: cache-push-wolf
 cache-push-wolf: ## Push wolf system closure to binary cache
 	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.wolf.config.system.build.toplevel
 
 .PHONY: cache-push-all
-cache-push-all: cache-push-dino cache-push-tiger cache-push-wolf ## Push all system closures to binary cache
+cache-push-all: cache-push-dino cache-push-wolf ## Push all system closures to binary cache
 
 # macOS-specific targets
 .PHONY: build-mac

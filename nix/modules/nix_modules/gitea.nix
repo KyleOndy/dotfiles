@@ -61,11 +61,19 @@ in
       };
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      #proxyPass = "http://${config.services.gitea.httpAddress}:${toString config.services.gitea.httpPort}";
-      proxyPass = "http://127.0.0.1:3000";
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:3000";
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:3000";
+        };
     networking.firewall.allowedTCPPorts = [ 3000 ];
     systemd.services.gitea-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";

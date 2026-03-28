@@ -17,7 +17,7 @@
   # WiFi credentials from sops
   sops.secrets.home_wifi_ssid = { };
   sops.secrets.home_wifi_password = { };
-  sops.secrets.monitoring_token_cogsworth = {
+  sops.secrets.monitoring_password = {
     # vmagent/promtail use DynamicUser, need world-readable
     mode = "0444";
   };
@@ -574,7 +574,7 @@
     '')
   ];
 
-  # Monitoring stack - send metrics and logs to wolf
+  # Monitoring stack - send metrics and logs to elk
   systemFoundry.monitoringStack = {
     enable = true;
 
@@ -582,8 +582,11 @@
 
     vmagent = {
       enable = true;
-      remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
-      bearerTokenFile = config.sops.secrets.monitoring_token_cogsworth.path;
+      remoteWriteUrl = "https://metrics.elk.infra.ondy.org/api/v1/write";
+      basicAuth = {
+        username = "monitoring";
+        passwordFile = config.sops.secrets.monitoring_password.path;
+      };
       scrapeConfigs = [
         {
           job_name = "node";
@@ -612,8 +615,11 @@
 
     promtail = {
       enable = true;
-      lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
-      bearerTokenFile = config.sops.secrets.monitoring_token_cogsworth.path;
+      lokiUrl = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
+      basicAuth = {
+        username = "monitoring";
+        passwordFile = config.sops.secrets.monitoring_password.path;
+      };
       extraLabels = {
         host = "cogsworth";
       };

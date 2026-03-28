@@ -22,7 +22,26 @@ in
     bearerTokenFile = mkOption {
       type = types.nullOr types.path;
       default = null;
-      description = "Path to file containing bearer token for authentication";
+      description = "Path to file containing bearer token for authentication (nginx hosts)";
+    };
+
+    basicAuth = mkOption {
+      type = types.nullOr (
+        types.submodule {
+          options = {
+            username = mkOption {
+              type = types.str;
+              description = "Basic auth username";
+            };
+            passwordFile = mkOption {
+              type = types.path;
+              description = "Path to file containing the basic auth password";
+            };
+          };
+        }
+      );
+      default = null;
+      description = "Basic auth credentials for remote write (Caddy hosts)";
     };
 
     scrapeConfigs = mkOption {
@@ -54,9 +73,14 @@ in
         };
         scrape_configs = cfg.scrapeConfigs;
       };
-      extraArgs = optionals (cfg.bearerTokenFile != null) [
-        "-remoteWrite.bearerTokenFile=${cfg.bearerTokenFile}"
-      ];
+      extraArgs =
+        optionals (cfg.bearerTokenFile != null) [
+          "-remoteWrite.bearerTokenFile=${cfg.bearerTokenFile}"
+        ]
+        ++ optionals (cfg.basicAuth != null) [
+          "-remoteWrite.basicAuth.username=${cfg.basicAuth.username}"
+          "-remoteWrite.basicAuth.passwordFile=${toString cfg.basicAuth.passwordFile}"
+        ];
     };
 
     # Provide SSL CA certificate bundle for HTTPS remote write with DynamicUser

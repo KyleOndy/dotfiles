@@ -147,11 +147,8 @@
     unifi_wireguard_endpoint = {
       mode = "0400";
     };
-    monitoring_token_dino = {
-      # vmagent service runs as DynamicUser, which means it can't be assigned
-      # file ownership directly. Using mode 0444 allows the service to read it.
-      # This is acceptable since the token is only used for authentication to
-      # our own VictoriaMetrics instance, not external services.
+    monitoring_password = {
+      # vmagent and promtail use DynamicUser, need world-readable
       mode = "0444";
     };
     email_kyle_ondy_org = {
@@ -449,11 +446,14 @@
     # Enable node exporter for system metrics
     nodeExporter.enable = true;
 
-    # Send metrics to wolf's VictoriaMetrics instance
+    # Send metrics to elk's VictoriaMetrics instance
     vmagent = {
       enable = true;
-      remoteWriteUrl = "https://metrics.apps.ondy.org/api/v1/write";
-      bearerTokenFile = config.sops.secrets.monitoring_token_dino.path;
+      remoteWriteUrl = "https://metrics.elk.infra.ondy.org/api/v1/write";
+      basicAuth = {
+        username = "monitoring";
+        passwordFile = config.sops.secrets.monitoring_password.path;
+      };
       scrapeConfigs = [
         {
           job_name = "node";
@@ -469,11 +469,14 @@
       ];
     };
 
-    # Send logs to wolf's Loki instance
+    # Send logs to elk's Loki instance
     promtail = {
       enable = true;
-      lokiUrl = "https://loki.apps.ondy.org/loki/api/v1/push";
-      bearerTokenFile = config.sops.secrets.monitoring_token_dino.path;
+      lokiUrl = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
+      basicAuth = {
+        username = "monitoring";
+        passwordFile = config.sops.secrets.monitoring_password.path;
+      };
       extraLabels = {
         host = "dino";
       };
@@ -557,20 +560,6 @@
   systemFoundry.nixBuilders = {
     enable = true;
     machines = [
-      {
-        hostName = "tiger.dmz.1ella.com";
-        sshUser = "svc.deploy";
-        systems = [
-          "x86_64-linux"
-          "aarch64-linux"
-        ];
-        maxJobs = 8;
-        speedFactor = 10;
-        supportedFeatures = [
-          "benchmark"
-          "big-parallel"
-        ];
-      }
       {
         hostName = "wolf";
         sshUser = "svc.deploy";

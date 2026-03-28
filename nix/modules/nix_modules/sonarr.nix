@@ -97,11 +97,21 @@ in
         "dotnet-sdk"
       ];
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:8989";
-      provisionCert = cfg.provisionCert;
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:8989";
+          provisionCert = cfg.provisionCert;
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:8989";
+          provisionCert = cfg.provisionCert;
+        };
 
     systemd.services.sonarr-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";

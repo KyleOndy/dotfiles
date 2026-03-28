@@ -68,14 +68,10 @@ in
 
         auth_enabled = false;
 
-        # Memberlist configuration for network interfaces
-        # Even though we use inmemory kvstore, memberlist may still initialize
         memberlist = {
           bind_addr = [ "127.0.0.1" ];
         };
 
-        # Common configuration for single-node deployment
-        # Use inmemory kvstore instead of memberlist for single-node setups
         common = {
           instance_interface_names = cfg.instanceInterfaceNames;
           ring = {
@@ -149,20 +145,33 @@ in
       };
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
-      enable = true;
-      proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
-      provisionCert = cfg.provisionCert;
-      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-      extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
-        # Require valid bearer token for push endpoints
-        if ($request_uri ~ "^/loki/api/v1/push") {
-          set $auth_check_logs "$valid_logs_token";
-        }
-        if ($auth_check_logs = "") {
-          return 401 "Unauthorized: Invalid or missing bearer token\n";
-        }
-      '';
-    };
+    # nginx reverse proxy (bearer token auth on push endpoint)
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+          provisionCert = cfg.provisionCert;
+          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
+          extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
+            # Require valid bearer token for push endpoints
+            if ($request_uri ~ "^/loki/api/v1/push") {
+              set $auth_check_logs "$valid_logs_token";
+            }
+            if ($auth_check_logs = "") {
+              return 401 "Unauthorized: Invalid or missing bearer token\n";
+            }
+          '';
+        };
+
+    # Caddy reverse proxy (basic auth on push endpoint)
+    systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+          basicAuth = parentCfg.monitoringBasicAuth;
+          basicAuthPaths = [ "/loki/api/v1/push" ];
+        };
   };
 }

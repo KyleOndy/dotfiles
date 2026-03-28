@@ -1,12 +1,12 @@
 ---
 allowed-tools: Bash(ssh:*), Bash(curl:*), Read, Grep, Glob, AskUserQuestion
-argument-hint: "[service-name] [--host wolf|bear] [--check alerts|services|zfs|nfs|pipeline|health]"
-description: Debug NixOS services on wolf and bear with guided troubleshooting
+argument-hint: "[service-name] [--host wolf|elk] [--check alerts|services|zfs|nfs|pipeline|health]"
+description: Debug NixOS services on wolf and elk with guided troubleshooting
 ---
 
 # Infrastructure Service Debugging
 
-Interactive guided debugging for NixOS services on wolf and bear. This skill helps diagnose service failures, investigate alerts, check logs, query metrics, and debug the media pipeline.
+Interactive guided debugging for NixOS services on wolf and elk. This skill helps diagnose service failures, investigate alerts, check logs, query metrics, and debug the media pipeline.
 
 ## Quick Start
 
@@ -41,7 +41,7 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
 | ZFS               | zfs.target                        | -       | zpool status                                     |
 | WireGuard         | wg-quick-wg0.service              | -       | wg show wg0                                      |
 
-### Bear (Compute + Transcoding + Playback)
+### Elk (Compute + Transcoding + Playback)
 
 | Service            | Unit Name                         | Port | Health Check                             |
 | ------------------ | --------------------------------- | ---- | ---------------------------------------- |
@@ -59,17 +59,17 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
 ┌─────────────────────────────────────────────────────────────┐
 │ WOLF (Storage + Acquisition + Monitoring)                   │
 │                                                             │
-│  ZFS Pool (tiger-pool)                                      │
-│    └─ /tiger-pool/media/{tv,movies,music,books}            │
+│  ZFS Pool (storage)                                         │
+│    └─ /mnt/storage/media/{tv,movies,music,books}           │
 │                                                             │
-│  NFS Exports → /tiger-pool/media                            │
+│  NFS Exports → /mnt/storage/media                           │
 │                                                             │
 │  Acquisition Stack:                                         │
-│    SABnzbd → Sonarr/Radarr/Lidarr/Readarr → /tiger-pool/   │
+│    SABnzbd → Sonarr/Radarr/Lidarr/Readarr → /mnt/storage/  │
 │                                                             │
 │  Monitoring Hub:                                            │
-│    VictoriaMetrics ← vmagent (wolf + bear)                  │
-│    Loki ← promtail (wolf + bear)                            │
+│    VictoriaMetrics ← vmagent (wolf + elk)                   │
+│    Loki ← promtail (wolf + elk)                             │
 │    Grafana → queries → VictoriaMetrics + Loki               │
 │    vmalert → evaluates → sends → Alertmanager → Email      │
 └─────────────────────────────────────────────────────────────┘
@@ -77,9 +77,9 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
                     WireGuard VPN (wg0)
                               │
 ┌─────────────────────────────────────────────────────────────┐
-│ BEAR (Compute + Playback)                                    │
+│ ELK (Compute + Playback)                                     │
 │                                                             │
-│  NFS Mount: wolf:/tiger-pool/media → /mnt/media            │
+│  NFS Mount: wolf:/mnt/storage/media → /mnt/media           │
 │                                                             │
 │  Jellyfin (playback) → reads → /mnt/media                   │
 │                                                             │
@@ -90,12 +90,12 @@ If arguments provided, jump directly to that check. Otherwise, start interactive
 ## Media Pipeline Flow
 
 ```text
-1. Usenet → SABnzbd (wolf:8080) downloads to /tiger-pool/incomplete
+1. Usenet → SABnzbd (wolf:8080) downloads to /mnt/storage/downloads/incomplete
 2. *arr apps monitor SABnzbd queue
-3. On completion: *arr imports to /tiger-pool/media/{tv,movies,music,books}
+3. On completion: *arr imports to /mnt/storage/media/{tv,movies,music,books}
 3a. Subtitle webhook extracts sidecar .srt files on import (wolf)
-3b. Hourly timer backfills any missing .srt sidecars (bear)
-4. Jellyfin (bear:8096) scans /mnt/media (NFS mount)
+3b. Hourly timer backfills any missing .srt sidecars (elk)
+4. Jellyfin (elk:8096) scans /mnt/media (NFS mount)
 ```
 
 ## Interactive Triage
@@ -202,26 +202,26 @@ ssh wolf showmount -a
 ssh wolf ss -tpn | grep :2049
 ```
 
-#### Bear (NFS Client)
+#### Elk (NFS Client)
 
 ```bash
 # Check mount status
-ssh bear mount | grep nfs
+ssh elk mount | grep nfs
 
 # Check if mount unit is active
-ssh bear systemctl status wolf-media.mount
+ssh elk systemctl status wolf-media.mount
 
 # Test NFS connectivity
-ssh bear ls -la /mnt/media
+ssh elk ls -la /mnt/media
 
 # Check mount options
-ssh bear cat /proc/mounts | grep nfs
+ssh elk cat /proc/mounts | grep nfs
 
 # Check NFS client stats
-ssh bear nfsstat -c
+ssh elk nfsstat -c
 
 # Remount if stale
-ssh bear sudo systemctl restart wolf-media.mount
+ssh elk sudo systemctl restart wolf-media.mount
 ```
 
 #### WireGuard Connectivity (Required for NFS)
@@ -230,18 +230,18 @@ ssh bear sudo systemctl restart wolf-media.mount
 # Wolf WireGuard status
 ssh wolf wg show wg0
 
-# Bear WireGuard status
-ssh bear wg show wg0
+# Elk WireGuard status
+ssh elk wg show wg0
 
-# Test WireGuard connectivity (bear → wolf)
-ssh bear ping -c 3 10.100.0.1  # wolf's WireGuard IP
+# Test WireGuard connectivity (elk → wolf)
+ssh elk ping -c 3 10.10.0.1  # wolf's WireGuard IP
 
-# Test WireGuard connectivity (wolf → bear)
-ssh wolf ping -c 3 10.100.0.2  # bear's WireGuard IP
+# Test WireGuard connectivity (wolf → elk)
+ssh wolf ping -c 3 10.10.0.4  # elk's WireGuard IP
 
 # Check WireGuard service
 ssh wolf systemctl status wg-quick-wg0
-ssh bear systemctl status wg-quick-wg0
+ssh elk systemctl status wg-quick-wg0
 ```
 
 ### 5. Media Pipeline Debugging
@@ -278,23 +278,23 @@ ssh wolf journalctl -u sonarr -n 100 | grep -i "import"
 ssh wolf journalctl -u radarr -n 100 | grep -i "import"
 
 # Check disk space for imports
-ssh wolf df -h /tiger-pool/media
+ssh wolf df -h /mnt/storage/media
 ```
 
 #### Step 3: Jellyfin (Playback)
 
 ```bash
-# Check Jellyfin status (on bear)
-ssh bear systemctl status jellyfin
+# Check Jellyfin status (on elk)
+ssh elk systemctl status jellyfin
 
 # Check Jellyfin can see NFS mount
-ssh bear ls -la /mnt/media/tv /mnt/media/movies
+ssh elk ls -la /mnt/media/tv /mnt/media/movies
 
 # Check Jellyfin logs for scan errors
-ssh bear journalctl -u jellyfin -n 100 | grep -i "error\|scan"
+ssh elk journalctl -u jellyfin -n 100 | grep -i "error\|scan"
 
 # Check Jellyfin API health
-ssh bear 'curl -s http://127.0.0.1:8096/health | jq .'
+ssh elk 'curl -s http://127.0.0.1:8096/health | jq .'
 ```
 
 #### Full Pipeline Health Check
@@ -307,8 +307,8 @@ for svc in sabnzbd sonarr radarr lidarr readarr; do
 done
 
 for svc in jellyfin; do
-  echo "=== $svc on bear ==="
-  ssh bear systemctl is-active $svc
+  echo "=== $svc on elk ==="
+  ssh elk systemctl is-active $svc
 done
 
 # Check queue metrics
@@ -329,7 +329,7 @@ ssh wolf systemctl --failed
 
 # Disk space
 echo "=== Disk space on wolf ==="
-ssh wolf df -h | grep -E "(Filesystem|/tiger-pool|/$)"
+ssh wolf df -h | grep -E "(Filesystem|/mnt/storage|/$)"
 
 # ZFS pool health
 echo "=== ZFS health ==="
@@ -343,23 +343,23 @@ ssh wolf wg show wg0 | grep -E "(interface|peer|latest handshake)"
 echo "=== Firing alerts ==="
 ssh wolf 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq ".[] | select(.status.state == \"active\") | {alertname: .labels.alertname, severity: .labels.severity, summary: .annotations.summary}"'
 
-# === BEAR HEALTH ===
+# === ELK HEALTH ===
 
 # Failed units
-echo "=== Failed units on bear ==="
-ssh bear systemctl --failed
+echo "=== Failed units on elk ==="
+ssh elk systemctl --failed
 
 # Disk space
-echo "=== Disk space on bear ==="
-ssh bear df -h | grep -E "(Filesystem|/mnt/media|/$)"
+echo "=== Disk space on elk ==="
+ssh elk df -h | grep -E "(Filesystem|/mnt/media|/$)"
 
 # NFS mount status
-echo "=== NFS mount (bear) ==="
-ssh bear mount | grep nfs
+echo "=== NFS mount (elk) ==="
+ssh elk mount | grep nfs
 
 # WireGuard status
-echo "=== WireGuard (bear) ==="
-ssh bear wg show wg0 | grep -E "(interface|peer|latest handshake)"
+echo "=== WireGuard (elk) ==="
+ssh elk wg show wg0 | grep -E "(interface|peer|latest handshake)"
 
 ```
 
@@ -421,7 +421,7 @@ ssh wolf 'curl -s -G "http://127.0.0.1:3100/loki/api/v1/query_range" \
 
 ## Common Failure Patterns
 
-### Stale NFS Mount (bear)
+### Stale NFS Mount (elk)
 
 **Symptoms**: Jellyfin can't access /mnt/media, `df -h` hangs on NFS mount
 
@@ -430,8 +430,8 @@ ssh wolf 'curl -s -G "http://127.0.0.1:3100/loki/api/v1/query_range" \
 **Fix**:
 
 ```bash
-ssh bear sudo systemctl restart wolf-media.mount
-ssh bear ls -la /mnt/media  # Verify mount works
+ssh elk sudo systemctl restart wolf-media.mount
+ssh elk ls -la /mnt/media  # Verify mount works
 ```
 
 ### Service Hit Restart Limit
@@ -500,7 +500,7 @@ ssh wolf zpool scrub <pool>
 
 ```bash
 # Check disk space
-ssh wolf df -h /tiger-pool
+ssh wolf df -h /mnt/storage
 
 # Check SABnzbd logs
 ssh wolf journalctl -u sabnzbd -n 100
@@ -514,7 +514,7 @@ ssh wolf sudo systemctl restart sabnzbd
 
 ### \*arr Apps Not Importing
 
-**Symptoms**: Downloads complete, but not imported to /tiger-pool/media
+**Symptoms**: Downloads complete, but not imported to /mnt/storage/media
 
 **Cause**: Permissions issue, disk space, \*arr not monitoring SABnzbd
 
@@ -522,14 +522,14 @@ ssh wolf sudo systemctl restart sabnzbd
 
 ```bash
 # Check if files exist in /incomplete
-ssh wolf ls -la /tiger-pool/incomplete
+ssh wolf ls -la /mnt/storage/downloads/incomplete
 
 # Check *arr logs for import errors
 ssh wolf journalctl -u sonarr -n 100 | grep -i import
 ssh wolf journalctl -u radarr -n 100 | grep -i import
 
 # Check permissions on media directories
-ssh wolf ls -la /tiger-pool/media/{tv,movies}
+ssh wolf ls -la /mnt/storage/media/{tv,movies}
 
 # Trigger manual import (via UI or API)
 ```

@@ -94,95 +94,91 @@ in
                 description: "Service {{ $labels.name }} has restarted more than 5 times in the last 15 minutes on {{ $labels.instance }}"
 
             - alert: JellyfinDown
-              expr: node_systemd_unit_state{host="bear",name="jellyfin.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="jellyfin.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: jellyfin
               annotations:
-                summary: "Jellyfin service is down on bear"
+                summary: "Jellyfin service is down on elk"
                 description: "Jellyfin has been unavailable for 5 minutes"
 
-        # Wolf Media Services
-        - name: media_services_wolf
+        # Elk Media Services
+        - name: media_services_elk
           interval: 30s
           rules:
             - alert: SonarrDown
-              expr: node_systemd_unit_state{host="wolf",name="sonarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="sonarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: sonarr
               annotations:
-                summary: "Sonarr service is down on wolf"
+                summary: "Sonarr service is down on elk"
                 description: "Sonarr has been unavailable for 5 minutes"
 
             - alert: RadarrDown
-              expr: node_systemd_unit_state{host="wolf",name="radarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="radarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: radarr
               annotations:
-                summary: "Radarr service is down on wolf"
+                summary: "Radarr service is down on elk"
                 description: "Radarr has been unavailable for 5 minutes"
 
             - alert: LidarrDown
-              expr: node_systemd_unit_state{host="wolf",name="lidarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="lidarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: lidarr
               annotations:
-                summary: "Lidarr service is down on wolf"
+                summary: "Lidarr service is down on elk"
                 description: "Lidarr has been unavailable for 5 minutes"
 
             - alert: ReadarrDown
-              expr: node_systemd_unit_state{host="wolf",name="readarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="readarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: readarr
               annotations:
-                summary: "Readarr service is down on wolf"
+                summary: "Readarr service is down on elk"
                 description: "Readarr has been unavailable for 5 minutes"
 
             - alert: ProwlarrDown
-              expr: node_systemd_unit_state{host="wolf",name="prowlarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="prowlarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: prowlarr
               annotations:
-                summary: "Prowlarr service is down on wolf"
+                summary: "Prowlarr service is down on elk"
                 description: "Prowlarr has been unavailable for 5 minutes"
 
             - alert: SABnzbdDown
-              expr: node_systemd_unit_state{host="wolf",name="sabnzbd.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="sabnzbd.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: sabnzbd
               annotations:
-                summary: "SABnzbd service is down on wolf"
+                summary: "SABnzbd service is down on elk"
                 description: "SABnzbd has been unavailable for 5 minutes"
 
             - alert: JellyseerrDown
-              expr: node_systemd_unit_state{host="wolf",name="jellyseerr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="elk",name="jellyseerr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: jellyseerr
               annotations:
-                summary: "Jellyseerr service is down on wolf"
+                summary: "Jellyseerr service is down on elk"
                 description: "Jellyseerr has been unavailable for 5 minutes"
 
-        # Bear Media Services
-        - name: media_services_bear
-          interval: 30s
-          rules:
             - alert: JellyfinPlaycountExportFailed
-              expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="bear"} == 1
+              expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="elk"} == 1
               for: 1m
               labels:
                 severity: warning
@@ -279,53 +275,34 @@ in
         - name: disk_space
           interval: 60s
           rules:
-            # Special rule for tiger /mnt/media - allow lower free space (media library fills up)
-            - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+            # Special rule for elk /mnt/storage - allow lower free space (media library fills up)
+            - alert: ElkMediaDiskSpaceLow
+              expr: (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: warning
               annotations:
-                summary: "Low disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
-                description: "Disk space is below 5% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+                summary: "Low disk space on elk media storage"
+                description: "Elk /mnt/storage is below 5% free. Current: {{ $value | humanizePercentage }}"
 
-            - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+            - alert: ElkMediaDiskSpaceCritical
+              expr: (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: critical
               annotations:
-                summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
-                description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+                summary: "Critical disk space on elk media storage"
+                description: "Elk /mnt/storage is below 3% free. Current: {{ $value | humanizePercentage }}"
 
-            # Special rule for wolf /mnt/storage - allow lower free space (media library fills up)
-            - alert: WolfMediaDiskSpaceLow
-              expr: (node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="wolf",mountpoint="/mnt/storage"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: warning
-              annotations:
-                summary: "Low disk space on wolf media storage"
-                description: "Wolf /mnt/storage is below 5% free. Current: {{ $value | humanizePercentage }}"
-
-            - alert: WolfMediaDiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="wolf",mountpoint="/mnt/storage"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: critical
-              annotations:
-                summary: "Critical disk space on wolf media storage"
-                description: "Wolf /mnt/storage is below 3% free. Current: {{ $value | humanizePercentage }}"
-
-            # Predictive alert for wolf media storage
-            - alert: WolfMediaWillFillSoon
-              expr: predict_linear(node_filesystem_avail_bytes{host="wolf",mountpoint="/mnt/storage"}[24h], 7*24*3600) < 0
+            # Predictive alert for elk media storage
+            - alert: ElkMediaWillFillSoon
+              expr: predict_linear(node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"}[24h], 7*24*3600) < 0
               for: 1h
               labels:
                 severity: warning
               annotations:
-                summary: "Wolf media storage will fill within 7 days"
-                description: "Based on the last 24 hours, /mnt/storage on wolf will fill up within 7 days"
+                summary: "Elk media storage will fill within 7 days"
+                description: "Based on the last 24 hours, /mnt/storage on elk will fill up within 7 days"
 
             # Default disk space alerts for all other filesystems
             - alert: DiskSpaceLow
@@ -577,22 +554,34 @@ in
     users.groups.vmalert = { };
 
     # Expose vmalert UI via nginx reverse proxy with basic auth
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:${toString cfg.port}";
-      provisionCert = cfg.provisionCert;
-      route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-      extraConfig = ''
-        auth_basic "vmalert Admin";
-        auth_basic_user_file ${config.sops.secrets.vmalert_htpasswd.path};
-      '';
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
+          provisionCert = cfg.provisionCert;
+          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
+          extraConfig = ''
+            auth_basic "vmalert Admin";
+            auth_basic_user_file ${config.sops.secrets.vmalert_htpasswd.path};
+          '';
+        };
 
-    # Create htpasswd secret for basic auth
-    sops.secrets.vmalert_htpasswd = {
+    # htpasswd secret for nginx basic auth (nginx hosts only)
+    sops.secrets.vmalert_htpasswd = mkIf (config.systemFoundry.nginxReverseProxy.enable) {
       owner = "nginx";
       group = "nginx";
       mode = "0440";
     };
+
+    # Caddy reverse proxy (basic auth on all paths — protects the UI)
+    systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
+          basicAuth = parentCfg.monitoringBasicAuth;
+          basicAuthPaths = [ ]; # empty = protect all paths
+        };
   };
 }

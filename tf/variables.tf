@@ -1,34 +1,21 @@
-variable "ondy_org_top_level_apps" {
-  type = list(string)
-  default = [
-    "git",
-  ]
-}
-
-variable "wolf_apps_subdomains" {
+variable "elk_apps_subdomains" {
   type = list(string)
   default = [
     "grafana",
     "loki",
     "metrics",
-    "nix-cache",
     "vmalert",
 
-    # media managment
+    # media
     "bazarr",
+    "jellyfin",
     "jellyseerr",
     "lidarr",
+    "navidrome",
     "prowlarr",
     "radarr",
     "readarr",
     "sabnzbd",
     "sonarr",
-  ]
-}
-
-variable "bear_apps_subdomains" {
-  type = list(string)
-  default = [
-    "jellyfin",
   ]
 }

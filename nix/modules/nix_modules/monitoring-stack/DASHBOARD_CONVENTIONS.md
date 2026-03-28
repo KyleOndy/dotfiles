@@ -30,7 +30,7 @@ This document outlines the conventions and best practices for creating and maint
 **Why?**
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `wolf`, `tiger`, `dino`
+- `host` shows friendly hostnames like `wolf`, `elk`, `dino`
 
 **How to Configure:**
 
@@ -92,7 +92,7 @@ Examples:
 
 - `System - Node Exporter Full`
 - `Network - NGINX Log Metrics`
-- `Storage - ZFS - Tiger`
+- `Storage - ZFS - Wolf`
 - `App - YouTube Downloader - Operational`
 
 ## Dashboard Metadata
@@ -138,7 +138,7 @@ Use consistent tags for easier filtering:
 
 - `system`, `network`, `storage`, `application`
 - Component-specific: `nginx`, `zfs`, `node`, `systemd`
-- Host-specific: `tiger`, `wolf`, `dino` (only if dashboard is host-specific)
+- Host-specific: `wolf`, `elk`, `dino` (only if dashboard is host-specific)
 
 ## Panel Configuration
 

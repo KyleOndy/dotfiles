@@ -13,7 +13,6 @@ This directory contains the NixOS configuration for a VictoriaMetrics-based moni
 ├── .bare/           # Bare repository (DO NOT use for file operations)
 ├── kube-context/    # Worktree for kube-context branch
 ├── main/            # Worktree for main branch
-├── bear/            # Worktree for bear branch
 └── ...              # Other feature branch worktrees
 ```
 
@@ -70,7 +69,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 #### Why?
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `wolf`, `tiger`, `dino`
+- `host` shows friendly hostnames like `wolf`, `elk`, `dino`
 
 #### How to Configure
 
@@ -142,7 +141,7 @@ Or use `jq` for more precise replacements (see nix/modules/nix_modules/monitorin
 After configuration changes:
 
 1. Deploy to wolf
-2. Check alertmanager logs: `ssh wolf systemctl status alertmanager`
+2. Check alertmanager logs: `ssh elk systemctl status alertmanager`
 3. Look for SMTP connection errors in logs
 4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on wolf)
 
@@ -270,25 +269,25 @@ vmagent = {
 1. **Check if metrics exist in VictoriaMetrics**:
 
    ```bash
-   ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
+   ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
    ```
 
 2. **Verify exporter is running**:
 
    ```bash
-   ssh wolf systemctl status <exporter-name>
+   ssh elk systemctl status <exporter-name>
    ```
 
 3. **Check exporter metrics endpoint**:
 
    ```bash
-   ssh wolf 'curl http://127.0.0.1:<port>/metrics | head -20'
+   ssh elk 'curl http://127.0.0.1:<port>/metrics | head -20'
    ```
 
 4. **Verify vmagent is scraping**:
 
    ```bash
-   ssh wolf 'curl http://127.0.0.1:8429/metrics | grep scrape'
+   ssh elk 'curl http://127.0.0.1:8429/metrics | grep scrape'
    ```
 
 5. **Check for label mismatches**: Dashboard using `instance` instead of `host`?
@@ -298,13 +297,13 @@ vmagent = {
 1. **Check alertmanager is running**:
 
    ```bash
-   ssh wolf systemctl status alertmanager
+   ssh elk systemctl status alertmanager
    ```
 
 2. **Check for SMTP errors in logs**:
 
    ```bash
-   ssh wolf journalctl -u alertmanager -n 50
+   ssh elk journalctl -u alertmanager -n 50
    ```
 
 3. **Common errors**:
@@ -315,13 +314,13 @@ vmagent = {
 4. **Verify alerts are firing**:
 
    ```bash
-   ssh wolf 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
+   ssh elk 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
    ```
 
 5. **Check Alertmanager has received alerts**:
 
    ```bash
-   ssh wolf 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
+   ssh elk 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
    ```
 
 ### Exporter Permission Issues
@@ -333,13 +332,13 @@ Common issue: Exporter can't read log files or access resources.
 1. **Check service user groups**:
 
    ```bash
-   ssh wolf id nginxlog-exporter
+   ssh elk id nginxlog-exporter
    ```
 
 2. **Verify file permissions**:
 
    ```bash
-   ssh wolf ls -la /var/log/nginx/
+   ssh elk ls -la /var/log/nginx/
    ```
 
 3. **Add user to appropriate group**:
@@ -383,31 +382,51 @@ Credentials in sops secret: `vmalert_htpasswd`
 
 ```bash
 # Query VictoriaMetrics
-ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
+ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
 
 # List all metric names
-ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
+ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
 
 # Get label values
-ssh wolf 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
+ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
 ```
 
 ### Check Alert Status
 
 ```bash
 # vmalert firing alerts
-ssh wolf 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
+ssh elk 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 
 # Alertmanager alerts
-ssh wolf 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
+ssh elk 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
+
+### Manage Alert Silences
+
+The `alert-silence` script (available on elk) wraps the Alertmanager API.
+
+```bash
+# Silence an alert by name
+ssh elk alert-silence add -a SonarrQueueHigh -d 7d -c "large download in progress"
+
+# Silence with extra label matchers
+ssh elk alert-silence add -a InstanceDown -m job=exportarr-bazarr -d 2h
+
+# List active silences
+ssh elk alert-silence list
+
+# Expire a silence early
+ssh elk alert-silence expire <silence-id>
+```
+
+Duration units: `m` (minutes), `h` (hours), `d` (days). Default is `1d`.
 
 ### Grafana Dashboard Reload
 
 Dashboards auto-reload every 10 seconds. To force reload:
 
 ```bash
-ssh wolf systemctl restart grafana
+ssh elk systemctl restart grafana
 ```
 
 ## Retention Policy
@@ -431,7 +450,7 @@ The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
 
 **Labels available for filtering:**
 
-- `host` - Server hostname (wolf, tiger, dino)
+- `host` - Server hostname (wolf, elk, dino)
 - `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `scheme` - Protocol (http, https)
 - `method` - HTTP method (GET, POST, PUT, DELETE)
@@ -565,7 +584,7 @@ These require client-side JavaScript tracking (like Google Analytics, Matomo, Pl
 # Install GoAccess
 # Add to system packages, run as cron job
 
-ssh wolf 'goaccess /var/log/nginx/access.log \
+ssh elk 'goaccess /var/log/nginx/access.log \
   --log-format=COMBINED \
   --output=/var/www/stats/index.html \
   --real-time-html'

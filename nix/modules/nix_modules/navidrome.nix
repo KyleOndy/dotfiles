@@ -6,29 +6,23 @@
 }:
 with lib;
 let
-  cfg = config.systemFoundry.nzbget;
-
-  # todo: don't know how to get this progamaticlly from the nzbget service,
-  #       so hardcoding it here.
-  stateDir = "/var/lib/nzbget";
+  cfg = config.systemFoundry.navidrome;
 in
 {
-  # todo: submodules?
-  options.systemFoundry.nzbget = {
+  options.systemFoundry.navidrome = {
     enable = mkEnableOption ''
-      Batteries included wrapper for nzbget
+      Batteries included wrapper for Navidrome
     '';
 
     group = mkOption {
       type = types.str;
-      # todo: can I pull the default from the nzbget package?
-      default = "nzbget";
-      description = "Group to run nzbget under";
+      default = "navidrome";
+      description = "Group to run navidrome under";
     };
 
     domainName = mkOption {
       type = types.str;
-      description = "Domain to server nzbget under";
+      description = "Domain to serve navidrome under";
     };
 
     provisionCert = mkOption {
@@ -39,10 +33,22 @@ in
 
     user = mkOption {
       type = types.str;
-      # todo: can I pull the default from the nzbget package?
-      default = "nzbget";
-      description = "User to server nzbget under";
+      default = "navidrome";
+      description = "User to run navidrome under";
     };
+
+    musicFolder = mkOption {
+      type = types.str;
+      default = "/mnt/storage/media/music";
+      description = "Path to the music library";
+    };
+
+    port = mkOption {
+      type = types.port;
+      default = 4533;
+      description = "Port for navidrome";
+    };
+
     backup = mkOption {
       default = { };
       description = "Move the backups somewhere";
@@ -54,23 +60,22 @@ in
         };
         options.destinationPath = mkOption {
           type = types.path;
-          default = "/var/backups/nzbget";
-          description = "Specifies the directory backups will be moved too.";
+          default = "/var/backups/navidrome";
+          description = "Specifies the directory backups will be moved to.";
         };
       };
     };
   };
 
   config = mkIf cfg.enable {
-    services = {
-      # nzbget service
-      nzbget = {
-        # currently all config is done via the web.
-        # todo: setup some kind of autoamted downloading of backup zip
-        enable = true;
-        package = pkgs.nzbget;
-        user = cfg.user;
-        group = cfg.group;
+    services.navidrome = {
+      enable = true;
+      user = cfg.user;
+      group = cfg.group;
+      settings = {
+        MusicFolder = cfg.musicFolder;
+        Address = "127.0.0.1";
+        Port = cfg.port;
       };
     };
 
@@ -78,7 +83,7 @@ in
       mkIf (config.systemFoundry.nginxReverseProxy.enable)
         {
           enable = true;
-          proxyPass = "http://127.0.0.1:6789";
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
           provisionCert = cfg.provisionCert;
         };
 
@@ -86,16 +91,17 @@ in
       mkIf config.systemFoundry.caddyReverseProxy.enable
         {
           enable = true;
-          proxyPass = "http://127.0.0.1:6789";
+          proxyPass = "http://127.0.0.1:${toString cfg.port}";
           provisionCert = cfg.provisionCert;
         };
-    networking.firewall.allowedTCPPorts = [ 6789 ];
-    systemd.services.nzbget-backup = mkIf cfg.backup.enable {
+
+    systemd.services.navidrome-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
       path = [ pkgs.coreutils ];
       script = ''
         mkdir -p ${cfg.backup.destinationPath}
-        cp -rn ${stateDir}/nzbget.conf ${cfg.backup.destinationPath}/nzbget-$(date +%Y-%m-%d).conf'';
+        cp -rn /var/lib/navidrome ${cfg.backup.destinationPath}/
+      '';
     };
   };
 }

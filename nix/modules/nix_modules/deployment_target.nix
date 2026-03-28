@@ -68,7 +68,7 @@ in
           "root"
           "@wheel"
         ]; # todo: security issue?
-        trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ];
+        trusted-substituters = [ ];
         auto-optimise-store = true;
         download-buffer-size = 524288000; # 500 MB
       };
@@ -84,7 +84,7 @@ in
     # sshd: deploy-rs uses the SSH connection to confirm deployment. If sshd
     # restarts, the connection drops, causing timeouts and automatic rollback.
     #
-    # WireGuard: Hosts with NFS mounts over WireGuard (bear, tiger) hang during
+    # WireGuard: Hosts with NFS mounts over WireGuard hang during
     # daemon-reexec when the tunnel goes down — the NFS unmount blocks systemd.
     # Both the interface and peer services must be pinned — removing a peer tears
     # down the tunnel even when the interface stays up.

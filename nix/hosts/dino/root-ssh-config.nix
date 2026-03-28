@@ -5,14 +5,6 @@
   # SSH client configuration for root user
   programs.ssh = {
     extraConfig = ''
-      Host tiger tiger.dmz.1ella.com
-        HostName tiger.dmz.1ella.com
-        User svc.deploy
-        Port 2332
-        IdentityFile /root/.ssh/id_ed25519
-        StrictHostKeyChecking accept-new
-        ConnectTimeout 3
-
       Host wolf
         HostName ns568215.ip-51-79-99.net
         User svc.deploy

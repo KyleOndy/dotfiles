@@ -1,7 +1,8 @@
 locals {
   wolf_dns = ["ns568215.ip-51-79-99.net"]
-  wolf_ip = ["51.79.99.201"]
-  bear_dns = ["ns102788.ip-147-135-8.us"]
+  wolf_ip  = ["51.79.99.201"]
+  elk_ip   = ["37.27.70.102"]
+  elk_dns  = ["elk.infra.ondy.org"]
 }
 
 ## ondy.org
@@ -14,37 +15,17 @@ resource "aws_route53_record" "ondy_org_apex" {
   name    = "ondy.org"
   type    = "A"
   ttl     = "300"
-  records = local.wolf_ip
+  records = local.elk_ip
 }
 
-resource "aws_route53_record" "ondy_org_wolf_apps" {
-  for_each = toset(var.wolf_apps_subdomains)
+resource "aws_route53_record" "ondy_org_elk_apps" {
+  for_each = toset(var.elk_apps_subdomains)
 
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "${each.value}.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = local.wolf_dns
-}
-
-resource "aws_route53_record" "ondy_org_bear_apps" {
-  for_each = toset(var.bear_apps_subdomains)
-
-  zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = "${each.value}.apps.ondy.org"
-  type    = "CNAME"
-  ttl     = "300"
-  records = local.bear_dns
-}
-
-resource "aws_route53_record" "ondy_org_top_level_app" {
-  for_each = toset(var.ondy_org_top_level_apps)
-
-  zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = "${each.value}.ondy.org"
-  type    = "CNAME"
-  ttl     = "300"
-  records = local.wolf_dns
+  records = local.elk_dns
 }
 
 resource "aws_route53_record" "ondy_org_mx" {
@@ -133,7 +114,7 @@ resource "aws_route53_record" "kyleondy_com_apex" {
   name    = "kyleondy.com"
   type    = "A"
   ttl     = "300"
-  records = local.wolf_ip
+  records = local.elk_ip
 }
 
 resource "aws_route53_record" "kyleondy_com_www" {
@@ -141,5 +122,5 @@ resource "aws_route53_record" "kyleondy_com_www" {
   name    = "www.kyleondy.com"
   type    = "CNAME"
   ttl     = "300"
-  records = local.wolf_dns
+  records = local.elk_dns
 }

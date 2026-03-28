@@ -39,17 +39,21 @@ in
     };
     backup = mkOption {
       default = { };
-      description = "Move the backups somewhere";
+      description = "Automated backup via Jellyfin native backup API";
       type = types.submodule {
         options.enable = mkOption {
           type = types.bool;
           default = false;
-          description = "Enable backup moving";
+          description = "Enable automated backup";
         };
-        options.destinationPath = mkOption {
+        options.apiKeyFile = mkOption {
           type = types.path;
-          default = "/var/backups/jellyfin";
-          description = "Specifies the directory backups will be moved too.";
+          description = "Path to file containing the Jellyfin API key";
+        };
+        options.retentionDays = mkOption {
+          type = types.int;
+          default = 30;
+          description = "Number of days to retain backups before deletion";
         };
       };
     };
@@ -88,12 +92,17 @@ in
         package = pkgs.jellyfin;
         user = cfg.user;
         group = cfg.group;
-        openFirewall = true;
       };
 
-      # nginx reverse proxy with WebSocket support
-      nginx = {
+      # nginx reverse proxy with WebSocket support (nginx hosts)
+      nginx = mkIf config.systemFoundry.nginxReverseProxy.enable {
         enable = true;
+
+        commonHttpConfig = mkAfter ''
+          # Rate limit zone for Jellyfin authentication (10 requests/minute per IP)
+          limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
+        '';
+
         virtualHosts."${cfg.domainName}" = {
           enableACME = cfg.provisionCert;
           forceSSL = cfg.provisionCert;
@@ -132,14 +141,8 @@ in
       };
     };
 
-    # Define rate limit zone for Jellyfin authentication endpoint
-    services.nginx.commonHttpConfig = mkAfter ''
-      # Rate limit zone for Jellyfin authentication (10 requests/minute per IP)
-      limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
-    '';
-
-    # ACME certificate configuration (when provisionCert is enabled)
-    security.acme = mkIf cfg.provisionCert {
+    # nginx: ACME certificate configuration
+    security.acme = mkIf (cfg.provisionCert && (config.systemFoundry.nginxReverseProxy.enable)) {
       acceptTerms = true;
       defaults.email = config.systemFoundry.nginxReverseProxy.acme.email;
       certs."${cfg.domainName}" = {
@@ -150,14 +153,29 @@ in
       };
     };
 
-    # Allow nginx to read ACME certificates
-    users.users.nginx.extraGroups = mkIf cfg.provisionCert [ "acme" ];
+    # nginx: allow nginx to read ACME certificates
+    users.users = mkIf (cfg.provisionCert && config.systemFoundry.nginxReverseProxy.enable) {
+      nginx.extraGroups = [ "acme" ];
+    };
 
-    # Open firewall for HTTPS (HTTP already opened by nginxReverseProxy if used elsewhere)
-    networking.firewall.allowedTCPPorts = mkIf cfg.provisionCert [
-      80
-      443
-    ];
+    # nginx: open firewall for HTTPS
+    networking.firewall.allowedTCPPorts =
+      mkIf (cfg.provisionCert && (config.systemFoundry.nginxReverseProxy.enable))
+        [
+          80
+          443
+        ];
+
+    # Caddy: reverse proxy with automatic WebSocket support, 300s timeouts, and unbuffered streaming
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:8096";
+          proxyTimeout = "300s";
+          flushInterval = "-1";
+          # TODO: add rate limiting on /Users/AuthenticateByName once caddy-ratelimit plugin is added
+        };
 
     # Configure debug logging when enabled
     systemd.tmpfiles.rules = mkIf (cfg.debugAuthLogging || cfg.transcodeDebugLogging) [
@@ -217,19 +235,28 @@ in
     ];
 
     systemd.services = {
-      # jellyfin provides no native backup, so zip, compress it, and copy it over
       jellyfin-backup = mkIf cfg.backup.enable {
         startAt = "*-*-* 3:00:00";
         path = with pkgs; [
-          coreutils
-          gnutar
-          pigz
+          curl
+          findutils
         ];
+        environment = {
+          API_KEY_FILE = cfg.backup.apiKeyFile;
+          BACKUP_DIR = "${stateDir}/data/backups";
+          RETENTION_DAYS = toString cfg.backup.retentionDays;
+        };
         script = ''
-          mkdir -p ${cfg.backup.destinationPath}
-          tar --use-compress-program="pigz -k --best" -cvf ${cfg.backup.destinationPath}/jellyfin-$(date +%Y-%m-%d).tar.gz ${stateDir}
-
+          API_KEY=$(cat "$API_KEY_FILE")
+          curl -sf "http://127.0.0.1:8096/Backup/Create" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: MediaBrowser Token=$API_KEY" \
+            -d '{"Database": true, "Metadata": true, "Subtitles": true, "Trickplay": false}'
+          find "$BACKUP_DIR" -name "*.zip" -mtime +"$RETENTION_DAYS" -delete
         '';
+        serviceConfig = {
+          Type = "oneshot";
+        };
       };
       jellyfin-transcode-cleanup = {
         startAt = "*-*-* 04:00:00";

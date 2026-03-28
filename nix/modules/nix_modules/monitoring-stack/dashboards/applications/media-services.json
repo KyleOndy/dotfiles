@@ -1,25 +1,18 @@
 {
   "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": "-- Grafana --",
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
+    "list": []
   },
   "editable": true,
-  "gnetId": null,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
   "links": [],
   "panels": [
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -60,7 +53,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 0
       },
@@ -75,21 +68,26 @@
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"jellyfin.service\",state=\"active\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"sonarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
-      "title": "Jellyfin",
+      "title": "Sonarr",
       "type": "stat"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -130,8 +128,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 3,
         "y": 0
       },
       "id": 2,
@@ -145,21 +143,26 @@
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"sonarr.service\",state=\"active\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"radarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
-      "title": "Sonarr",
+      "title": "Radarr",
       "type": "stat"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -200,8 +203,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 8,
+        "w": 3,
+        "x": 6,
         "y": 0
       },
       "id": 3,
@@ -215,21 +218,26 @@
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"radarr.service\",state=\"active\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"lidarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
-      "title": "Radarr",
+      "title": "Lidarr",
       "type": "stat"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -270,8 +278,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 12,
+        "w": 3,
+        "x": 9,
         "y": 0
       },
       "id": 4,
@@ -285,21 +293,26 @@
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"nzbget.service\",state=\"active\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"readarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
-      "title": "Nzbget",
+      "title": "Readarr",
       "type": "stat"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -340,8 +353,8 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 16,
+        "w": 3,
+        "x": 12,
         "y": 0
       },
       "id": 5,
@@ -355,52 +368,43 @@
           "calcs": ["lastNotNull"],
           "fields": ""
         },
-        "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"nzbhydra2.service\",state=\"active\"}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"prowlarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
-      "title": "Nzbhydra2",
+      "title": "Prowlarr",
       "type": "stat"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "custom": {
-            "align": "left",
-            "displayMode": "color-background"
-          },
           "mappings": [
             {
               "options": {
-                "active": {
-                  "color": "green",
-                  "index": 0,
-                  "text": "Active"
-                },
-                "failed": {
+                "0": {
                   "color": "red",
+                  "index": 0,
+                  "text": "Down"
+                },
+                "1": {
+                  "color": "green",
                   "index": 1,
-                  "text": "Failed"
-                },
-                "inactive": {
-                  "color": "blue",
-                  "index": 2,
-                  "text": "Inactive"
-                },
-                "activating": {
-                  "color": "yellow",
-                  "index": 3,
-                  "text": "Activating"
+                  "text": "Up"
                 }
               },
               "type": "value"
@@ -410,26 +414,158 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
               }
             ]
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"sabnzbd.service\",state=\"active\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "SABnzbd",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "Down"
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Up"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
               {
-                "id": "custom.hidden",
-                "value": true
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
               }
             ]
           }
-        ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "node_systemd_unit_state{host=\"elk\",name=\"jellyfin.service\",state=\"active\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Jellyfin",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
@@ -437,57 +573,44 @@
         "x": 0,
         "y": 4
       },
-      "id": 6,
+      "id": 9,
       "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": false,
-            "displayName": "Service"
-          }
-        ]
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "calcs": ["lastNotNull"],
+          "fields": ""
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"(jellyfin|sonarr|radarr|nzbget|nzbhydra2).service\"} == 1",
-          "format": "table",
-          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "(1 - node_filesystem_avail_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"}) * 100",
+          "legendFormat": "Elk Storage",
           "refId": "A"
         }
       ],
-      "title": "Service Status",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Value": true,
-              "__name__": true,
-              "instance": true,
-              "job": true
-            },
-            "indexByName": {
-              "name": 0,
-              "state": 1
-            },
-            "renameByName": {
-              "name": "Service",
-              "state": "State"
-            }
-          }
-        }
-      ],
-      "type": "table"
+      "title": "Elk Media Storage Usage",
+      "type": "gauge"
     },
     {
-      "datasource": "VictoriaMetrics",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
@@ -535,214 +658,36 @@
         "x": 12,
         "y": 4
       },
-      "id": 7,
+      "id": 10,
       "options": {
         "legend": {
-          "calcs": ["last"],
-          "displayMode": "table",
-          "placement": "right"
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "increase(node_systemd_service_restart_total{host=\"tiger\",name=~\"(jellyfin|sonarr|radarr|nzbget|nzbhydra2).service\"}[1h])",
-          "legendFormat": "{{name}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum(jellyfin_now_playing_state{host=\"elk\"}) or vector(0)",
+          "legendFormat": "Active Streams",
           "refId": "A"
         }
       ],
-      "title": "Service Restarts (1h)",
+      "title": "Jellyfin Active Streams",
       "type": "timeseries"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "displayMode": "auto"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      },
-      "id": 8,
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Uptime"
-          }
-        ]
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "time() - node_systemd_unit_start_time_seconds{host=\"tiger\",name=~\"(jellyfin|sonarr|radarr|nzbget|nzbhydra2).service\"}",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Service Uptime",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "__name__": true,
-              "instance": true,
-              "job": true,
-              "state": true
-            },
-            "indexByName": {
-              "name": 0,
-              "Value": 1
-            },
-            "renameByName": {
-              "name": "Service",
-              "Value": "Uptime"
-            }
-          }
-        }
-      ],
-      "type": "table"
-    },
-    {
-      "datasource": "VictoriaMetrics",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "left",
-            "displayMode": "auto"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Time"
-            },
-            "properties": [
-              {
-                "id": "custom.hidden",
-                "value": true
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      },
-      "id": 9,
-      "options": {
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Restarts"
-          }
-        ]
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "increase(node_systemd_service_restart_total{host=\"tiger\",name=~\"(jellyfin|sonarr|radarr|nzbget|nzbhydra2).service\"}[24h])",
-          "format": "table",
-          "instant": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Restart Count (24h)",
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "__name__": true,
-              "instance": true,
-              "job": true
-            },
-            "indexByName": {
-              "name": 0,
-              "Value": 1
-            },
-            "renameByName": {
-              "name": "Service",
-              "Value": "Restarts"
-            }
-          }
-        }
-      ],
-      "type": "table"
     }
   ],
-  "refresh": "30s",
-  "schemaVersion": 27,
-  "style": "dark",
-  "tags": ["media", "services", "jellyfin", "sonarr", "radarr"],
+  "schemaVersion": 38,
+  "tags": ["media", "overview"],
   "templating": {
     "list": []
   },
@@ -752,8 +697,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Media Services - Tiger",
+  "title": "Media Services - Elk",
   "uid": "media-services",
-  "version": 1,
-  "description": "Monitor health and status of media services on tiger (Jellyfin, Sonarr, Radarr, Nzbget, Nzbhydra2)"
+  "version": 0,
+  "weekStart": ""
 }

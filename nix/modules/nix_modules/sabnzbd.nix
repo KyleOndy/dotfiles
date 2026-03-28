@@ -87,18 +87,28 @@ in
       UMask = "0002";
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" = {
-      enable = true;
-      proxyPass = "http://127.0.0.1:8080";
-      provisionCert = cfg.provisionCert;
-    };
+    systemFoundry.nginxReverseProxy.sites."${cfg.domainName}" =
+      mkIf (config.systemFoundry.nginxReverseProxy.enable)
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:8080";
+          provisionCert = cfg.provisionCert;
+        };
+
+    systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://127.0.0.1:8080";
+          provisionCert = cfg.provisionCert;
+        };
 
     systemd.services.sabnzbd-backup = mkIf cfg.backup.enable {
       startAt = "*-*-* *:00:00";
       path = [ pkgs.coreutils ];
       script = ''
         mkdir -p ${cfg.backup.destinationPath}
-        cp -rn ${stateDir}/admin/sabnzbd.ini ${cfg.backup.destinationPath}/sabnzbd-$(date +%Y-%m-%d).ini
+        cp -rn ${stateDir}/sabnzbd.ini ${cfg.backup.destinationPath}/sabnzbd-$(date +%Y-%m-%d).ini
       '';
     };
   };

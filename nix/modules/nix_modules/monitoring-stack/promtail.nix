@@ -16,13 +16,32 @@ in
     lokiUrl = mkOption {
       type = types.str;
       description = "Loki push URL";
-      example = "https://loki.apps.ondy.org/loki/api/v1/push";
+      example = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
     };
 
     bearerTokenFile = mkOption {
       type = types.nullOr types.path;
       default = null;
-      description = "Path to file containing bearer token for authentication";
+      description = "Path to file containing bearer token for authentication (nginx hosts)";
+    };
+
+    basicAuth = mkOption {
+      type = types.nullOr (
+        types.submodule {
+          options = {
+            username = mkOption {
+              type = types.str;
+              description = "Basic auth username";
+            };
+            passwordFile = mkOption {
+              type = types.path;
+              description = "Path to file containing the basic auth password";
+            };
+          };
+        }
+      );
+      default = null;
+      description = "Basic auth credentials for Loki push (Caddy hosts)";
     };
 
     extraLabels = mkOption {
@@ -47,7 +66,7 @@ in
               targets = [ "localhost" ];
               labels = {
                 job = "jellyfin";
-                host = "bear";
+                host = "elk";
                 __path__ = "/var/lib/jellyfin/log/*.log";
               };
             }
@@ -88,6 +107,12 @@ in
             // optionalAttrs (cfg.bearerTokenFile != null) {
               bearer_token_file = toString cfg.bearerTokenFile;
             }
+            // optionalAttrs (cfg.basicAuth != null) {
+              basic_auth = {
+                username = cfg.basicAuth.username;
+                password_file = toString cfg.basicAuth.passwordFile;
+              };
+            }
           )
         ];
 
@@ -116,21 +141,22 @@ in
               }
             ];
           }
-          {
-            job_name = "nginx";
-            static_configs = [
-              {
-                targets = [ "localhost" ];
-                labels = {
-                  job = "nginx";
-                  unit = "nginx.service";
-                  __path__ = "/var/log/nginx/access.log";
-                }
-                // cfg.extraLabels;
-              }
-            ];
-          }
         ]
+        # Only scrape nginx access log if nginx is running
+        ++ optional config.services.nginx.enable {
+          job_name = "nginx";
+          static_configs = [
+            {
+              targets = [ "localhost" ];
+              labels = {
+                job = "nginx";
+                unit = "nginx.service";
+                __path__ = "/var/log/nginx/access.log";
+              }
+              // cfg.extraLabels;
+            }
+          ];
+        }
         ++ cfg.extraScrapeConfigs;
       };
     };
