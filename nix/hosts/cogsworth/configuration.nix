@@ -273,6 +273,9 @@
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
+  # Seat management - flutter-pi uses libseat to access DRM devices
+  services.seatd.enable = true;
+
   # Disable getty on tty1 - this kiosk uses flutter-pi on tty1 and SSH for management.
   # Masking both getty@tty1 and autovt@tty1 prevents systemd-getty-generator
   # from starting either during daemon-reload, which would conflict with flutter-pi
@@ -296,6 +299,7 @@
       "audio"
       "input"
       "render"
+      "seat"
     ];
   };
   users.groups.cogsworth = { };
@@ -329,7 +333,11 @@
   systemd.services.cogsworth = {
     description = "Cogsworth Flutter kiosk application";
     wantedBy = [ "multi-user.target" ];
-    after = [ "network.target" ];
+    after = [
+      "network.target"
+      "seatd.service"
+    ];
+    requires = [ "seatd.service" ];
 
     serviceConfig = {
       Type = "simple";
