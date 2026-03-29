@@ -263,11 +263,11 @@
   # Use Raspberry Pi specific kernel for GPIO support
   boot.kernelPackages = pkgs.linuxPackages_rpi4;
 
-  # Map touchscreen to HDMI output with 270° clockwise rotation calibration
-  # Calibration matrix transforms touch coordinates to match rotated display
-  # Matrix "0 1 0 -1 0 1" rotates touch input 270° CW to match physical rotation
+  # Map touchscreen to HDMI output with calibration for physical portrait mount
+  # Calibration matrix transforms raw digitizer coordinates to match display
+  # flutter-pi --rotation only affects rendering, not touch; matrix is hardware-dependent
   services.udev.extraRules = ''
-    SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 1 0 -1 0 1"
+    SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
 
     # Allow video group access to vchiq (for vcgencmd)
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
