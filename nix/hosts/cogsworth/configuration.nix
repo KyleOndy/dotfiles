@@ -267,15 +267,15 @@
   # Calibration matrix transforms touch coordinates to match rotated display
   # Matrix "0 -1 1 1 0 0" rotates touch input 90° CCW to match physical rotation
   services.udev.extraRules = ''
-    SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{WL_OUTPUT}="HDMI-A-1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
+    SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="0 -1 1 1 0 0"
 
     # Allow video group access to vchiq (for vcgencmd)
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
   '';
 
-  # Disable getty on tty1 - this kiosk uses cage on tty1 and SSH for management.
+  # Disable getty on tty1 - this kiosk uses flutter-pi on tty1 and SSH for management.
   # Masking both getty@tty1 and autovt@tty1 prevents systemd-getty-generator
-  # from starting either during daemon-reload, which would conflict with cage-tty1
+  # from starting either during daemon-reload, which would conflict with flutter-pi
   # and cause deploy failures.
   systemd.services."getty@tty1".enable = false;
   systemd.services."autovt@tty1".enable = false;
@@ -283,58 +283,19 @@
   # Also prevent logind from auto-spawning gettys on other VTs.
   services.logind.settings.Login.NAutoVTs = 0;
 
-  # Cage kiosk configuration
-  services.cage = {
-    enable = true;
-    user = "kiosk";
-    # Wrapper script applies 90° rotation via wlr-randr before launching chromium
-    # This runs inside the cage Wayland session, so it has proper display access
-    program = pkgs.writeShellScript "kiosk-chromium" ''
-      ${pkgs.wlr-randr}/bin/wlr-randr --output HDMI-A-1 --transform 90
-
-      # Use fresh profile directory each boot to avoid session restore prompts
-      CHROME_DATA_DIR="/tmp/chromium-kiosk-$$"
-      mkdir -p "$CHROME_DATA_DIR"
-
-      exec ${pkgs.chromium}/bin/chromium \
-        --kiosk \
-        --start-maximized \
-        --noerrdialogs \
-        --disable-infobars \
-        --no-first-run \
-        --disable-session-crashed-bubble \
-        --disable-restore-session-state \
-        --user-data-dir="$CHROME_DATA_DIR" \
-        --ozone-platform=wayland \
-        --enable-virtual-keyboard \
-        --disable-pinch \
-        --remote-debugging-port=9222 \
-        --app=http://127.0.0.1:8080
-    '';
-    extraArguments = [
-      "-s" # Disable VT switching
-    ];
-  };
-
-  # Kiosk user (separate from kyle for security isolation)
-  users.users.kiosk = {
-    isNormalUser = true;
-    group = "kiosk";
-    extraGroups = [ "video" ]; # Required for GPU/DRI access
-  };
-  users.groups.kiosk = { };
-
-  # Cogsworth application user (system user for running Java uberjar)
+  # Cogsworth application user
   users.users.cogsworth = {
     isSystemUser = true;
     group = "cogsworth";
-    description = "Cogsworth application service user";
+    description = "Cogsworth kiosk application user";
     extraGroups = [
       "video"
       "i2c"
       "dialout"
       "gpio"
       "audio"
+      "input"
+      "render"
     ];
   };
   users.groups.cogsworth = { };
@@ -363,82 +324,33 @@
     }
   ];
 
-  # Chromium policies for kiosk hardening
-  programs.chromium = {
-    enable = true;
-    extraOpts = {
-      BrowserSignin = 0;
-      SyncDisabled = true;
-      PasswordManagerEnabled = false;
-      SpellcheckEnabled = false;
-      TranslateEnabled = false;
-    };
-  };
-
-  # Ensure cage waits for cogsworth app to be ready
-  systemd.services."cage-tty1" = {
-    after = [
-      "network-online.target"
-      "cogsworth-ready.service"
-    ];
-    wants = [ "network-online.target" ];
-    requires = [ "cogsworth-ready.service" ];
-
-    # Auto-restart on failure (e.g., after deploy-rs, crashes, etc.)
-    serviceConfig = {
-      Restart = "always";
-      RestartSec = "5s";
-
-      # Chromium doesn't respond to SIGTERM cleanly due to its multi-process
-      # architecture (renderer, GPU, utility processes). Without these settings,
-      # systemd waits 90 seconds for graceful shutdown, then SIGKILL, causing
-      # deploy-rs to see a "failed" unit and trigger rollback. Since this is a
-      # kiosk with no user state to preserve, forceful termination is acceptable.
-      TimeoutStopSec = "10s";
-      KillMode = "mixed";
-      SendSIGKILL = true;
-    };
-
-    # Allow up to 10 restarts in 2 minutes before giving up
-    # These go in [Unit] section, not [Service]
-    startLimitBurst = 10;
-    startLimitIntervalSec = 120;
-
-    # Prevent permanent failure - allow watchdog to recover
-    unitConfig = {
-      StartLimitAction = "none";
-    };
-  };
-
-  # Cogsworth application service - runs the Java uberjar
+  # Cogsworth application service - runs Flutter kiosk via flutter-pi
 
   systemd.services.cogsworth = {
-    description = "Cogsworth display application";
+    description = "Cogsworth Flutter kiosk application";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
-    restartIfChanged = false; # Prevent cascade that stops cage-tty1 during deploys
 
     serviceConfig = {
       Type = "simple";
       User = "cogsworth";
       Group = "cogsworth";
 
-      # Add system binaries to PATH so vcgencmd and other tools are available
-      Environment = "PATH=/run/current-system/sw/bin:$PATH";
+      ExecStart = "${pkgs.flutter-pi}/bin/flutter-pi --release --rotation 90 /opt/cogsworth/";
 
-      # JRE execution with JVM tuning for Raspberry Pi
-      ExecStart = ''
-        ${pkgs.jre_headless}/bin/java \
-          -Xms64m \
-          -Xmx256m \
-          -XX:+UseG1GC \
-          -XX:MaxGCPauseMillis=100 \
-          -Dserver.port=8080 \
-          -jar /opt/cogsworth/cogsworth.jar
-      '';
+      Environment = [
+        "PATH=/run/current-system/sw/bin"
+        "LD_LIBRARY_PATH=${pkgs.sqlite.out}/lib"
+        "FLUTTER_PI=1"
+      ];
+
+      # flutter-pi needs tty1 for DRM master
+      TTYPath = "/dev/tty1";
+      StandardInput = "tty";
+      StandardOutput = "journal";
+      StandardError = "journal";
 
       # Tier 1 Watchdog: Enhanced restart policy
-      # Aggressively restart on any failure type
       Restart = "always";
       RestartSec = "5s";
 
@@ -454,10 +366,15 @@
         "AF_INET"
         "AF_INET6"
         "AF_UNIX"
+        "AF_NETLINK"
       ];
       RestrictNamespaces = true;
       RestrictRealtime = true;
       LockPersonality = true;
+      SupplementaryGroups = [
+        "render"
+        "input"
+      ];
 
       # Working directory for any file operations
       WorkingDirectory = "/var/lib/cogsworth";
@@ -466,59 +383,20 @@
     };
 
     # Allow up to 10 restarts in 2 minutes before giving up
-    # Default is 5 restarts in 10 seconds which is too restrictive
-    # These go in [Unit] section, not [Service]
     startLimitBurst = 10;
     startLimitIntervalSec = 120;
 
-    # If service hits restart limit, reset the counter after 5 minutes
-    # This prevents permanent failure from transient issues
+    # Prevent permanent failure - allow watchdog to recover
     unitConfig = {
       StartLimitAction = "none";
     };
   };
 
-  # Cogsworth health check service - waits for /health endpoint
-  systemd.services.cogsworth-ready = {
-    description = "Wait for Cogsworth application to be ready";
-    after = [ "cogsworth.service" ];
-    requires = [ "cogsworth.service" ];
-    restartIfChanged = false; # Prevent cascade that stops cage-tty1 during deploys
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      TimeoutStartSec = "90s";
-    };
-
-    script = ''
-      set -e
-
-      echo "Waiting for Cogsworth to be ready (max 60 seconds)..."
-
-      # Poll root endpoint every 2 seconds, max 30 attempts (60 seconds)
-      for i in $(seq 1 30); do
-        if ${pkgs.curl}/bin/curl -sf http://127.0.0.1:8080/ >/dev/null 2>&1; then
-          echo "Cogsworth is ready (attempt $i)"
-          exit 0
-        fi
-        echo "Attempt $i/30 - waiting..."
-        sleep 2
-      done
-
-      echo "ERROR: Cogsworth did not become ready within 60 seconds"
-      exit 1
-    '';
-  };
-
   # Tier 2 Watchdog: Health check monitor
-  # Detects when services are running but hung/unresponsive or failed
+  # Detects when cogsworth is running but hung/unresponsive
   systemd.services.cogsworth-watchdog = {
-    description = "Cogsworth and Cage health check watchdog";
-    after = [
-      "cogsworth.service"
-      "cage-tty1.service"
-    ];
+    description = "Cogsworth health check watchdog";
+    after = [ "cogsworth.service" ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -530,7 +408,6 @@
 
       STATE_DIR="/var/lib/cogsworth-watchdog"
       COGSWORTH_STATE_FILE="$STATE_DIR/failure_count"
-      CAGE_STATE_FILE="$STATE_DIR/cage_failure_count"
       FAILURE_THRESHOLD=3  # Restart after 3 consecutive failures (90 seconds)
 
       # Ensure state directory exists
@@ -543,7 +420,7 @@
         FAILURES=0
       fi
 
-      if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/ >/dev/null 2>&1; then
+      if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/debug/ping >/dev/null 2>&1; then
         # Health check passed - reset failure counter
         if [ "$FAILURES" -gt 0 ]; then
           echo "$(date): Cogsworth health check recovered (was $FAILURES failures)"
@@ -565,42 +442,12 @@
           echo "0" > "$COGSWORTH_STATE_FILE"
         fi
       fi
-
-      # --- Check cage-tty1 systemd state ---
-      if [ -f "$CAGE_STATE_FILE" ]; then
-        CAGE_FAILURES=$(cat "$CAGE_STATE_FILE")
-      else
-        CAGE_FAILURES=0
-      fi
-
-      if systemctl is-active --quiet cage-tty1.service; then
-        # Service is running - reset failure counter
-        if [ "$CAGE_FAILURES" -gt 0 ]; then
-          echo "$(date): cage-tty1 recovered (was $CAGE_FAILURES failures)"
-        fi
-        echo "0" > "$CAGE_STATE_FILE"
-      else
-        # Service is not active - increment counter
-        CAGE_FAILURES=$((CAGE_FAILURES + 1))
-        echo "$CAGE_FAILURES" > "$CAGE_STATE_FILE"
-        echo "$(date): cage-tty1 not active (attempt $CAGE_FAILURES/$FAILURE_THRESHOLD)"
-
-        # Restart cage if threshold reached
-        if [ "$CAGE_FAILURES" -ge "$FAILURE_THRESHOLD" ]; then
-          echo "$(date): WATCHDOG TRIGGERED - Restarting cage-tty1.service"
-          # Reset failed state first (handles restart limit scenario)
-          systemctl reset-failed cage-tty1.service || true
-          systemctl restart cage-tty1.service
-          # Reset counter after restart
-          echo "0" > "$CAGE_STATE_FILE"
-        fi
-      fi
     '';
   };
 
   # Timer to run watchdog every 30 seconds
   systemd.timers.cogsworth-watchdog = {
-    description = "Cogsworth and Cage health check watchdog timer";
+    description = "Cogsworth health check watchdog timer";
     wantedBy = [ "timers.target" ];
 
     timerConfig = {
@@ -650,7 +497,7 @@
     };
   };
 
-  # Mutable JAR location for development
+  # Flutter assets and runtime data
   systemd.tmpfiles.rules = [
     "d /opt/cogsworth 0755 cogsworth cogsworth -"
     "d /run/cogsworth 0755 cogsworth cogsworth -"
@@ -678,7 +525,7 @@
   environment.systemPackages = with pkgs; [
     neovim
     htop
-    wlr-randr # For runtime display rotation
+    sqlite # CLI database debugging
     libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
     alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
     (writeShellScriptBin "edit-pi-config" ''
@@ -764,10 +611,9 @@
 
   # SD card wear reduction - minimize writes to extend card lifespan
   # Logs stored in RAM (acceptable since promtail forwards to Loki)
-  # Chromium profile and temp files use tmpfs instead of SD card
   systemFoundry.sdCardOptimization = {
     enable = true;
-    tmpfsSize = "512M"; # /tmp in RAM (chromium profile, etc.)
+    tmpfsSize = "512M"; # /tmp in RAM
     logTmpfsSize = "256M"; # /var/log in RAM
     journalMaxSize = "50M"; # systemd journal max size in RAM
     enableZram = true; # Compressed swap in RAM for emergencies
