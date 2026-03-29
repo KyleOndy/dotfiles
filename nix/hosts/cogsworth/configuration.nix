@@ -101,6 +101,9 @@
     echo "dtparam=i2s=on" >> ./firmware/config.txt
   '';
 
+  # GPU drivers (creates /run/opengl-driver for mesa/GBM)
+  hardware.graphics.enable = true;
+
   # Raspberry Pi 4 GPU configuration
   hardware.raspberry-pi."4" = {
     fkms-3d.enable = true; # V3D renderer for GPU acceleration
