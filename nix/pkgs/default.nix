@@ -14,5 +14,6 @@ self: super: {
   vscode-ls = super.callPackage ./vscode-ls { };
   battery-draw = super.callPackage ./battery-draw { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
+  flutter-pi = super.callPackage ./flutter-pi { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
 }

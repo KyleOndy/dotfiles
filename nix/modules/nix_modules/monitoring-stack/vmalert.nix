@@ -452,7 +452,7 @@ in
                 service: cogsworth
               annotations:
                 summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
-                description: "Raspberry Pi memory usage is above 80% on cogsworth. Pi has limited RAM (Java heap: 64-256MB)."
+                description: "Raspberry Pi memory usage is above 80% on cogsworth."
 
             - alert: CogsworthHighMemoryCritical
               expr: (1 - (node_memory_MemAvailable_bytes{host="cogsworth"} / node_memory_MemTotal_bytes{host="cogsworth"})) > 0.90
@@ -463,16 +463,6 @@ in
               annotations:
                 summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
                 description: "Raspberry Pi memory usage is critically high (>90%) on cogsworth. Risk of OOM killer."
-
-            - alert: CogsworthKioskDown
-              expr: node_systemd_unit_state{host="cogsworth",name="cage-tty1.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: cogsworth
-              annotations:
-                summary: "Cogsworth kiosk display is down"
-                description: "Cage compositor (kiosk display) has been down for 5 minutes on cogsworth"
 
             - alert: CogsworthHighCPUTemp
               expr: node_hwmon_temp_celsius{host="cogsworth"} > 70
