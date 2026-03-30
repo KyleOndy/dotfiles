@@ -486,8 +486,11 @@
     after = [ "mbsync.service" ];
     serviceConfig = {
       Type = "oneshot";
-      # Use --no-hooks since mbsync is handled by separate service
-      ExecStart = "${pkgs.notmuch}/bin/notmuch new --no-hooks";
+      # Use --no-hooks since mbsync is handled by separate service; run tagging manually
+      ExecStart = [
+        "${pkgs.notmuch}/bin/notmuch new --no-hooks"
+        "${pkgs.notmuch}/bin/notmuch tag +inbox +unread -new -- tag:new"
+      ];
       WorkingDirectory = "/home/kyle";
       StandardOutput = "journal";
     };
