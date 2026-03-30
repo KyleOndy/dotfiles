@@ -49,11 +49,9 @@ in
     };
     programs.notmuch = {
       enable = true;
-      hooks = {
-        preNew = "mbsync --all";
-      };
       new.tags = [ "new" ];
       hooks = {
+        preNew = "mbsync --all";
         postNew = ''
           # retag all "new" messages "inbox" and "unread"
           notmuch tag +inbox +unread -new -- tag:new
