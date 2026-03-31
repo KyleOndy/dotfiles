@@ -171,6 +171,7 @@ in
             ytdl_options = {
               cookiefile = "${cfg.data_dir}/cookies.txt";
               format = "bestvideo+bestaudio/best";
+              noprogress = true;
             };
 
             overrides = {
