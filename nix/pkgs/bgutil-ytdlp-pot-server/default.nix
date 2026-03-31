@@ -17,13 +17,14 @@
 
 buildNpmPackage rec {
   pname = "bgutil-ytdlp-pot-server";
-  version = "1.3.0";
+  # Keep in sync with pkgs.master.python313Packages.bgutil-ytdlp-pot-provider
+  version = "1.3.1";
 
   src = fetchFromGitHub {
     owner = "Brainicism";
     repo = "bgutil-ytdlp-pot-provider";
     rev = version;
-    hash = "sha256-WPLNjfVYDbPsEMVhjuF3dVarahdIKT7pt518SePfB8A=";
+    hash = "sha256-dhpataQ1HSCRPnm4k3K/NMaQPQdNrx8C4q855l7kbbQ=";
   };
 
   # Build from the server/ subdirectory which contains package.json and package-lock.json

@@ -597,7 +597,6 @@ in
     enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
-    lookback_period = "2weeks";
 
     channels = {
       Cycling = [

@@ -102,12 +102,6 @@ in
       default = "*-*-* 03:00:00";
     };
 
-    lookback_period = mkOption {
-      type = types.str;
-      description = "How far back to look for videos (e.g. '2weeks', '1month')";
-      default = "2weeks";
-    };
-
     max_videos = mkOption {
       type = types.int;
       description = "Maximum number of recent videos to check per channel";
@@ -163,7 +157,6 @@ in
           presets.base = {
             preset = [
               "Jellyfin TV Show by Date"
-              "Only Recent"
             ];
 
             chapters.embed_chapters = true;
@@ -183,7 +176,6 @@ in
 
             overrides = {
               tv_show_directory = cfg.media_dir;
-              only_recent_date_range = cfg.lookback_period;
             };
           };
 
