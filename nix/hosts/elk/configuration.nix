@@ -592,129 +592,126 @@ in
     group = "root";
   };
 
-  # YouTube downloader - downloads videos from subscribed channels
-  systemFoundry.youtubeDownloader = {
+  # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
+  systemFoundry.ytdlSub = {
     enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
-    sleep_between_channels = 180;
-    max_videos_default = 5;
-    max_videos_initial = 30;
-    download_shorts = true;
 
-    watched_channels = [
-      # cycling
-      "@BeauMiles"
-      "@BermPeakExpress"
-      "@bike2reality814"
-      "@BIKEPACKINGcom"
-      "@BikePak"
-      "@chadweberg1" # Chad Weberg
-      "@ChumbaUSABikes"
-      "@Cycling366"
-      "@Danny_MacAskill"
-      "@DirtyTeethMTB"
-      "@duzer"
-      "@DylanJohnsonCycling"
-      "@EFProCycling"
-      "@FarBeyond-EFPC"
-      "@FullBeansCyclingCompany"
-      "@hennapalosaari_"
-      "@howtheracewaswon"
-      "@JackScottkeogh"
-      "@jasperverkuijl"
-      "@jjjjustin"
-      "@joe.nation"
-      "@joffreymaluski"
-      "@joshibbett"
-      "@justinasleveika"
-      "@katrinahase"
-      "@KDubzDidWhat"
-      "@KeepSmilingAdventures"
-      "@lesperitdelbikepacking"
-      "@MediocreAmateur"
-      "@MickTurnbullFilms"
-      "@msoleilblais74"
-      "@omniumcargo"
-      "@panoramacycles"
-      "@PatrickMcGrady1"
-      "@PaulComponentEngineering"
-      "@pnwbikepacking"
-      "@raphafilms"
-      "@RideProductionsNZ"
-      "@RousLigon"
-      "@SethsBikeHacks"
-      "@sofianeshl"
-      "@sportscientist" # Stephen Seiler
-      "@stephanwieser"
-      "@TailfinCycling"
-      "@TENTISTHENEWRENT"
-      "@the_dirtbags"
-      "@themountainraces"
-      "@TheVCAdventures" # The Vegan Cyclist
-      "@tristanbogaard"
-      "@tristantakevideo"
-      "@TurnCycling"
-      "@ValleyPreferredCyclingCenter"
-      "@wattwagon"
-      "@wheelstowaves"
-      "@worstretirementever" # Phil Gaimon
-
-      # science
-      "@AlphaPhoenixChannel"
-      "@BetaPhoenixChannel"
-      "@miniminuteman773"
-
-      # maker
-      "@aaedmusa"
-      "@BennettStirton"
-      "@dkbuilds"
-      "@lostartpress"
-      "@MarkRober"
-      "@matthiaswandel"
-      "@Paul.Sellers"
-      "@propdepartment"
-      "@RexKrueger"
-      "@StuffMadeHere"
-      "@StuffMadeHere2"
-      "@tested"
-      "@theslowmoguys"
-      "@TomStantonEngineering"
-      "@WoodByWrightHowTo"
-
-      # entertainment
-      "@2MuchColinFurze"
-      "@Ben_Brainard"
-      "@CaptainDisillusion"
-      "@CharlieBerens"
-      "@colinfurze"
-      "@DudeDad"
-      "@Gossip.Goblin"
-      "@GxAce"
-      "@kaptainkristian"
-      "@kurzgesagt"
-      "@PracticalEngineeringChannel"
-      "@RudyAyoub"
-      "@SampsonBoatCo"
-      {
-        name = "@theslappablejerk";
-        download_shorts = false;
-      }
-      "@treykennedy"
-      "@whistlindiesel"
-
-      # tech
-      "@AdamJames-tv"
-      "@KRAZAM"
-      "@programmersarealsohuman5909" # Kai Lentit
-
-      # outdoor
-      "@bronandjacob"
-      "@ChrisburkardStudio"
-      "@courtneyevewhite"
-      "@RabEquipment"
-      "@theaudaciousreport"
-    ];
+    channels = {
+      Cycling = [
+        "@BeauMiles"
+        "@BermPeakExpress"
+        "@bike2reality814"
+        "@BIKEPACKINGcom"
+        "@BikePak"
+        "@chadweberg1" # Chad Weberg
+        "@ChumbaUSABikes"
+        "@Cycling366"
+        "@Danny_MacAskill"
+        "@DirtyTeethMTB"
+        "@duzer"
+        "@DylanJohnsonCycling"
+        "@EFProCycling"
+        "@FarBeyond-EFPC"
+        "@FullBeansCyclingCompany"
+        "@hennapalosaari_"
+        "@howtheracewaswon"
+        "@JackScottkeogh"
+        "@jasperverkuijl"
+        "@jjjjustin"
+        "@joe.nation"
+        "@joffreymaluski"
+        "@joshibbett"
+        "@justinasleveika"
+        "@katrinahase"
+        "@KDubzDidWhat"
+        "@KeepSmilingAdventures"
+        "@lesperitdelbikepacking"
+        "@MediocreAmateur"
+        "@MickTurnbullFilms"
+        "@msoleilblais74"
+        "@omniumcargo"
+        "@panoramacycles"
+        "@PatrickMcGrady1"
+        "@PaulComponentEngineering"
+        "@pnwbikepacking"
+        "@raphafilms"
+        "@RideProductionsNZ"
+        "@RousLigon"
+        "@SethsBikeHacks"
+        "@sofianeshl"
+        "@sportscientist" # Stephen Seiler
+        "@stephanwieser"
+        "@TailfinCycling"
+        "@TENTISTHENEWRENT"
+        "@the_dirtbags"
+        "@themountainraces"
+        "@TheVCAdventures" # The Vegan Cyclist
+        "@tristanbogaard"
+        "@tristantakevideo"
+        "@TurnCycling"
+        "@ValleyPreferredCyclingCenter"
+        "@wattwagon"
+        "@wheelstowaves"
+        "@worstretirementever" # Phil Gaimon
+      ];
+      Science = [
+        "@AlphaPhoenixChannel"
+        "@BetaPhoenixChannel"
+        "@miniminuteman773"
+      ];
+      Maker = [
+        "@aaedmusa"
+        "@BennettStirton"
+        "@dkbuilds"
+        "@lostartpress"
+        "@MarkRober"
+        "@matthiaswandel"
+        "@Paul.Sellers"
+        "@propdepartment"
+        "@RexKrueger"
+        "@StuffMadeHere"
+        "@StuffMadeHere2"
+        "@tested"
+        "@theslowmoguys"
+        "@TomStantonEngineering"
+        "@WoodByWrightHowTo"
+      ];
+      Entertainment = [
+        "@2MuchColinFurze"
+        "@Ben_Brainard"
+        "@CaptainDisillusion"
+        "@CharlieBerens"
+        "@colinfurze"
+        "@DudeDad"
+        "@Gossip.Goblin"
+        "@GxAce"
+        "@kaptainkristian"
+        "@kurzgesagt"
+        "@PracticalEngineeringChannel"
+        "@RudyAyoub"
+        "@SampsonBoatCo"
+        {
+          name = "@theslappablejerk";
+          shorts = false;
+        }
+        "@treykennedy"
+        "@whistlindiesel"
+      ];
+      Tech = [
+        "@AdamJames-tv"
+        "@KRAZAM"
+        "@programmersarealsohuman5909" # Kai Lentit
+      ];
+      Outdoor = [
+        "@bronandjacob"
+        "@ChrisburkardStudio"
+        "@courtneyevewhite"
+        "@RabEquipment"
+        "@theaudaciousreport"
+      ];
+    };
   };
 
   # Mount media overlay (wolf NFS lower + elk local upper) with graceful fallback
@@ -826,7 +823,7 @@ in
     ];
     environment = {
       TOKEN_FILE = config.sops.secrets.jellyfin_api_key.path;
-      DATA_DIR = config.systemFoundry.youtubeDownloader.data_dir;
+      DATA_DIR = config.systemFoundry.ytdlSub.data_dir;
     };
     script = ''
       #!/usr/bin/env bash

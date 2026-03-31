@@ -82,12 +82,7 @@ in
           group_interval = "10s";
           repeat_interval = "1h";
           receiver = "default";
-          routes = [
-            {
-              matchers = [ ''service="youtube-downloader"'' ];
-              repeat_interval = "24h";
-            }
-          ];
+          routes = [ ];
         };
 
         receivers = [

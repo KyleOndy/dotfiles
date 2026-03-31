@@ -394,31 +394,6 @@ in
                 summary: "Host under memory pressure on {{ $labels.instance }}"
                 description: "The host is experiencing high page fault rate ({{ $value | printf \"%.2f\" }} faults/sec), indicating memory pressure on {{ $labels.instance }}"
 
-        # YouTube Downloader service health
-        - name: youtube_downloader
-          interval: 60s
-          rules:
-            - alert: YTDownloaderStale
-              expr: (time() - max(yt_last_run_timestamp)) > 172800
-              for: 1m
-              labels:
-                severity: critical
-                service: youtube-downloader
-              annotations:
-                summary: "YouTube downloader has not run in {{ $value | humanizeDuration }}"
-                description: "Last successful run was {{ $value | humanizeDuration }} ago. Expected daily runs."
-
-            - alert: YTDownloaderHighFailureRate
-              expr: |
-                sum(rate(yt_downloads_total{status="failed"}[1h])) /
-                sum(rate(yt_downloads_total[1h])) > 0.3
-              for: 5m
-              labels:
-                severity: critical
-                service: youtube-downloader
-              annotations:
-                summary: "YouTube downloader failure rate is {{ $value | humanizePercentage }}"
-                description: "More than 30% of channel downloads are failing."
 
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring

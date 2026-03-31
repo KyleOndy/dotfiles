@@ -343,31 +343,6 @@ in
       mode = "0644";
     };
 
-    environment.etc."grafana-dashboards/applications/youtube-downloader-operational.json" = {
-      source = ./dashboards/applications/youtube-downloader-operational.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/youtube-downloader-errors.json" = {
-      source = ./dashboards/applications/youtube-downloader-errors.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/youtube-downloader-performance.json" = {
-      source = ./dashboards/applications/youtube-downloader-performance.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/youtube-downloader-channel.json" = {
-      source = ./dashboards/applications/youtube-downloader-channel.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/youtube-downloader-alerts.json" = {
-      source = ./dashboards/applications/youtube-downloader-alerts.json;
-      mode = "0644";
-    };
-
     environment.etc."grafana-dashboards/applications/cogsworth-overview.json" = {
       source = ./dashboards/applications/cogsworth-overview.json;
       mode = "0644";
