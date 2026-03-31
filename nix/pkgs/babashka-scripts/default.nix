@@ -19,10 +19,8 @@ buildBabashkaScripts {
   src = ./.;
 
   buildInputs = with pkgs; [
-    coreutils # Required for du command
-    ffmpeg # Required for media processing scripts
-    master.yt-dlp # Required for YouTube downloader
-    rsync # Required for file moving
+    coreutils
+    ffmpeg # Required for roku-transcode
   ];
 
   meta = with lib; {
