@@ -74,7 +74,7 @@ main() {
 	log_info "Found ${cookie_count} YouTube cookies"
 
 	log_info "Pushing cookies to elk..."
-	ssh elk "sudo tee /var/lib/ytdl-sub/youtube/cookies.txt > /dev/null" <"$tmpfile"
+	ssh elk "sudo tee /var/lib/ytdl-sub/youtube/cookies.txt > /dev/null && sudo chown ytdl-sub:media /var/lib/ytdl-sub/youtube/cookies.txt" <"$tmpfile"
 
 	log_info "Done. Cookies will be used by the next yt-dlp run."
 }

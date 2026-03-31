@@ -198,9 +198,7 @@ in
     # Ensure download directories exist with correct ownership
     systemd.tmpfiles.rules = [
       "d ${cfg.media_dir} 0775 ytdl-sub media -"
-      "Z ${cfg.media_dir} 0775 ytdl-sub media -"
       "d ${cfg.temp_dir} 0775 ytdl-sub media -"
-      "Z ${cfg.temp_dir} 0775 ytdl-sub media -"
       "d ${cfg.data_dir} 0775 ytdl-sub media -"
       "d ${cfg.data_dir}/logs 0775 ytdl-sub media -"
     ];
