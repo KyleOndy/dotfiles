@@ -108,6 +108,12 @@ in
       default = "2weeks";
     };
 
+    max_videos = mkOption {
+      type = types.int;
+      description = "Maximum number of recent videos to check per channel";
+      default = 20;
+    };
+
     channels = mkOption {
       type = types.attrsOf (types.listOf (types.either types.str types.attrs));
       description = ''
@@ -172,6 +178,7 @@ in
               cookiefile = "${cfg.data_dir}/cookies.txt";
               format = "bestvideo+bestaudio/best";
               noprogress = true;
+              playlistend = cfg.max_videos;
             };
 
             overrides = {
