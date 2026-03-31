@@ -195,6 +195,14 @@ in
       };
     };
 
+    # Ensure download directories exist with correct ownership
+    systemd.tmpfiles.rules = [
+      "d ${cfg.media_dir} 0775 ytdl-sub media -"
+      "d ${cfg.temp_dir} 0775 ytdl-sub media -"
+      "d ${cfg.data_dir} 0775 ytdl-sub media -"
+      "d ${cfg.data_dir}/logs 0775 ytdl-sub media -"
+    ];
+
     # bgutil PO token provider for YouTube bot detection bypass
     systemd.services.bgutil-pot-server = {
       enable = true;
