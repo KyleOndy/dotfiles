@@ -265,6 +265,16 @@ in
                 summary: "SABnzbd has {{ $value }} failed downloads in past hour"
                 description: "SABnzbd download failure rate is elevated"
 
+            - alert: SABnzbdDiskSpaceLow
+              expr: sabnzbd_free_space_bytes{host="elk"} < 50 * 1024 * 1024 * 1024
+              for: 1h
+              labels:
+                severity: warning
+                service: sabnzbd
+              annotations:
+                summary: "SABnzbd download free space low on {{ $labels.host }}: {{ $value | humanize1024 }}B free"
+                description: "SABnzbd reports less than 50GB free on its download directory for 1+ hour"
+
         # Disk space monitoring
         - name: disk_space
           interval: 60s
@@ -337,7 +347,7 @@ in
                 description: "Disk space is below 10% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskWillFillSoon
-              expr: predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0
+              expr: (predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0) unless on(host, mountpoint) node_filesystem_avail_bytes{host="elk",mountpoint="/"}
               for: 30m
               labels:
                 severity: warning
