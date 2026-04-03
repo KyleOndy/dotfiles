@@ -55,7 +55,7 @@ in
       defaultCacheTtlSsh = 28800; # SSH keys: 8 hours (resets on use)
       maxCacheTtl = 28800; # GPG keys max: 8 hours
       maxCacheTtlSsh = 28800; # SSH keys max: 8 hours
-      enableSshSupport = true; # Enable SSH agent functionality
+      enableSshSupport = !pkgs.stdenv.isDarwin; # Linux only: GPG SSH agent for YubiKey smartcard
       pinentry.package = pkgs.pinentry-curses;
     };
 
