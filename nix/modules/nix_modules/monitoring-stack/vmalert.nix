@@ -265,6 +265,16 @@ in
                 summary: "SABnzbd has {{ $value }} failed downloads in past hour"
                 description: "SABnzbd download failure rate is elevated"
 
+            - alert: SABnzbdDiskSpaceLow
+              expr: sabnzbd_free_space_bytes{host="elk"} < 50 * 1024 * 1024 * 1024
+              for: 1h
+              labels:
+                severity: warning
+                service: sabnzbd
+              annotations:
+                summary: "SABnzbd download free space low on {{ $labels.host }}: {{ $value | humanize1024 }}B free"
+                description: "SABnzbd reports less than 50GB free on its download directory for 1+ hour"
+
         # Disk space monitoring
         - name: disk_space
           interval: 60s
