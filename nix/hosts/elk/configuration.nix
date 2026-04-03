@@ -935,7 +935,7 @@ in
       TEXT_SUBS=$(echo "$SUBTITLE_STREAMS" | ${pkgs.jq}/bin/jq -r '
         .streams[] |
         select(.codec_name == "subrip" or .codec_name == "ass" or .codec_name == "mov_text" or .codec_name == "srt") |
-        "\(.index)|\(.tags.language // "und")|\(.tags.title // "")"
+        "\(.index)|\(.tags.language // "" | if . == "" then "und" else . end)|\(.tags.title // "")"
       ')
 
       if [[ -z "$TEXT_SUBS" ]]; then
@@ -945,7 +945,7 @@ in
 
       declare -A LANG_COUNTS
 
-      echo "$TEXT_SUBS" | while IFS='|' read -r STREAM_IDX LANG TITLE; do
+      while IFS='|' read -r STREAM_IDX LANG TITLE; do
         case "$LANG" in
           eng) LANG="en" ;;
           spa) LANG="es" ;;
@@ -959,6 +959,8 @@ in
           rus) LANG="ru" ;;
           und) LANG="und" ;;
         esac
+
+        [[ -z "$LANG" ]] && LANG="und"
 
         SUFFIX=""
         if echo "$TITLE" | ${pkgs.gnugrep}/bin/grep -iq "sdh"; then
@@ -988,7 +990,7 @@ in
         else
           echo "Failed to extract stream $STREAM_IDX from $FILE_PATH" >&2
         fi
-      done
+      done <<< "$TEXT_SUBS"
     '';
   };
 
