@@ -347,7 +347,7 @@ in
                 description: "Disk space is below 10% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskWillFillSoon
-              expr: predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0
+              expr: (predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0) unless on(host, mountpoint) node_filesystem_avail_bytes{host="elk",mountpoint="/"}
               for: 30m
               labels:
                 severity: warning
