@@ -141,6 +141,7 @@ in
       // (optionalAttrs cfg.enableSkills (
         {
           ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
+          ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
         }
         // listToAttrs (
           map (
