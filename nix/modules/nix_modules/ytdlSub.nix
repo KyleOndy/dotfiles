@@ -168,10 +168,6 @@ in
             };
 
             ytdl_options = {
-              # TODO: remove once existing channels have backfilled to 20 videos.
-              # The built-in preset sets this to true, which prevents backfilling
-              # channels first indexed under the old 2-week date filter.
-              break_on_existing = false;
               cookiefile = "${cfg.data_dir}/cookies.txt";
               format = "bestvideo+bestaudio/best";
               noprogress = true;
