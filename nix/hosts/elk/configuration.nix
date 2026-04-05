@@ -550,6 +550,21 @@
     enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
+    source_address = "192.168.5.3"; # Route downloads through WireGuard home tunnel
+    wireguard_service = "wireguard-wg-home.service";
+
+    tiers = {
+      # Frequent posters: checked daily, limited to 10 videos to reduce request volume
+      daily = {
+        schedule = "*-*-* 03:00:00";
+        max_videos = 10;
+      };
+      # Everything else: checked weekly, higher video limit for catch-up
+      weekly = {
+        schedule = "Mon *-*-* 03:00:00";
+        max_videos = 20;
+      };
+    };
 
     channels = {
       Cycling = [
@@ -561,13 +576,25 @@
         "@chadweberg1" # Chad Weberg
         "@ChumbaUSABikes"
         "@Cycling366"
-        "@Danny_MacAskill"
-        "@DirtyTeethMTB"
+        {
+          name = "@Danny_MacAskill";
+          tier = "daily";
+        }
+        {
+          name = "@DirtyTeethMTB";
+          tier = "daily";
+        }
         "@duzer"
         "@DylanJohnsonCycling"
         "@EFProCycling"
-        "@FarBeyond-EFPC"
-        "@FullBeansCyclingCompany"
+        {
+          name = "@FarBeyond-EFPC";
+          tier = "daily";
+        }
+        {
+          name = "@FullBeansCyclingCompany";
+          tier = "daily";
+        }
         "@hennapalosaari_"
         "@howtheracewaswon"
         "@JackScottkeogh"
@@ -580,7 +607,10 @@
         "@katrinahase"
         "@KDubzDidWhat"
         "@KeepSmilingAdventures"
-        "@lesperitdelbikepacking"
+        {
+          name = "@lesperitdelbikepacking";
+          tier = "daily";
+        }
         "@MediocreAmateur"
         "@MickTurnbullFilms"
         "@msoleilblais74"
@@ -589,25 +619,40 @@
         "@PatrickMcGrady1"
         "@PaulComponentEngineering"
         "@pnwbikepacking"
-        "@raphafilms"
+        {
+          name = "@raphafilms";
+          tier = "daily";
+        }
         "@RideProductionsNZ"
         "@RousLigon"
         "@SethsBikeHacks"
         "@sofianeshl"
         "@sportscientist" # Stephen Seiler
         "@stephanwieser"
-        "@TailfinCycling"
+        {
+          name = "@TailfinCycling";
+          tier = "daily";
+        }
         "@TENTISTHENEWRENT"
-        "@the_dirtbags"
+        {
+          name = "@the_dirtbags";
+          tier = "daily";
+        }
         "@themountainraces"
-        "@TheVCAdventures" # The Vegan Cyclist
+        {
+          name = "@TheVCAdventures";
+          tier = "daily";
+        } # The Vegan Cyclist
         "@tristanbogaard"
         "@tristantakevideo"
         "@TurnCycling"
         "@ValleyPreferredCyclingCenter"
         "@wattwagon"
         "@wheelstowaves"
-        "@worstretirementever" # Phil Gaimon
+        {
+          name = "@worstretirementever";
+          tier = "daily";
+        } # Phil Gaimon
       ];
       Science = [
         "@AlphaPhoenixChannel"
@@ -635,10 +680,16 @@
         "@2MuchColinFurze"
         "@Ben_Brainard"
         "@CaptainDisillusion"
-        "@CharlieBerens"
+        {
+          name = "@CharlieBerens";
+          tier = "daily";
+        }
         "@colinfurze"
         "@DudeDad"
-        "@Gossip.Goblin"
+        {
+          name = "@Gossip.Goblin";
+          tier = "daily";
+        }
         "@GxAce"
         "@kaptainkristian"
         "@kurzgesagt"
@@ -659,8 +710,14 @@
       ];
       Outdoor = [
         "@bronandjacob"
-        "@ChrisburkardStudio"
-        "@courtneyevewhite"
+        {
+          name = "@ChrisburkardStudio";
+          tier = "daily";
+        }
+        {
+          name = "@courtneyevewhite";
+          tier = "daily";
+        }
         "@RabEquipment"
         "@theaudaciousreport"
       ];

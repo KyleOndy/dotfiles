@@ -8,18 +8,20 @@ with lib;
 let
   cfg = config.systemFoundry.ytdlSub;
 
-  # Normalize a channel entry to { name, shorts }
+  # Normalize a channel entry to { name, shorts, tier }
   normalizeChannel =
     ch:
     if builtins.isString ch then
       {
         name = ch;
         shorts = true;
+        tier = "weekly";
       }
     else
       {
         name = ch.name;
         shorts = ch.shorts or true;
+        tier = ch.tier or "weekly";
       };
 
   # Strip leading @ from handle for display name
@@ -28,25 +30,20 @@ let
   # Build URL from @handle
   channelUrl = handle: "https://www.youtube.com/${handle}";
 
-  # Collect all channels across all genres, normalized
-  allChannels = concatLists (
-    mapAttrsToList (_genre: channels: map normalizeChannel channels) cfg.channels
-  );
-
-  # Partition into shorts-ok and no-shorts channels, grouped by genre
-  buildSubscriptions =
-    presetName:
+  # Build subscriptions for a specific tier and preset
+  buildSubscriptionsForTier =
+    tierName: presetName:
     let
-      filter =
+      shortsFilter =
         if presetName == "no_shorts" then
           (ch: !(normalizeChannel ch).shorts)
         else
           (ch: (normalizeChannel ch).shorts);
     in
     mapAttrs (
-      genre: channels:
+      _genre: channels:
       let
-        filtered = builtins.filter filter channels;
+        filtered = builtins.filter (ch: (normalizeChannel ch).tier == tierName && shortsFilter ch) channels;
         normalized = map normalizeChannel filtered;
       in
       listToAttrs (
@@ -58,21 +55,27 @@ let
     ) cfg.channels;
 
   # Remove empty genre groups
-  nonEmptySubscriptions =
-    presetName: filterAttrs (_genre: channels: channels != { }) (buildSubscriptions presetName);
+  nonEmptySubscriptionsForTier =
+    tierName: presetName:
+    filterAttrs (_genre: channels: channels != { }) (buildSubscriptionsForTier tierName presetName);
 
-  hasNoShortsChannels = (nonEmptySubscriptions "no_shorts") != { };
+  hasNoShortsChannelsForTier = tierName: (nonEmptySubscriptionsForTier tierName "no_shorts") != { };
 
   # Format genre keys with = prefix for ytdl-sub
   formatGenreKey = genre: "= ${genre}";
-  formatSubscriptions =
-    presetName:
+  formatSubscriptionsForTier =
+    tierName: presetName:
     mapAttrs' (genre: channels: {
       name = formatGenreKey genre;
       value = channels;
-    }) (nonEmptySubscriptions presetName);
+    }) (nonEmptySubscriptionsForTier tierName presetName);
 
   bgutil-plugin = pkgs.master.python313Packages.bgutil-ytdlp-pot-provider;
+
+  # ExecStartPre script to fix .trickplay directory permissions (runs as root)
+  fixTrickplayPerms = pkgs.writeShellScript "fix-trickplay-perms" ''
+    find ${cfg.media_dir} -name '*.trickplay' -type d -exec chmod g+rwX {} +
+  '';
 in
 {
   options.systemFoundry.ytdlSub = {
@@ -96,28 +99,68 @@ in
       default = "/var/lib/ytdl-sub/tmp";
     };
 
-    schedule = mkOption {
-      type = types.str;
-      description = "Systemd timer calendar expression";
-      default = "*-*-* 03:00:00";
-    };
-
     max_videos = mkOption {
       type = types.int;
-      description = "Maximum number of recent videos to check per channel";
+      description = "Default maximum number of recent videos to check per channel";
       default = 20;
+    };
+
+    tiers = mkOption {
+      type = types.attrsOf (
+        types.submodule {
+          options = {
+            schedule = mkOption {
+              type = types.str;
+              description = "Systemd timer calendar expression for this tier";
+            };
+            max_videos = mkOption {
+              type = types.int;
+              description = "Maximum videos to check per channel in this tier";
+              default = 20;
+            };
+          };
+        }
+      );
+      description = ''
+        Download frequency tiers. Each tier generates a separate ytdl-sub instance
+        with its own schedule. Channels are assigned via the `tier` attribute;
+        default tier is "weekly".
+      '';
+      default = {
+        weekly = {
+          schedule = "Mon *-*-* 03:00:00";
+        };
+      };
+    };
+
+    source_address = mkOption {
+      type = types.nullOr types.str;
+      description = "Source IP for yt-dlp to bind outgoing connections to";
+      default = null;
+    };
+
+    wireguard_service = mkOption {
+      type = types.nullOr types.str;
+      description = "Systemd service name for a WireGuard tunnel to wait for before downloading";
+      default = null;
+      example = "wireguard-wg-home.service";
     };
 
     channels = mkOption {
       type = types.attrsOf (types.listOf (types.either types.str types.attrs));
       description = ''
         Channels grouped by genre. Each genre becomes a Jellyfin genre tag.
-        Channels can be strings ("@Handle") or attrs ({ name = "@Handle"; shorts = false; }).
+        Channels can be strings ("@Handle") or attrs with optional fields:
+          - shorts = false  (exclude YouTube Shorts)
+          - tier = "daily"  (override download tier; default: "weekly")
       '';
       example = {
         Cycling = [
           "@BeauMiles"
-          "@SethsBikeHacks"
+          {
+            name = "@SethsBikeHacks";
+            tier = "daily";
+          }
         ];
         Entertainment = [
           "@colinfurze"
@@ -136,68 +179,79 @@ in
       package = pkgs.master.ytdl-sub;
       group = "media";
 
-      instances.youtube = {
-        enable = true;
-        schedule = cfg.schedule;
-        readWritePaths = [
-          cfg.media_dir
-          cfg.temp_dir
-          cfg.data_dir
-        ];
+      instances = mapAttrs' (
+        tierName: tierCfg:
+        nameValuePair "youtube_${tierName}" {
+          enable = true;
+          schedule = tierCfg.schedule;
+          readWritePaths = [
+            cfg.media_dir
+            cfg.temp_dir
+            cfg.data_dir
+          ];
 
-        config = {
-          configuration = {
-            working_directory = mkForce cfg.temp_dir;
-            persist_logs = {
-              logs_directory = "${cfg.data_dir}/logs";
-              keep_successful_logs = true;
-            };
-          };
-
-          presets.base = {
-            preset = [
-              "Jellyfin TV Show by Date"
-            ];
-
-            chapters.embed_chapters = true;
-
-            subtitles = {
-              embed_subtitles = true;
-              languages = [ "en" ];
-              allow_auto_generated_subtitles = true;
-            };
-
-            ytdl_options = {
-              cookiefile = "${cfg.data_dir}/cookies.txt";
-              format = "bestvideo+bestaudio/best";
-              noprogress = true;
-              playlistend = cfg.max_videos;
-              extractor_args = {
-                youtube = {
-                  player_client = [ "web" ];
-                };
+          config = {
+            configuration = {
+              working_directory = mkForce cfg.temp_dir;
+              persist_logs = {
+                logs_directory = "${cfg.data_dir}/logs";
+                keep_successful_logs = true;
               };
             };
 
-            overrides = {
-              tv_show_directory = cfg.media_dir;
+            presets.base = {
+              preset = [ "Jellyfin TV Show by Date" ];
+
+              chapters.embed_chapters = true;
+
+              subtitles = {
+                embed_subtitles = true;
+                languages = [ "en" ];
+                allow_auto_generated_subtitles = true;
+              };
+
+              ytdl_options = {
+                cookiefile = "${cfg.data_dir}/cookies.txt";
+                format = "bestvideo+bestaudio/best";
+                noprogress = true;
+                playlistend = tierCfg.max_videos;
+                sleep_requests = 5;
+                sleep_interval = 10;
+                max_sleep_interval = 30;
+                extractor_args = {
+                  youtube = {
+                    player_client = [ "web" ];
+                    player_skip = [ "player_response" ];
+                    fetch_pot = [ "always" ];
+                  };
+                };
+              }
+              // optionalAttrs (cfg.source_address != null) {
+                source_address = cfg.source_address;
+              };
+
+              overrides = {
+                tv_show_directory = cfg.media_dir;
+              };
+            };
+
+            presets.no_shorts = mkIf (hasNoShortsChannelsForTier tierName) {
+              preset = [ "base" ];
+              match_filters.filters = [
+                "original_url!*=/shorts/"
+                "duration>60"
+              ];
             };
           };
 
-          presets.no_shorts = mkIf hasNoShortsChannels {
-            preset = [ "base" ];
-            match_filters.filters = [
-              "original_url!*=/shorts/"
-              "duration>60"
-            ];
+          subscriptions = {
+            base = formatSubscriptionsForTier tierName "base";
+          }
+          // optionalAttrs (hasNoShortsChannelsForTier tierName) {
+            no_shorts = formatSubscriptionsForTier tierName "no_shorts";
           };
-        };
-
-        subscriptions = {
-          base = formatSubscriptions "base";
         }
-        // optionalAttrs hasNoShortsChannels { no_shorts = formatSubscriptions "no_shorts"; };
-      };
+      ) cfg.tiers;
     };
 
     # Ensure download directories exist with correct ownership
@@ -208,31 +262,47 @@ in
       "d ${cfg.data_dir}/logs 0775 ytdl-sub media -"
     ];
 
-    # bgutil PO token provider for YouTube bot detection bypass
-    systemd.services.bgutil-pot-server = {
-      enable = true;
-      description = "bgutil PO token provider HTTP server for yt-dlp";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ];
-      serviceConfig = {
-        Type = "simple";
-        ExecStart = "${pkgs.bgutil-ytdlp-pot-server}/bin/bgutil-ytdlp-pot-server";
-        Restart = "on-failure";
-        RestartSec = "5s";
-        DynamicUser = true;
-        StateDirectory = "bgutil-pot-server";
+    # bgutil PO token provider + per-tier service overrides (bgutil dep, PYTHONPATH, trickplay fix)
+    systemd.services = {
+      bgutil-pot-server = {
+        enable = true;
+        description = "bgutil PO token provider HTTP server for yt-dlp";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network.target" ];
+        serviceConfig = {
+          Type = "simple";
+          ExecStart = "${pkgs.bgutil-ytdlp-pot-server}/bin/bgutil-ytdlp-pot-server";
+          Restart = "on-failure";
+          RestartSec = "5s";
+          DynamicUser = true;
+          StateDirectory = "bgutil-pot-server";
+        };
       };
-    };
-
-    # Inject bgutil plugin and dependency ordering into the ytdl-sub service
-    systemd.services.ytdl-sub-youtube = {
-      wants = [ "bgutil-pot-server.service" ];
-      after = [ "bgutil-pot-server.service" ];
-      environment = {
-        PYTHONPATH = "${bgutil-plugin}/${bgutil-plugin.pythonModule.sitePackages}";
-        XDG_CACHE_HOME = "/var/cache/ytdl-sub";
-      };
-      serviceConfig.CacheDirectory = "ytdl-sub";
-    };
+    }
+    // mapAttrs' (
+      tierName: _:
+      let
+        wgDeps = optionalAttrs (cfg.wireguard_service != null) {
+          wants = [ cfg.wireguard_service ];
+          after = [ cfg.wireguard_service ];
+        };
+      in
+      nameValuePair "ytdl-sub-youtube_${tierName}" (
+        wgDeps
+        // {
+          wants = (wgDeps.wants or [ ]) ++ [ "bgutil-pot-server.service" ];
+          after = (wgDeps.after or [ ]) ++ [ "bgutil-pot-server.service" ];
+          environment = {
+            PYTHONPATH = "${bgutil-plugin}/${bgutil-plugin.pythonModule.sitePackages}";
+            XDG_CACHE_HOME = "/var/cache/ytdl-sub";
+          };
+          serviceConfig = {
+            CacheDirectory = "ytdl-sub";
+            # Run as root to fix .trickplay dir permissions created by Jellyfin
+            ExecStartPre = "+${fixTrickplayPerms}";
+          };
+        }
+      )
+    ) cfg.tiers;
   };
 }
