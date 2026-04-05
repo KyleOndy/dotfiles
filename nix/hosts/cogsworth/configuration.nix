@@ -99,6 +99,9 @@
     chmod +w ./firmware/config.txt
     echo "disable_splash=1" >> ./firmware/config.txt
     echo "dtparam=i2s=on" >> ./firmware/config.txt
+    echo "gpu_mem=128" >> ./firmware/config.txt
+    echo "arm_freq=1800" >> ./firmware/config.txt
+    echo "over_voltage=2" >> ./firmware/config.txt
   '';
 
   # GPU drivers (creates /run/opengl-driver for mesa/GBM)
@@ -256,6 +259,9 @@
     RebootWatchdogSec = "2min"; # Reboot timeout if normal reboot fails
   };
 
+  # CPU always at max frequency when awake (app dynamically switches to powersave on screen off)
+  powerManagement.cpuFreqGovernor = "performance";
+
   # Rotate framebuffer console to match physical display orientation (270° clockwise)
   boot.kernelParams = [
     "fbcon=rotate:3" # 3 = 270° clockwise (90° + 180°)
@@ -318,7 +324,7 @@
   # Required for home-manager user services on systems where kyle doesn't log in
   users.users.kyle.linger = true;
 
-  # Allow cogsworth user to reboot system without password
+  # Allow cogsworth user to reboot and switch CPU governor without password
   security.sudo.extraRules = [
     {
       users = [ "cogsworth" ];
@@ -327,9 +333,104 @@
           command = "/run/current-system/sw/bin/systemctl reboot";
           options = [ "NOPASSWD" ];
         }
+        {
+          command = "/run/current-system/sw/bin/cogsworth-set-governor";
+          options = [ "NOPASSWD" ];
+        }
       ];
     }
   ];
+
+  # tmpfs mount for SQLite database (eliminates SD card I/O latency)
+  fileSystems."/var/lib/cogsworth/db" = {
+    device = "tmpfs";
+    fsType = "tmpfs";
+    options = [
+      "size=16M"
+      "mode=0755"
+      "uid=cogsworth"
+      "gid=cogsworth"
+      "noatime"
+    ];
+  };
+
+  # Copy DB from persistent storage to tmpfs on boot
+  systemd.services.cogsworth-db-restore = {
+    description = "Restore Cogsworth DB from SD card to tmpfs";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "cogsworth.service" ];
+    after = [ "var-lib-cogsworth-db.mount" ];
+    requires = [ "var-lib-cogsworth-db.mount" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      User = "cogsworth";
+      Group = "cogsworth";
+      RemainAfterExit = true;
+    };
+
+    script = ''
+      PERSISTENT="/var/lib/cogsworth/persistent"
+      TMPFS="/var/lib/cogsworth/db"
+      mkdir -p "$PERSISTENT"
+      if [ -f "$PERSISTENT/cogsworth.db" ]; then
+        cp "$PERSISTENT/cogsworth.db" "$TMPFS/cogsworth.db"
+        if [ -f "$PERSISTENT/cogsworth.db-wal" ]; then
+          cp "$PERSISTENT/cogsworth.db-wal" "$TMPFS/cogsworth.db-wal"
+        fi
+        if [ -f "$PERSISTENT/cogsworth.db-shm" ]; then
+          cp "$PERSISTENT/cogsworth.db-shm" "$TMPFS/cogsworth.db-shm"
+        fi
+      fi
+    '';
+  };
+
+  # Periodic snapshot: tmpfs DB -> SD card (every 5 minutes)
+  systemd.services.cogsworth-db-snapshot = {
+    description = "Snapshot Cogsworth DB from tmpfs to SD card";
+
+    serviceConfig = {
+      Type = "oneshot";
+      User = "cogsworth";
+      Group = "cogsworth";
+    };
+
+    script = ''
+      PERSISTENT="/var/lib/cogsworth/persistent"
+      TMPFS="/var/lib/cogsworth/db"
+      mkdir -p "$PERSISTENT"
+      if [ -f "$TMPFS/cogsworth.db" ]; then
+        cp "$TMPFS/cogsworth.db" "$PERSISTENT/cogsworth.db.tmp"
+        mv "$PERSISTENT/cogsworth.db.tmp" "$PERSISTENT/cogsworth.db"
+      fi
+    '';
+  };
+
+  systemd.timers.cogsworth-db-snapshot = {
+    description = "Periodic Cogsworth DB snapshot timer";
+    wantedBy = [ "timers.target" ];
+
+    timerConfig = {
+      OnBootSec = "5min";
+      OnUnitActiveSec = "5min";
+    };
+  };
+
+  # Final DB snapshot on clean shutdown
+  systemd.services.cogsworth-db-shutdown-snapshot = {
+    description = "Final Cogsworth DB snapshot before shutdown";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "cogsworth.service" ];
+    before = [ "shutdown.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      User = "cogsworth";
+      Group = "cogsworth";
+      ExecStop = "${pkgs.bash}/bin/bash -c 'cp /var/lib/cogsworth/db/cogsworth.db /var/lib/cogsworth/persistent/cogsworth.db 2>/dev/null || true'";
+    };
+  };
 
   # Cogsworth application service - runs Flutter kiosk via flutter-pi
 
@@ -339,8 +440,10 @@
     after = [
       "network.target"
       "seatd.service"
+      "cogsworth-db-restore.service"
     ];
     requires = [ "seatd.service" ];
+    wants = [ "cogsworth-db-restore.service" ];
 
     serviceConfig = {
       Type = "simple";
@@ -353,6 +456,7 @@
         "PATH=/run/current-system/sw/bin"
         "LD_LIBRARY_PATH=${pkgs.sqlite.out}/lib"
         "FLUTTER_PI=1"
+        "COGSWORTH_DB=/var/lib/cogsworth/db/cogsworth.db"
       ];
 
       # flutter-pi needs tty1 for DRM master
@@ -390,7 +494,11 @@
       # Working directory for any file operations
       WorkingDirectory = "/var/lib/cogsworth";
       StateDirectory = "cogsworth";
-      ReadWritePaths = [ "/run/cogsworth" ];
+      ReadWritePaths = [
+        "/run/cogsworth"
+        "/var/lib/cogsworth/db"
+        "/var/lib/cogsworth/persistent"
+      ];
     };
 
     # Allow up to 10 restarts in 2 minutes before giving up
@@ -512,6 +620,7 @@
   systemd.tmpfiles.rules = [
     "d /opt/cogsworth 0755 cogsworth cogsworth -"
     "d /run/cogsworth 0755 cogsworth cogsworth -"
+    "d /var/lib/cogsworth/persistent 0755 cogsworth cogsworth -"
   ];
 
   # Enable SSH for remote management
@@ -539,6 +648,17 @@
     sqlite # CLI database debugging
     libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
     alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
+    (writeShellScriptBin "cogsworth-set-governor" ''
+      set -euo pipefail
+      GOVERNOR="''${1:?Usage: cogsworth-set-governor <performance|powersave>}"
+      case "$GOVERNOR" in
+        performance|powersave|ondemand) ;;
+        *) echo "Invalid governor: $GOVERNOR" >&2; exit 1 ;;
+      esac
+      for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo "$GOVERNOR" > "$cpu"
+      done
+    '')
     (writeShellScriptBin "edit-pi-config" ''
       set -euo pipefail
 
