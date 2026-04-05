@@ -175,6 +175,12 @@ in
           proxyTimeout = "300s";
           flushInterval = "-1";
           # TODO: add rate limiting on /Users/AuthenticateByName once caddy-ratelimit plugin is added
+          extraCaddyConfig = ''
+            encode zstd gzip
+
+            @images path /Items/*/Images/*
+            header @images Cache-Control "public, max-age=604800, immutable"
+          '';
         };
 
     # Configure debug logging when enabled
@@ -233,6 +239,14 @@ in
         )
       }"
     ];
+
+    # Restrict Jellyfin to localhost only; all external traffic must go through Caddy.
+    systemd.services.jellyfin.environment.ASPNETCORE_URLS = "http://127.0.0.1:8096";
+
+    # Relax UMask so trickplay directories are group-readable.
+    # Default 0077 blocks ytdl-sub (same media group) from scanning
+    # output dirs during cleanup, causing PermissionError crashes.
+    systemd.services.jellyfin.serviceConfig.UMask = mkForce "0027";
 
     systemd.services = {
       jellyfin-backup = mkIf cfg.backup.enable {
