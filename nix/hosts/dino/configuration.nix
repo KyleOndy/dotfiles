@@ -331,6 +331,19 @@
   # KVM virtualization support
   virtualisation.libvirtd.enable = true;
 
+  # Restart libvirtd on failure to avoid lingering failed state and alert spam
+  systemd.services.libvirtd = {
+    serviceConfig = {
+      Restart = lib.mkForce "on-failure";
+      RestartSec = "5s";
+    };
+    startLimitBurst = 10;
+    startLimitIntervalSec = 120;
+    unitConfig = {
+      StartLimitAction = "none";
+    };
+  };
+
   # QEMU bridge configuration for VM networking
   environment.etc."qemu/bridge.conf" = {
     text = ''
