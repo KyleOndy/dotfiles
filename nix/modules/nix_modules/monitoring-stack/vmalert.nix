@@ -295,14 +295,18 @@ in
                 description: "Elk /mnt/storage is below 3% free. Current: {{ $value | humanizePercentage }}"
 
             # Predictive alert for elk media storage
+            # Guard with >80% usage to prevent download bursts from triggering false positives
             - alert: ElkMediaWillFillSoon
-              expr: predict_linear(node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"}[24h], 7*24*3600) < 0
-              for: 1h
+              expr: |
+                (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.20)
+                and
+                predict_linear(node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"}[7d], 7*24*3600) < 0
+              for: 2h
               labels:
                 severity: warning
               annotations:
                 summary: "Elk media storage will fill within 7 days"
-                description: "Based on the last 24 hours, /mnt/storage on elk will fill up within 7 days"
+                description: "Elk /mnt/storage is above 80% used and trending to fill within 7 days"
 
             # Default disk space alerts for all other filesystems
             - alert: DiskSpaceLow
