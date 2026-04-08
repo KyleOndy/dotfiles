@@ -74,7 +74,7 @@ let
 
   # ExecStartPre script to fix .trickplay directory permissions (runs as root)
   fixTrickplayPerms = pkgs.writeShellScript "fix-trickplay-perms" ''
-    find ${cfg.media_dir} -name '*.trickplay' -type d -exec chmod g+rwX {} +
+    find ${cfg.media_dir} -path '*.trickplay*' -type d -exec chmod g+rwX {} +
   '';
 in
 {
