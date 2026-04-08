@@ -574,6 +574,18 @@
     group = "root";
   };
 
+  # Media normalizer - transcodes EAC3→AAC and strips PGS/DVD bitmap subtitles
+  systemFoundry.mediaNormalizer = {
+    enable = true;
+    mediaPath = "/mnt/storage/media";
+    tempPath = "/mnt/storage/media/tmp";
+    sourceCodecs = [ "eac3" ];
+    removeSubtitleCodecs = [
+      "hdmv_pgs_subtitle"
+      "dvd_subtitle"
+    ];
+  };
+
   # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
   systemFoundry.ytdlSub = {
     enable = true;
