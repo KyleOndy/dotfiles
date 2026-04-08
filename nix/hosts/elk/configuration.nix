@@ -300,6 +300,7 @@
         lidarr = {
           enable = true;
           apiKeyFile = config.sops.secrets.lidarr_api_key.path;
+          enableAdditionalMetrics = false;
         };
 
         readarr = {
