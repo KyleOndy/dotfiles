@@ -82,7 +82,18 @@ in
           group_interval = "10s";
           repeat_interval = "1h";
           receiver = "default";
-          routes = [ ];
+          routes = [
+            {
+              match = {
+                alertname = "SystemdServiceFailed";
+              };
+              match_re = {
+                name = "ytdl-sub-.*";
+              };
+              repeat_interval = "24h";
+              receiver = "default";
+            }
+          ];
         };
 
         receivers = [
