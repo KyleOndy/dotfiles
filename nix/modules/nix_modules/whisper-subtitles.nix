@@ -8,7 +8,7 @@ with lib;
 let
   cfg = config.systemFoundry.whisperSubtitles;
 
-  whisperCpp = pkgs.whisper-cpp.override { vulkanSupport = true; };
+  whisperCpp = pkgs.whisper-cpp;
 
   # Build find expression for configured extensions (case-insensitive)
   findExpr = concatStringsSep " -o " (map (ext: ''-iname "*.${ext}"'') cfg.extensions);
@@ -66,7 +66,7 @@ let
       fi
 
       # Run whisper-cpp (suppress per-segment output to keep logs clean)
-      if ! whisper-cli -m "$MODEL_PATH" -osrt -of "$tmpdir/output" -l en --no-prints "$tmpdir/audio.wav" >/dev/null 2>&1; then
+      if ! whisper-cli -m "$MODEL_PATH" -osrt -of "$tmpdir/output" -l en --no-prints --no-gpu -t ${toString cfg.threads} "$tmpdir/audio.wav" >/dev/null 2>&1; then
         echo "  ERROR: whisper transcription failed for $video" >&2
         return 1
       fi
@@ -119,7 +119,7 @@ let
 in
 {
   options.systemFoundry.whisperSubtitles = {
-    enable = mkEnableOption "whisper subtitle generation via whisper-cpp with Vulkan GPU";
+    enable = mkEnableOption "whisper subtitle generation via whisper-cpp";
 
     mediaPaths = mkOption {
       type = types.listOf types.path;
@@ -154,6 +154,12 @@ in
       description = "Directory to store downloaded ggml model files";
     };
 
+    threads = mkOption {
+      type = types.ints.positive;
+      default = 4;
+      description = "Number of CPU threads for inference";
+    };
+
     user = mkOption {
       type = types.str;
       default = "whisper";
@@ -181,14 +187,10 @@ in
     users.users.${cfg.user} = {
       isSystemUser = true;
       group = cfg.group;
-      extraGroups = [
-        "render"
-        "video"
-      ];
     };
 
     systemd.services.whisper-subtitles = {
-      description = "Generate .en.whisper.srt subtitles via whisper-cpp (Vulkan GPU)";
+      description = "Generate .en.whisper.srt subtitles via whisper-cpp";
       restartIfChanged = false;
       after = [
         "network.target"
@@ -202,10 +204,6 @@ in
         Type = "oneshot";
         User = cfg.user;
         Group = cfg.group;
-        SupplementaryGroups = [
-          "render"
-          "video"
-        ];
         ExecStart = batchExec;
         Nice = 19;
         IOSchedulingClass = "idle";
