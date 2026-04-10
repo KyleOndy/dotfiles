@@ -137,8 +137,9 @@ preflight_checks() {
 		die "No pinentry found. Configure pinentry-program in ~/.gnupg/gpg-agent.conf or install a pinentry variant"
 	fi
 
-	# Check backup parent directory exists
+	# Check backup parent directory exists and is writable
 	validate_directory "$BACKUP_PARENT_DIR" "Backup parent directory"
+	[[ -w $BACKUP_PARENT_DIR ]] || die "Backup parent directory is not writable: $BACKUP_PARENT_DIR"
 
 	log_info "Pre-flight checks passed"
 }
