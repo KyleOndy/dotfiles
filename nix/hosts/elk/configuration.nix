@@ -587,6 +587,11 @@
     ];
   };
 
+  # Whisper subtitle generation - generates .en.whisper.srt via whisper-cpp + Vulkan iGPU
+  systemFoundry.whisperSubtitles = {
+    enable = true;
+  };
+
   # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
   systemFoundry.ytdlSub = {
     enable = true;
