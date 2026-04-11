@@ -145,6 +145,7 @@
     argocd # ArgoCD CLI
     coder # Provision remote development environments via Terraform
     linear-cli
+    opencode
     pdm # Python Development Master
     pulumi
     pkgs.pulumiPackages.pulumi-python

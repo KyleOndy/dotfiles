@@ -52,6 +52,7 @@
 
     # Default casks (can be overridden with lib.mkForce in work.nix)
     casks = lib.mkDefault [
+      "cursor"
       "hammerspoon"
       "karabiner-elements"
       "linear-linear"
