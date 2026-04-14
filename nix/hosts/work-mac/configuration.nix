@@ -1,5 +1,4 @@
 # Base darwin system configuration for work macOS environments
-# This provides sensible defaults that can be extended via work.nix in work forks
 {
   lib,
   pkgs,
@@ -7,6 +6,8 @@
 }:
 {
   imports = [ ];
+
+  nix.linux-builder.enable = true;
 
   # Nix configuration
   nix = {

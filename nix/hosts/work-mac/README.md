@@ -63,8 +63,13 @@ defaults read cc.ffitch.shottr
 
 ## Deployment
 
-Deploy configuration changes with:
-
 ```bash
-make HOSTNAME=work-mac deploy
+# With work-specific config (git email, internal CLAUDE.md, cluster-health skill)
+make deploy HOSTNAME=work-mac WORK_CONFIG=/Users/kondy/work
+
+# Without work config (uses no-op stub, personal email)
+make deploy HOSTNAME=work-mac
 ```
+
+See the root CLAUDE.md "Work Config Split" section for details on what lives
+in this repo vs. the private work repo.

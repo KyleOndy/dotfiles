@@ -4,43 +4,12 @@
 {
   lib,
   pkgs,
+  config,
   inputs,
   ...
 }:
 {
-  # The desktop profile is imported via mkDarwinSystem in flake.nix
-  # This file provides macOS-specific overrides
   imports = [ ];
-
-  # The desktop profile provides:
-  # - Full development tools (kubernetes, aws, terraform, docker, etc.)
-  # - Shell configuration (zsh with sensible defaults)
-  # - Desktop applications (browsers, communication apps, terminals)
-  # - Language toolchains (via hmFoundry.dev flags)
-  #
-  # Work forks can override or extend any of these settings in work-home.nix
-  # using lib.mkForce, lib.mkDefault, or by adding to existing lists/attrsets
-
-  # Example customizations that work forks might add in work-home.nix:
-  # - programs.git.userEmail = lib.mkForce "you@company.com";
-  # - home.packages = with pkgs; [ company-specific-tool ];
-  # - programs.ssh.matchBlocks = { "work-*" = { ... }; };
-  # - programs.zsh.shellAliases = { vpn = "tailscale up"; };
-  # - hmFoundry.dev.aws.enable = true;
-  #
-  # For work-specific Neovim plugins (e.g., copilot):
-  # nvim.packageDefinitions.merge = {
-  #   nvim = { pkgs, ... }: {
-  #     categories = { work = true; };
-  #     work = { copilot = true; };
-  #   };
-  # };
-  #
-  # Provision work Lua config from this directory:
-  # xdg.configFile."nixCats-nvim/lua/plugins/work.lua".source = ./work.lua;
-  # Then create work.lua in this directory and add "plugins.work" to lua/plugins.lua
-  #
-  # See docs/nixcats-work-plugins.md for details.
 
   # Disable Linux-only features on macOS
   hmFoundry.desktop = {
@@ -85,16 +54,23 @@
     DOTS_CONTEXT = "work";
     DOTFILES = lib.mkForce "/Users/kondy/src/kyleondy/dotfiles/main";
     WORK = "/Users/kondy/work";
+    SRC_WORK = "${config.home.homeDirectory}/src/modularml";
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
     CC = "/usr/bin/cc"; # Use system clang for C compilation (macOS SDK compatibility)
   };
+
+  programs.zsh.shellAliases.src = lib.mkForce "cd ${config.home.homeDirectory}/src/modularml";
+
+  # Create modularml source directory
+  home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
+    mkdir -p $HOME/src/modularml
+  '';
 
   # Add Homebrew to PATH for all managed shells (including Claude Code)
   home.sessionPath = [ "/opt/homebrew/bin" ];
 
   # Enable development modules
   hmFoundry.dev = {
-    git.userEmail = "kondy@modular.com";
     java.enable = true;
     claude-code = {
       enable = true;
@@ -139,17 +115,16 @@
     };
   };
 
-  # packages I use at work, but not personally, that do not need to be kept
-  # in the private work config.
   home.packages = with pkgs; [
-    argocd # ArgoCD CLI
-    coder # Provision remote development environments via Terraform
+    argocd
+    coder
+    gemini-cli
     linear-cli
-    pdm # Python Development Master
+    opencode
+    pdm
     pulumi
     pkgs.pulumiPackages.pulumi-python
-    gemini-cli
-    ssm-session-manager-plugin # AWS Systems Manager Session Manager
+    ssm-session-manager-plugin
   ];
 
   # Coder remote development SSH config
