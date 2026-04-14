@@ -129,16 +129,6 @@
   # System packages
   environment.systemPackages = with pkgs; [
     intel-gpu-tools # intel_gpu_top for monitoring GPU usage
-    (writeShellScriptBin "media-migration-sync" ''
-      export PATH="/run/wrappers/bin:${
-        lib.makeBinPath [
-          coreutils
-          openssh
-          rsync
-        ]
-      }"
-      ${builtins.readFile ./scripts/media-migration-sync.sh}
-    '')
     (writeShellScriptBin "alert-silence" ''
       export PATH="/run/wrappers/bin:${
         lib.makeBinPath [
