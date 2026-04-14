@@ -113,8 +113,8 @@ If you want uncommitted changes to be part of the history:
 
 Run these commands to understand your commits:
 
-!`git log --oneline $BASE..HEAD`
-!`git log --stat $BASE..HEAD`
+`git log --oneline $BASE..HEAD`
+`git log --stat $BASE..HEAD`
 
 ### 2. Categorize Commits
 
