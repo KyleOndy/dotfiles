@@ -246,6 +246,5 @@ in
     })
 
     # Tier 1 is configured per-host in host configuration.nix
-    # See environment.etc."scripts/subtitle-extract-notify.sh" in wolf/configuration.nix
   ];
 }

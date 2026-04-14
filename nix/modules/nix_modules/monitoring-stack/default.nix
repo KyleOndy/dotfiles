@@ -58,7 +58,7 @@ in
         Not used when caddyReverseProxy is enabled (use monitoringBasicAuth instead).
       '';
       example = {
-        wolf = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        elk = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
       };
     };
 

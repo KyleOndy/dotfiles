@@ -574,20 +574,6 @@
     enable = true;
     machines = [
       {
-        hostName = "wolf";
-        sshUser = "svc.deploy";
-        systems = [
-          "x86_64-linux"
-          "aarch64-linux"
-        ];
-        maxJobs = 4;
-        speedFactor = 10;
-        supportedFeatures = [
-          "benchmark"
-          "big-parallel"
-        ];
-      }
-      {
         hostName = "elk";
         sshUser = "svc.deploy";
         systems = [

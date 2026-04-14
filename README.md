@@ -180,11 +180,6 @@ make cleanup        # Clean up old generations and optimize store
   - Claude Code integration with notifications
   - Gaming and media capabilities
 
-- **`wolf`**: Remote server
-  - Lightweight services
-  - Monitoring and alerting
-  - External access point
-
 ## Advanced Configuration
 
 ### Custom Packages

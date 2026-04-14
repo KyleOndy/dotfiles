@@ -6,7 +6,6 @@ keys:
   # machine keys
   - &cogsworth age1am5p2xzksgsh93zgnznfp3rxpn69wexql9nyjl4ng7qeu386qvjq3pk2vy
   - &dino age1t0eyg4vswkrry0ff0uzrfflyfmxkzctz9ngay7k2z0k3mgt9t9zqm7z0sn
-  - &wolf age1hf20rzjwdsvtuhjd7wvxyh0sdha8wzdnfhcl3mztpn3ughplx34sn03642
   - &elk age1t6aj3v8j6ecehdpr978x4hgu5u9y98gtkw47scyzhfssnzrvs9ssye2tst
 
   # command to add a new age key for a new host
@@ -19,7 +18,6 @@ creation_rules:
           - *cogsworth
           - *dino
           - *elk
-          - *wolf
         pgp:
           - *kyle
   - path_regex: nix/hosts/cogsworth/keys/.*\.sops$

@@ -436,10 +436,6 @@
             ./disko-config.nix
           ];
         };
-        wolf = mkNixosSystem {
-          hostname = "wolf";
-          profile = "server";
-        };
         elk = mkNixosSystem {
           hostname = "elk";
           profile = "server";
@@ -559,15 +555,6 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.dino;
-            };
-          };
-          wolf = {
-            fastConnection = false;
-            hostname = "51.79.99.201";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.wolf;
             };
           };
           cogsworth = {

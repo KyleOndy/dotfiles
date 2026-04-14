@@ -43,7 +43,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 
 ## Architecture Overview
 
-### Server Components (wolf)
+### Server Components (elk)
 
 - **VictoriaMetrics**: Time-series database for metrics storage
 - **Loki**: Log aggregation system
@@ -69,7 +69,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 #### Why?
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `wolf`, `elk`, `dino`
+- `host` shows friendly hostnames like `elk`, `dino`
 
 #### How to Configure
 
@@ -140,10 +140,10 @@ Or use `jq` for more precise replacements (see nix/modules/nix_modules/monitorin
 
 After configuration changes:
 
-1. Deploy to wolf
+1. Deploy to elk
 2. Check alertmanager logs: `ssh elk systemctl status alertmanager`
 3. Look for SMTP connection errors in logs
-4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on wolf)
+4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on elk)
 
 ## Adding New Dashboards
 
@@ -238,7 +238,7 @@ imports = [
 
 ### Step 3: Configure vmagent Scraping
 
-In host configuration (e.g., `nix/hosts/wolf/configuration.nix`):
+In host configuration (e.g., `nix/hosts/elk/configuration.nix`):
 
 ```nix
 vmagent = {
@@ -251,7 +251,7 @@ vmagent = {
         {
           targets = [ "127.0.0.1:9999" ];
           labels = {
-            host = "wolf";  # Use 'host' label!
+            host = "elk";  # Use 'host' label!
           };
         }
       ];
@@ -431,7 +431,7 @@ ssh elk systemctl restart grafana
 
 ## Retention Policy
 
-Configured in `nix/hosts/wolf/configuration.nix`:
+Configured in `nix/hosts/elk/configuration.nix`:
 
 ```nix
 monitoringStack = {
@@ -450,7 +450,7 @@ The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
 
 **Labels available for filtering:**
 
-- `host` - Server hostname (wolf, elk, dino)
+- `host` - Server hostname (elk, dino)
 - `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `scheme` - Protocol (http, https)
 - `method` - HTTP method (GET, POST, PUT, DELETE)
@@ -975,7 +975,7 @@ Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell
   - All system logs
   - Systemd journal (max 50MB, 1 hour retention)
   - Service logs
-  - **Safe because**: Promtail forwards all logs to Loki on wolf
+  - **Safe because**: Promtail forwards all logs to Loki on elk
 
 #### SD Card - Persists Across Reboots
 
@@ -1096,7 +1096,7 @@ ssh cogsworth "swapon --show"
 
 **Mitigation**:
 
-- Promtail continuously forwards logs to Loki on wolf
+- Promtail continuously forwards logs to Loki on elk
 - Query Loki for historical logs: `{host="cogsworth"}`
 - Most logs available within 30 seconds of generation
 

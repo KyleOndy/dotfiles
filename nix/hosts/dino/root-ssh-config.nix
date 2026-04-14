@@ -5,13 +5,6 @@
   # SSH client configuration for root user
   programs.ssh = {
     extraConfig = ''
-      Host wolf
-        HostName ns568215.ip-51-79-99.net
-        User svc.deploy
-        IdentityFile /root/.ssh/id_ed25519
-        StrictHostKeyChecking accept-new
-        ConnectTimeout 3
-
       Host elk
         HostName 37.27.70.102
         User svc.deploy

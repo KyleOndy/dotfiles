@@ -24,7 +24,6 @@ let
       echo ""
       echo "Examples:"
       echo "  $0 cogsworth '7 days' 'Maintenance window'"
-      echo "  $0 wolf '2 hours' 'Testing updates'"
       echo "  $0 elk '1 week'"
       echo ""
       echo "Duration format: Any format accepted by 'date -d' (e.g., '7 days', '2 hours', '1 week')"

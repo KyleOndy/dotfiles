@@ -13,10 +13,6 @@ ifdef WORK_CONFIG
   WORK_INPUT_FLAG = --override-input work-config path:$(WORK_CONFIG)
 endif
 
-# Binary cache configuration
-CACHE_HOST=wolf
-CACHE_URL=ssh://$(CACHE_HOST)
-
 # I don't like to do this, but sometimes I just need to move ahead
 ifeq ($(ALLOW_BROKEN), true)
 	export NIXPKGS_ALLOW_BROKEN=1
@@ -163,17 +159,6 @@ git-status:
 	fi
 
 # Cache push targets
-.PHONY: cache-push-dino
-cache-push-dino: ## Push dino system closure to binary cache
-	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.dino.config.system.build.toplevel
-
-.PHONY: cache-push-wolf
-cache-push-wolf: ## Push wolf system closure to binary cache
-	nix copy --to $(CACHE_URL) --derivation .#nixosConfigurations.wolf.config.system.build.toplevel
-
-.PHONY: cache-push-all
-cache-push-all: cache-push-dino cache-push-wolf ## Push all system closures to binary cache
-
 # macOS-specific targets
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
