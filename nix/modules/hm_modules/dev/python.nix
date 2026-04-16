@@ -30,6 +30,7 @@ in
       pyright
       poetry
       ruff
+      uv
       system-python-with-packages
     ];
     programs.neovim = {
