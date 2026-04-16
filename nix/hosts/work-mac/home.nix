@@ -101,6 +101,10 @@
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils
     go.installGo = false; # Use Homebrew Go for CGO compatibility on macOS
+    ollama = {
+      enable = true;
+      service.enable = true;
+    };
 
     # Enable Colima background service
     docker.service = {
