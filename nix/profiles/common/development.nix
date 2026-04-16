@@ -31,6 +31,7 @@ with lib;
         nix.enable = lib.mkDefault true;
         go.enable = lib.mkDefault true;
         rust.enable = lib.mkDefault true;
+        pi-coding-agent.enable = lib.mkDefault true;
       };
       shell = {
         zsh.enable = true;

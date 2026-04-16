@@ -54,6 +54,9 @@
       url = "github:rohitg00/awesome-claude-code-toolkit";
       flake = false;
     };
+    llm-agents = {
+      url = "github:numtide/llm-agents.nix";
+    };
     # Work-specific configuration. Default is a no-op stub.
     # Override on work machines: --override-input work-config path:/Users/kondy/work
     work-config.url = "path:./nix/work-config-stub";
@@ -75,6 +78,16 @@
 
         (final: _prev: {
           claude-code = inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}.default;
+        })
+
+        inputs.llm-agents.overlays.default
+
+        # TODO: remove once direnv fixes fish test sandbox kills on macOS
+        # direnv 2.37.1 fish tests get Killed: 9 in macOS sandbox during nix build
+        (_final: prev: {
+          direnv = prev.direnv.overrideAttrs (_old: {
+            doCheck = false;
+          });
         })
       ];
 

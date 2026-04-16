@@ -116,6 +116,10 @@ update/nur: ## Update just the nur source
 update/claude-code: ## Update just claude-code source
 	nix flake update claude-code-nix
 
+.PHONY: update/pi-coding-agent
+update/pi-coding-agent: ## Update pi.dev coding agent (via numtide/llm-agents.nix)
+	nix flake update llm-agents
+
 .PHONY: check
 check: ## Run nix checks
 	nix flake check
