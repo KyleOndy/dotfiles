@@ -14,6 +14,7 @@ with lib;
     ./media.nix
     ./monitoring.nix
     ./nix-tools.nix
+    ./ollama.nix
     ./performance.nix
     ./rust.nix
     ./security.nix
