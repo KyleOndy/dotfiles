@@ -2,7 +2,7 @@
 # Installs pi and symlinks config directory to ~/.pi/agent/
 #
 # Uses mkOutOfStoreSymlink so config files are writable, letting pi
-# edit its own skills/extensions directly in the dotfiles source.
+# edit its own skills/prompts directly in the dotfiles source.
 
 {
   lib,
@@ -27,25 +27,18 @@ in
   };
 
   config = mkIf cfg.enable {
-    # pi package + tooling for working on pi config files:
-    # - typescript: tsc type-checking for extensions/*.ts
-    # - nodePackages.prettier: formatting for .ts, .json, .md
-    # - nodePackages.markdownlint-cli: linting for AGENTS.md, SKILL.md, etc.
     home.packages = with pkgs; [
       llm-agents.pi
-      typescript
-      nodePackages.prettier
-      nodePackages.markdownlint-cli
     ];
 
     # Symlink pi config directly to dotfiles source (writable).
-    # Pi can edit its own skills, extensions, and AGENTS.md mid-session,
+    # Pi can edit its own skills, prompts, and AGENTS.md mid-session,
     # and changes land in the git-tracked source immediately.
     home.file = {
       ".pi/agent/AGENTS.md".source = mkSymlink "${cfg.sourceDir}/AGENTS.md";
       ".pi/agent/settings.json".source = mkSymlink "${cfg.sourceDir}/settings.json";
-      ".pi/agent/extensions/".source = mkSymlink "${cfg.sourceDir}/extensions";
       ".pi/agent/skills/".source = mkSymlink "${cfg.sourceDir}/skills";
+      ".pi/agent/prompts/".source = mkSymlink "${cfg.sourceDir}/prompts";
     };
   };
 }

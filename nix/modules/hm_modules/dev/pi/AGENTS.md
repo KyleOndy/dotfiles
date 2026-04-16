@@ -1,76 +1,76 @@
-# Pi Coding Conventions
+# Pi Conventions
 
-Global conventions for pi coding agent sessions across all projects.
+## Git Identity
 
-## Default Workflow
+Never use `git commit` directly. Always use:
 
-1. **Start with questions** - Clarify scope before acting
-2. **Prefer explicit over implicit** - Ask when uncertain
-3. **One thing at a time** - Complete before moving on
-4. **Checkpoint state** - Update files, status, todo lists
+```
+c ai-tooling commit -m "message"
+c ai-tooling commit --all -m "message"
+```
 
-## Communication Style
+This commits as "Pi Agent" with no GPG signing. The human runs `c claim` later to review and reauthor.
 
-- **Concise** - Don't over-explain
-- **Cited** - Reference file:line for code
-- **Honest** - Say when you're unsure
-- **Confirm before destructive** - rm, git reset, etc.
+Commit early and often. Small commits with descriptive messages. Never batch unrelated changes.
 
-## Session Management
+## Two Workspaces
 
-Use these commands liberally:
+- **Primary repo** (mammoth, infra, etc.): code changes only
+- **~/work/tickets/<ticket-id>/**: everything else (plans, seeds, learnings, notes)
 
-- `/tree` - Navigate session history, branch from old points
-- `/fork` - New session from current branch
-- `/compact` - When context fills up
-- `/name <name>` - Name sessions meaningfully
+Use `c ai-tooling ticket-id` to detect the current ticket from the branch name.
 
-## File Conventions
+## Workflow Phases
 
-### Ticket Work (when in ~/work/tickets/ or ~/tickets/)
+### 1. Research
 
-Follow the plan-act workflow from the `plan-act` skill:
+Exhaustive upfront investigation. Read files, web search, test hypotheses. No code changes until confident. This phase is allowed to take time and burn tokens. Write findings to the ticket's `notes.md`.
 
-- `plans/YYYY-MM-DD-HH-MM-meaningful-name.md` - Timestamped plans (many per ticket)
-- `todo.md` - Active checklist (rolls across plans)
-- `status.md` - Polished updates
-- `YYYY-MM-DD-claudes-notes.md` - Detailed working log
+### 2. Plan
 
-### General Projects
+Create a timestamped plan: `c plan "plan name"`. Fill in the template, especially the Assumptions section. Stop and get approval before executing.
 
-- `CLAUDE.md` or `AGENTS.md` - Project-specific conventions
-- `TODO.md` - Simple task lists
-- `NOTES.md` - Scratchpad for this session
+### 3. Execute
 
-## Tool Preferences
+Work from the approved plan. Commit often via `c ai-tooling commit`. When you notice something worth investigating later, plant a seed (see below). Monitor your assumptions. If one breaks, stop and replan.
 
-- `read` over `bash cat` (structured output)
-- `edit` over `write` for small changes (preserves structure)
-- `bash` for: git, grep, find, testing, building
+### 4. Replan (when assumptions fail)
 
-## Git Conventions
+1. **Stop.** Don't fix inline.
+2. Commit current state: `c ai-tooling commit --all -m "wip: before replan"`
+3. Record the learning: `c learning add --assumption "..." --reality "..." --evidence "..." --impact "..."`
+4. Create new plan: `c plan "replan-reason"`
+5. Present new plan for approval.
 
-- Commit messages: imperative, concise, explain "why" not "what"
-- No commits without review unless explicitly told
-- Check `git status` before any git operations
+## Crucible Commands
+
+Always prefer these over improvising the operations yourself:
+
+```
+c seed plant --title "..." --context "..."    # capture observation
+c seed water S001 --context "..."             # add to existing seed
+c seed garden                                 # list seeds
+c plan "name"                                 # create plan
+c learning add --assumption "..." --reality "..."  # record failed assumption
+c ticket new CLIN-1050                        # scaffold ticket dir
+c ai-tooling commit -m "..."                  # commit with Pi identity
+c ai-tooling ticket-id                        # detect ticket from branch
+```
+
+## Seeds
+
+When you notice something worth investigating later, plant a seed immediately. This is a quick capture, not a mode switch. Spend ~10 seconds capturing context, call `c seed plant`, and resume what you were doing.
+
+Track seeds you plant during this session. When the user references a seed by description ("that logging seed", "the timeout one"), resolve it to the seed ID and call the appropriate command.
+
+## Communication
+
+- Concise. Don't over-explain.
+- Cite code with `file:line` references.
+- Be honest about uncertainty.
 
 ## Safety
 
-These require explicit confirmation:
-
-- Deleting files or directories
-- Running commands with `sudo` or elevated privileges
-- Pushing to remote
-- Dropping databases
-- Modifying .git/ or sensitive configs
-
-## Mode Philosophy
-
-Pi is unopinionated by design. These are _my_ (the user's) preferences, not inherent constraints:
-
-- I prefer segmented plan/act for complex work
-- I want safety rails in research mode
-- I like explicit checkpoints
-- But pi can do anything I ask it to do
-
-Use `/mode <name>` or `/skill:<name>` to activate specific workflows when helpful.
+- Confirm before: deleting files, running sudo, pushing to remote, dropping databases.
+- Check `git status` before git operations.
+- Never modify `.git/` or sensitive configs without asking.
