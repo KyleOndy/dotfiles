@@ -682,6 +682,10 @@
 
   # Dino-specific home-manager user configuration
   home-manager.users.kyle = {
+    programs.zsh.shellAliases = {
+      "pi-or-free" =
+        ''OPENROUTER_API_KEY="$(pass show openrouter.ai/api_keys/dino)" pi --provider openrouter --model openrouter/free "$@"'';
+    };
     hmFoundry = {
       desktop = {
         apps.zoom.enable = true;
