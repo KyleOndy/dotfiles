@@ -17,4 +17,5 @@ self: super: {
   flutter-pi = super.callPackage ./flutter-pi { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
   agent-sandbox = super.callPackage ./agent-sandbox { };
+  pi-sandbox = super.callPackage ./pi-sandbox { };
 }
