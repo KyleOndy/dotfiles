@@ -28,20 +28,36 @@ let
     }"
 
     MODEL_DIR="${cfg.modelDir}"
-    MODEL_NAME="${cfg.model}"
-    MODEL_PATH="$MODEL_DIR/ggml-''${MODEL_NAME}.bin"
 
-    # Download model if not present
-    if [[ ! -f "$MODEL_PATH" ]]; then
-      echo "Downloading whisper model: $MODEL_NAME"
-      mkdir -p "$MODEL_DIR"
-      whisper-cpp-download-ggml-model "$MODEL_NAME" "$MODEL_DIR" 2>&1 | tail -1
-      echo "Model downloaded: $MODEL_PATH"
-    fi
+    # Resolve a model name to its ggml file path, downloading on demand.
+    resolve_model() {
+      local name="$1"
+      local path="$MODEL_DIR/ggml-$name.bin"
+      if [[ ! -f "$path" ]]; then
+        echo "Downloading whisper model: $name" >&2
+        mkdir -p "$MODEL_DIR"
+        whisper-cpp-download-ggml-model "$name" "$MODEL_DIR" 2>&1 | tail -1 >&2
+      fi
+      printf '%s\n' "$path"
+    }
+
+    # Pick a model based on configured per-path overrides, first match wins.
+    # Patterns go through a variable so whitespace survives bash [[ =~ ]].
+    select_model() {
+      local video="$1"
+      local pattern
+      ${concatMapStringsSep "\n      "
+        (o: ''
+          pattern=${escapeShellArg o.pattern}
+          if [[ "$video" =~ $pattern ]]; then printf '%s\n' ${escapeShellArg o.model}; return 0; fi'')
+        cfg.modelOverrides
+      }
+      printf '%s\n' ${escapeShellArg cfg.model}
+    }
 
     process_file() {
       local video="$1"
-      local dir base ext srt_path tmpdir
+      local dir base ext srt_path tmpdir model_name model_path
 
       dir=$(dirname "$video")
       base=$(basename "$video")
@@ -54,7 +70,10 @@ let
         return 0
       fi
 
-      echo "Processing: $video"
+      model_name=$(select_model "$video")
+      model_path=$(resolve_model "$model_name")
+
+      echo "Processing: $video (model: $model_name)"
 
       tmpdir=$(mktemp -d)
       trap 'rm -rf "$tmpdir"' RETURN
@@ -66,7 +85,7 @@ let
       fi
 
       # Run whisper-cpp (suppress per-segment output to keep logs clean)
-      if ! whisper-cli -m "$MODEL_PATH" -osrt -of "$tmpdir/output" -l en --no-prints --no-gpu -t ${toString cfg.threads} "$tmpdir/audio.wav" >/dev/null 2>&1; then
+      if ! whisper-cli -m "$model_path" -osrt -of "$tmpdir/output" -l en --no-prints --no-gpu -t ${toString cfg.threads} "$tmpdir/audio.wav" >/dev/null 2>&1; then
         echo "  ERROR: whisper transcription failed for $video" >&2
         return 1
       fi
@@ -146,6 +165,34 @@ in
       type = types.str;
       default = "large-v3";
       description = "Whisper ggml model name (downloaded from huggingface on first run)";
+    };
+
+    modelOverrides = mkOption {
+      type = types.listOf (
+        types.submodule {
+          options = {
+            pattern = mkOption {
+              type = types.str;
+              description = ''
+                POSIX extended regex matched against the full video file path
+                (case-sensitive). First matching override wins.
+              '';
+              example = "90 Day Fianc";
+            };
+            model = mkOption {
+              type = types.str;
+              description = "Whisper ggml model name to use for matching files.";
+              example = "large-v3";
+            };
+          };
+        }
+      );
+      default = [ ];
+      description = ''
+        Per-path model overrides. Each entry maps a regex pattern (matched
+        against the full video path) to a whisper model name. Files that do
+        not match any override use the default `model`.
+      '';
     };
 
     modelDir = mkOption {

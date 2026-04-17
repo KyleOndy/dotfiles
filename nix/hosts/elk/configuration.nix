@@ -585,6 +585,16 @@
     enable = true;
     model = "medium";
     threads = 8;
+    modelOverrides = [
+      # All 90 Day Fiance variants (matches "Fiance" and "Fiancé"). Delete
+      # existing medium-generated subs once to trigger regeneration:
+      #   find /mnt/storage/media/tv -path "*90 Day Fianc*" \
+      #     -name "*.en.whisper.srt" -delete
+      {
+        pattern = "90 Day Fianc";
+        model = "large-v3";
+      }
+    ];
   };
 
   # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
