@@ -364,6 +364,7 @@
 
   # Base system packages
   environment.systemPackages = with pkgs; [
+    agent-sandbox
     curl
     git
     gnumake
