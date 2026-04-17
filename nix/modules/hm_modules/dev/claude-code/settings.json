@@ -6,6 +6,7 @@
   "voiceEnabled": true,
   "model": "opusplan",
   "effortLevel": "high",
+  "showThinkingSummaries": true,
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
