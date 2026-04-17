@@ -16,4 +16,5 @@ self: super: {
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   flutter-pi = super.callPackage ./flutter-pi { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
+  agent-sandbox = super.callPackage ./agent-sandbox { };
 }
