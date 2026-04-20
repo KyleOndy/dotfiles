@@ -49,3 +49,13 @@ require("which-key").add({
   { "<leader>gs", "<cmd>Gitsigns stage_hunk<cr>", desc = "Stage hunk", mode = { "n", "v" } },
   { "<leader>gS", "<cmd>Gitsigns stage_buffer<cr>", desc = "Stage entire buffer" },
 })
+
+-- Diffview: tabbed diff + file history UI
+require("diffview").setup({})
+
+require("which-key").add({
+  { "<leader>gv", "<cmd>DiffviewOpen<cr>", desc = "Diffview open" },
+  { "<leader>gV", "<cmd>DiffviewClose<cr>", desc = "Diffview close" },
+  { "<leader>gH", "<cmd>DiffviewFileHistory<cr>", desc = "Diffview repo history" },
+  { "<leader>gf", "<cmd>DiffviewFileHistory %<cr>", desc = "Diffview current file history" },
+})

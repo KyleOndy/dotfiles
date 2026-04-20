@@ -87,6 +87,7 @@
       vim-rhubarb
       gitsigns-nvim
       git-messenger-vim
+      diffview-nvim
       # Editing
       vim-surround
       editorconfig-vim
