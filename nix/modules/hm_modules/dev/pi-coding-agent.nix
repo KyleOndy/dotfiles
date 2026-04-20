@@ -32,10 +32,11 @@ in
     ];
 
     # Symlink pi config directly to dotfiles source (writable).
-    # Pi can edit its own skills, prompts, and AGENTS.md mid-session,
+    # Pi can edit its own skills and prompts mid-session,
     # and changes land in the git-tracked source immediately.
+    # AGENTS.md is intentionally omitted — set per-environment (work-config
+    # provides a private version with internal references).
     home.file = {
-      ".pi/agent/AGENTS.md".source = mkSymlink "${cfg.sourceDir}/AGENTS.md";
       ".pi/agent/settings.json".source = mkSymlink "${cfg.sourceDir}/settings.json";
       ".pi/agent/skills/".source = mkSymlink "${cfg.sourceDir}/skills";
       ".pi/agent/prompts/".source = mkSymlink "${cfg.sourceDir}/prompts";
