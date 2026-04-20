@@ -58,7 +58,7 @@
       url = "github:numtide/llm-agents.nix";
     };
     # Work-specific configuration. Default is a no-op stub.
-    # Override on work machines: --override-input work-config path:/Users/kondy/work
+    # Override on work machines: --override-input work-config path:/Users/kondy/work/nix
     work-config.url = "path:./nix/work-config-stub";
   };
   outputs =
@@ -306,11 +306,31 @@
               nixfmt.enable = true;
               prettier = {
                 enable = true;
-                excludes = [ "flake.lock" ];
+                excludes = [
+                  "flake.lock"
+                  "/vendor/"
+                ];
               };
-              shellcheck.enable = true;
-              shfmt.enable = true;
+              shellcheck = {
+                enable = true;
+                excludes = [ "vendor/" ];
+              };
+              shfmt = {
+                enable = true;
+                excludes = [ "vendor/" ];
+              };
               stylua.enable = true;
+              gofmt = {
+                enable = true;
+                excludes = [ "vendor/" ];
+              };
+              govet = {
+                enable = true;
+                excludes = [ "vendor/" ];
+              };
+              # golangci-lint disabled: needs `go` on PATH inside the
+              # Nix-sandboxed pre-commit run for `go env` calls. Run
+              # locally with `golangci-lint run ./...` from the relevant dir.
               pkg_version = {
                 enable = false;
                 name = "pkg-version-bump";
@@ -393,6 +413,7 @@
           # Expose internal packages for direct building and benchmarking
           git-worktree-prompt = pkgs.git-worktree-prompt;
           agent-sandbox = pkgs.agent-sandbox;
+          forge = pkgs.forge;
 
           # Ergodox EZ firmware
           ergodox-firmware = pkgs.callPackage ./keyboard { };

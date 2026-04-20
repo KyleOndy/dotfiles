@@ -15,6 +15,7 @@ self: super: {
   battery-draw = super.callPackage ./battery-draw { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   flutter-pi = super.callPackage ./flutter-pi { };
+  forge = super.callPackage ./forge { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
   agent-sandbox = super.callPackage ./agent-sandbox { };
   pi-sandbox = super.callPackage ./pi-sandbox { };

@@ -81,6 +81,7 @@ in
 
       # Personal scripts
       my-scripts
+      forge
     ];
 
     programs = {

@@ -19,7 +19,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ pkgs.ollama ];
+    home.packages = [ pkgs.master.ollama ];
 
     launchd.agents.ollama = mkIf (pkgs.stdenv.isDarwin && cfg.service.enable) {
       enable = true;

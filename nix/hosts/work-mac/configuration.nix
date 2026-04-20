@@ -72,6 +72,11 @@
       "golangci-lint"
       "chipmk/tap/docker-mac-net-connect"
       "datadog-labs/pack/pup"
+      {
+        name = "ollama";
+        start_service = true;
+        restart_service = "changed";
+      }
     ]; # Use Homebrew for CGO compatibility and Go version sync
   };
 

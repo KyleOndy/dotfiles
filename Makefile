@@ -4,10 +4,10 @@ ALLOW_BROKEN=false
 ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
-# Work config override. Set to the work repo path on work machines to inject
+# Work config override. Set to the nix subdir of the work repo on work machines to inject
 # work-specific configuration. Example:
-#   make build-mac WORK_CONFIG=/Users/kondy/work
-#   export WORK_CONFIG=/Users/kondy/work && make deploy
+#   make build-mac WORK_CONFIG=/Users/kondy/work/nix
+#   export WORK_CONFIG=/Users/kondy/work/nix && make deploy
 WORK_CONFIG ?=
 ifdef WORK_CONFIG
   WORK_INPUT_FLAG = --override-input work-config path:$(WORK_CONFIG)

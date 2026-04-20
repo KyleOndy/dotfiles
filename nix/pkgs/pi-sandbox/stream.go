@@ -81,6 +81,7 @@ func streamEvents(r io.Reader, eventLog io.Writer) {
 
 		case "agent_end":
 			handleAgentEnd(ev)
+			return // pi is done; don't wait for the process to exit on its own
 
 		case "turn_end":
 			fmt.Println()

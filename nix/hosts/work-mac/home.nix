@@ -4,7 +4,6 @@
 {
   lib,
   pkgs,
-  config,
   inputs,
   ...
 }:
@@ -54,17 +53,9 @@
     DOTS_CONTEXT = "work";
     DOTFILES = lib.mkForce "/Users/kondy/src/kyleondy/dotfiles/main";
     WORK = "/Users/kondy/work";
-    SRC_WORK = "${config.home.homeDirectory}/src/modularml";
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
     CC = "/usr/bin/cc"; # Use system clang for C compilation (macOS SDK compatibility)
   };
-
-  programs.zsh.shellAliases.src = lib.mkForce "cd ${config.home.homeDirectory}/src/modularml";
-
-  # Create modularml source directory
-  home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
-    mkdir -p $HOME/src/modularml
-  '';
 
   # Add Homebrew to PATH for all managed shells (including Claude Code)
   home.sessionPath = [ "/opt/homebrew/bin" ];
@@ -101,11 +92,6 @@
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils
     go.installGo = false; # Use Homebrew Go for CGO compatibility on macOS
-    ollama = {
-      enable = true;
-      service.enable = true;
-    };
-
     # Enable Colima background service
     docker.service = {
       enable = true;

@@ -173,15 +173,37 @@ if git config --get filter.git-crypt.smudge &>/dev/null; then
 	# Create git-crypt keys directory
 	mkdir -p "$worktree_git_dir/git-crypt/keys"
 
-	# Decrypt the symmetric key from the repo using GPG
-	# Try each .gpg file (in case multiple collaborators) and use the first successful decryption
-	for gpg_key in .git-crypt/keys/default/0/*.gpg; do
-		if [ -f "$gpg_key" ]; then
-			if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+	# Prefer reusing an already-decrypted key from the main worktree or any
+	# sibling linked worktree. The git-crypt symmetric key is identical across
+	# worktrees of the same repo, so copying avoids a fresh GPG/pinentry prompt
+	# every time a new worktree is created. Fall back to gpg --decrypt only
+	# when no sibling has an unlocked key yet (e.g., first worktree in a clone).
+	common_git_dir=$(git rev-parse --git-common-dir 2>/dev/null)
+	existing_key=""
+	if [[ -n $common_git_dir ]]; then
+		for candidate in "$common_git_dir/git-crypt/keys/default" \
+			"$common_git_dir"/worktrees/*/git-crypt/keys/default; do
+			if [[ -f $candidate && -s $candidate ]]; then
+				existing_key=$candidate
 				break
 			fi
-		fi
-	done
+		done
+	fi
+
+	if [[ -n $existing_key ]]; then
+		cp "$existing_key" "$worktree_git_dir/git-crypt/keys/default"
+		log_info "Reused git-crypt key from ${existing_key}"
+	else
+		# Decrypt the symmetric key from the repo using GPG
+		# Try each .gpg file (in case multiple collaborators) and use the first successful decryption
+		for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+			if [ -f "$gpg_key" ]; then
+				if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+					break
+				fi
+			fi
+		done
+	fi
 fi
 
 # Checkout files after git-crypt is unlocked
