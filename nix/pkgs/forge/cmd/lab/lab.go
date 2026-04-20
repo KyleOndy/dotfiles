@@ -26,6 +26,8 @@ Config resolution: --config flag > $FORGE_LAB_CONFIG > ./forge.yaml`,
 	c.PersistentFlags().StringP(configFlag, "c", "", "path to forge.yaml")
 	c.AddCommand(newStatus())
 	c.AddCommand(newUp())
+	c.AddCommand(newDown())
+	c.AddCommand(newNuke())
 	return c
 }
 
