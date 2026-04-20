@@ -23,6 +23,7 @@ func TestEnsureIngressNginxAppliesAndAnnotates(t *testing.T) {
 		return nil
 	}
 	f := &fakeExec{t: t, calls: []fakeCall{
+		{match: []string{"kubectl", "create", "namespace", "ingress-nginx"}, exit: 0},
 		{match: []string{"kubectl", "wait", "deployment/ingress-nginx-controller"}, exit: 0},
 		{match: []string{"kubectl", "annotate", "service", "ingress-nginx-controller"}, exit: 0},
 	}}
@@ -49,6 +50,7 @@ func TestEnsureIngressNginxSkipsAnnotateWithoutPool(t *testing.T) {
 	stdinRunner = func(_ context.Context, _ string, _ string, _ ...string) error { return nil }
 
 	f := &fakeExec{t: t, calls: []fakeCall{
+		{match: []string{"kubectl", "create", "namespace", "ingress-nginx"}, exit: 0},
 		{match: []string{"kubectl", "wait", "deployment/ingress-nginx-controller"}, exit: 0},
 		// No annotate call — clusters without MetalLB pools skip it.
 	}}

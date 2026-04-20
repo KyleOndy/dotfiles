@@ -9,6 +9,9 @@ import (
 )
 
 func TestCollectAllAbsent(t *testing.T) {
+	// Isolate $HOME so the test doesn't see any real ~/.kube/configs/*
+	// files that might exist on the dev host from previous runs.
+	t.Setenv("HOME", t.TempDir())
 	cfg, err := Load(writeConfig(t, validConfig))
 	if err != nil {
 		t.Fatal(err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/kyleondy/dotfiles/forge/internal/manifest"
 	"github.com/kyleondy/dotfiles/forge/internal/ui"
@@ -43,6 +44,12 @@ func EnsureComponents(ctx context.Context, exe Executor, kubeconfigDir string, c
 func ensureIngressNginx(ctx context.Context, exe Executor, kubeconfigDir string, c Cluster) error {
 	kubeconfig := filepath.Join(kubeconfigDir, c.Name)
 	ui.L().Info("installing ingress-nginx on %s", c.Name)
+	// The upstream manifest doesn't include a Namespace object, so we
+	// create one explicitly first. Namespaced resources would otherwise
+	// race against their own namespace and fail with "not found".
+	if err := ensureNamespace(ctx, exe, kubeconfig, ingressNginxNamespace); err != nil {
+		return err
+	}
 	if err := kubectlApplyStdin(ctx, string(manifest.IngressNginxV4_12_0), kubeconfig); err != nil {
 		return fmt.Errorf("apply ingress-nginx manifest: %w", err)
 	}
@@ -75,4 +82,19 @@ func ensureIngressNginx(ctx context.Context, exe Executor, kubeconfigDir string,
 	}
 	ui.L().Info("ingress-nginx on %s pinned to %s", c.Name, ip)
 	return nil
+}
+
+// ensureNamespace creates a Kubernetes namespace idempotently: if it
+// already exists, that's a success, not an error.
+func ensureNamespace(ctx context.Context, exe Executor, kubeconfig, name string) error {
+	res, err := exe.Run(ctx, "kubectl", "create", "namespace", name,
+		"--kubeconfig", kubeconfig,
+	)
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(res.Stderr, "AlreadyExists") || strings.Contains(res.Stdout, "AlreadyExists") {
+		return nil
+	}
+	return fmt.Errorf("create namespace %s: %w\n%s", name, err, res.Stderr)
 }
