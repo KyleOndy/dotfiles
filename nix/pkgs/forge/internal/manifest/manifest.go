@@ -19,6 +19,16 @@ var MetalLBNativeV0_15_3 []byte
 //go:embed vendor/dnsmasq.Dockerfile
 var DnsmasqDockerfile []byte
 
+// IngressNginxV4_12_0 is the ingress-nginx controller manifest (upstream
+// helm-chart output) pinned at the version forge ships.
+//
+//go:embed vendor/ingress-nginx-4.12.0.yaml
+var IngressNginxV4_12_0 []byte
+
 // MetalLBVersion is the version tag of the embedded MetalLB manifest.
 // Matches the filename in vendor/.
 const MetalLBVersion = "0.15.3"
+
+// IngressNginxVersion is the version tag of the embedded ingress-nginx
+// manifest.
+const IngressNginxVersion = "4.12.0"

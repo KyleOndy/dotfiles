@@ -53,6 +53,9 @@ func EnsureCluster(ctx context.Context, exe Executor, kubeconfigDir, networkName
 			return err
 		}
 	}
+	if err := EnsureComponents(ctx, exe, kubeconfigDir, c); err != nil {
+		return err
+	}
 	return nil
 }
 

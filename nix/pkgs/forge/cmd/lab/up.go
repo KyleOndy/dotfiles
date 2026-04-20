@@ -18,9 +18,8 @@ Order of operations:
   2. Pull-through registry mirrors (Zot)
   3. forge-dns container (dnsmasq on the bridge network)
   4. Kind clusters: create, connect to network, configure containerd
-     mirrors, install MetalLB + pool, patch CoreDNS for forge.test
-
-Components (ingress-nginx) land in a later commit.`,
+     mirrors, install MetalLB + pool, patch CoreDNS for forge.test,
+     install declared components (ingress-nginx)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := cluster.CheckPrerequisites("docker", "kind", "kubectl"); err != nil {
 				return err
