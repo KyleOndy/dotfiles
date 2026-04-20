@@ -265,9 +265,9 @@
   # CPU always at max frequency when awake (app dynamically switches to powersave on screen off)
   powerManagement.cpuFreqGovernor = "performance";
 
-  # Rotate framebuffer console to match physical display orientation (270° clockwise)
+  # Rotate framebuffer console to match physical display orientation (90° clockwise)
   boot.kernelParams = [
-    "fbcon=rotate:3" # 3 = 270° clockwise (90° + 180°)
+    "fbcon=rotate:1" # 1 = 90° clockwise
     "iomem=relaxed" # Required for GPIO memory access on NixOS
     "strict-devmem=0" # Allow pigpio to access GPIO memory
   ];
@@ -327,7 +327,8 @@
   # Required for home-manager user services on systems where kyle doesn't log in
   users.users.kyle.linger = true;
 
-  # Allow cogsworth user to reboot and switch CPU governor without password
+  # cogsworth: reboot/poweroff (called by v2 admin API via sudo)
+  # kyle: restart cogsworth services without password (for make deploy)
   security.sudo.extraRules = [
     {
       users = [ "cogsworth" ];
@@ -337,7 +338,20 @@
           options = [ "NOPASSWD" ];
         }
         {
+          command = "/run/current-system/sw/bin/systemctl poweroff";
+          options = [ "NOPASSWD" ];
+        }
+        {
           command = "/run/current-system/sw/bin/cogsworth-set-governor";
+          options = [ "NOPASSWD" ];
+        }
+      ];
+    }
+    {
+      users = [ "kyle" ];
+      commands = [
+        {
+          command = "/run/current-system/sw/bin/systemctl restart cogsworth.service";
           options = [ "NOPASSWD" ];
         }
       ];
@@ -435,44 +449,55 @@
     };
   };
 
-  # Cogsworth application service - runs Flutter kiosk via flutter-pi
+  # Set digipot (AD5241BRZ1M, 0x2C) to max resistance (minimum brightness) before
+  # the app starts. The app takes over brightness control once running.
+  systemd.services.cogsworth-brightness-init = {
+    description = "Set display brightness digipot to safe minimum at boot";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "cogsworth.service" ];
+    after = [ "sysinit.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = pkgs.writeShellScript "cogsworth-brightness-init" ''
+        ${pkgs.perl}/bin/perl -e '
+          use POSIX qw(O_RDWR);
+          use Fcntl;
+          sysopen(my $fh, "/dev/i2c-1", O_RDWR) or die "open: $!";
+          ioctl($fh, 0x0703, 0x2C) or die "ioctl: $!";
+          syswrite($fh, chr(0x00).chr(0xFF)) or die "write: $!";
+        '
+      '';
+    };
+  };
 
+  # Cogsworth v2 — Go HTTP backend
+  # Binary is deployed imperatively to /opt/cogsworth/cogsworth via `make deploy`.
   systemd.services.cogsworth = {
-    description = "Cogsworth Flutter kiosk application";
+    description = "Cogsworth Family Calendar";
     wantedBy = [ "multi-user.target" ];
     after = [
-      "network.target"
-      "seatd.service"
+      "network-online.target"
       "cogsworth-db-restore.service"
     ];
-    requires = [ "seatd.service" ];
-    wants = [ "cogsworth-db-restore.service" ];
+    wants = [
+      "network-online.target"
+      "cogsworth-db-restore.service"
+    ];
+
+    environment = {
+      COGSWORTH_PORT = "8080";
+    };
 
     serviceConfig = {
       Type = "simple";
       User = "cogsworth";
       Group = "cogsworth";
-
-      ExecStart = "${pkgs.flutter-pi}/bin/flutter-pi --release --rotation 270 /opt/cogsworth/";
-
-      Environment = [
-        "PATH=/run/current-system/sw/bin"
-        "LD_LIBRARY_PATH=${pkgs.sqlite.out}/lib"
-        "FLUTTER_PI=1"
-        "COGSWORTH_DB=/var/lib/cogsworth/db/cogsworth.db"
-      ];
-
-      # flutter-pi needs tty1 for DRM master
-      TTYPath = "/dev/tty1";
-      StandardInput = "tty";
-      StandardOutput = "journal";
-      StandardError = "journal";
-
-      # Tier 1 Watchdog: Enhanced restart policy
+      WorkingDirectory = "/var/lib/cogsworth";
+      ExecStart = "/opt/cogsworth/cogsworth -db /var/lib/cogsworth/db/cogsworth.db";
       Restart = "always";
       RestartSec = "5s";
 
-      # Security hardening
       NoNewPrivileges = true;
       ProtectSystem = "strict";
       ProtectHome = true;
@@ -489,28 +514,135 @@
       RestrictNamespaces = true;
       RestrictRealtime = true;
       LockPersonality = true;
-      SupplementaryGroups = [
-        "render"
-        "input"
-      ];
+      MemoryDenyWriteExecute = true;
+      CapabilityBoundingSet = "";
+      AmbientCapabilities = "";
 
-      # Working directory for any file operations
-      WorkingDirectory = "/var/lib/cogsworth";
       StateDirectory = "cogsworth";
       ReadWritePaths = [
-        "/run/cogsworth"
         "/var/lib/cogsworth/db"
         "/var/lib/cogsworth/persistent"
       ];
     };
 
-    # Allow up to 10 restarts in 2 minutes before giving up
     startLimitBurst = 10;
     startLimitIntervalSec = 120;
+    unitConfig.StartLimitAction = "none";
+  };
 
-    # Prevent permanent failure - allow watchdog to recover
-    unitConfig = {
-      StartLimitAction = "none";
+  # Cogsworth kiosk — Wayland (sway-unwrapped) + Chromium.
+  # GPU hardware acceleration is not available: Chromium 147's initial GPU probe
+  # subprocess doesn't receive --use-gl flags, fails, and locks in software
+  # rendering. The ANGLE/opengles flags are kept so that once the probe settles
+  # the GPU process at least runs with --use-gl=disabled (rather than not at
+  # all). num-raster-threads=4 maximizes software rasterization on the Pi4.
+  environment.etc."cogsworth/sway.config".text = ''
+    # Panel is physically landscape but mounted portrait; rotate 90° CW.
+    output HDMI-A-1 transform 90
+
+    # Rotate touch overlay to match display orientation (90° CW).
+    # Matrix for 90° CW: [ 0 1 0 / -1 0 1 ]
+    input type:touch calibration_matrix 0 1 0 -1 0 1
+
+    # No visible window chrome.
+    default_border none
+    default_floating_border none
+    hide_edge_borders none
+
+    # Disable VT switching shortcuts so a stray Ctrl+Alt+Fx can't escape kiosk.
+    bindsym --release Ctrl+Alt+F1 nop
+    bindsym --release Ctrl+Alt+F2 nop
+    bindsym --release Ctrl+Alt+F3 nop
+    bindsym --release Ctrl+Alt+F4 nop
+    bindsym --release Ctrl+Alt+F5 nop
+    bindsym --release Ctrl+Alt+F6 nop
+    bindsym --release Ctrl+Alt+F7 nop
+
+    exec ${pkgs.chromium}/bin/chromium \
+      --kiosk \
+      --no-first-run \
+      --no-default-browser-check \
+      --noerrdialogs \
+      --disable-infobars \
+      --disable-session-crashed-bubble \
+      --disable-pinch \
+      --check-for-update-interval=31536000 \
+      --ozone-platform=wayland \
+      --use-gl=angle \
+      --use-angle=opengles \
+      --ignore-gpu-blocklist \
+      --disable-gpu-driver-bug-workarounds \
+      "--disable-features=SkiaGraphite,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation" \
+      --enable-gpu-rasterization \
+      --num-raster-threads=4 \
+      --show-fps-counter \
+      --user-data-dir=/run/cogsworth-kiosk/chromium \
+      --remote-debugging-port=9222 \
+      --remote-debugging-address=127.0.0.1 \
+      --remote-allow-origins=* \
+      http://localhost:8080
+  '';
+
+  # Chromium managed policy — disables DevTools entirely (no long-press
+  # inspect, no keyboard shortcuts), suppresses browser-level prompts.
+  environment.etc."chromium/policies/managed/cogsworth.json".text = builtins.toJSON {
+    DeveloperToolsAvailability = 0; # 0 = Allowed (needed for --remote-debugging-port to function)
+    BrowserSignin = 0; # disable sign-in UI
+    BrowserAddPersonEnabled = false;
+    BrowserGuestModeEnabled = false;
+    IncognitoModeAvailability = 1; # disabled
+    PasswordManagerEnabled = false;
+    AutofillAddressEnabled = false;
+    AutofillCreditCardEnabled = false;
+    TranslateEnabled = false;
+    PrintingEnabled = false;
+    BookmarkBarEnabled = false;
+    SearchSuggestEnabled = false;
+  };
+
+  systemd.services.cogsworth-kiosk = {
+    description = "Cogsworth Kiosk (Sway + Chromium)";
+    wantedBy = [ "multi-user.target" ];
+    after = [
+      "cogsworth.service"
+      "seatd.service"
+      "network.target"
+    ];
+    requires = [
+      "cogsworth.service"
+      "seatd.service"
+    ];
+
+    # sway-unwrapped uses execlp("sh", ...) for exec config directives; sh
+    # must be on PATH.
+    path = [ pkgs.bash ];
+
+    environment = {
+      LIBSEAT_BACKEND = "seatd";
+      # Allow Sway to start without physical keyboard/mouse attached.
+      WLR_LIBINPUT_NO_DEVICES = "1";
+      # System users have no PAM session, so no XDG_RUNTIME_DIR is set
+      # automatically. wlroots requires it for the Wayland socket path.
+      XDG_RUNTIME_DIR = "/run/cogsworth-kiosk";
+      # The cogsworth system user's home is /var/empty (read-only). Chromium
+      # and Mesa need a writable HOME for their caches/profile; point it at
+      # the per-service runtime directory.
+      HOME = "/run/cogsworth-kiosk";
+    };
+
+    serviceConfig = {
+      Type = "simple";
+      User = "cogsworth";
+      Group = "cogsworth";
+      TTYPath = "/dev/tty1";
+      StandardInput = "tty";
+      StandardOutput = "journal";
+      StandardError = "journal";
+      ExecStart = "${pkgs.sway-unwrapped}/bin/sway --config /etc/cogsworth/sway.config";
+      Restart = "on-failure";
+      RestartSec = "5s";
+      RuntimeDirectory = "cogsworth-kiosk";
+      RuntimeDirectoryMode = "0700";
     };
   };
 
@@ -542,7 +674,7 @@
         FAILURES=0
       fi
 
-      if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/debug/ping >/dev/null 2>&1; then
+      if ${pkgs.curl}/bin/curl -sf --max-time 5 http://127.0.0.1:8080/api/health >/dev/null 2>&1; then
         # Health check passed - reset failure counter
         if [ "$FAILURES" -gt 0 ]; then
           echo "$(date): Cogsworth health check recovered (was $FAILURES failures)"
@@ -579,50 +711,10 @@
     };
   };
 
-  # Cogsworth reboot request handler
-  # Monitors /run/cogsworth/reboot-request and triggers system reboot when present
-  systemd.services.cogsworth-reboot = {
-    description = "Cogsworth Reboot Handler";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/cogsworth/reboot-request";
-      ExecStart = "${pkgs.systemd}/bin/systemctl reboot";
-    };
-  };
-
-  systemd.paths.cogsworth-reboot = {
-    description = "Watch for Cogsworth reboot requests";
-    wantedBy = [ "multi-user.target" ];
-    pathConfig = {
-      PathExists = "/run/cogsworth/reboot-request";
-      Unit = "cogsworth-reboot.service";
-    };
-  };
-
-  # Cogsworth shutdown request handler
-  # Monitors /run/cogsworth/shutdown-request and triggers system shutdown when present
-  systemd.services.cogsworth-shutdown = {
-    description = "Cogsworth Shutdown Handler";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/cogsworth/shutdown-request";
-      ExecStart = "${pkgs.systemd}/bin/systemctl poweroff";
-    };
-  };
-
-  systemd.paths.cogsworth-shutdown = {
-    description = "Watch for Cogsworth shutdown requests";
-    wantedBy = [ "multi-user.target" ];
-    pathConfig = {
-      PathExists = "/run/cogsworth/shutdown-request";
-      Unit = "cogsworth-shutdown.service";
-    };
-  };
-
-  # Flutter assets and runtime data
+  # /opt/cogsworth: imperative deploy target (kyle-owned so `make deploy` can write it)
+  # /var/lib/cogsworth/persistent: SD card persistence for SQLite snapshots
   systemd.tmpfiles.rules = [
-    "d /opt/cogsworth 0755 cogsworth cogsworth -"
-    "d /run/cogsworth 0755 cogsworth cogsworth -"
+    "d /opt/cogsworth 0755 kyle users -"
     "d /var/lib/cogsworth/persistent 0755 cogsworth cogsworth -"
   ];
 
@@ -651,6 +743,7 @@
     sqlite # CLI database debugging
     libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
     alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
+    i2c-tools
     (writeShellScriptBin "cogsworth-set-governor" ''
       set -euo pipefail
       GOVERNOR="''${1:?Usage: cogsworth-set-governor <performance|powersave>}"
