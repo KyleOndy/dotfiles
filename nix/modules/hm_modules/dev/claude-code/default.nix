@@ -124,18 +124,17 @@ in
         # dir.
 
         # Bare commands (root level)
-        ".claude/commands/task.md".source = ./commands/task.md;
+        ".claude/commands/task.md" = lib.mkDefault { source = ./commands/task.md; };
 
-        # Category commands (subdirectories)
-        ".claude/commands/code/".source = ./commands/code;
-        ".claude/commands/docs/".source = ./commands/docs;
-        ".claude/commands/git/".source = ./commands/git;
-        ".claude/commands/linear/".source = ./commands/linear;
-        ".claude/commands/project/".source = ./commands/project;
-        ".claude/commands/task/".source = ./commands/task;
-        ".claude/commands/test/".source = ./commands/test;
-        ".claude/commands/forge/".source = ./commands/forge;
-        ".claude/commands/helm/".source = ./commands/helm;
+        # Category commands (subdirectories) — all mkDefault so work-config can override freely
+        ".claude/commands/code/" = lib.mkDefault { source = ./commands/code; };
+        ".claude/commands/docs/" = lib.mkDefault { source = ./commands/docs; };
+        ".claude/commands/git/" = lib.mkDefault { source = ./commands/git; };
+        ".claude/commands/linear/" = lib.mkDefault { source = ./commands/linear; };
+        ".claude/commands/project/" = lib.mkDefault { source = ./commands/project; };
+        ".claude/commands/task/" = lib.mkDefault { source = ./commands/task; };
+        ".claude/commands/test/" = lib.mkDefault { source = ./commands/test; };
+        ".claude/commands/helm/" = lib.mkDefault { source = ./commands/helm; };
       })
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (
