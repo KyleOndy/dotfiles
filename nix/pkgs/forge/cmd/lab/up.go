@@ -10,12 +10,15 @@ func newUp() *cobra.Command {
 	return &cobra.Command{
 		Use:   "up",
 		Short: "Converge to desired state from forge.yaml",
-		Long: `Create every cluster declared in forge.yaml. Idempotent: already-present
-clusters are skipped.
+		Long: `Bring every resource declared in forge.yaml to its desired state.
+Idempotent: already-present resources are skipped.
 
-v1 scope: Kind cluster creation and kubeconfig export. Docker network,
-registry mirrors, MetalLB, DNS, and components layer in as those features
-are ported.`,
+Order of operations:
+  1. Docker bridge network
+  2. Pull-through registry mirrors (Zot)
+  3. Kind clusters (create, connect to network, configure containerd)
+
+MetalLB, DNS, and components layer in as those features are ported.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := cluster.CheckPrerequisites("docker", "kind"); err != nil {
 				return err
@@ -24,7 +27,15 @@ are ported.`,
 			if err != nil {
 				return err
 			}
-			return cluster.EnsureAllClusters(cmd.Context(), cluster.DefaultExecutor(), cfg)
+			exe := cluster.DefaultExecutor()
+			ctx := cmd.Context()
+			if err := cluster.EnsureNetwork(ctx, exe, cfg.Network.Name, cfg.Network.Subnet); err != nil {
+				return err
+			}
+			if err := cluster.EnsureAllMirrors(ctx, exe, cfg); err != nil {
+				return err
+			}
+			return cluster.EnsureAllClusters(ctx, exe, cfg)
 		},
 	}
 }
