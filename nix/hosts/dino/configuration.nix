@@ -624,44 +624,42 @@
   # Fingerprint reader configuration
   # - Fingerprint works as alternative to password (not required)
   # - Fingerprint available for lock screen and sudo
-  # - Password required on fresh boot (SDDM) and hibernate resume (security)
+  # - Password required on fresh boot (SDDM) and after hibernate resume (security)
+  # - Plain RAM suspend keeps fingerprint available on resume
   services.fprintd.enable = true;
 
-  # Require password at SDDM login (fresh boot) — no fingerprint at login screen
+  # Require password at SDDM login and TTY login (fresh boot).
+  # sddm's PAM stack substacks 'login', so disabling fprintAuth on login is
+  # what actually blocks it — setting it on sddm alone has no effect.
   security.pam.services.sddm.fprintAuth = false;
+  security.pam.services.login.fprintAuth = false;
 
-  # Stop fprintd before hibernate so lock screen requires password on resume.
-  # Ordered via hibernate.target which fires for both direct hibernate AND
-  # the hibernate phase of suspend-then-hibernate (after the 2h delay),
-  # but NOT for regular suspend.
-  systemd.services.fprintd-hibernate-guard = {
-    description = "Stop fprintd before hibernate to require password on resume";
-    before = [ "systemd-hibernate.service" ];
-    wantedBy = [ "hibernate.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = pkgs.writeShellScript "fprintd-hibernate-guard" ''
+  # system-sleep hooks fire for every sleep mode with the mode name as $2.
+  # We use this to stop fprintd before any hibernate path so the KDE lock
+  # screen can't accept a fingerprint on resume.
+  #
+  # powerManagement.powerDownCommands installs the script at
+  # /etc/systemd/system-sleep/ — called as "<script> pre <mode>" before sleep
+  # and "<script> post <mode>" after resume.
+  powerManagement.powerDownCommands = ''
+    case "$2" in
+      hibernate|suspend-then-hibernate)
         touch /run/fprintd-guard/hibernate-lock
-        ${pkgs.systemd}/bin/systemctl stop fprintd.service || true
-      '';
-    };
-  };
+        systemctl stop fprintd.service || true
+        ;;
+    esac
+  '';
+
+  # Restart fprintd after any resume so the USB reader re-initialises.
+  # The hibernate-lock flag is left in place here; the PAM hook below clears
+  # it only after a successful password unlock.
+  powerManagement.resumeCommands = ''
+    systemctl start fprintd.service || true
+  '';
 
   systemd.tmpfiles.rules = [
     "d /run/fprintd-guard 0755 root root -"
   ];
-
-  # Restart fprintd after suspend resume — hardware loses connection and needs
-  # re-initialization. Runs after systemd-suspend.service (i.e., on wakeup).
-  systemd.services.fprintd-suspend-resume = {
-    description = "Restart fprintd after suspend resume";
-    after = [ "systemd-suspend.service" ];
-    wantedBy = [ "suspend.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.systemd}/bin/systemctl restart fprintd.service";
-    };
-  };
 
   # After password unlock on the lock screen post-hibernate, restart fprintd
   # so subsequent unlocks can use fingerprint again.
