@@ -16,11 +16,13 @@ Idempotent: already-present resources are skipped.
 Order of operations:
   1. Docker bridge network
   2. Pull-through registry mirrors (Zot)
-  3. Kind clusters (create, connect to network, configure containerd)
+  3. forge-dns container (dnsmasq on the bridge network)
+  4. Kind clusters: create, connect to network, configure containerd
+     mirrors, install MetalLB + pool, patch CoreDNS for forge.test
 
-MetalLB, DNS, and components layer in as those features are ported.`,
+Components (ingress-nginx) land in a later commit.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := cluster.CheckPrerequisites("docker", "kind"); err != nil {
+			if err := cluster.CheckPrerequisites("docker", "kind", "kubectl"); err != nil {
 				return err
 			}
 			cfg, err := cluster.Load(configPath(cmd))
@@ -33,6 +35,9 @@ MetalLB, DNS, and components layer in as those features are ported.`,
 				return err
 			}
 			if err := cluster.EnsureAllMirrors(ctx, exe, cfg); err != nil {
+				return err
+			}
+			if err := cluster.EnsureDNS(ctx, exe, cfg); err != nil {
 				return err
 			}
 			return cluster.EnsureAllClusters(ctx, exe, cfg)
