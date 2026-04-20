@@ -193,17 +193,6 @@ func EnsureMirror(ctx context.Context, exe Executor, m Mirror, networkName strin
 	return waitMirrorReady(ctx, m.HostPort, cname)
 }
 
-// EnsureAllMirrors brings every mirror in cfg to the running state,
-// serially. Parallel provisioning comes with the DAG in step 7.
-func EnsureAllMirrors(ctx context.Context, exe Executor, cfg *Config) error {
-	for _, m := range cfg.Mirrors {
-		if err := EnsureMirror(ctx, exe, m, cfg.Network.Name); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // waitMirrorReady polls the mirror's /v2/ endpoint until it returns 200 or
 // the retry budget is exhausted. Uses net/http directly so we don't depend
 // on curl being on PATH.

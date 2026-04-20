@@ -13,13 +13,12 @@ func newUp() *cobra.Command {
 		Long: `Bring every resource declared in forge.yaml to its desired state.
 Idempotent: already-present resources are skipped.
 
-Order of operations:
-  1. Docker bridge network
-  2. Pull-through registry mirrors (Zot)
-  3. forge-dns container (dnsmasq on the bridge network)
-  4. Kind clusters: create, connect to network, configure containerd
-     mirrors, install MetalLB + pool, patch CoreDNS for forge.test,
-     install declared components (ingress-nginx)`,
+Executes a DAG:
+  - network (root)
+  - dns + every mirror run in parallel after network
+  - each cluster runs in parallel after network + dns + every mirror
+    (Kind create → connect → hosts.toml → MetalLB → CoreDNS patch →
+    components)`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := cluster.CheckPrerequisites("docker", "kind", "kubectl"); err != nil {
 				return err
@@ -30,16 +29,9 @@ Order of operations:
 			}
 			exe := cluster.DefaultExecutor()
 			ctx := cmd.Context()
-			if err := cluster.EnsureNetwork(ctx, exe, cfg.Network.Name, cfg.Network.Subnet); err != nil {
-				return err
-			}
-			if err := cluster.EnsureAllMirrors(ctx, exe, cfg); err != nil {
-				return err
-			}
-			if err := cluster.EnsureDNS(ctx, exe, cfg); err != nil {
-				return err
-			}
-			return cluster.EnsureAllClusters(ctx, exe, cfg)
+			plan := cluster.BuildUpPlan(exe, cfg)
+			_, err = cluster.ExecuteDAG(ctx, plan)
+			return err
 		},
 	}
 }

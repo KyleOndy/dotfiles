@@ -58,15 +58,3 @@ func EnsureCluster(ctx context.Context, exe Executor, kubeconfigDir, networkName
 	}
 	return nil
 }
-
-// EnsureAllClusters ensures every cluster in cfg is bring-up ready. Serial
-// for now — step 7 swaps in the DAG-based parallel orchestrator.
-func EnsureAllClusters(ctx context.Context, exe Executor, cfg *Config) error {
-	dir := cfg.ExpandedKubeconfigDir()
-	for _, c := range cfg.AllClusters() {
-		if err := EnsureCluster(ctx, exe, dir, cfg.Network.Name, cfg.DNS.IP, cfg.Mirrors, c.Cluster); err != nil {
-			return err
-		}
-	}
-	return nil
-}
