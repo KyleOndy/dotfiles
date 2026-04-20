@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+show_help() {
+	cat <<'EOF'
+usage: git claim [base]
+       git claim --dry-run [base]
+       git claim -h | --help
+
+Rewrite every commit in <base>..HEAD as yours: re-sign with your default
+GPG key and reset the author to the current committer. Intended for
+flux/agent-produced worktree branches that were committed with
+commit.gpgsign=false.
+
+Arguments:
+  base        Ref to rebase onto. Default: auto-detected default branch
+              (origin/main or origin/master).
+
+Behavior:
+  - Requires a clean worktree (no uncommitted changes).
+  - Requires HEAD to be ahead of <base>.
+  - Refuses to run while a rebase is already in progress.
+  - If the branch is already published (upstream has all local commits),
+    warns that a force-push will be required and asks to confirm.
+  - Runs pre-commit hooks on each amended commit (so lint/format drift
+    fails loudly). If a hook fails, the rebase pauses — fix and
+    `git rebase --continue`, or `git rebase --abort`.
+  - Overrides commit.gpgsign=true only for this rebase; the worktree's
+    local config stays unchanged (future agent runs keep skipping
+    pinentry).
+
+Recovery:
+  ORIG_HEAD is set by git before the rebase starts. To undo:
+    git reset --hard ORIG_HEAD
+
+Examples:
+  git claim                 # rewrite origin/main..HEAD
+  git claim origin/develop  # rewrite origin/develop..HEAD
+  git claim --dry-run       # show what would be rewritten
+EOF
+	exit 0
+}
+
+dry_run=false
+base=""
+
+while [[ $# -gt 0 ]]; do
+	case "$1" in
+	-h | --help)
+		show_help
+		;;
+	--dry-run)
+		dry_run=true
+		shift
+		;;
+	-*)
+		die "Unknown option: $1 (use -h for help)"
+		;;
+	*)
+		if [[ -n $base ]]; then
+			die "Unexpected extra argument: $1 (use -h for help)"
+		fi
+		base="$1"
+		shift
+		;;
+	esac
+done
+
+# Must be in a worktree-based repo.
+require_worktree_repo >/dev/null
+
+git_dir=$(git rev-parse --git-dir)
+if [[ -d $git_dir/rebase-merge ]] || [[ -d $git_dir/rebase-apply ]]; then
+	die "A rebase is already in progress. Resolve with 'git rebase --continue' or 'git rebase --abort' first."
+fi
+
+# Clean worktree required (ignore untracked files; they don't affect rebase).
+if [[ -n $(git status --porcelain --untracked-files=no) ]]; then
+	die "Tracked uncommitted changes in the worktree. Commit or stash before claiming."
+fi
+
+# Resolve base.
+if [[ -z $base ]]; then
+	base=$(get_default_branch)
+fi
+
+if ! git rev-parse --verify --quiet "$base" >/dev/null; then
+	die "Base ref '$base' does not exist."
+fi
+
+# Count commits to rewrite.
+count=$(git rev-list --count "${base}..HEAD")
+if [[ $count -eq 0 ]]; then
+	log_info "Nothing to claim: HEAD is not ahead of ${base}."
+	exit 0
+fi
+
+# Resolve signing key for display.
+signing_key=$(git config --get user.signingkey 2>/dev/null || echo "<user.signingkey unset>")
+user_name=$(git config --get user.name)
+user_email=$(git config --get user.email)
+
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+orig_head=$(git rev-parse HEAD)
+
+log_info "Branch:       ${current_branch}"
+log_info "Base:         ${base}"
+log_info "Commits:      ${count}"
+log_info "Author will become: ${user_name} <${user_email}>"
+log_info "Signing key:  ${signing_key}"
+log_info "Current HEAD: ${orig_head}"
+
+echo ""
+echo "Commits to rewrite:"
+git log --pretty='  %h  %s' "${base}..HEAD"
+echo ""
+
+if [[ $dry_run == true ]]; then
+	log_info "Dry run; no changes made."
+	exit 0
+fi
+
+# Warn if branch is already fully pushed (force-push will be required).
+if git rev-parse --abbrev-ref "@{upstream}" >/dev/null 2>&1; then
+	ahead=$(git rev-list --count '@{upstream}..HEAD')
+	if [[ $ahead -gt 0 ]]; then
+		log_warn "Upstream exists and is behind local HEAD by ${ahead} commits."
+		log_warn "After claim, 'git push --force-with-lease' will be required."
+		if ! confirm "Proceed?"; then
+			die "Aborted by user."
+		fi
+	fi
+fi
+
+log_info "Running rebase with --exec 'git commit --amend --no-edit --reset-author -S'"
+log_info "Pre-commit hooks will run on each amended commit."
+
+if ! GIT_SEQUENCE_EDITOR=: \
+	git -c commit.gpgsign=true \
+	rebase \
+	--exec 'git commit --amend --no-edit --reset-author -S' \
+	"$base"; then
+	echo ""
+	log_error "Rebase paused or failed. Inspect state with 'git status'."
+	log_error "Resume with: git rebase --continue"
+	log_error "Abort with:  git rebase --abort"
+	log_error "Recover to original HEAD: git reset --hard ${orig_head}"
+	exit 1
+fi
+
+echo ""
+log_info "Claimed. ORIG_HEAD=${orig_head} (to undo: git reset --hard ORIG_HEAD)"
+echo ""
+echo "Signatures after claim:"
+git log --show-signature --pretty=oneline "${base}..HEAD"
