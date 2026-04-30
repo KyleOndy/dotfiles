@@ -15,5 +15,6 @@ self: super: {
   battery-draw = super.callPackage ./battery-draw { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   flutter-pi = super.callPackage ./flutter-pi { };
+  kubectl-rexec = super.callPackage ./kubectl-rexec { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
 }

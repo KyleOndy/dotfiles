@@ -20,6 +20,7 @@ in
       k9s
       kubectl
       kubectl-node-shell
+      kubectl-rexec
       kubectx
       (wrapHelm kubernetes-helm {
         plugins = [ kubernetes-helmPlugins.helm-diff ];
