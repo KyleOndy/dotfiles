@@ -209,7 +209,9 @@ in
               stripped_repo="''${repo_bare//${config.home.homeDirectory}\/src\//}"
               bare_repo=''${stripped_repo//.bare\//}
 
-              repo=$(echo "''${bare_repo}" | ${pkgs.fzf}/bin/fzf) || return
+              repo=$(echo "''${bare_repo}" | ${pkgs.fzf}/bin/fzf \
+                --prompt="Switch Repo: " \
+                --height 40% --reverse) || return
               [[ -z "$repo" ]] && return
 
               for dir in "${config.home.homeDirectory}/src/''${repo}/main" "${config.home.homeDirectory}/src/''${repo}/master" "${config.home.homeDirectory}/src/''${repo}"; do
