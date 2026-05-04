@@ -63,6 +63,14 @@ resource "aws_route53_record" "ondy_org_infra_elk" {
   records = ["37.27.70.102"]
 }
 
+resource "aws_route53_record" "ondy_org_photos" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "photos.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  records = local.elk_dns
+}
+
 resource "aws_route53_record" "ondy_org_infra_elk_wildcard" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "*.elk.infra.ondy.org"

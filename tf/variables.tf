@@ -18,6 +18,9 @@ variable "elk_apps_subdomains" {
     "sabnzbd",
     "sonarr",
 
+    # photos
+    "immich",
+
     # nix binary cache
     "cache",
   ]
