@@ -602,9 +602,6 @@
   # Docker
   systemFoundry.docker.enable = true;
 
-  # LibreChat - self-hosted AI chat frontend (localhost only)
-  systemFoundry.librechat.enable = true;
-
   # Professional audio/video devices (MOTU M4, Elgato)
   systemFoundry.audioVideoDevices.enable = true;
 
