@@ -270,6 +270,8 @@ in
         '';
         serviceConfig = {
           Type = "oneshot";
+          Nice = 19;
+          IOSchedulingClass = "idle";
         };
       };
       jellyfin-transcode-cleanup = {
@@ -282,7 +284,10 @@ in
             fd --type=file --changed-before="${cfg.transcodeCleanupInterval}" . ${stateDir}/transcodes/ -X rm -v --
           fi
         '';
-
+        serviceConfig = {
+          Nice = 19;
+          IOSchedulingClass = "idle";
+        };
       };
     };
 

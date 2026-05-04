@@ -108,6 +108,8 @@ in
           ExecStart = "${startScript}";
           Restart = "on-failure";
           RestartSec = "5s";
+          Nice = 19;
+          IOSchedulingClass = "idle";
         };
     };
   };

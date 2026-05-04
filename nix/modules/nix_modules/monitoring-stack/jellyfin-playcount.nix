@@ -207,6 +207,8 @@ in
         ExecStart = "${jellyfinPlaycountScript}/bin/jellyfin-playcount-exporter";
         User = "jellyfin-playcount";
         Group = "jellyfin-playcount";
+        Nice = 19;
+        IOSchedulingClass = "idle";
       };
     };
 
