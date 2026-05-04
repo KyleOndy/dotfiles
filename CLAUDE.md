@@ -622,26 +622,23 @@ The Cogsworth Raspberry Pi kiosk implements a **three-tier watchdog system** for
 
 **Purpose**: Handle service crashes and immediate failures
 
-**Implementation** (both `cogsworth.service` and `cage-tty1.service`):
+**Implementation** (both `cogsworth.service` and `cogsworth-kiosk.service`):
 
 ```nix
-Restart = "always";
+Restart = "on-failure";
 RestartSec = "5s";
-StartLimitBurst = 10;           # Allow 10 restarts
-StartLimitIntervalSec = 120;    # Within 2 minutes
-StartLimitAction = "none";      # Don't give up permanently
 ```
 
 **Configuration locations**:
 
-- `cogsworth.service`: `nix/hosts/cogsworth/configuration.nix:344-403`
-- `cage-tty1.service`: `nix/hosts/cogsworth/configuration.nix:316-346`
+- `cogsworth.service`: grep `systemd.services.cogsworth` in `nix/hosts/cogsworth/configuration.nix`
+- `cogsworth-kiosk.service`: grep `systemd.services.cogsworth-kiosk` in `nix/hosts/cogsworth/configuration.nix`
 
 **Recovery scenarios**:
 
-- Java process crashes (cogsworth)
-- Chromium/Cage crashes (cage-tty1)
-- Wayland compositor errors (cage-tty1)
+- Go process crashes (cogsworth)
+- Chromium/Sway crashes (cogsworth-kiosk)
+- Wayland compositor errors (cogsworth-kiosk)
 - Out of memory errors
 - Segmentation faults
 - Unhandled exceptions
@@ -658,36 +655,31 @@ StartLimitAction = "none";      # Don't give up permanently
 
 **Purpose**: Detect hung/frozen states or service failures and automatically recover
 
-**Implementation** (`nix/hosts/cogsworth/configuration.nix:442-527`):
+**Implementation** (grep `systemd.services.cogsworth-watchdog` in `nix/hosts/cogsworth/configuration.nix`):
 
 **Components**:
 
-1. `cogsworth-watchdog.service` - Oneshot service that checks health of both cogsworth and cage
+1. `cogsworth-watchdog.service` - Oneshot service that health-checks `cogsworth.service`
 2. `cogsworth-watchdog.timer` - Runs every 30 seconds
 
 **How it works**:
 
 ```bash
 # Every 30 seconds:
-1. Check if http://127.0.0.1:8080/ responds within 5 seconds (cogsworth HTTP health)
-2. Check if cage-tty1.service is active (kiosk display running)
-3. For each check:
-   - If success: Reset failure counter
-   - If failure: Increment failure counter
-   - If failures >= 3: Run `reset-failed` then `restart` service
+1. Check if http://127.0.0.1:8080/api/health responds within 5 seconds
+2. If success: reset failure counter
+   If failure: increment counter; if counter >= 3, reset-failed + restart cogsworth.service
 ```
 
 **State tracking**:
 
 - Cogsworth failure count: `/var/lib/cogsworth-watchdog/failure_count`
-- Cage failure count: `/var/lib/cogsworth-watchdog/cage_failure_count`
 - Requires 3 consecutive failures (90 seconds total)
 - Prevents false positives from transient network issues
 
 **Recovery scenarios**:
 
 - HTTP server hung but process alive (cogsworth)
-- Kiosk display crashed/exited (cage-tty1)
 - Service hit systemd restart limit (reset-failed clears it)
 - Deadlocked threads
 - Infinite loops in request handlers
@@ -699,9 +691,8 @@ StartLimitAction = "none";      # Don't give up permanently
 # View watchdog status
 ssh cogsworth journalctl -u cogsworth-watchdog -f
 
-# Check current failure counts
+# Check current failure count
 ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
-ssh cogsworth cat /var/lib/cogsworth-watchdog/cage_failure_count
 
 # View timer schedule
 ssh cogsworth systemctl list-timers cogsworth-watchdog
@@ -711,10 +702,10 @@ ssh cogsworth systemctl list-timers cogsworth-watchdog
 
 **Purpose**: Ultimate failsafe - reboot system if kernel hangs
 
-**Implementation** (`nix/hosts/cogsworth/configuration.nix:82-92`):
+**Implementation** (grep `bcm2712_wdt` in `nix/hosts/cogsworth/configuration.nix`):
 
 ```nix
-boot.kernelModules = [ "bcm2835_wdt" ];  # Raspberry Pi watchdog
+boot.kernelModules = [ "bcm2712_wdt" ];  # Raspberry Pi 5 watchdog
 systemd.watchdog = {
   runtimeTime = "30s";   # Reboot if systemd doesn't ping within 30s
   rebootTime = "2min";   # Force reboot if graceful reboot hangs
@@ -739,7 +730,7 @@ systemd.watchdog = {
 
 ```bash
 # Check watchdog module loaded
-ssh cogsworth lsmod | grep bcm2835_wdt
+ssh cogsworth lsmod | grep bcm2712_wdt
 
 # Check systemd watchdog status
 ssh cogsworth systemctl show-environment | grep WATCHDOG
@@ -792,8 +783,8 @@ ssh cogsworth ls -la /dev/watchdog*
 # SSH to cogsworth
 ssh cogsworth
 
-# Kill the Java process (simulates crash)
-sudo killall -9 java
+# Kill the Go process (simulates crash)
+sudo systemctl kill -s KILL cogsworth
 
 # Watch service restart
 journalctl -u cogsworth -f
@@ -840,14 +831,16 @@ ssh cogsworth "echo c | sudo tee /proc/sysrq-trigger"
 
 All values can be adjusted in `nix/hosts/cogsworth/configuration.nix`:
 
-| Parameter               | Location | Default | Purpose                             |
-| ----------------------- | -------- | ------- | ----------------------------------- |
-| `RestartSec`            | Line 184 | 5s      | Delay between restart attempts      |
-| `StartLimitBurst`       | Line 188 | 10      | Max restarts before giving up       |
-| `StartLimitIntervalSec` | Line 189 | 120s    | Time window for burst limit         |
-| `OnUnitActiveSec`       | Line 310 | 30s     | Health check interval               |
-| `FAILURE_THRESHOLD`     | Line 267 | 3       | Consecutive failures before restart |
-| `runtimeTime`           | Line 90  | 30s     | Hardware watchdog timeout           |
+| Parameter                 | Default | Purpose                                        |
+| ------------------------- | ------- | ---------------------------------------------- |
+| `RestartSec`              | 5s      | Delay between restart attempts                 |
+| `StartLimitBurst`         | 10      | Max restarts before giving up                  |
+| `StartLimitIntervalSec`   | 120s    | Time window for burst limit                    |
+| `OnUnitActiveSec`         | 30s     | Health check interval                          |
+| `FAILURE_THRESHOLD`       | 3       | Backend consecutive failures before restart    |
+| `KIOSK_FAILURE_THRESHOLD` | 5       | Kiosk consecutive failures before restart      |
+| `KIOSK_GRACE_PERIOD_S`    | 60s     | Skip kiosk checks for N sec after kiosk starts |
+| `runtimeTime`             | 30s     | Hardware watchdog timeout                      |
 
 **Recommended adjustments**:
 
@@ -936,7 +929,7 @@ ssh cogsworth sudo systemctl start cogsworth.service
 
 ```bash
 # Verify kernel module loaded
-ssh cogsworth lsmod | grep bcm2835_wdt
+ssh cogsworth lsmod | grep bcm2712_wdt
 
 # If not loaded, rebuild with the configuration:
 nix build .#nixosConfigurations.cogsworth.config.system.build.sdImage
@@ -948,7 +941,7 @@ After modifying watchdog configuration:
 
 ```bash
 # Build and flash new SD card image
-make build-cogsworth-image
+make sdcard-cogsworth
 
 # Or if cogsworth is already running, use deploy-rs
 # (Note: deploy-rs not yet configured for cogsworth)
@@ -961,7 +954,7 @@ Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell
 ### Implementation Overview
 
 **Module**: `nix/modules/nix_modules/sd-card-optimization.nix`
-**Enabled in**: `nix/hosts/cogsworth/configuration.nix:422`
+**Enabled in**: `nix/hosts/cogsworth/configuration.nix` (grep `sdCardOptimization`)
 
 ### What's Stored in RAM vs SD Card
 
@@ -983,7 +976,7 @@ Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell
 - **`/etc`** - System configuration (written only on upgrades)
 - **`/var/lib/cogsworth`** - Application state (minimal writes)
 - **`/var/lib/cogsworth-watchdog/failure_count`** - Watchdog state (writes every 30s)
-- **`/opt/cogsworth`** - Java uberjar (written only on updates)
+- **`/var/lib/cogsworth/db/`** - SQLite database (WAL + single-writer; infrequent writes)
 
 ### Optimizations Applied
 
@@ -1135,7 +1128,7 @@ systemFoundry.sdCardOptimization.enable = false;
 
 ### Tuning Parameters
 
-All settings in `nix/hosts/cogsworth/configuration.nix:422`:
+All settings in `nix/hosts/cogsworth/configuration.nix` (grep `sdCardOptimization`):
 
 ```nix
 systemFoundry.sdCardOptimization = {
@@ -1222,7 +1215,7 @@ After modifying SD card optimization:
 
 ```bash
 # Build new SD image
-make build-cogsworth-image
+make sdcard-cogsworth
 
 # Flash to SD card
 sudo dd if=result/sd-image/nixos-sd-image-*.img of=/dev/sdX bs=4M status=progress
