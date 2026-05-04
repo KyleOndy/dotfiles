@@ -71,6 +71,14 @@ in
         trusted-substituters = [ ];
         auto-optimise-store = true;
         download-buffer-size = 524288000; # 500 MB
+        substituters = [
+          "https://cache.apps.ondy.org"
+          "https://cache.nixos.org"
+        ];
+        trusted-public-keys = [
+          "cache.apps.ondy.org-1:7HWTVdm4uIcOykyNwsKsEjRqqOzuLqK12//JXLiUU7I="
+          "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+        ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];
       extraOptions = ''

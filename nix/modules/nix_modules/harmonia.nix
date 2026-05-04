@@ -29,14 +29,18 @@ in
         Requires nginxReverseProxy.acme to be configured.
       '';
     };
+
+    signKeyPath = mkOption {
+      type = types.path;
+      description = "Path to the harmonia signing secret key file";
+      example = "/run/secrets/harmonia_secret";
+    };
   };
 
   config = mkIf cfg.enable {
     services.harmonia = {
       enable = true;
-      # generate this key in situ with the following command:
-      # $ nix-store --generate-binary-cache-key cache.yourdomain.tld-1 /var/lib/secrets/harmonia.secret /var/lib/secrets/harmonia.pub
-      signKeyPaths = [ "/var/lib/secrets/harmonia.secret" ];
+      signKeyPaths = [ cfg.signKeyPath ];
     };
 
     # harmonia runs on :5000, proxy it via nginx or caddy with TLS

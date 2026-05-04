@@ -17,5 +17,8 @@ variable "elk_apps_subdomains" {
     "readarr",
     "sabnzbd",
     "sonarr",
+
+    # nix binary cache
+    "cache",
   ]
 }

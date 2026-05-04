@@ -538,6 +538,13 @@
       # provisionCert not needed — covered by *.elk.infra.ondy.org wildcard cert
     };
 
+    harmonia = {
+      enable = true;
+      domainName = "cache.apps.ondy.org";
+      provisionCert = true;
+      signKeyPath = config.sops.secrets.harmonia_secret.path;
+    };
+
   };
 
   # Public domain aliases for DNS cutover (*.apps.ondy.org -> elk)
@@ -996,6 +1003,10 @@
     };
     jellyfin_api_key = {
       mode = "0444";
+    };
+    harmonia_secret = {
+      owner = "harmonia";
+      mode = "0400";
     };
     # unifi_wireguard_private_elk = { # Disabled with wg-home tunnel
     #   mode = "0400";
