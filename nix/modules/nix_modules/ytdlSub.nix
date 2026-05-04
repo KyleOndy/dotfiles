@@ -210,14 +210,29 @@ in
                 allow_auto_generated_subtitles = true;
               };
 
+              # Override the defaults from the built-in `_throttle_protection` preset
+              # (13-28s per download, 16-26s per subscription) which weren't enough to
+              # avoid YouTube serving 360p throttled streams during the nightly run.
+              # Increased 50% again (was 480-1200s) to further reduce throttling risk.
+              throttle_protection = {
+                sleep_per_download_s = {
+                  min = 720.0;
+                  max = 1800.0;
+                };
+                sleep_per_subscription_s = {
+                  min = 720.0;
+                  max = 1800.0;
+                };
+              };
+
               ytdl_options = {
                 cookiefile = "${cfg.data_dir}/cookies.txt";
-                format = "bestvideo+bestaudio/best";
+                format = "bestvideo[vcodec!^=av01]+bestaudio/bestvideo+bestaudio/best";
                 noprogress = true;
                 playlistend = tierCfg.max_videos;
-                sleep_requests = 5;
-                sleep_interval = 10;
-                max_sleep_interval = 30;
+                sleep_requests = 30;
+                sleep_interval = 60;
+                max_sleep_interval = 180;
                 extractor_args = {
                   youtube = {
                     player_client = [ "web" ];
@@ -230,6 +245,10 @@ in
                 source_address = cfg.source_address;
               };
 
+              match_filters.filters = [
+                "availability != subscriber_only & availability != premium_only & availability != needs_auth"
+              ];
+
               overrides = {
                 tv_show_directory = cfg.media_dir;
               };
@@ -240,6 +259,7 @@ in
               match_filters.filters = [
                 "original_url!*=/shorts/"
                 "duration>60"
+                "availability != subscriber_only & availability != premium_only & availability != needs_auth"
               ];
             };
           };
@@ -273,9 +293,11 @@ in
           Type = "simple";
           ExecStart = "${pkgs.bgutil-ytdlp-pot-server}/bin/bgutil-ytdlp-pot-server";
           Restart = "on-failure";
-          RestartSec = "5s";
+          RestartSec = "10s";
           DynamicUser = true;
           StateDirectory = "bgutil-pot-server";
+          Nice = 19;
+          IOSchedulingClass = "idle";
         };
       };
     }
@@ -300,6 +322,8 @@ in
             CacheDirectory = "ytdl-sub";
             # Run as root to fix .trickplay dir permissions created by Jellyfin
             ExecStartPre = "+${fixTrickplayPerms}";
+            Nice = 19;
+            IOSchedulingClass = "idle";
           };
         }
       )

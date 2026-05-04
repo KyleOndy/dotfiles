@@ -16,6 +16,11 @@ Host tiger tiger.dmz.509ely.com
   User kyle
   Port 2332
 
+# Cloud server
+Host elk elk.infra.ondy.org
+  Hostname elk.infra.ondy.org
+  User kyle
+
 # WORKER NODES
 # sigma   00:1e:06:45:28:5c
 # sigma   00:1e:06:45:28:5d
