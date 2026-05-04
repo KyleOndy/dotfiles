@@ -17,4 +17,5 @@ self: super: {
   flutter-pi = super.callPackage ./flutter-pi { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
+  presence-debug = super.callPackage ./presence-debug { };
 }
