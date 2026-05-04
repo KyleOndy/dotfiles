@@ -71,6 +71,9 @@ in
         trusted-substituters = [ ];
         auto-optimise-store = true;
         download-buffer-size = 524288000; # 500 MB
+        connect-timeout = 5;
+        stalled-download-timeout = 30;
+        download-attempts = 3;
         substituters = [
           "https://cache.apps.ondy.org"
           "https://cache.nixos.org"

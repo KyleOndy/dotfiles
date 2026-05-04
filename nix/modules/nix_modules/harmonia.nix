@@ -59,6 +59,8 @@ in
           enable = true;
           provisionCert = cfg.provisionCert;
           proxyPass = "http://127.0.0.1:5000";
+          flushInterval = "-1"; # stream bytes immediately; buffering triggers stalled-download timeouts on large NARs
+          proxyTimeout = "600s"; # harmonia compresses+signs on-the-fly; large NARs need time
         };
   };
 }
