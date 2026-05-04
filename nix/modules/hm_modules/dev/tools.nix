@@ -27,6 +27,9 @@ in
         # HTTP server for quick file sharing
         miniserve
 
+        # Google Gemini CLI
+        master.gemini-cli
+
         # Additional Clojure tools (always with dev for now)
         babashka-scripts
       ]
