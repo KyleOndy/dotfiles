@@ -449,6 +449,10 @@
             ./disko-config.nix
           ];
         };
+        tiger = mkNixosSystem {
+          hostname = "tiger";
+          profile = "desktop";
+        };
         elk = mkNixosSystem {
           hostname = "elk";
           profile = "server";
@@ -577,6 +581,14 @@
               sshUser = "svc.deploy";
               user = "root";
               path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.cogsworth;
+            };
+          };
+          tiger = {
+            hostname = "tiger";
+            profiles.system = {
+              sshUser = "svc.deploy";
+              user = "root";
+              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
             };
           };
           elk = {

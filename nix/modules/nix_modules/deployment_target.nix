@@ -68,7 +68,7 @@ in
           "root"
           "@wheel"
         ]; # todo: security issue?
-        trusted-substituters = [ ];
+        trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ];
         auto-optimise-store = true;
         download-buffer-size = 524288000; # 500 MB
         connect-timeout = 5;

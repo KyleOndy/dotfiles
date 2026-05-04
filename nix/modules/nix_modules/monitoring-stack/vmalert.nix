@@ -275,6 +275,25 @@ in
         - name: disk_space
           interval: 60s
           rules:
+            # Special rule for tiger /mnt/media - allow lower free space (media library fills up)
+            - alert: DiskSpaceLow
+              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Low disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+                description: "Disk space is below 5% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+
+            - alert: DiskSpaceCritical
+              expr: (node_filesystem_avail_bytes{host="tiger",mountpoint="/mnt/media"} / node_filesystem_size_bytes{host="tiger",mountpoint="/mnt/media"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
+                description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
+
             # Special rule for elk /mnt/storage - allow lower free space (media library fills up)
             - alert: ElkMediaDiskSpaceLow
               expr: (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
