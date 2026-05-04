@@ -79,6 +79,14 @@ resource "aws_route53_record" "ondy_org_infra_elk_wildcard" {
   records = ["elk.infra.ondy.org"]
 }
 
+resource "aws_route53_record" "ondy_org_infra_cogsworth" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "cogsworth.infra.ondy.org"
+  type    = "A"
+  ttl     = "300"
+  records = ["10.24.89.7"]
+}
+
 output "ondy_org_nameservers" {
   value = aws_route53_zone.ondy_org.name_servers
 }
