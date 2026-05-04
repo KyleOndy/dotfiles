@@ -5,11 +5,18 @@
   modulesPath,
   ...
 }:
+let
+  # Build a proper derivation for the wake word models so the store path is
+  # content-addressed and stable across repo commits. Using ./models directly
+  # in a flake resolves to the entire flake source (-source suffix), whose hash
+  # rotates on every commit and gets GC'd from the device.
+  wakewordModels = pkgs.runCommand "cogsworth-wakeword-models" { } ''
+    mkdir -p $out
+    cp ${./models/100/hey_cogs.tflite} $out/hey_cogs.tflite
+  '';
+in
 {
-  imports = [
-    # SD card image builder for aarch64
-    "${modulesPath}/installer/sd-card/sd-image-aarch64.nix"
-  ];
+  imports = [ ];
 
   # Sops configuration - use pre-baked SSH host key for decryption
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
@@ -20,6 +27,59 @@
   sops.secrets.monitoring_password = {
     # vmagent/promtail use DynamicUser, need world-readable
     mode = "0444";
+  };
+
+  # Deepgram API key for speech-to-text
+  sops.secrets.cogsworth_deepgram_api_key = {
+    owner = "cogsworth";
+  };
+
+  # OpenRouter API key for LLM NLU (shopping item cleanup, intent classification)
+  sops.secrets.cogsworth_openrouter_api_key = {
+    owner = "cogsworth";
+  };
+
+  # Immich API key for photo screensaver
+  sops.secrets.immich_api_key = {
+    owner = "cogsworth";
+  };
+
+  # Location for weather widget (Open-Meteo API — no API key required)
+  sops.secrets.weather_lat = {
+    owner = "cogsworth";
+  };
+  sops.secrets.weather_lon = {
+    owner = "cogsworth";
+  };
+
+  sops.templates."cogsworth-deepgram-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_DEEPGRAM_API_KEY=${config.sops.placeholder.cogsworth_deepgram_api_key}
+    '';
+  };
+
+  sops.templates."cogsworth-immich-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_IMMICH_URL=https://immich.apps.ondy.org
+      COGSWORTH_IMMICH_API_KEY=${config.sops.placeholder.immich_api_key}
+    '';
+  };
+
+  sops.templates."cogsworth-weather-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_WEATHER_LAT=${config.sops.placeholder.weather_lat}
+      COGSWORTH_WEATHER_LON=${config.sops.placeholder.weather_lon}
+    '';
+  };
+
+  sops.templates."cogsworth-openrouter-env" = {
+    owner = "cogsworth";
+    content = ''
+      cogsworth_openrouter_api_key=${config.sops.placeholder.cogsworth_openrouter_api_key}
+    '';
   };
 
   # wpa_supplicant secrets file template
@@ -39,25 +99,21 @@
         };
       };
     };
+    interfaces.wlan0.useDHCP = true;
   };
 
   time.timeZone = "America/New_York";
   i18n.defaultLocale = "en_US.UTF-8";
 
-  # Workaround for https://github.com/NixOS/nixpkgs/issues/154163
-  # Generic aarch64 SD image includes modules not in RPi kernel
-  nixpkgs.overlays = [
-    (final: super: {
-      makeModulesClosure = x: super.makeModulesClosure (x // { allowMissing = true; });
-    })
-  ];
-
-  # SD card has no SMART support; smartd exits 17 with no devices found.
-  services.smartd.enable = false;
-
   # SD image optimizations
   sdImage.compressImage = false; # Faster builds
   boot.supportedFilesystems.zfs = lib.mkForce false; # Not needed, speeds up build
+
+  # Pi 5 kernel uses 16K pages (PAGE_SHIFT=14) with 47-bit VA space.
+  # NixOS defaults to 33 (assumes 4K pages, 48-bit VA) because the
+  # nixos-raspberrypi kernel doesn't expose config introspection.
+  # Max = VA_BITS - PAGE_SHIFT - 3 = 47 - 14 - 3 = 30.
+  boot.kernel.sysctl."vm.mmap_rnd_bits" = lib.mkForce 30;
 
   # Reduce SD card wear by disabling access time updates
   fileSystems."/" = lib.mkForce {
@@ -96,62 +152,60 @@
       chmod 644 ./files/etc/ssh/ssh_host_ed25519_key.pub
     '';
 
-  # Disable rainbow splash and enable I2S audio
-  # Note: UART4 for SEN0557 is configured via deviceTree overlay below
-  sdImage.populateFirmwareCommands = lib.mkAfter ''
-    chmod +w ./firmware/config.txt
-    echo "disable_splash=1" >> ./firmware/config.txt
-    echo "dtparam=i2s=on" >> ./firmware/config.txt
-    echo "gpu_mem=128" >> ./firmware/config.txt
-    echo "arm_freq=1800" >> ./firmware/config.txt
-    echo "over_voltage=2" >> ./firmware/config.txt
-  '';
+  # config.txt settings (managed by nixos-raspberrypi; boot fundamentals are set by the module)
+  hardware.raspberry-pi.config.all = {
+    options.disable_splash = {
+      enable = true;
+      value = 1;
+    };
+    base-dt-params.i2c_arm = {
+      enable = true;
+      value = "on";
+    };
+  };
 
   # GPU drivers (creates /run/opengl-driver for mesa/GBM)
   hardware.graphics.enable = true;
 
-  # Raspberry Pi 4 GPU configuration
-  hardware.raspberry-pi."4" = {
-    fkms-3d.enable = true; # V3D renderer for GPU acceleration
+  # I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
+  hardware.i2c.enable = true;
 
-    # Firmware boot splash (shows during bootloader/firmware stage)
-    apply-overlays-dtmerge.enable = true;
+  # Do NOT set hardware.deviceTree.filter on Pi 5: it breaks boot.
+  # Bisected 2026-04-23 — setting any filter (even one matching bcm2712*)
+  # causes brcmuart_init → bcm2712_pull_config_set SError during kernel
+  # init. The nixos-raspberrypi + raspberrypi-firmware DTB install path
+  # doesn't interact cleanly with this option under kernelboot.
 
-    # Enable ARM I2C bus on GPIO pins 3 (SDA) and 5 (SCL), available at /dev/i2c-1
-    i2c1.enable = true;
-
-    # Enable GPIO access with proper udev rules and iomem=relaxed kernel param
-    gpio.enable = true;
-  };
-
-  # Enable UART4 on GPIO8/9 (pins 24/21) for SEN0557 sensor
+  # Enable UART3 on GPIO8/9 (pins 24/21) for SEN0557 sensor.
+  # On BCM2712 (Pi 5), &uart3 is the RP1 UART muxed to GPIO 8/9; &uart4 is GPIO 12/13.
+  # The base DTB already defines uart3_pins via rp1_uart3_8_9 — just enable the UART.
+  # Do NOT target &gpio here: that is the BCM2712 SoC GPIO controller, not the RP1
+  # GPIO controller that drives the 40-pin header; applying pinctrl there causes a
+  # bcm2712_pull_config_set SError on boot.
+  # NOTE: every overlay entry sets `filter = "broadcom/"` so apply_overlays.py
+  # only tries to apply it to DTBs under `dtbs/broadcom/` — skipping
+  # `dtbs/overlays/overlay_map.dtb`, which has no compatible string and isn't
+  # a real device tree (the script would otherwise FDT_ERR_BADOFFSET on it).
+  # GPIO17 (pin 11) is the SEN0557 presence OUT. No DT overlay needed — a bare
+  # pinctrl state has no effect without a consumer to request it. The cogsworth
+  # app configures the pull-up via libgpiod (GPIO_V2_LINE_FLAG_BIAS_PULL_UP)
+  # when it opens the line at startup.
   hardware.deviceTree.overlays = [
     {
-      name = "uart4-complete";
+      name = "uart3-enable";
+      filter = "broadcom/";
       dtsText = ''
         /dts-v1/;
         /plugin/;
 
         / {
-          compatible = "brcm,bcm2711";
+          compatible = "brcm,bcm2712";
 
           fragment@0 {
-            target-path = "/soc/gpio@7e200000";
+            target = <&uart3>;
             __overlay__ {
-              uart4_pins: uart4_pins {
-                brcm,pins = <8 9>;
-                brcm,function = <3>; /* alt4 = UART4 TXD/RXD */
-                brcm,pull = <0 2>; /* TX no-pull, RX pull-up */
-              };
-            };
-          };
-
-          fragment@1 {
-            target-path = "/soc/serial@7e201800"; /* UART4 */
-            __overlay__ {
-              pinctrl-names = "default";
-              pinctrl-0 = <&uart4_pins>;
               status = "okay";
+              pinctrl-0 = <&uart3_pins>;
             };
           };
         };
@@ -159,12 +213,13 @@
     }
     {
       name = "i2s-audio-combined";
+      filter = "broadcom/";
       dtsText = ''
         /dts-v1/;
         /plugin/;
 
         / {
-          compatible = "brcm,bcm2711";
+          compatible = "brcm,bcm2712";
 
           fragment@0 {
             target = <&i2s>;
@@ -244,11 +299,15 @@
 
   # Tier 3 Watchdog: Hardware watchdog timer
   # Ultimate failsafe - reboots system if kernel hangs
-  # Raspberry Pi 4 has built-in bcm2835_wdt watchdog
+  # bcm2835_wdt is built into the rpi5 kernel (not a loadable module); /dev/watchdog0 comes up
+  # automatically. systemd.settings.Manager below feeds it.
   boot.kernelModules = [
-    "bcm2835_wdt"
+    "v3d"
+    "vc4"
     # I2S audio modules for MAX98357A speaker and ICS-43434 microphone
-    "snd_soc_bcm2835_i2s"
+    # Pi 5 RP1 I2S uses Synopsys DesignWare IP (compatible = "snps,designware-i2s"),
+    # not the Pi 4 bcm2835 I2S (compatible = "brcm,bcm2835-i2s").
+    "designware_i2s"
     "snd_soc_max98357a"
     "snd_soc_ics43432"
     "snd_soc_simple_card"
@@ -262,59 +321,137 @@
     RebootWatchdogSec = "2min"; # Reboot timeout if normal reboot fails
   };
 
+  # ALSA audio chain for the MAX98357A amplifier.
+  # speaker_dmix (dmix) -> hw:0,1 allows multiple processes to share the
+  # hardware PCM simultaneously (the amp-keepalive silence stream and any
+  # on-demand playback from the Go backend coexist without "device busy" errors).
+  # softvol wraps the dmix and exposes a "SpeakerVol" mixer control (0-100%).
+  environment.etc."asound.conf".text = ''
+    pcm.speaker_dmix {
+        type dmix
+        ipc_key 1024
+        slave {
+            pcm "hw:0,1"
+            rate 44100
+            format S16_LE
+            channels 2
+        }
+    }
+
+    pcm.softvol {
+        type softvol
+        slave.pcm "speaker_dmix"
+        control {
+            name "SpeakerVol"
+            card 0
+        }
+        min_dB -51.0
+        max_dB  0.0
+        resolution 101
+    }
+
+    pcm.alarmvol {
+        type softvol
+        slave.pcm "speaker_dmix"
+        control {
+            name "AlarmVol"
+            card 0
+        }
+        min_dB -51.0
+        max_dB  0.0
+        resolution 101
+    }
+
+    pcm.alarm {
+        type plug
+        slave.pcm "alarmvol"
+    }
+
+    pcm.!default {
+        type plug
+        slave.pcm "softvol"
+    }
+  '';
+
   # CPU always at max frequency when awake (app dynamically switches to powersave on screen off)
   powerManagement.cpuFreqGovernor = "performance";
 
   # Rotate framebuffer console to match physical display orientation (90° clockwise)
   boot.kernelParams = [
     "fbcon=rotate:1" # 1 = 90° clockwise
-    "iomem=relaxed" # Required for GPIO memory access on NixOS
-    "strict-devmem=0" # Allow pigpio to access GPIO memory
+    "iomem=relaxed" # Permissive MMIO access for GPIO and peripheral access
   ];
 
-  # Use Raspberry Pi specific kernel for GPIO support
-  boot.kernelPackages = pkgs.linuxPackages_rpi4;
+  # gpio group for /dev/gpiochip* (replaces nixos-hardware raspberry-pi-4 gpio module)
+  users.groups.gpio = { };
 
-  # Touchscreen calibration: identity matrix (no axis swap)
-  # flutter-pi handles rotation→flutter coordinate mapping internally;
-  # the matrix only corrects raw digitizer→screen alignment.
+  # Touchscreen calibration: identity matrix (no axis swap).
+  # Sway handles display rotation; the matrix corrects raw digitizer→screen alignment.
   services.udev.extraRules = ''
     SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", ENV{LIBINPUT_CALIBRATION_MATRIX}="1 0 0 0 1 0"
 
     # Allow video group access to vchiq (for vcgencmd)
     SUBSYSTEM=="misc", KERNEL=="vchiq", MODE="0660", GROUP="video"
+
+    # Allow gpio group access to gpiochip devices (Pi 5 GPIO via RP1)
+    KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
+    SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
   '';
 
-  # Seat management - flutter-pi uses libseat to access DRM devices
+  # Seat management - sway uses libseat to access DRM devices
   services.seatd.enable = true;
 
-  # Disable getty on tty1 - this kiosk uses flutter-pi on tty1 and SSH for management.
+  # Disable getty on tty1 - the kiosk runs sway on tty1; getty would conflict.
   # Masking both getty@tty1 and autovt@tty1 prevents systemd-getty-generator
-  # from starting either during daemon-reload, which would conflict with flutter-pi
-  # and cause deploy failures.
+  # from starting either during daemon-reload.
   systemd.services."getty@tty1".enable = false;
   systemd.services."autovt@tty1".enable = false;
 
   # Also prevent logind from auto-spawning gettys on other VTs.
   services.logind.settings.Login.NAutoVTs = 0;
 
-  # Cogsworth application user
-  users.users.cogsworth = {
-    isSystemUser = true;
-    group = "cogsworth";
-    description = "Cogsworth kiosk application user";
-    extraGroups = [
-      "video"
-      "i2c"
-      "dialout"
-      "gpio"
-      "audio"
-      "input"
-      "render"
-      "seat"
+  # Cogsworth service (user/group/systemd service defined in nix/modules/nix_modules/cogsworth.nix)
+  services.cogsworth = {
+    enable = true;
+    port = 8080;
+    dataDir = "/var/lib/cogsworth";
+    databasePath = "/var/lib/cogsworth/db/cogsworth.db";
+    backup.enable = true;
+    environmentFiles = [
+      config.sops.templates."cogsworth-deepgram-env".path
+      config.sops.templates."cogsworth-immich-env".path
+      config.sops.templates."cogsworth-weather-env".path
+      config.sops.templates."cogsworth-openrouter-env".path
     ];
   };
-  users.groups.cogsworth = { };
+
+  # Voice: wyoming-openwakeword for wake word detection (loopback only)
+  services.wyoming.openwakeword = {
+    enable = true;
+    uri = "tcp://127.0.0.1:10400";
+    threshold = 0.5;
+    triggerLevel = 1;
+    customModelsDirectories = [ wakewordModels ];
+  };
+
+  systemd.services.cogsworth.environment = {
+    COGSWORTH_VOICE_ENABLED = "true";
+    COGSWORTH_VOICE_WYOMING_ADDR = "127.0.0.1:10400";
+    COGSWORTH_VOICE_WAKEWORD_NAME = "hey_cogs";
+    LOG_LEVEL = "DEBUG";
+  };
+
+  # Caddy reverse proxy: LAN HTTP access to cogsworth on port 80.
+  # Using ":80" (not a hostname) disables Caddy's auto-HTTPS so no ACME/cert logic runs.
+  # The Go app stays on :8080 with its tight sandbox; only Caddy is LAN-reachable.
+  services.caddy = {
+    enable = true;
+    virtualHosts.":80".extraConfig = ''
+      reverse_proxy 127.0.0.1:8080
+    '';
+  };
+
+  networking.firewall.allowedTCPPorts = [ 80 ];
 
   # Add I2C access for kyle user (for development/debugging)
   users.users.kyle.extraGroups = [
@@ -327,20 +464,11 @@
   # Required for home-manager user services on systems where kyle doesn't log in
   users.users.kyle.linger = true;
 
-  # cogsworth: reboot/poweroff (called by v2 admin API via sudo)
   # kyle: restart cogsworth services without password (for make deploy)
   security.sudo.extraRules = [
     {
       users = [ "cogsworth" ];
       commands = [
-        {
-          command = "/run/current-system/sw/bin/systemctl reboot";
-          options = [ "NOPASSWD" ];
-        }
-        {
-          command = "/run/current-system/sw/bin/systemctl poweroff";
-          options = [ "NOPASSWD" ];
-        }
         {
           command = "/run/current-system/sw/bin/cogsworth-set-governor";
           options = [ "NOPASSWD" ];
@@ -352,6 +480,22 @@
       commands = [
         {
           command = "/run/current-system/sw/bin/systemctl restart cogsworth.service";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl daemon-reload";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/systemctl revert cogsworth.service";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/install -d /run/systemd/system/cogsworth.service.d";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          command = "/run/current-system/sw/bin/tee /run/systemd/system/cogsworth.service.d/dev-override.conf";
           options = [ "NOPASSWD" ];
         }
       ];
@@ -449,6 +593,22 @@
     };
   };
 
+  # Keep the MAX98357A amplifier out of shutdown by holding the I2S PCM open
+  # with a continuous silent stream. Without this, ALSA closes the interface
+  # between sounds, the amp enters shutdown, and powers back on with an audible pop.
+  systemd.services.cogsworth-amp-keepalive = {
+    description = "MAX98357A amp keepalive (prevents power-on pop)";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "sound.target" ];
+    serviceConfig = {
+      User = "cogsworth";
+      Group = "cogsworth";
+      ExecStart = "${pkgs.alsa-utils}/bin/aplay -D speaker_dmix -q -t raw -r 44100 -f S16_LE -c 2 /dev/zero";
+      Restart = "always";
+      RestartSec = "2s";
+    };
+  };
+
   # Set digipot (AD5241BRZ1M, 0x2C) to max resistance (minimum brightness) before
   # the app starts. The app takes over brightness control once running.
   systemd.services.cogsworth-brightness-init = {
@@ -471,74 +631,10 @@
     };
   };
 
-  # Cogsworth v2 — Go HTTP backend
-  # Binary is deployed imperatively to /opt/cogsworth/cogsworth via `make deploy`.
-  systemd.services.cogsworth = {
-    description = "Cogsworth Family Calendar";
-    wantedBy = [ "multi-user.target" ];
-    after = [
-      "network-online.target"
-      "cogsworth-db-restore.service"
-    ];
-    wants = [
-      "network-online.target"
-      "cogsworth-db-restore.service"
-    ];
-
-    environment = {
-      COGSWORTH_PORT = "8080";
-    };
-
-    serviceConfig = {
-      Type = "simple";
-      User = "cogsworth";
-      Group = "cogsworth";
-      WorkingDirectory = "/var/lib/cogsworth";
-      ExecStart = "/opt/cogsworth/cogsworth -db /var/lib/cogsworth/db/cogsworth.db";
-      Restart = "always";
-      RestartSec = "5s";
-
-      NoNewPrivileges = true;
-      ProtectSystem = "strict";
-      ProtectHome = true;
-      PrivateTmp = true;
-      ProtectKernelTunables = true;
-      ProtectKernelModules = true;
-      ProtectControlGroups = true;
-      RestrictAddressFamilies = [
-        "AF_INET"
-        "AF_INET6"
-        "AF_UNIX"
-        "AF_NETLINK"
-      ];
-      RestrictNamespaces = true;
-      RestrictRealtime = true;
-      LockPersonality = true;
-      MemoryDenyWriteExecute = true;
-      CapabilityBoundingSet = "";
-      AmbientCapabilities = "";
-
-      StateDirectory = "cogsworth";
-      ReadWritePaths = [
-        "/var/lib/cogsworth/db"
-        "/var/lib/cogsworth/persistent"
-      ];
-    };
-
-    startLimitBurst = 10;
-    startLimitIntervalSec = 120;
-    unitConfig.StartLimitAction = "none";
-  };
-
   # Cogsworth kiosk — Wayland (sway-unwrapped) + Chromium.
-  # GPU hardware acceleration is not available: Chromium 147's initial GPU probe
-  # subprocess doesn't receive --use-gl flags, fails, and locks in software
-  # rendering. The ANGLE/opengles flags are kept so that once the probe settles
-  # the GPU process at least runs with --use-gl=disabled (rather than not at
-  # all). num-raster-threads=4 maximizes software rasterization on the Pi4.
   environment.etc."cogsworth/sway.config".text = ''
     # Panel is physically landscape but mounted portrait; rotate 90° CW.
-    output HDMI-A-1 transform 90
+    output HDMI-A-1 mode 1920x1080@60Hz transform 90 max_render_time 1
 
     # Rotate touch overlay to match display orientation (90° CW).
     # Matrix for 90° CW: [ 0 1 0 / -1 0 1 ]
@@ -568,14 +664,12 @@
       --disable-pinch \
       --check-for-update-interval=31536000 \
       --ozone-platform=wayland \
-      --use-gl=angle \
-      --use-angle=opengles \
       --ignore-gpu-blocklist \
-      --disable-gpu-driver-bug-workarounds \
-      "--disable-features=SkiaGraphite,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation" \
       --enable-gpu-rasterization \
-      --num-raster-threads=4 \
-      --show-fps-counter \
+      --enable-zero-copy \
+      "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder" \
+      "--disable-features=SkiaGraphite,UseChromeOSDirectVideoDecoder,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation" \
+      --enable-logging=stderr \
       --user-data-dir=/run/cogsworth-kiosk/chromium \
       --remote-debugging-port=9222 \
       --remote-debugging-address=127.0.0.1 \
@@ -662,7 +756,10 @@
 
       STATE_DIR="/var/lib/cogsworth-watchdog"
       COGSWORTH_STATE_FILE="$STATE_DIR/failure_count"
-      FAILURE_THRESHOLD=3  # Restart after 3 consecutive failures (90 seconds)
+      KIOSK_STATE_FILE="$STATE_DIR/kiosk_failure_count"
+      FAILURE_THRESHOLD=3       # Backend: restart after 3 consecutive failures (90 seconds)
+      KIOSK_FAILURE_THRESHOLD=5 # Kiosk: restart after 5 consecutive failures (150 seconds)
+      KIOSK_GRACE_PERIOD_S=60   # Skip kiosk checks for 60s after a fresh start
 
       # Ensure state directory exists
       mkdir -p "$STATE_DIR"
@@ -696,6 +793,73 @@
           echo "0" > "$COGSWORTH_STATE_FILE"
         fi
       fi
+
+      # --- Check kiosk renderer health ---
+      if [ -f "$KIOSK_STATE_FILE" ]; then
+        KIOSK_FAILURES=$(cat "$KIOSK_STATE_FILE")
+      else
+        KIOSK_FAILURES=0
+      fi
+
+      # Reset failure counter when the kiosk service has restarted since last check,
+      # to avoid counting failures from a previous run against the new one.
+      KIOSK_TIMESTAMP_FILE="$STATE_DIR/kiosk_start_timestamp"
+      KIOSK_ACTIVE_MONOTONIC=$(systemctl show cogsworth-kiosk.service \
+        -p ActiveEnterTimestampMonotonic --value 2>/dev/null || echo 0)
+      LAST_KIOSK_TIMESTAMP=$(cat "$KIOSK_TIMESTAMP_FILE" 2>/dev/null || echo 0)
+      if [ "$KIOSK_ACTIVE_MONOTONIC" != "$LAST_KIOSK_TIMESTAMP" ]; then
+        echo "0" > "$KIOSK_STATE_FILE"
+        echo "$KIOSK_ACTIVE_MONOTONIC" > "$KIOSK_TIMESTAMP_FILE"
+        KIOSK_FAILURES=0
+      fi
+
+      # Skip the CDP check during the grace period after a fresh kiosk start.
+      # Pi 5 cold-starting Sway + Chromium can take >60s before CDP is ready.
+      if [ "$KIOSK_ACTIVE_MONOTONIC" -gt 0 ]; then
+        SYSTEM_UPTIME_US=$(${pkgs.gawk}/bin/awk '{printf "%d", $1 * 1000000}' /proc/uptime)
+        KIOSK_AGE_S=$(( (SYSTEM_UPTIME_US - KIOSK_ACTIVE_MONOTONIC) / 1000000 ))
+        if [ "$KIOSK_AGE_S" -lt "$KIOSK_GRACE_PERIOD_S" ]; then
+          echo "$(date): Kiosk within grace period ($KIOSK_AGE_S s old), skipping CDP check"
+          exit 0
+        fi
+      fi
+
+      # Extract the page's WebSocket debugger URL from Chromium's CDP endpoint.
+      KIOSK_WS=$(${pkgs.curl}/bin/curl -sf --max-time 10 http://127.0.0.1:9222/json/list \
+        | grep -o '"webSocketDebuggerUrl": *"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      if [ -n "$KIOSK_WS" ]; then
+        # Send a trivial Runtime.evaluate and check for a numeric response.
+        RESULT=$(echo '{"id":1,"method":"Runtime.evaluate","params":{"expression":"1","returnByValue":true}}' \
+          | timeout 5 ${pkgs.websocat}/bin/websocat --one-message -n "$KIOSK_WS" 2>/dev/null || true)
+        if echo "$RESULT" | grep -q '"value":1'; then
+          if [ "$KIOSK_FAILURES" -gt 0 ]; then
+            echo "$(date): Kiosk renderer recovered (was $KIOSK_FAILURES failures)"
+          fi
+          echo "0" > "$KIOSK_STATE_FILE"
+        else
+          KIOSK_FAILURES=$((KIOSK_FAILURES + 1))
+          echo "$KIOSK_FAILURES" > "$KIOSK_STATE_FILE"
+          echo "$(date): Kiosk renderer unresponsive (attempt $KIOSK_FAILURES/$KIOSK_FAILURE_THRESHOLD)"
+          if [ "$KIOSK_FAILURES" -ge "$KIOSK_FAILURE_THRESHOLD" ]; then
+            echo "$(date): WATCHDOG TRIGGERED - Restarting cogsworth-kiosk.service"
+            systemctl reset-failed cogsworth-kiosk.service || true
+            systemctl restart cogsworth-kiosk.service
+            echo "0" > "$KIOSK_STATE_FILE"
+          fi
+        fi
+      else
+        # Browser process not answering CDP — count as a kiosk failure.
+        KIOSK_FAILURES=$((KIOSK_FAILURES + 1))
+        echo "$KIOSK_FAILURES" > "$KIOSK_STATE_FILE"
+        echo "$(date): Kiosk CDP endpoint unavailable (attempt $KIOSK_FAILURES/$KIOSK_FAILURE_THRESHOLD)"
+        if [ "$KIOSK_FAILURES" -ge "$KIOSK_FAILURE_THRESHOLD" ]; then
+          echo "$(date): WATCHDOG TRIGGERED - Restarting cogsworth-kiosk.service"
+          systemctl reset-failed cogsworth-kiosk.service || true
+          systemctl restart cogsworth-kiosk.service
+          echo "0" > "$KIOSK_STATE_FILE"
+        fi
+      fi
     '';
   };
 
@@ -711,12 +875,33 @@
     };
   };
 
-  # /opt/cogsworth: imperative deploy target (kyle-owned so `make deploy` can write it)
-  # /var/lib/cogsworth/persistent: SD card persistence for SQLite snapshots
+  # Daily reboot at 4am to clear accumulated state (Chromium leaks, tmpfs growth)
+  systemd.services.cogsworth-daily-reboot = {
+    description = "Daily scheduled reboot";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.systemd}/bin/systemctl reboot";
+    };
+  };
+
+  systemd.timers.cogsworth-daily-reboot = {
+    description = "Daily reboot timer";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 04:00:00";
+    };
+  };
+
+  # ── Google Photos display directory ─────────────────────────────────────────
+  # Photos are downloaded directly by the cogsworth Go service via the Google
+  # Photos Library API. No local processing pipeline is needed.
   systemd.tmpfiles.rules = [
-    "d /opt/cogsworth 0755 kyle users -"
-    "d /var/lib/cogsworth/persistent 0755 cogsworth cogsworth -"
+    "d /var/lib/cogsworth/photos 0755 cogsworth cogsworth - -"
+    "d /var/lib/cogsworth/photos/display 0755 cogsworth cogsworth - -"
+    "d /var/lib/cogsworth/voice 0755 cogsworth cogsworth - -"
   ];
+
+  # /var/lib/cogsworth/persistent is now created by the cogsworth module's tmpfiles rule.
 
   # Enable SSH for remote management
   services.openssh = {
@@ -741,9 +926,11 @@
     neovim
     htop
     sqlite # CLI database debugging
+    presence-debug # SEN0557 sensor debug tool
     libraspberrypi # Raspberry Pi userland tools (vcgencmd, etc.)
     alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
     i2c-tools
+    python3
     (writeShellScriptBin "cogsworth-set-governor" ''
       set -euo pipefail
       GOVERNOR="''${1:?Usage: cogsworth-set-governor <performance|powersave>}"
