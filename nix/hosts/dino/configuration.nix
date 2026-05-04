@@ -548,11 +548,6 @@
     dates = "weekly";
     options = "--delete-older-than 35d";
   };
-  nix.settings = {
-    auto-optimise-store = true;
-    connect-timeout = 5;
-    stalled-download-timeout = 10;
-  };
   nix.extraOptions = ''
     experimental-features = nix-command flakes
     min-free = ${toString (1 * 1024 * 1024 * 1024)}
