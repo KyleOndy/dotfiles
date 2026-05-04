@@ -1,3 +1,7 @@
+{
+  rev ? "unknown",
+  buildDate ? "unknown",
+}:
 self: super: {
   babashka-scripts = super.callPackage ./babashka-scripts { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
