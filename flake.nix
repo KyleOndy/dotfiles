@@ -7,6 +7,10 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixos-hardware.url = "github:NixOS/nixos-hardware/";
+    nixos-raspberrypi = {
+      url = "github:nvmd/nixos-raspberrypi/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
       # packages installed via home-manager use my nixpkgs
@@ -17,7 +21,14 @@
       # packages installed via nix-darwin use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    pre-commit-hooks.url = "github:cachix/git-hooks.nix";
+    pre-commit-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    mcp-servers-nix = {
+      url = "github:natsukium/mcp-servers-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     nur.url = "github:nix-community/NUR";
     flake-utils.url = "github:numtide/flake-utils";
     sops-nix.url = "github:Mic92/sops-nix";
@@ -57,6 +68,10 @@
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
     };
+    cogsworth = {
+      url = "path:/home/kyle/src/cogsworth/v3";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # Work-specific configuration. Default is a no-op stub.
     # Override on work machines: --override-input work-config path:/Users/kondy/work
     work-config.url = "path:./nix/work-config-stub";
@@ -67,7 +82,21 @@
       # import all the overlays that extend packages via nix or home-manager.
       overlays = [
         inputs.nur.overlays.default
-        (import ./nix/pkgs)
+        inputs.cogsworth.overlays.default
+        (
+          let
+            d = self.lastModifiedDate or "unknown";
+            buildDate =
+              if d == "unknown" then
+                "unknown"
+              else
+                "${builtins.substring 0 4 d}-${builtins.substring 4 2 d}-${builtins.substring 6 2 d}";
+          in
+          import ./nix/pkgs {
+            rev = self.rev or self.dirtyRev or "unknown";
+            inherit buildDate;
+          }
+        )
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {
@@ -89,6 +118,27 @@
             doCheck = false;
           });
         })
+
+        # pyopen-wakeword segfaults during installCheckPhase on aarch64
+        # (numpy crash). Build wyoming-openwakeword against a Python with
+        # patched package set so pyopen-wakeword skips the broken phase.
+        (
+          _final: prev:
+          let
+            python3 = prev.python3.override {
+              packageOverrides = _pfinal: pprev: {
+                pyopen-wakeword = pprev.pyopen-wakeword.overrideAttrs {
+                  doInstallCheck = false;
+                };
+              };
+            };
+          in
+          {
+            wyoming-openwakeword = prev.wyoming-openwakeword.override {
+              python3Packages = python3.pkgs;
+            };
+          }
+        )
       ];
 
       # Profile registry for consistent profile management
@@ -301,25 +351,38 @@
         pre-commit-check =
           inputs.pre-commit-hooks.lib.${system}.run {
             src = ./.;
-            hooks = {
-              black.enable = true;
-              nixfmt.enable = true;
-              prettier = {
-                enable = true;
-                excludes = [ "flake.lock" ];
+            hooks =
+              let
+                pkgs = inputs.nixpkgs.legacyPackages.${system};
+              in
+              {
+                black.enable = true;
+                nixfmt.enable = true;
+                prettier = {
+                  enable = true;
+                  excludes = [
+                    "flake.lock"
+                  ];
+                };
+                shellcheck.enable = true;
+                shfmt.enable = true;
+                stylua.enable = true;
+                pkg_version = {
+                  enable = false;
+                  name = "pkg-version-bump";
+                  entry = "bin/pre-commit-update-version";
+                  files = "^nix/pkgs/.*?/default\.nix$";
+                  language = "script";
+                  pass_filenames = true;
+                };
+                gofmt = {
+                  enable = true;
+                  name = "gofumpt";
+                  entry = "${pkgs.gofumpt}/bin/gofumpt -l -w";
+                  types = [ "go" ];
+                };
+
               };
-              shellcheck.enable = true;
-              shfmt.enable = true;
-              stylua.enable = true;
-              pkg_version = {
-                enable = false;
-                name = "pkg-version-bump";
-                entry = "bin/pre-commit-update-version";
-                files = "^nix/pkgs/.*?/default\.nix$";
-                language = "script";
-                pass_filenames = true;
-              };
-            };
           }
           # this functions outputs two checks defined in `deploy-rs`'s flake,
           # `deploy-schema` and `deploy-activate`.
@@ -365,12 +428,47 @@
               ];
             };
         in
+        let
+          mcpConfig = inputs.mcp-servers-nix.lib.mkConfig pkgs {
+            programs = {
+              playwright = {
+                enable = true;
+                args = [
+                  "--executable-path"
+                  "${pkgs.chromium}/bin/chromium"
+                  "--viewport-size"
+                  "1080x1920"
+                  "--sandbox"
+                ];
+              };
+            };
+            settings.servers = {
+              chrome-devtools = {
+                type = "stdio";
+                command = "npx";
+                args = [
+                  "-y"
+                  "chrome-devtools-mcp@latest"
+                  "--browserUrl"
+                  "http://127.0.0.1:9222"
+                ];
+              };
+            };
+          };
+        in
         {
           default = pkgs.mkShell {
-            inherit (self.checks.${system}.pre-commit-check) shellHook;
+            shellHook = self.checks.${system}.pre-commit-check.shellHook + ''
+              if [ -L ".mcp.json" ]; then unlink .mcp.json; fi
+              ln -sf ${mcpConfig} .mcp.json
+            '';
             buildInputs = self.checks.${system}.pre-commit-check.enabledPackages ++ [
               pkgs.qmk
               pkgs.teensy-loader-cli
+              pkgs.go
+              pkgs.gopls
+              pkgs.gofumpt
+              pkgs.nodejs_22
               clojure-mcp-light
             ];
 
@@ -462,19 +560,49 @@
             ./nix/hosts/elk/nix-anywhere/disk-config.nix
           ];
         };
-        cogsworth = mkNixosSystem {
-          hostname = "cogsworth";
-          system = "aarch64-linux";
-          profile = "kiosk";
-          hardwareModules = [
-            inputs.nixos-hardware.nixosModules.raspberry-pi-4
-          ];
-          extraConfig = {
-            home-manager.users.kyle = {
-              hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
-            };
+        cogsworth =
+          let
+            profileConfig = profiles.kiosk;
+          in
+          inputs.nixos-raspberrypi.lib.nixosSystem {
+            specialArgs = { inherit inputs; };
+            modules =
+              nixModules
+              ++ [
+                inputs.nixos-raspberrypi.nixosModules."raspberry-pi-5".base
+                inputs.nixos-raspberrypi.nixosModules.sd-image
+                ./nix/hosts/cogsworth/configuration.nix
+                inputs.sops-nix.nixosModules.sops
+                inputs.home-manager.nixosModules.home-manager
+                inputs.cogsworth.nixosModules.default
+              ]
+              ++ [
+                {
+                  systemFoundry = {
+                    deployment_target.enable = true;
+                    users.kyle.enable = true;
+                  };
+
+                  system.configurationRevision = self.rev or self.dirtyRev or "unknown";
+                  system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
+
+                  nixpkgs.overlays = overlays;
+                  home-manager = {
+                    useGlobalPkgs = true;
+                    useUserPackages = true;
+                    extraSpecialArgs = {
+                      dotfiles-root = self.outPath;
+                      inherit inputs;
+                    };
+                    sharedModules = hmCoreModules ++ [ nixCatsHomeModule ];
+                    users.kyle = {
+                      imports = [ profileConfig.homeModule ];
+                      hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
+                    };
+                  };
+                }
+              ];
           };
-        };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
