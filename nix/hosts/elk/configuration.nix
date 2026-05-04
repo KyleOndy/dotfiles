@@ -18,36 +18,35 @@
         443
       ];
       allowedUDPPorts = [
-        # 51821 # WireGuard (home tunnel) - disabled with ytdl-sub
+        51821 # WireGuard (home tunnel)
       ];
     };
 
     # WireGuard tunnel to home for residential IP routing (YouTube downloads)
-    # Disabled along with ytdl-sub - re-enable when resuming YouTube downloads
-    # wireguard.interfaces.wg-home = {
-    #   ips = [ "192.168.5.3/32" ];
-    #   listenPort = 51821;
-    #   privateKeyFile = config.sops.secrets.unifi_wireguard_private_elk.path;
-    #   table = "100"; # Routes go into table 100, not the main table
-    #
-    #   postSetup = ''
-    #     ${pkgs.iproute2}/bin/ip rule add from 192.168.5.3 table 100 priority 100
-    #   '';
-    #
-    #   postShutdown = ''
-    #     ${pkgs.iproute2}/bin/ip rule del from 192.168.5.3 table 100 priority 100 || true
-    #   '';
-    #
-    #   peers = [
-    #     {
-    #       publicKey = "r4+6mEOGrmldIt+aSAYGzEDLMppbugpkyq2oBfxDo1M=";
-    #       endpoint = "home.1ella.com:51820";
-    #       allowedIPs = [ "0.0.0.0/0" ];
-    #       persistentKeepalive = 25;
-    #       dynamicEndpointRefreshSeconds = 300;
-    #     }
-    #   ];
-    # };
+    wireguard.interfaces.wg-home = {
+      ips = [ "192.168.5.3/32" ];
+      listenPort = 51821;
+      privateKeyFile = config.sops.secrets.unifi_wireguard_private_elk.path;
+      table = "100"; # Routes go into table 100, not the main table
+
+      postSetup = ''
+        ${pkgs.iproute2}/bin/ip rule add from 192.168.5.3 table 100 priority 100
+      '';
+
+      postShutdown = ''
+        ${pkgs.iproute2}/bin/ip rule del from 192.168.5.3 table 100 priority 100 || true
+      '';
+
+      peers = [
+        {
+          publicKey = "r4+6mEOGrmldIt+aSAYGzEDLMppbugpkyq2oBfxDo1M=";
+          endpoint = "home.1ella.com:51820";
+          allowedIPs = [ "0.0.0.0/0" ];
+          persistentKeepalive = 25;
+          dynamicEndpointRefreshSeconds = 300;
+        }
+      ];
+    };
   };
 
   time.timeZone = "America/New_York";
@@ -604,7 +603,7 @@
 
   # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
   systemFoundry.ytdlSub = {
-    enable = false; # Disabled - YouTube throttling. Re-enable once resolved.
+    enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
     source_address = "192.168.5.3"; # Route downloads through WireGuard home tunnel
@@ -784,7 +783,7 @@
   # Jellyfin prune - deletes watched YouTube videos from disk after 2 days
   # Jellyfin and media are both local on elk — no path translation needed.
   systemd.services.jellyfin-prune = {
-    enable = false; # Disabled along with ytdl-sub
+    enable = true;
     startAt = "*-*-* 06:00:00"; # 6am
     path = with pkgs; [
       bashInteractive
@@ -1016,9 +1015,9 @@
       owner = "harmonia";
       mode = "0400";
     };
-    # unifi_wireguard_private_elk = { # Disabled with wg-home tunnel
-    #   mode = "0400";
-    # };
+    unifi_wireguard_private_elk = {
+      mode = "0400";
+    };
   };
 
   system.stateVersion = "25.11";
