@@ -355,6 +355,37 @@ in
                 summary: "Disk will fill within 24 hours on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Based on the last 6 hours, filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} will fill up within 24 hours"
 
+        # Drive health monitoring — SMART and mdraid
+        - name: drive_health
+          interval: 60s
+          rules:
+            - alert: SmartDriveHealthFailed
+              expr: smartctl_device_smart_healthy == 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "SMART health failure on {{ $labels.host }}:{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} on {{ $labels.host }} is reporting a SMART health failure. Run: smartctl -a /dev/{{ $labels.device }}"
+
+            - alert: RaidDriveFailedInArray
+              expr: node_md_disks{state="failed"} > 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Failed disk in RAID array {{ $labels.device }} on {{ $labels.host }}"
+                description: "{{ $value }} disk(s) in mdraid array {{ $labels.device }} on {{ $labels.host }} are in failed state. Run: mdadm --detail /dev/{{ $labels.device }}"
+
+            - alert: RaidDegradedNotRecovering
+              expr: node_md_degraded > 0 unless on(device, host) (node_md_state{state="recovering"} > 0)
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "RAID array {{ $labels.device }} is degraded on {{ $labels.host }}"
+                description: "mdraid array {{ $labels.device }} on {{ $labels.host }} has been degraded for over an hour without recovery. Manual intervention may be needed."
+
         # Resource usage monitoring
         - name: resource_usage
           interval: 30s

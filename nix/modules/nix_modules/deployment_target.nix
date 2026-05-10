@@ -38,9 +38,25 @@ in
     # runs short daily self-tests and long weekly tests. Logs problems to
     # syslog/journald (promtail picks them up and forwards to Loki).
     services.smartd = {
-      enable = true;
+      enable = lib.mkDefault true; # hosts with no SMART drives (e.g. SD-card Pi) should set this false
       autodetect = true;
       defaults.monitored = "-a -o on -s (S/../.././02|L/../../6/03)";
+    };
+
+    # Export SMART health as Prometheus textfile metrics so vmalert can alert on them.
+    # Scans all drives every 15 minutes and writes smartctl_device_smart_healthy{device=...}
+    # (1=healthy, 0=failed) to the node_exporter textfile directory.
+    systemd.tmpfiles.rules = [
+      "d /var/lib/prometheus-node-exporter-text-files 0755 root root -"
+    ];
+
+    systemd.timers.smartctl-exporter = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "2min";
+        OnUnitActiveSec = "15min";
+        Persistent = true;
+      };
     };
 
     users = {
@@ -115,6 +131,45 @@ in
       sshd = {
         restartIfChanged = false;
         restartTriggers = lib.mkForce [ ];
+      };
+      smartctl-exporter = {
+        description = "Export SMART drive health to node_exporter textfile";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+        };
+        path = with pkgs; [
+          smartmontools
+          gawk
+          gnugrep
+          coreutils
+        ];
+        script = ''
+          set -euo pipefail
+          OUTFILE="/var/lib/prometheus-node-exporter-text-files/smartctl_health.prom"
+          {
+            printf '# HELP smartctl_device_smart_healthy SMART overall health (1=healthy, 0=failed)\n'
+            printf '# TYPE smartctl_device_smart_healthy gauge\n'
+            while IFS= read -r device_line; do
+              device=$(awk '{print $1}' <<< "$device_line")
+              devtype=$(awk '{print $3}' <<< "$device_line")
+              devname=$(basename "$device")
+              exit_code=0
+              health=$(smartctl -H -d "$devtype" "$device" 2>&1) || exit_code=$?
+              if grep -qE 'PASSED|result: OK' <<< "$health"; then
+                status=1
+              elif grep -qE 'FAILED' <<< "$health"; then
+                status=0
+              elif [[ $((exit_code & 4)) -ne 0 ]] || [[ $((exit_code & 8)) -ne 0 ]]; then
+                status=0
+              else
+                continue
+              fi
+              printf 'smartctl_device_smart_healthy{device="%s"} %d\n' "$devname" "$status"
+            done < <(smartctl --scan)
+          } > "$OUTFILE.tmp"
+          mv "$OUTFILE.tmp" "$OUTFILE"
+        '';
       };
     }
     // lib.optionalAttrs (config.networking.wireguard.interfaces ? wg0) (

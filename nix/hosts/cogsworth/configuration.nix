@@ -52,6 +52,9 @@
     })
   ];
 
+  # SD card has no SMART support; smartd exits 17 with no devices found.
+  services.smartd.enable = false;
+
   # SD image optimizations
   sdImage.compressImage = false; # Faster builds
   boot.supportedFilesystems.zfs = lib.mkForce false; # Not needed, speeds up build
