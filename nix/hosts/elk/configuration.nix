@@ -128,6 +128,7 @@
   # System packages
   environment.systemPackages = with pkgs; [
     intel-gpu-tools # intel_gpu_top for monitoring GPU usage
+    nvme-cli
     (writeShellScriptBin "alert-silence" ''
       export PATH="/run/wrappers/bin:${
         lib.makeBinPath [
@@ -140,8 +141,40 @@
     '')
   ];
 
+  systemd.services.esp-mirror = {
+    description = "Mirror /boot to second NVMe ESP";
+    after = [ "local-fs.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = false;
+    };
+    script = ''
+      set -euo pipefail
+      mount /dev/disk/by-id/nvme-SAMSUNG_MZVL2512HCJQ-00B00_S675NF0R627076-part2 /mnt/esp-mirror
+      trap 'umount /mnt/esp-mirror' EXIT
+      ${pkgs.rsync}/bin/rsync -a --delete /boot/ /mnt/esp-mirror/
+    '';
+    path = [ pkgs.util-linux ];
+  };
+
+  systemd.timers.esp-mirror = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5min";
+      OnUnitActiveSec = "1d";
+      Persistent = true;
+      Unit = "esp-mirror.service";
+    };
+  };
+
+  # Loki needs a network address from enp5s0 at startup; DHCP may not have
+  # completed by the time Loki starts. Require network-online before starting.
+  systemd.services.loki.after = [ "network-online.target" ];
+  systemd.services.loki.wants = [ "network-online.target" ];
+
   # Ensure directories exist with proper permissions
   systemd.tmpfiles.rules = [
+    "d /mnt/esp-mirror 0755 root root -"
     # Website directory - svc.deploy owns so it can set timestamps via rsync; caddy group for serving
     "d /var/www/kyleondy.com 0775 svc.deploy caddy -"
     # Download directories - 0775 allows media group members to read/write

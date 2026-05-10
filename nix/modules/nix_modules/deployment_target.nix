@@ -31,7 +31,17 @@ in
       molly-guard # prevent footguns from runing my day
       neovim # file editing
       rsync # syncing files
+      smartmontools # drive health checks
     ];
+
+    # Preemptive SMART monitoring on all managed nodes. Autodetects all drives,
+    # runs short daily self-tests and long weekly tests. Logs problems to
+    # syslog/journald (promtail picks them up and forwards to Loki).
+    services.smartd = {
+      enable = true;
+      autodetect = true;
+      defaults.monitored = "-a -o on -s (S/../.././02|L/../../6/03)";
+    };
 
     users = {
       defaultUserShell = pkgs.bashInteractive;

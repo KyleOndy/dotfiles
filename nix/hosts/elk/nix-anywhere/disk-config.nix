@@ -5,7 +5,7 @@
 #   - 1x 22TB Seagate HDD   → ext4 at /mnt/storage
 let
   nvme0 = "/dev/disk/by-id/nvme-SAMSUNG_MZVL2512HDJD-00B07_S782NE0W800169";
-  nvme1 = "/dev/disk/by-id/nvme-SAMSUNG_MZVL2512HDJD-00B07_S782NE0W800166";
+  nvme1 = "/dev/disk/by-id/nvme-SAMSUNG_MZVL2512HCJQ-00B00_S675NF0R627076";
   hdd = "/dev/disk/by-id/ata-ST22000NM002E-3HL113_ZX28A0YQ";
 in
 {
