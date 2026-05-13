@@ -128,6 +128,16 @@ in
     ];
   };
 
+  # sd-image-raspberrypi.nix defaults to noauto+x-systemd.automount, which
+  # generates boot-firmware.mount via systemd-fstab-generator into
+  # /run/systemd/generator/ instead of the toplevel's /etc/systemd/system/.
+  # switch-to-configuration-ng (systemd 258) fails because it tries to open
+  # the unit file from the toplevel path when restarting sysinit-reactivation.target.
+  fileSystems."/boot/firmware".options = lib.mkOverride 0 [
+    "noatime"
+    "nofail"
+  ];
+
   # Mount /tmp as tmpfs - reduces SD card wear and matches current system state
   boot.tmp = {
     cleanOnBoot = true;
