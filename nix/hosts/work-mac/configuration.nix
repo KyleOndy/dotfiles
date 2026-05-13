@@ -54,7 +54,7 @@
       "cursor"
       "hammerspoon"
       "karabiner-elements"
-      "linear-linear"
+      "linear"
       "pocket-casts"
       "shottr"
       "spotify"
