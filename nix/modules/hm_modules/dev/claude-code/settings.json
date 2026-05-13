@@ -4,8 +4,8 @@
     "pr": ""
   },
   "voiceEnabled": true,
-  "model": "opusplan",
-  "effortLevel": "high",
+  "model": "opus",
+  "effortLevel": "highest",
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
