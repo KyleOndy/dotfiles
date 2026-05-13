@@ -122,7 +122,6 @@
   home.packages = with pkgs; [
     argocd
     coder
-    gemini-cli
     linear-cli
     opencode
     pdm
