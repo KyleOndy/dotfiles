@@ -296,6 +296,186 @@ in
         };
       };
 
+      ytdlSub = {
+        enable = true;
+        media_dir = "/mnt/media/yt";
+        temp_dir = "/mnt/media/yt-temp";
+        # data_dir left at default (/var/lib/ytdl-sub/youtube) so yt-push-cookies path matches
+
+        tiers = {
+          # Frequent posters: checked daily, limited to 10 videos to reduce request volume
+          daily = {
+            schedule = "*-*-* 15:00:00";
+            max_videos = 10;
+          };
+          # Everything else: checked weekly, higher video limit for catch-up
+          weekly = {
+            schedule = "Mon *-*-* 15:00:00";
+            max_videos = 20;
+          };
+        };
+
+        # No source_address / wireguard_service — tiger exits via its native home IP.
+        # This gives an A/B comparison: elk uses its European IP, tiger uses the home IP.
+
+        channels = {
+          Cycling = [
+            "@BeauMiles"
+            "@BermPeakExpress"
+            "@bike2reality814"
+            "@BIKEPACKINGcom"
+            "@BikePak"
+            "@chadweberg1" # Chad Weberg
+            "@ChumbaUSABikes"
+            "@Cycling366"
+            {
+              name = "@Danny_MacAskill";
+              tier = "daily";
+            }
+            {
+              name = "@DirtyTeethMTB";
+              tier = "daily";
+            }
+            "@duzer"
+            "@DylanJohnsonCycling"
+            "@EFProCycling"
+            {
+              name = "@FarBeyond-EFPC";
+              tier = "daily";
+            }
+            {
+              name = "@FullBeansCyclingCompany";
+              tier = "daily";
+            }
+            "@hennapalosaari_"
+            "@howtheracewaswon"
+            "@JackScottkeogh"
+            "@jasperverkuijl"
+            "@jjjjustin"
+            "@joe.nation"
+            "@joffreymaluski"
+            "@joshibbett"
+            "@justinasleveika"
+            "@katrinahase"
+            "@KDubzDidWhat"
+            "@KeepSmilingAdventures"
+            {
+              name = "@lesperitdelbikepacking";
+              tier = "daily";
+            }
+            "@MediocreAmateur"
+            "@MickTurnbullFilms"
+            "@msoleilblais74"
+            "@omniumcargo"
+            "@panoramacycles"
+            "@PatrickMcGrady1"
+            "@PaulComponentEngineering"
+            "@pnwbikepacking"
+            {
+              name = "@raphafilms";
+              tier = "daily";
+            }
+            "@RideProductionsNZ"
+            "@RousLigon"
+            "@SethsBikeHacks"
+            "@sofianeshl"
+            "@sportscientist" # Stephen Seiler
+            "@stephanwieser"
+            {
+              name = "@TailfinCycling";
+              tier = "daily";
+            }
+            "@TENTISTHENEWRENT"
+            {
+              name = "@the_dirtbags";
+              tier = "daily";
+            }
+            "@themountainraces"
+            {
+              name = "@TheVCAdventures";
+              tier = "daily";
+            } # The Vegan Cyclist
+            "@tristanbogaard"
+            "@tristantakevideo"
+            "@TurnCycling"
+            "@ValleyPreferredCyclingCenter"
+            "@wattwagon"
+            "@wheelstowaves"
+            {
+              name = "@worstretirementever";
+              tier = "daily";
+            } # Phil Gaimon
+          ];
+          Science = [
+            "@AlphaPhoenixChannel"
+            "@BetaPhoenixChannel"
+            "@miniminuteman773"
+          ];
+          Maker = [
+            "@aaedmusa"
+            "@BennettStirton"
+            "@dkbuilds"
+            "@lostartpress"
+            "@MarkRober"
+            "@matthiaswandel"
+            "@Paul.Sellers"
+            "@propdepartment"
+            "@RexKrueger"
+            "@StuffMadeHere"
+            "@StuffMadeHere2"
+            "@tested"
+            "@theslowmoguys"
+            "@TomStantonEngineering"
+            "@WoodByWrightHowTo"
+          ];
+          Entertainment = [
+            "@2MuchColinFurze"
+            "@Ben_Brainard"
+            "@CaptainDisillusion"
+            {
+              name = "@CharlieBerens";
+              tier = "daily";
+            }
+            "@colinfurze"
+            "@DudeDad"
+            {
+              name = "@Gossip.Goblin";
+              tier = "daily";
+            }
+            "@GxAce"
+            "@kaptainkristian"
+            "@kurzgesagt"
+            "@PracticalEngineeringChannel"
+            "@RudyAyoub"
+            "@SampsonBoatCo"
+            {
+              name = "@theslappablejerk";
+              shorts = false;
+            }
+            "@treykennedy"
+            "@whistlindiesel"
+          ];
+          Tech = [
+            "@AdamJames-tv"
+            "@KRAZAM"
+            "@programmersarealsohuman5909" # Kai Lentit
+          ];
+          Outdoor = [
+            "@bronandjacob"
+            {
+              name = "@ChrisburkardStudio";
+              tier = "daily";
+            }
+            {
+              name = "@courtneyevewhite";
+              tier = "daily";
+            }
+            "@RabEquipment"
+            "@theaudaciousreport"
+          ];
+        };
+      };
+
     };
 
   hardware = {

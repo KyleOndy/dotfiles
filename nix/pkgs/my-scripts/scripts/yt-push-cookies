@@ -73,8 +73,20 @@ main() {
 	cookie_count="$(grep -c "\.youtube\.com" "$tmpfile")"
 	log_info "Found ${cookie_count} YouTube cookies"
 
-	log_info "Pushing cookies to elk..."
-	ssh elk "sudo tee /var/lib/ytdl-sub/youtube/cookies.txt > /dev/null && sudo chown ytdl-sub:media /var/lib/ytdl-sub/youtube/cookies.txt" <"$tmpfile"
+	local hosts=(elk tiger)
+	local failed=()
+	for host in "${hosts[@]}"; do
+		log_info "Pushing cookies to ${host}..."
+		if ssh "$host" "sudo tee /var/lib/ytdl-sub/youtube/cookies.txt > /dev/null && sudo chown ytdl-sub:media /var/lib/ytdl-sub/youtube/cookies.txt" <"$tmpfile"; then
+			log_info "  -> ${host} ok"
+		else
+			log_warn "  -> ${host} failed"
+			failed+=("$host")
+		fi
+	done
+	if ((${#failed[@]} > 0)); then
+		die "Cookie push failed on: ${failed[*]}"
+	fi
 
 	log_info "Done. Cookies will be used by the next yt-dlp run."
 }

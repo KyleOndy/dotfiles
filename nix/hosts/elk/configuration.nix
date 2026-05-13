@@ -17,35 +17,6 @@
         80
         443
       ];
-      allowedUDPPorts = [
-        51821 # WireGuard (home tunnel)
-      ];
-    };
-
-    # WireGuard tunnel to home for residential IP routing (YouTube downloads)
-    wireguard.interfaces.wg-home = {
-      ips = [ "192.168.5.3/32" ];
-      listenPort = 51821;
-      privateKeyFile = config.sops.secrets.unifi_wireguard_private_elk.path;
-      table = "100"; # Routes go into table 100, not the main table
-
-      postSetup = ''
-        ${pkgs.iproute2}/bin/ip rule add from 192.168.5.3 table 100 priority 100
-      '';
-
-      postShutdown = ''
-        ${pkgs.iproute2}/bin/ip rule del from 192.168.5.3 table 100 priority 100 || true
-      '';
-
-      peers = [
-        {
-          publicKey = "r4+6mEOGrmldIt+aSAYGzEDLMppbugpkyq2oBfxDo1M=";
-          endpoint = "home.1ella.com:51820";
-          allowedIPs = [ "0.0.0.0/0" ];
-          persistentKeepalive = 25;
-          dynamicEndpointRefreshSeconds = 300;
-        }
-      ];
     };
   };
 
@@ -642,8 +613,6 @@
     enable = true;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
-    source_address = "192.168.5.3"; # Route downloads through WireGuard home tunnel
-    wireguard_service = "wireguard-wg-home.service";
 
     tiers = {
       # Frequent posters: checked daily, limited to 10 videos to reduce request volume
