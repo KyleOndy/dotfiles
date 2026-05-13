@@ -599,7 +599,10 @@
     "bazarr.elk.infra.ondy.org".publicAliases = [ "bazarr.apps.ondy.org" ];
     "jellyfin.elk.infra.ondy.org".publicAliases = [ "jellyfin.apps.ondy.org" ];
     "jellyseerr.elk.infra.ondy.org".publicAliases = [ "jellyseerr.apps.ondy.org" ];
-    "immich.elk.infra.ondy.org".publicAliases = [ "immich.apps.ondy.org" ];
+    "immich.elk.infra.ondy.org".publicAliases = [
+      "immich.apps.ondy.org"
+      "photos.ondy.org"
+    ];
     "grafana.elk.infra.ondy.org".publicAliases = [ "grafana.apps.ondy.org" ];
     "loki.elk.infra.ondy.org".publicAliases = [ "loki.apps.ondy.org" ];
     "metrics.elk.infra.ondy.org".publicAliases = [ "metrics.apps.ondy.org" ];
