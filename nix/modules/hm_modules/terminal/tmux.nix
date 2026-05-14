@@ -58,6 +58,11 @@ in
         # allow programs to emit terminal-specific escape sequences through tmux
         set -g allow-passthrough on
 
+        # forward CSI-u modified-key sequences (Shift+Enter etc.) to inner TUIs
+        # alacritty 0.14+ supports the kitty keyboard protocol and emits CSI-u
+        set -g extended-keys on
+        set -as terminal-features 'alacritty*:extkeys'
+
         # set scrollback history to 10000 (10k)
         set -g history-limit 10000
 
