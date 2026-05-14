@@ -60,7 +60,9 @@ in
 
         # forward CSI-u modified-key sequences (Shift+Enter etc.) to inner TUIs
         # alacritty 0.14+ supports the kitty keyboard protocol and emits CSI-u
+        # pi (and most modern TUIs) parse csi-u, not the tmux-default xterm format
         set -g extended-keys on
+        set -g extended-keys-format csi-u
         set -as terminal-features 'alacritty*:extkeys'
 
         # set scrollback history to 10000 (10k)
