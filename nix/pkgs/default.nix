@@ -23,4 +23,5 @@ self: super: {
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
   presence-debug = super.callPackage ./presence-debug { };
+  pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
 }

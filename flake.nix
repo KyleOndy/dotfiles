@@ -347,22 +347,25 @@
     in
     {
 
-      checks = forAllSystems (system: {
-        pre-commit-check =
-          inputs.pre-commit-hooks.lib.${system}.run {
-            src = ./.;
-            hooks =
-              let
-                pkgs = inputs.nixpkgs.legacyPackages.${system};
-              in
-              {
+      checks = forAllSystems (
+        system:
+        let
+          pkgs = import inputs.nixpkgs {
+            inherit system;
+            overlays = overlays;
+            config = { };
+          };
+        in
+        {
+          pre-commit-check =
+            inputs.pre-commit-hooks.lib.${system}.run {
+              src = ./.;
+              hooks = {
                 black.enable = true;
                 nixfmt.enable = true;
                 prettier = {
                   enable = true;
-                  excludes = [
-                    "flake.lock"
-                  ];
+                  excludes = [ "flake.lock" ];
                 };
                 shellcheck.enable = true;
                 shfmt.enable = true;
@@ -381,15 +384,17 @@
                   entry = "${pkgs.gofumpt}/bin/gofumpt -l -w";
                   types = [ "go" ];
                 };
-
               };
-          }
-          # this functions outputs two checks defined in `deploy-rs`'s flake,
-          # `deploy-schema` and `deploy-activate`.
-          #
-          # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
-          // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
-      });
+            }
+            # this functions outputs two checks defined in `deploy-rs`'s flake,
+            # `deploy-schema` and `deploy-activate`.
+            #
+            # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
+            // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
+
+          pi-coding-agent = import ./nix/checks/pi-coding-agent.nix { inherit pkgs; };
+        }
+      );
 
       devShells = forAllSystems (
         system:
