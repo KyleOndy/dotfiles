@@ -151,8 +151,9 @@
     # Download directories - 0775 allows media group members to read/write
     "d /mnt/storage/downloads 0755 root root -"
     "d /mnt/storage/downloads/complete 0775 root media -"
-    # SABnzbd incomplete dir on NVMe for faster par2/unpack I/O
-    "d /var/lib/sabnzbd/incomplete 0775 sabnzbd media -"
+    # SABnzbd incomplete dir on /mnt/storage. Was on NVMe for par2/unpack speed,
+    # but 4K remux queues (80-150 GB each) saturate the 468 GB root FS.
+    "d /mnt/storage/downloads/incomplete 0775 sabnzbd media -"
     # Download category directories (match SABnzbd categories)
     "d /mnt/storage/downloads/complete/movies 0775 root media -"
     "d /mnt/storage/downloads/complete/tv 0775 root media -"
