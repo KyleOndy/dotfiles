@@ -158,13 +158,16 @@ run_strict() {
 		done | jq -Rs '[split("\n")[] | select(. != "")]'
 	)
 
+	# allowPty=true is macOS-only (lets `pi`'s interactive TUI call setRawMode
+	# through sandbox-exec). Linux's bwrap ignores unknown keys.
 	jq -n \
 		--argjson allowed "$allowed_json" \
 		--argjson write "$write_json" \
 		--argjson denyRead "$deny_read_json" \
 		'{
             "network": {"allowedDomains": $allowed, "deniedDomains": []},
-            "filesystem": {"allowWrite": $write, "denyRead": $denyRead, "denyWrite": []}
+            "filesystem": {"allowWrite": $write, "denyRead": $denyRead, "denyWrite": []},
+            "allowPty": true
           }' >"$settings_file"
 
 	if [[ ${PI_DEBUG:-} == "plan" ]]; then

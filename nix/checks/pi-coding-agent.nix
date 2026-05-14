@@ -52,6 +52,8 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "allowWrite missing ~/.pi. settings=$settings"
     echo "$settings" | jq -e ".network.allowedDomains == []" >/dev/null \
       || fail "allowedDomains should be empty by default. settings=$settings"
+    echo "$settings" | jq -e ".allowPty == true" >/dev/null \
+      || fail "allowPty should be true so pi's TUI can use setRawMode. settings=$settings"
 
     # --allow extends the domain allowlist
     captured=$(pi --allow example.com -- x 2>&1)
