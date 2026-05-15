@@ -13,6 +13,7 @@ extra_write_paths=()
 web_mode=false
 no_sandbox=false
 allow_loopback=@defaultAllowLoopback@
+allow_trustd=@defaultAllowTrustd@
 
 # Scope agent commit attribution to a non-human identity. Exported on every
 # invocation regardless of sandbox mode, so attribution holds even under
@@ -87,6 +88,22 @@ __pi_apply_env_vars() {
 	done <"$pi_env_vars_file"
 }
 
+# Named bundles for the --allow-<name> CLI flags. Each bundle is a pair of
+# (space-joined domains, trustd-needed bool). TSV sidecar comes from
+# default.nix; empty when no bundles are configured. The catch-all
+# --allow-* arg-parser case looks bundles up by name and ORs trustd into
+# the wrapper's allow_trustd flag.
+pi_network_bundles_file="@networkBundlesFile@"
+declare -A bundle_domains=()
+declare -A bundle_trustd=()
+if [[ -s $pi_network_bundles_file ]]; then
+	while IFS=$'\t' read -r __bname __btrustd __bdomains; do
+		[[ -n $__bname ]] || continue
+		bundle_domains[$__bname]="$__bdomains"
+		bundle_trustd[$__bname]="$__btrustd"
+	done <"$pi_network_bundles_file"
+fi
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--allow)
@@ -116,6 +133,29 @@ while [[ $# -gt 0 ]]; do
 	--allow-loopback)
 		allow_loopback=true
 		shift
+		;;
+	--allow-trustd)
+		allow_trustd=true
+		shift
+		;;
+	--allow-*)
+		# Bundle lookup. Resolves to a curated set of network hosts and an
+		# optional trustd flip. Unknown bundle names hard-fail so typos
+		# surface immediately instead of being silently treated as
+		# unrecognised args and passed to pi.
+		bundle_name="${1#--allow-}"
+		if [[ -n ${bundle_domains[$bundle_name]+x} ]]; then
+			# shellcheck disable=SC2206  # intentional word-split of host list
+			extra_domains+=(${bundle_domains[$bundle_name]})
+			if [[ ${bundle_trustd[$bundle_name]} == "true" ]]; then
+				allow_trustd=true
+			fi
+			shift
+		else
+			known=$(printf '%s ' "${!bundle_domains[@]}")
+			echo "pi: unknown bundle: --allow-$bundle_name (known: ${known% })" >&2
+			exit 1
+		fi
 		;;
 	--)
 		shift
@@ -249,11 +289,16 @@ run_strict() {
 	# through sandbox-exec). Linux's bwrap ignores unknown keys.
 	# allowLocalBinding=true tells srt to emit (allow network-bind (local ip "*:*"))
 	# rules so httptest et al. can bind 127.0.0.1; external bind stays blocked.
+	# enableWeakerNetworkIsolation=true permits com.apple.trustd.agent mach
+	# lookups so Go on macOS can verify TLS through Security framework; the
+	# tradeoff is a wider egress surface (LDAP / OCSP responder URLs).
+	# bwrap on Linux ignores unknown top-level keys.
 	jq -n \
 		--argjson allowed "$allowed_json" \
 		--argjson write "$write_json" \
 		--argjson denyRead "$deny_read_json" \
 		--argjson allowLoopback "$allow_loopback" \
+		--argjson allowTrustd "$allow_trustd" \
 		'{
             "network": {
               "allowedDomains": $allowed,
@@ -261,7 +306,8 @@ run_strict() {
               "allowLocalBinding": $allowLoopback
             },
             "filesystem": {"allowWrite": $write, "denyRead": $denyRead, "denyWrite": []},
-            "allowPty": true
+            "allowPty": true,
+            "enableWeakerNetworkIsolation": $allowTrustd
           }' >"$settings_file"
 
 	if [[ ${PI_DEBUG:-} == "plan" ]]; then

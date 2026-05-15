@@ -42,6 +42,8 @@ let
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultEnvVars = cfg.sandbox.envVars;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
+        defaultAllowTrustd = cfg.sandbox.allowTrustd;
+        networkBundles = cfg.sandbox.networkBundles;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
       }
@@ -160,6 +162,89 @@ in
           Does not open external network egress — srt's domain filter still
           applies, only loopback addresses are unblocked. Runtime
           --allow-loopback extends this per-invocation.
+        '';
+      };
+
+      allowTrustd = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Default for srt's `enableWeakerNetworkIsolation`. When true (or
+          when `--allow-trustd` is passed, or when an invoked bundle has
+          `trustd = true`), srt's macOS sandbox profile permits
+          `com.apple.trustd.agent` mach lookups so Go on macOS can verify
+          TLS certificates through Security framework.
+
+          Trade-off: trustd reachability is a known data-exfiltration
+          vector (LDAP-over-trustd, OCSP responder URLs reachable). Leave
+          off globally and let `--allow-go` flip it per-invocation, or set
+          true here if Go work dominates this host.
+        '';
+      };
+
+      networkBundles = lib.mkOption {
+        type =
+          with lib.types;
+          attrsOf (submodule {
+            options = {
+              domains = lib.mkOption {
+                type = listOf str;
+                default = [ ];
+                description = "Network hosts added to the allowlist when this bundle is invoked.";
+              };
+              trustd = lib.mkOption {
+                type = bool;
+                default = false;
+                description = ''
+                  Whether this bundle requires `com.apple.trustd.agent`
+                  access (srt's `enableWeakerNetworkIsolation` toggle).
+                  Set true for languages whose HTTPS client uses macOS
+                  Security framework for cert verification — Go is the
+                  known case. Cargo, npm, pip honor their own CA env
+                  vars and do NOT need this.
+                '';
+              };
+            };
+          });
+        default = {
+          go = {
+            domains = [
+              "proxy.golang.org"
+              "sum.golang.org"
+            ];
+            trustd = true;
+          };
+          rust = {
+            domains = [
+              "crates.io"
+              "static.crates.io"
+              "index.crates.io"
+            ];
+          };
+          node = {
+            domains = [ "registry.npmjs.org" ];
+          };
+          python = {
+            domains = [
+              "pypi.org"
+              "files.pythonhosted.org"
+            ];
+          };
+        };
+        description = ''
+          Named bundles enabling per-invocation `--allow-<name>` CLI flags
+          that extend the strict-mode network allowlist and (optionally)
+          flip security loosenings the language needs.
+
+          attrsOf merging: setting
+          `sandbox.networkBundles.go = { ... }` replaces only the go
+          bundle. Override or extend per-host to add internal registries
+          or mirrors. Unknown `--allow-<name>` at the CLI fails fast with
+          the known-bundles list on stderr.
+
+          Network + trustd only for v1. Pair with
+          `sandbox.allowedWritePaths` and `sandbox.envVars` for FS / env
+          knobs.
         '';
       };
 

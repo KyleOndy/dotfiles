@@ -47,6 +47,27 @@ let
     defaultAllowLoopback = true;
   };
 
+  wrapperWithTrustdDefault = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowTrustd = true;
+  };
+
+  wrapperWithBundles = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    networkBundles = {
+      netbundle = {
+        domains = [
+          "test.example.com"
+          "alt.example.com"
+        ];
+      };
+      trustbundle = {
+        domains = [ "trust.example.com" ];
+        trustd = true;
+      };
+    };
+  };
+
   wrapperWithCustomIdentity = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     gitAuthorName = "Test Bot";
@@ -173,6 +194,72 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.network.allowLocalBinding == false' >/dev/null \
       || fail "default allowLocalBinding should be false. settings=$settings"
+
+    # Trustd default off: enableWeakerNetworkIsolation is false
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.enableWeakerNetworkIsolation == false' >/dev/null \
+      || fail "default enableWeakerNetworkIsolation should be false. settings=$settings"
+
+    # --allow-trustd CLI flag flips enableWeakerNetworkIsolation
+    captured=$(pi --allow-trustd -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.enableWeakerNetworkIsolation == true' >/dev/null \
+      || fail "--allow-trustd did not set enableWeakerNetworkIsolation. settings=$settings"
+
+    # defaultAllowTrustd=true sets enableWeakerNetworkIsolation without any CLI flag
+    captured=$(${wrapperWithTrustdDefault}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.enableWeakerNetworkIsolation == true' >/dev/null \
+      || fail "defaultAllowTrustd=true did not set enableWeakerNetworkIsolation. settings=$settings"
+
+    # Default wrapper has no bundles; --allow-<x> errors with diagnostic
+    if captured=$(pi --allow-go -- x 2>&1); then
+      fail "default wrapper should reject --allow-go. captured=$captured"
+    fi
+    echo "$captured" | grep -q "unknown bundle: --allow-go" \
+      || fail "missing unknown-bundle diagnostic for --allow-go. captured=$captured"
+
+    # Plain-network bundle: extends allowedDomains, trustd stays off
+    captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowedDomains | index("test.example.com")' >/dev/null \
+      || fail "--allow-netbundle missing test.example.com. settings=$settings"
+    echo "$settings" | jq -e '.network.allowedDomains | index("alt.example.com")' >/dev/null \
+      || fail "--allow-netbundle missing alt.example.com. settings=$settings"
+    echo "$settings" | jq -e '.enableWeakerNetworkIsolation == false' >/dev/null \
+      || fail "--allow-netbundle should not flip trustd. settings=$settings"
+
+    # Trustd-requiring bundle: extends domains AND flips trustd
+    captured=$(${wrapperWithBundles}/bin/pi --allow-trustbundle -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowedDomains | index("trust.example.com")' >/dev/null \
+      || fail "--allow-trustbundle missing trust.example.com. settings=$settings"
+    echo "$settings" | jq -e '.enableWeakerNetworkIsolation == true' >/dev/null \
+      || fail "--allow-trustbundle did not flip trustd. settings=$settings"
+
+    # Unknown bundle on a wrapper with bundles errors with the known-list
+    if captured=$(${wrapperWithBundles}/bin/pi --allow-nonexistent -- x 2>&1); then
+      fail "--allow-nonexistent should exit non-zero. captured=$captured"
+    fi
+    echo "$captured" | grep -q "unknown bundle: --allow-nonexistent" \
+      || fail "missing unknown-bundle diagnostic. captured=$captured"
+    echo "$captured" | grep -qE "known: .*(netbundle|trustbundle)" \
+      || fail "known-bundles list missing in diagnostic. captured=$captured"
+
+    # Existing exact-match flags aren't shadowed by the --allow-* catch-all
+    captured=$(${wrapperWithBundles}/bin/pi --allow foo.example -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowedDomains | index("foo.example")' >/dev/null \
+      || fail "--allow foo.example shadowed by --allow-* catch-all. settings=$settings"
+    captured=$(${wrapperWithBundles}/bin/pi --allow-write /tmp/shadowtest -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowWrite | index("/tmp/shadowtest")' >/dev/null \
+      || fail "--allow-write shadowed by --allow-* catch-all. settings=$settings"
+    captured=$(${wrapperWithBundles}/bin/pi --allow-loopback -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowLocalBinding == true' >/dev/null \
+      || fail "--allow-loopback shadowed by --allow-* catch-all. settings=$settings"
 
     # Default git identity is Kyle's Daemon and signing is disabled
     captured=$(pi -- x 2>&1)

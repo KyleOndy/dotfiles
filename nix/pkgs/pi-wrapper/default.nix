@@ -28,6 +28,19 @@
   # --allow-loopback is passed), srt's macOS profile permits bind/listen on
   # loopback only — external network is still gated by the domain allowlist.
   defaultAllowLoopback ? false,
+  # Default for srt's enableWeakerNetworkIsolation setting. When true (or when
+  # --allow-trustd is passed, or when an invoked bundle declares trustd=true),
+  # the macOS sandbox profile permits com.apple.trustd.agent mach lookups so
+  # Go on macOS can verify TLS certificates through Security framework. The
+  # tradeoff is a wider egress surface (trustd resolves LDAP / OCSP responder
+  # URLs); off by default.
+  defaultAllowTrustd ? false,
+  # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each
+  # bundle is { domains = [str]; trustd = bool; } — domains extend the network
+  # allowlist; trustd ORs into the wrapper's allow_trustd. Default empty so
+  # the wrapper itself is self-contained; the hm module ships the standard
+  # set (go/rust/node/python).
+  networkBundles ? { },
   # Secrets resolved outside the sandbox and exported as env vars before exec.
   # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
   # Each command runs in the wrapper's parent shell, so it has full access to
@@ -76,6 +89,23 @@ let
     lib.concatMapStrings (name: "${name}\t${defaultEnvVars.${name}}\n") (lib.attrNames defaultEnvVars)
   );
 
+  # TSV sidecar for network bundles: name<TAB>trustd<TAB>space-joined-domains.
+  # wrapper.sh reads at runtime and splits into two associative arrays
+  # (bundle_domains / bundle_trustd). Empty file when networkBundles == {};
+  # wrapper short-circuits on empty so unknown --allow-<x> fails fast with
+  # "known: " (empty list) in the diagnostic.
+  networkBundlesFile = writeText "pi-network-bundles" (
+    lib.concatMapStrings (
+      name:
+      let
+        b = networkBundles.${name};
+      in
+      "${name}\t${if b.trustd or false then "true" else "false"}\t${
+        lib.concatStringsSep " " (b.domains or [ ])
+      }\n"
+    ) (lib.attrNames networkBundles)
+  );
+
   body =
     builtins.replaceStrings
       [
@@ -86,7 +116,9 @@ let
         "@defaultPiArgs@"
         "@envResolversFile@"
         "@envVarsFile@"
+        "@networkBundlesFile@"
         "@defaultAllowLoopback@"
+        "@defaultAllowTrustd@"
         "@gitAuthorName@"
         "@gitAuthorEmail@"
       ]
@@ -98,7 +130,9 @@ let
         (lib.escapeShellArgs defaultPiArgs)
         "${envResolversFile}"
         "${envVarsFile}"
+        "${networkBundlesFile}"
         (if defaultAllowLoopback then "true" else "false")
+        (if defaultAllowTrustd then "true" else "false")
         (lib.escapeShellArg gitAuthorName)
         (lib.escapeShellArg gitAuthorEmail)
       ]
