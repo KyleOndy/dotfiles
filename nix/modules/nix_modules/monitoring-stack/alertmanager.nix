@@ -84,6 +84,15 @@ in
           receiver = "default";
           routes = [
             {
+              # Provider (Hetzner) has documented Percentage Used >= 100 as benign
+              # while Available Spare > threshold. Keep the alert visible in the UI
+              # but don't email on each repeat_interval.
+              match = {
+                alertname = "SmartDriveEnduranceExceeded";
+              };
+              receiver = "null";
+            }
+            {
               match = {
                 alertname = "SystemdServiceFailed";
               };
@@ -108,6 +117,7 @@ in
               }) cfg.smtp.to;
             }
           )
+          { name = "null"; }
         ];
       }
       // optionalAttrs (cfg.smtp.server != "") {
