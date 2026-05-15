@@ -38,6 +38,7 @@ let
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
+        envFromCommands = cfg.sandbox.envFromCommands;
       }
     else
       pkgs.llm-agents.pi;
@@ -99,6 +100,33 @@ in
         description = ''
           Extra filesystem write paths beyond CWD and ~/.pi.
           Supports ~ expansion. Runtime --allow-write extends this.
+        '';
+      };
+
+      envFromCommands = lib.mkOption {
+        type = with lib.types; attrsOf str;
+        default = { };
+        example = {
+          OPENROUTER_API_KEY = "security find-generic-password -s pi -a openrouter -w";
+        };
+        description = ''
+          Env vars resolved by the wrapper outside the sandbox before pi
+          execs. Each value is a shell command; its stdout (trailing newline
+          stripped by command substitution) becomes the env var, exported
+          into pi's environment.
+
+          Use this to inject API keys from macOS Keychain, pass, sops, etc.,
+          so pi's models.json can reference them via "!printenv VAR" without
+          granting the sandbox read access to credential paths or network
+          access to a secrets backend.
+
+          Resolver failure (non-zero exit) aborts pi startup with a
+          diagnostic on stderr. Resolvers are not cached — keep them cheap
+          (Keychain lookups are sub-10ms; avoid kubectl-per-run).
+
+          Note: macOS Keychain "Always Allow" entries are keyed to the
+          caller binary path, which changes on every pi-wrapper rebuild, so
+          a fresh allow-prompt fires once after each rebuild.
         '';
       };
     };

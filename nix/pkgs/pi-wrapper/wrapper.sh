@@ -12,6 +12,25 @@ extra_write_paths=()
 web_mode=false
 no_sandbox=false
 
+# Resolve a secret outside the sandbox and export it into pi's env. Called by
+# the substituted resolver block below — one __pi_resolve line per entry in
+# envFromCommands. Under PI_DEBUG=plan we print the intent and skip execution
+# so the flake check never invokes real Keychain / kubectl / etc. Hard-fail
+# on resolver error so a stale credential surfaces immediately instead of as
+# an opaque auth error from pi later.
+__pi_resolve() {
+	local var="$1" cmd="$2" val
+	if [[ ${PI_DEBUG:-} == "plan" ]]; then
+		printf 'PI_PLAN_ENV: %s=%s\n' "$var" "$cmd"
+		return 0
+	fi
+	if ! val=$(eval "$cmd"); then
+		echo "pi: resolver failed for \$$var (cmd: $cmd)" >&2
+		exit 1
+	fi
+	export "$var=$val"
+}
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--allow)
@@ -46,6 +65,7 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+@envResolveBlock@
 resolved_extra_writes=()
 for p in "${default_write_paths[@]}" "${extra_write_paths[@]}"; do
 	resolved_extra_writes+=("${p/#\~/$HOME}")

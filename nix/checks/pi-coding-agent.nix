@@ -13,6 +13,20 @@ let
     realPiBin = "${stubPi}/bin/pi";
   };
 
+  wrapperWithResolver = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    envFromCommands = {
+      TEST_VAR = "echo hello";
+    };
+  };
+
+  wrapperWithFailingResolver = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    envFromCommands = {
+      BAD = "false";
+    };
+  };
+
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
 in
 pkgs.runCommand "pi-coding-agent-check"
@@ -71,6 +85,26 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(pi --web -- x 2>&1)
     echo "$captured" | grep -q "PI_PLAN_EXEC.*${webExpect}" \
       || fail "--web did not plan ${webExpect}. captured=$captured"
+
+    # Default envFromCommands={} emits no PI_PLAN_ENV: lines
+    captured=$(pi -- x 2>&1)
+    if echo "$captured" | grep -q "PI_PLAN_ENV:"; then
+      fail "empty envFromCommands should emit no PI_PLAN_ENV. captured=$captured"
+    fi
+
+    # envFromCommands resolvers print intent under PI_DEBUG=plan
+    captured=$(${wrapperWithResolver}/bin/pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_ENV: TEST_VAR=echo hello" \
+      || fail "envFromCommands did not emit PI_PLAN_ENV. captured=$captured"
+
+    # Failing resolver aborts pi before dispatch (PI_DEBUG unset so eval runs)
+    unset PI_DEBUG
+    if captured=$(${wrapperWithFailingResolver}/bin/pi -- x 2>&1); then
+      fail "failing resolver should exit non-zero. captured=$captured"
+    fi
+    echo "$captured" | grep -q "resolver failed for \\\$BAD" \
+      || fail "failing resolver missing diagnostic. captured=$captured"
+    export PI_DEBUG=plan
 
     touch $out
   ''

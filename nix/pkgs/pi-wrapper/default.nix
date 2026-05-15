@@ -12,6 +12,12 @@
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
+  # Secrets resolved outside the sandbox and exported as env vars before exec.
+  # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
+  # Each command runs in the wrapper's parent shell, so it has full access to
+  # the host (Keychain, pass, sops, kubectl). Resolved values flow through to
+  # pi via process env; non-zero exit on any resolver aborts pi startup.
+  envFromCommands ? { },
   credentialMasks ? [
     ".ssh"
     ".gnupg"
@@ -29,6 +35,10 @@
 let
   bashArray = xs: lib.concatStringsSep " " (map (x: ''"${x}"'') xs);
 
+  envResolveBlock = lib.concatMapStrings (
+    name: "__pi_resolve ${lib.escapeShellArg name} ${lib.escapeShellArg envFromCommands.${name}}\n"
+  ) (lib.attrNames envFromCommands);
+
   body =
     builtins.replaceStrings
       [
@@ -36,12 +46,14 @@ let
         "@credentialMasks@"
         "@defaultDomains@"
         "@defaultWritePaths@"
+        "@envResolveBlock@"
       ]
       [
         realPiBin
         (bashArray credentialMasks)
         (bashArray defaultDomains)
         (bashArray defaultWritePaths)
+        envResolveBlock
       ]
       (builtins.readFile ./wrapper.sh);
 in
