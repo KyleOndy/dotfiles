@@ -62,7 +62,7 @@ in
   sops.templates."cogsworth-immich-env" = {
     owner = "cogsworth";
     content = ''
-      COGSWORTH_IMMICH_URL=https://immich.apps.ondy.org
+      COGSWORTH_IMMICH_API_URL=https://immich.apps.ondy.org
       COGSWORTH_IMMICH_API_KEY=${config.sops.placeholder.immich_api_key}
     '';
   };
