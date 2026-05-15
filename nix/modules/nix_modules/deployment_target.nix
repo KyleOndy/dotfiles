@@ -163,17 +163,18 @@ in
               devtype=$(awk '{print $3}' <<< "$device_line")
               devname=$(basename "$device")
               exit_code=0
-              output=$(smartctl -a -d "$devtype" "$device" 2>&1) || exit_code=$?
-              if grep -qE 'PASSED|result: OK' <<< "$output"; then
+              health=$(smartctl -H -d "$devtype" "$device" 2>&1) || exit_code=$?
+              if grep -qE 'PASSED|result: OK|Health Status: OK' <<< "$health"; then
                 status=1
-              elif grep -qE 'FAILED' <<< "$output"; then
+              elif grep -qE 'FAILED|Health Status:.*(FAIL|FAULT)' <<< "$health"; then
                 status=0
               elif [[ $((exit_code & 4)) -ne 0 ]] || [[ $((exit_code & 8)) -ne 0 ]]; then
                 status=0
               else
                 continue
               fi
-              serial=$(awk -F: '$1 == "Serial Number" {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}' <<< "$output")
+              output=$(smartctl -a -d "$devtype" "$device" 2>&1 || true)
+              serial=$(awk -F: 'tolower($1) == "serial number" {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}' <<< "$output")
               serial=''${serial:-unknown}
               printf 'smartctl_device_smart_healthy{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$status"
               if [[ "$devtype" == nvme* ]]; then
