@@ -12,12 +12,16 @@ extra_write_paths=()
 web_mode=false
 no_sandbox=false
 
-# Resolve a secret outside the sandbox and export it into pi's env. Called by
-# the substituted resolver block below — one __pi_resolve line per entry in
-# envFromCommands. Under PI_DEBUG=plan we print the intent and skip execution
-# so the flake check never invokes real Keychain / kubectl / etc. Hard-fail
-# on resolver error so a stale credential surfaces immediately instead of as
-# an opaque auth error from pi later.
+# Resolve a secret outside the sandbox and export it into pi's env. Driven
+# by a tab-separated VAR<TAB>cmd file generated at build time (see
+# envResolversFile in default.nix) — keeps the resolver list out of this
+# script so the substitution surface is just one path. Under PI_DEBUG=plan
+# the resolver prints intent and skips execution, so the flake check never
+# invokes real Keychain / kubectl / etc. Hard-fail on resolver error so a
+# stale credential surfaces immediately instead of as an opaque auth error
+# from pi later.
+pi_env_resolvers_file="@envResolversFile@"
+
 __pi_resolve() {
 	local var="$1" cmd="$2" val
 	if [[ ${PI_DEBUG:-} == "plan" ]]; then
@@ -29,6 +33,14 @@ __pi_resolve() {
 		exit 1
 	fi
 	export "$var=$val"
+}
+
+__pi_resolve_all() {
+	[[ -s $pi_env_resolvers_file ]] || return 0
+	local var cmd
+	while IFS=$'\t' read -r var cmd; do
+		[[ -n $var ]] && __pi_resolve "$var" "$cmd"
+	done <"$pi_env_resolvers_file"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -65,7 +77,8 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
-@envResolveBlock@
+__pi_resolve_all
+
 resolved_extra_writes=()
 for p in "${default_write_paths[@]}" "${extra_write_paths[@]}"; do
 	resolved_extra_writes+=("${p/#\~/$HOME}")

@@ -6,6 +6,7 @@
   lib,
   stdenv,
   writeShellApplication,
+  writeText,
   bubblewrap,
   jq,
   llm-agents,
@@ -35,9 +36,14 @@
 let
   bashArray = xs: lib.concatStringsSep " " (map (x: ''"${x}"'') xs);
 
-  envResolveBlock = lib.concatMapStrings (
-    name: "__pi_resolve ${lib.escapeShellArg name} ${lib.escapeShellArg envFromCommands.${name}}\n"
-  ) (lib.attrNames envFromCommands);
+  # Tab-separated VAR<TAB>cmd lines, one per resolver entry. Empty for {}.
+  # The wrapper reads this file at runtime and calls __pi_resolve per line.
+  # Keeping the resolver list out of wrapper.sh — and substituting a single
+  # file path instead of a code block — means the wrapper is byte-stable
+  # across overrides and there's no token-in-comment hazard for code.
+  envResolversFile = writeText "pi-env-resolvers" (
+    lib.concatMapStrings (name: "${name}\t${envFromCommands.${name}}\n") (lib.attrNames envFromCommands)
+  );
 
   body =
     builtins.replaceStrings
@@ -46,14 +52,14 @@ let
         "@credentialMasks@"
         "@defaultDomains@"
         "@defaultWritePaths@"
-        "@envResolveBlock@"
+        "@envResolversFile@"
       ]
       [
         realPiBin
         (bashArray credentialMasks)
         (bashArray defaultDomains)
         (bashArray defaultWritePaths)
-        envResolveBlock
+        "${envResolversFile}"
       ]
       (builtins.readFile ./wrapper.sh);
 in
