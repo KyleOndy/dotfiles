@@ -18,12 +18,30 @@
   # `--model …` each time. User args still win on duplicates (pi takes the
   # last occurrence of repeated flags like --model).
   defaultPiArgs ? [ ],
+  # Static env vars exported before sandbox dispatch. Values are bash
+  # double-quote-expanded at wrapper runtime, so `$PWD` and `$HOME` resolve
+  # against the user's CWD-at-invocation. Use for tool-cache redirects
+  # (GOCACHE/GOMODCACHE/etc.) so writes land under $PWD instead of broadening
+  # allowWrite to $HOME/Library/Caches.
+  defaultEnvVars ? { },
+  # Default for srt's network.allowLocalBinding setting. When true (or when
+  # --allow-loopback is passed), srt's macOS profile permits bind/listen on
+  # loopback only — external network is still gated by the domain allowlist.
+  defaultAllowLoopback ? false,
   # Secrets resolved outside the sandbox and exported as env vars before exec.
   # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
   # Each command runs in the wrapper's parent shell, so it has full access to
   # the host (Keychain, pass, sops, kubectl). Resolved values flow through to
   # pi via process env; non-zero exit on any resolver aborts pi startup.
   envFromCommands ? { },
+  # Identity stamped on any git commit pi makes. Exported as GIT_AUTHOR_* /
+  # GIT_COMMITTER_* in the wrapper process so it overrides repo & global
+  # config without mutating either. Defaults are deliberately non-human —
+  # agent commits should be obvious in `git log` so a human auditor can
+  # tell them apart at a glance. Signing is hardcoded off in wrapper.sh
+  # (not a knob) for the same reason.
+  gitAuthorName ? "Kyle's Daemon",
+  gitAuthorEmail ? "ai-daemon@noreply.ondy.org",
   credentialMasks ? [
     ".ssh"
     ".gnupg"
@@ -50,6 +68,14 @@ let
     lib.concatMapStrings (name: "${name}\t${envFromCommands.${name}}\n") (lib.attrNames envFromCommands)
   );
 
+  # Tab-separated VAR<TAB>value lines for static env vars. Same sidecar
+  # pattern as envResolversFile — wrapper reads at runtime, bash-expands
+  # each value with double-quote semantics so $PWD/$HOME resolve, then
+  # exports.
+  envVarsFile = writeText "pi-env-vars" (
+    lib.concatMapStrings (name: "${name}\t${defaultEnvVars.${name}}\n") (lib.attrNames defaultEnvVars)
+  );
+
   body =
     builtins.replaceStrings
       [
@@ -59,6 +85,10 @@ let
         "@defaultWritePaths@"
         "@defaultPiArgs@"
         "@envResolversFile@"
+        "@envVarsFile@"
+        "@defaultAllowLoopback@"
+        "@gitAuthorName@"
+        "@gitAuthorEmail@"
       ]
       [
         realPiBin
@@ -67,6 +97,10 @@ let
         (bashArray defaultWritePaths)
         (lib.escapeShellArgs defaultPiArgs)
         "${envResolversFile}"
+        "${envVarsFile}"
+        (if defaultAllowLoopback then "true" else "false")
+        (lib.escapeShellArg gitAuthorName)
+        (lib.escapeShellArg gitAuthorEmail)
       ]
       (builtins.readFile ./wrapper.sh);
 in

@@ -35,6 +35,24 @@ let
     ];
   };
 
+  wrapperWithEnvVars = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultEnvVars = {
+      TESTCACHE = "$PWD/.testcache";
+    };
+  };
+
+  wrapperWithLoopback = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowLoopback = true;
+  };
+
+  wrapperWithCustomIdentity = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    gitAuthorName = "Test Bot";
+    gitAuthorEmail = "test-bot@example.invalid";
+  };
+
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
 in
 pkgs.runCommand "pi-coding-agent-check"
@@ -125,6 +143,52 @@ pkgs.runCommand "pi-coding-agent-check"
     if echo "$captured" | grep -q "PI_PLAN_EXEC.*pi --model"; then
       fail "empty defaultPiArgs should not inject --model. captured=$captured"
     fi
+
+    # envVars expansion: $PWD resolves at wrapper runtime
+    cd "$TMPDIR"
+    captured=$(${wrapperWithEnvVars}/bin/pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_EXPORTED: TESTCACHE=$TMPDIR/.testcache" \
+      || fail "envVars did not expand \$PWD. captured=$captured"
+
+    # Empty envVars emits no PI_PLAN_EXPORTED: lines
+    captured=$(pi -- x 2>&1)
+    if echo "$captured" | grep -q "PI_PLAN_EXPORTED:"; then
+      fail "empty envVars should emit no PI_PLAN_EXPORTED. captured=$captured"
+    fi
+
+    # defaultAllowLoopback=true → settings.network.allowLocalBinding == true
+    captured=$(${wrapperWithLoopback}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowLocalBinding == true' >/dev/null \
+      || fail "defaultAllowLoopback=true did not set allowLocalBinding. settings=$settings"
+
+    # --allow-loopback CLI flag also flips it on a default-off wrapper
+    captured=$(pi --allow-loopback -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowLocalBinding == true' >/dev/null \
+      || fail "--allow-loopback did not set allowLocalBinding. settings=$settings"
+
+    # Default (no flag, default off): allowLocalBinding is false
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowLocalBinding == false' >/dev/null \
+      || fail "default allowLocalBinding should be false. settings=$settings"
+
+    # Default git identity is Kyle's Daemon and signing is disabled
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -qF "PI_PLAN_GIT: author=Kyle's Daemon <ai-daemon@noreply.ondy.org> sign=false" \
+      || fail "default git identity missing. captured=$captured"
+
+    # gitAuthorName/gitAuthorEmail overrides flow through
+    captured=$(${wrapperWithCustomIdentity}/bin/pi -- x 2>&1)
+    echo "$captured" | grep -qF "PI_PLAN_GIT: author=Test Bot <test-bot@example.invalid> sign=false" \
+      || fail "custom git identity not applied. captured=$captured"
+
+    # Git identity & sign=false apply under --no-sandbox too (commit
+    # attribution must not depend on sandbox mode being on)
+    captured=$(pi --no-sandbox foo 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_GIT:.*sign=false" \
+      || fail "--no-sandbox dropped git identity. captured=$captured"
 
     touch $out
   ''

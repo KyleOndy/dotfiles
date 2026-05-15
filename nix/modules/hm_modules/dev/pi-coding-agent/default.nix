@@ -40,6 +40,10 @@ let
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
         envFromCommands = cfg.sandbox.envFromCommands;
         defaultPiArgs = cfg.sandbox.defaultArgs;
+        defaultEnvVars = cfg.sandbox.envVars;
+        defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
+        gitAuthorName = cfg.sandbox.gitIdentity.name;
+        gitAuthorEmail = cfg.sandbox.gitIdentity.email;
       }
     else
       pkgs.llm-agents.pi;
@@ -117,6 +121,70 @@ in
           to type --model on every command. User args still win on repeated
           flags — pi takes the last occurrence of --model, --provider, etc.
         '';
+      };
+
+      envVars = lib.mkOption {
+        type = with lib.types; attrsOf str;
+        default = { };
+        example = {
+          GOCACHE = "$PWD/.gocache";
+          GOMODCACHE = "$PWD/.gomodcache";
+        };
+        description = ''
+          Static env vars exported into pi's environment by the wrapper
+          before sandbox dispatch. Values are bash double-quote-expanded at
+          runtime, so $PWD / $HOME resolve to the user's CWD-at-invocation
+          and home directory.
+
+          Use this to redirect tool caches (Go, Rust, npm) into CWD-relative
+          paths the sandbox's allowWrite already covers, instead of
+          broadening allowWrite to $HOME/Library/Caches/* directories.
+
+          Distinct from envFromCommands: envVars are literal strings (only
+          bash double-quote expansion runs); envFromCommands resolves a
+          command's stdout. Use envFromCommands for secrets, envVars for
+          plain config.
+        '';
+      };
+
+      allowLocalBinding = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Permit TCP/UDP bind() and listen() on 127.0.0.1 / ::1 inside the
+          strict sandbox by setting srt's network.allowLocalBinding=true.
+          Required for httptest.NewServer, local dev servers (vite, air,
+          rails s, etc.), and integration tests that stand up an in-process
+          server.
+
+          Does not open external network egress — srt's domain filter still
+          applies, only loopback addresses are unblocked. Runtime
+          --allow-loopback extends this per-invocation.
+        '';
+      };
+
+      gitIdentity = {
+        name = lib.mkOption {
+          type = lib.types.str;
+          default = "Kyle's Daemon";
+          description = ''
+            Name stamped on any git commit pi makes. Forwarded to the
+            wrapper, which exports GIT_AUTHOR_NAME / GIT_COMMITTER_NAME in
+            pi's process tree only — repo and global git config are never
+            touched. Default is intentionally non-human so agent commits
+            stand out in `git log`; override per-host if you want a
+            different label. Signing is unconditionally disabled on agent
+            commits (see wrapper.sh) — that's not a knob.
+          '';
+        };
+        email = lib.mkOption {
+          type = lib.types.str;
+          default = "ai-daemon@noreply.ondy.org";
+          description = ''
+            Email paired with `gitIdentity.name`. Same scoping rules —
+            exported into pi's process tree, never written to config.
+          '';
+        };
       };
 
       envFromCommands = lib.mkOption {

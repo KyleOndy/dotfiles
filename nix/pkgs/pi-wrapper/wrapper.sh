@@ -12,6 +12,28 @@ extra_domains=()
 extra_write_paths=()
 web_mode=false
 no_sandbox=false
+allow_loopback=@defaultAllowLoopback@
+
+# Scope agent commit attribution to a non-human identity. Exported on every
+# invocation regardless of sandbox mode, so attribution holds even under
+# --no-sandbox. GIT_{AUTHOR,COMMITTER}_* override any repo/global config
+# without mutating it (see gitenvironment(7)). GIT_CONFIG_COUNT layers
+# commit.gpgsign=false and tag.gpgsign=false on top of whatever the user's
+# normal config says — agent commits must never carry the user's signature
+# so `git log --show-signature` makes the source obvious at a glance.
+export GIT_AUTHOR_NAME=@gitAuthorName@
+export GIT_AUTHOR_EMAIL=@gitAuthorEmail@
+export GIT_COMMITTER_NAME=@gitAuthorName@
+export GIT_COMMITTER_EMAIL=@gitAuthorEmail@
+export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_KEY_0=commit.gpgsign
+export GIT_CONFIG_VALUE_0=false
+export GIT_CONFIG_KEY_1=tag.gpgsign
+export GIT_CONFIG_VALUE_1=false
+if [[ ${PI_DEBUG:-} == "plan" ]]; then
+	printf 'PI_PLAN_GIT: author=%s <%s> sign=false\n' \
+		"$GIT_AUTHOR_NAME" "$GIT_AUTHOR_EMAIL"
+fi
 
 # Resolve a secret outside the sandbox and export it into pi's env. Driven
 # by a tab-separated VAR<TAB>cmd file generated at build time (see
@@ -44,6 +66,27 @@ __pi_resolve_all() {
 	done <"$pi_env_resolvers_file"
 }
 
+# Static env vars exported before sandbox dispatch. Tab-separated
+# VAR<TAB>value sidecar; values get bash double-quote expansion at runtime
+# so $PWD/$HOME resolve to the user's CWD-at-invocation and home dir.
+# Trust model matches __pi_resolve_all — values come from user-authored
+# nix config. Under PI_DEBUG=plan, prints intent and still exports so
+# subsequent dispatch can observe the resolved values if it wants to.
+pi_env_vars_file="@envVarsFile@"
+
+__pi_apply_env_vars() {
+	[[ -s $pi_env_vars_file ]] || return 0
+	local var raw expanded
+	while IFS=$'\t' read -r var raw; do
+		[[ -z $var ]] && continue
+		expanded=$(eval "printf '%s' \"$raw\"")
+		if [[ ${PI_DEBUG:-} == "plan" ]]; then
+			printf 'PI_PLAN_EXPORTED: %s=%s\n' "$var" "$expanded"
+		fi
+		export "$var=$expanded"
+	done <"$pi_env_vars_file"
+}
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--allow)
@@ -70,6 +113,10 @@ while [[ $# -gt 0 ]]; do
 		no_sandbox=true
 		shift
 		;;
+	--allow-loopback)
+		allow_loopback=true
+		shift
+		;;
 	--)
 		shift
 		break
@@ -79,6 +126,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 __pi_resolve_all
+__pi_apply_env_vars
 
 # Prepend the build-time default pi args before any user-supplied args. Pi
 # uses last-wins for repeated flags (e.g. --model), so the user can still
@@ -199,12 +247,19 @@ run_strict() {
 
 	# allowPty=true is macOS-only (lets `pi`'s interactive TUI call setRawMode
 	# through sandbox-exec). Linux's bwrap ignores unknown keys.
+	# allowLocalBinding=true tells srt to emit (allow network-bind (local ip "*:*"))
+	# rules so httptest et al. can bind 127.0.0.1; external bind stays blocked.
 	jq -n \
 		--argjson allowed "$allowed_json" \
 		--argjson write "$write_json" \
 		--argjson denyRead "$deny_read_json" \
+		--argjson allowLoopback "$allow_loopback" \
 		'{
-            "network": {"allowedDomains": $allowed, "deniedDomains": []},
+            "network": {
+              "allowedDomains": $allowed,
+              "deniedDomains": [],
+              "allowLocalBinding": $allowLoopback
+            },
             "filesystem": {"allowWrite": $write, "denyRead": $denyRead, "denyWrite": []},
             "allowPty": true
           }' >"$settings_file"
