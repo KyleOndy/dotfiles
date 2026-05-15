@@ -39,6 +39,7 @@ let
         defaultDomains = cfg.sandbox.allowedDomains;
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
         envFromCommands = cfg.sandbox.envFromCommands;
+        defaultPiArgs = cfg.sandbox.defaultArgs;
       }
     else
       pkgs.llm-agents.pi;
@@ -100,6 +101,21 @@ in
         description = ''
           Extra filesystem write paths beyond CWD and ~/.pi.
           Supports ~ expansion. Runtime --allow-write extends this.
+        '';
+      };
+
+      defaultArgs = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [
+          "--model"
+          "anthropic/claude-sonnet-4"
+        ];
+        description = ''
+          Args prepended to every `pi` invocation, before any user-supplied
+          args. Use this to pin a default model/provider so you don't have
+          to type --model on every command. User args still win on repeated
+          flags — pi takes the last occurrence of --model, --provider, etc.
         '';
       };
 

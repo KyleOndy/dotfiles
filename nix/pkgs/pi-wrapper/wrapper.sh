@@ -5,6 +5,7 @@
 default_domains=(@defaultDomains@)
 default_write_paths=(@defaultWritePaths@)
 credential_masks=(@credentialMasks@)
+default_pi_args=(@defaultPiArgs@)
 real_pi="${PI_REAL_BIN:-@realPiBin@}"
 
 extra_domains=()
@@ -78,6 +79,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 __pi_resolve_all
+
+# Prepend the build-time default pi args before any user-supplied args. Pi
+# uses last-wins for repeated flags (e.g. --model), so the user can still
+# override on the command line.
+set -- "${default_pi_args[@]}" "$@"
 
 resolved_extra_writes=()
 for p in "${default_write_paths[@]}" "${extra_write_paths[@]}"; do

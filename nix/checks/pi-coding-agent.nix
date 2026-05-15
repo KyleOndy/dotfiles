@@ -27,6 +27,14 @@ let
     };
   };
 
+  wrapperWithDefaultArgs = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultPiArgs = [
+      "--model"
+      "test-provider/test-model"
+    ];
+  };
+
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
 in
 pkgs.runCommand "pi-coding-agent-check"
@@ -105,6 +113,18 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$captured" | grep -q "resolver failed for \\\$BAD" \
       || fail "failing resolver missing diagnostic. captured=$captured"
     export PI_DEBUG=plan
+
+    # defaultPiArgs prepends to pi's args
+    captured=$(${wrapperWithDefaultArgs}/bin/pi -- --print hi 2>&1)
+    echo "$captured" \
+      | grep -q "PI_PLAN_EXEC.*pi --model test-provider/test-model --print hi" \
+      || fail "defaultPiArgs missing from PI_PLAN_EXEC. captured=$captured"
+
+    # Empty defaultPiArgs leaves the arg list untouched
+    captured=$(pi -- --print hi 2>&1)
+    if echo "$captured" | grep -q "PI_PLAN_EXEC.*pi --model"; then
+      fail "empty defaultPiArgs should not inject --model. captured=$captured"
+    fi
 
     touch $out
   ''

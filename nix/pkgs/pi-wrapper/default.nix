@@ -13,6 +13,11 @@
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
+  # Args prepended to every `pi` invocation, before user args. Useful for
+  # pinning a default model/provider so the user doesn't have to type
+  # `--model …` each time. User args still win on duplicates (pi takes the
+  # last occurrence of repeated flags like --model).
+  defaultPiArgs ? [ ],
   # Secrets resolved outside the sandbox and exported as env vars before exec.
   # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
   # Each command runs in the wrapper's parent shell, so it has full access to
@@ -52,6 +57,7 @@ let
         "@credentialMasks@"
         "@defaultDomains@"
         "@defaultWritePaths@"
+        "@defaultPiArgs@"
         "@envResolversFile@"
       ]
       [
@@ -59,6 +65,7 @@ let
         (bashArray credentialMasks)
         (bashArray defaultDomains)
         (bashArray defaultWritePaths)
+        (lib.escapeShellArgs defaultPiArgs)
         "${envResolversFile}"
       ]
       (builtins.readFile ./wrapper.sh);
