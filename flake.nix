@@ -79,6 +79,19 @@
   outputs =
     { self, ... }@inputs:
     let
+      # Working-tree path captured from the DOTFILES_WORKTREE env var (set
+      # by the Makefile via `git rev-parse --show-toplevel`). Used by
+      # home-manager modules that want mkOutOfStoreSymlink to point at the
+      # *worktree* being deployed from — not the store snapshot, not a
+      # hardcoded path. Empty/null when the flake is evaluated in pure
+      # mode or outside `make`; the consuming module throws with a clear
+      # message in that case.
+      dotfilesWorktree =
+        let
+          env = builtins.getEnv "DOTFILES_WORKTREE";
+        in
+        if env != "" then env else null;
+
       # import all the overlays that extend packages via nix or home-manager.
       overlays = [
         inputs.nur.overlays.default
@@ -250,6 +263,7 @@
                     useUserPackages = true;
                     extraSpecialArgs = {
                       dotfiles-root = self.outPath;
+                      dotfiles-worktree = dotfilesWorktree;
                       inherit inputs;
                     };
                     sharedModules =
@@ -314,6 +328,7 @@
                   useUserPackages = true;
                   extraSpecialArgs = {
                     dotfiles-root = self.outPath;
+                    dotfiles-worktree = dotfilesWorktree;
                     inherit inputs;
                   };
                   # Include desktop modules for cross-platform validation
@@ -671,6 +686,7 @@
         pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
         extraSpecialArgs = {
           dotfiles-root = self.outPath;
+          dotfiles-worktree = dotfilesWorktree;
           inherit inputs;
         };
         modules =

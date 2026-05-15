@@ -4,6 +4,19 @@ ALLOW_BROKEN=false
 ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
+# Captured at make-time so home-manager modules using mkOutOfStoreSymlink
+# (currently: pi-coding-agent) symlink into the worktree you actually
+# `make`d from, not a hardcoded path. Threaded into the flake via the
+# DOTFILES_WORKTREE env var; consumed in flake.nix and read with
+# builtins.getEnv. Empty when run outside a git worktree — the consuming
+# module throws with a pointer back here.
+export DOTFILES_WORKTREE := $(shell git rev-parse --show-toplevel 2>/dev/null)
+
+# --impure unconditionally so the flake can read DOTFILES_WORKTREE. The
+# ALLOW_* flags below still toggle their respective NIXPKGS_ALLOW_* env
+# vars, but the --impure flag itself is always on.
+IMPURE := --impure
+
 # Work config override. Set to the work repo path on work machines to inject
 # work-specific configuration. Example:
 #   make build-mac WORK_CONFIG=/Users/kondy/work
@@ -16,23 +29,21 @@ endif
 # I don't like to do this, but sometimes I just need to move ahead
 ifeq ($(ALLOW_BROKEN), true)
 	export NIXPKGS_ALLOW_BROKEN=1
-	IMPURE=--impure
 endif
 
 ifeq ($(ALLOW_UNSUPPORTED), true)
 	export NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM=1
-	IMPURE=--impure
 endif
 
 ifeq ($(ALLOW_UNFREE), true)
 	export NIXPKGS_ALLOW_UNFREE=1
-	IMPURE=--impure
 endif
 
 # this is my naive approach to supporting multiple systems.
 ifeq ($(UNAME), Linux)
 	REBUILD := nixos-rebuild $(IMPURE)
-	SWITCH := sudo $(REBUILD) $(IMPURE)
+	# --preserve-env so DOTFILES_WORKTREE (and NIXPKGS_ALLOW_*) survive sudo
+	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild $(IMPURE)
 	SWITCH := $(REBUILD) $(IMPURE)
@@ -70,12 +81,12 @@ deploy-rs:
 
 .PHONY: deploy-rs-all
 deploy-rs-all:
-	nix flake check -L
+	nix flake check $(IMPURE) -L
 	deploy --skip-checks .
 
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry:
-	nix flake check -L
+	nix flake check $(IMPURE) -L
 	deploy --skip-checks --dry-activate .
 
 .PHONY: diff-system
@@ -122,7 +133,7 @@ update/pi-coding-agent: ## Update pi.dev coding agent (via numtide/llm-agents.ni
 
 .PHONY: check
 check: ## Run nix checks
-	nix flake check
+	nix flake check $(IMPURE)
 
 .PHONY: info
 info: ## Print information about the system

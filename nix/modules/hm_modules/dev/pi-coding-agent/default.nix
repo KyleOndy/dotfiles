@@ -15,10 +15,19 @@
 #
 # Wrapper implementation lives in nix/pkgs/pi-wrapper so it can be reused by
 # the flake check at nix/checks/pi-coding-agent.nix.
+#
+# Extension sources at nix/modules/hm_modules/dev/pi/ are symlinked via
+# mkOutOfStoreSymlink into ~/.pi/agent/, not copied into the nix store. Pi's
+# /reload hot-swaps extensions/skills/keybindings at runtime, and any file
+# pi writes round-trips back into git. sourceDir defaults to the worktree
+# you ran `make` from — see DOTFILES_WORKTREE in Makefile and the
+# dotfilesWorktree binding in flake.nix. Each worktree symlinks to its own
+# tree, so branch-based edits surface immediately without colliding.
 {
   lib,
   pkgs,
   config,
+  dotfiles-worktree,
   ...
 }:
 let
@@ -32,10 +41,36 @@ let
       }
     else
       pkgs.llm-agents.pi;
+
+  defaultSourceDir =
+    if dotfiles-worktree != null then
+      "${dotfiles-worktree}/nix/modules/hm_modules/dev/pi"
+    else
+      throw ''
+        hmFoundry.dev.pi-coding-agent: cannot resolve sourceDir.
+        DOTFILES_WORKTREE is unset (or the flake is being evaluated in
+        pure mode). Build via the Makefile targets (which export it and
+        pass --impure), or set
+        `hmFoundry.dev.pi-coding-agent.sourceDir` explicitly.
+      '';
 in
 {
   options.hmFoundry.dev.pi-coding-agent = {
     enable = lib.mkEnableOption "pi coding agent";
+
+    sourceDir = lib.mkOption {
+      type = lib.types.str;
+      default = defaultSourceDir;
+      defaultText = lib.literalExpression "\${dotfiles-worktree}/nix/modules/hm_modules/dev/pi";
+      description = ''
+        Absolute path in the dotfiles working tree containing pi's
+        symlinked config (extensions/, etc.). mkOutOfStoreSymlink points
+        ~/.pi/agent/extensions at <sourceDir>/extensions so /reload picks
+        up edits without a home-manager rebuild. Defaults to the worktree
+        captured at make-time via DOTFILES_WORKTREE; override per-host if
+        you need a different path.
+      '';
+    };
 
     sandbox = {
       enable = lib.mkEnableOption "sandbox pi via OS-level primitives" // {
@@ -76,5 +111,8 @@ in
       PI_TELEMETRY = "0";
       PI_SKIP_VERSION_CHECK = "1";
     };
+
+    home.file.".pi/agent/extensions".source =
+      config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
   };
 }
