@@ -360,13 +360,36 @@ in
           interval: 60s
           rules:
             - alert: SmartDriveHealthFailed
-              expr: smartctl_device_smart_healthy == 0
+              expr: |
+                smartctl_device_smart_healthy == 0
+                unless on(host, device, serial) (
+                  smartctl_nvme_critical_warning == 4
+                  and smartctl_nvme_available_spare > smartctl_nvme_available_spare_threshold
+                )
               for: 5m
               labels:
                 severity: critical
               annotations:
                 summary: "SMART health failure on {{ $labels.host }}:{{ $labels.device }}"
-                description: "Drive {{ $labels.device }} on {{ $labels.host }} is reporting a SMART health failure. Run: smartctl -a /dev/{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} is reporting a SMART health failure. Run: smartctl -a /dev/{{ $labels.device }}"
+
+            - alert: SmartDriveAvailableSpareLow
+              expr: smartctl_nvme_available_spare <= smartctl_nvme_available_spare_threshold
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "NVMe spare exhausted on {{ $labels.host }}:{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} has Available Spare at or below the threshold. Replace ASAP."
+
+            - alert: SmartDriveEnduranceExceeded
+              expr: smartctl_nvme_percentage_used >= 100
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "NVMe endurance exceeded on {{ $labels.host }}:{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} has Percentage Used >= 100% (warranty endurance exhausted). Drive is still healthy while Available Spare > threshold."
 
             - alert: RaidDriveFailedInArray
               expr: node_md_disks{state="failed"} > 0

@@ -150,22 +150,50 @@ in
           {
             printf '# HELP smartctl_device_smart_healthy SMART overall health (1=healthy, 0=failed)\n'
             printf '# TYPE smartctl_device_smart_healthy gauge\n'
+            printf '# HELP smartctl_nvme_critical_warning NVMe critical_warning bitfield (raw integer)\n'
+            printf '# TYPE smartctl_nvme_critical_warning gauge\n'
+            printf '# HELP smartctl_nvme_percentage_used NVMe Percentage Used indicator (>=100 means warranty endurance exhausted)\n'
+            printf '# TYPE smartctl_nvme_percentage_used gauge\n'
+            printf '# HELP smartctl_nvme_available_spare NVMe Available Spare (percent)\n'
+            printf '# TYPE smartctl_nvme_available_spare gauge\n'
+            printf '# HELP smartctl_nvme_available_spare_threshold NVMe Available Spare Threshold (percent)\n'
+            printf '# TYPE smartctl_nvme_available_spare_threshold gauge\n'
             while IFS= read -r device_line; do
               device=$(awk '{print $1}' <<< "$device_line")
               devtype=$(awk '{print $3}' <<< "$device_line")
               devname=$(basename "$device")
               exit_code=0
-              health=$(smartctl -H -d "$devtype" "$device" 2>&1) || exit_code=$?
-              if grep -qE 'PASSED|result: OK' <<< "$health"; then
+              output=$(smartctl -a -d "$devtype" "$device" 2>&1) || exit_code=$?
+              if grep -qE 'PASSED|result: OK' <<< "$output"; then
                 status=1
-              elif grep -qE 'FAILED' <<< "$health"; then
+              elif grep -qE 'FAILED' <<< "$output"; then
                 status=0
               elif [[ $((exit_code & 4)) -ne 0 ]] || [[ $((exit_code & 8)) -ne 0 ]]; then
                 status=0
               else
                 continue
               fi
-              printf 'smartctl_device_smart_healthy{device="%s"} %d\n' "$devname" "$status"
+              serial=$(awk -F: '$1 == "Serial Number" {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}' <<< "$output")
+              serial=''${serial:-unknown}
+              printf 'smartctl_device_smart_healthy{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$status"
+              if [[ "$devtype" == nvme* ]]; then
+                crit=$(awk -F: '$1 == "Critical Warning" {gsub(/[ \t]/, "", $2); print $2; exit}' <<< "$output")
+                pct=$(awk -F: '$1 == "Percentage Used" {gsub(/[ \t%]/, "", $2); print $2; exit}' <<< "$output")
+                spare=$(awk -F: '$1 == "Available Spare" {gsub(/[ \t%]/, "", $2); print $2; exit}' <<< "$output")
+                spare_thr=$(awk -F: '$1 == "Available Spare Threshold" {gsub(/[ \t%]/, "", $2); print $2; exit}' <<< "$output")
+                if [[ -n "$crit" ]]; then
+                  printf 'smartctl_nvme_critical_warning{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$((crit))"
+                fi
+                if [[ -n "$pct" ]]; then
+                  printf 'smartctl_nvme_percentage_used{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$pct"
+                fi
+                if [[ -n "$spare" ]]; then
+                  printf 'smartctl_nvme_available_spare{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$spare"
+                fi
+                if [[ -n "$spare_thr" ]]; then
+                  printf 'smartctl_nvme_available_spare_threshold{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$spare_thr"
+                fi
+              fi
             done < <(smartctl --scan)
           } > "$OUTFILE.tmp"
           mv "$OUTFILE.tmp" "$OUTFILE"
