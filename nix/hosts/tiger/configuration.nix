@@ -297,7 +297,7 @@ in
       };
 
       ytdlSub = {
-        enable = true;
+        enable = false;
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/media/yt-temp";
         # data_dir left at default (/var/lib/ytdl-sub/youtube) so yt-push-cookies path matches

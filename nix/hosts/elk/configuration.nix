@@ -611,7 +611,7 @@
 
   # YouTube downloader - downloads videos from subscribed channels via ytdl-sub
   systemFoundry.ytdlSub = {
-    enable = true;
+    enable = false;
     media_dir = "/mnt/storage/media/yt";
     temp_dir = "/mnt/storage/downloads/youtube-temp";
 
