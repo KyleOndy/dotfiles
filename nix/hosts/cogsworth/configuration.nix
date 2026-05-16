@@ -770,9 +770,11 @@ in
       STATE_DIR="/var/lib/cogsworth-watchdog"
       COGSWORTH_STATE_FILE="$STATE_DIR/failure_count"
       KIOSK_STATE_FILE="$STATE_DIR/kiosk_failure_count"
-      FAILURE_THRESHOLD=3       # Backend: restart after 3 consecutive failures (90 seconds)
-      KIOSK_FAILURE_THRESHOLD=5 # Kiosk: restart after 5 consecutive failures (150 seconds)
-      KIOSK_GRACE_PERIOD_S=60   # Skip kiosk checks for 60s after a fresh start
+      KIOSK_ORIGIN_STATE_FILE="$STATE_DIR/kiosk_offorigin_count"
+      FAILURE_THRESHOLD=3              # Backend: restart after 3 consecutive failures (90 seconds)
+      KIOSK_FAILURE_THRESHOLD=5        # Kiosk: restart after 5 consecutive failures (150 seconds)
+      KIOSK_ORIGIN_FAILURE_THRESHOLD=3 # Off-origin: restart after 3 consecutive failed snap-backs (90 seconds)
+      KIOSK_GRACE_PERIOD_S=60          # Skip kiosk checks for 60s after a fresh start
 
       # Ensure state directory exists
       mkdir -p "$STATE_DIR"
@@ -822,6 +824,7 @@ in
       LAST_KIOSK_TIMESTAMP=$(cat "$KIOSK_TIMESTAMP_FILE" 2>/dev/null || echo 0)
       if [ "$KIOSK_ACTIVE_MONOTONIC" != "$LAST_KIOSK_TIMESTAMP" ]; then
         echo "0" > "$KIOSK_STATE_FILE"
+        echo "0" > "$KIOSK_ORIGIN_STATE_FILE"
         echo "$KIOSK_ACTIVE_MONOTONIC" > "$KIOSK_TIMESTAMP_FILE"
         KIOSK_FAILURES=0
       fi
@@ -837,9 +840,11 @@ in
         fi
       fi
 
-      # Extract the page's WebSocket debugger URL from Chromium's CDP endpoint.
-      KIOSK_WS=$(${pkgs.curl}/bin/curl -sf --max-time 10 http://127.0.0.1:9222/json/list \
-        | grep -o '"webSocketDebuggerUrl": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      # Probe Chromium's CDP target list once; extract both the page's
+      # WebSocket debugger URL and its current top-level URL out of it.
+      CDP_TARGETS=$(${pkgs.curl}/bin/curl -sf --max-time 10 http://127.0.0.1:9222/json/list 2>/dev/null || true)
+      KIOSK_WS=$(echo "$CDP_TARGETS" | grep -o '"webSocketDebuggerUrl": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      KIOSK_URL=$(echo "$CDP_TARGETS" | grep -o '"url": *"[^"]*"' | head -1 | cut -d'"' -f4)
 
       if [ -n "$KIOSK_WS" ]; then
         # Send a trivial Runtime.evaluate and check for a numeric response.
@@ -861,6 +866,40 @@ in
             echo "0" > "$KIOSK_STATE_FILE"
           fi
         fi
+
+        # --- Origin check: the kiosk should always be on localhost ---
+        # Defense in depth. The SPA never sets location.href off-origin
+        # and the two external iframes use sandbox="allow-scripts
+        # allow-same-origin" (no allow-top-navigation), but if the top
+        # frame ever wanders, snap it back via CDP and only escalate to
+        # a service restart if snap-back keeps failing.
+        if [ -f "$KIOSK_ORIGIN_STATE_FILE" ]; then
+          ORIGIN_FAILURES=$(cat "$KIOSK_ORIGIN_STATE_FILE")
+        else
+          ORIGIN_FAILURES=0
+        fi
+
+        case "$KIOSK_URL" in
+          http://localhost*|http://127.0.0.1*)
+            if [ "$ORIGIN_FAILURES" -gt 0 ]; then
+              echo "$(date): Kiosk back on-origin (was $ORIGIN_FAILURES off-origin ticks)"
+            fi
+            echo "0" > "$KIOSK_ORIGIN_STATE_FILE"
+            ;;
+          *)
+            ORIGIN_FAILURES=$((ORIGIN_FAILURES + 1))
+            echo "$ORIGIN_FAILURES" > "$KIOSK_ORIGIN_STATE_FILE"
+            echo "$(date): Kiosk off-origin: '$KIOSK_URL' (attempt $ORIGIN_FAILURES/$KIOSK_ORIGIN_FAILURE_THRESHOLD)"
+            echo '{"id":2,"method":"Page.navigate","params":{"url":"http://localhost:8080"}}' \
+              | timeout 5 ${pkgs.websocat}/bin/websocat --one-message -n "$KIOSK_WS" >/dev/null 2>&1 || true
+            if [ "$ORIGIN_FAILURES" -ge "$KIOSK_ORIGIN_FAILURE_THRESHOLD" ]; then
+              echo "$(date): WATCHDOG TRIGGERED - snap-back failed $ORIGIN_FAILURES times, restarting cogsworth-kiosk.service"
+              systemctl reset-failed cogsworth-kiosk.service || true
+              systemctl restart cogsworth-kiosk.service
+              echo "0" > "$KIOSK_ORIGIN_STATE_FILE"
+            fi
+            ;;
+        esac
       else
         # Browser process not answering CDP — count as a kiosk failure.
         KIOSK_FAILURES=$((KIOSK_FAILURES + 1))
