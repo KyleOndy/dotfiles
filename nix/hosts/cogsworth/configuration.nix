@@ -681,7 +681,9 @@ in
       --enable-gpu-rasterization \
       --enable-zero-copy \
       "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder" \
-      "--disable-features=SkiaGraphite,UseChromeOSDirectVideoDecoder,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation" \
+      "--disable-features=SkiaGraphite,UseChromeOSDirectVideoDecoder,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation,OptimizationGuideModelDownloading,OptimizationHints,OnDeviceModel" \
+      "--js-flags=--max-old-space-size=256" \
+      --process-per-site \
       --enable-logging=stderr \
       --user-data-dir=/run/cogsworth-kiosk/chromium \
       --remote-debugging-port=9222 \
