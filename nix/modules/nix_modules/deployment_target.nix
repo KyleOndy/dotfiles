@@ -103,10 +103,14 @@ in
         substituters = [
           "https://cache.apps.ondy.org"
           "https://cache.nixos.org"
+          # Prebuilt Pi-specific kernel/firmware for cogsworth — avoids local
+          # rebuilds of linux_rpi-bcm2712. Public key from nixos-raspberrypi README.
+          "https://nixos-raspberrypi.cachix.org"
         ];
         trusted-public-keys = [
           "cache.apps.ondy.org-1:7HWTVdm4uIcOykyNwsKsEjRqqOzuLqK12//JXLiUU7I="
           "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+          "nixos-raspberrypi.cachix.org-1:4iMO9LXa8BqhU+Rpg6LQKiGa2lsNh/j2oiYLNOQ5sPI="
         ];
       };
       nixPath = [ "nixpkgs=${pkgs.path}" ];

@@ -1083,16 +1083,6 @@ in
     };
   };
 
-  # Pull prebuilt Pi-specific kernel/firmware from the upstream cache so the
-  # deployer doesn't rebuild linux_rpi-bcm2712 from source on every kernel bump.
-  # Public key from https://github.com/nvmd/nixos-raspberrypi README.
-  nix.settings = {
-    extra-substituters = [ "https://nixos-raspberrypi.cachix.org" ];
-    extra-trusted-public-keys = [
-      "nixos-raspberrypi.cachix.org-1:4iMO9LXa8BqhU+Rpg6LQKiGa2lsNh/j2oiYLNOQ5sPI="
-    ];
-  };
-
   # SD card wear reduction - minimize writes to extend card lifespan
   # Logs stored in RAM (acceptable since promtail forwards to Loki)
   systemFoundry.sdCardOptimization = {
