@@ -453,9 +453,12 @@
             programs = {
               playwright = {
                 enable = true;
+                executable =
+                  if pkgs.stdenv.isDarwin then
+                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+                  else
+                    "${pkgs.chromium}/bin/chromium";
                 args = [
-                  "--executable-path"
-                  "${pkgs.chromium}/bin/chromium"
                   "--viewport-size"
                   "1080x1920"
                   "--sandbox"
