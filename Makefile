@@ -17,6 +17,17 @@ export DOTFILES_WORKTREE := $(shell git rev-parse --show-toplevel 2>/dev/null)
 # vars, but the --impure flag itself is always on.
 IMPURE := --impure
 
+# Lift this repo's core.sshCommand into GIT_SSH_COMMAND so Nix's git+ssh
+# fetchers (e.g. the private cogsworth flake input) use the same key as
+# git operations in this worktree. Repo-level core.sshCommand only
+# applies when git is invoked from inside the repo; GIT_SSH_COMMAND
+# applies anywhere git runs. Expand ~ here because it would otherwise
+# resolve to /var/root once the value crosses sudo.
+GIT_SSH_COMMAND := $(subst ~,$(HOME),$(shell git config --get core.sshCommand 2>/dev/null))
+ifneq ($(GIT_SSH_COMMAND),)
+  export GIT_SSH_COMMAND
+endif
+
 # Work config override. Set to the work repo path on work machines to inject
 # work-specific configuration. Example:
 #   make build-mac WORK_CONFIG=/Users/kondy/work
@@ -43,10 +54,14 @@ endif
 ifeq ($(UNAME), Linux)
 	REBUILD := nixos-rebuild $(IMPURE)
 	# --preserve-env so DOTFILES_WORKTREE (and NIXPKGS_ALLOW_*) survive sudo
-	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
+	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild $(IMPURE)
-	SWITCH := $(REBUILD) $(IMPURE)
+	# darwin-rebuild requires root for activation. --preserve-env keeps
+	# GIT_SSH_COMMAND so private flake inputs (e.g. ssh://git@github.com/...)
+	# can still authenticate via the key configured in this repo's
+	# core.sshCommand.
+	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
 else
 	(echo "Unsupported file system: $(UNAME)"; exit 1)
 endif
