@@ -409,6 +409,12 @@ in
     # Allow gpio group access to gpiochip devices (Pi 5 GPIO via RP1)
     KERNEL=="gpiochip*", GROUP="gpio", MODE="0660"
     SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
+
+    # Disable WiFi power management - brcmfmac defaults to power_save on,
+    # which sleeps the radio during idle and drops inbound SSH until the
+    # client re-associates (e.g. a UniFi kick). Re-applies on every wlan0
+    # appearance: boot, driver reload, reconnect.
+    ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan0", RUN+="${pkgs.iw}/bin/iw dev wlan0 set power_save off"
   '';
 
   # Seat management - sway uses libseat to access DRM devices
