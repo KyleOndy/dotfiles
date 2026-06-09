@@ -169,7 +169,7 @@ in
     home.packages =
       with pkgs;
       [
-        docker
+        docker_29
         docker-compose
       ]
       ++ optionals pkgs.stdenv.isDarwin [
