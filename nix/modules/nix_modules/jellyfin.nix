@@ -8,6 +8,67 @@ with lib;
 let
   cfg = config.systemFoundry.jellyfin;
   stateDir = "/var/lib/jellyfin";
+
+  hwCfg = cfg.hardwareAcceleration;
+  # QsvDevice is only meaningful for the qsv backend; vaapi/nvenc read VaapiDevice.
+  qsvDevice = if hwCfg.type == "qsv" then hwCfg.device else "";
+  decodingCodecsXml = concatMapStringsSep "\n" (c: "    <string>${c}</string>") hwCfg.decodingCodecs;
+
+  # Complete encoding.xml for Jellyfin 10.11.x. Non-hardware fields are left at
+  # upstream defaults; only the hardware-acceleration knobs are templated. Schema
+  # captured from a freshly-generated 10.11.10 encoding.xml.
+  encodingXml = pkgs.writeText "jellyfin-encoding.xml" ''
+    <?xml version="1.0" encoding="utf-8"?>
+    <EncodingOptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <EncodingThreadCount>-1</EncodingThreadCount>
+      <EnableFallbackFont>false</EnableFallbackFont>
+      <EnableAudioVbr>false</EnableAudioVbr>
+      <DownMixAudioBoost>2</DownMixAudioBoost>
+      <DownMixStereoAlgorithm>None</DownMixStereoAlgorithm>
+      <MaxMuxingQueueSize>2048</MaxMuxingQueueSize>
+      <EnableThrottling>false</EnableThrottling>
+      <ThrottleDelaySeconds>180</ThrottleDelaySeconds>
+      <EnableSegmentDeletion>false</EnableSegmentDeletion>
+      <SegmentKeepSeconds>720</SegmentKeepSeconds>
+      <HardwareAccelerationType>${hwCfg.type}</HardwareAccelerationType>
+      <VaapiDevice>${hwCfg.device}</VaapiDevice>
+      <QsvDevice>${qsvDevice}</QsvDevice>
+      <EnableTonemapping>${boolToString hwCfg.enableTonemapping}</EnableTonemapping>
+      <EnableVppTonemapping>${boolToString hwCfg.enableVppTonemapping}</EnableVppTonemapping>
+      <EnableVideoToolboxTonemapping>false</EnableVideoToolboxTonemapping>
+      <TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+      <TonemappingMode>auto</TonemappingMode>
+      <TonemappingRange>auto</TonemappingRange>
+      <TonemappingDesat>0</TonemappingDesat>
+      <TonemappingPeak>100</TonemappingPeak>
+      <TonemappingParam>0</TonemappingParam>
+      <VppTonemappingBrightness>16</VppTonemappingBrightness>
+      <VppTonemappingContrast>1</VppTonemappingContrast>
+      <H264Crf>23</H264Crf>
+      <H265Crf>28</H265Crf>
+      <EncoderPreset xsi:nil="true" />
+      <DeinterlaceDoubleRate>false</DeinterlaceDoubleRate>
+      <DeinterlaceMethod>yadif</DeinterlaceMethod>
+      <EnableDecodingColorDepth10Hevc>true</EnableDecodingColorDepth10Hevc>
+      <EnableDecodingColorDepth10Vp9>true</EnableDecodingColorDepth10Vp9>
+      <EnableDecodingColorDepth10HevcRext>false</EnableDecodingColorDepth10HevcRext>
+      <EnableDecodingColorDepth12HevcRext>false</EnableDecodingColorDepth12HevcRext>
+      <EnableEnhancedNvdecDecoder>true</EnableEnhancedNvdecDecoder>
+      <PreferSystemNativeHwDecoder>true</PreferSystemNativeHwDecoder>
+      <EnableIntelLowPowerH264HwEncoder>${boolToString hwCfg.intelLowPowerEncoding}</EnableIntelLowPowerH264HwEncoder>
+      <EnableIntelLowPowerHevcHwEncoder>${boolToString hwCfg.intelLowPowerEncoding}</EnableIntelLowPowerHevcHwEncoder>
+      <EnableHardwareEncoding>true</EnableHardwareEncoding>
+      <AllowHevcEncoding>${boolToString hwCfg.allowHevcEncoding}</AllowHevcEncoding>
+      <AllowAv1Encoding>${boolToString hwCfg.allowAv1Encoding}</AllowAv1Encoding>
+      <EnableSubtitleExtraction>true</EnableSubtitleExtraction>
+      <HardwareDecodingCodecs>
+    ${decodingCodecsXml}
+      </HardwareDecodingCodecs>
+      <AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
+        <string>mkv</string>
+      </AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
+    </EncodingOptions>
+  '';
 in
 {
   options.systemFoundry.jellyfin = {
@@ -81,6 +142,83 @@ in
       type = types.bool;
       default = false;
       description = "Automatically install the Playback Reporting plugin for play history tracking";
+    };
+
+    hardwareAcceleration = mkOption {
+      default = { };
+      description = ''
+        Declaratively manage transcoding hardware acceleration by writing
+        encoding.xml on every Jellyfin start. When enabled, Nix is the source of
+        truth: changes made in the Playback dashboard revert on the next restart.
+      '';
+      type = types.submodule {
+        options = {
+          enable = mkEnableOption "declarative hardware-accelerated transcoding (writes encoding.xml)";
+
+          type = mkOption {
+            type = types.enum [
+              "qsv"
+              "vaapi"
+              "nvenc"
+              "amf"
+              "rkmpp"
+            ];
+            default = "qsv";
+            description = "ffmpeg hardware acceleration backend (HardwareAccelerationType).";
+          };
+
+          device = mkOption {
+            type = types.str;
+            default = "/dev/dri/renderD128";
+            description = "Render node passed to the encoder (VaapiDevice, and QsvDevice when type = qsv).";
+          };
+
+          decodingCodecs = mkOption {
+            type = types.listOf types.str;
+            default = [
+              "h264"
+              "hevc"
+              "av1"
+              "vp9"
+              "vc1"
+            ];
+            description = "Codecs to hardware decode (HardwareDecodingCodecs). hevc is required for 4K HDR.";
+          };
+
+          enableTonemapping = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Enable OpenCL HDR->SDR tone mapping. Requires a working OpenCL runtime.";
+          };
+
+          enableVppTonemapping = mkOption {
+            type = types.bool;
+            default = false;
+            description = "Enable VPP (fixed-function) tone mapping instead of OpenCL. Lighter but lower quality.";
+          };
+
+          allowHevcEncoding = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Allow HEVC as a hardware encode target (AllowHevcEncoding).";
+          };
+
+          allowAv1Encoding = mkOption {
+            type = types.bool;
+            default = true;
+            description = "Allow AV1 as a hardware encode target (AllowAv1Encoding). Supported on Intel Arc.";
+          };
+
+          intelLowPowerEncoding = mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Force Intel low-power (VDEnc) H264/HEVC encoding. Leave off for Arc with
+              the VPL runtime; flip on if hardware encode fails to initialize.
+            '';
+          };
+        };
+      };
     };
   };
 
@@ -288,6 +426,27 @@ in
           Nice = 19;
           IOSchedulingClass = "idle";
         };
+      };
+    };
+
+    # Apply declarative transcoding config before Jellyfin starts. Runs on every
+    # (re)start so the dashboard cannot drift from the Nix-declared encoding.xml.
+    systemd.services.jellyfin-encoding-config = mkIf hwCfg.enable {
+      description = "Apply declarative Jellyfin transcoding config (encoding.xml)";
+      wantedBy = [ "jellyfin.service" ];
+      before = [ "jellyfin.service" ];
+      partOf = [ "jellyfin.service" ];
+      path = with pkgs; [ coreutils ];
+      script = ''
+        mkdir -p ${stateDir}/config
+        install -o ${cfg.user} -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml
+        chown ${cfg.user}:${cfg.group} ${stateDir}/config
+      '';
+      # No RemainAfterExit: re-run on every Jellyfin (re)start so a dashboard edit
+      # never outlives a restart. partOf ties our lifecycle to jellyfin.service.
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root"; # need root to chown into the jellyfin state dir
       };
     };
 

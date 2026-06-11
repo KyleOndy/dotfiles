@@ -205,6 +205,14 @@ in
         transcodeDebugLogging = true;
         # backup + playback-reporting + exporter deferred: they need an API
         # key for this instance, which doesn't exist until first-run setup.
+
+        # Intel Arc A380 (QSV via VPL). renderD128 + OpenCL tone mapping verified
+        # with vainfo/clinfo. AllowAv1Encoding leans on the Arc's AV1 encoder.
+        hardwareAcceleration = {
+          enable = true;
+          type = "qsv";
+          device = "/dev/dri/renderD128";
+        };
       };
 
       sonarr = {
