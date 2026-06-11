@@ -79,6 +79,23 @@ resource "aws_route53_record" "ondy_org_infra_elk_wildcard" {
   records = ["elk.infra.ondy.org"]
 }
 
+resource "aws_route53_record" "ondy_org_infra_tiger" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "tiger.infra.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  # home.1ella.com is kept current by the UniFi console's DDNS updater
+  records = ["home.1ella.com"]
+}
+
+resource "aws_route53_record" "ondy_org_infra_tiger_wildcard" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "*.tiger.infra.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  records = ["tiger.infra.ondy.org"]
+}
+
 resource "aws_route53_record" "ondy_org_infra_cogsworth" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "cogsworth.infra.ondy.org"

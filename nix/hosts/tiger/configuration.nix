@@ -92,15 +92,6 @@ in
       enable = true;
     };
     openssh.ports = [ 2332 ];
-    caddy = {
-      enable = false;
-      email = "kyle@ondy.org";
-      globalConfig = ''
-        http_port 9080
-        https_port 9443
-      '';
-      virtualHosts = { };
-    };
   };
 
   nix.gc = {
@@ -172,8 +163,19 @@ in
     config.systemFoundry.bazarr.user
     config.systemFoundry.radarr.user
     config.systemFoundry.sonarr.user
+    "jellyfin"
     "svc.deploy"
     "kyle"
+  ];
+  users.users.jellyfin.extraGroups = [
+    mediaGroup
+    "render" # Intel GPU access for VA-API/QSV transcoding
+    "video" # Intel GPU access for VA-API/QSV transcoding
+  ];
+  systemd.services.jellyfin.serviceConfig.SupplementaryGroups = [
+    mediaGroup
+    "render"
+    "video"
   ];
   systemFoundry =
     let
@@ -185,6 +187,24 @@ in
         email = "kyle@ondy.org";
         dnsProvider = "namecheap";
         credentialsSecret = "namecheap";
+      };
+
+      caddyReverseProxy = {
+        enable = true;
+        infraDomain = "tiger.infra.ondy.org";
+        acme = {
+          email = "kyle@ondy.org";
+          credentialsSecret = "apps_ondy_org_route53";
+        };
+      };
+
+      jellyfin = {
+        enable = true;
+        group = mediaGroup;
+        domainName = "jellyfin.tiger.infra.ondy.org";
+        transcodeDebugLogging = true;
+        # backup + playback-reporting + exporter deferred: they need an API
+        # key for this instance, which doesn't exist until first-run setup.
       };
 
       sonarr = {
@@ -488,6 +508,7 @@ in
         libvdpau-va-gl
         # OpenCL filter support (hardware tonemapping and subtitle burn-in)
         intel-compute-runtime
+        ocl-icd # OpenCL ICD loader
         # To make OBS HW recording work
         # https://discourse.nixos.org/t/trouble-getting-quicksync-to-work-with-jellyfin/42275
       ];
@@ -496,9 +517,20 @@ in
   environment.sessionVariables = {
     LIBVA_DRIVER_NAME = "iHD";
   };
+  # Register the Intel OpenCL implementation with the ICD loader
+  environment.etc."OpenCL/vendors/intel-neo.icd".source =
+    "${pkgs.intel-compute-runtime}/etc/OpenCL/vendors/intel-neo.icd";
+
+  environment.systemPackages = with pkgs; [
+    intel-gpu-tools # intel_gpu_top for monitoring GPU usage during transcodes
+  ];
 
   sops.secrets = {
     namecheap = { };
+    apps_ondy_org_route53 = {
+      # read by systemd as root (EnvironmentFile) before caddy drops privileges
+      mode = "0400";
+    };
     monitoring_password = {
       # vmagent/promtail use DynamicUser, need world-readable
       mode = "0444";
