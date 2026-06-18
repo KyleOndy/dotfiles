@@ -3,11 +3,29 @@
 # Sandbox wrapper flags (prepend before pi args):
 #   --allow HOST           add domain to network allowlist (repeatable)
 #   --allow-write PATH     add extra FS write path (repeatable)
-#   --web                  FS isolation only, no network restriction
+#   --allow-read PATH      add extra FS read path (repeatable)
+#   --web                  write+read confined to CWD/~.pi, network unrestricted
 #   --no-sandbox           bypass sandbox entirely (with warning)
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
+# Both network AND filesystem reads are default-deny: the allowlist starts
+# empty, and reads are denied across all of $HOME except CWD, ~/.pi, and
+# sandbox.allowedReadPaths / --allow-read. System paths (/nix, /etc) stay
+# readable. Add toolchain read paths (~/.gitconfig, ~/.cargo, ...) as needed.
+#
+# Hardening defaults applied in every mode (see wrapper.sh), all overridable
+# via sandbox.envVars:
+#   - git: commit/tag signing off, core.hooksPath=/dev/null, fsmonitor/sshCommand
+#     off (a hostile repo's hooks/config can't run code under the agent's git).
+#     denyWrite also traps $PWD/.git/{hooks,config} + .gitmodules in strict mode.
+#   - supply chain: npm/yarn lifecycle scripts blocked (npm_config_ignore_scripts);
+#     NODE_OPTIONS stripped of code-injection flags (--require/--import/...).
+#   - secrets: env vars whose names look secret-bearing (*_TOKEN/_SECRET/...) are
+#     scrubbed unless injected via envFromCommands/envVars or a known provider key.
+#   - caches: GOCACHE/CARGO_HOME/npm_config_cache/... redirected under
+#     ~/.pi/sandbox-cache so default-deny FS doesn't break compilers (cold caches
+#     are the tradeoff; for warm caches add the real dir to allowed{Read,Write}Paths).
 #
 # Web mode (no domain restriction) bypasses srt — srt forbids wildcard domains.
 # Linux: bwrap directly (FS isolation, no --unshare-net).
@@ -38,6 +56,7 @@ let
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
+        defaultReadPaths = cfg.sandbox.allowedReadPaths;
         envFromCommands = cfg.sandbox.envFromCommands;
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultEnvVars = cfg.sandbox.envVars;
@@ -107,6 +126,38 @@ in
         description = ''
           Extra filesystem write paths beyond CWD and ~/.pi.
           Supports ~ expansion. Runtime --allow-write extends this.
+        '';
+      };
+
+      allowedReadPaths = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [
+          "~/.gitconfig"
+          "~/.config/git"
+          "~/.cargo"
+          "~/.rustup"
+          "~/go"
+        ];
+        description = ''
+          Extra filesystem READ paths beyond CWD and ~/.pi.
+
+          Strict mode (the default) is default-deny on reads: srt denies all of
+          $HOME and re-allows only CWD, ~/.pi, and these paths. That hides every
+          credential store under $HOME (~/.ssh, ~/.aws, ~/.config/gh, ~/Library,
+          ...) by construction, instead of relying on the credentialMasks
+          deny-list to enumerate them. Reads outside $HOME (/nix, /etc, system
+          toolchains) stay allowed so language tooling keeps working.
+
+          The tradeoff is friction: any toolchain the agent invokes that reads
+          config/caches under $HOME (git ~/.gitconfig, cargo ~/.cargo, rustup
+          ~/.rustup, go ~/go, npm ~/.npmrc, ...) needs its path listed here, or
+          its cache redirected into CWD via sandbox.envVars (GOCACHE/etc.). Add
+          the toolchain dirs you actually use. Supports ~ expansion. Runtime
+          --allow-read extends this per-invocation.
+
+          Note: re-allowing ~/.pi also re-allows ~/.pi/agent/auth.json. Prefer
+          envFromCommands for pi's provider key so it never sits readable on disk.
         '';
       };
 

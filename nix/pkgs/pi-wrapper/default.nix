@@ -13,6 +13,12 @@
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
+  # Paths re-allowed for READING in strict mode, which now defaults to deny-all
+  # of $HOME. $PWD and ~/.pi are always readable; this list adds more — typically
+  # the toolchain config/caches an agent's commands read (e.g. ~/.gitconfig,
+  # ~/.cargo, ~/.rustup, ~/go, ~/.npmrc). Reads outside $HOME (/nix, /etc, system
+  # tools) are unaffected. Runtime --allow-read extends this. Supports ~ expansion.
+  defaultReadPaths ? [ ],
   # Args prepended to every `pi` invocation, before user args. Useful for
   # pinning a default model/provider so the user doesn't have to type
   # `--model …` each time. User args still win on duplicates (pi takes the
@@ -113,6 +119,7 @@ let
         "@credentialMasks@"
         "@defaultDomains@"
         "@defaultWritePaths@"
+        "@defaultReadPaths@"
         "@defaultPiArgs@"
         "@envResolversFile@"
         "@envVarsFile@"
@@ -127,6 +134,7 @@ let
         (bashArray credentialMasks)
         (bashArray defaultDomains)
         (bashArray defaultWritePaths)
+        (bashArray defaultReadPaths)
         (lib.escapeShellArgs defaultPiArgs)
         "${envResolversFile}"
         "${envVarsFile}"

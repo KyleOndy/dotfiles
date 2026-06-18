@@ -42,6 +42,21 @@ let
     };
   };
 
+  wrapperWithReadPaths = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultReadPaths = [ "/opt/toolchain" ];
+  };
+
+  # A secret-suffixed env var injected via envVars must survive the scrub
+  # (its name is added to the keep-list), unlike a same-suffixed var that
+  # merely leaked in from the caller's shell.
+  wrapperWithSecretEnvVar = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultEnvVars = {
+      DEPLOY_TOKEN = "injected-on-purpose";
+    };
+  };
+
   wrapperWithLoopback = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     defaultAllowLoopback = true;
@@ -105,16 +120,39 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "strict default did not plan srt. captured=$captured"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     [ -n "$settings" ] || fail "strict default missing PI_PLAN_SETTINGS. captured=$captured"
-    echo "$settings" | jq -e ".filesystem.denyRead | index(\"$HOME/.ssh\")" >/dev/null \
-      || fail "denyRead missing ~/.ssh. settings=$settings"
-    echo "$settings" | jq -e ".filesystem.denyRead | index(\"$HOME/.gnupg\")" >/dev/null \
-      || fail "denyRead missing ~/.gnupg. settings=$settings"
+    # Default-deny reads: all of $HOME denied, CWD + ~/.pi re-allowed
+    echo "$settings" | jq -e ".filesystem.denyRead | index(\"$HOME\")" >/dev/null \
+      || fail "default-deny: denyRead should contain \$HOME. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.pi\")" >/dev/null \
+      || fail "allowRead missing ~/.pi. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$PWD\")" >/dev/null \
+      || fail "allowRead missing CWD. settings=$settings"
     echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.pi\")" >/dev/null \
       || fail "allowWrite missing ~/.pi. settings=$settings"
     echo "$settings" | jq -e ".network.allowedDomains == []" >/dev/null \
       || fail "allowedDomains should be empty by default. settings=$settings"
     echo "$settings" | jq -e ".allowPty == true" >/dev/null \
       || fail "allowPty should be true so pi's TUI can use setRawMode. settings=$settings"
+    # Git persistence traps: denyWrite carries the .git write-traps (item 3)
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$PWD/.git/hooks\")" >/dev/null \
+      || fail "denyWrite missing \$PWD/.git/hooks. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$PWD/.git/config\")" >/dev/null \
+      || fail "denyWrite missing \$PWD/.git/config. settings=$settings"
+
+    # Git config hardening: gpgsign off + hooksPath neutered (item 2)
+    captured=$(pi -- hello 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_GIT:.*sign=false hooksPath=/dev/null" \
+      || fail "git hardening (hooksPath) missing. captured=$captured"
+
+    # Supply-chain + cache hardening env (items 1 + 4)
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: npm_config_ignore_scripts=true" \
+      || fail "npm lifecycle-script blocking missing. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: YARN_ENABLE_SCRIPTS=false" \
+      || fail "yarn script blocking missing. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: GOCACHE=$HOME/.pi/sandbox-cache/go-build" \
+      || fail "GOCACHE redirect missing. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: CARGO_HOME=$HOME/.pi/sandbox-cache/cargo" \
+      || fail "CARGO_HOME redirect missing. captured=$captured"
 
     # --allow extends the domain allowlist
     captured=$(pi --allow example.com -- x 2>&1)
@@ -127,6 +165,19 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.filesystem.allowWrite | index("/tmp/x")' >/dev/null \
       || fail "--allow-write did not extend allowWrite. settings=$settings"
+
+    # --allow-read extends the read-path allowlist (and is not shadowed by the
+    # --allow-* bundle catch-all)
+    captured=$(pi --allow-read /tmp/r -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/tmp/r")' >/dev/null \
+      || fail "--allow-read did not extend allowRead. settings=$settings"
+
+    # --allow-read expands a leading ~ to $HOME
+    captured=$(pi --allow-read '~/readme' -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/readme\")" >/dev/null \
+      || fail "--allow-read did not expand ~ to \$HOME. settings=$settings"
 
     # --web picks the right OS primitive for this platform
     captured=$(pi --web -- x 2>&1)
@@ -175,6 +226,38 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(pi -- x 2>&1)
     if echo "$captured" | grep -q "PI_PLAN_EXPORTED:"; then
       fail "empty envVars should emit no PI_PLAN_EXPORTED. captured=$captured"
+    fi
+
+    # defaultReadPaths is added to the strict-mode read allowlist
+    captured=$(${wrapperWithReadPaths}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/opt/toolchain")' >/dev/null \
+      || fail "defaultReadPaths did not extend allowRead. settings=$settings"
+
+    # Secret-suffix env scrub (item 5): a leaked *_TOKEN is stripped, a
+    # provider key in the keep-list survives.
+    captured=$(LEAKY_API_TOKEN=sk-xyz ANTHROPIC_API_KEY=keep-me pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_SCRUBBED: LEAKY_API_TOKEN" \
+      || fail "secret scrub did not strip LEAKY_API_TOKEN. captured=$captured"
+    if echo "$captured" | grep -q "PI_PLAN_SCRUBBED: ANTHROPIC_API_KEY"; then
+      fail "secret scrub wrongly stripped kept ANTHROPIC_API_KEY. captured=$captured"
+    fi
+    # Differential: a leaked OTHER_TOKEN is scrubbed, but the same-suffixed
+    # DEPLOY_TOKEN injected via envVars is kept (its name joins the keep-list).
+    captured=$(OTHER_TOKEN=leaked ${wrapperWithSecretEnvVar}/bin/pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_SCRUBBED: OTHER_TOKEN" \
+      || fail "scrub did not strip leaked OTHER_TOKEN. captured=$captured"
+    if echo "$captured" | grep -q "PI_PLAN_SCRUBBED: DEPLOY_TOKEN"; then
+      fail "scrub wrongly stripped envVars-injected DEPLOY_TOKEN. captured=$captured"
+    fi
+
+    # NODE_OPTIONS scrub (item 7): code-injection flags dropped, benign kept.
+    captured=$(NODE_OPTIONS="--require /tmp/evil.js --max-old-space-size=4096" pi -- x 2>&1)
+    nodeopts=$(echo "$captured" | sed -n 's/^PI_PLAN_NODE_OPTIONS: //p')
+    echo "$nodeopts" | grep -q "max-old-space-size=4096" \
+      || fail "NODE_OPTIONS scrub dropped the benign flag. captured=$captured"
+    if echo "$nodeopts" | grep -q "require"; then
+      fail "NODE_OPTIONS scrub kept --require injection. captured=$captured"
     fi
 
     # defaultAllowLoopback=true → settings.network.allowLocalBinding == true
