@@ -1,12 +1,8 @@
-variable "elk_apps_subdomains" {
+
+variable "tiger_apps_subdomains" {
   type = list(string)
   default = [
-    "grafana",
-    "loki",
-    "metrics",
-    "vmalert",
-
-    # media
+    # media/downloader stack
     "bazarr",
     "jellyfin",
     "jellyseerr",
@@ -14,14 +10,16 @@ variable "elk_apps_subdomains" {
     "navidrome",
     "prowlarr",
     "radarr",
-    "readarr",
     "sabnzbd",
     "sonarr",
 
     # photos
     "immich",
 
-    # nix binary cache
-    "cache",
+    # monitoring stack
+    "grafana",
+    "loki",
+    "metrics",
+    "vmalert",
   ]
 }

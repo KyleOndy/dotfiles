@@ -1037,7 +1037,7 @@ in
     '')
   ];
 
-  # Monitoring stack - send metrics and logs to elk
+  # Monitoring stack - send metrics and logs to tiger
   systemFoundry.monitoringStack = {
     enable = true;
 
@@ -1045,7 +1045,7 @@ in
 
     vmagent = {
       enable = true;
-      remoteWriteUrl = "https://metrics.elk.infra.ondy.org/api/v1/write";
+      remoteWriteUrl = "https://metrics.tiger.infra.ondy.org/api/v1/write";
       basicAuth = {
         username = "monitoring";
         passwordFile = config.sops.secrets.monitoring_password.path;
@@ -1078,7 +1078,7 @@ in
 
     promtail = {
       enable = true;
-      lokiUrl = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
+      lokiUrl = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
       basicAuth = {
         username = "monitoring";
         passwordFile = config.sops.secrets.monitoring_password.path;

@@ -16,7 +16,7 @@ in
     lokiUrl = mkOption {
       type = types.str;
       description = "Loki push URL";
-      example = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
+      example = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
     };
 
     bearerTokenFile = mkOption {
@@ -49,7 +49,7 @@ in
       default = { };
       description = "Extra labels to add to all log entries";
       example = {
-        host = "elk";
+        host = "tiger";
         environment = "production";
       };
     };
@@ -66,7 +66,7 @@ in
               targets = [ "localhost" ];
               labels = {
                 job = "jellyfin";
-                host = "elk";
+                host = "tiger";
                 __path__ = "/var/lib/jellyfin/log/*.log";
               };
             }

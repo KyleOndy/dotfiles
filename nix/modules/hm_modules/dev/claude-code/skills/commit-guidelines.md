@@ -30,7 +30,7 @@ When in doubt, the formatting rules below are the fallback.
 Format: `type(scope): description`
 
 - **Type**: `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `perf`
-- **Scope**: always present; use the module, host, or subsystem (e.g. `claude-code`, `elk`, `cogsworth`, `monitoring`)
+- **Scope**: always present; use the module, host, or subsystem (e.g. `claude-code`, `tiger`, `cogsworth`, `monitoring`)
 - **Description**: imperative mood, lowercase, no trailing period
 - **Length**: 50 characters max (hard limit: 72)
 

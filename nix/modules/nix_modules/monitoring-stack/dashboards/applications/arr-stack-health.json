@@ -87,7 +87,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sonarr_queue_total{host=\"elk\"}",
+          "expr": "sonarr_queue_total{host=\"tiger\"}",
           "legendFormat": "Sonarr Queue",
           "refId": "A"
         },
@@ -96,7 +96,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "radarr_queue_total{host=\"elk\"}",
+          "expr": "radarr_queue_total{host=\"tiger\"}",
           "legendFormat": "Radarr Queue",
           "refId": "B"
         },
@@ -105,7 +105,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "lidarr_queue_total{host=\"elk\"}",
+          "expr": "lidarr_queue_total{host=\"tiger\"}",
           "legendFormat": "Lidarr Queue",
           "refId": "C"
         }
@@ -162,7 +162,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sonarr_series_total{host=\"elk\"}",
+          "expr": "sonarr_series_total{host=\"tiger\"}",
           "legendFormat": "Series",
           "refId": "A"
         },
@@ -171,7 +171,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "radarr_movie_total{host=\"elk\"}",
+          "expr": "radarr_movie_total{host=\"tiger\"}",
           "legendFormat": "Movies",
           "refId": "B"
         },
@@ -180,7 +180,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "lidarr_album_total{host=\"elk\"}",
+          "expr": "lidarr_album_total{host=\"tiger\"}",
           "legendFormat": "Albums",
           "refId": "C"
         },
@@ -189,7 +189,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "readarr_book_total{host=\"elk\"}",
+          "expr": "readarr_book_total{host=\"tiger\"}",
           "legendFormat": "Books",
           "refId": "D"
         }
@@ -254,7 +254,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "(1 - node_filesystem_avail_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"}) * 100",
+          "expr": "(1 - node_filesystem_avail_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"}) * 100",
           "legendFormat": "Elk Media Storage",
           "refId": "A"
         }
@@ -341,7 +341,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_filesystem_avail_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"}",
+          "expr": "node_filesystem_avail_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"}",
           "legendFormat": "Available",
           "refId": "A"
         }

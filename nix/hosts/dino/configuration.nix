@@ -459,10 +459,10 @@
     # Enable node exporter for system metrics
     nodeExporter.enable = true;
 
-    # Send metrics to elk's VictoriaMetrics instance
+    # Send metrics to tiger's VictoriaMetrics instance
     vmagent = {
       enable = true;
-      remoteWriteUrl = "https://metrics.elk.infra.ondy.org/api/v1/write";
+      remoteWriteUrl = "https://metrics.tiger.infra.ondy.org/api/v1/write";
       basicAuth = {
         username = "monitoring";
         passwordFile = config.sops.secrets.monitoring_password.path;
@@ -482,10 +482,10 @@
       ];
     };
 
-    # Send logs to elk's Loki instance
+    # Send logs to tiger's Loki instance
     promtail = {
       enable = true;
-      lokiUrl = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
+      lokiUrl = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
       basicAuth = {
         username = "monitoring";
         passwordFile = config.sops.secrets.monitoring_password.path;
@@ -570,20 +570,6 @@
     machines = [
       {
         hostName = "tiger.dmz.1ella.com";
-        sshUser = "svc.deploy";
-        systems = [
-          "x86_64-linux"
-          "aarch64-linux"
-        ];
-        maxJobs = 8;
-        speedFactor = 10;
-        supportedFeatures = [
-          "benchmark"
-          "big-parallel"
-        ];
-      }
-      {
-        hostName = "elk";
         sshUser = "svc.deploy";
         systems = [
           "x86_64-linux"

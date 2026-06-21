@@ -33,11 +33,7 @@ with lib;
         user = "kyle";
         identityFile = "~/.ssh/id_ed25519";
       };
-      "elk" = {
-        hostname = "37.27.70.102";
-        user = "kyle";
-        identityFile = "~/.ssh/id_ed25519";
-      };
+
     };
   };
 }

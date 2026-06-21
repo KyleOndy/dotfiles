@@ -155,18 +155,50 @@ in
       fsType = "zfs";
       neededForBoot = false;
     };
+    # Immich library lives on its own dataset rather than sharing storage/photos
+    # with the laptop dump, so it stays out of that dataset's snapshot policy.
+    # Create the dataset once on the host: zfs create -o mountpoint=legacy storage/immich
+    "/mnt/immich" = {
+      device = "storage/immich";
+      fsType = "zfs";
+      neededForBoot = false;
+    };
   };
 
   # media managment
   users.groups."${mediaGroup}".members = [
-    config.systemFoundry.nzbget.user
+    config.systemFoundry.sabnzbd.user
     config.systemFoundry.bazarr.user
     config.systemFoundry.radarr.user
     config.systemFoundry.sonarr.user
+    config.systemFoundry.lidarr.user
     "jellyfin"
     "svc.deploy"
     "kyle"
   ];
+
+  # Media/download directory layout. The library lives on /mnt/media and
+  # downloads on /mnt/scratch-big. No /mnt/storage compat symlinks needed.
+  # Downloads land on a different dataset than the library, so imports copy
+  # rather than hardlink.
+  systemd.tmpfiles.rules = [
+    # svc.deploy owns so it can set timestamps via rsync; caddy group for serving.
+    "d /var/www/kyleondy.com 0775 svc.deploy caddy -"
+    # Library subdirs missing on tiger (movies/tv already exist)
+    "d /mnt/media/music 2775 root ${mediaGroup} -"
+    "d /mnt/media/books 2775 root ${mediaGroup} -"
+    # Real download tree on scratch-big (matches SABnzbd categories)
+    "d /mnt/scratch-big/downloads 0755 root ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/incomplete 0775 sabnzbd ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/complete 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/complete/movies 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/complete/tv 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/complete/music 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/downloads/complete/books 0775 root ${mediaGroup} -"
+  ];
+  # Allow svc.deploy to write to the website directory (rsync content push).
+  users.users."svc.deploy".extraGroups = [ "caddy" ];
+
   users.users.jellyfin.extraGroups = [
     mediaGroup
     "render" # Intel GPU access for VA-API/QSV transcoding
@@ -179,7 +211,6 @@ in
   ];
   systemFoundry =
     let
-      domain = "apps.dmz.1ella.com";
       backup_path = "/mnt/backups/apps";
     in
     {
@@ -196,6 +227,67 @@ in
           email = "kyle@ondy.org";
           credentialsSecret = "apps_ondy_org_route53";
         };
+        # Public apps.ondy.org aliases for the migrated stack. Each gets its own
+        # vhost + individual cert via Route53 DNS-01.
+        sites = {
+          "sonarr.tiger.infra.ondy.org".publicAliases = [ "sonarr.apps.ondy.org" ];
+          "radarr.tiger.infra.ondy.org".publicAliases = [ "radarr.apps.ondy.org" ];
+          "lidarr.tiger.infra.ondy.org".publicAliases = [ "lidarr.apps.ondy.org" ];
+          "bazarr.tiger.infra.ondy.org".publicAliases = [ "bazarr.apps.ondy.org" ];
+          "prowlarr.tiger.infra.ondy.org".publicAliases = [ "prowlarr.apps.ondy.org" ];
+          "sabnzbd.tiger.infra.ondy.org".publicAliases = [ "sabnzbd.apps.ondy.org" ];
+          "jellyseerr.tiger.infra.ondy.org".publicAliases = [ "jellyseerr.apps.ondy.org" ];
+          "navidrome.tiger.infra.ondy.org".publicAliases = [ "navidrome.apps.ondy.org" ];
+          "jellyfin.tiger.infra.ondy.org".publicAliases = [ "jellyfin.apps.ondy.org" ];
+          "immich.tiger.infra.ondy.org".publicAliases = [
+            "immich.apps.ondy.org"
+            "photos.ondy.org"
+          ];
+
+          # Monitoring stack public aliases. Each gets its own
+          # vhost + individual cert via Route53 DNS-01.
+          "grafana.tiger.infra.ondy.org".publicAliases = [ "grafana.apps.ondy.org" ];
+          "loki.tiger.infra.ondy.org".publicAliases = [ "loki.apps.ondy.org" ];
+          "metrics.tiger.infra.ondy.org".publicAliases = [ "metrics.apps.ondy.org" ];
+          "vmalert.tiger.infra.ondy.org".publicAliases = [ "vmalert.apps.ondy.org" ];
+
+          # Individual certs in the kyleondy.com and ondy.org zones via Route53 DNS-01.
+          "www.kyleondy.com" = {
+            enable = true;
+            staticRoot = "/var/www/kyleondy.com";
+          };
+          "kyleondy.com" = {
+            enable = true;
+            redirectTo = "www.kyleondy.com";
+          };
+          "ondy.org" = {
+            enable = true;
+            redirectTo = "www.kyleondy.com";
+          };
+          "_" = {
+            enable = true;
+            isDefault = true;
+            extraDomainNames = [ "www.kyleondy.com" ];
+          };
+        };
+      };
+
+      # The bare apexes can't follow the dynamic home WAN IP via DNS alone, so push
+      # the live IP straight into their A records on a timer. www and *.apps stay
+      # CNAMEs to tiger.infra; only the two apexes are managed here.
+      ddnsRoute53 = {
+        enable = true;
+        credentialsSecretPath = config.sops.secrets.tiger_ddns_route53.path;
+        records = [
+          {
+            zoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org
+            name = "ondy.org";
+          }
+          {
+            zoneId = "Z0855021CRZ8TKMBC7EC"; # kyleondy.com
+            name = "kyleondy.com";
+          }
+        ];
       };
 
       jellyfin = {
@@ -203,8 +295,12 @@ in
         group = mediaGroup;
         domainName = "jellyfin.tiger.infra.ondy.org";
         transcodeDebugLogging = true;
-        # backup + playback-reporting + exporter deferred: they need an API
-        # key for this instance, which doesn't exist until first-run setup.
+        installPlaybackReportingPlugin = true;
+        # jellyfin_api_key secret authenticates the backup + exporter.
+        backup = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+        };
 
         # Intel Arc A380 (QSV via VPL). renderD128 + OpenCL tone mapping verified
         # with vainfo/clinfo. AllowAv1Encoding leans on the Arc's AV1 encoder.
@@ -215,57 +311,98 @@ in
         };
       };
 
+      # *.tiger.infra.ondy.org wildcard cert covers all — no provisionCert needed.
       sonarr = {
-        enable = false;
+        enable = true;
         group = mediaGroup;
-        domainName = "sonarr.${domain}";
-        provisionCert = true;
+        domainName = "sonarr.tiger.infra.ondy.org";
         backup = {
           enable = true;
           destinationPath = "${backup_path}/sonarr/";
         };
       };
       radarr = {
-        enable = false;
+        enable = true;
         group = mediaGroup;
-        domainName = "radarr.${domain}";
-        provisionCert = true;
+        domainName = "radarr.tiger.infra.ondy.org";
         backup = {
           enable = true;
           destinationPath = "${backup_path}/radarr/";
         };
       };
-      bazarr = {
-        enable = false;
+      lidarr = {
+        enable = true;
         group = mediaGroup;
-        domainName = "bazarr.${domain}";
+        domainName = "lidarr.tiger.infra.ondy.org";
+        backup = {
+          enable = true;
+          destinationPath = "${backup_path}/lidarr/";
+        };
+      };
+      bazarr = {
+        enable = true;
+        group = mediaGroup;
+        domainName = "bazarr.tiger.infra.ondy.org";
         backup = {
           enable = true;
           destinationPath = "${backup_path}/bazarr/";
         };
       };
-      nzbhydra2 = {
-        enable = false;
-        domainName = "nzbhydra.${domain}";
-        provisionCert = true;
-        backup = {
-          enable = true;
-          destinationPath = "${backup_path}/nzbhydra2/";
-        };
-      };
-      nzbget = {
-        enable = false;
+      prowlarr = {
+        enable = true;
         group = mediaGroup;
-        domainName = "nzbget.${domain}";
-        provisionCert = true;
-        backup = {
-          enable = true;
-          destinationPath = "${backup_path}/nzbget/";
-        };
+        domainName = "prowlarr.tiger.infra.ondy.org";
       };
-      # Monitoring stack configuration
+      sabnzbd = {
+        enable = true;
+        group = mediaGroup;
+        domainName = "sabnzbd.tiger.infra.ondy.org";
+      };
+      jellyseerr = {
+        enable = true;
+        domainName = "jellyseerr.tiger.infra.ondy.org";
+      };
+      navidrome = {
+        enable = true;
+        domainName = "navidrome.tiger.infra.ondy.org";
+        musicFolder = "/mnt/media/music";
+      };
+      immich = {
+        enable = true;
+        domainName = "immich.tiger.infra.ondy.org";
+        # Dedicated dataset (storage/immich) mounted at /mnt/immich, kept out of
+        # the storage/photos snapshot policy. Overrides the module default of
+        # After a DB restore, run `immich-admin change-media-location` to rewrite
+        # absolute paths from /mnt/storage/photos to /mnt/immich.
+        mediaLocation = "/mnt/immich";
+        # provisionCert not needed — covered by the *.tiger.infra.ondy.org wildcard cert
+      };
+
+      # Monitoring stack configuration. tiger is the central server running
+      # VictoriaMetrics/Loki/Grafana/Alertmanager/vmalert; also scrapes itself.
       monitoringStack = {
         enable = true;
+        domain = "tiger.infra.ondy.org";
+        monitoringBasicAuth = config.sops.secrets.monitoring_basicauth.path;
+
+        retention = {
+          metrics = 400; # days
+          logs = 400; # days
+        };
+
+        # Server-side components (central monitoring server)
+        victoriametrics.enable = true;
+        loki.enable = true;
+        # Loki refuses loopback for the ring instance address, so "lo" alone
+        # isn't usable -- it needs tiger's real NIC or it dies with
+        # "no useable address found for interfaces".
+        loki.instanceInterfaceNames = [
+          "enp10s0"
+          "lo"
+        ];
+        grafana.enable = true;
+        alertmanager.enable = true;
+        vmalert.enable = true;
 
         # Enable ZFS exporter for storage monitoring
         zfsExporter.enable = true;
@@ -276,14 +413,47 @@ in
         # nginxlogExporter disabled: nginx is not running on tiger (was enabled by jellyfin)
         nginxlogExporter.enable = false;
 
-        # Send metrics to elk's VictoriaMetrics instance
+        jellyfinExporter = {
+          enable = true;
+          jellyfinUrl = "http://127.0.0.1:8096";
+          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+          enableActivityCollector = true;
+        };
+
+        # Exportarr for *arr + sabnzbd metrics. API keys come from sops.
+        exportarr = {
+          enable = true;
+          sonarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.sonarr_api_key.path;
+          };
+          radarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.radarr_api_key.path;
+          };
+          lidarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.lidarr_api_key.path;
+            enableAdditionalMetrics = false;
+          };
+          prowlarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.prowlarr_api_key.path;
+          };
+          bazarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.bazarr_api_key.path;
+          };
+          sabnzbd = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.sabnzbd_api_key.path;
+          };
+        };
+
+        # Scrape local exporters into the now-local VictoriaMetrics instance.
         vmagent = {
           enable = true;
-          remoteWriteUrl = "https://metrics.elk.infra.ondy.org/api/v1/write";
-          basicAuth = {
-            username = "monitoring";
-            passwordFile = config.sops.secrets.monitoring_password.path;
-          };
+          remoteWriteUrl = "http://127.0.0.1:8428/api/v1/write";
           scrapeConfigs = [
             {
               job_name = "node";
@@ -307,17 +477,92 @@ in
                 }
               ];
             }
+            {
+              job_name = "exportarr-sonarr";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9707" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "exportarr-radarr";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9708" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "exportarr-lidarr";
+              scrape_interval = "60s";
+              scrape_timeout = "30s";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9709" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "exportarr-prowlarr";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9711" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "exportarr-bazarr";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9712" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "exportarr-sabnzbd";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9713" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "jellyfin-exporter";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9594" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
           ];
         };
 
-        # Send logs to elk's Loki instance
+        # Ship logs to the now-local Loki instance.
         promtail = {
           enable = true;
-          lokiUrl = "https://loki.elk.infra.ondy.org/loki/api/v1/push";
-          basicAuth = {
-            username = "monitoring";
-            passwordFile = config.sops.secrets.monitoring_password.path;
-          };
+          lokiUrl = "http://127.0.0.1:3100/loki/api/v1/push";
           extraLabels = {
             host = "tiger";
           };
@@ -344,7 +589,6 @@ in
         };
 
         # No source_address / wireguard_service — tiger exits via its native home IP.
-        # This gives an A/B comparison: elk uses its European IP, tiger uses the home IP.
 
         channels = {
           Cycling = [
@@ -522,6 +766,7 @@ in
       ];
     };
   };
+
   environment.sessionVariables = {
     LIBVA_DRIVER_NAME = "iHD";
   };
@@ -539,10 +784,28 @@ in
       # read by systemd as root (EnvironmentFile) before caddy drops privileges
       mode = "0400";
     };
+    # AWS creds (svc.ddns) for the Route53 DDNS updater. EnvironmentFile format:
+    # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY. Read by systemd as root.
+    tiger_ddns_route53.mode = "0400";
     monitoring_password = {
       # vmagent/promtail use DynamicUser, need world-readable
       mode = "0444";
     };
+    # Basic auth credentials for the monitoring write endpoints (read by Caddy).
+    # Format: "username $2a$..." (bcrypt hash), one entry per line.
+    monitoring_basicauth = {
+      mode = "0440";
+      group = "caddy";
+    };
+    # API keys consumed by the exportarr metrics exporters.
+    sonarr_api_key.mode = "0444";
+    radarr_api_key.mode = "0444";
+    lidarr_api_key.mode = "0444";
+    prowlarr_api_key.mode = "0444";
+    bazarr_api_key.mode = "0444";
+    sabnzbd_api_key.mode = "0444";
+    # Consumed by the jellyfin backup service + jellyfin exporter.
+    jellyfin_api_key.mode = "0444";
   };
 
   system.stateVersion = "21.11"; # Did you read the comment?

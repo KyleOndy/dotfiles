@@ -1,8 +1,7 @@
 locals {
-  wolf_dns = ["ns568215.ip-51-79-99.net"]
-  wolf_ip  = ["51.79.99.201"]
-  elk_ip   = ["37.27.70.102"]
-  elk_dns  = ["elk.infra.ondy.org"]
+  wolf_dns  = ["ns568215.ip-51-79-99.net"]
+  wolf_ip   = ["51.79.99.201"]
+  tiger_dns = ["tiger.infra.ondy.org"]
 }
 
 ## ondy.org
@@ -14,18 +13,30 @@ resource "aws_route53_record" "ondy_org_apex" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "ondy.org"
   type    = "A"
-  ttl     = "300"
-  records = local.elk_ip
+  ttl     = 300
+
+  # Apex can't CNAME, and Route53 won't alias an apex A into the
+  # tiger.infra -> home.1ella.com CNAME chain. So the ddns-route53 updater on
+  # tiger pushes the live home WAN IP straight into this record. Terraform owns
+  # that the record exists; the updater owns its value (hence ignore_changes).
+  # Seeded to the current home IP so it's correct from the first apply. Caddy on
+  # tiger then 301s ondy.org -> www.kyleondy.com.
+  records = ["69.127.153.108"]
+
+  lifecycle {
+    ignore_changes = [records]
+  }
 }
 
-resource "aws_route53_record" "ondy_org_elk_apps" {
-  for_each = toset(var.elk_apps_subdomains)
+
+resource "aws_route53_record" "ondy_org_tiger_apps" {
+  for_each = toset(var.tiger_apps_subdomains)
 
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "${each.value}.apps.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = local.elk_dns
+  records = local.tiger_dns
 }
 
 resource "aws_route53_record" "ondy_org_mx" {
@@ -55,29 +66,14 @@ resource "aws_route53_record" "ondy_org_txt_atproto" {
   records = ["did=did:plc:2qod5zgss7zqpbockr7syiqg"]
 }
 
-resource "aws_route53_record" "ondy_org_infra_elk" {
-  zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = "elk.infra.ondy.org"
-  type    = "A"
-  ttl     = "300"
-  records = ["37.27.70.102"]
-}
-
 resource "aws_route53_record" "ondy_org_photos" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "photos.ondy.org"
   type    = "CNAME"
   ttl     = "300"
-  records = local.elk_dns
+  records = local.tiger_dns
 }
 
-resource "aws_route53_record" "ondy_org_infra_elk_wildcard" {
-  zone_id = aws_route53_zone.ondy_org.zone_id
-  name    = "*.elk.infra.ondy.org"
-  type    = "CNAME"
-  ttl     = "300"
-  records = ["elk.infra.ondy.org"]
-}
 
 resource "aws_route53_record" "ondy_org_infra_tiger" {
   zone_id = aws_route53_zone.ondy_org.zone_id
@@ -146,8 +142,17 @@ resource "aws_route53_record" "kyleondy_com_apex" {
   zone_id = aws_route53_zone.kyleondy_com.zone_id
   name    = "kyleondy.com"
   type    = "A"
-  ttl     = "300"
-  records = local.elk_ip
+  ttl     = 300
+
+  # Apex can't CNAME, and Route53 won't alias an apex A into the www -> tiger.infra
+  # -> home.1ella.com CNAME chain. The ddns-route53 updater on tiger keeps this
+  # pointed at the live home WAN IP. Terraform owns existence; the updater owns the
+  # value (ignore_changes). Caddy on tiger 301s the apex -> www.
+  records = ["69.127.153.108"]
+
+  lifecycle {
+    ignore_changes = [records]
+  }
 }
 
 resource "aws_route53_record" "kyleondy_com_www" {
@@ -155,5 +160,5 @@ resource "aws_route53_record" "kyleondy_com_www" {
   name    = "www.kyleondy.com"
   type    = "CNAME"
   ttl     = "300"
-  records = local.elk_dns
+  records = local.tiger_dns
 }

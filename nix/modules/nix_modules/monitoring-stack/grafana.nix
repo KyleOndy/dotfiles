@@ -156,7 +156,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="elk",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
+                          expr = ''sum(count_over_time({host="tiger",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -200,13 +200,13 @@ in
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
-                      summary = "Jellyfin transcoding failures detected on elk";
+                      summary = "Jellyfin transcoding failures detected on tiger";
                       description = "FFmpeg transcode failures occurred in the last 5 minutes";
                     };
                     labels = {
                       severity = "critical";
                       service = "jellyfin";
-                      host = "elk";
+                      host = "tiger";
                     };
                   }
                   {
@@ -223,7 +223,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="elk",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
+                          expr = ''sum(count_over_time({host="tiger",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -267,13 +267,13 @@ in
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
-                      summary = "Jellyfin playback errors detected on elk";
+                      summary = "Jellyfin playback errors detected on tiger";
                       description = "More than 2 playback errors occurred in the last 5 minutes";
                     };
                     labels = {
                       severity = "warning";
                       service = "jellyfin";
-                      host = "elk";
+                      host = "tiger";
                     };
                   }
                 ];

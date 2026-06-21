@@ -76,7 +76,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"sonarr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"sonarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -151,7 +151,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"radarr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"radarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -226,7 +226,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"lidarr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"lidarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -301,7 +301,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"readarr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"readarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -376,7 +376,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"prowlarr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"prowlarr.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -451,7 +451,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"sabnzbd.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"sabnzbd.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -526,7 +526,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "node_systemd_unit_state{host=\"elk\",name=\"jellyfin.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=\"jellyfin.service\",state=\"active\"}",
           "refId": "A"
         }
       ],
@@ -590,7 +590,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "(1 - node_filesystem_avail_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"elk\",mountpoint=\"/mnt/storage\"}) * 100",
+          "expr": "(1 - node_filesystem_avail_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"}) * 100",
           "legendFormat": "Elk Storage",
           "refId": "A"
         }
@@ -677,7 +677,7 @@
             "type": "prometheus",
             "uid": "victoriametrics"
           },
-          "expr": "sum(jellyfin_now_playing_state{host=\"elk\"}) or vector(0)",
+          "expr": "sum(jellyfin_now_playing_state{host=\"tiger\"}) or vector(0)",
           "legendFormat": "Active Streams",
           "refId": "A"
         }

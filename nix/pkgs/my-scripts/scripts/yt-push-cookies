@@ -73,7 +73,7 @@ main() {
 	cookie_count="$(grep -c "\.youtube\.com" "$tmpfile")"
 	log_info "Found ${cookie_count} YouTube cookies"
 
-	local hosts=(elk tiger)
+	local hosts=(tiger)
 	local failed=()
 	for host in "${hosts[@]}"; do
 		log_info "Pushing cookies to ${host}..."

@@ -94,91 +94,91 @@ in
                 description: "Service {{ $labels.name }} has restarted more than 5 times in the last 15 minutes on {{ $labels.instance }}"
 
             - alert: JellyfinDown
-              expr: node_systemd_unit_state{host="elk",name="jellyfin.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="jellyfin.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: jellyfin
               annotations:
-                summary: "Jellyfin service is down on elk"
+                summary: "Jellyfin service is down on tiger"
                 description: "Jellyfin has been unavailable for 5 minutes"
 
-        # Elk Media Services
-        - name: media_services_elk
+        # Media Services (tiger)
+        - name: media_services_tiger
           interval: 30s
           rules:
             - alert: SonarrDown
-              expr: node_systemd_unit_state{host="elk",name="sonarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="sonarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: sonarr
               annotations:
-                summary: "Sonarr service is down on elk"
+                summary: "Sonarr service is down on tiger"
                 description: "Sonarr has been unavailable for 5 minutes"
 
             - alert: RadarrDown
-              expr: node_systemd_unit_state{host="elk",name="radarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="radarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: radarr
               annotations:
-                summary: "Radarr service is down on elk"
+                summary: "Radarr service is down on tiger"
                 description: "Radarr has been unavailable for 5 minutes"
 
             - alert: LidarrDown
-              expr: node_systemd_unit_state{host="elk",name="lidarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="lidarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: lidarr
               annotations:
-                summary: "Lidarr service is down on elk"
+                summary: "Lidarr service is down on tiger"
                 description: "Lidarr has been unavailable for 5 minutes"
 
             - alert: ReadarrDown
-              expr: node_systemd_unit_state{host="elk",name="readarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="readarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: readarr
               annotations:
-                summary: "Readarr service is down on elk"
+                summary: "Readarr service is down on tiger"
                 description: "Readarr has been unavailable for 5 minutes"
 
             - alert: ProwlarrDown
-              expr: node_systemd_unit_state{host="elk",name="prowlarr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="prowlarr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: prowlarr
               annotations:
-                summary: "Prowlarr service is down on elk"
+                summary: "Prowlarr service is down on tiger"
                 description: "Prowlarr has been unavailable for 5 minutes"
 
             - alert: SABnzbdDown
-              expr: node_systemd_unit_state{host="elk",name="sabnzbd.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="sabnzbd.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: sabnzbd
               annotations:
-                summary: "SABnzbd service is down on elk"
+                summary: "SABnzbd service is down on tiger"
                 description: "SABnzbd has been unavailable for 5 minutes"
 
             - alert: JellyseerrDown
-              expr: node_systemd_unit_state{host="elk",name="jellyseerr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="jellyseerr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical
                 service: jellyseerr
               annotations:
-                summary: "Jellyseerr service is down on elk"
+                summary: "Jellyseerr service is down on tiger"
                 description: "Jellyseerr has been unavailable for 5 minutes"
 
             - alert: JellyfinPlaycountExportFailed
-              expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="elk"} == 1
+              expr: node_systemd_unit_state{name="jellyfin-playcount-exporter.service",state="failed",host="tiger"} == 1
               for: 1m
               labels:
                 severity: warning
@@ -262,7 +262,7 @@ in
                 description: "SABnzbd download failure rate is elevated"
 
             - alert: SABnzbdDiskSpaceLow
-              expr: sabnzbd_free_space_bytes{host="elk"} < 50 * 1024 * 1024 * 1024
+              expr: sabnzbd_free_space_bytes{host="tiger"} < 50 * 1024 * 1024 * 1024
               for: 1h
               labels:
                 severity: warning
@@ -294,42 +294,9 @@ in
                 summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
-            # Special rule for elk /mnt/storage - allow lower free space (media library fills up)
-            - alert: ElkMediaDiskSpaceLow
-              expr: (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.05) and on(instance, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: warning
-              annotations:
-                summary: "Low disk space on elk media storage"
-                description: "Elk /mnt/storage is below 5% free. Current: {{ $value | humanizePercentage }}"
-
-            - alert: ElkMediaDiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.03) and on(instance, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: critical
-              annotations:
-                summary: "Critical disk space on elk media storage"
-                description: "Elk /mnt/storage is below 3% free. Current: {{ $value | humanizePercentage }}"
-
-            # Predictive alert for elk media storage
-            # Guard with >80% usage to prevent download bursts from triggering false positives
-            - alert: ElkMediaWillFillSoon
-              expr: |
-                (node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"} / node_filesystem_size_bytes{host="elk",mountpoint="/mnt/storage"} < 0.20)
-                and
-                predict_linear(node_filesystem_avail_bytes{host="elk",mountpoint="/mnt/storage"}[7d], 7*24*3600) < 0
-              for: 2h
-              labels:
-                severity: warning
-              annotations:
-                summary: "Elk media storage will fill within 7 days"
-                description: "Elk /mnt/storage is above 80% used and trending to fill within 7 days"
-
             # Default disk space alerts for all other filesystems
             - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: warning
@@ -338,7 +305,7 @@ in
                 description: "Disk space is below 15% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/mnt/media|/mnt/storage"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: critical
@@ -347,7 +314,7 @@ in
                 description: "Disk space is below 10% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskWillFillSoon
-              expr: (predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0) unless on(host, mountpoint) node_filesystem_avail_bytes{host="elk",mountpoint="/"}
+              expr: predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0
               for: 30m
               labels:
                 severity: warning

@@ -1,5 +1,6 @@
 {
   lib,
+  pkgs,
   config,
   ...
 }:
@@ -55,10 +56,25 @@ in
       database = {
         enable = true;
         createDB = true;
+
+        # Pin the vector backend explicitly rather than relying on stateVersion
+        # defaults. On hosts with stateVersion < 25.11 (e.g. tiger at 21.11) the
+        # module defaults enableVectors (pgvecto.rs) to true, which trips an
+        # assertion against PostgreSQL 17+ and installs a `vectors` schema that
+        # VectorChord-era dumps don't use. Immich uses VectorChord going forward.
+        # NOTE: nixpkgs master removed both options (mkRemovedOptionModule); drop
+        # these lines when bumping to a nixpkgs that no longer defines them.
+        enableVectors = false;
+        enableVectorChord = true;
       };
 
       redis.enable = true;
     };
+
+    # Immich enables PostgreSQL; pin the package explicitly so it doesn't follow
+    # the host stateVersion default. tiger (stateVersion 21.11) would otherwise
+    # select postgresql_13, which is removed from nixpkgs.
+    services.postgresql.package = pkgs.postgresql_17;
 
     # Ensure the mediaLocation directory exists with correct ownership.
     # The upstream NixOS immich module uses a tmpfiles `e` rule (adjust existing),

@@ -43,7 +43,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 
 ## Architecture Overview
 
-### Server Components (elk)
+### Server Components (tiger)
 
 - **VictoriaMetrics**: Time-series database for metrics storage
 - **Loki**: Log aggregation system
@@ -69,7 +69,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 #### Why?
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `elk`, `dino`
+- `host` shows friendly hostnames like `tiger`, `dino`
 
 #### How to Configure
 
@@ -140,10 +140,10 @@ Or use `jq` for more precise replacements (see nix/modules/nix_modules/monitorin
 
 After configuration changes:
 
-1. Deploy to elk
-2. Check alertmanager logs: `ssh elk systemctl status alertmanager`
+1. Deploy to tiger
+2. Check alertmanager logs: `ssh tiger systemctl status alertmanager`
 3. Look for SMTP connection errors in logs
-4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on elk)
+4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on tiger)
 
 ## Adding New Dashboards
 
@@ -238,7 +238,7 @@ imports = [
 
 ### Step 3: Configure vmagent Scraping
 
-In host configuration (e.g., `nix/hosts/elk/configuration.nix`):
+In host configuration (e.g., `nix/hosts/tiger/configuration.nix`):
 
 ```nix
 vmagent = {
@@ -251,7 +251,7 @@ vmagent = {
         {
           targets = [ "127.0.0.1:9999" ];
           labels = {
-            host = "elk";  # Use 'host' label!
+            host = "tiger";  # Use 'host' label!
           };
         }
       ];
@@ -269,25 +269,25 @@ vmagent = {
 1. **Check if metrics exist in VictoriaMetrics**:
 
    ```bash
-   ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
+   ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
    ```
 
 2. **Verify exporter is running**:
 
    ```bash
-   ssh elk systemctl status <exporter-name>
+   ssh tiger systemctl status <exporter-name>
    ```
 
 3. **Check exporter metrics endpoint**:
 
    ```bash
-   ssh elk 'curl http://127.0.0.1:<port>/metrics | head -20'
+   ssh tiger 'curl http://127.0.0.1:<port>/metrics | head -20'
    ```
 
 4. **Verify vmagent is scraping**:
 
    ```bash
-   ssh elk 'curl http://127.0.0.1:8429/metrics | grep scrape'
+   ssh tiger 'curl http://127.0.0.1:8429/metrics | grep scrape'
    ```
 
 5. **Check for label mismatches**: Dashboard using `instance` instead of `host`?
@@ -297,13 +297,13 @@ vmagent = {
 1. **Check alertmanager is running**:
 
    ```bash
-   ssh elk systemctl status alertmanager
+   ssh tiger systemctl status alertmanager
    ```
 
 2. **Check for SMTP errors in logs**:
 
    ```bash
-   ssh elk journalctl -u alertmanager -n 50
+   ssh tiger journalctl -u alertmanager -n 50
    ```
 
 3. **Common errors**:
@@ -314,13 +314,13 @@ vmagent = {
 4. **Verify alerts are firing**:
 
    ```bash
-   ssh elk 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
+   ssh tiger 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
    ```
 
 5. **Check Alertmanager has received alerts**:
 
    ```bash
-   ssh elk 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
+   ssh tiger 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
    ```
 
 ### Exporter Permission Issues
@@ -332,13 +332,13 @@ Common issue: Exporter can't read log files or access resources.
 1. **Check service user groups**:
 
    ```bash
-   ssh elk id nginxlog-exporter
+   ssh tiger id nginxlog-exporter
    ```
 
 2. **Verify file permissions**:
 
    ```bash
-   ssh elk ls -la /var/log/nginx/
+   ssh tiger ls -la /var/log/nginx/
    ```
 
 3. **Add user to appropriate group**:
@@ -382,41 +382,41 @@ Credentials in sops secret: `vmalert_htpasswd`
 
 ```bash
 # Query VictoriaMetrics
-ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
+ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
 
 # List all metric names
-ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
+ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
 
 # Get label values
-ssh elk 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
+ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
 ```
 
 ### Check Alert Status
 
 ```bash
 # vmalert firing alerts
-ssh elk 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
+ssh tiger 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 
 # Alertmanager alerts
-ssh elk 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
+ssh tiger 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
 
 ### Manage Alert Silences
 
-The `alert-silence` script (available on elk) wraps the Alertmanager API.
+The `alert-silence` script (available on tiger) wraps the Alertmanager API.
 
 ```bash
 # Silence an alert by name
-ssh elk alert-silence add -a SonarrQueueHigh -d 7d -c "large download in progress"
+ssh tiger alert-silence add -a SonarrQueueHigh -d 7d -c "large download in progress"
 
 # Silence with extra label matchers
-ssh elk alert-silence add -a InstanceDown -m job=exportarr-bazarr -d 2h
+ssh tiger alert-silence add -a InstanceDown -m job=exportarr-bazarr -d 2h
 
 # List active silences
-ssh elk alert-silence list
+ssh tiger alert-silence list
 
 # Expire a silence early
-ssh elk alert-silence expire <silence-id>
+ssh tiger alert-silence expire <silence-id>
 ```
 
 Duration units: `m` (minutes), `h` (hours), `d` (days). Default is `1d`.
@@ -426,12 +426,12 @@ Duration units: `m` (minutes), `h` (hours), `d` (days). Default is `1d`.
 Dashboards auto-reload every 10 seconds. To force reload:
 
 ```bash
-ssh elk systemctl restart grafana
+ssh tiger systemctl restart grafana
 ```
 
 ## Retention Policy
 
-Configured in `nix/hosts/elk/configuration.nix`:
+Configured in `nix/hosts/tiger/configuration.nix`:
 
 ```nix
 monitoringStack = {
@@ -450,7 +450,7 @@ The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
 
 **Labels available for filtering:**
 
-- `host` - Server hostname (elk, dino)
+- `host` - Server hostname (tiger, dino)
 - `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `scheme` - Protocol (http, https)
 - `method` - HTTP method (GET, POST, PUT, DELETE)
@@ -584,7 +584,7 @@ These require client-side JavaScript tracking (like Google Analytics, Matomo, Pl
 # Install GoAccess
 # Add to system packages, run as cron job
 
-ssh elk 'goaccess /var/log/nginx/access.log \
+ssh tiger 'goaccess /var/log/nginx/access.log \
   --log-format=COMBINED \
   --output=/var/www/stats/index.html \
   --real-time-html'
@@ -968,7 +968,7 @@ Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell
   - All system logs
   - Systemd journal (max 50MB, 1 hour retention)
   - Service logs
-  - **Safe because**: Promtail forwards all logs to Loki on elk
+  - **Safe because**: Promtail forwards all logs to Loki on tiger
 
 #### SD Card - Persists Across Reboots
 
@@ -1089,7 +1089,7 @@ ssh cogsworth "swapon --show"
 
 **Mitigation**:
 
-- Promtail continuously forwards logs to Loki on elk
+- Promtail continuously forwards logs to Loki on tiger
 - Query Loki for historical logs: `{host="cogsworth"}`
 - Most logs available within 30 seconds of generation
 
