@@ -22,11 +22,9 @@
     download-buffer-size = 4194304000;
 
     substituters = [
-      "https://cache.apps.ondy.org"
       "https://cache.nixos.org"
     ];
     trusted-public-keys = [
-      "cache.apps.ondy.org-1:7HWTVdm4uIcOykyNwsKsEjRqqOzuLqK12//JXLiUU7I="
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
     ];
   };
