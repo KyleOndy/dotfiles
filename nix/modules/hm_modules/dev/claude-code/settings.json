@@ -3,13 +3,35 @@
     "commit": "",
     "pr": ""
   },
-  "voiceEnabled": true,
   "model": "opus",
-  "effortLevel": "highest",
+  "effortLevel": "xhigh",
+  "alwaysThinkingEnabled": true,
+  "cleanupPeriodDays": 30,
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
     "padding": 0
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote -v)",
+      "Bash(ls:*)",
+      "Bash(rg:*)",
+      "Bash(fd:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(jq:*)",
+      "Bash(nix flake metadata:*)",
+      "Bash(nix eval:*)",
+      "Bash(nix-instantiate --parse:*)"
+    ],
+    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(**/secrets/**)"]
   },
   "hooks": {
     "UserPromptSubmit": [

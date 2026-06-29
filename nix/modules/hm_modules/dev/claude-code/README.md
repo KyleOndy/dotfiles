@@ -171,13 +171,20 @@ nix/modules/hm_modules/dev/claude-code/
 ├── hooks/
 │   ├── enhanced-ntfy-notifier.sh
 │   ├── notification-bell.sh
-│   └── ntfy-notifier.sh
+│   ├── tmux-claude-icons.sh
+│   └── tmux-indicator.sh
+├── skills/                  # Agent skills (SKILL.md)
+│   ├── commit-guidelines.md
+│   └── flake-update-review.md
 ├── commands/                # Slash commands
 │   ├── task.md
 │   ├── code/
 │   ├── docs/
 │   ├── git/
+│   ├── helm/
+│   ├── linear/
 │   ├── project/
+│   ├── task/
 │   └── test/
 └── assets/
     └── notification.wav

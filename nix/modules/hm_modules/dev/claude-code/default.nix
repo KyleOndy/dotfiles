@@ -86,10 +86,6 @@ in
     home.file =
       # Hook files (conditional)
       (optionalAttrs cfg.enableHooks {
-        ".claude/hooks/ntfy-notifier.sh" = {
-          source = ./hooks/ntfy-notifier.sh;
-          executable = true;
-        };
         ".claude/hooks/enhanced-ntfy-notifier.sh" = {
           source = ./hooks/enhanced-ntfy-notifier.sh;
           executable = true;
