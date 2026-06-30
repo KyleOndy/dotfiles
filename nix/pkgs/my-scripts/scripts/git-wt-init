@@ -70,10 +70,6 @@ git init --bare .bare
 # Set up git directory pointer
 echo "gitdir: ./.bare" >.git
 
-# Configure for worktree workflow
-git config core.bare false
-git config core.worktree ..
-
 # Create initial worktree
 log_info "Creating worktree for '$default_branch'..."
 git worktree add "$default_branch"
