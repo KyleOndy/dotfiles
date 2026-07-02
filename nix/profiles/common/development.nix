@@ -39,7 +39,8 @@ with lib;
         starship.enable = true;
       };
       terminal = {
-        email.enable = true;
+        # notmuch/neomutt/mbsync only run on dino; enabled there explicitly.
+        email.enable = lib.mkDefault false;
         tmux.enable = true;
         gpg.enable = true;
         pass.enable = true;

@@ -569,6 +569,12 @@
             inputs.disko.nixosModules.disko
             ./disko-config.nix
           ];
+          # Email (notmuch/neomutt/mbsync) is only used on dino.
+          extraConfig = {
+            home-manager.users.kyle = {
+              hmFoundry.terminal.email.enable = true;
+            };
+          };
         };
         tiger = mkNixosSystem {
           hostname = "tiger";
