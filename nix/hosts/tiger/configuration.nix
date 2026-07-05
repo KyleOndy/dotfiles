@@ -7,6 +7,41 @@
 let
   mediaGroup = "media";
   service_root = "/var/lib";
+
+  # Local Alertmanager endpoint; NUT pushes UPS events here so they email out
+  # the same way as every other monitoring alert.
+  amUrl = "http://${config.systemFoundry.monitoringStack.alertmanager.listenAddress}:${toString config.systemFoundry.monitoringStack.alertmanager.port}/api/v2/alerts";
+
+  # Dispatcher for upssched: fires alerts on line-state changes and forces the
+  # shutdown when the 20s timer expires. Runs as root (upsmon runs as root).
+  upsSchedCmd = pkgs.writeShellScript "upssched-cmd" ''
+    set -eu
+
+    now=$(${pkgs.coreutils}/bin/date -u +%Y-%m-%dT%H:%M:%SZ)
+
+    post() {
+      ${pkgs.curl}/bin/curl -sS -m 10 -X POST \
+        -H 'Content-Type: application/json' \
+        -d "$1" "${amUrl}" || true
+    }
+
+    case "$1" in
+      onbatt-notify)
+        post '[{"labels":{"alertname":"UPSOnBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS on battery (mains power lost)","description":"Running on battery. tiger shuts down in 20s to extend runtime for the attached network gear; the UPS itself stays on."},"startsAt":"'"$now"'"}]'
+        ;;
+      online-notify)
+        post '[{"labels":{"alertname":"UPSOnBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS on battery (mains power lost)"},"endsAt":"'"$now"'"}]'
+        ;;
+      lowbatt-notify)
+        post '[{"labels":{"alertname":"UPSLowBattery","severity":"critical","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS battery low","description":"UPS battery is nearly depleted; attached gear will lose power soon."},"startsAt":"'"$now"'"}]'
+        ;;
+      shutdown)
+        ${pkgs.util-linux}/bin/logger -t upssched \
+          "UPS on battery for 20s, forcing shutdown"
+        ${pkgs.nut}/sbin/upsmon -c fsd
+        ;;
+    esac
+  '';
 in
 {
   imports = [ ./hardware-configuration.nix ];
@@ -209,6 +244,127 @@ in
     "render"
     "video"
   ];
+
+  # ---------------------------------------------------------------------------
+  # UPS monitoring, automatic shutdown, and power-loss alerts
+  # (Tripp Lite, USB 09ae:2012)
+  #
+  # NUT runs the driver + upsd locally and upsmon watches the line status.
+  #
+  #   * On mains loss, upssched immediately pushes a "UPS on battery" alert to
+  #     the local Alertmanager (emailed like every other alert) and starts a
+  #     20s timer.
+  #   * If power returns first, the alert resolves and the timer is cancelled.
+  #   * If power is still out at 20s, tiger shuts down cleanly. Shedding tiger's
+  #     load lets the attached network gear ride the UPS battery for longer.
+  #   * killpower is left OFF (POWERDOWNFLAG = null): tiger powers off but the
+  #     UPS keeps running, so the network gear stays online until the battery
+  #     is exhausted. Trade-off: tiger will NOT auto-restart after a short
+  #     outage (its PSU never loses power). It comes back only after a full
+  #     battery drain (UPS cuts out) then mains return, with BIOS "restore on
+  #     AC power loss" enabled.
+  # ---------------------------------------------------------------------------
+  power.ups = {
+    enable = true;
+    mode = "standalone";
+
+    # upsmon runs as root so the upssched command script can force the shutdown
+    # (upsmon -c fsd) without a privilege dance. Single-admin host, so this is
+    # an acceptable simplification.
+    upsmon.user = "root";
+
+    ups.tiger = {
+      driver = "usbhid-ups";
+      port = "auto";
+      description = "Tripp Lite (tiger)";
+      # Bind to this exact device so the driver never grabs another HID gadget.
+      directives = [
+        "vendorid = 09ae"
+        "productid = 2012"
+      ];
+    };
+
+    # Local monitor account. The password only guards loopback access to upsd,
+    # so it is generated on the host at boot (nut-genpass below) rather than
+    # stored in sops.
+    users.upsmon = {
+      passwordFile = "/var/lib/nut/monpass";
+      upsmon = "primary";
+    };
+
+    upsmon.monitor.tiger = {
+      system = "tiger@localhost";
+      user = "upsmon";
+      type = "primary";
+    };
+
+    upsmon.settings = {
+      # Fire the NOTIFYCMD (upssched) on these events so it can alert and
+      # start/cancel the timer. Without EXEC upsmon only logs them.
+      NOTIFYFLAG = [
+        [
+          "ONBATT"
+          "SYSLOG+EXEC"
+        ]
+        [
+          "ONLINE"
+          "SYSLOG+EXEC"
+        ]
+        [
+          "LOWBATT"
+          "SYSLOG+EXEC"
+        ]
+      ];
+      # Keep the UPS powered after tiger shuts down (network gear stays online).
+      POWERDOWNFLAG = null;
+    };
+
+    schedulerRules = "${pkgs.writeText "upssched.conf" ''
+      CMDSCRIPT ${upsSchedCmd}
+      PIPEFN /run/nut/upssched.pipe
+      LOCKFN /run/nut/upssched.lock
+      # Alert immediately on mains loss, and start the shutdown countdown.
+      AT ONBATT * EXECUTE onbatt-notify
+      AT ONBATT * START-TIMER shutdown 20
+      # Power restored: clear the alert and cancel the shutdown.
+      AT ONLINE * EXECUTE online-notify
+      AT ONLINE * CANCEL-TIMER shutdown
+      # Battery nearly empty: last-warning alert.
+      AT LOWBATT * EXECUTE lowbatt-notify
+    ''}";
+  };
+
+  # Generate the loopback-only upsd/upsmon password once, before either daemon
+  # starts. Kept out of the Nix store (world-readable) and out of sops.
+  systemd.services.nut-genpass = {
+    description = "Generate local NUT monitor password";
+    wantedBy = [ "multi-user.target" ];
+    before = [
+      "upsd.service"
+      "upsmon.service"
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      install -d -m0700 /var/lib/nut
+      if [ ! -s /var/lib/nut/monpass ]; then
+        umask 077
+        ${pkgs.openssl}/bin/openssl rand -hex 24 > /var/lib/nut/monpass
+      fi
+    '';
+  };
+  systemd.services.upsd = {
+    after = [ "nut-genpass.service" ];
+    requires = [ "nut-genpass.service" ];
+  };
+  systemd.services.upsmon = {
+    after = [ "nut-genpass.service" ];
+    requires = [ "nut-genpass.service" ];
+  };
+
   systemFoundry =
     let
       backup_path = "/mnt/backups/apps";
