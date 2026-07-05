@@ -937,6 +937,7 @@ in
 
   # Daily reboot at 4am to clear accumulated state (Chromium leaks, tmpfs growth)
   systemd.services.cogsworth-daily-reboot = {
+    enable = false;
     description = "Daily scheduled reboot";
     serviceConfig = {
       Type = "oneshot";
@@ -945,6 +946,7 @@ in
   };
 
   systemd.timers.cogsworth-daily-reboot = {
+    enable = false;
     description = "Daily reboot timer";
     wantedBy = [ "timers.target" ];
     timerConfig = {
