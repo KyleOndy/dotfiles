@@ -344,6 +344,13 @@
     };
   };
 
+  # Bound the libvirt-guests stop. Upstream ships TimeoutStopSec=infinity, so a
+  # stuck guest shutdown (or a libvirtd restart deadlock, where libvirt-guests.sh
+  # blocks on `virsh connect` while libvirtd is mid-restart) hangs the stop job
+  # forever. That stalls switch-to-configuration and pins the system profile
+  # lock, breaking every subsequent deploy with "Could not acquire lock".
+  systemd.services.libvirt-guests.serviceConfig.TimeoutStopSec = lib.mkForce "90s";
+
   # QEMU bridge configuration for VM networking
   environment.etc."qemu/bridge.conf" = {
     text = ''
