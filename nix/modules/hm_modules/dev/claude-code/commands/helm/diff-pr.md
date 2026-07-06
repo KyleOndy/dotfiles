@@ -2,6 +2,7 @@
 allowed-tools: Read, Bash(helm:*), Bash(git:*), Bash(yq:*), Bash(diff:*), Bash(gh:*), Bash(mkdir:*), Bash(mktemp:*), Bash(rm:*), Bash(tar:*), Bash(cat:*), Bash(ls:*), Bash(echo:*), Bash(basename:*), Glob, Grep, AskUserQuestion
 argument-hint: <chart-path> <values-file:label> [<values-file:label> ...] [--pr <number>] [--base <branch>]
 description: Diff helm template output between base branch and current branch, post result as a PR comment
+disable-model-invocation: true
 ---
 
 # helm:diff-pr

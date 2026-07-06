@@ -1,6 +1,7 @@
 ---
 allowed-tools: Read, Write, Edit, Bash(git:*), Bash(make:*), Bash(npm:*), Bash(cargo:*), Bash(pytest:*), Bash(go:*), AskUserQuestion
 description: Review implementation, remove completed task, and create commit
+disable-model-invocation: true
 ---
 
 # Task Completion

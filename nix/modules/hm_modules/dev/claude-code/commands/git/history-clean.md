@@ -2,6 +2,7 @@
 allowed-tools: Bash(git:*), Bash(sed:*), Read, Grep, AskUserQuestion
 argument-hint: [--base <ref>]
 description: AI-friendly git history cleanup with automated rebase patterns
+disable-model-invocation: true
 ---
 
 # Git History Clean

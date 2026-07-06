@@ -1,6 +1,7 @@
 ---
 allowed-tools: Read, Grep, Glob, Bash(gh:*), Bash(git:*), Bash(ls:*), Bash(find:*), AskUserQuestion, mcp__claude_ai_Linear__list_issues, mcp__claude_ai_Linear__get_issue, mcp__claude_ai_Linear__list_comments, mcp__claude_ai_Linear__save_comment, mcp__claude_ai_Linear__get_user
 description: Post status updates to Linear tickets from local context
+disable-model-invocation: true
 ---
 
 Post a status update to one or more Linear tickets. Gathers context from local branches,

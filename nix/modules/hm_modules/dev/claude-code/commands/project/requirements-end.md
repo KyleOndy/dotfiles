@@ -1,6 +1,7 @@
 ---
 allowed-tools: Read, Write, Edit, LS, Bash(rm:*), AskUserQuestion
 description: End Requirements Gathering
+disable-model-invocation: true
 ---
 
 # End Requirements Gathering
