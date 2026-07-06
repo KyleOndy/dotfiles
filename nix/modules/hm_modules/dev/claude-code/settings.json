@@ -21,26 +21,44 @@
       "Bash(git branch:*)",
       "Bash(git remote -v)",
       "Bash(ls:*)",
-      "Bash(rg:*)",
-      "Bash(fd:*)",
-      "Bash(find:*)",
       "Bash(tree:*)",
       "Bash(wc:*)",
       "Bash(jq:*)",
+      "Bash(notmuch search:*)",
+      "Bash(notmuch show:*)",
+      "Bash(notmuch count:*)",
       "Bash(nix flake metadata:*)",
-      "Bash(nix eval:*)",
-      "Bash(nix-instantiate --parse:*)"
+      "Bash(nix-instantiate --parse:*)",
+      "Read(//tmp/**)",
+      "WebSearch"
     ],
-    "deny": ["Read(./.env)", "Read(./.env.*)", "Read(**/secrets/**)"]
+    "deny": [
+      "Read(//**/.env)",
+      "Read(//**/.env.*)",
+      "Read(//**/secrets/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)"
+    ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -51,12 +69,12 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -67,12 +85,12 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
-            "timeout": 5000
+            "timeout": 5
           },
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -83,7 +101,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/notification-bell.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       },
@@ -93,7 +111,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -104,7 +122,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -115,7 +133,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -126,7 +144,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -137,7 +155,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -148,7 +166,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -159,7 +177,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -170,7 +188,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }
@@ -181,7 +199,7 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
-            "timeout": 5000
+            "timeout": 5
           }
         ]
       }

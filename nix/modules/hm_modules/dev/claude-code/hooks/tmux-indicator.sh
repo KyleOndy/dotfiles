@@ -23,6 +23,11 @@ set_state() {
 }
 
 case "$HOOK_EVENT" in
+SessionStart)
+	# Clear stale state left by a predecessor that died without SessionEnd
+	# (killed terminal, OOM); only SessionEnd unsets the pane variable.
+	set_state IDL
+	;;
 UserPromptSubmit)
 	set_state RUN
 	;;

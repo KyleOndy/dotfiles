@@ -27,7 +27,7 @@ fi
 
 # Read JSON input from Claude Code
 INPUT=$(cat)
-log "Received hook input: $INPUT"
+log "Hook input received"
 
 # Parse JSON input (requires jq)
 if ! command -v jq >/dev/null 2>&1; then
@@ -71,11 +71,13 @@ fi
 # Get session summary from transcript
 SESSION_SUMMARY=""
 if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
-	# Count tool uses and extract key activities
-	TOOL_COUNT=$(jq -r 'select(.type == "tool_use") | .tool_name' "$TRANSCRIPT_PATH" 2>/dev/null | wc -l || echo "0")
+	# Count tool uses and extract key activities. Tool uses live nested in
+	# assistant messages, not at the top level of the transcript JSONL.
+	TOOL_FILTER='select(.type == "assistant") | .message.content[]? | select(.type == "tool_use") | .name'
+	TOOL_COUNT=$(jq -r "$TOOL_FILTER" "$TRANSCRIPT_PATH" 2>/dev/null | wc -l)
 
 	# Get last few tool uses for context
-	RECENT_TOOLS=$(jq -r 'select(.type == "tool_use") | .tool_name' "$TRANSCRIPT_PATH" 2>/dev/null | tail -3 | tr '\n' ',' | sed 's/,$//' || echo "")
+	RECENT_TOOLS=$(jq -r "$TOOL_FILTER" "$TRANSCRIPT_PATH" 2>/dev/null | tail -3 | tr '\n' ',' | sed 's/,$//' || echo "")
 
 	if [ "$TOOL_COUNT" -gt 0 ]; then
 		SESSION_SUMMARY="Used $TOOL_COUNT tools"

@@ -10,8 +10,13 @@ let
   # Powerline glyph characters (U+E0B0 solid arrow, U+E0B1 thin separator)
   arrow = builtins.fromJSON ''"\ue0b0"'';
   sep = builtins.fromJSON ''"\ue0b1"'';
-  # Aggregate per-pane Claude icons via external script
-  claudeIconSuffix = "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
+  # Aggregate per-pane Claude icons via external script. Only wired in when
+  # the claude-code module actually installs the script; otherwise every
+  # status refresh would spawn a shell that fails on a missing path.
+  claudeCfg = config.hmFoundry.dev.claude-code;
+  claudeIconSuffix = optionalString (
+    claudeCfg.enable && claudeCfg.enableHooks
+  ) "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
   mkTabFmt =
     { bg, fg }:
     "#[fg=colour237]#[bg=${bg}]#[noitalics]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[noitalics]${arrow}";

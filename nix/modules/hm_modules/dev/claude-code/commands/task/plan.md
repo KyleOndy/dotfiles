@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(ls:*), Bash(find:*), AskUserQuestion
+allowed-tools: Read, Grep, Glob, Edit, Bash(git:*), Bash(ls:*), Bash(find:*), AskUserQuestion
 description: Deep research and detailed planning for next task
 ---
 
@@ -178,7 +178,7 @@ curl -X POST http://localhost:5000/api/register \
 ```
 ````
 
-These manual steps will be used by `/task:test` to guide verification.
+These manual steps will be used by `/verify` to guide verification.
 
 ### 7. Identify Risks and Unknowns
 
@@ -479,4 +479,4 @@ Run `/task` for guidance - likely you need `/task:done`.
 
 ---
 
-**Next Step:** After user approves the plan, begin implementation. When implementation is complete, run `/task:test` to verify it works, then `/task:done` to commit.
+**Next Step:** After user approves the plan, begin implementation. When implementation is complete, run `/verify` to confirm it works, then `/task:done` to commit.

@@ -231,7 +231,6 @@ Remaining questions: N (M newly added)
 Next steps:
 - Run `/task:decide` again to resolve another question
 - Run `/task:decompose` if ready to break down into tasks
-- Run `/task:sync` to validate task list against updated plan
 ```
 
 ## Error Handling
@@ -255,7 +254,6 @@ PLANNING.md has no outstanding questions.
 
 Next steps:
 - Run `/task:decompose` to break plan into tasks
-- Run `/task:sync` to validate existing tasks
 ```
 
 **Unexpected format**:

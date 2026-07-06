@@ -1,6 +1,6 @@
 ---
 allowed-tools: Read, Bash(git:*)
-model: claude-3-5-haiku-20241022
+model: haiku
 description: Smart context-aware task status and command suggestions
 ---
 
@@ -98,9 +98,8 @@ Use decision logic to determine current state:
 #### State 4: Clean state with tasks
 
 - Condition: No uncommitted changes AND tasks exist
-- Check if recent commit exists:
-  - If yes: Suggest `/task:sync` (validate tasks after commit)
-  - If no: Suggest `/task:plan` (research next task)
+- Suggest: `/task:plan`
+- Reason: "Research and plan the next task"
 
 ### 4. Display Status
 
@@ -153,7 +152,6 @@ Task Status:
 /task:decompose  - Break down PLANNING.md into ordered tasks
 /task:plan       - Deep research and planning for current task
 /task:done       - Review implementation, run tests, create commit
-/task:sync       - Validate task list after commits
 
 ━━━━━━━━━━━━━━━━━━━━━━━━
 📖 Quick Workflow Reference
@@ -163,8 +161,7 @@ Task Status:
 2. /task:plan → Research and plan first task
 3. [Implement] → Write code, run tests locally
 4. /task:done → Review quality, commit with tests
-5. /task:sync → Validate remaining tasks
-6. Repeat steps 2-5 until all tasks complete
+5. Repeat steps 2-4 until all tasks complete
 ```
 
 ### 5. Handle Edge Cases

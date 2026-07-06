@@ -11,6 +11,41 @@
 with lib;
 let
   cfg = config.hmFoundry.dev.claude-code;
+
+  # Package hook and statusline scripts with writeShellApplication so their
+  # runtime dependencies (jq, ffplay, tmux, GNU date) come from the module's
+  # closure instead of whatever happens to be on the ambient PATH. This also
+  # runs shellcheck against every script at build time.
+  mkScript =
+    name: src: deps:
+    getExe (
+      pkgs.writeShellApplication {
+        inherit name;
+        runtimeInputs = deps;
+        # writeShellApplication provides its own shebang and set -euo pipefail
+        text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile src);
+      }
+    );
+
+  statusline = mkScript "claude-statusline" ./statusline.sh [
+    pkgs.jq
+    pkgs.git
+    pkgs.coreutils # GNU date; BSD date on darwin lacks -d
+  ];
+  tmuxIndicator = mkScript "tmux-indicator" ./hooks/tmux-indicator.sh [
+    pkgs.jq
+    pkgs.tmux
+  ];
+  tmuxClaudeIcons = mkScript "tmux-claude-icons" ./hooks/tmux-claude-icons.sh [ pkgs.tmux ];
+  notificationBell = mkScript "notification-bell" ./hooks/notification-bell.sh [
+    pkgs.ffmpeg # ffplay
+  ];
+  # libnotify is intentionally not a runtime input: the script no-ops without
+  # notify-send, and installing libnotify is what enableNotifications does.
+  ntfyNotifier = mkScript "enhanced-ntfy-notifier" ./hooks/enhanced-ntfy-notifier.sh [
+    pkgs.jq
+    pkgs.git
+  ];
 in
 {
   options.hmFoundry.dev.claude-code = {
@@ -19,7 +54,7 @@ in
     enableHooks = mkOption {
       type = types.bool;
       default = true;
-      description = "Enable notification hooks";
+      description = "Enable notification and tmux-indicator hooks";
     };
     enableCommands = mkOption {
       type = types.bool;
@@ -60,13 +95,13 @@ in
     enableNotifications = mkOption {
       type = types.bool;
       default = false;
-      description = "Enable desktop notifications for Claude Code operations";
+      description = "Install libnotify so the notifier hook can send desktop notifications (Linux only; the hook no-ops without notify-send)";
     };
 
-    projectMemory = mkOption {
+    userMemory = mkOption {
       type = types.path;
       default = ./CLAUDE.md;
-      description = "Path to the CLAUDE.md file containing development guidelines";
+      description = "File installed as user-level memory at ~/.claude/CLAUDE.md";
     };
   };
 
@@ -82,56 +117,46 @@ in
         libnotify # for notify-send desktop notifications
       ];
 
-    # Create .claude directory and configuration files
+    # settings.json is copied as a real writable file instead of the usual
+    # nix-store symlink: Claude Code persists permission grants and /config
+    # edits via atomic rename, which fails through a read-only store symlink
+    # (anthropics/claude-code#15786), and the bubblewrap sandbox refuses to
+    # start on one (#52525). The repo copy stays the source of truth; runtime
+    # edits survive only until the next home-manager switch.
+    home.activation.claudeCodeSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run install -D -m 0644 ${./settings.json} "$HOME/.claude/settings.json"
+    '';
+
     home.file =
-      # Hook files (conditional)
-      (optionalAttrs cfg.enableHooks {
-        ".claude/hooks/enhanced-ntfy-notifier.sh" = {
-          source = ./hooks/enhanced-ntfy-notifier.sh;
-          executable = true;
-        };
-        ".claude/hooks/notification-bell.sh" = {
-          source = ./hooks/notification-bell.sh;
-          executable = true;
-        };
-        ".claude/hooks/tmux-indicator.sh" = {
-          source = ./hooks/tmux-indicator.sh;
-          executable = true;
-        };
-        ".claude/hooks/tmux-claude-icons.sh" = {
-          source = ./hooks/tmux-claude-icons.sh;
-          executable = true;
-        };
-        ".claude/assets/notification.wav" = {
-          source = ./assets/notification.wav;
-          executable = true;
-        };
-        ".claude/statusline.sh" = {
-          source = ./statusline.sh;
-          executable = true;
-        };
-        ".claude/settings.json".source = ./settings.json;
-        ".claude/CLAUDE.md".source = cfg.projectMemory;
+      # Core config: user memory, rules, and the statusline that settings.json
+      # registers. Hooks are the only optional layer on top of these.
+      {
+        ".claude/CLAUDE.md".source = cfg.userMemory;
         ".claude/rules/clojure.md".source = ./rules/clojure.md;
+        ".claude/statusline.sh".source = statusline;
+      }
+      # Hook scripts (conditional)
+      // (optionalAttrs cfg.enableHooks {
+        ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
+        ".claude/hooks/notification-bell.sh".source = notificationBell;
+        ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
+        ".claude/hooks/tmux-claude-icons.sh".source = tmuxClaudeIcons;
+        ".claude/assets/notification.wav".source = ./assets/notification.wav;
       })
       # Command files (conditional)
       // (optionalAttrs cfg.enableCommands {
-        # we do not just symlink the entire commands dir, if we did we lose the
-        # ability to drop arbitrary commands as we are testing them into that
-        # dir.
-
-        # Bare commands (root level)
+        # recursive = true creates real directories with per-file symlinks, so
+        # experimental commands can be dropped alongside the managed ones while
+        # testing. All mkDefault so work-config can override freely.
         ".claude/commands/task.md" = lib.mkDefault { source = ./commands/task.md; };
-
-        # Category commands (subdirectories) — all mkDefault so work-config can override freely
-        ".claude/commands/code/" = lib.mkDefault { source = ./commands/code; };
-        ".claude/commands/docs/" = lib.mkDefault { source = ./commands/docs; };
-        ".claude/commands/git/" = lib.mkDefault { source = ./commands/git; };
-        ".claude/commands/linear/" = lib.mkDefault { source = ./commands/linear; };
-        ".claude/commands/project/" = lib.mkDefault { source = ./commands/project; };
-        ".claude/commands/task/" = lib.mkDefault { source = ./commands/task; };
-        ".claude/commands/test/" = lib.mkDefault { source = ./commands/test; };
-        ".claude/commands/helm/" = lib.mkDefault { source = ./commands/helm; };
+        ".claude/commands/git" = lib.mkDefault {
+          source = ./commands/git;
+          recursive = true;
+        };
+        ".claude/commands/task" = lib.mkDefault {
+          source = ./commands/task;
+          recursive = true;
+        };
       })
       # Skill files (conditional)
       // (optionalAttrs cfg.enableSkills (
@@ -149,15 +174,6 @@ in
               nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }
           ) cfg.skills
         )
-      ))
-      # Directory structure (always created)
-      // {
-        # Create necessary directory structure
-        ".claude/.keep".text = "";
-        ".claude/projects/.keep".text = "";
-        ".claude/todos/.keep".text = "";
-        ".claude/commands/.keep".text = "";
-        ".claude/task-plans/.keep".text = "";
-      };
+      ));
   };
 }

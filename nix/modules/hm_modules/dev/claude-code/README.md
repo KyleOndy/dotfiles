@@ -1,204 +1,98 @@
 # Claude Code Home Manager Module
 
-A Nix Home Manager module for configuring Claude Code with notification hooks and development guidelines.
+Manages Claude Code configuration declaratively: settings, user memory,
+skills, rules, slash commands, notification hooks, and a statusline.
 
-## Features
-
-- **Declarative Installation**: Claude Code installed via `nixpkgs`
-- **Desktop Notifications**: Optional Linux desktop notifications for Claude Code operations
-- **Slash Commands**: Pre-configured task, git, code, and documentation commands
-- **Development Guidelines**: Custom CLAUDE.md with your development philosophy
-
-## Installation
-
-1. Add the module to your Home Manager configuration:
-
-```nix
-# In your home.nix or similar
-{
-  hmFoundry.dev.claude-code.enable = true;
-}
-```
-
-1. Rebuild your Home Manager configuration:
-
-```bash
-home-manager switch
-```
-
-## Configuration Options
-
-### Basic Configuration
-
-```nix
-hmFoundry.dev.claude-code = {
-  enable = true;                    # Enable the module
-  enableHooks = true;               # Enable notification hooks (default: true)
-  enableCommands = true;            # Enable slash commands (default: true)
-  enableNotifications = false;      # Enable desktop notifications (default: false)
-  projectMemory = ./CLAUDE.md;      # Path to development guidelines (default: ./CLAUDE.md)
-};
-```
-
-## What This Module Provides
-
-### Configuration Files
-
-- `~/.claude/settings.json`: Claude Code settings with notification hooks
-- `~/.claude/CLAUDE.md`: Development guidelines and coding standards
-- `~/.claude/statusline.sh`: Custom status line showing git branch and status
-
-### Notification Hooks
-
-The module configures hooks that trigger on specific events:
-
-- **Stop Hook**: Sends notification when Claude Code session ends (via ntfy or desktop)
-- **Notification Hook**: Plays sound when Claude requests user attention
-
-### Slash Commands
-
-Pre-configured commands available in Claude Code sessions:
-
-- `/task`: Task management and status
-- `/git/*`: Git operations (commit, history, etc.)
-- `/code/*`: Code operations (debug, refactor, etc.)
-- `/docs/*`: Documentation generation
-- `/test/*`: Test generation and execution
-- `/project/*`: Project-level operations
-
-## Customization
-
-### Custom Development Guidelines
-
-Override the default CLAUDE.md with your own guidelines:
+## Usage
 
 ```nix
 hmFoundry.dev.claude-code = {
   enable = true;
-  projectMemory = ./my-custom-guidelines.md;
+  enableNotifications = true; # desktop notifications (Linux)
 };
 ```
 
-### Disabling Notifications
+Rebuild with `make deploy` (this repo embeds home-manager as a
+NixOS/darwin module; standalone `home-manager switch` is not used here).
 
-To disable all notifications:
+## Options
 
-```nix
-hmFoundry.dev.claude-code = {
-  enable = true;
-  enableHooks = false;  # Disables notification hooks
-};
-```
+- **enable**: turn the module on
+- **enableHooks** (default `true`): install the notification and
+  tmux-indicator hook scripts
+- **enableCommands** (default `true`): install slash commands
+- **enableSkills** (default `true`): install skills
+- **skills** (default `[]`): extra skills as `{ name, source, isFile }`;
+  work-mac uses this for vendored third-party skills
+- **enableNotifications** (default `false`): install `libnotify` so the
+  notifier hook can send desktop notifications (Linux only; the hook
+  no-ops without `notify-send`)
+- **userMemory** (default `./CLAUDE.md`): file installed as
+  `~/.claude/CLAUDE.md`
 
-### Project-Specific Settings
+## What gets installed
 
-Create `.claude/settings.json` in your project to override defaults:
+- `~/.claude/settings.json`: copied as a real writable file by an
+  activation script, not symlinked. Claude Code persists permission
+  grants via atomic rename, which fails through a read-only store
+  symlink ([#15786](https://github.com/anthropics/claude-code/issues/15786)),
+  and the sandbox refuses to start on one
+  ([#52525](https://github.com/anthropics/claude-code/issues/52525)).
+  Runtime edits survive until the next switch; durable changes belong in
+  the repo copy.
+- `~/.claude/CLAUDE.md`: user-level memory (kept slim; prose rules live
+  in the personal-prose skill)
+- `~/.claude/rules/clojure.md`: path-scoped rules, loaded natively by
+  Claude Code when matching files are touched
+- `~/.claude/statusline.sh`: git branch, model, context usage, rate
+  limits, cost, duration
+- `~/.claude/hooks/`: hook scripts (below)
+- `~/.claude/skills/`: commit-guidelines, flake-update-review,
+  personal-prose, plus anything from `cfg.skills`
+- `~/.claude/commands/`: the task family and git commands (below)
 
-```json
-{
-  "model": "sonnet",
-  "hooks": {
-    "Stop": [] // Disable stop hook for this project
-  }
-}
-```
+Hook and statusline scripts are packaged with `writeShellApplication`,
+so `jq`, `ffplay`, `tmux`, and GNU `date` come from the module closure
+instead of the ambient PATH, and shellcheck runs at build time.
+
+## Hooks
+
+- **tmux-indicator.sh** (most lifecycle events): sets a per-pane
+  `@claude_state` (RUN, EXE, ASK, IDL, ...); `tmux.nix` renders it in
+  window titles via `tmux-claude-icons.sh`
+- **notification-bell.sh** (Notification): plays `notification.wav`,
+  ducks volume during active Zoom calls (macOS)
+- **enhanced-ntfy-notifier.sh** (Stop, StopFailure): desktop
+  notification with project, branch, and a tool-use summary. Despite the
+  name it does not push to ntfy yet; it needs `notify-send`, so set
+  `enableNotifications`
+
+## Slash commands
+
+- `/task` plus `/task:decompose`, `/task:plan`, `/task:decide`,
+  `/task:done`: the PLANNING.md/TASKS.md workflow
+- `/git:history-clean`: AI-friendly git history cleanup
+
+The command directories are real directories with per-file symlinks
+(`recursive = true`), so a command under test can be dropped straight
+into `~/.claude/commands/<category>/`. Once it earns its keep, move it
+into the module.
 
 ## Troubleshooting
 
-### Notifications Not Working
+- Run a hook manually with a JSON payload on stdin:
 
-1. **Check hook permissions**:
+  ```bash
+  echo '{"hook_event_name":"Stop","cwd":"'$PWD'"}' | ~/.claude/hooks/enhanced-ntfy-notifier.sh
+  ```
 
-   ```bash
-   ls -la ~/.claude/hooks/
-   # Should show executable permissions (rwxr-xr-x)
-   ```
+- Harness-level logs: `claude --debug-file /tmp/claude-debug.log`
+- Inspect what the module would install:
 
-2. **Verify settings.json**:
+  ```bash
+  nix build .#nixosConfigurations.dino.config.home-manager.users.kyle.home.activationPackage
+  ls -la result/home-files/.claude/
+  ```
 
-   ```bash
-   cat ~/.claude/settings.json
-   # Should contain hook configurations
-   ```
-
-3. **Test notification manually**:
-
-   ```bash
-   ~/.claude/hooks/enhanced-ntfy-notifier.sh
-   ```
-
-### Module Not Enabled
-
-If Claude Code isn't configured:
-
-1. **Verify module is enabled**:
-
-   ```bash
-   grep -r "claude-code" ~/.config/home-manager/
-   ```
-
-2. **Rebuild Home Manager**:
-
-   ```bash
-   home-manager switch
-   ```
-
-3. **Check Claude Code is installed**:
-
-   ```bash
-   which claude
-   ```
-
-## Integration with Development Workflow
-
-### Pre-commit Hooks
-
-This module focuses on Claude Code configuration. Use pre-commit hooks (via the pre-commit module) for automated linting and testing before commits.
-
-### Editor Integration
-
-Claude Code works alongside your editor. The CLAUDE.md guidelines help Claude understand your coding standards and project conventions.
-
-## Module Structure
-
-```text
-nix/modules/hm_modules/dev/claude-code/
-├── default.nix              # Main module configuration
-├── settings.json            # Claude Code settings
-├── CLAUDE.md                # Development guidelines
-├── statusline.sh            # Git-aware status line
-├── README.md                # This file
-├── hooks/
-│   ├── enhanced-ntfy-notifier.sh
-│   ├── notification-bell.sh
-│   ├── tmux-claude-icons.sh
-│   └── tmux-indicator.sh
-├── skills/                  # Agent skills (SKILL.md)
-│   ├── commit-guidelines.md
-│   ├── flake-update-review.md
-│   └── personal-prose.md
-├── rules/                   # Path-scoped rules (~/.claude/rules/)
-│   └── clojure.md
-├── commands/                # Slash commands
-│   ├── task.md
-│   ├── code/
-│   ├── docs/
-│   ├── git/
-│   ├── helm/
-│   ├── linear/
-│   ├── project/
-│   ├── task/
-│   └── test/
-└── assets/
-    └── notification.wav
-
-## Support
-
-For issues specific to this module, check:
-
-1. **Home Manager logs**: `journalctl --user -u home-manager-*`
-2. **Claude Code logs**: Enable debug mode with `ANTHROPIC_LOG=debug`
-3. **Hook output**: Run hooks manually to see detailed error messages
-
-For general Claude Code support, see the [official documentation](https://docs.anthropic.com/en/docs/claude-code).
-```
+For general Claude Code support, see the
+[official documentation](https://code.claude.com/docs).

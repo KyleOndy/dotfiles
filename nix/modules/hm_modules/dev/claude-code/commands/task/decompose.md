@@ -73,7 +73,7 @@ After creating TASKS.md, provide a summary:
 - Total number of tasks created
 - General categories of work (e.g., "3 implementation tasks, 2 testing tasks, 1 documentation task")
 - Any assumptions or decisions made during decomposition
-- Suggest running `/task:sync` next to validate the task list
+- Suggest running `/task:plan` next to research the first task
 
 ## Example Output Format
 
@@ -161,4 +161,4 @@ Use the AskUserQuestion tool:
 
 ---
 
-**Next Step:** Run `/task:sync` to validate the task list and begin the work cycle.
+**Next Step:** Run `/task:plan` to research the first task and begin the work cycle.

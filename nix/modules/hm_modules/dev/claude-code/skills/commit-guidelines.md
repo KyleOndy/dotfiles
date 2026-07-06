@@ -1,6 +1,6 @@
 ---
 name: commit-guidelines
-description: Commit message quality standards — applies when writing git commits, amending commits, rewording during rebase, or squashing commits
+description: Commit message quality standards; applies when writing git commits, amending commits, rewording during rebase, or squashing commits
 ---
 
 # Commit Message Guidelines
@@ -15,7 +15,7 @@ Before applying the formatting rules below, check for established conventions in
 1. **Recent history**: Run `git log --oneline -20`. If the commits consistently follow a different format (e.g., no scope, different types, capitalized descriptions, plain prose subjects), match that format.
 2. **PR template**: Check for `pull_request_template.md` or `.github/pull_request_template.md`. If it implies a commit or PR message structure, follow it.
 
-If either source reveals an established convention, **use that convention for all cosmetic/formatting decisions** — subject line style, whether scope is required, type prefix names, etc.
+If either source reveals an established convention, **use that convention for all cosmetic/formatting decisions**: subject line style, whether scope is required, type prefix names, etc.
 
 **Always apply regardless of repo conventions:**
 
@@ -72,7 +72,7 @@ No evidence = the claim is just an assertion. Show the receipts.
 - No emoji in subject lines
 - No restating the diff in prose ("adds X field to Y struct")
 - No filler ("various improvements", "minor fixes", "updates")
-- No future tense ("will fix") — describe the state after the commit
+- No future tense ("will fix"); describe the state after the commit
 
 ## Examples
 
@@ -97,7 +97,7 @@ Removes: commands/git/commit-smart.md (superseded by this skill)
 ```
 fix(cogsworth): increase watchdog failure threshold to 5
 
-Cogsworth was restarting during normal startup — the Java process
+Cogsworth was restarting during normal startup: the Java process
 takes ~45s to bind port 8080 on cold boot, but the health check
 timeout was 30s (3 × 10s intervals).
 
@@ -108,7 +108,7 @@ Threshold raised from 3 to 5 (150s window), matching the measured
 worst-case startup time of 120s under memory pressure.
 ```
 
-### Chore — body skippable
+### Chore (body skippable)
 
 ```
 chore(source): update claude-code to 2.1.82

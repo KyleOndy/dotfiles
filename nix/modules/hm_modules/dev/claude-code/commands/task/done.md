@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(git:*), Bash(make:*), Bash(npm:*), Bash(cargo:*), Bash(pytest:*), Bash(go:*), AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash(git:*), Bash(make:*), Bash(nix:*), Bash(npm:*), Bash(cargo:*), Bash(pytest:*), Bash(go:*), AskUserQuestion
 description: Review implementation, remove completed task, and create commit
 disable-model-invocation: true
 ---
@@ -23,27 +23,27 @@ Before committing, ensure the solution is:
 
 **Before committing, confirm that testing was done:**
 
-Check if `/task:test` was run recently by looking for indicators:
+Check if `/verify` was run recently by looking for indicators:
 
 - Have tests been modified or created? (`git status`)
 - Are there uncommitted changes that suggest work is still in progress?
 
-**If /task:test was not clearly run:**
+**If /verify was not clearly run:**
 
 Use the AskUserQuestion tool:
 
-**Question:** "It looks like /task:test wasn't run. Would you like to run it before committing?"
+**Question:** "It looks like /verify wasn't run. Would you like to run it before committing?"
 **Header:** "Testing"
 **Options:**
 
 - Label: "Yes, run tests first (Recommended)"
-  Description: "Stop here and run /task:test to verify implementation"
+  Description: "Stop here and run /verify to exercise the change end-to-end"
 - Label: "Skip testing"
   Description: "Continue with commit - I'll take responsibility for testing"
 
 **Handle responses:**
 
-- "Yes, run tests first" → Stop and direct user to run `/task:test`, then return
+- "Yes, run tests first" → Stop and direct user to run `/verify`, then return
 - "Skip testing" → Continue with `/task:done` workflow
 
 **If tests were clearly run** (test files modified, no major concerns):
@@ -74,7 +74,7 @@ Use the AskUserQuestion tool:
 
 ### 3. Safety Check: Run Tests
 
-**Note:** This is a final safety check. Primary testing should happen in `/task:test`.
+**Note:** This is a final safety check. Primary testing should happen in `/verify`.
 
 **Test Existence:**
 
@@ -103,7 +103,7 @@ Use the AskUserQuestion tool:
 **Options:**
 
 - Label: "Fix tests now (Recommended)"
-  Description: "Run /task:test to see failures and fix iteratively"
+  Description: "Run /verify to see failures and fix iteratively"
 - Label: "View failures here"
   Description: "Show me the failing tests in this session"
 
@@ -111,7 +111,7 @@ Note: Do NOT offer a "skip" option - tests must pass before commit.
 
 **Handle responses:**
 
-- "Fix tests now" → Direct user to run `/task:test`
+- "Fix tests now" → Direct user to run `/verify`
 - "View failures here" → Show test output, then re-prompt after fixes
 
 ### 4. Check for Simpler Approaches
@@ -382,8 +382,7 @@ Tests: [Passed/Status]
 Remaining Tasks: [count from TASKS.md]
 
 Next Steps:
-- Run /task:sync to check if commit affects remaining tasks
-- Then run /task:plan to begin next task
+- Run /task:plan to begin the next task
 
 [Or if no tasks remain:]
 🎉 All tasks completed! Consider:
@@ -402,10 +401,10 @@ Next Steps:
 Test Failures:
 [show failing test output]
 
-Please run /task:test to fix issues iteratively:
-1. Run /task:test to see detailed failures
+Please run /verify to fix issues iteratively:
+1. Run /verify to see detailed failures
 2. Fix the issues
-3. Run /task:test again (repeat as needed)
+3. Run /verify again (repeat as needed)
 4. Return to /task:done when all tests pass
 
 Tests must pass before committing.
@@ -420,7 +419,7 @@ Either the task hasn't been implemented yet, or changes were already committed.
 Check: git status
 
 If changes were already committed:
-- Run `/task:sync` to update task list
+- Remove the completed task from TASKS.md if it is still listed
 - Skip this /task:done command
 
 If you're unsure what to do, run `/task` for guidance.
@@ -439,7 +438,7 @@ Likely you need to run `/task:decompose` first.
 
 ## Tips
 
-- **Run /task:test first**: Testing should happen before /task:done
+- **Run /verify first**: Testing should happen before /task:done
 - **Don't rush review**: Take time to genuinely assess if there's a simpler way
 - **Tests must pass**: Never commit without passing tests
 - **Good commit messages**: Future you will thank present you for clarity
@@ -478,9 +477,9 @@ Files Changed: 3
 Tests: Passed (8/8)
 Remaining Tasks: 5
 
-Next: Run /task:sync to continue workflow
+Next: Run /task:plan for the next task
 ```
 
 ---
 
-**Next Step:** Run `/task:sync` to check if this commit affects remaining tasks, then `/task:plan` for the next task.
+**Next Step:** Run `/task:plan` to research the next task.

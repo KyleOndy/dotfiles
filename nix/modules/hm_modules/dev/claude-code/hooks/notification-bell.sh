@@ -2,33 +2,30 @@
 # Claude Code notification hook - plays a custom notification sound
 # Automatically lowers volume when meeting apps are running
 
-# Get the directory where this script is located
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+set -euo pipefail
 
-# Path to the notification sound
-SOUND_FILE="$PROJECT_ROOT/assets/notification.wav"
+# Path to the notification sound (env-overridable; the script is packaged
+# into its own store path, so it can't locate the wav relative to itself)
+SOUND_FILE="${SOUND_FILE:-$HOME/.claude/assets/notification.wav}"
 
-# Lower volume during active Zoom calls
-# CptHost only spawns during an active call (unlike background processes zoom.us, ZoomPhone, etc.)
+# Lower volume during active Zoom calls (macOS only: CptHost is Zoom's
+# in-meeting helper process; it only spawns during an active call)
 VOLUME_FACTOR=1.0
 if pgrep -if "CptHost" >/dev/null 2>&1; then
 	VOLUME_FACTOR=0.3
 fi
 
-# Play custom notification sound
-if [ -f "$SOUND_FILE" ]; then
-	# Use ffplay (quiet mode, no video window, with volume adjustment)
-	ffplay -nodisp -autoexit -loglevel quiet \
-		-af "volume=${VOLUME_FACTOR}" \
-		"$SOUND_FILE" 2>/dev/null &
-
-	# Alternative: Use cvlc if ffplay doesn't work
-	# cvlc --play-and-exit --intf dummy "$SOUND_FILE" 2>/dev/null &
+# Play custom notification sound; fall back to the terminal bell if the
+# sound file or player is missing, or if playback fails
+if [ -f "$SOUND_FILE" ] && command -v ffplay >/dev/null 2>&1; then
+	(
+		ffplay -nodisp -autoexit -loglevel quiet \
+			-af "volume=${VOLUME_FACTOR}" \
+			"$SOUND_FILE" || printf '\a'
+	) &
 else
-	# Fallback to terminal bell if sound file not found
-	echo "Warning: Sound file not found at $SOUND_FILE, using terminal bell" >&2
-	echo -e '\a'
+	echo "Warning: cannot play $SOUND_FILE, using terminal bell" >&2
+	printf '\a'
 fi
 
-exit 0 # Exit successfully
+exit 0

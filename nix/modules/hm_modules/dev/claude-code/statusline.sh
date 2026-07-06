@@ -5,10 +5,27 @@
 set -euo pipefail
 
 # Read JSON input from stdin
-input=$(tee /tmp/statusline-debug.json)
+input=$(cat)
 
-# Extract current working directory
-cwd=$(echo "$input" | jq -r '.cwd // .workspace.current_dir')
+# Extract every field in a single jq pass; this script runs on every render.
+# model goes last so a display name with spaces can't shift other fields.
+IFS=$'\t' read -r cwd cost_usd duration_ms lines_added lines_removed \
+	context_size context_used_tokens rl_5h rl_7d rl_5h_resets rl_7d_resets model < <(
+		echo "$input" | jq -r '[
+		(.cwd // .workspace.current_dir),
+		(.cost.total_cost_usd // 0),
+		(.cost.total_duration_ms // 0),
+		(.cost.total_lines_added // 0),
+		(.cost.total_lines_removed // 0),
+		(.context_window.context_window_size // 0),
+		((.context_window.used_percentage // 0) / 100 * (.context_window.context_window_size // 0) | floor),
+		(.rate_limits.five_hour.used_percentage // 0 | floor),
+		(.rate_limits.seven_day.used_percentage // 0 | floor),
+		(.rate_limits.five_hour.resets_at // 0 | floor),
+		(.rate_limits.seven_day.resets_at // 0 | floor),
+		(.model.display_name // "")
+	] | @tsv' 2>/dev/null
+	) || exit 0 # render nothing on empty or malformed input
 
 # Get git branch (if in a git repo)
 branch=""
@@ -16,15 +33,8 @@ if [ -d "$cwd/.git" ] || git -C "$cwd" rev-parse --git-dir >/dev/null 2>&1; then
 	branch=$(git -C "$cwd" branch --show-current 2>/dev/null || echo "")
 fi
 
-# Extract model display name
-model=$(echo "$input" | jq -r '.model.display_name // ""')
-
-# Extract session cost
-cost_usd=$(echo "$input" | jq -r '.cost.total_cost_usd // 0')
-
-# Extract session duration and format it
-duration_ms=$(echo "$input" | jq -r '.cost.total_duration_ms // 0')
-if [ "$duration_ms" != "0" ] && [ "$duration_ms" != "null" ]; then
+# Format session duration
+if [ "$duration_ms" != "0" ]; then
 	total_seconds=$((duration_ms / 1000))
 	minutes=$((total_seconds / 60))
 	seconds=$((total_seconds % 60))
@@ -33,14 +43,8 @@ else
 	duration=""
 fi
 
-# Extract lines added/removed
-lines_added=$(echo "$input" | jq -r '.cost.total_lines_added // 0')
-lines_removed=$(echo "$input" | jq -r '.cost.total_lines_removed // 0')
-
-# Extract context window size and compute used tokens
-context_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
-context_used_tokens=$(echo "$input" | jq -r '(.context_window.used_percentage // 0) / 100 * (.context_window.context_window_size // 0) | floor')
-if [ "$context_size" != "0" ] && [ "$context_size" != "null" ]; then
+# Format context window usage
+if [ "$context_size" != "0" ]; then
 	if [ "$context_size" -ge 1000000 ]; then
 		context_size_formatted="$((context_size / 1000000))M"
 	else
@@ -79,12 +83,7 @@ format_reset_time() {
 	fi
 }
 
-# Extract rate limit data
 now=$(date +%s)
-rl_5h=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // 0 | floor')
-rl_7d=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // 0 | floor')
-rl_5h_resets=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // 0 | floor')
-rl_7d_resets=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // 0 | floor')
 
 # Build output
 output=""
