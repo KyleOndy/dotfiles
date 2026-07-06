@@ -417,6 +417,7 @@
   services.pcscd.enable = true;
   services.openssh.enable = true;
   services.fstrim.enable = true;
+  services.usbmuxd.enable = true; # iPhone USB tethering
   services.printing = {
     enable = true;
     drivers = [ pkgs.hplip ];
