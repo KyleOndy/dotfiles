@@ -28,7 +28,7 @@ If no `--focus` argument was provided, use the AskUserQuestion tool to determine
 **Options:**
 
 - Label: "All areas (Recommended)"
-  Description: "Comprehensive analysis covering code smells, architecture, performance, and maintainability"
+  Description: "Full analysis covering code smells, architecture, performance, and maintainability"
 - Label: "Performance only"
   Description: "Focus on performance bottlenecks, inefficient algorithms, and optimization opportunities"
 - Label: "Security only"

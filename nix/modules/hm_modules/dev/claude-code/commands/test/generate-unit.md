@@ -1,11 +1,11 @@
 ---
 allowed-tools: Read, Write, Grep, Glob, Bash(npm test:*), Bash(pytest:*), Bash(go test:*), Bash(cargo test:*), Bash(make test:*), AskUserQuestion
-description: Generate comprehensive test suite with unit, integration, and end-to-end tests following testing best practices
+description: Generate test suite with unit, integration, and end-to-end tests matching project conventions
 ---
 
 # Generate Tests
 
-Comprehensive test suite generation with unit, integration, and end-to-end tests. Analyzes existing code patterns and generates thorough test coverage following testing best practices and project conventions.
+Test suite generation with unit, integration, and end-to-end tests. Analyzes existing code patterns and generates thorough test coverage following project conventions.
 
 ## Requirements
 
@@ -27,7 +27,7 @@ Use the AskUserQuestion tool to determine which test types should be generated:
 **Options:**
 
 - Label: "All types (Recommended)"
-  Description: "Generate unit, integration, and end-to-end tests for comprehensive coverage"
+  Description: "Generate unit, integration, and end-to-end tests for full coverage"
 - Label: "Unit tests only"
   Description: "Generate unit tests for individual functions and methods"
 - Label: "Integration tests only"
@@ -131,7 +131,7 @@ Before writing test files, use the AskUserQuestion tool to confirm locations:
 # Generate tests for specific module
 /test:generate-tests --module=user-service
 
-# Comprehensive module testing:
+# Full module testing:
 # - All service methods tested
 # - Database interaction tests
 # - External API integration tests

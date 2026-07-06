@@ -20,7 +20,7 @@ Display detailed information about the active requirement gathering session, inc
    - Parse metadata.json for status and progress
    - Extract phase information and timestamps
 
-3. **Display Comprehensive Status**
+3. **Display Full Status**
    - Show requirement name and duration
    - Display current phase and progress metrics
    - Present initial request and codebase overview

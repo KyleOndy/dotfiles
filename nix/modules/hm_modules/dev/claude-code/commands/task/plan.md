@@ -1,11 +1,11 @@
 ---
 allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(ls:*), Bash(find:*), AskUserQuestion
-description: Deep research and comprehensive planning for next task
+description: Deep research and detailed planning for next task
 ---
 
 # Task Planning
 
-Perform comprehensive research and create a detailed execution plan for the next task. This is the "ultrathink" phase where we understand existing patterns, identify dependencies, and determine exactly what needs to be done - nothing more, nothing less.
+Perform thorough research and create a detailed execution plan for the next task. This is the "ultrathink" phase where we understand existing patterns, identify dependencies, and determine exactly what needs to be done - nothing more, nothing less.
 
 ## Core Philosophy
 
@@ -211,7 +211,7 @@ Use the AskUserQuestion tool to get user guidance:
 
 ### 8. Present the Plan
 
-Provide a comprehensive but concise plan:
+Provide a complete but concise plan:
 
 ```text
 📋 Implementation Plan

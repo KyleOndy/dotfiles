@@ -1,12 +1,12 @@
 ---
 allowed-tools: Read, Write, Edit, Bash(npm:*), Bash(yarn:*), Bash(make:*), Bash(pytest:*), Bash(go test:*), Bash(./bin/*:*), AskUserQuestion
 argument-hint: [--type api|database|service] [--service service-name]
-description: Create comprehensive integration test suite for API endpoints, database interactions, external services, and inter-component communication
+description: Create integration test suite for API endpoints, database interactions, external services, and inter-component communication
 ---
 
 # Integration Tests
 
-Comprehensive integration test suite creation for API endpoints, database interactions, external services, and inter-component communication. Ensures system components work together correctly in realistic scenarios.
+Integration test suite creation for API endpoints, database interactions, external services, and inter-component communication. Ensures system components work together correctly in realistic scenarios.
 
 ## Requirements
 

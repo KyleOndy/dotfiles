@@ -63,7 +63,7 @@ Begin gathering requirements for: $ARGUMENTS
 
 ### Phase 5: Requirements Documentation
 
-9. Generate comprehensive requirements spec in 06-requirements-spec.md:
+9. Generate complete requirements spec in 06-requirements-spec.md:
    - Problem statement and solution overview
    - Functional requirements based on all answers
    - Technical requirements with specific file paths

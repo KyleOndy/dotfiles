@@ -1,12 +1,12 @@
 ---
 allowed-tools: Read, Write, Edit, LS, WebFetch, AskUserQuestion
 argument-hint: [--highlight-features] [--audience developers|users]
-description: Maintain comprehensive README with automatic content generation, project analysis, and documentation best practices
+description: Keep the README complete and current with automatic content generation and project analysis
 ---
 
 # Update README
 
-Comprehensive README maintenance with automatic content generation, project analysis, and documentation best practices. Ensures README stays current with project changes and provides excellent developer experience.
+README maintenance with automatic content generation and project analysis. Keeps the README complete, accurate, and current with project changes.
 
 ## Requirements
 
@@ -49,7 +49,7 @@ Use the AskUserQuestion tool to select which sections need updating:
 **Options:**
 
 - Label: "All sections (Recommended)"
-  Description: "Comprehensive update of entire README"
+  Description: "Full update of entire README"
 - Label: "Project description and features"
   Description: "Update overview, purpose, and feature list"
 - Label: "Installation and setup"
@@ -61,7 +61,7 @@ Use the AskUserQuestion tool to select which sections need updating:
 
 **Handle responses:**
 
-- "All sections" → Perform comprehensive update (all steps)
+- "All sections" → Perform full update (all steps)
 - "Project description and features" → Focus on steps 2 (Content Structure) and 3 (Badges)
 - "Installation and setup" → Focus on step 2 and verify installation instructions
 - "Usage and examples" → Focus on step 2 and update examples
@@ -76,7 +76,7 @@ Use the AskUserQuestion tool to select which sections need updating:
    - Extract project metadata and dependencies
 
 2. **Content Structure Generation**
-   - Create comprehensive table of contents
+   - Create complete table of contents
    - Generate project description and purpose
    - Add installation and setup instructions
    - Include usage examples and tutorials

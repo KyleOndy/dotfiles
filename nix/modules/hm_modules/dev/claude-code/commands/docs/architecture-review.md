@@ -1,12 +1,12 @@
 ---
 allowed-tools: Read, Write, Edit, LS, Glob, Grep, WebFetch, LSP, AskUserQuestion
 argument-hint: [--layer data-layer|service-layer|ui-layer] [--focus scalability|security|performance]
-description: Comprehensive architecture documentation and review with system design analysis, component mapping, and technical debt assessment
+description: Architecture documentation and review with system design analysis, component mapping, and technical debt assessment
 ---
 
 # Architecture Review
 
-Comprehensive architecture documentation and review with system design analysis, component mapping, and technical debt assessment. Creates and maintains architectural documentation that guides development decisions.
+Architecture documentation and review with system design analysis, component mapping, and technical debt assessment. Creates and maintains architectural documentation that guides development decisions.
 
 ## Requirements
 
@@ -27,7 +27,7 @@ If no `--focus` argument was provided, use the AskUserQuestion tool:
 **Header:** "Focus Area"
 **Options:**
 
-- Label: "Comprehensive review (Recommended)"
+- Label: "Full review (Recommended)"
   Description: "Complete architecture analysis covering all aspects"
 - Label: "Scalability"
   Description: "Focus on system scalability and performance bottlenecks"
@@ -40,7 +40,7 @@ If no `--focus` argument was provided, use the AskUserQuestion tool:
 
 **Handle responses:**
 
-- "Comprehensive review" → Perform all review steps (1-6)
+- "Full review" → Perform all review steps (1-6)
 - "Scalability" → Focus on step 1 and performance/scalability analysis
 - "Security" → Focus on security patterns and vulnerability assessment
 - "Maintainability" → Focus on step 3 (Technical Debt Assessment)

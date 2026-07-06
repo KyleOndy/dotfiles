@@ -1,12 +1,12 @@
 ---
 allowed-tools: Read, Write, Grep, Glob, WebFetch, AskUserQuestion
 argument-hint: [--version version] [--examples data-source] [--format openapi|graphql]
-description: Generate comprehensive API documentation with automatic schema extraction, example generation, and interactive documentation
+description: Generate complete API documentation with automatic schema extraction, example generation, and interactive documentation
 ---
 
 # API Documentation
 
-Comprehensive API documentation generation with automatic schema extraction, example generation, and interactive documentation. Creates developer-friendly documentation that stays synchronized with code changes.
+API documentation generation with automatic schema extraction, example generation, and interactive documentation. Covers every endpoint and stays synchronized with code changes.
 
 ## Requirements
 
@@ -70,7 +70,7 @@ If no `--format` argument was provided, use the AskUserQuestion tool:
    - Include testing playground
 
 5. **Documentation Enhancement**
-   - Add comprehensive descriptions
+   - Add complete descriptions
    - Include usage guidelines and best practices
    - Document rate limiting and quotas
    - Add troubleshooting guides
