@@ -175,7 +175,10 @@ nix/modules/hm_modules/dev/claude-code/
 │   └── tmux-indicator.sh
 ├── skills/                  # Agent skills (SKILL.md)
 │   ├── commit-guidelines.md
-│   └── flake-update-review.md
+│   ├── flake-update-review.md
+│   └── personal-prose.md
+├── rules/                   # Path-scoped rules (~/.claude/rules/)
+│   └── clojure.md
 ├── commands/                # Slash commands
 │   ├── task.md
 │   ├── code/

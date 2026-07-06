@@ -46,6 +46,9 @@ The diff shows **what** changed. The body explains **why**:
 
 Wrap at 72 characters. Separate from subject with a blank line.
 
+Commit bodies follow the voice rules in the personal-prose skill (no
+leverage/robust/comprehensive/seamless, no em dashes, no emojis).
+
 Use markdown formatting in the body: triple-backtick fenced code blocks
 for command output or code snippets, single backticks for inline code
 references.
@@ -64,6 +67,7 @@ No evidence = the claim is just an assertion. Show the receipts.
 
 ## Anti-Patterns
 
+- No kitchen-sink commits; keep each commit atomic and focused
 - No `Co-Authored-By` trailers
 - No emoji in subject lines
 - No restating the diff in prose ("adds X field to Y struct")

@@ -112,6 +112,7 @@ in
         };
         ".claude/settings.json".source = ./settings.json;
         ".claude/CLAUDE.md".source = cfg.projectMemory;
+        ".claude/rules/clojure.md".source = ./rules/clojure.md;
       })
       # Command files (conditional)
       // (optionalAttrs cfg.enableCommands {
@@ -137,6 +138,7 @@ in
         {
           ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
           ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
+          ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
         }
         // listToAttrs (
           map (
