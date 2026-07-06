@@ -7,12 +7,14 @@
   "effortLevel": "xhigh",
   "alwaysThinkingEnabled": true,
   "cleanupPeriodDays": 30,
+  "tui": "fullscreen",
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
     "padding": 0
   },
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "Bash(git status:*)",
       "Bash(git diff:*)",
