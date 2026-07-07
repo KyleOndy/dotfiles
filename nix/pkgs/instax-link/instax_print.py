@@ -12,7 +12,6 @@ from PIL import Image, ImageTk
 
 TARGET_WIDTH, TARGET_HEIGHT = 1260, 840
 TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT
-RATIO_TOLERANCE = 0.005
 MAX_BYTES = 337920
 MAX_JPEG_QUALITY = 80
 MIN_JPEG_QUALITY = 30
@@ -162,16 +161,10 @@ class CropWindow:
 def prepare_image(src_path):
     image = Image.open(src_path)
     image = image.convert("RGB")
-    ratio = image.width / image.height
 
-    if abs(ratio - TARGET_RATIO) / TARGET_RATIO <= RATIO_TOLERANCE:
-        print("Aspect ratio already matches, resizing without cropping.")
-        final = image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.LANCZOS)
-    else:
-        print("Aspect ratio doesn't match 3:2, opening crop tool...")
-        final = CropWindow(image).run()
-        if final is None:
-            sys.exit("Crop cancelled.")
+    final = CropWindow(image).run()
+    if final is None:
+        sys.exit("Crop cancelled.")
 
     return final
 
