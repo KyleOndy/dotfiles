@@ -378,6 +378,7 @@
     neovim
     powertop # Power consumption and management diagnosis tool
     bolt # Thunderbolt device management for CalDigit TS4 dock
+    instax-link # Print to Instax Link WIDE printer over Bluetooth LE
   ];
 
   environment.pathsToLink = [

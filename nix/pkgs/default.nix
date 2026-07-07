@@ -8,6 +8,7 @@ self: super: {
   concourse = super.callPackage ./concourse { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
   helios = super.callPackage ./helios { };
+  instax-link = super.callPackage ./instax-link { };
   linear-cli = super.callPackage ./linear-cli { };
   mutt-colors-solarized = super.callPackage ./mutt-colors-solarized { };
   mutt-gruvbox = super.callPackage ./mutt-gruvbox { };
