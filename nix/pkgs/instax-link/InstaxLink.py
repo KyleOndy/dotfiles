@@ -1217,8 +1217,11 @@ class InstaxPrinter:
                         % (frameNumber + 1, len(frames))
                     )
                 await self.connection.request_image_transfer_end()
-                endTime = await self.connection.request_print()
-                print("Printing... Estimated time required %i seconds" % endTime)
+                printResponse = await self.connection.request_print()
+                print(
+                    "Printing... Estimated time required %i seconds"
+                    % printResponse.endTime
+                )
                 self.set_function_info(
                     await self.connection.request_function_info_printer_function()
                 )
