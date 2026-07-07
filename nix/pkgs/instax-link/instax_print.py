@@ -45,21 +45,41 @@ def resolve_device_name(explicit_name):
 class CropWindow:
     def __init__(self, image):
         self.image = image
-        self.scale = min(1000 / image.width, 700 / image.height, 1.0)
-        self.disp_w = int(image.width * self.scale)
-        self.disp_h = int(image.height * self.scale)
         self.result = None
 
         self.root = tk.Tk()
         self.root.title(
-            "Crop for Instax Wide (drag to move, scroll to resize, Enter to confirm)"
+            "Crop for Instax Wide "
+            "(drag=move, scroll=resize, [ ]=rotate, Enter=confirm, Esc=cancel)"
         )
+
+        self.canvas = tk.Canvas(self.root)
+        self.canvas.pack()
+
+        self.canvas.bind("<ButtonPress-1>", self._on_press)
+        self.canvas.bind("<B1-Motion>", self._on_drag)
+        self.canvas.bind("<MouseWheel>", self._on_scroll)
+        self.canvas.bind("<Button-4>", lambda e: self._resize(1.05))
+        self.canvas.bind("<Button-5>", lambda e: self._resize(1 / 1.05))
+        self.root.bind("<Return>", lambda e: self._confirm())
+        self.root.bind("<Escape>", lambda e: self.root.destroy())
+        self.root.bind("<Key-bracketright>", lambda e: self._rotate(clockwise=True))
+        self.root.bind("<Key-bracketleft>", lambda e: self._rotate(clockwise=False))
+
+        self._drag_start = None
+        self._load_image(image)
+
+    def _load_image(self, image):
+        self.image = image
+        self.scale = min(1000 / image.width, 700 / image.height, 1.0)
+        self.disp_w = int(image.width * self.scale)
+        self.disp_h = int(image.height * self.scale)
 
         display_image = image.resize((self.disp_w, self.disp_h), Image.LANCZOS)
         self.photo = ImageTk.PhotoImage(display_image)
 
-        self.canvas = tk.Canvas(self.root, width=self.disp_w, height=self.disp_h)
-        self.canvas.pack()
+        self.canvas.config(width=self.disp_w, height=self.disp_h)
+        self.canvas.delete("all")
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.photo)
 
         box_h = self.disp_h
@@ -75,15 +95,9 @@ class CropWindow:
             *self._bounds(), outline="red", width=3
         )
 
-        self.canvas.bind("<ButtonPress-1>", self._on_press)
-        self.canvas.bind("<B1-Motion>", self._on_drag)
-        self.canvas.bind("<MouseWheel>", self._on_scroll)
-        self.canvas.bind("<Button-4>", lambda e: self._resize(1.05))
-        self.canvas.bind("<Button-5>", lambda e: self._resize(1 / 1.05))
-        self.root.bind("<Return>", lambda e: self._confirm())
-        self.root.bind("<Escape>", lambda e: self.root.destroy())
-
-        self._drag_start = None
+    def _rotate(self, clockwise):
+        angle = -90 if clockwise else 90
+        self._load_image(self.image.rotate(angle, expand=True))
 
     def _bounds(self):
         return (
@@ -128,11 +142,14 @@ class CropWindow:
         self._redraw()
 
     def _confirm(self):
-        self.result = (
+        box = (
             self.box_x / self.scale,
             self.box_y / self.scale,
             (self.box_x + self.box_w) / self.scale,
             (self.box_y + self.box_h) / self.scale,
+        )
+        self.result = self.image.crop(box).resize(
+            (TARGET_WIDTH, TARGET_HEIGHT), Image.LANCZOS
         )
         self.root.destroy()
 
@@ -151,10 +168,9 @@ def prepare_image(src_path):
         final = image.resize((TARGET_WIDTH, TARGET_HEIGHT), Image.LANCZOS)
     else:
         print("Aspect ratio doesn't match 3:2, opening crop tool...")
-        box = CropWindow(image).run()
-        if box is None:
+        final = CropWindow(image).run()
+        if final is None:
             sys.exit("Crop cancelled.")
-        final = image.crop(box).resize((TARGET_WIDTH, TARGET_HEIGHT), Image.LANCZOS)
 
     return final
 
