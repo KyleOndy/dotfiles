@@ -14,6 +14,7 @@ TARGET_WIDTH, TARGET_HEIGHT = 1260, 840
 TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT
 RATIO_TOLERANCE = 0.005
 MAX_BYTES = 337920
+MAX_JPEG_QUALITY = 80
 MIN_JPEG_QUALITY = 30
 
 
@@ -176,7 +177,7 @@ def prepare_image(src_path):
 
 
 def save_within_size_limit(image, out_path):
-    for quality in range(95, MIN_JPEG_QUALITY - 1, -5):
+    for quality in range(MAX_JPEG_QUALITY, MIN_JPEG_QUALITY - 1, -5):
         image.save(out_path, "JPEG", quality=quality)
         size = out_path.stat().st_size
         if size <= MAX_BYTES:
