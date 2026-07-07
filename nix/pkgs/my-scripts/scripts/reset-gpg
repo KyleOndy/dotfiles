@@ -10,6 +10,9 @@ set_strict_mode
 # This is just a bandaid. I need to figure out why gpg keeps dying on me.
 log_warn "Resetting GPG agents (this is a workaround for persistent issues)"
 
+log_info "Stopping stuck pinentry prompts..."
+pkill -f pinentry || true
+
 log_info "Stopping gpg-agent..."
 sudo pkill gpg-agent
 
