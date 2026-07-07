@@ -50,7 +50,7 @@ class CropWindow:
         self.root = tk.Tk()
         self.root.title(
             "Crop for Instax Wide "
-            "(drag=move, scroll=resize, [ ]=rotate, Enter=confirm, Esc=cancel)"
+            "(drag=move, scroll/+-=zoom, [ ]=rotate, Enter=confirm, Esc=cancel)"
         )
 
         self.canvas = tk.Canvas(self.root)
@@ -65,6 +65,10 @@ class CropWindow:
         self.root.bind("<Escape>", lambda e: self.root.destroy())
         self.root.bind("<Key-bracketright>", lambda e: self._rotate(clockwise=True))
         self.root.bind("<Key-bracketleft>", lambda e: self._rotate(clockwise=False))
+        for keysym in ("plus", "equal", "KP_Add"):
+            self.root.bind(f"<Key-{keysym}>", lambda e: self._resize(1.05))
+        for keysym in ("minus", "KP_Subtract"):
+            self.root.bind(f"<Key-{keysym}>", lambda e: self._resize(1 / 1.05))
 
         self._drag_start = None
         self._load_image(image)
