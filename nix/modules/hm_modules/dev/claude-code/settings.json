@@ -3,7 +3,7 @@
     "commit": "",
     "pr": ""
   },
-  "model": "opus",
+  "model": "opusplan[1m]",
   "effortLevel": "xhigh",
   "alwaysThinkingEnabled": true,
   "cleanupPeriodDays": 30,
