@@ -123,7 +123,6 @@
     pdm
     pulumi
     pkgs.pulumiPackages.pulumi-python
-    ssm-session-manager-plugin
   ];
 
   # Coder remote development SSH config
