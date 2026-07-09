@@ -81,7 +81,7 @@ let
             }
           ];
         }
-        # Bottom-right button (button4) -> Right click (button3)
+        # Top-right button (button4) -> Fullscreen screenshot (cmd+shift+3)
         {
           type = "basic";
           from = {
@@ -89,7 +89,11 @@ let
           };
           to = [
             {
-              pointing_button = "button3";
+              key_code = "3";
+              modifiers = [
+                "left_command"
+                "left_shift"
+              ];
             }
           ];
           conditions = [
