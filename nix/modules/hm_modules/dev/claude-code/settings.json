@@ -14,7 +14,7 @@
     "padding": 0
   },
   "permissions": {
-    "defaultMode": "auto",
+    "defaultMode": "plan",
     "allow": [
       "Bash(git status:*)",
       "Bash(git diff:*)",
