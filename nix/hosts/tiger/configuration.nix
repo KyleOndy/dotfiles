@@ -219,6 +219,7 @@ in
   systemd.tmpfiles.rules = [
     # svc.deploy owns so it can set timestamps via rsync; caddy group for serving.
     "d /var/www/kyleondy.com 0775 svc.deploy caddy -"
+    "d /var/www/cogsworth.ondy.org 0775 svc.deploy caddy -"
     # Library subdirs missing on tiger (movies/tv already exist)
     "d /mnt/media/music 2775 root ${mediaGroup} -"
     "d /mnt/media/books 2775 root ${mediaGroup} -"
@@ -411,6 +412,12 @@ in
           "www.kyleondy.com" = {
             enable = true;
             staticRoot = "/var/www/kyleondy.com";
+          };
+          # Cogsworth SMS compliance/landing site (source in the cogsworth repo,
+          # rsynced via `make site-deploy`). Public host on tiger, not the Pi.
+          "cogsworth.ondy.org" = {
+            enable = true;
+            staticRoot = "/var/www/cogsworth.ondy.org";
           };
           "kyleondy.com" = {
             enable = true;

@@ -74,6 +74,16 @@ resource "aws_route53_record" "ondy_org_photos" {
   records = local.tiger_dns
 }
 
+# Public compliance/landing site for the Cogsworth SMS service, served as a
+# static site by Caddy on tiger. Distinct from cogsworth.infra.ondy.org (the Pi).
+resource "aws_route53_record" "ondy_org_cogsworth" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "cogsworth.ondy.org"
+  type    = "CNAME"
+  ttl     = "300"
+  records = local.tiger_dns
+}
+
 
 resource "aws_route53_record" "ondy_org_infra_tiger" {
   zone_id = aws_route53_zone.ondy_org.zone_id
