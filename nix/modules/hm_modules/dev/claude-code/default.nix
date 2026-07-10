@@ -163,6 +163,7 @@ in
         {
           ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
           ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
+          ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
           ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
         }
         // listToAttrs (
