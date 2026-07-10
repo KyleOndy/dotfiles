@@ -85,10 +85,15 @@ in
   # Twilio SMS reminders (two-way): inbound poller + confirmation replies.
   # Consumed by cogsworth.sms.config; the poller registers only when
   # account-sid + auth-token + number are all present in the environment.
+  # Auth is a revocable API key (SID + secret); the account SID only scopes
+  # the REST URL. The account auth token is not used by the poller.
   sops.secrets.cogsworth_sms_twilio_account_sid = {
     owner = "cogsworth";
   };
-  sops.secrets.cogsworth_sms_twilio_auth_token = {
+  sops.secrets.cogsworth_sms_twilio_api_key_sid = {
+    owner = "cogsworth";
+  };
+  sops.secrets.cogsworth_sms_twilio_api_key_secret = {
     owner = "cogsworth";
   };
   sops.secrets.cogsworth_sms_twilio_number = {
@@ -102,7 +107,8 @@ in
     owner = "cogsworth";
     content = ''
       COGSWORTH_SMS_TWILIO_ACCOUNT_SID=${config.sops.placeholder.cogsworth_sms_twilio_account_sid}
-      COGSWORTH_SMS_TWILIO_AUTH_TOKEN=${config.sops.placeholder.cogsworth_sms_twilio_auth_token}
+      COGSWORTH_SMS_TWILIO_API_KEY_SID=${config.sops.placeholder.cogsworth_sms_twilio_api_key_sid}
+      COGSWORTH_SMS_TWILIO_API_KEY_SECRET=${config.sops.placeholder.cogsworth_sms_twilio_api_key_secret}
       COGSWORTH_SMS_TWILIO_NUMBER=${config.sops.placeholder.cogsworth_sms_twilio_number}
       COGSWORTH_SMS_ALLOWED_NUMBERS=${config.sops.placeholder.cogsworth_sms_allowed_numbers}
     '';
