@@ -6,6 +6,9 @@
   "model": "opusplan[1m]",
   "effortLevel": "xhigh",
   "alwaysThinkingEnabled": true,
+  "env": {
+    "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "1"
+  },
   "cleanupPeriodDays": 30,
   "tui": "fullscreen",
   "statusLine": {
