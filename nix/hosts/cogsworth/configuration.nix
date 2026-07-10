@@ -82,6 +82,32 @@ in
     '';
   };
 
+  # Twilio SMS reminders (two-way): inbound poller + confirmation replies.
+  # Consumed by cogsworth.sms.config; the poller registers only when
+  # account-sid + auth-token + number are all present in the environment.
+  sops.secrets.cogsworth_sms_twilio_account_sid = {
+    owner = "cogsworth";
+  };
+  sops.secrets.cogsworth_sms_twilio_auth_token = {
+    owner = "cogsworth";
+  };
+  sops.secrets.cogsworth_sms_twilio_number = {
+    owner = "cogsworth";
+  };
+  sops.secrets.cogsworth_sms_allowed_numbers = {
+    owner = "cogsworth";
+  };
+
+  sops.templates."cogsworth-sms-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_SMS_TWILIO_ACCOUNT_SID=${config.sops.placeholder.cogsworth_sms_twilio_account_sid}
+      COGSWORTH_SMS_TWILIO_AUTH_TOKEN=${config.sops.placeholder.cogsworth_sms_twilio_auth_token}
+      COGSWORTH_SMS_TWILIO_NUMBER=${config.sops.placeholder.cogsworth_sms_twilio_number}
+      COGSWORTH_SMS_ALLOWED_NUMBERS=${config.sops.placeholder.cogsworth_sms_allowed_numbers}
+    '';
+  };
+
   # wpa_supplicant secrets file template
   sops.templates."wpa-secrets".content = ''
     home_psk=${config.sops.placeholder.home_wifi_password}
@@ -441,6 +467,7 @@ in
       config.sops.templates."cogsworth-immich-env".path
       config.sops.templates."cogsworth-weather-env".path
       config.sops.templates."cogsworth-openrouter-env".path
+      config.sops.templates."cogsworth-sms-env".path
     ];
   };
 
