@@ -5,7 +5,7 @@ import os
 from enum import Enum
 from types import SimpleNamespace
 import logging
-from xdg import xdg_cache_home, xdg_state_home
+from xdg import xdg_state_home
 
 import import_from
 
@@ -27,14 +27,14 @@ class LogLevel(str, Enum):
     info = "INFO"
     warning = "WARNING"
     error = "ERROR"
-    crtical = "CRITICAL"
+    critical = "CRITICAL"
 
 
 @app.callback()
 def main(
     ctx: typer.Context,
     db_path: str = typer.Option(None, envvar="HELIOS_DB_PATH"),
-    photo_dir: str = typer.Option(None, envvar="HELIOS_LIBRAY_PATH"),
+    photo_dir: str = typer.Option(None, envvar="HELIOS_LIBRARY_PATH"),
     log_level: LogLevel = LogLevel.info,
 ):
     if not db_path:
@@ -54,4 +54,7 @@ def main(
 
 
 if __name__ == "__main__":
-    app()
+    # The installed entrypoint invokes this file directly (python3 main.py),
+    # rather than via a renamed "helios" script, so sys.argv[0] would
+    # otherwise leak into --help output as "main.py".
+    app(prog_name="helios")

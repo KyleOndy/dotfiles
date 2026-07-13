@@ -1,4 +1,5 @@
 import typer
+import contextlib
 import hashlib
 import shutil
 from PIL import Image, ExifTags
@@ -36,24 +37,20 @@ def camera(ctx: typer.Context):
     if not camera_files:
         logging.warning("No files found")
         sys.exit(0)
-    for path in filter_files(camera_files, SUPPORTED_EXTENSIONS):
-        info = get_camera_file_info(camera, path)
-        timestamp = datetime.datetime.fromtimestamp(info.file.mtime)
-        folder, name = os.path.split(path)
-        if has_photo_from_camera_been_imported(db, name, timestamp):
-            logging.warning(
-                f"Already imported a photo with name of '{name}' and a capture date of '{timestamp}'"
-            )
-        else:
-            dst = os.path.join(cache, name)
-            logging.info("copying from camera: %s -> %s" % (path, dst))
-            camera_file = gp.check_result(
-                gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
-            )
-            gp.check_result(gp.gp_file_save(camera_file, dst))
 
-            logging.debug(f"Marking '{name}' ({timestamp}) as imported")
-            mark_photo_from_camera_as_imported(db, name, timestamp)
+    # Download everything to the cache first; don't record anything as
+    # imported here. The filesystem() import below is the sole place that
+    # marks a photo imported (by content md5), and only after it is safely
+    # in the library. That way an aborted or interrupted import never
+    # orphans a photo: it just gets re-downloaded and re-considered next run.
+    for path in filter_files(camera_files, SUPPORTED_EXTENSIONS):
+        folder, name = os.path.split(path)
+        dst = os.path.join(cache, name)
+        logging.info("copying from camera: %s -> %s" % (path, dst))
+        camera_file = gp.check_result(
+            gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
+        )
+        gp.check_result(gp.gp_file_save(camera_file, dst))
 
     filesystem(ctx, cache, move=True, clobber=False)
     shutil.rmtree(cache)
@@ -91,7 +88,6 @@ def filesystem(
 
         dest_dir = get_target_dir(PROVISIONAL_DIR, timestamp)
         f_name = os.path.basename(f)
-        dst = os.path.join(dest_dir, f_name)
         md5sum = md5(f)
         if check_is_file_seen_before(db, md5sum):
             logging.info(f"have seen {f} ({md5sum})")
@@ -99,9 +95,20 @@ def filesystem(
                 logging.info(f"Removing {f} since we are pruning")
                 os.remove(f)
             continue
-        if os.path.isfile(dst) and not clobber:
-            logging.error(f"destination already exists and {f} does not match {dst}")
-            sys.exit(1)
+
+        dst = os.path.join(dest_dir, f_name)
+        if os.path.exists(dst) and not clobber:
+            # Different content landed on the same name/date as an existing
+            # photo (the seen-before check above already ruled out this
+            # being the same file). Never abort the whole batch over one
+            # collision: disambiguate with a content-derived suffix so both
+            # photos are kept.
+            base, ext = os.path.splitext(f_name)
+            renamed = f"{base}_{md5sum[:8]}{ext}"
+            logging.warning(
+                f"{dst} already exists with different content; saving {f} as {renamed}"
+            )
+            dst = os.path.join(dest_dir, renamed)
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         if move:
             shutil.move(f, dst)
@@ -146,75 +153,23 @@ def list_camera_files(camera, path="/"):
     return result
 
 
-def get_camera_file_info(camera, path):
-    folder, name = os.path.split(path)
-    return gp.check_result(gp.gp_camera_file_get_info(camera, folder, name))
-
-
 # TODO: better handling of "constants"
-CAMERA_IMPORT_TABLE = "camera_imports"
 FILE_IMPORT_TABLE = "file_imports"
 
 
 def init_db(db_path):
     dir = os.path.dirname(db_path)
     os.makedirs(dir, exist_ok=True)
-    cmds = [
-        f"""
-    create table if not exists {CAMERA_IMPORT_TABLE} (
-        file_name TEXT NOT NULL,
-        capture_date TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-        );
-        """,
-        f"""
+    cmd = f"""
     create table if not exists {FILE_IMPORT_TABLE} (
         file_name TEXT NOT NULL,
         md5 TEXT NOT NULL,
         timestamp TEXT NOT NULL
         );
-      """,
-    ]
-
-    for cmd in cmds:
-        con = sqlite3.connect(db_path)
+      """
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
         con.execute(cmd)
-
-
-def has_photo_from_camera_been_imported(db_path, name, dte):
-    con = sqlite3.connect(db_path)
-    sql = f"""
-    SELECT EXISTS(SELECT 1 FROM {CAMERA_IMPORT_TABLE} WHERE
-        file_name="{name}" AND
-        capture_date="{dte}"
-        );
-                """
-    cur = con.execute(sql)
-    cur.execute(sql)
-    if cur.fetchone() == (0,):
-        return False
-    else:
-        return True
-
-
-def mark_photo_from_camera_as_imported(db, name, timestamp):
-    con = sqlite3.connect(db)
-    sql = f"""
-    INSERT INTO {CAMERA_IMPORT_TABLE} VALUES ('{name}','{timestamp}',CURRENT_TIMESTAMP);
-                """
-    cur = con.execute(sql)
-    con.commit()
-
-
-def copy_file_from_camera(list, filename):
-    mydir = os.path.join(os.getcwd(), datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
-    try:
-        os.makedirs(mydir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-    with open(os.path.join(mydir, filename), "w") as d:
-        d.writelines(list)
+        con.commit()
 
 
 def get_target_dir(parent_dir, timestamp):
@@ -239,27 +194,33 @@ def get_exif_data(image_path):
     IFD_CODE_LOOKUP = {i.value: i.name for i in ExifTags.IFD}
     tags = {}
 
-    img = Image.open(image_path)
-    img_exif = img.getexif()
-    for tag_code, value in img_exif.items():
-        # if the tag is an IFD block, nest into it
-        if tag_code in IFD_CODE_LOOKUP:
-            ifd_tag_name = IFD_CODE_LOOKUP[tag_code]
-            # print(f"IFD '{ifd_tag_name}' (code {tag_code}):")
-            ifd_data = img_exif.get_ifd(tag_code).items()
+    try:
+        with Image.open(image_path) as img:
+            img_exif = img.getexif()
+            for tag_code, value in img_exif.items():
+                # if the tag is an IFD block, nest into it
+                if tag_code in IFD_CODE_LOOKUP:
+                    ifd_tag_name = IFD_CODE_LOOKUP[tag_code]
+                    # print(f"IFD '{ifd_tag_name}' (code {tag_code}):")
+                    ifd_data = img_exif.get_ifd(tag_code).items()
 
-            for nested_key, nested_value in ifd_data:
-                nested_tag_name = (
-                    ExifTags.GPSTAGS.get(nested_key, None)
-                    or ExifTags.TAGS.get(nested_key, None)
-                    or nested_key
-                )
-                # print(f"  {nested_tag_name}: {nested_value}")
-                tags[nested_tag_name] = nested_value
-        else:
-            # root-level tag
-            # print(f"{ExifTags.TAGS.get(tag_code)}: {value}")
-            tags[tag_code] = value
+                    for nested_key, nested_value in ifd_data:
+                        nested_tag_name = (
+                            ExifTags.GPSTAGS.get(nested_key, None)
+                            or ExifTags.TAGS.get(nested_key, None)
+                            or nested_key
+                        )
+                        # print(f"  {nested_tag_name}: {nested_value}")
+                        tags[nested_tag_name] = nested_value
+                else:
+                    # root-level tag
+                    # print(f"{ExifTags.TAGS.get(tag_code)}: {value}")
+                    tags[tag_code] = value
+    except (OSError, SyntaxError) as e:
+        # corrupt file, or an extension-spoofed non-image; treat as no EXIF
+        logging.warning(f"{image_path} is not a readable image ({e})")
+        return {}
+
     return tags
 
 
@@ -272,23 +233,23 @@ def get_image_timestamp(image_path):
 
     if "DateTimeOriginal" in tags:
         # 2023:10:01 12:05:05
-        parsed = datetime.datetime.strptime(
-            tags["DateTimeOriginal"], "%Y:%m:%d %H:%M:%S"
-        )
+        raw = tags["DateTimeOriginal"]
     elif "DateTime" in tags:
-        parsed = datetime.datetime.strptime(tags["DateTime"], "%Y:%m:%d %H:%M:%S")
+        raw = tags["DateTime"]
     elif "DateTimeDigitized" in tags:
-        parsed = datetime.datetime.strptime(
-            tags["DateTimeDigitized"], "%Y:%m:%d %H:%M:%S"
-        )
+        raw = tags["DateTimeDigitized"]
     elif 36867 in tags:
-        parsed = datetime.datetime.strptime(tags[36867], "%Y:%m:%d %H:%M:%S")
+        raw = tags[36867]
     elif 306 in tags:
-        parsed = datetime.datetime.strptime(tags[306], "%Y:%m:%d %H:%M:%S")
+        raw = tags[306]
     else:
-        # breakpoint()
-        parsed = None
-    return parsed
+        return None
+
+    try:
+        return datetime.datetime.strptime(raw, "%Y:%m:%d %H:%M:%S")
+    except ValueError:
+        logging.warning(f"{image_path} has an unparseable EXIF date {raw!r}")
+        return None
 
 
 def md5(fname):
@@ -300,27 +261,17 @@ def md5(fname):
 
 
 def check_is_file_seen_before(db_path, md5sum):
-    con = sqlite3.connect(db_path)
-    sql = f"""
-    SELECT EXISTS(SELECT 1 FROM {FILE_IMPORT_TABLE} WHERE
-        md5="{md5sum}"
-        );
-                """
-    cur = con.execute(sql)
-    cur.execute(sql)
-    if cur.fetchone() == (0,):
-        return False
-    else:
-        return True
+    sql = f"SELECT EXISTS(SELECT 1 FROM {FILE_IMPORT_TABLE} WHERE md5=?)"
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        cur = con.execute(sql, (md5sum,))
+        return cur.fetchone() == (1,)
 
 
 def mark_file_as_imported(db_path, file_name, md5sum):
-    con = sqlite3.connect(db_path)
-    sql = f"""
-    INSERT INTO {FILE_IMPORT_TABLE} VALUES ('{file_name}','{md5sum}',CURRENT_TIMESTAMP);
-                """
-    cur = con.execute(sql)
-    con.commit()
+    sql = f"INSERT INTO {FILE_IMPORT_TABLE} VALUES (?,?,CURRENT_TIMESTAMP)"
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        con.execute(sql, (file_name, md5sum))
+        con.commit()
 
 
 def filter_files(files, allowed_extensions):

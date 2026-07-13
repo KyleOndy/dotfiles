@@ -1,36 +1,42 @@
 {
   lib,
   stdenv,
-  fetchurl,
   pkgs,
+  makeWrapper,
 }:
 
+let
+  pythonEnv = pkgs.python3.withPackages (
+    pythonPackages: with pythonPackages; [
+      colorama
+      gphoto2
+      pillow
+      shellingham
+      typer
+      typing-extensions
+    ]
+  );
+in
 stdenv.mkDerivation {
   pname = "helios";
   version = "20240205";
 
-  propagatedBuildInputs = [
-    (pkgs.python3.withPackages (
-      pythonPackages: with pythonPackages; [
-        colorama
-        flake8
-        gphoto2
-        pillow
-        pytest
-        shellingham
-        typer
-      ]
-    ))
-  ];
-  nativeBuildInputs = with pkgs; [
-  ];
-
   src = ./.;
-  #phases = [ "installPhase" ];
+
+  nativeBuildInputs = [ makeWrapper ];
+
+  dontBuild = true;
 
   installPhase = ''
-    mkdir -p $out/bin
-    cp *.py $out/bin/
-    mv $out/bin/main.py $out/bin/helios
+    mkdir -p $out/libexec/helios $out/bin
+    cp *.py $out/libexec/helios/
+
+    makeWrapper ${pythonEnv}/bin/python3 $out/bin/helios \
+      --add-flags "$out/libexec/helios/main.py"
   '';
+
+  meta = with lib; {
+    description = "Hand-rolled photo import and dedup CLI";
+    platforms = platforms.linux;
+  };
 }
