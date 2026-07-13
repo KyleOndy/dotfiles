@@ -65,6 +65,13 @@ in
         set -g extended-keys-format csi-u
         set -as terminal-features 'alacritty*:extkeys'
 
+        # Advertise truecolor so 24-bit color (e.g. the Claude Code statusline)
+        # passes through tmux unmodified and renders identically on every
+        # machine, rather than being downsampled to each terminal's 256-color
+        # approximation.
+        set -as terminal-features 'alacritty*:RGB'
+        set -as terminal-features 'foot*:RGB'
+
         # set scrollback history to 10000 (10k)
         set -g history-limit 10000
 

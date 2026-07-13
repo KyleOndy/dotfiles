@@ -13,25 +13,44 @@ input=$(cat)
 # Extract every field in one jq pass, joined on the unit separator (0x1f). A
 # non-whitespace delimiter keeps empty fields (e.g. an absent effort) in place;
 # read with IFS=tab collapses runs of tabs and would shift model off the end.
+#
+# context_window.context_window_size is misreported as 200000 for 1M-context
+# models (anthropics/claude-code#63447), which clamps the Ctx segment to
+# "200k/200k" while the session is nowhere near full; work around it by
+# trusting the window size only when it's nonzero, and forcing 1000000 when
+# the model id carries the "[1m]" suffix. The used-token count is read
+# directly from the real usage fields rather than derived from
+# used_percentage, so the displayed number and the percentage that picks its
+# color can never disagree.
 IFS=$'\037' read -r cwd cost_usd duration_ms lines_added lines_removed \
 	context_size context_used_tokens context_pct \
 	rl_5h rl_7d rl_5h_resets rl_7d_resets effort model < <(
-		echo "$input" | jq -r '[
-		(.cwd // .workspace.current_dir // ""),
-		(.cost.total_cost_usd // 0),
-		(.cost.total_duration_ms // 0),
-		(.cost.total_lines_added // 0),
-		(.cost.total_lines_removed // 0),
-		(.context_window.context_window_size // 0),
-		((.context_window.used_percentage // 0) / 100 * (.context_window.context_window_size // 0) | floor),
-		(.context_window.used_percentage // 0 | floor),
-		(.rate_limits.five_hour.used_percentage // 0 | floor),
-		(.rate_limits.seven_day.used_percentage // 0 | floor),
-		(.rate_limits.five_hour.resets_at // 0 | floor),
-		(.rate_limits.seven_day.resets_at // 0 | floor),
-		(.effort.level // ""),
-		(.model.display_name // "")
-	] | map(tostring) | join("")' 2>/dev/null
+		echo "$input" | jq -r '
+		(.model.id // "") as $mid
+		| (if ($mid | contains("[1m]")) then 1000000
+		   else (.context_window.context_window_size // 0) end) as $win0
+		| (if $win0 > 0 then $win0 else 200000 end) as $win
+		| (.context_window.total_input_tokens // 0) as $tin
+		| ((.context_window.current_usage.input_tokens // 0)
+		   + (.context_window.current_usage.cache_creation_input_tokens // 0)
+		   + (.context_window.current_usage.cache_read_input_tokens // 0)) as $cur
+		| (if $tin > 0 then $tin else $cur end) as $used
+		| [
+			(.cwd // .workspace.current_dir // ""),
+			(.cost.total_cost_usd // 0),
+			(.cost.total_duration_ms // 0),
+			(.cost.total_lines_added // 0),
+			(.cost.total_lines_removed // 0),
+			$win,
+			$used,
+			(if $win > 0 then ($used / $win * 100 | floor) else 0 end),
+			(.rate_limits.five_hour.used_percentage // 0 | floor),
+			(.rate_limits.seven_day.used_percentage // 0 | floor),
+			(.rate_limits.five_hour.resets_at // 0 | floor),
+			(.rate_limits.seven_day.resets_at // 0 | floor),
+			(.effort.level // ""),
+			(.model.display_name // "")
+		] | map(tostring) | join("")' 2>/dev/null
 	) || exit 0 # render nothing on empty or malformed input
 
 # Git branch: one call; empty outside a repo. Fall back to short SHA on detached HEAD.
@@ -101,11 +120,16 @@ if [ -n "${NO_COLOR:-}" ]; then
 else
 	c_reset=$'\e[0m'
 	c_dim=$'\e[2m'
-	c_branch=$'\e[36m'
+	# Truecolor (gruvbox) values, not the 16-color ANSI codes: terminal palettes
+	# vary per machine (e.g. Alacritty's gruvbox "green" is an olive #98971a
+	# that reads as yellow), so an absolute RGB value is what actually renders
+	# the same color on every machine. Requires tmux RGB passthrough
+	# (terminal-features '*:RGB'), set in terminal/tmux.nix.
+	c_branch=$'\e[38;2;142;192;124m' # aqua   #8ec07c
 	c_model=$'\e[1m'
-	c_ok=$'\e[32m'
-	c_warn=$'\e[33m'
-	c_hot=$'\e[31m'
+	c_ok=$'\e[38;2;184;187;38m'   # green  #b8bb26
+	c_warn=$'\e[38;2;250;189;47m' # yellow #fabd2f
+	c_hot=$'\e[38;2;251;73;52m'   # red    #fb4934
 fi
 
 # Pick a fullness color for a percentage into $_pc (no subshell).
