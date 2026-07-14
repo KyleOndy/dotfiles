@@ -7,11 +7,13 @@ from types import SimpleNamespace
 import logging
 from xdg import xdg_state_home
 
+import fuji_settings
 import import_from
 
 
 app = typer.Typer()
 app.add_typer(import_from.app, name="import")
+app.add_typer(fuji_settings.app, name="fuji-settings")
 
 
 """

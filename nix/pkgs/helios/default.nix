@@ -11,6 +11,7 @@ let
       colorama
       gphoto2
       pillow
+      pyusb
       shellingham
       typer
       typing-extensions
@@ -19,7 +20,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "helios";
-  version = "20240205";
+  version = "20260714";
 
   src = ./.;
 
