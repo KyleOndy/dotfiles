@@ -135,11 +135,18 @@ Field notes:
   parameters, not part of a custom slot. The camera's own EDIT/SAVE CUSTOM
   SETTING menu has no ISO entry either. `import` keeps those lines as
   comments in the file so the guidance is not lost.
+- **Clarity cannot be written.** The X-T5 rejects every USB write to the
+  clarity property (0xD1A2) with PTP error 0x201C, no matter the value or
+  payload width; reads work fine. `restore` warns and leaves clarity
+  untouched, so set it by hand in IMAGE QUALITY SETTING > CLARITY and
+  resave the slot. Recipe files keep the value for reference.
 - **Stills slots only.** The X-T5 has a separate C1-C7 bank for movie mode,
   but the protocol for it is unmapped. Video settings are still covered by
   the whole-blob backup.
-- **Encodings confirmed on the X100VI.** Other X-Processor 5 bodies should
-  behave the same but have not all been tested. Rejected writes come back as
+- **Encodings confirmed on the X100VI and X-T5.** Reverse engineered from
+  X100VI captures (filmkit), then verified against a real X-T5, which is
+  where the DR-Auto, grain Off, and clarity quirks above came from. Other
+  X-Processor 5 bodies should behave the same. Rejected writes come back as
   warnings, not silent corruption, and `--dump-raw` shows what the camera
   actually stores.
 - **Older bodies will not work.** X-Processor 4 and earlier do not expose the

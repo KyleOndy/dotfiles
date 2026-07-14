@@ -892,12 +892,37 @@ def write_slot(ptp, slot, recipe, name):
     ptp.set_prop(PROP_PRESET_NAME, fuji_settings.encode_ptp_string(name))
 
     written = []
+    rejected = []
     for prop, value in props:
         try:
             ptp.set_prop(prop, struct.pack("<H", value & 0xFFFF))
             written.append((prop, value & 0xFFFF))
         except PtpError as e:
-            warnings.append(f"camera rejected 0x{prop:04X}=0x{value:04X} (PTP {e})")
+            rejected.append((prop, value & 0xFFFF, e))
+
+    # the X-T5 rejects some writes whose value the slot already holds
+    # (observed: clarity 0x0000 comes back PTP 0x201C); only warn when the
+    # slot actually ends up different from the recipe
+    for prop, value, error in rejected:
+        try:
+            actual = parse_u16(prop, ptp.get_prop(prop))
+        except (PtpError, RuntimeError):
+            actual = None
+        if actual == value:
+            logging.debug(
+                f"camera rejected 0x{prop:04X}=0x{value:04X} (PTP {error}) "
+                "but the slot already holds that value"
+            )
+        elif prop == PROP_CLARITY:
+            # the X-T5 rejects every clarity write (any value, any payload
+            # size) with PTP 0x201C; reads work fine
+            warnings.append(
+                f"clarity {decode_x10(value):+g} not written (PTP {error}); "
+                "the camera rejects clarity over USB, set it by hand in "
+                "IMAGE QUALITY SETTING > CLARITY and resave the slot"
+            )
+        else:
+            warnings.append(f"camera rejected 0x{prop:04X}=0x{value:04X} (PTP {error})")
 
     read_back, _ = fuji_settings.read_ptp_string(ptp.get_prop(PROP_PRESET_NAME), 0)
     if read_back.strip() != name:
