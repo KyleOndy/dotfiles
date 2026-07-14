@@ -77,12 +77,17 @@ FILM_SIMULATIONS = {
 }
 MONO_SIMS = {0x06, 0x07, 0x08, 0x09, 0x0A, 0x0C, 0x0D, 0x0E, 0x0F}
 
+# dynamic range is stored as a raw percentage except DR-Auto; observed on
+# the X-T5 (a slot programmed from a published DR-Auto recipe reads 0xFFFF)
+DR_AUTO_RAW = 0xFFFF
+
 GRAIN = {
-    1: "Off",
+    1: "Off",  # filmkit's value, inferred rather than captured
     2: "Weak/Small",
     3: "Strong/Small",
     4: "Weak/Large",
     5: "Strong/Large",
+    6: "Off",  # what the X-T5 stores; last entry wins the write lookup
 }
 
 STRENGTH3 = {1: "Off", 2: "Weak", 3: "Strong"}
@@ -211,7 +216,8 @@ def decode_recipe(slot_data):
     if sim_raw is not None:
         recipe["film_simulation"] = decode_enum(FILM_SIMULATIONS, sim_raw)
     if PROP_DYNAMIC_RANGE in raw:
-        recipe["dynamic_range"] = raw[PROP_DYNAMIC_RANGE]
+        dr = raw[PROP_DYNAMIC_RANGE]
+        recipe["dynamic_range"] = "Auto" if dr == DR_AUTO_RAW else dr
     if PROP_GRAIN in raw:
         recipe["grain"] = decode_enum(GRAIN, raw[PROP_GRAIN])
     if PROP_COLOR_CHROME in raw:
@@ -281,6 +287,14 @@ def encode_x10(value):
     return int(round(float(value) * 10)) & 0xFFFF
 
 
+def encode_dynamic_range(value):
+    if isinstance(value, str):
+        if normalize(value) in ("auto", "drauto"):
+            return DR_AUTO_RAW
+        raise RecipeError(f"dynamic_range: unknown value {value!r}")
+    return value
+
+
 def encode_recipe(recipe):
     """Return the ordered (prop id, u16 value) write list for a recipe.
 
@@ -301,7 +315,7 @@ def encode_recipe(recipe):
     props = [
         (0xD18E, pt(0xD18E)),
         (0xD18F, pt(0xD18F)),
-        (PROP_DYNAMIC_RANGE, recipe.get("dynamic_range", 100)),
+        (PROP_DYNAMIC_RANGE, encode_dynamic_range(recipe.get("dynamic_range", 100))),
         (0xD191, pt(0xD191)),
         (PROP_FILM_SIMULATION, sim),
     ]
@@ -389,8 +403,12 @@ def validate_recipe(recipe, source):
     )
     is_mono = sim in MONO_SIMS
 
-    if "dynamic_range" in recipe and recipe["dynamic_range"] not in (100, 200, 400):
-        fail("dynamic_range must be 100, 200, or 400")
+    if "dynamic_range" in recipe:
+        dr = recipe["dynamic_range"]
+        if isinstance(dr, str) and normalize(dr) in ("auto", "drauto"):
+            recipe["dynamic_range"] = "Auto"
+        elif dr not in (100, 200, 400, DR_AUTO_RAW):
+            fail('dynamic_range must be 100, 200, 400, or "Auto"')
 
     for key, table, lookup in (
         ("grain", GRAIN, GRAIN_LOOKUP),
@@ -456,7 +474,8 @@ def validate_recipe(recipe, source):
 def summarize(recipe):
     parts = [str(recipe.get("film_simulation", "?"))]
     if "dynamic_range" in recipe:
-        parts.append(f"DR{recipe['dynamic_range']}")
+        dr = recipe["dynamic_range"]
+        parts.append("DR Auto" if dr == "Auto" else f"DR{dr}")
     grain = recipe.get("grain", "Off")
     if grain != "Off":
         parts.append(f"grain {grain}")
@@ -594,7 +613,7 @@ def parse_film_sim_value(value):
 
 def parse_dynamic_range_value(value):
     if "auto" in value.lower():
-        return None
+        return {"dynamic_range": "Auto"}
     number = parse_number(value)
     if number in (100, 200, 400):
         return {"dynamic_range": int(number)}

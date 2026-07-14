@@ -108,8 +108,12 @@ Field notes:
 - **film_simulation**: camera menu names, fuzzy matched ("classic chrome",
   "Classic Neg", "Acros+Ye"). A bare integer also works, for simulations we
   do not know about yet.
-- **dynamic_range**: 100, 200, or 400. DR-Auto is not storable in a slot.
-- **grain**: Off, Weak/Small, Strong/Small, Weak/Large, Strong/Large.
+- **dynamic_range**: 100, 200, 400, or Auto. The camera stores Auto as
+  0xFFFF; confirmed on the X-T5 against a slot programmed from a published
+  DR-Auto recipe.
+- **grain**: Off, Weak/Small, Strong/Small, Weak/Large, Strong/Large. The
+  X-T5 stores Off as raw value 6, not the 1 filmkit inferred; we read both
+  as Off and write 6.
 - **color_chrome, color_chrome_fx_blue, smooth_skin**: Off, Weak, Strong.
   Quote "Off" in YAML or it parses as a boolean; the loader tolerates both.
 - **white_balance**: Auto, Daylight, Shade, Incandescent, Fluorescent 1-3,
