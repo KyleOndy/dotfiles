@@ -42,6 +42,10 @@ RC_SESSION_ALREADY_OPEN = 0x201E
 
 PROP_USB_MODE = 0xD16E
 USB_MODE_BACKUP_RESTORE = 6
+# StartRawConversion, RawConvProfile, PresetSlot: only advertised in RAW
+# CONV./BACKUP RESTORE mode, the fallback signal on bodies like the X-T5
+# that do not expose the USB mode property at all
+RAW_CONV_MODE_PROPS = (0xD183, 0xD185, 0xD18C)
 
 FUJI_BACKUP_FORMAT = 0x5000
 BACKUP_HANDLE = 0
@@ -326,19 +330,36 @@ def open_camera(device_index, force=False):
     ptp.open_session()
     manufacturer, model = ptp.device_info()
     logging.info(f"connected to {manufacturer} {model}")
+    fuji_props = sorted(p for p in ptp.supported_props if p >= 0xD000)
+    logging.debug(
+        f"camera advertises {len(fuji_props)} fuji properties: "
+        + " ".join(f"0x{p:04X}" for p in fuji_props)
+    )
 
-    try:
-        mode = ptp.usb_mode()
-    except (PtpError, RuntimeError) as e:
-        logging.debug(f"USB mode read failed: {e}")
-        mode = None
-    if mode != USB_MODE_BACKUP_RESTORE:
-        if force:
-            logging.warning(f"camera USB mode is {mode}, continuing because of --force")
-        else:
-            logging.error(
-                f"camera is not in backup mode (USB mode {mode}); {MODE_HINT}"
+    # libfuji treats a failed USB mode read as expected, not an error; some
+    # bodies (the X-T5 among them) never expose the property, so fall back
+    # to the properties only advertised in RAW CONV./BACKUP RESTORE mode
+    if PROP_USB_MODE in ptp.supported_props or not ptp.supported_props:
+        try:
+            mode = ptp.usb_mode()
+        except (PtpError, RuntimeError) as e:
+            logging.debug(f"USB mode read failed: {e}")
+            mode = None
+        in_backup_mode = mode == USB_MODE_BACKUP_RESTORE
+        detail = f"USB mode {mode}"
+    else:
+        in_backup_mode = any(p in ptp.supported_props for p in RAW_CONV_MODE_PROPS)
+        detail = "no USB mode property and no raw conversion properties"
+        if in_backup_mode:
+            logging.debug(
+                "no USB mode property; raw conversion properties are advertised"
             )
+
+    if not in_backup_mode:
+        if force:
+            logging.warning(f"{detail}, continuing because of --force")
+        else:
+            logging.error(f"camera is not in backup mode ({detail}); {MODE_HINT}")
             ptp.close()
             sys.exit(1)
 
