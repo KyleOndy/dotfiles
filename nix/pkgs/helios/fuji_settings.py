@@ -360,6 +360,18 @@ def open_camera(device_index, force=False):
             logging.warning(f"{detail}, continuing because of --force")
         else:
             logging.error(f"camera is not in backup mode ({detail}); {MODE_HINT}")
+            if fuji_props:
+                logging.error(
+                    "vendor properties the camera advertises: "
+                    + " ".join(f"0x{p:04X}" for p in fuji_props)
+                )
+            # card reader mode presents MTP, whose only vendor-range
+            # properties are 0xD401/0xD402
+            if fuji_props and all(0xD400 <= p <= 0xD4FF for p in fuji_props):
+                logging.error(
+                    "this looks like USB CARD READER mode; change CONNECTION "
+                    "MODE and unplug and replug the cable"
+                )
             ptp.close()
             sys.exit(1)
 
