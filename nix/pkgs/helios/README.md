@@ -137,9 +137,12 @@ Field notes:
   comments in the file so the guidance is not lost.
 - **Clarity cannot be written.** The X-T5 rejects every USB write to the
   clarity property (0xD1A2) with PTP error 0x201C, no matter the value or
-  payload width; reads work fine. `restore` warns and leaves clarity
+  payload width; reads work fine. The JPEG/HEIF format setting is not the
+  cause: HEIF disables clarity in-camera entirely, but the write is
+  rejected with JPEG selected too. `restore` warns and leaves clarity
   untouched, so set it by hand in IMAGE QUALITY SETTING > CLARITY and
-  resave the slot. Recipe files keep the value for reference.
+  resave the slot (this needs JPEG, since HEIF greys the menu out).
+  Recipe files keep the value for reference.
 - **Stills slots only.** The X-T5 has a separate C1-C7 bank for movie mode,
   but the protocol for it is unmapped. Video settings are still covered by
   the whole-blob backup.
