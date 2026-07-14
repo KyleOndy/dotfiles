@@ -35,6 +35,7 @@ OC_GET_OBJECT = 0x1009
 OC_SEND_OBJECT_INFO = 0x100C
 OC_SEND_OBJECT = 0x100D
 OC_GET_DEVICE_PROP_VALUE = 0x1015
+OC_SET_DEVICE_PROP_VALUE = 0x1016
 
 RC_OK = 0x2001
 RC_SESSION_ALREADY_OPEN = 0x201E
@@ -113,6 +114,7 @@ class PtpDevice:
     def __init__(self, dev):
         self.dev = dev
         self.tid = 0
+        self.supported_props = frozenset()
 
         try:
             dev.get_active_configuration()
@@ -218,7 +220,17 @@ class PtpDevice:
         self.transaction(OC_CLOSE_SESSION)
 
     def device_info(self):
-        return parse_device_info(self.transaction(OC_GET_DEVICE_INFO))
+        manufacturer, model, props = parse_device_info(
+            self.transaction(OC_GET_DEVICE_INFO)
+        )
+        self.supported_props = props
+        return manufacturer, model
+
+    def get_prop(self, prop):
+        return self.transaction(OC_GET_DEVICE_PROP_VALUE, (prop,))
+
+    def set_prop(self, prop, data):
+        self.transaction(OC_SET_DEVICE_PROP_VALUE, (prop,), data=data)
 
     def usb_mode(self):
         data = self.transaction(OC_GET_DEVICE_PROP_VALUE, (PROP_USB_MODE,))
@@ -252,9 +264,26 @@ def read_ptp_string(buf, off):
     return text.rstrip("\x00"), off + count * 2
 
 
+def encode_ptp_string(text):
+    # count byte is the number of UTF-16 code units including the terminator
+    if not text:
+        return b"\x00"
+    encoded = (text + "\x00").encode("utf-16-le")
+    count = len(encoded) // 2
+    if count > 255:
+        raise ValueError(f"string too long for PTP ({count} UTF-16 code units)")
+    return bytes([count]) + encoded
+
+
 def skip_ptp_array(buf, off, elem_size):
     (count,) = struct.unpack_from("<I", buf, off)
     return off + 4 + count * elem_size
+
+
+def read_ptp_u16_array(buf, off):
+    (count,) = struct.unpack_from("<I", buf, off)
+    off += 4
+    return list(struct.unpack_from(f"<{count}H", buf, off)), off + count * 2
 
 
 def parse_device_info(data):
@@ -262,16 +291,19 @@ def parse_device_info(data):
         off = 2 + 4 + 2  # StandardVersion, VendorExtensionID, VendorExtensionVersion
         _, off = read_ptp_string(data, off)  # VendorExtensionDesc
         off += 2  # FunctionalMode
-        # OperationsSupported, EventsSupported, DevicePropertiesSupported,
-        # CaptureFormats, ImageFormats: all u16 arrays
-        for _ in range(5):
+        # OperationsSupported and EventsSupported: u16 arrays
+        for _ in range(2):
+            off = skip_ptp_array(data, off, 2)
+        props, off = read_ptp_u16_array(data, off)  # DevicePropertiesSupported
+        # CaptureFormats and ImageFormats: u16 arrays
+        for _ in range(2):
             off = skip_ptp_array(data, off, 2)
         manufacturer, off = read_ptp_string(data, off)
         model, off = read_ptp_string(data, off)
-        return manufacturer, model
+        return manufacturer, model, frozenset(props)
     except (IndexError, struct.error, UnicodeDecodeError) as e:
         logging.warning(f"could not parse the camera DeviceInfo ({e})")
-        return "unknown", "unknown"
+        return "unknown", "unknown", frozenset()
 
 
 def open_camera(device_index, force=False):

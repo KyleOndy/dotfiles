@@ -12,6 +12,7 @@ let
       gphoto2
       pillow
       pyusb
+      pyyaml
       shellingham
       typer
       typing-extensions
