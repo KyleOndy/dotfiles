@@ -345,6 +345,13 @@ def open_camera(device_index, force=False):
     return ptp, model
 
 
+def settings_dir(ctx, *parts):
+    photo_dir = getattr(ctx.obj, "photo_dir", None) or os.path.join(
+        os.path.expanduser("~"), "photos"
+    )
+    return os.path.join(photo_dir, "settings", *parts)
+
+
 def default_backup_name(model):
     safe = model.strip().replace("/", "-").replace(" ", "-")
     return f"{safe}-{datetime.date.today().isoformat()}.bak"
@@ -356,7 +363,7 @@ def backup(
     output: Annotated[
         str,
         typer.Option(
-            help="Output file, defaults to MODEL-DATE.bak in the current directory"
+            help="Output file, defaults to MODEL-DATE.bak under <library>/settings/backups"
         ),
     ] = None,
     device: Annotated[
@@ -373,7 +380,12 @@ def backup(
     ptp = None
     try:
         ptp, model = open_camera(device, force=force)
-        path = output or default_backup_name(model)
+        if output:
+            path = output
+        else:
+            backup_dir = settings_dir(ctx, "backups")
+            os.makedirs(backup_dir, exist_ok=True)
+            path = os.path.join(backup_dir, default_backup_name(model))
         if os.path.exists(path):
             logging.error(f"refusing to overwrite {path}; move it or pass --output")
             sys.exit(1)

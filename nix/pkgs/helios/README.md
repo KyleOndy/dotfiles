@@ -37,8 +37,13 @@ Recipe restore writes to the camera. Take a cheap safety net first:
 helios fuji-settings backup
 ```
 
-That writes `MODEL-DATE.bak`. If a recipe write ever leaves a slot in a weird
-state, `helios fuji-settings restore MODEL-DATE.bak` puts everything back.
+That writes `MODEL-DATE.bak` into `<library>/settings/backups/`. If a recipe
+write ever leaves a slot in a weird state, `helios fuji-settings restore`
+with that file puts everything back.
+
+Everything defaults into the photo library (`~/photos`, or wherever
+`HELIOS_LIBRARY_PATH` points): whole-camera backups under
+`settings/backups/`, recipe files under `settings/recipes/`.
 
 ### Usage
 
@@ -48,13 +53,14 @@ helios fuji-recipes list
 helios fuji-recipes list --dump-raw   # raw property values, for debugging
 
 # camera slots -> files (c1-<name>.yaml .. c7-<name>.yaml)
-helios fuji-recipes backup --dir ./recipes
-helios fuji-recipes backup --slots 1,3
+helios fuji-recipes backup                # into <library>/settings/recipes
+helios fuji-recipes backup --dir ./recipes --slots 1,3
 
 # file -> camera slot
 helios fuji-recipes restore kodachrome-64.yaml --slot 3
 
 # whole directory -> camera, mapping c1-*.yaml to C1 and so on
+helios fuji-recipes restore               # from <library>/settings/recipes
 helios fuji-recipes restore --dir ./recipes
 
 # pasted fujixweekly text -> recipe file
@@ -69,6 +75,11 @@ take a second to show the new values in its menus; power cycling never hurts.
 `import` is fuzzy about labels and reports every line as parsed, kept as a
 comment, or unrecognized. Unrecognized lines mean you should check the output
 file by hand.
+
+Imported recipes land in the library without a slot prefix. Directory restore
+only pushes `c1-` to `c7-` prefixed files and skips the rest, so rename a
+recipe to `c3-kodachrome-64.yaml` (or restore it by file with `--slot 3`) to
+assign it a slot.
 
 ### Recipe files
 

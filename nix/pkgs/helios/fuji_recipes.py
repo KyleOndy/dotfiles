@@ -770,7 +770,10 @@ def import_(
         str, typer.Argument(help="Text file with a pasted recipe, or - for stdin")
     ],
     output: Annotated[
-        str, typer.Option(help="Output path, defaults to <recipe-name>.yaml")
+        str,
+        typer.Option(
+            help="Output path, defaults to <recipe-name>.yaml under <library>/settings/recipes"
+        ),
     ] = None,
     name: Annotated[str, typer.Option(help="Override the recipe name")] = None,
 ):
@@ -798,7 +801,12 @@ def import_(
         logging.error(str(e))
         sys.exit(1)
 
-    path = output or f"{slugify(recipe['name'])}.yaml"
+    if output:
+        path = output
+    else:
+        recipe_dir = fuji_settings.settings_dir(ctx, "recipes")
+        os.makedirs(recipe_dir, exist_ok=True)
+        path = os.path.join(recipe_dir, f"{slugify(recipe['name'])}.yaml")
     if os.path.exists(path):
         logging.error(f"refusing to overwrite {path}; move it or pass --output")
         sys.exit(1)
@@ -982,8 +990,11 @@ def list_(
 def backup(
     ctx: typer.Context,
     dir: Annotated[
-        str, typer.Option(help="Directory to write recipe files into")
-    ] = ".",
+        str,
+        typer.Option(
+            help="Directory to write recipe files into, defaults to <library>/settings/recipes"
+        ),
+    ] = None,
     slots: Annotated[
         str, typer.Option(help="Comma separated slot numbers, defaults to all")
     ] = None,
@@ -996,6 +1007,8 @@ def backup(
 ):
     """Save the camera's custom settings slots as recipe files."""
     wanted = parse_slots(slots)
+    if dir is None:
+        dir = fuji_settings.settings_dir(ctx, "recipes")
 
     def run(ptp, model):
         recipes = []
@@ -1041,17 +1054,16 @@ def map_recipe_dir(dir):
             continue
         match = pattern.match(entry)
         if not match:
-            logging.error(
-                f"{entry} does not map to a slot; recipe files need a c1- to c7- prefix"
-            )
-            sys.exit(1)
+            # imported recipes have no slot prefix until they are assigned one
+            logging.info(f"skipping {entry} (no c1- to c7- slot prefix)")
+            continue
         slot = int(match.group(1))
         if slot in mapping:
             logging.error(f"both {mapping[slot]} and {entry} map to slot C{slot}")
             sys.exit(1)
         mapping[slot] = entry
     if not mapping:
-        logging.error(f"no .yaml recipe files found in {dir}")
+        logging.error(f"no c1- to c7- prefixed .yaml recipe files found in {dir}")
         sys.exit(1)
     return {slot: os.path.join(dir, entry) for slot, entry in mapping.items()}
 
@@ -1064,7 +1076,11 @@ def restore(
         int, typer.Option(min=1, max=NUM_SLOTS, help="Target slot (1-7)")
     ] = None,
     dir: Annotated[
-        str, typer.Option(help="Restore a whole directory, mapping c1-*.yaml to C1")
+        str,
+        typer.Option(
+            help="Restore a whole directory, mapping c1-*.yaml to C1; used by default "
+            "with <library>/settings/recipes when no FILE is given"
+        ),
     ] = None,
     name: Annotated[
         str, typer.Option(help="Override the recipe name stored in the camera")
@@ -1080,12 +1096,15 @@ def restore(
     ] = False,
 ):
     """Write recipe files into the camera's custom settings slots."""
-    if (file is None) == (dir is None):
+    if file is not None and dir is not None:
         logging.error("pass either a recipe FILE with --slot, or --dir, not both")
         sys.exit(1)
     if file is not None and slot is None:
         logging.error("--slot is required when restoring a single file")
         sys.exit(1)
+    if file is None and dir is None:
+        dir = fuji_settings.settings_dir(ctx, "recipes")
+        logging.info(f"restoring from {dir}")
 
     # parse and validate everything before touching the camera
     try:
