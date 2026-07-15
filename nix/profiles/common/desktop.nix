@@ -42,7 +42,6 @@ with lib;
       ]
       ++ lib.optionals stdenv.isLinux [
         # Linux-only applications
-        golden-cheetah # cycling analytics
         keymapp # zsa keyboard config
         remmina # remote desktop client
         vlc # watch things
