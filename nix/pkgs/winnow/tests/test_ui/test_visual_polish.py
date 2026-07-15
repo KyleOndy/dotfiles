@@ -149,17 +149,22 @@ class TestSpacingAndMargins:
         ), "Container should have 5px spacing"
 
     def test_viewing_area_grid_spacing(self, session, qtbot):
-        """Verify viewing area grid has zero margins and 2px spacing."""
+        """Verify viewing area grid reserves 3px margins and has 2px spacing.
+
+        The 3px margin reserves constant room for the mode-color frame (see
+        ViewingArea.set_mode_frame) so toggling it never reflows the grid -
+        the same reserved-space pattern ImageWidget uses for its focus ring.
+        """
         viewing_area = ViewingArea(session)
         qtbot.addWidget(viewing_area)
 
         layout = viewing_area.layout()
         margins = layout.contentsMargins()
 
-        assert margins.left() == 0, "Viewing area should have 0 left margin"
-        assert margins.top() == 0, "Viewing area should have 0 top margin"
-        assert margins.right() == 0, "Viewing area should have 0 right margin"
-        assert margins.bottom() == 0, "Viewing area should have 0 bottom margin"
+        assert margins.left() == 3, "Viewing area should have 3px left margin"
+        assert margins.top() == 3, "Viewing area should have 3px top margin"
+        assert margins.right() == 3, "Viewing area should have 3px right margin"
+        assert margins.bottom() == 3, "Viewing area should have 3px bottom margin"
         assert layout.spacing() == 2, "Viewing area should have 2px spacing"
 
     def test_overlay_positioning(self, session, qtbot):

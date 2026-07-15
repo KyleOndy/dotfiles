@@ -525,6 +525,38 @@ def legend_text(mode: Mode) -> str:
     return " · ".join(fragments)
 
 
+@dataclass(frozen=True)
+class ModeStyle:
+    """Visual presentation for a keyboard mode.
+
+    Attributes:
+        label: Status-bar badge text.
+        color: Accent hex color, shared by the badge background and the
+            viewing-area frame.
+    """
+
+    label: str
+    color: str
+
+
+# Deliberately outside the photo-status palette (keeper green, delete red,
+# selection blue reused for COMPARE, focus-ring amber) so the indicator never
+# reads as a mark on the photo itself. VISUAL gets the loudest color since its
+# marks are the most consequential: a single key marks the whole span.
+MODE_STYLES: dict[Mode, ModeStyle] = {
+    Mode.SINGLE: ModeStyle("SELECT", "#757575"),
+    Mode.COMPARE: ModeStyle("COMPARE", "#2196F3"),
+    Mode.VISUAL: ModeStyle("VISUAL", "#26A69A"),
+}
+
+
+def mode_style(mode: Mode) -> ModeStyle:
+    """Badge label and accent color for a mode - single source of truth
+    for the status-bar badge and the viewing-area frame.
+    """
+    return MODE_STYLES[mode]
+
+
 def help_sections() -> list[tuple[str, list[tuple[str, str]]]]:
     """Group bindings for the help overlay.
 

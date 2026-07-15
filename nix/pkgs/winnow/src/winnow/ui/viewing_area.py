@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QWi
 
 from winnow.core.session import PhotoStatus, Session
 from winnow.ui.image_widget import ZOOM_STOPS_PERCENT, ImageWidget
+from winnow.ui.keymap import Mode, mode_style
 
 # Background-decode this many neighbors on each side of a single selection,
 # so sequential culling (arrow-key navigation) stays a cache hit in either
@@ -380,9 +381,16 @@ class ViewingArea(QWidget):
         self.sync_controller = SynchronizedViewController()
         self.focused_index: int = 0
 
+        # Reserve constant room for the mode frame (see set_mode_frame) so
+        # toggling it never reflows the grid, and enable stylesheet
+        # backgrounds - a plain QWidget subclass won't render stylesheet
+        # borders without WA_StyledBackground (same pattern as ImageWidget's
+        # focus ring, see image_widget.py's setup_ui).
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
         # Grid layout for future single/multi-image display
         layout = QGridLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(3, 3, 3, 3)
         layout.setSpacing(2)
 
         # Empty state message
@@ -394,6 +402,20 @@ class ViewingArea(QWidget):
         self.zoom_overlay = ZoomControlOverlay(self)
         self.zoom_overlay.setParent(self)
         self.zoom_overlay.hide()  # Hidden until images displayed
+
+    def set_mode_frame(self, mode: Mode) -> None:
+        """Tint the viewing-area border to match the current keyboard mode.
+
+        Paired with MainWindow's status-bar mode badge (both driven by
+        mode_style) so a live VISUAL span and a committed COMPARE grid -
+        otherwise identical, a grid with an amber focus ring - are
+        distinguishable at a glance.
+
+        Args:
+            mode: The mode to reflect in the frame color.
+        """
+        color = "transparent" if mode is Mode.SINGLE else mode_style(mode).color
+        self.setStyleSheet(f"ViewingArea {{ border: 3px solid {color}; }}")
 
     def clear_widgets(self) -> None:
         """Clear all currently displayed image widgets.

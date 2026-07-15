@@ -23,7 +23,7 @@ from winnow.core.session import Session
 from winnow.core.thumbnailer import Thumbnailer
 from winnow.ui.help_overlay import HelpOverlay
 from winnow.ui.keyboard_controller import KeyboardController
-from winnow.ui.keymap import Mode, legend_text
+from winnow.ui.keymap import Mode, legend_text, mode_style
 from winnow.ui.thumbnail_strip import ThumbnailStrip
 from winnow.ui.viewing_area import ViewingArea
 
@@ -93,21 +93,26 @@ class MainWindow(QMainWindow):
 
         # Keyboard-driven culling: shortcuts, marking pipeline, undo
         self.keyboard = KeyboardController(self)
-        self.keyboard.mode_changed.connect(self._update_legend)
-        self._update_legend(self.keyboard.mode)
+        self.keyboard.mode_changed.connect(self._on_mode_changed)
+        self._on_mode_changed(self.keyboard.mode)
 
         # Initialize image cache after the window is shown. Deferred via
         # QTimer so the window paints first.
         QTimer.singleShot(0, self._start_image_loading)
 
     def _setup_status_bar(self) -> None:
-        """Create the status bar: key legend left, memory usage right."""
+        """Create the status bar: mode badge, key legend left, memory right."""
         status_bar = QStatusBar()
         self.setStatusBar(status_bar)
 
-        # Context-sensitive key legend; content set by _update_legend
+        # Colored SELECT/COMPARE/VISUAL badge; styled by _on_mode_changed
+        # whenever the keyboard mode changes.
+        self.mode_badge = QLabel()
+        status_bar.addWidget(self.mode_badge)
+
+        # Context-sensitive key legend; content set by _on_mode_changed
         # whenever the keyboard mode changes. Transient showMessage
-        # notices ("pass complete") temporarily cover it and auto-restore.
+        # notices ("pass complete") temporarily cover both and auto-restore.
         self.legend_label = QLabel()
         status_bar.addWidget(self.legend_label)
 
@@ -115,13 +120,20 @@ class MainWindow(QMainWindow):
         self.memory_label = QLabel("Memory: 0 MB")
         status_bar.addPermanentWidget(self.memory_label)
 
-    def _update_legend(self, mode: Mode) -> None:
-        """Refresh the legend for the current keyboard mode.
+    def _on_mode_changed(self, mode: Mode) -> None:
+        """Refresh every mode-driven presentation: badge, legend, frame.
 
         Args:
-            mode: The mode whose hot keys should be listed.
+            mode: The mode to reflect in the UI.
         """
         self.legend_label.setText(legend_text(mode))
+        style = mode_style(mode)
+        self.mode_badge.setText(f" {style.label} ")
+        self.mode_badge.setStyleSheet(
+            f"background-color: {style.color}; color: white; "
+            "font-weight: bold; border-radius: 4px; padding: 1px 6px;"
+        )
+        self.viewing_area.set_mode_frame(mode)
 
     def _start_image_loading(self) -> None:
         """Create the bounded image cache once the window is visible.

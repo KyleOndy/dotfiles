@@ -9,8 +9,13 @@ from winnow.ui.keymap import (
     build_lookup,
     help_sections,
     legend_text,
+    mode_style,
     unique_key_strings,
 )
+
+# Photo-status colors a mode accent must never collide with, so the mode
+# indicator can't be misread as a mark on the photo itself.
+_STATUS_COLORS = {"#4CAF50", "#F44336", "#FFC107"}  # keeper, delete, focus ring
 
 
 def test_no_duplicate_bindings_per_mode():
@@ -94,3 +99,27 @@ def test_digits_bound_only_in_compare_mode():
         assert (Mode.COMPARE, str(n)) in lookup
         assert (Mode.SINGLE, str(n)) not in lookup
         assert (Mode.VISUAL, str(n)) not in lookup
+
+
+def test_mode_style_labels():
+    """Each mode gets its own badge label."""
+    assert mode_style(Mode.SINGLE).label == "SELECT"
+    assert mode_style(Mode.COMPARE).label == "COMPARE"
+    assert mode_style(Mode.VISUAL).label == "VISUAL"
+
+
+def test_mode_style_colors_are_distinct():
+    """SINGLE, COMPARE, and VISUAL each get a different accent color."""
+    colors = {mode_style(mode).color for mode in Mode}
+
+    assert len(colors) == len(list(Mode))
+
+
+def test_mode_style_colors_avoid_photo_status_palette():
+    """Mode accents never collide with keeper/delete/focus-ring colors.
+
+    A mode indicator that reused a status color could be misread as a mark
+    on the photo rather than a statement about the keyboard mode.
+    """
+    for mode in Mode:
+        assert mode_style(mode).color not in _STATUS_COLORS
