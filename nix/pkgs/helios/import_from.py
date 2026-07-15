@@ -5,6 +5,7 @@ import shutil
 from PIL import Image, ExifTags
 import sqlite3
 import subprocess
+from dataclasses import dataclass
 from typing_extensions import Annotated
 import sys
 import os
@@ -158,7 +159,22 @@ class NullProgress:
 
 
 @app.command()
-def camera(ctx: typer.Context):
+def camera(
+    ctx: typer.Context,
+    force_download: Annotated[
+        bool,
+        typer.Option(
+            "--force-download",
+            help=(
+                "Skip the pre-download dedup check and re-transfer every "
+                "file off the camera, even ones already imported. The md5 "
+                "content dedup still runs afterward, so nothing already in "
+                "the library gets re-added -- use this if the fast metadata "
+                "skip is ever suspected of skipping something it shouldn't."
+            ),
+        ),
+    ] = False,
+):
     db = ctx.obj.db_path
     logging.debug(f"db path: {db}")
     init_db(db)
@@ -169,7 +185,7 @@ def camera(ctx: typer.Context):
 
     gp.check_result(gp.use_python_logging())
     logging.info("starting import from camera. Connecting...")
-    camera = connect_to_camera()
+    camera, serial = connect_to_camera()
     logging.debug("Getting list of files from camera.")
     progress = ImportProgress()
     with progress.listing("Listing files on camera..."):
@@ -177,6 +193,18 @@ def camera(ctx: typer.Context):
     if not camera_files:
         logging.warning("No files found")
         sys.exit(0)
+
+    # Dual-card backup recording (e.g. the X-T5 set to write both slots)
+    # exposes the same capture once per slot, byte-identical. Collapse to
+    # one entry per capture before we even consider downloading, so the
+    # mirror is never fetched twice in a single run.
+    deduped = dedupe_camera_files(camera_files)
+    mirrored = len(camera_files) - len(deduped)
+    if mirrored:
+        logging.debug(
+            f"{mirrored} file(s) were identical mirror copies across storages/slots"
+        )
+    camera_files = deduped
 
     counts, total = group_counts(camera_files)
     provisional_dir = os.path.join(ctx.obj.photo_dir, "_provisional")
@@ -189,6 +217,15 @@ def camera(ctx: typer.Context):
     # (by content md5), and only after it is safely in the library. That way
     # an aborted or interrupted import never orphans a photo: it just gets
     # re-downloaded and re-considered next run.
+    #
+    # Before that: a cheap, conservative pre-download check (camera serial +
+    # name + size + mtime, all readable from the camera without transferring
+    # file content) can skip the USB transfer itself for a file already
+    # known to be imported. Any mismatch just falls through to a real
+    # download -- the md5 dedup below remains the sole authority on what
+    # lands in the library, so a wrong skip-check miss costs at worst a
+    # redundant download, never a duplicate or a dropped photo.
+    # --force-download bypasses the skip check entirely.
     with progress.run(total):
         for group_index, (label, extensions) in enumerate(
             zip(GROUP_LABELS, IMPORT_GROUPS)
@@ -199,14 +236,25 @@ def camera(ctx: typer.Context):
             progress.start_group(label, len(group_files))
             group_cache = os.path.join(cache, str(group_index))
             os.makedirs(group_cache, exist_ok=True)
-            for path in group_files:
-                folder, name = os.path.split(path)
-                dst = os.path.join(group_cache, name)
-                logging.debug("copying from camera: %s -> %s" % (path, dst))
+            for f in group_files:
+                if not force_download and check_camera_file_seen(
+                    db, serial, f.name, f.size, f.mtime
+                ):
+                    logging.debug(
+                        f"skipping download of {f}: already imported "
+                        "(matched by camera serial, name, size, mtime)"
+                    )
+                    progress.advance()
+                    continue
+                dst = os.path.join(group_cache, f.name)
+                logging.debug(f"copying from camera: {f} -> {dst}")
                 camera_file = gp.check_result(
-                    gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
+                    gp.gp_camera_file_get(
+                        camera, f.folder, f.name, gp.GP_FILE_TYPE_NORMAL
+                    )
                 )
                 gp.check_result(gp.gp_file_save(camera_file, dst))
+                mark_camera_file_seen(db, serial, f.name, f.size, f.mtime, md5(dst))
                 progress.advance()
             # Quiet: this is a fast, local, already-accounted-for step (the
             # progress bars above already ticked once per file as it was
@@ -322,7 +370,7 @@ def connect_to_camera():
     logging.info("Found camera.")
     model, serial = get_camera_identity(camera)
     logging.info(f"Camera: {model or 'unknown model'} (serial {serial or 'unknown'})")
-    return camera
+    return camera, serial
 
 
 def get_camera_identity(camera):
@@ -349,12 +397,42 @@ def get_camera_identity(camera):
     return model, serial
 
 
+@dataclass(frozen=True)
+class CameraFile:
+    """A file on the camera's PTP filesystem, with the size and mtime
+    gp_camera_file_get_info() reports without transferring any file content.
+    Cheap enough to fetch for every enumerated file, and what the
+    pre-download dedup skip (see check_camera_file_seen) keys off of."""
+
+    folder: str
+    name: str
+    size: int
+    mtime: int
+
+    @property
+    def path(self):
+        return os.path.join(self.folder, self.name)
+
+    def __fspath__(self):
+        # Lets filter_files()/os.path.splitext() and friends treat a
+        # CameraFile like a plain path string without special-casing it.
+        return self.path
+
+    def __str__(self):
+        return self.path
+
+
 def list_camera_files(camera, path="/"):
     result = []
     # get files
     gp_list = gp.check_result(gp.gp_camera_folder_list_files(camera, path))
     for name, _ in gp_list:
-        result.append(os.path.join(path, name))
+        info = gp.check_result(gp.gp_camera_file_get_info(camera, path, name))
+        result.append(
+            CameraFile(
+                folder=path, name=name, size=info.file.size, mtime=info.file.mtime
+            )
+        )
     # read folders
     folders = []
     gp_list = gp.check_result(gp.gp_camera_folder_list_folders(camera, path))
@@ -366,8 +444,25 @@ def list_camera_files(camera, path="/"):
     return result
 
 
+def dedupe_camera_files(files):
+    """Collapse duplicate captures that share an identical (name, size,
+    mtime) -- e.g. a dual-SD-card body (the X-T5 in Backup mode) exposes
+    the same capture once per card/slot. Keeps the first-seen copy; order
+    comes from list_camera_files(), which walks SLOT 1 before SLOT 2."""
+    seen = set()
+    deduped = []
+    for f in files:
+        key = (f.name, f.size, f.mtime)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(f)
+    return deduped
+
+
 # TODO: better handling of "constants"
 FILE_IMPORT_TABLE = "file_imports"
+CAMERA_FILE_TABLE = "camera_files"
 
 
 def init_db(db_path):
@@ -379,9 +474,18 @@ def init_db(db_path):
         md5 TEXT NOT NULL,
         timestamp TEXT NOT NULL
         );
+    create table if not exists {CAMERA_FILE_TABLE} (
+        serial TEXT NOT NULL,
+        name TEXT NOT NULL,
+        size INTEGER NOT NULL,
+        mtime INTEGER NOT NULL,
+        md5 TEXT NOT NULL,
+        imported_at TEXT NOT NULL,
+        UNIQUE(serial, name, size, mtime)
+        );
       """
     with contextlib.closing(sqlite3.connect(db_path)) as con:
-        con.execute(cmd)
+        con.executescript(cmd)
         con.commit()
 
 
@@ -524,6 +628,40 @@ def mark_file_as_imported(db_path, file_name, md5sum):
     sql = f"INSERT INTO {FILE_IMPORT_TABLE} VALUES (?,?,CURRENT_TIMESTAMP)"
     with contextlib.closing(sqlite3.connect(db_path)) as con:
         con.execute(sql, (file_name, md5sum))
+        con.commit()
+
+
+def check_camera_file_seen(db_path, serial, name, size, mtime):
+    """Conservative pre-download check: true only when a file matching this
+    exact (serial, name, size, mtime) has already been downloaded and
+    recorded. A miss (including an unreadable serial) just means "download
+    it" -- the md5 dedup after download remains the sole authority on
+    whether it enters the library."""
+    if serial is None:
+        # Can't scope the key to a specific camera body, so never skip on
+        # an unreadable serial -- always fall through to a full download.
+        return False
+    sql = (
+        f"SELECT EXISTS(SELECT 1 FROM {CAMERA_FILE_TABLE} "
+        "WHERE serial=? AND name=? AND size=? AND mtime=?)"
+    )
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        cur = con.execute(sql, (serial, name, size, mtime))
+        return cur.fetchone() == (1,)
+
+
+def mark_camera_file_seen(db_path, serial, name, size, mtime, md5sum):
+    if serial is None:
+        # Would never be matched by check_camera_file_seen()'s serial=None
+        # guard above, so there is no point persisting it.
+        return
+    sql = (
+        f"INSERT OR REPLACE INTO {CAMERA_FILE_TABLE} "
+        "(serial, name, size, mtime, md5, imported_at) "
+        "VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)"
+    )
+    with contextlib.closing(sqlite3.connect(db_path)) as con:
+        con.execute(sql, (serial, name, size, mtime, md5sum))
         con.commit()
 
 
