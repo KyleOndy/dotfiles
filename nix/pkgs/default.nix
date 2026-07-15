@@ -4,6 +4,7 @@
 }:
 self: super: {
   babashka-scripts = super.callPackage ./babashka-scripts { };
+  backup-photos = super.callPackage ./backup-photos { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
   concourse = super.callPackage ./concourse { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };

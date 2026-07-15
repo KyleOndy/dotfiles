@@ -1,7 +1,12 @@
 # Desktop environment configuration
 # Used by profiles that need GUI applications and desktop environments
 
-{ pkgs, lib, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 with lib;
 {
   config = {
@@ -38,11 +43,20 @@ with lib;
       ]
       ++ lib.optionals stdenv.isLinux [
         # Linux-only applications
+        backup-photos # syncs ~/photos to tiger and S3 Deep Archive
         golden-cheetah # cycling analytics
         helios # hand rolled photo management
         keymapp # zsa keyboard config
         remmina # remote desktop client
         vlc # watch things
       ];
+
+    # helios defaults its dedup db to XDG_STATE_HOME, but the canonical
+    # database (56k+ imports) lives with the library it tracks. Point it
+    # there explicitly so a fresh XDG_STATE_HOME never starts an empty db
+    # and reimports everything.
+    home.sessionVariables = mkIf pkgs.stdenv.isLinux {
+      HELIOS_DB_PATH = "${config.home.homeDirectory}/photos/helios.db";
+    };
   };
 }
