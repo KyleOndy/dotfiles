@@ -127,7 +127,7 @@ else
 	# (terminal-features '*:RGB'), set in terminal/tmux.nix.
 	c_branch=$'\e[38;2;142;192;124m' # aqua   #8ec07c
 	c_model=$'\e[1m'
-	c_ok=$'\e[38;2;184;187;38m'   # green  #b8bb26
+	c_ok=$'\e[38;2;104;157;106m'  # sage   #689d6a
 	c_warn=$'\e[38;2;250;189;47m' # yellow #fabd2f
 	c_hot=$'\e[38;2;251;73;52m'   # red    #fb4934
 fi
