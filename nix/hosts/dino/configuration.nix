@@ -679,9 +679,21 @@
     # Photo tools that only make sense on the desktop workstation, not the
     # tiger server (which also runs the shared desktop profile).
     home.packages = with pkgs; [
+      backup-photos # syncs ~/photos to tiger and S3 Deep Archive
       helios # hand rolled photo management
       winnow # photo culling viewer
     ];
+
+    # helios defaults its dedup db to XDG_STATE_HOME, but the canonical
+    # database (56k+ imports) lives with the library it tracks. Point it
+    # there explicitly so a fresh XDG_STATE_HOME never starts an empty db
+    # and reimports everything. HELIOS_LIBRARY_PATH is also what
+    # backup-photos-to-dr.sh falls back to, so both stay pointed at the
+    # same canonical library.
+    home.sessionVariables = {
+      HELIOS_DB_PATH = "${config.users.users.kyle.home}/photos/helios.db";
+      HELIOS_LIBRARY_PATH = "${config.users.users.kyle.home}/photos";
+    };
 
     hmFoundry = {
       desktop = {
