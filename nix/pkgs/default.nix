@@ -18,6 +18,7 @@ self: super: {
   pragmata-pro = super.callPackage ./pragmata-pro { };
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   vscode-ls = super.callPackage ./vscode-ls { };
+  winnow = super.callPackage ./winnow { };
   battery-draw = super.callPackage ./battery-draw { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   flutter-pi = super.callPackage ./flutter-pi { };
