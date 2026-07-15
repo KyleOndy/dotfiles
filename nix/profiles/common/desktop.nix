@@ -45,7 +45,6 @@ with lib;
         # Linux-only applications
         backup-photos # syncs ~/photos to tiger and S3 Deep Archive
         golden-cheetah # cycling analytics
-        helios # hand rolled photo management
         keymapp # zsa keyboard config
         remmina # remote desktop client
         vlc # watch things
@@ -57,6 +56,7 @@ with lib;
     # and reimports everything.
     home.sessionVariables = mkIf pkgs.stdenv.isLinux {
       HELIOS_DB_PATH = "${config.home.homeDirectory}/photos/helios.db";
+      PHOTOS_DIR = "${config.home.homeDirectory}/photos";
     };
   };
 }

@@ -676,6 +676,13 @@
 
   # Dino-specific home-manager user configuration
   home-manager.users.kyle = {
+    # Photo tools that only make sense on the desktop workstation, not the
+    # tiger server (which also runs the shared desktop profile).
+    home.packages = with pkgs; [
+      helios # hand rolled photo management
+      winnow # photo culling viewer
+    ];
+
     hmFoundry = {
       desktop = {
         apps.zoom.enable = true;
