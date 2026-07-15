@@ -18,6 +18,7 @@ results/
 .terraform.lock.hcl
 .terraform/
 terraform.tfstate.backup
+terraform.tfstate.*.backup
 
 .clj-kondo/
 .clojure/

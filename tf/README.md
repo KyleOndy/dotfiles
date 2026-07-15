@@ -3,6 +3,10 @@
 Just some infrastructure code for resources outside of what I manage via Nix,
 mostly within AWS.
 
+- `dns.tf` / `iam.tf`: Route53 zones/records and the IAM users that update them.
+- `photos-backup.tf`: the S3 Deep Archive bucket `backup-photos-to-dr`
+  (`nix/pkgs/backup-photos`) syncs the photo library to.
+
 I know what you may be saying looking at files in this dir.
 
 > WHAT! You've sourced `terraform.tf`? Don't you know thats bad?
