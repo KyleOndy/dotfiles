@@ -11,6 +11,34 @@ helios fuji-settings restore    # write a .bak back to the camera
 helios fuji-recipes             # film recipe management, see below
 ```
 
+## Import
+
+`import camera` and `import filesystem` both process files in three passes,
+in this order: JPEGs, then videos (`.MOV`), then raws (`.RAF`). Same content
+dedup (by md5) applies to all three. If a camera connection drops mid-import,
+the earlier, more important passes are already downloaded and imported
+rather than stranded.
+
+Everything lands together in `<library>/_provisional/YYYY/YYYY_MM_DD/`, one
+flat date tree regardless of type: a JPEG, its RAF, and any MOVs from the
+same session sit side by side.
+
+JPEG timestamps come from Pillow's EXIF reader. RAF and MOV timestamps come
+from `exiftool` instead (Pillow can't open either format); the nix package
+puts `exiftool` on `PATH` for the wrapped binary, so nothing extra to
+install.
+
+The dedup database defaults to `<library>/helios.db`. Losing it (or pointing
+`HELIOS_DB_PATH` somewhere empty) doesn't lose photos, but it does mean the
+next import re-copies everything already in the library, landing as
+`_md5suffix` duplicates next to the originals.
+
+Raws are a local edit cache, not archival: `backup-photos-to-dr` mirrors the
+whole library to tiger, but excludes `.RAF` from the S3 disaster-recovery
+copy on purpose (see `tf/photos-backup.tf`). Culling a JPEG from
+`_provisional/` should take its RAF sibling with it; that's a cull-tool
+concern, not something helios does automatically.
+
 ## Film recipes
 
 Film recipes in the [fujixweekly](https://fujixweekly.com/) sense: a named

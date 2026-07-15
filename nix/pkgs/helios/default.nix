@@ -21,7 +21,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "helios";
-  version = "20260714";
+  version = "20260715";
 
   src = ./.;
 
@@ -34,7 +34,8 @@ stdenv.mkDerivation {
     cp *.py $out/libexec/helios/
 
     makeWrapper ${pythonEnv}/bin/python3 $out/bin/helios \
-      --add-flags "$out/libexec/helios/main.py"
+      --add-flags "$out/libexec/helios/main.py" \
+      --prefix PATH : ${lib.makeBinPath [ pkgs.exiftool ]}
   '';
 
   meta = with lib; {

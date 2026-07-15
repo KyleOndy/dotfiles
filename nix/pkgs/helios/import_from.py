@@ -4,6 +4,7 @@ import hashlib
 import shutil
 from PIL import Image, ExifTags
 import sqlite3
+import subprocess
 from typing_extensions import Annotated
 import sys
 import os
@@ -16,7 +17,14 @@ import gphoto2 as gp
 app = typer.Typer()
 
 UNKNOWN = "_unknown"
-SUPPORTED_EXTENSIONS = [".jpg", ".jpeg"]
+
+# Imported in this order: JPEGs (the SOOC library) first, then videos, then
+# raws, so a dropped connection or an interrupted import still lands the
+# most important files.
+IMAGE_EXTENSIONS = [".jpg", ".jpeg"]
+VIDEO_EXTENSIONS = [".mov"]
+RAW_EXTENSIONS = [".raf"]
+IMPORT_GROUPS = [IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, RAW_EXTENSIONS]
 
 
 @app.command()
@@ -38,21 +46,30 @@ def camera(ctx: typer.Context):
         logging.warning("No files found")
         sys.exit(0)
 
-    # Download everything to the cache first; don't record anything as
-    # imported here. The filesystem() import below is the sole place that
-    # marks a photo imported (by content md5), and only after it is safely
-    # in the library. That way an aborted or interrupted import never
-    # orphans a photo: it just gets re-downloaded and re-considered next run.
-    for path in filter_files(camera_files, SUPPORTED_EXTENSIONS):
-        folder, name = os.path.split(path)
-        dst = os.path.join(cache, name)
-        logging.info("copying from camera: %s -> %s" % (path, dst))
-        camera_file = gp.check_result(
-            gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
-        )
-        gp.check_result(gp.gp_file_save(camera_file, dst))
+    # Download and import one media type at a time (JPEGs, then videos, then
+    # raws), so a dropped connection partway through still leaves the
+    # earlier, more important groups fully downloaded and imported rather
+    # than stranded in the cache. Nothing is recorded as imported here; the
+    # filesystem() call below is the sole place that marks a photo imported
+    # (by content md5), and only after it is safely in the library. That way
+    # an aborted or interrupted import never orphans a photo: it just gets
+    # re-downloaded and re-considered next run.
+    for group_index, extensions in enumerate(IMPORT_GROUPS):
+        group_files = filter_files(camera_files, extensions)
+        if not group_files:
+            continue
+        group_cache = os.path.join(cache, str(group_index))
+        os.makedirs(group_cache, exist_ok=True)
+        for path in group_files:
+            folder, name = os.path.split(path)
+            dst = os.path.join(group_cache, name)
+            logging.info("copying from camera: %s -> %s" % (path, dst))
+            camera_file = gp.check_result(
+                gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
+            )
+            gp.check_result(gp.gp_file_save(camera_file, dst))
+        filesystem(ctx, group_cache, move=True, clobber=False)
 
-    filesystem(ctx, cache, move=True, clobber=False)
     shutil.rmtree(cache)
 
 
@@ -79,44 +96,50 @@ def filesystem(
     # TODO: refactor out to somewhere
     PROVISIONAL_DIR = os.path.join(ctx.obj.photo_dir, "_provisional")
 
-    for f in filter_files(get_all_files(src), SUPPORTED_EXTENSIONS):
-        logging.debug(f"file: {f}")
-        timestamp = get_image_timestamp(f)
-        logging.debug(f"{f} timestamp: {timestamp}")
-        if timestamp is None:
-            timestamp = UNKNOWN
+    all_files = get_all_files(src)
+    for extensions in IMPORT_GROUPS:
+        for f in filter_files(all_files, extensions):
+            _import_file(db, f, PROVISIONAL_DIR, move, prune, clobber)
 
-        dest_dir = get_target_dir(PROVISIONAL_DIR, timestamp)
-        f_name = os.path.basename(f)
-        md5sum = md5(f)
-        if check_is_file_seen_before(db, md5sum):
-            logging.info(f"have seen {f} ({md5sum})")
-            if prune:
-                logging.info(f"Removing {f} since we are pruning")
-                os.remove(f)
-            continue
 
-        dst = os.path.join(dest_dir, f_name)
-        if os.path.exists(dst) and not clobber:
-            # Different content landed on the same name/date as an existing
-            # photo (the seen-before check above already ruled out this
-            # being the same file). Never abort the whole batch over one
-            # collision: disambiguate with a content-derived suffix so both
-            # photos are kept.
-            base, ext = os.path.splitext(f_name)
-            renamed = f"{base}_{md5sum[:8]}{ext}"
-            logging.warning(
-                f"{dst} already exists with different content; saving {f} as {renamed}"
-            )
-            dst = os.path.join(dest_dir, renamed)
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        if move:
-            shutil.move(f, dst)
-            logging.info(f"moving {f} -> {dst}")
-        else:
-            shutil.copyfile(f, dst)
-            logging.info(f"copying {f} -> {dst}")
-        mark_file_as_imported(db, f, md5sum)
+def _import_file(db, f, provisional_dir, move, prune, clobber):
+    logging.debug(f"file: {f}")
+    timestamp = get_media_timestamp(f)
+    logging.debug(f"{f} timestamp: {timestamp}")
+    if timestamp is None:
+        timestamp = UNKNOWN
+
+    dest_dir = get_target_dir(provisional_dir, timestamp)
+    f_name = os.path.basename(f)
+    md5sum = md5(f)
+    if check_is_file_seen_before(db, md5sum):
+        logging.info(f"have seen {f} ({md5sum})")
+        if prune:
+            logging.info(f"Removing {f} since we are pruning")
+            os.remove(f)
+        return
+
+    dst = os.path.join(dest_dir, f_name)
+    if os.path.exists(dst) and not clobber:
+        # Different content landed on the same name/date as an existing
+        # photo (the seen-before check above already ruled out this
+        # being the same file). Never abort the whole batch over one
+        # collision: disambiguate with a content-derived suffix so both
+        # photos are kept.
+        base, ext = os.path.splitext(f_name)
+        renamed = f"{base}_{md5sum[:8]}{ext}"
+        logging.warning(
+            f"{dst} already exists with different content; saving {f} as {renamed}"
+        )
+        dst = os.path.join(dest_dir, renamed)
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if move:
+        shutil.move(f, dst)
+        logging.info(f"moving {f} -> {dst}")
+    else:
+        shutil.copyfile(f, dst)
+        logging.info(f"copying {f} -> {dst}")
+    mark_file_as_imported(db, f, md5sum)
 
 
 def connect_to_camera():
@@ -250,6 +273,46 @@ def get_image_timestamp(image_path):
     except ValueError:
         logging.warning(f"{image_path} has an unparseable EXIF date {raw!r}")
         return None
+
+
+EXIFTOOL_DATE_TAGS = ["DateTimeOriginal", "CreateDate", "MediaCreateDate"]
+
+
+def get_media_timestamp(path):
+    ext = os.path.splitext(path)[1].lower()
+    if ext in IMAGE_EXTENSIONS:
+        return get_image_timestamp(path)
+    # PIL can't open RAF or MOV; shell out to exiftool instead.
+    return get_exiftool_timestamp(path)
+
+
+def get_exiftool_timestamp(path):
+    try:
+        result = subprocess.run(
+            [
+                "exiftool",
+                "-T",
+                "-d",
+                "%Y:%m:%d %H:%M:%S",
+                *(f"-{tag}" for tag in EXIFTOOL_DATE_TAGS),
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError) as e:
+        logging.warning(f"{path}: exiftool failed ({e})")
+        return None
+
+    for raw in result.stdout.strip().split("\t"):
+        if raw in ("", "-"):
+            continue
+        try:
+            return datetime.datetime.strptime(raw, "%Y:%m:%d %H:%M:%S")
+        except ValueError:
+            continue
+    return None
 
 
 def md5(fname):
