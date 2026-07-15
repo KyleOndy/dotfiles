@@ -13,6 +13,16 @@ import time
 import datetime
 import logging
 import gphoto2 as gp
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 app = typer.Typer()
 
@@ -25,6 +35,126 @@ IMAGE_EXTENSIONS = [".jpg", ".jpeg"]
 VIDEO_EXTENSIONS = [".mov"]
 RAW_EXTENSIONS = [".raf"]
 IMPORT_GROUPS = [IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, RAW_EXTENSIONS]
+GROUP_LABELS = ["JPEG", "MOV", "RAF"]
+
+
+def group_counts(files):
+    """Per-group (label, count) pairs and the grand total, via filter_files()."""
+    counts = [
+        (label, len(filter_files(files, extensions)))
+        for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS)
+    ]
+    total = sum(count for _, count in counts)
+    return counts, total
+
+
+class ImportProgress:
+    """Live overall + per-type progress for an import run.
+
+    When stdout is not an interactive terminal, degrades to periodic plain
+    log lines instead of a live display (rich would otherwise write raw
+    escape codes into a piped log)."""
+
+    def __init__(self, console=None):
+        self.console = console or Console()
+        self.live = self.console.is_terminal
+        self._progress = None
+        self._overall_task = None
+        self._type_task = None
+        self._plain_done = 0
+        self._plain_total = 0
+
+    @contextlib.contextmanager
+    def listing(self, message="Listing files..."):
+        """Indeterminate spinner while enumerating source files."""
+        if self.live:
+            with self.console.status(message, spinner="dots"):
+                yield
+        else:
+            self.console.print(message)
+            yield
+
+    @contextlib.contextmanager
+    def run(self, total):
+        """Owns the live display for the copy/import loop.
+
+        While live, the root logger is temporarily pointed at a RichHandler
+        bound to this same Console: Rich only knows how to keep a live
+        display intact if log lines are routed through it too, otherwise a
+        routine "have seen ..." skip or a collision warning (both expected,
+        not rare) would be written straight to the tty and corrupt the
+        redraw. Restored on exit regardless of what the rest of the CLI
+        (fuji-settings, fuji-recipes) does with logging."""
+        if self.live:
+            self._progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TimeElapsedColumn(),
+                console=self.console,
+            )
+            root = logging.getLogger()
+            previous_handlers = root.handlers
+            root.handlers = [
+                RichHandler(
+                    console=self.console,
+                    show_time=False,
+                    show_path=False,
+                    markup=False,
+                )
+            ]
+            try:
+                with self._progress:
+                    self._overall_task = self._progress.add_task("Total", total=total)
+                    self._type_task = None
+                    yield self
+            finally:
+                root.handlers = previous_handlers
+        else:
+            self._plain_done = 0
+            self._plain_total = total
+            yield self
+
+    def start_group(self, label, count):
+        if self.live:
+            self._type_task = self._progress.add_task(label, total=count)
+        else:
+            logging.info(f"{label}: {count} file(s)")
+
+    def advance(self):
+        if self.live:
+            self._progress.advance(self._overall_task)
+            if self._type_task is not None:
+                self._progress.advance(self._type_task)
+            return
+        self._plain_done += 1
+        # Periodic, not per-file: roughly 20 log lines regardless of total,
+        # plus always the final one, so a piped/non-interactive run gets
+        # feedback without a line per file.
+        step = max(1, self._plain_total // 20)
+        if self._plain_done % step == 0 or self._plain_done == self._plain_total:
+            logging.info(f"Total {self._plain_done}/{self._plain_total}")
+
+
+class NullProgress:
+    """No-op progress used when an inner call must stay quiet, e.g. the
+    camera command's internal library-move step, so it doesn't open a second
+    live display nested inside the camera download's."""
+
+    @contextlib.contextmanager
+    def listing(self, message=None):
+        yield
+
+    @contextlib.contextmanager
+    def run(self, total):
+        yield self
+
+    def start_group(self, label, count):
+        pass
+
+    def advance(self):
+        pass
 
 
 @app.command()
@@ -41,34 +171,55 @@ def camera(ctx: typer.Context):
     logging.info("starting import from camera. Connecting...")
     camera = connect_to_camera()
     logging.debug("Getting list of files from camera.")
-    camera_files = list_camera_files(camera)
+    progress = ImportProgress()
+    with progress.listing("Listing files on camera..."):
+        camera_files = list_camera_files(camera)
     if not camera_files:
         logging.warning("No files found")
         sys.exit(0)
+
+    counts, total = group_counts(camera_files)
+    provisional_dir = os.path.join(ctx.obj.photo_dir, "_provisional")
 
     # Download and import one media type at a time (JPEGs, then videos, then
     # raws), so a dropped connection partway through still leaves the
     # earlier, more important groups fully downloaded and imported rather
     # than stranded in the cache. Nothing is recorded as imported here; the
-    # filesystem() call below is the sole place that marks a photo imported
+    # filesystem import below is the sole place that marks a photo imported
     # (by content md5), and only after it is safely in the library. That way
     # an aborted or interrupted import never orphans a photo: it just gets
     # re-downloaded and re-considered next run.
-    for group_index, extensions in enumerate(IMPORT_GROUPS):
-        group_files = filter_files(camera_files, extensions)
-        if not group_files:
-            continue
-        group_cache = os.path.join(cache, str(group_index))
-        os.makedirs(group_cache, exist_ok=True)
-        for path in group_files:
-            folder, name = os.path.split(path)
-            dst = os.path.join(group_cache, name)
-            logging.info("copying from camera: %s -> %s" % (path, dst))
-            camera_file = gp.check_result(
-                gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
+    with progress.run(total):
+        for group_index, (label, extensions) in enumerate(
+            zip(GROUP_LABELS, IMPORT_GROUPS)
+        ):
+            group_files = filter_files(camera_files, extensions)
+            if not group_files:
+                continue
+            progress.start_group(label, len(group_files))
+            group_cache = os.path.join(cache, str(group_index))
+            os.makedirs(group_cache, exist_ok=True)
+            for path in group_files:
+                folder, name = os.path.split(path)
+                dst = os.path.join(group_cache, name)
+                logging.debug("copying from camera: %s -> %s" % (path, dst))
+                camera_file = gp.check_result(
+                    gp.gp_camera_file_get(camera, folder, name, gp.GP_FILE_TYPE_NORMAL)
+                )
+                gp.check_result(gp.gp_file_save(camera_file, dst))
+                progress.advance()
+            # Quiet: this is a fast, local, already-accounted-for step (the
+            # progress bars above already ticked once per file as it was
+            # downloaded), and rich only supports one live display at a time.
+            _run_filesystem_import(
+                db,
+                group_cache,
+                provisional_dir,
+                move=True,
+                prune=False,
+                clobber=False,
+                progress=NullProgress(),
             )
-            gp.check_result(gp.gp_file_save(camera_file, dst))
-        filesystem(ctx, group_cache, move=True, clobber=False)
 
     shutil.rmtree(cache)
 
@@ -96,10 +247,23 @@ def filesystem(
     # TODO: refactor out to somewhere
     PROVISIONAL_DIR = os.path.join(ctx.obj.photo_dir, "_provisional")
 
+    _run_filesystem_import(
+        db, src, PROVISIONAL_DIR, move, prune, clobber, progress=ImportProgress()
+    )
+
+
+def _run_filesystem_import(db, src, provisional_dir, move, prune, clobber, progress):
     all_files = get_all_files(src)
-    for extensions in IMPORT_GROUPS:
-        for f in filter_files(all_files, extensions):
-            _import_file(db, f, PROVISIONAL_DIR, move, prune, clobber)
+    _, total = group_counts(all_files)
+    with progress.run(total):
+        for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS):
+            group_files = filter_files(all_files, extensions)
+            if not group_files:
+                continue
+            progress.start_group(label, len(group_files))
+            for f in group_files:
+                _import_file(db, f, provisional_dir, move, prune, clobber)
+                progress.advance()
 
 
 def _import_file(db, f, provisional_dir, move, prune, clobber):
@@ -135,10 +299,10 @@ def _import_file(db, f, provisional_dir, move, prune, clobber):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     if move:
         shutil.move(f, dst)
-        logging.info(f"moving {f} -> {dst}")
+        logging.debug(f"moving {f} -> {dst}")
     else:
         shutil.copyfile(f, dst)
-        logging.info(f"copying {f} -> {dst}")
+        logging.debug(f"copying {f} -> {dst}")
     mark_file_as_imported(db, f, md5sum)
 
 
@@ -156,7 +320,33 @@ def connect_to_camera():
         logging.info("Can not find camera. Is it on?")
         time.sleep(2)
     logging.info("Found camera.")
+    model, serial = get_camera_identity(camera)
+    logging.info(f"Camera: {model or 'unknown model'} (serial {serial or 'unknown'})")
     return camera
+
+
+def get_camera_identity(camera):
+    """Best-effort (model, serial) for a connected gphoto2 camera.
+
+    Either value may be None if the body/driver does not expose it; the
+    caller must tolerate that rather than failing the import."""
+    model = None
+    try:
+        abilities = gp.check_result(gp.gp_camera_get_abilities(camera))
+        model = abilities.model
+    except gp.GPhoto2Error as e:
+        logging.debug(f"could not read camera abilities: {e}")
+
+    serial = None
+    try:
+        config = gp.check_result(gp.gp_camera_get_config(camera))
+        widget = gp.check_result(gp.gp_widget_get_child_by_name(config, "serialnumber"))
+        serial = gp.check_result(gp.gp_widget_get_value(widget))
+    except gp.GPhoto2Error as e:
+        # many bodies/modes do not expose a serialnumber widget
+        logging.debug(f"could not read camera serial number: {e}")
+
+    return model, serial
 
 
 def list_camera_files(camera, path="/"):

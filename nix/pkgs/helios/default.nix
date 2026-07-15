@@ -13,6 +13,7 @@ let
       pillow
       pyusb
       pyyaml
+      rich
       shellingham
       typer
       typing-extensions
