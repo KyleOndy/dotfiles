@@ -26,14 +26,18 @@ echo ""
 log_highlight "Testing SSH authentication (will prompt for SSH key passphrase)..."
 if ssh -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
 	log_info "SSH authentication successful - SSH agent unlocked"
-else
-	# Try to add the key explicitly if connection failed but might be for other reasons
-	if ssh-add -l >/dev/null 2>&1; then
-		log_info "SSH keys already in agent"
-	else
-		ssh-add
+elif ssh-add -l >/dev/null 2>&1; then
+	log_info "SSH keys already in agent (GitHub check was inconclusive)"
+elif [[ "$(uname)" == "Darwin" ]]; then
+	# Linux SSH auth is served by gpg-agent's smartcard emulation, which has no
+	# concept of adding an arbitrary key file - only macOS's native ssh-agent does.
+	if ssh-add; then
 		log_info "SSH key added to agent"
+	else
+		log_error "Failed to add SSH key to agent"
 	fi
+else
+	log_error "No SSH keys in agent - check gpg-agent's enableSshSupport and ~/.gnupg/sshcontrol"
 fi
 echo ""
 
