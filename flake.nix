@@ -513,6 +513,7 @@
         {
           # Expose internal packages for direct building and benchmarking
           git-worktree-prompt = pkgs.git-worktree-prompt;
+          helios = pkgs.helios;
           winnow = pkgs.winnow;
 
           # Ergodox EZ firmware

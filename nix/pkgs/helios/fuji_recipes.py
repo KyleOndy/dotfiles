@@ -11,6 +11,7 @@ import usb.core
 import yaml
 from typing_extensions import Annotated
 
+import fuji_backup
 import fuji_settings
 from fuji_settings import PtpError
 
@@ -52,6 +53,16 @@ PROP_COLOR = 0xD19F
 PROP_SHARPNESS = 0xD1A0
 PROP_HIGH_ISO_NR = 0xD1A1
 PROP_CLARITY = 0xD1A2
+
+# name lookup for the dump-props diagnostic, generated from the PROP_* constants
+# above so it never drifts from them. Only the recipe-block properties we have
+# verified against filmkit are named; every other advertised property prints as
+# bare hex rather than an unverified guess.
+PROP_NAMES = {
+    value: name[len("PROP_") :].lower()
+    for name, value in list(globals().items())
+    if name.startswith("PROP_") and isinstance(value, int)
+}
 
 FILM_SIMULATIONS = {
     0x01: "Provia",
@@ -141,6 +152,12 @@ X10_FIELDS = {
     "clarity": (PROP_CLARITY, -5.0, 5.0),
 }
 
+# Per-slot menu settings (AF/MF, drive, shutter, image quality) that only the
+# blob restore path can write; the live PTP path never exposes them. Sourced from
+# fuji_backup so the schema never drifts from the encoders; see BLOB_SLOT_FIELDS
+# and IMAGE_QUALITY_VALUES there.
+BLOB_FIELD_KEYS = [*fuji_backup.SLOT_FIELD_KEYS, "image_quality", "detection"]
+
 RECIPE_KEYS = [
     "name",
     "film_simulation",
@@ -158,11 +175,30 @@ RECIPE_KEYS = [
     "color",
     "sharpness",
     "high_iso_nr",
+    "long_exposure_nr",
+    "af_mf",
     "clarity",
     "mono_wc",
     "mono_mg",
+    "auto_iso",
+    *BLOB_FIELD_KEYS,
     "passthrough",
 ]
+
+# recipe keys that only the blob (.dat) restore path can write; the PTP
+# 'fuji-recipes restore' path silently ignores them, so it warns when it sees one
+BLOB_ONLY_KEYS = ["auto_iso", "af_mf", *BLOB_FIELD_KEYS]
+
+# AF+MF (preamble byte) accepts these spellings; the blob stores on = 1, off = 0
+AF_MF_VALUES = {"on", "off", "true", "false", "yes", "no", "1", "0"}
+
+# long-exposure NR accepts these spellings; the blob stores it (off = 1, on = 0)
+LONG_EXP_NR_VALUES = {"on", "off", "true", "false", "yes", "no", "1", "0"}
+
+# auto-ISO is blob-only (no PTP property), so it rides inside the recipe as a
+# list of three banks (AUTO1, AUTO2, AUTO3) matching decode_auto_iso's output;
+# the blob path (fuji-settings edit) consumes it, the PTP path ignores it.
+AUTO_ISO_BANK_KEYS = {"default", "max", "min_shutter"}
 
 
 class RecipeError(Exception):
@@ -452,12 +488,55 @@ def validate_recipe(recipe, source):
     if nr not in HIGH_ISO_NR_ENCODE:
         fail("high_iso_nr must be an integer between -4 and 4")
 
+    if "long_exposure_nr" in recipe:
+        value = recipe["long_exposure_nr"]
+        if isinstance(value, bool):
+            pass
+        elif str(value).strip().lower() not in LONG_EXP_NR_VALUES:
+            fail("long_exposure_nr must be on or off")
+
+    if "af_mf" in recipe:
+        value = recipe["af_mf"]
+        if isinstance(value, bool):
+            pass
+        elif str(value).strip().lower() not in AF_MF_VALUES:
+            fail("af_mf must be on or off")
+
     for key in ("mono_wc", "mono_mg"):
         value = recipe.get(key, 0)
         if not isinstance(value, int) or not -9 <= value <= 9:
             fail(f"{key} must be an integer between -9 and 9")
         if value and not is_mono:
             fail(f"{key} only applies to monochrome film simulations")
+
+    if "auto_iso" in recipe:
+        banks = recipe["auto_iso"]
+        if not isinstance(banks, list) or len(banks) != 3:
+            fail("auto_iso must be a list of exactly 3 banks (AUTO1, AUTO2, AUTO3)")
+        for i, bank in enumerate(banks, start=1):
+            if not isinstance(bank, dict):
+                fail(f"auto_iso bank {i} (AUTO{i}) must be a mapping")
+            missing = AUTO_ISO_BANK_KEYS - set(bank)
+            if missing:
+                fail(f"auto_iso AUTO{i} is missing {', '.join(sorted(missing))}")
+            extra = set(bank) - AUTO_ISO_BANK_KEYS
+            if extra:
+                fail(f"auto_iso AUTO{i} has unknown keys {', '.join(sorted(extra))}")
+            # reuse the blob encoders as validators; they raise on bad values
+            try:
+                fuji_backup.encode_default_iso(bank["default"])
+                fuji_backup.encode_max_iso(bank["max"])
+                fuji_backup.encode_min_shutter(bank["min_shutter"])
+            except ValueError as e:
+                fail(f"auto_iso AUTO{i}: {e}")
+
+    for key in BLOB_FIELD_KEYS:
+        if key in recipe:
+            # reuse the blob encoder as the validator; it raises on a bad value
+            try:
+                fuji_backup.check_slot_field(key, recipe[key])
+            except ValueError as e:
+                fail(str(e))
 
     passthrough = recipe.get("passthrough", {})
     if not isinstance(passthrough, dict):
@@ -508,6 +587,11 @@ def summarize(recipe):
         value = recipe.get(key, 0)
         if value:
             parts.append(f"{label}{value:+g}")
+    if "af_mf" in recipe:
+        parts.append(f"af_mf={recipe['af_mf']}")
+    for key in BLOB_FIELD_KEYS:
+        if key in recipe:
+            parts.append(f"{key}={recipe[key]}")
     return ", ".join(parts)
 
 
@@ -914,8 +998,10 @@ def write_slot(ptp, slot, recipe, name):
                 "but the slot already holds that value"
             )
         elif prop == PROP_CLARITY:
-            # the X-T5 rejects every clarity write (any value, any payload
-            # size) with PTP 0x201C; reads work fine
+            # PTP 0x201C is InvalidDevicePropValue: the property is supported
+            # (reads work) but the X-T5 rejects the value in its current state.
+            # Not a hard limit (filmkit writes clarity fine on the X100VI); the
+            # exact state that unlocks it on the X-T5 is not yet pinned down.
             warnings.append(
                 f"clarity {decode_x10(value):+g} not written (PTP {error}); "
                 "the camera rejects clarity over USB, set it by hand in "
@@ -1026,6 +1112,69 @@ def list_(
                     for prop, value in sorted(data["raw"].items())
                 )
                 print(f"    {raw}")
+
+    with_camera(device, force, run)
+
+
+@app.command("dump-props")
+def dump_props(
+    ctx: typer.Context,
+    all_props: Annotated[
+        bool,
+        typer.Option(
+            "--all", help="Print every advertised property, not just the ones that vary"
+        ),
+    ] = False,
+    device: Annotated[
+        int, typer.Option(help="Camera index when several are connected")
+    ] = None,
+    force: Annotated[
+        bool, typer.Option("--force", help="Skip the USB mode and support checks")
+    ] = False,
+):
+    """Read every advertised device property for each slot and show which vary.
+
+    Diagnostic for enumerating what the camera exposes over PTP in backup mode.
+    Selecting a slot (0xD18C) can reload broader camera state, so a property
+    whose value changes across slots is stored per-slot. Use this to see whether
+    settings the recipe does not cover (e.g. auto-ISO) are reachable over PTP,
+    or only live in the whole-camera backup (see FUJI_BLOB_FORMAT.md). Values
+    are the raw low 16 bits and read-only; nothing is written.
+    """
+
+    def run(ptp, model):
+        props = sorted(p for p in ptp.supported_props if p >= 0xD000)
+        per_slot = {}
+        for slot in range(1, NUM_SLOTS + 1):
+            select_slot(ptp, slot)
+            values = {}
+            for prop in props:
+                try:
+                    values[prop] = parse_u16(prop, ptp.get_prop(prop))
+                except (PtpError, RuntimeError) as e:
+                    logging.debug(f"slot {slot}: could not read 0x{prop:04X} ({e})")
+                    values[prop] = None
+            per_slot[slot] = values
+
+        print(f"{model}: {len(props)} advertised vendor properties (>= 0xD000)")
+        header = "  prop    " + " ".join(f"  C{s}" for s in range(1, NUM_SLOTS + 1))
+        print(header)
+
+        shown = 0
+        for prop in props:
+            row = [per_slot[s][prop] for s in range(1, NUM_SLOTS + 1)]
+            varies = len({v for v in row if v is not None}) > 1
+            if not (all_props or varies):
+                continue
+            shown += 1
+            cells = " ".join("----" if v is None else f"{v:04X}" for v in row)
+            name = PROP_NAMES.get(prop, "")
+            flag = " *" if varies else "  "
+            print(f"  0x{prop:04X}{flag}{cells}  {name}")
+        if not shown:
+            print("  (no advertised property varies across slots)")
+        else:
+            print("  * = varies across slots (stored per-slot)")
 
     with_camera(device, force, run)
 
@@ -1169,6 +1318,14 @@ def restore(
             recipe_name = name if (name and file is not None) else recipe["name"]
             print(f"C{target_slot}  {recipe_name} ({os.path.basename(path)})")
             print(f"    {summarize(recipe)}")
+        blob_only = sorted({k for _, _, r in plan for k in BLOB_ONLY_KEYS if k in r})
+        if blob_only:
+            logging.warning(
+                "these recipe fields only write over the blob (.dat) restore path "
+                "and are ignored here: " + ", ".join(blob_only) + "; apply them with "
+                "'helios fuji-settings edit --recipe-dir ...' then "
+                "'helios fuji-settings restore'"
+            )
         print(
             "Hint: take a full settings backup first with 'helios fuji-settings backup'."
         )

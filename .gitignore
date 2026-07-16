@@ -42,3 +42,6 @@ target/
 
 # Decrypted host key (temporary during SD card builds)
 nix/hosts/cogsworth/keys/ssh_host_ed25519_key
+
+# Fujifilm camera settings backups (embed the camera serial); RE fixtures only
+FUJIFILM_*.DAT

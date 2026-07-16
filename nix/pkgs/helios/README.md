@@ -8,6 +8,14 @@ helios import camera            # pull photos off a connected camera
 helios import filesystem SRC    # import a directory of photos
 helios fuji-settings backup     # whole-camera settings backup (.bak)
 helios fuji-settings restore    # write a .bak back to the camera
+helios fuji-settings inspect F  # decode a backup's per-slot settings (recipe + auto-ISO)
+helios fuji-settings edit F     # edit a slot in a backup file offline (recomputes checksum)
+helios fuji-settings diff A B   # diff backups to map what a setting changed
+helios fuji-settings correlate  # locate blob offsets by matching known recipes
+helios fuji-settings commit-probe # find the bytes the camera re-stamps on save (RE aid)
+helios fuji-settings device-info # dump advertised PTP operations and properties
+helios fuji-settings sweep-props # probe the PTP property space, show what is writable
+helios fuji-settings test-writable # empirically test which PTP properties accept a write
 helios fuji-recipes             # film recipe management, see below
 ```
 
@@ -59,19 +67,77 @@ That is the same mode the blob backup uses. Nothing else to configure.
 
 ### Take a full backup first
 
-Recipe restore writes to the camera. Take a cheap safety net first:
+Backups are cheap and read-only, so take one before writing recipes:
 
 ```
 helios fuji-settings backup
 ```
 
-That writes `MODEL-DATE.bak` into `<library>/settings/backups/`. If a recipe
-write ever leaves a slot in a weird state, `helios fuji-settings restore`
-with that file puts everything back.
+That writes `MODEL-DATE.bak` into `<library>/settings/backups/`. Writing one back
+with `helios fuji-settings restore` works on the X-T5, so a backup is a real
+restore point for the whole camera, not just a record. To undo a bad recipe write
+you can restore a known-good `.bak`, or re-push your recipe files with
+`helios fuji-recipes restore`, whichever is handier.
 
 Everything defaults into the photo library (`~/photos`, or wherever
 `HELIOS_LIBRARY_PATH` points): whole-camera backups under
 `settings/backups/`, recipe files under `settings/recipes/`.
+
+### Inspecting a backup
+
+The `.bak` blob carries more per-slot state than the live PTP recipe path can
+reach. `inspect` decodes a backup file offline (no camera): the image-quality
+look (film sim, dynamic range, color, sharpness, tones, color chrome, grain),
+per-slot auto-ISO, and the per-slot menu settings (image quality, AF mode,
+shutter type, self-timer, and more).
+
+```
+helios fuji-settings inspect MODEL-DATE.bak       # per-slot recipe + auto-ISO
+helios fuji-settings inspect MODEL-DATE.bak --raw  # also dump each record hex
+```
+
+`diff` and `correlate` are the reverse-engineering tools. `diff` shows which
+bytes a setting change moved; `correlate` locates blob offsets automatically by
+matching a backup against recipes whose values are already known (no camera
+needed once you have one varied backup):
+
+```
+helios fuji-settings diff new.bak --slots 1,2      # slot C1 vs C2 in one file
+helios fuji-settings diff old.bak new.bak          # same slot across two backups
+helios fuji-settings correlate new.bak --recipes DIR  # match known recipes to offsets
+```
+
+To map a field not yet decoded: change one known setting on the camera, take a
+fresh backup, `diff` it against the previous one; the differing bytes are that
+setting's footprint. The verified layout, encodings, and what is still unknown
+live in `FUJI_BLOB_FORMAT.md`. Only the X-T5 format is decoded; other models need
+`--force` and the offsets may be wrong.
+
+`edit` rewrites slots in a backup file offline and recomputes the whole-file
+checksum, writing a new file. Three modes:
+
+```
+helios fuji-settings edit new.bak --slot 7 --name "My Slot"   # rename a slot
+helios fuji-settings edit new.bak --slot 7 --recipe c7.yaml   # look + auto-ISO + menu settings
+helios fuji-settings edit new.bak --recipe-dir DIR            # configure all seven
+```
+
+`--recipe` writes one slot's image-quality look, auto-ISO, and per-slot menu
+settings from a recipe file; `--recipe-dir` does all seven `c1..c7` files in one
+pass. This path reaches per-slot fields the live PTP `fuji-recipes` path cannot
+(auto-ISO and the menu settings). The menu-field encodings come from single
+controlled diffs, so validate a restore against a fresh camera backup. What each
+field maps to and how far it is
+trusted lives in `FUJI_WRITE_SURFACE.md`.
+
+Push the modified blob back with `helios fuji-settings restore`. Editing the slot
+name and restoring it is confirmed on the X-T5: the new name shows in the camera
+menu, and only the whole-file checksum needs recomputing (no per-record checksum
+stands in the way). Editing sharpness and auto-ISO then restoring is confirmed on
+the X-T5 too: both read back correctly after a power cycle. The rest of the look
+encoders reproduce every sample backup byte-for-byte and sit in the same record
+region, so they should apply the same way. Take a fresh backup first so you can
+always put it back.
 
 ### Usage
 
@@ -156,21 +222,65 @@ Field notes:
 - **passthrough**: raw values we round trip verbatim (image size, image
   quality, color space, long exposure NR, two unknowns). Leave it alone
   unless you know the encoding. Files without it get sane defaults.
+- **Per-slot menu settings**: the custom-bank EDIT/CHECK menu items (AF/MF,
+  drive, shutter, image quality) that only the blob (`.dat`) restore path writes.
+  `fuji-recipes restore` (PTP) cannot reach them and warns when it sees one.
+  Each byte was located by a controlled diff; see `FUJI_BLOB_FORMAT.md`.
+  - **Swept enums** take menu names: `image_quality` (fine / normal / fine+raw /
+    normal+raw / raw), `af_mode` (single-point / zone / wide-tracking / all),
+    `shutter_type` (mechanical / electronic / mech+elec / electronic-front-curtain
+    / efc+mech / efc+mech+elec), `self_timer` (off / 2s / 10s), `d_range_priority`
+    (off / weak / strong / auto), `afc_custom` (set1..set5), `image_size` (l / m /
+    s), `aspect_ratio` (3:2 / 16:9 / 1:1), `raw_recording` (uncompressed /
+    lossless-compressed / compressed), `num_focus_points` (117 / 425), `instant_af`
+    (af-s / af-c).
+  - **`detection`** is one key for the mutually-exclusive face/eye and subject
+    detection modes (they share record bytes): `off`, `face`, `face+eye-auto`,
+    `face+eye-right`, `face+eye-left`, or `subject-<type>` where type is animal,
+    bird, automobile, motorcycle, airplane, or train.
+  - **Confirmed toggles** take menu names too: `af_point_display` (on/off),
+    `interlock_spot_ae` (on/off), `release_priority_afs` / `release_priority_afc`
+    (release/focus), `flicker_reduction` (first-frame/all-frames), `lmo` (on/off),
+    `pre_af` (on/off), and `af_mf` (on/off, a preamble byte). `grain` also accepts
+    `Off` now.
+  - **Unconfirmed toggles** were mapped from a single diff, so their direction is
+    unknown and they take the raw byte `0` or `1` (read it back with
+    `fuji-settings inspect`): `dof_scale`, `self_timer_lamp`, `save_self_timer`,
+    `interval_priority`, `preshot_es`, `sports_finder`.
+  - The truncated last slot (C7) can't hold the trailer-flag byte some of these
+    use, so a flagged field (e.g. `d_range_priority`) aimed at C7 is refused; set
+    those on C1-C6 or on the camera. `detection` is all body bytes, so it works on
+    C7 too.
 
 ### Limitations
 
-- **ISO and exposure compensation are not stored.** They are shooting
-  parameters, not part of a custom slot. The camera's own EDIT/SAVE CUSTOM
-  SETTING menu has no ISO entry either. `import` keeps those lines as
-  comments in the file so the guidance is not lost.
-- **Clarity cannot be written.** The X-T5 rejects every USB write to the
-  clarity property (0xD1A2) with PTP error 0x201C, no matter the value or
-  payload width; reads work fine. The JPEG/HEIF format setting is not the
-  cause: HEIF disables clarity in-camera entirely, but the write is
-  rejected with JPEG selected too. `restore` warns and leaves clarity
-  untouched, so set it by hand in IMAGE QUALITY SETTING > CLARITY and
-  resave the slot (this needs JPEG, since HEIF greys the menu out).
-  Recipe files keep the value for reference.
+- **Two write paths, different reach.** The live PTP path (`fuji-recipes
+restore`) writes the image-quality look through the property view
+  (`0xD18E-0xD1A5`): film sim, WB, tone, grain, clarity, and so on. ISO and
+  exposure compensation are not among those properties, so `import` keeps those
+  lines as comments. A custom slot stores more than the PTP view exposes: its own
+  **auto-ISO** configuration (three AUTO1/2/3 banks) and a set of **per-slot menu
+  settings** (image quality, AF mode, shutter type, and more), both of which live
+  in the whole-camera backup. The blob write path reaches them: `helios
+fuji-settings edit` (and `--recipe-dir`) rewrites slots from recipe files,
+  recomputes the whole-file checksum, and `helios fuji-settings restore` applies
+  it on the X-T5, committing every slot in one pass, confirmed on the camera. The
+  look and auto-ISO round trips are confirmed; the menu-field encodings come from
+  single controlled diffs, so validate a restore against a fresh backup. Slot
+  **names** are the one restriction: the camera caps
+  the total length of all seven names (mid-90s of characters), so a set of long
+  recipe names may not all fit in one restore (see FUJI_WRITE_SURFACE.md,
+  "Restoring many slots at once").
+- **Clarity is not written over USB.** Writes to the clarity property
+  (`0xD1A2`) on the X-T5 come back `PTP 0x201C`, which is the standard PTP
+  `InvalidDevicePropValue`: the property is supported (reads work) but the value
+  is rejected in the camera's current state. This is not a hard protocol limit:
+  filmkit writes clarity fine on the X100VI, so it is an X-T5 state/firmware
+  condition we have not yet pinned down (a USB capture of X RAW Studio writing
+  clarity to an X-T5 would settle it). `restore` warns and leaves clarity
+  untouched, so set it by hand in IMAGE QUALITY SETTING > CLARITY and resave the
+  slot (needs JPEG; HEIF greys the menu out). Recipe files keep the value for
+  reference.
 - **Stills slots only.** The X-T5 has a separate C1-C7 bank for movie mode,
   but the protocol for it is unmapped. Video settings are still covered by
   the whole-blob backup.
