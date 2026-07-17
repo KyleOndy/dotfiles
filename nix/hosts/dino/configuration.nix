@@ -379,6 +379,8 @@
     powertop # Power consumption and management diagnosis tool
     bolt # Thunderbolt device management for CalDigit TS4 dock
     instax-link # Print to Instax Link WIDE printer over Bluetooth LE
+    libimobiledevice # idevicepair/idevice_id/ideviceinfo for iPhone USB access
+    ifuse # mount iPhone media (DCIM) over FUSE
   ];
 
   environment.pathsToLink = [
@@ -419,6 +421,7 @@
   services.openssh.enable = true;
   services.fstrim.enable = true;
   services.usbmuxd.enable = true; # iPhone USB tethering
+  services.gvfs.enable = true; # AFC backend for graphical iPhone browsing
   services.printing = {
     enable = true;
     drivers = [ pkgs.hplip ];
