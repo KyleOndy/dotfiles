@@ -65,7 +65,10 @@ in
       users."svc.deploy" = {
         isNormalUser = true;
         extraGroups = [ "wheel" ];
-        hashedPassword = "$6$XTNiJhQm1$D3M90syVNZdTazCOZIAF8TLK/hD4oSi3Xdst62dCkWR44ia3rujnPx.yWT6BaU4tvu1im5nR20WcjWnhPMTIV/";
+        # No password: this account is SSH-key + NOPASSWD-sudo only (deploy-rs
+        # never types a password). Leaving hashedPassword/hashedPasswordFile
+        # unset locks the account (`!` in /etc/shadow) instead of carrying a
+        # password nobody uses — SSH pubkey auth and sudo are unaffected.
         # todo: make a key for just deploys
         openssh.authorizedKeys.keys = [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKtqba65kXXovFMhf0fR02pTlBJ8/w1bj24wqJuQmUZ+ kyle@dino"
@@ -90,10 +93,14 @@ in
     nix = {
       package = pkgs.nixVersions.latest;
       settings = {
+        # Narrowed from [ "root" "@wheel" ]: every wheel user (e.g. kyle) was
+        # an implicit trusted Nix user, able to influence store/build
+        # sandboxing. Only svc.deploy needs it (deploy-rs pushes closures as
+        # this user); kyle does privileged Nix operations via sudo/root instead.
         trusted-users = [
           "root"
-          "@wheel"
-        ]; # todo: security issue?
+          "svc.deploy"
+        ];
         trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ];
         auto-optimise-store = true;
         download-buffer-size = 524288000; # 500 MB
@@ -116,6 +123,9 @@ in
         experimental-features = nix-command flakes
       '';
     };
+    # Intentional: deploy-rs activates dynamic, per-deploy store paths that
+    # can't be pinned to a fixed sudoers command allowlist, so svc.deploy
+    # needs unprompted sudo rather than a scoped NOPASSWD rule.
     security.sudo.wheelNeedsPassword = false;
 
     # Prevent critical services from restarting during activation.

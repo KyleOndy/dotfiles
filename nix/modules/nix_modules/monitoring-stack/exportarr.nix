@@ -24,6 +24,9 @@ let
       serviceConfig = {
         Type = "simple";
         DynamicUser = true;
+        # Grants read access to the group-scoped (0440) API key secrets
+        # instead of requiring world-readable (0444) sops secret files.
+        SupplementaryGroups = [ "exportarr" ];
         ExecStart = ''
           ${pkgs.exportarr}/bin/exportarr ${app} \
             --port ${toString appCfg.port} \

@@ -141,15 +141,20 @@ in
       "svc.backup" = {
         isSystemUser = true;
         group = "svc.backup";
-        # todo: change and store with SOP
-        hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
+        # No login needed (isSystemUser, inert placeholder — no
+        # services.syncoid wired up yet). Password removed entirely rather
+        # than sops-ified; account stays locked out until it has an actual
+        # login use case.
       };
       "svc.syncoid" = {
         isNormalUser = true;
         group = "svc.backup";
-        # todo: change and store with SOP
-        hashedPassword = "$6$Yajq.T62wzgWLEGz$RYoSapIb3RBA.8cfolUlXsZG2p588jwjUFYHJLsAgoN3rSKuk6XE3dZiMOtJETP22EQNTHdrFvcpGyhNm.KL10";
-        extraGroups = [ "wheel" ]; # TODO: figure out the exact permissions needed
+        # was a hashedPassword reused verbatim from svc.backup. No password
+        # needed: no SSH key either (inert placeholder), so leaving it unset
+        # locks the account, same as svc.backup.
+        # wheel dropped: no services.syncoid exists yet, so this account has
+        # no need for sudo. Grant ZFS delegation instead if/when it's wired up:
+        #   zfs allow svc.syncoid receive,create,mount,destroy,snapshot,hold storage/backups
         openssh.authorizedKeys.keys = [ ];
       };
     };
@@ -950,26 +955,56 @@ in
     # AWS creds (svc.ddns) for the Route53 DDNS updater. EnvironmentFile format:
     # AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY. Read by systemd as root.
     tiger_ddns_route53.mode = "0400";
-    monitoring_password = {
-      # vmagent/promtail use DynamicUser, need world-readable
-      mode = "0444";
-    };
     # Basic auth credentials for the monitoring write endpoints (read by Caddy).
     # Format: "username $2a$..." (bcrypt hash), one entry per line.
     monitoring_basicauth = {
       mode = "0440";
       group = "caddy";
     };
-    # API keys consumed by the exportarr metrics exporters.
-    sonarr_api_key.mode = "0444";
-    radarr_api_key.mode = "0444";
-    lidarr_api_key.mode = "0444";
-    prowlarr_api_key.mode = "0444";
-    bazarr_api_key.mode = "0444";
-    sabnzbd_api_key.mode = "0444";
-    # Consumed by the jellyfin backup service + jellyfin exporter.
-    jellyfin_api_key.mode = "0444";
+    # API keys consumed by the exportarr metrics exporters (all DynamicUser).
+    # Group-scoped (was 0444/world-readable) via the shared "exportarr"
+    # supplementary group instead of world-read.
+    sonarr_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    radarr_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    lidarr_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    prowlarr_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    bazarr_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    sabnzbd_api_key = {
+      mode = "0440";
+      group = "exportarr";
+    };
+    # Consumed by the jellyfin backup service (runs as root — unaffected) and
+    # the jellyfin-exporter (DynamicUser, granted via supplementary group).
+    #
+    # Group is named "jellyfin-secrets", NOT "jellyfin-exporter": the
+    # exporter's DynamicUser has no explicit User=, so systemd names its
+    # dynamic user/group after the unit itself ("jellyfin-exporter"). A
+    # static group with that exact name collides with systemd's dynamic
+    # allocation and fails the unit with exit code 217/USER (confirmed via
+    # a failed deploy — exportarr avoided this because its unit names are
+    # "exportarr-sonarr" etc., distinct from the shared "exportarr" group).
+    jellyfin_api_key = {
+      mode = "0440";
+      group = "jellyfin-secrets";
+    };
   };
+  users.groups.exportarr = { };
+  users.groups.jellyfin-secrets = { };
 
   system.stateVersion = "21.11"; # Did you read the comment?
 }

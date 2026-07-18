@@ -9,7 +9,13 @@
   users.users."svc.deploy" = {
     isNormalUser = true;
     extraGroups = [ "wheel" ];
-    hashedPassword = "$6$XTNiJhQm1$D3M90syVNZdTazCOZIAF8TLK/hD4oSi3Xdst62dCkWR44ia3rujnPx.yWT6BaU4tvu1im5nR20WcjWnhPMTIV/";
+    # Install-time-only throwaway. sops has no enrolled key for this host yet
+    # (that's the whole point of bootstrap.nix), so hashedPasswordFile isn't
+    # usable here. deployment_target.nix switches svc.deploy to a sops-backed
+    # hashedPasswordFile once the host's age key is added to .sops.yaml and
+    # the first real deploy runs. Regenerate this hash (mkpasswd -m sha-512)
+    # if it's ever suspected of being reused anywhere.
+    hashedPassword = "$6$Pnjbk9PVroeJvgkL$vJPI/4pL0Xei70YDdnGg5MckSfeAypn1Ctuc9WPvS3j62RZMv8zB6cWmlAyjRmg70s36QRXwENf50H9KmbqlN/";
     shell = pkgs.bashInteractive;
     # todo: make a key for just deploys
     openssh.authorizedKeys.keys = [
@@ -23,11 +29,16 @@
       experimental-features = nix-command flakes
     '';
     settings = {
+      # Narrowed from [ "root" "@wheel" ] to match deployment_target.nix:
+      # only svc.deploy needs Nix trust here (deploy-rs); kyle uses sudo/root
+      # for any privileged Nix operations instead.
       trusted-users = [
         "root"
-        "@wheel"
-      ]; # todo: security issue?
+        "svc.deploy"
+      ];
     };
   };
+  # Intentional, matches deployment_target.nix: deploy-rs needs unprompted
+  # sudo since it activates dynamic, per-deploy store paths.
   security.sudo.wheelNeedsPassword = false;
 }

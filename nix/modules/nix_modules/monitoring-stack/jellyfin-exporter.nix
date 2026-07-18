@@ -105,6 +105,12 @@ in
         {
           Type = "simple";
           DynamicUser = true;
+          # Grants read access to the group-scoped (0440) jellyfin_api_key
+          # secret instead of requiring world-readable (0444). Named
+          # "jellyfin-secrets", not "jellyfin-exporter": DynamicUser with no
+          # explicit User= names its dynamic user/group after the unit
+          # itself, so a static group sharing that name collides with it.
+          SupplementaryGroups = [ "jellyfin-secrets" ];
           ExecStart = "${startScript}";
           Restart = "on-failure";
           RestartSec = "5s";

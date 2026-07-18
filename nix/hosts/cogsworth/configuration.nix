@@ -24,10 +24,15 @@ in
   # WiFi credentials from sops
   sops.secrets.home_wifi_ssid = { };
   sops.secrets.home_wifi_password = { };
+  # vmagent (DynamicUser) and promtail (static user) both need to read this;
+  # group-scoped via "monitoring-secrets" instead of world-readable (0444).
   sops.secrets.monitoring_password = {
-    # vmagent/promtail use DynamicUser, need world-readable
-    mode = "0444";
+    mode = "0440";
+    group = "monitoring-secrets";
   };
+  users.groups.monitoring-secrets = { };
+  users.users.promtail.extraGroups = [ "monitoring-secrets" ];
+  systemd.services.vmagent.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
 
   # Deepgram API key for speech-to-text
   sops.secrets.cogsworth_deepgram_api_key = {

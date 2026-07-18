@@ -9,9 +9,9 @@ keys:
 
   - &tiger age1mcse3suy7qxr7pxn262zw67lrz2wyl8pr6hgqs5x0fk5p0w7qa4s9lnctc
 
-  # placeholder - real key filled in once trex exists and Remote Login is
-  # enabled (ssh-keyscan needs a live sshd to scan)
-  - &trex age1PLACEHOLDER_FILLED_IN_TUESDAY
+  # trex: not yet enrolled. Once trex exists and Remote Login is enabled
+  # (ssh-keyscan needs a live sshd to scan), generate its real key and add
+  # both the anchor above and *trex back into creation_rules below.
 
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
@@ -23,7 +23,6 @@ creation_rules:
           - *cogsworth
           - *dino
           - *tiger
-          - *trex
         pgp:
           - *kyle
   - path_regex: nix/hosts/cogsworth/keys/.*\.sops$

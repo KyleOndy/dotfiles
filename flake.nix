@@ -381,6 +381,58 @@
             overlays = overlays;
             config = { };
           };
+
+          # Guards against ever committing a decrypted sops/git-crypt file.
+          # git-crypt smudges files to plaintext in the working tree, so this
+          # checks the staged INDEX BLOB (git show :path), not the file on
+          # disk. The git-crypt check is gated on the clean filter actually
+          # being configured: `nix flake check`'s sandbox re-inits git with
+          # no filters and stages everything decrypted, so it would otherwise
+          # fail every flake check.
+          staysEncrypted = pkgs.writeShellApplication {
+            name = "stays-encrypted";
+            runtimeInputs = [
+              pkgs.git
+              pkgs.gnugrep
+              pkgs.coreutils
+            ];
+            text = ''
+              fail=0
+              # git show's output is read into a real file, never piped
+              # straight into a command that might exit early (grep -q,
+              # head -c) — an early-exiting reader closes its end of a pipe,
+              # which kills the writer with SIGPIPE and aborts the whole
+              # script under pipefail. Files also avoid bash variables
+              # truncating at embedded NUL bytes, which git-crypt's magic
+              # header starts with.
+              tmpfile=$(mktemp)
+              trap 'rm -f "$tmpfile"' EXIT
+
+              while IFS= read -r f; do
+                [ -n "$f" ] || continue
+                git show ":$f" > "$tmpfile" 2>/dev/null || true
+                if ! grep -q 'ENC\[' "$tmpfile"; then
+                  echo "ERROR: sops file not encrypted: $f" >&2
+                  fail=1
+                fi
+              done < <(git ls-files -- 'nix/secrets/*.yaml' 'nix/hosts/cogsworth/keys/*.sops')
+
+              if git config --get filter.git-crypt.clean >/dev/null 2>&1; then
+                while IFS= read -r f; do
+                  [ -n "$f" ] || continue
+                  git show ":$f" > "$tmpfile" 2>/dev/null || true
+                  magic=$(head -c 10 "$tmpfile" | od -An -tx1 | tr -d ' \n')
+                  # \0GITCRYPT\0 == 00474954435259505400
+                  if [ "$magic" != "00474954435259505400" ]; then
+                    echo "ERROR: git-crypt file decrypted in index: $f" >&2
+                    fail=1
+                  fi
+                done < <(git ls-files -- ':(attr:filter=git-crypt)')
+              fi
+
+              exit "$fail"
+            '';
+          };
         in
         {
           pre-commit-check =
@@ -409,6 +461,22 @@
                   name = "gofumpt";
                   entry = "${pkgs.gofumpt}/bin/gofumpt -l -w";
                   types = [ "go" ];
+                };
+                # No built-in gitleaks hook at this pre-commit-hooks.nix pin,
+                # so this is a custom local hook.
+                gitleaks = {
+                  enable = true;
+                  name = "gitleaks";
+                  entry = "${pkgs.gitleaks}/bin/gitleaks dir --no-banner --redact --exit-code 1 --config ${./.gitleaks.toml} .";
+                  language = "system";
+                  pass_filenames = false;
+                };
+                stays-encrypted = {
+                  enable = true;
+                  name = "stays-encrypted";
+                  entry = "${staysEncrypted}/bin/stays-encrypted";
+                  language = "system";
+                  pass_filenames = false;
                 };
               };
             }
