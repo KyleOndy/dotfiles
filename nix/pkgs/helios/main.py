@@ -39,6 +39,7 @@ def main(
     ctx: typer.Context,
     db_path: str = typer.Option(None, envvar="HELIOS_DB_PATH"),
     photo_dir: str = typer.Option(None, envvar="HELIOS_LIBRARY_PATH"),
+    recipe_dir: str = typer.Option(None, envvar="HELIOS_RECIPE_DIR"),
     log_level: LogLevel = LogLevel.info,
 ):
     if not db_path:
@@ -54,7 +55,11 @@ def main(
     )
     logging.debug(f"helios database path: {db_path}")
     logging.debug(f"helios library path: {photo_dir}")
-    ctx.obj = SimpleNamespace(db_path=db_path, photo_dir=photo_dir)
+    if recipe_dir:
+        logging.debug(f"helios recipe dir override: {recipe_dir}")
+    ctx.obj = SimpleNamespace(
+        db_path=db_path, photo_dir=photo_dir, recipe_dir=recipe_dir
+    )
 
 
 if __name__ == "__main__":

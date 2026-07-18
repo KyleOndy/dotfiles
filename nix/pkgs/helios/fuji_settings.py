@@ -479,6 +479,10 @@ def settings_dir(ctx, *parts):
     return os.path.join(photo_dir, "settings", *parts)
 
 
+def default_recipe_dir(ctx):
+    return getattr(ctx.obj, "recipe_dir", None) or settings_dir(ctx, "recipes")
+
+
 def default_backup_name(model):
     safe = model.strip().replace("/", "-").replace(" ", "-")
     return f"{safe}-{datetime.date.today().isoformat()}.bak"
@@ -1250,7 +1254,7 @@ def correlate(
         str,
         typer.Option(
             help="Directory of c1..c7 recipe files with known values, defaults "
-            "to <library>/settings/recipes"
+            "to <library>/settings/recipes or $HELIOS_RECIPE_DIR"
         ),
     ] = None,
     force: Annotated[
@@ -1276,7 +1280,7 @@ def correlate(
         sys.exit(1)
 
     if recipes is None:
-        recipes = settings_dir(ctx, "recipes")
+        recipes = default_recipe_dir(ctx)
     try:
         mapping = fuji_recipes.map_recipe_dir(recipes)
         loaded = [

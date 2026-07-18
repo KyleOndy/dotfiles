@@ -875,7 +875,8 @@ def import_(
     output: Annotated[
         str,
         typer.Option(
-            help="Output path, defaults to <recipe-name>.yaml under <library>/settings/recipes"
+            help="Output path, defaults to <recipe-name>.yaml under "
+            "<library>/settings/recipes or $HELIOS_RECIPE_DIR"
         ),
     ] = None,
     name: Annotated[str, typer.Option(help="Override the recipe name")] = None,
@@ -907,7 +908,7 @@ def import_(
     if output:
         path = output
     else:
-        recipe_dir = fuji_settings.settings_dir(ctx, "recipes")
+        recipe_dir = fuji_settings.default_recipe_dir(ctx)
         os.makedirs(recipe_dir, exist_ok=True)
         path = os.path.join(recipe_dir, f"{slugify(recipe['name'])}.yaml")
     if os.path.exists(path):
@@ -1185,7 +1186,8 @@ def backup(
     dir: Annotated[
         str,
         typer.Option(
-            help="Directory to write recipe files into, defaults to <library>/settings/recipes"
+            help="Directory to write recipe files into, defaults to "
+            "<library>/settings/recipes or $HELIOS_RECIPE_DIR"
         ),
     ] = None,
     slots: Annotated[
@@ -1201,7 +1203,7 @@ def backup(
     """Save the camera's custom settings slots as recipe files."""
     wanted = parse_slots(slots)
     if dir is None:
-        dir = fuji_settings.settings_dir(ctx, "recipes")
+        dir = fuji_settings.default_recipe_dir(ctx)
 
     def run(ptp, model):
         recipes = []
@@ -1272,7 +1274,7 @@ def restore(
         str,
         typer.Option(
             help="Restore a whole directory, mapping c1-*.yaml to C1; used by default "
-            "with <library>/settings/recipes when no FILE is given"
+            "with <library>/settings/recipes (or $HELIOS_RECIPE_DIR) when no FILE is given"
         ),
     ] = None,
     name: Annotated[
@@ -1296,7 +1298,7 @@ def restore(
         logging.error("--slot is required when restoring a single file")
         sys.exit(1)
     if file is None and dir is None:
-        dir = fuji_settings.settings_dir(ctx, "recipes")
+        dir = fuji_settings.default_recipe_dir(ctx)
         logging.info(f"restoring from {dir}")
 
     # parse and validate everything before touching the camera

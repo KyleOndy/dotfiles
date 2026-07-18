@@ -79,9 +79,9 @@ restore point for the whole camera, not just a record. To undo a bad recipe writ
 you can restore a known-good `.bak`, or re-push your recipe files with
 `helios fuji-recipes restore`, whichever is handier.
 
-Everything defaults into the photo library (`~/photos`, or wherever
-`HELIOS_LIBRARY_PATH` points): whole-camera backups under
-`settings/backups/`, recipe files under `settings/recipes/`.
+Whole-camera backups default into the photo library (`~/photos`, or wherever
+`HELIOS_LIBRARY_PATH` points) under `settings/backups/`. Recipe files default there too
+under `settings/recipes/`, unless `HELIOS_RECIPE_DIR` is set - see "Recipe files" below.
 
 ### Inspecting a backup
 
@@ -178,9 +178,13 @@ assign it a slot.
 ### Recipe files
 
 One YAML file per recipe. Everything is hand-editable. The version-controlled copy
-lives in this repo at `fuji-recipes/`; `~/photos/settings/recipes` is a copy kept in
-sync by hand, so `git diff fuji-recipes/` after `helios fuji-recipes backup` shows what
-changed on the camera since the last commit:
+lives in this repo at `fuji-recipes/`. `HELIOS_RECIPE_DIR` points every command's
+recipe-dir default there instead of `<library>/settings/recipes` (dino sets it in
+`nix/hosts/dino/configuration.nix`), so `helios fuji-recipes backup` writes straight
+into the repo and `git diff fuji-recipes/` shows what changed on the camera since the
+last commit. Only the recipe dir moves; `HELIOS_LIBRARY_PATH` still governs
+whole-camera backups and the dedup db. `--dir` / `--recipe-dir` / `--output` override
+it per command, same as any other helios path.
 
 ```yaml
 name: Kodachrome 64

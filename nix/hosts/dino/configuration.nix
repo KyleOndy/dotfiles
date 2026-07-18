@@ -693,9 +693,15 @@
     # and reimports everything. HELIOS_LIBRARY_PATH is also what
     # backup-photos-to-dr.sh falls back to, so both stay pointed at the
     # same canonical library.
+    #
+    # Recipes are version-controlled in fuji-recipes/ in this repo rather
+    # than under the photo library, so they get their own env var instead
+    # of moving under HELIOS_LIBRARY_PATH (which would also relocate
+    # backups and the dedup db).
     home.sessionVariables = {
       HELIOS_DB_PATH = "${config.users.users.kyle.home}/photos/helios.db";
       HELIOS_LIBRARY_PATH = "${config.users.users.kyle.home}/photos";
+      HELIOS_RECIPE_DIR = "${config.users.users.kyle.home}/src/dotfiles/main/fuji-recipes";
     };
 
     hmFoundry = {
