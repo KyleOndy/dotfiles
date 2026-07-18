@@ -206,6 +206,7 @@
         ++ getModules ./nix/modules/hm_modules/terminal;
       hmDesktopModules = getModules ./nix/modules/hm_modules/desktop;
       nixModules = getModules ./nix/modules/nix_modules;
+      darwinModules = getModules ./nix/modules/darwin_modules;
 
       supportedSystems = [
         "x86_64-linux"
@@ -311,53 +312,63 @@
         in
         inputs.nix-darwin.lib.darwinSystem {
           inherit system;
-          modules = [
-            ./nix/hosts/${hostname}/configuration.nix
-            inputs.home-manager.darwinModules.home-manager
-            inputs.mac-app-util.darwinModules.default
-            inputs.work-config.darwinModule
-          ]
-          ++ includeModules
-          ++ [
-            (
-              {
-                nixpkgs.overlays = overlays;
-                users.users.${username}.home = "/Users/${username}";
-                home-manager = {
-                  useGlobalPkgs = true;
-                  useUserPackages = true;
-                  extraSpecialArgs = {
-                    dotfiles-root = self.outPath;
-                    dotfiles-worktree = dotfilesWorktree;
-                    inherit inputs;
+          modules =
+            darwinModules
+            ++ [
+              ./nix/hosts/${hostname}/configuration.nix
+              inputs.home-manager.darwinModules.home-manager
+              inputs.mac-app-util.darwinModules.default
+              inputs.work-config.darwinModule
+              inputs.sops-nix.darwinModules.sops
+            ]
+            ++ includeModules
+            ++ [
+              (
+                {
+                  nixpkgs.overlays = overlays;
+                  users.users.${username}.home = "/Users/${username}";
+                  system.primaryUser = username;
+                  sops.defaultSopsFile = ./nix/secrets/secrets.yaml;
+                  home-manager = {
+                    useGlobalPkgs = true;
+                    useUserPackages = true;
+                    extraSpecialArgs = {
+                      dotfiles-root = self.outPath;
+                      dotfiles-worktree = dotfilesWorktree;
+                      inherit inputs;
+                    };
+                    # Include desktop modules for cross-platform validation
+                    # This allows desktop modules to reference programs.plasma without evaluation errors
+                    sharedModules =
+                      hmCoreModules
+                      ++ [ nixCatsHomeModule ]
+                      ++ [ inputs.mac-app-util.homeManagerModules.default ]
+                      ++ [ inputs.work-config.homeManagerModule ]
+                      ++ (
+                        if isDesktop then
+                          hmDesktopModules
+                          ++ [
+                            inputs.plasma-manager.homeModules.plasma-manager
+                          ]
+                        else
+                          [ ]
+                      );
+                    users.${username} =
+                      let
+                        baseProfile = {
+                          imports = [
+                            profileConfig.homeModule
+                          ]
+                          ++ (if builtins.pathExists hostHomeConfig then [ hostHomeConfig ] else [ ]);
+                        };
+                        extraUserConfig = extraConfig.home-manager.users.${username} or { };
+                      in
+                      baseProfile // extraUserConfig;
                   };
-                  # Include desktop modules for cross-platform validation
-                  # This allows desktop modules to reference programs.plasma without evaluation errors
-                  sharedModules =
-                    hmCoreModules
-                    ++ [ nixCatsHomeModule ]
-                    ++ [ inputs.mac-app-util.homeManagerModules.default ]
-                    ++ [ inputs.work-config.homeManagerModule ]
-                    ++ (
-                      if isDesktop then
-                        hmDesktopModules
-                        ++ [
-                          inputs.plasma-manager.homeModules.plasma-manager
-                        ]
-                      else
-                        [ ]
-                    );
-                  users.${username} = {
-                    imports = [
-                      profileConfig.homeModule
-                    ]
-                    ++ (if builtins.pathExists hostHomeConfig then [ hostHomeConfig ] else [ ]);
-                  };
-                };
-              }
-              // (builtins.removeAttrs extraConfig [ "home-manager" ])
-            )
-          ];
+                }
+                // (builtins.removeAttrs extraConfig [ "home-manager" ])
+              )
+            ];
         };
     in
     {
@@ -692,6 +703,21 @@
         hostname = "work-mac";
         profile = "desktop";
         username = "kondy";
+      };
+      darwinConfigurations.trex = mkDarwinSystem {
+        hostname = "trex";
+        profile = "desktop";
+        username = "kyle";
+        includeModules = [
+          ./nix/hosts/trex/root-ssh-config.nix
+          ./nix/modules/nix_modules/nixBuilders.nix
+        ];
+        # Email (notmuch/neomutt/mbsync) is only used on trex, matching dino.
+        extraConfig = {
+          home-manager.users.kyle = {
+            hmFoundry.terminal.email.enable = true;
+          };
+        };
       };
 
       homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {

@@ -204,11 +204,31 @@ test-mac: ## Test work-mac configuration evaluation
 
 .PHONY: test-mac-home
 test-mac-home: ## Test work-mac home-manager configuration
-	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.home-manager.users.'"kyle.ondy"'.home.homeDirectory
+	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.home-manager.users.'"kondy"'.home.homeDirectory
 
 .PHONY: deploy-mac
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
 	darwin-rebuild $(IMPURE) $(WORK_INPUT_FLAG) --flake .#work-mac switch
+
+.PHONY: build-trex
+build-trex: ## Build trex darwin configuration
+	nix build $(IMPURE) .#darwinConfigurations.trex.system
+
+.PHONY: build-trex-dry
+build-trex-dry: ## Dry-run build of trex darwin configuration
+	nix build $(IMPURE) .#darwinConfigurations.trex.system --dry-run
+
+.PHONY: test-trex
+test-trex: ## Test trex configuration evaluation
+	nix eval $(IMPURE) .#darwinConfigurations.trex.config.system.stateVersion
+
+.PHONY: test-trex-home
+test-trex-home: ## Test trex home-manager configuration
+	nix eval $(IMPURE) .#darwinConfigurations.trex.config.home-manager.users.'"kyle"'.home.homeDirectory
+
+.PHONY: deploy-trex
+deploy-trex: ## Deploy trex darwin configuration
+	darwin-rebuild $(IMPURE) --flake .#trex switch
 
 # WSL-specific targets
 .PHONY: build-wsl
