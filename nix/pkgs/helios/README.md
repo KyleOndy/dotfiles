@@ -177,7 +177,10 @@ assign it a slot.
 
 ### Recipe files
 
-One YAML file per recipe. Everything is hand-editable:
+One YAML file per recipe. Everything is hand-editable. The version-controlled copy
+lives in this repo at `fuji-recipes/`; `~/photos/settings/recipes` is a copy kept in
+sync by hand, so `git diff fuji-recipes/` after `helios fuji-recipes backup` shows what
+changed on the camera since the last commit:
 
 ```yaml
 name: Kodachrome 64

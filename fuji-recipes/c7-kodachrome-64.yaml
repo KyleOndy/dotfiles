@@ -1,0 +1,51 @@
+# Fujifilm film recipe for helios fuji-recipes restore
+# imported from pasted text on 2026-07-14
+# source: https://fujixweekly.com/2022/11/28/kodachrome-64-fujifilm-x-t5-x-trans-v-film-simulation-recipe/
+# ISO: Auto, up to ISO 6400
+# Exposure Compensation: 0 to +2/3 (typically)
+name: Kodachrome 64
+film_simulation: Classic Chrome
+dynamic_range: 200
+grain: Weak/Small
+color_chrome: Strong
+color_chrome_fx_blue: "Off"
+white_balance: Daylight
+wb_shift_r: 2
+wb_shift_b: -5
+highlight_tone: 0
+shadow_tone: 0.5
+color: 2
+sharpness: 1
+high_iso_nr: -4
+clarity: 3
+# --- operational defaults added by helios 2026-07-16; review/adjust ---
+# NOTE: af_point_display, d_range_priority, lmo omitted here: C7's trailer-flag
+# block is truncated in the backup, so set those three on the camera for C7.
+image_quality: fine+raw
+raw_recording: lossless-compressed
+image_size: l
+aspect_ratio: "3:2"
+af_mode: single-point
+num_focus_points: 117
+release_priority_afs: focus
+release_priority_afc: release
+instant_af: af-s
+pre_af: "off"
+af_mf: "off"
+detection: face+eye-auto
+afc_custom: set1
+shutter_type: mechanical
+self_timer: "off"
+flicker_reduction: first-frame
+interlock_spot_ae: "off"
+# auto-ISO banks: AUTO1 kids/action (1/250), AUTO2 general (auto min), AUTO3 fast (1/500)
+auto_iso:
+  - default: "125"
+    max: "12800"
+    min_shutter: 1/250
+  - default: "125"
+    max: "6400"
+    min_shutter: AUTO
+  - default: "125"
+    max: "12800"
+    min_shutter: 1/500

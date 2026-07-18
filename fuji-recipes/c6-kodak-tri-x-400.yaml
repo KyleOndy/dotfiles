@@ -1,0 +1,54 @@
+# Fujifilm film recipe for helios fuji-recipes restore
+# imported from pasted text on 2026-07-14
+# source: https://fujixweekly.com/2020/06/18/fujifilm-x100v-film-simulation-recipe-kodak-tri-x-400/
+# film sim can also be Acros+Ye/+R/+G, photographer's choice
+# low contrast: highlight -1 shadow +2; high contrast: highlight +1 shadow +4
+# best at ISO 1600 or higher
+# ISO: 1600 to 12800
+# Exposure Compensation: +1/3 to +1 (typically)
+name: Tri-X 400
+film_simulation: Acros
+dynamic_range: 200
+grain: Strong/Large
+color_chrome: Strong
+color_chrome_fx_blue: "Off"
+white_balance: Daylight
+wb_shift_r: 9
+wb_shift_b: -9
+highlight_tone: 0
+shadow_tone: 3
+sharpness: 1
+high_iso_nr: -4
+clarity: 4
+# --- operational defaults added by helios 2026-07-16; review/adjust ---
+image_quality: fine+raw
+raw_recording: lossless-compressed
+image_size: l
+aspect_ratio: "3:2"
+af_mode: single-point
+num_focus_points: 117
+af_point_display: "on"
+release_priority_afs: focus
+release_priority_afc: release
+instant_af: af-s
+pre_af: "off"
+af_mf: "off"
+detection: face+eye-auto
+d_range_priority: "off"
+afc_custom: set1
+shutter_type: mechanical
+self_timer: "off"
+flicker_reduction: first-frame
+interlock_spot_ae: "off"
+lmo: "on"
+# auto-ISO banks: AUTO1 kids/action (1/250), AUTO2 general (auto min), AUTO3 fast (1/500)
+auto_iso:
+  - default: "1600"
+    max: "12800"
+    min_shutter: 1/250
+  - default: "1600"
+    max: "12800"
+    min_shutter: AUTO
+  - default: "1600"
+    max: "12800"
+    min_shutter: 1/500
