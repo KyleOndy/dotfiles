@@ -7,6 +7,7 @@ self: super: {
   backup-photos = super.callPackage ./backup-photos { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
   concourse = super.callPackage ./concourse { };
+  fuji-transcode = super.callPackage ./fuji-transcode { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
   helios = super.callPackage ./helios { };
   instax-link = super.callPackage ./instax-link { };

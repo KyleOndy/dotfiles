@@ -683,6 +683,7 @@
     # tiger server (which also runs the shared desktop profile).
     home.packages = with pkgs; [
       backup-photos # syncs ~/photos to tiger and S3 Deep Archive
+      fuji-transcode # bakes F-Log2 LUT + transcodes X-T5 clips to DNxHR
       helios # hand rolled photo management
       winnow # photo culling viewer
     ];

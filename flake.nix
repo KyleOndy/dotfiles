@@ -512,6 +512,7 @@
         in
         {
           # Expose internal packages for direct building and benchmarking
+          fuji-transcode = pkgs.fuji-transcode;
           git-worktree-prompt = pkgs.git-worktree-prompt;
           helios = pkgs.helios;
           winnow = pkgs.winnow;
