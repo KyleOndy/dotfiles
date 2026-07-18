@@ -796,5 +796,11 @@
     systemd.user.services.mbsync.Service.ExecStart = lib.mkForce "${pkgs.isync}/bin/mbsync -c ${
       config.sops.templates."mbsyncrc-automated".path
     } --all";
+
+    # Route the interactive mbsync PassCmd (manual `mbsync --all`, notmuch
+    # preNew hook) through the same sops-backed password script used by the
+    # automated service above, instead of the unconfigured `pass`.
+    hmFoundry.terminal.email.passwordCommand =
+      addr: "${config.sops.templates."mbsync-password-script".path} ${addr}";
   };
 }

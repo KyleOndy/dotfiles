@@ -127,6 +127,12 @@
     '';
   };
 
+  # Route the interactive mbsync PassCmd (manual `mbsync --all`, notmuch
+  # preNew hook) through the same sops-backed password script used by the
+  # launchd agent below, instead of the unconfigured `pass`.
+  home-manager.users.kyle.hmFoundry.terminal.email.passwordCommand =
+    addr: "${config.sops.templates."mbsync-password-script".path} ${addr}";
+
   # launchd equivalent of dino's systemd.user.timers.mbsync + notmuch-new
   # (there's no systemd on darwin for home-manager's systemd.user.* to run).
   home-manager.users.kyle.launchd.agents.mbsync = {
