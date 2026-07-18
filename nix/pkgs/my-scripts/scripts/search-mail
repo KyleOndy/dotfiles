@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly instructions="You help Kyle search his email using notmuch (default \
+configuration, maildir at ~/mail). Build queries with notmuch search syntax \
+such as from:, to:, subject:, date:since..until, tag:inbox, and plain \
+full-text terms. Use 'notmuch search' to find matching threads and \
+'notmuch show' to read the messages. When you answer, cite the date, sender, \
+and subject of the messages you drew from. Be concise and factual; if you \
+cannot find an answer, say so plainly."
+
+# Read-only notmuch subcommands only. Passed as a single comma-separated token
+# so the variadic --allowedTools parser cannot swallow the positional query.
+readonly allowed="Bash(notmuch search:*),Bash(notmuch show:*),Bash(notmuch count:*),Bash(notmuch address:*)"
+
+# Run from HOME so the session loads global user instructions, not whatever
+# project CLAUDE.md happens to sit in the current directory.
+cd "$HOME"
+
+args=(
+	--model sonnet
+	--allowedTools "$allowed"
+	--append-system-prompt "$instructions"
+)
+
+# Any arguments become the initial query (joined into one prompt) and are
+# auto-submitted; Claude then stays interactive. With no arguments, land in an
+# empty prompt with the notmuch context already loaded.
+if [ "$#" -gt 0 ]; then
+	args+=("$*")
+fi
+
+exec claude "${args[@]}"
