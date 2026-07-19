@@ -15,15 +15,18 @@ import time
 import datetime
 import logging
 import gphoto2 as gp
+from rich import filesize
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import (
     BarColumn,
-    MofNCompleteColumn,
+    DownloadColumn,
     Progress,
     SpinnerColumn,
     TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
 )
 
 app = typer.Typer()
@@ -50,8 +53,30 @@ def group_counts(files):
     return counts, total
 
 
+def group_sizes(files, size_of):
+    """Per-group byte totals (keyed by label) and the grand total, mirroring
+    group_counts() but weighted by size instead of file count. size_of(f) is
+    f.size for camera files (already known from PTP metadata, no transfer
+    required) or os.path.getsize for local paths."""
+    sizes = {
+        label: sum(size_of(f) for f in filter_files(files, extensions))
+        for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS)
+    }
+    total = sum(sizes.values())
+    return sizes, total
+
+
 class ImportProgress:
-    """Live overall + per-type progress for an import run.
+    """Live overall + per-type progress for an import run, weighted by
+    bytes rather than file count -- one huge video should not read the same
+    as one tiny JPEG. A whole file's byte total is known upfront (camera
+    sizes come from PTP metadata, local sizes from os.path.getsize), so
+    begin_file()/end_file() alone produce a correct byte-weighted bar even
+    if update_file() is never called. update_file() is an optional
+    smoothing layer driven by a transfer's own progress callback when the
+    underlying driver provides one (see camera()'s gphoto2 context wiring):
+    it makes the bar move continuously during a single large file instead
+    of jumping only once the whole file lands.
 
     When stdout is not an interactive terminal, degrades to periodic plain
     log lines instead of a live display (rich would otherwise write raw
@@ -63,8 +88,16 @@ class ImportProgress:
         self._progress = None
         self._overall_task = None
         self._type_task = None
-        self._plain_done = 0
-        self._plain_total = 0
+        self._overall_bytes_done = 0
+        self._overall_files_done = 0
+        self._type_bytes_done = 0
+        self._type_files_done = 0
+        self._file_size = 0
+        self._file_target = 0
+        self._plain_bytes_done = 0
+        self._plain_bytes_total = 0
+        self._plain_files_done = 0
+        self._plain_files_total = 0
 
     @contextlib.contextmanager
     def listing(self, message="Listing files..."):
@@ -77,7 +110,7 @@ class ImportProgress:
             yield
 
     @contextlib.contextmanager
-    def run(self, total):
+    def run(self, total_bytes, total_files):
         """Owns the live display for the copy/import loop.
 
         While live, the root logger is temporarily pointed at a RichHandler
@@ -87,12 +120,17 @@ class ImportProgress:
         not rare) would be written straight to the tty and corrupt the
         redraw. Restored on exit regardless of what the rest of the CLI
         (fuji-settings, fuji-recipes) does with logging."""
+        self._overall_bytes_done = 0
+        self._overall_files_done = 0
         if self.live:
             self._progress = Progress(
                 SpinnerColumn(),
                 TextColumn("[progress.description]{task.description}"),
                 BarColumn(),
-                MofNCompleteColumn(),
+                DownloadColumn(),
+                TextColumn("{task.fields[files_done]}/{task.fields[files_total]}"),
+                TransferSpeedColumn(),
+                TimeRemainingColumn(),
                 TimeElapsedColumn(),
                 console=self.console,
             )
@@ -108,35 +146,112 @@ class ImportProgress:
             ]
             try:
                 with self._progress:
-                    self._overall_task = self._progress.add_task("Total", total=total)
+                    self._overall_task = self._progress.add_task(
+                        "Total",
+                        total=total_bytes,
+                        files_done=0,
+                        files_total=total_files,
+                    )
                     self._type_task = None
                     yield self
             finally:
                 root.handlers = previous_handlers
         else:
-            self._plain_done = 0
-            self._plain_total = total
+            self._plain_bytes_done = 0
+            self._plain_bytes_total = total_bytes
+            self._plain_files_done = 0
+            self._plain_files_total = total_files
             yield self
 
-    def start_group(self, label, count):
+    def start_group(self, label, count, group_bytes):
+        self._type_bytes_done = 0
+        self._type_files_done = 0
         if self.live:
-            self._type_task = self._progress.add_task(label, total=count)
+            self._type_task = self._progress.add_task(
+                label, total=group_bytes, files_done=0, files_total=count
+            )
         else:
-            logging.info(f"{label}: {count} file(s)")
+            logging.info(f"{label}: {count} file(s), {filesize.decimal(group_bytes)}")
 
-    def advance(self):
-        if self.live:
-            self._progress.advance(self._overall_task)
-            if self._type_task is not None:
-                self._progress.advance(self._type_task)
+    def begin_file(self, size):
+        """Call immediately before starting (or skipping) one file's
+        transfer. size is the file's already-known total, so the bar can
+        credit it correctly in end_file() even if no transfer callback ever
+        fires for it."""
+        self._file_size = size
+        self._file_target = 0
+
+    def set_transfer_target(self, target):
+        """Called from the gphoto2 progress-start callback with the
+        driver's reported size for the operation now beginning. Compared
+        fractionally against begin_file()'s size in update_file(); a
+        mismatch only changes how smoothly the fraction climbs, not the
+        byte total credited -- end_file() always credits the full size."""
+        self._file_target = target
+
+    def update_file(self, current):
+        """Optional smoothing: driven by the gphoto2 transfer-progress
+        callback while a single file is mid-download. Guarded so a
+        callback firing outside an active run() -- some drivers report
+        progress during camera init too -- is a no-op rather than touching
+        a live display that may not exist yet."""
+        if not self.live or self._overall_task is None or self._file_target <= 0:
             return
-        self._plain_done += 1
+        frac = min(1.0, max(0.0, current / self._file_target))
+        done = self._file_size * frac
+        self._progress.update(
+            self._overall_task, completed=self._overall_bytes_done + done
+        )
+        if self._type_task is not None:
+            self._progress.update(
+                self._type_task, completed=self._type_bytes_done + done
+            )
+
+    def end_file(self):
+        """Call after one file's transfer (or skip) completes. Credits the
+        file's full size exactly, regardless of whether update_file() ever
+        fired -- so a driver that emits no progress callbacks still
+        produces a correct byte-weighted bar, just in whole-file jumps
+        instead of a smooth stream."""
+        if self.live:
+            if self._overall_task is None:
+                return
+            self._overall_bytes_done += self._file_size
+            self._overall_files_done += 1
+            self._progress.update(
+                self._overall_task,
+                completed=self._overall_bytes_done,
+                files_done=self._overall_files_done,
+            )
+            if self._type_task is not None:
+                self._type_bytes_done += self._file_size
+                self._type_files_done += 1
+                self._progress.update(
+                    self._type_task,
+                    completed=self._type_bytes_done,
+                    files_done=self._type_files_done,
+                )
+            return
+        self._plain_bytes_done += self._file_size
+        self._plain_files_done += 1
         # Periodic, not per-file: roughly 20 log lines regardless of total,
         # plus always the final one, so a piped/non-interactive run gets
         # feedback without a line per file.
-        step = max(1, self._plain_total // 20)
-        if self._plain_done % step == 0 or self._plain_done == self._plain_total:
-            logging.info(f"Total {self._plain_done}/{self._plain_total}")
+        step = max(1, self._plain_files_total // 20)
+        if (
+            self._plain_files_done % step == 0
+            or self._plain_files_done == self._plain_files_total
+        ):
+            pct = (
+                100 * self._plain_bytes_done / self._plain_bytes_total
+                if self._plain_bytes_total
+                else 100
+            )
+            logging.info(
+                f"Total {self._plain_files_done}/{self._plain_files_total} files, "
+                f"{filesize.decimal(self._plain_bytes_done)}/"
+                f"{filesize.decimal(self._plain_bytes_total)} ({pct:.0f}%)"
+            )
 
 
 class NullProgress:
@@ -149,13 +264,19 @@ class NullProgress:
         yield
 
     @contextlib.contextmanager
-    def run(self, total):
+    def run(self, total_bytes, total_files):
         yield self
 
-    def start_group(self, label, count):
+    def start_group(self, label, count, group_bytes):
         pass
 
-    def advance(self):
+    def begin_file(self, size):
+        pass
+
+    def update_file(self, current):
+        pass
+
+    def end_file(self):
         pass
 
 
@@ -186,9 +307,35 @@ def camera(
 
     gp.check_result(gp.use_python_logging())
     logging.info("starting import from camera. Connecting...")
-    camera, serial = connect_to_camera()
+    context = gp.gp_context_new()
+    camera, serial = connect_to_camera(context)
     logging.debug("Getting list of files from camera.")
     progress = ImportProgress()
+
+    # Sub-file streaming: if the camera's PTP driver reports transfer
+    # progress (not all do -- see python-gphoto2's own
+    # context_with_callbacks.py example, which notes some Canon bodies only
+    # report it during camera.init), the bar moves continuously through one
+    # big file instead of jumping only once it lands. update_file() no-ops
+    # outside an active progress.run(), so a callback firing during
+    # init/listing below is harmless.
+    def _progress_start(ctx_, target, text, data):
+        progress.set_transfer_target(target)
+        return 1
+
+    def _progress_update(ctx_, progress_id, current, data):
+        progress.update_file(current)
+
+    def _progress_stop(ctx_, progress_id, data):
+        pass
+
+    # The return value is an opaque SWIG object that must be kept alive for
+    # as long as the callbacks might fire (python-gphoto2 frees them once
+    # this is garbage collected), hence the otherwise-unused local.
+    progress_callbacks = gp.gp_context_set_progress_funcs(
+        context, _progress_start, _progress_update, _progress_stop, None
+    )
+
     with progress.listing("Listing files on camera..."):
         camera_files = list_camera_files(camera)
     if not camera_files:
@@ -207,7 +354,8 @@ def camera(
         )
     camera_files = deduped
 
-    counts, total = group_counts(camera_files)
+    _, total_files = group_counts(camera_files)
+    group_bytes, total_bytes = group_sizes(camera_files, lambda f: f.size)
     provisional_dir = os.path.join(ctx.obj.photo_dir, "_provisional")
 
     # Download and import one media type at a time (JPEGs, then videos, then
@@ -227,17 +375,18 @@ def camera(
     # lands in the library, so a wrong skip-check miss costs at worst a
     # redundant download, never a duplicate or a dropped photo.
     # --force-download bypasses the skip check entirely.
-    with progress.run(total):
+    with progress.run(total_bytes, total_files):
         for group_index, (label, extensions) in enumerate(
             zip(GROUP_LABELS, IMPORT_GROUPS)
         ):
             group_files = filter_files(camera_files, extensions)
             if not group_files:
                 continue
-            progress.start_group(label, len(group_files))
+            progress.start_group(label, len(group_files), group_bytes[label])
             group_cache = os.path.join(cache, str(group_index))
             os.makedirs(group_cache, exist_ok=True)
             for f in group_files:
+                progress.begin_file(f.size)
                 if not force_download and check_camera_file_seen(
                     db, serial, f.name, f.size, f.mtime
                 ):
@@ -245,18 +394,18 @@ def camera(
                         f"skipping download of {f}: already imported "
                         "(matched by camera serial, name, size, mtime)"
                     )
-                    progress.advance()
+                    progress.end_file()
                     continue
                 dst = os.path.join(group_cache, f.name)
                 logging.debug(f"copying from camera: {f} -> {dst}")
                 camera_file = gp.check_result(
                     gp.gp_camera_file_get(
-                        camera, f.folder, f.name, gp.GP_FILE_TYPE_NORMAL
+                        camera, f.folder, f.name, gp.GP_FILE_TYPE_NORMAL, None, context
                     )
                 )
                 gp.check_result(gp.gp_file_save(camera_file, dst))
                 mark_camera_file_seen(db, serial, f.name, f.size, f.mtime, md5(dst))
-                progress.advance()
+                progress.end_file()
             # Quiet: this is a fast, local, already-accounted-for step (the
             # progress bars above already ticked once per file as it was
             # downloaded), and rich only supports one live display at a time.
@@ -304,8 +453,10 @@ def filesystem(
 def _run_filesystem_import(db, src, provisional_dir, move, prune, clobber, progress):
     all_files = get_all_files(src)
     ratings = scan_ratings(all_files)
-    _, total = group_counts(all_files)
-    with progress.run(total):
+    sizes = {f: os.path.getsize(f) for f in all_files}
+    _, total_files = group_counts(all_files)
+    group_bytes, total_bytes = group_sizes(all_files, sizes.__getitem__)
+    with progress.run(total_bytes, total_files):
         for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS):
             group_files = filter_files(all_files, extensions)
             if not group_files:
@@ -313,10 +464,11 @@ def _run_filesystem_import(db, src, provisional_dir, move, prune, clobber, progr
             # Rated shots first (5* .. 1*), then unrated; os.walk order kept
             # within each rating tier because Python's sort is stable.
             group_files.sort(key=lambda f: ratings.get(f, 0), reverse=True)
-            progress.start_group(label, len(group_files))
+            progress.start_group(label, len(group_files), group_bytes[label])
             for f in group_files:
+                progress.begin_file(sizes[f])
                 _import_file(db, f, provisional_dir, move, prune, clobber)
-                progress.advance()
+                progress.end_file()
 
 
 def _import_file(db, f, provisional_dir, move, prune, clobber):
@@ -359,10 +511,10 @@ def _import_file(db, f, provisional_dir, move, prune, clobber):
     mark_file_as_imported(db, f, md5sum)
 
 
-def connect_to_camera():
+def connect_to_camera(context=None):
     camera = gp.check_result(gp.gp_camera_new())
     while True:
-        error = gp.gp_camera_init(camera)
+        error = gp.gp_camera_init(camera, context)
         if error >= gp.GP_OK:
             # operation completed successfully so exit loop
             break
