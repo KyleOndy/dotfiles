@@ -1,6 +1,7 @@
 import typer
 import contextlib
 import hashlib
+import json
 import shutil
 from PIL import Image, ExifTags
 import sqlite3
@@ -302,12 +303,16 @@ def filesystem(
 
 def _run_filesystem_import(db, src, provisional_dir, move, prune, clobber, progress):
     all_files = get_all_files(src)
+    ratings = scan_ratings(all_files)
     _, total = group_counts(all_files)
     with progress.run(total):
         for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS):
             group_files = filter_files(all_files, extensions)
             if not group_files:
                 continue
+            # Rated shots first (5* .. 1*), then unrated; os.walk order kept
+            # within each rating tier because Python's sort is stable.
+            group_files.sort(key=lambda f: ratings.get(f, 0), reverse=True)
             progress.start_group(label, len(group_files))
             for f in group_files:
                 _import_file(db, f, provisional_dir, move, prune, clobber)
@@ -505,6 +510,42 @@ def get_all_files(dir):
         for name in files:
             result.append(os.path.join(root, name))
     return result
+
+
+def scan_ratings(files):
+    """Map each path to its embedded star rating (0 when unrated/unknown).
+
+    One batched exiftool call so a big RAF import does not pay per-file
+    process startup. Files are fed on stdin to avoid ARG_MAX on large cards.
+    """
+    if not files:
+        return {}
+    try:
+        # No check=True: exiftool exits non-zero when even one file in the
+        # batch is unreadable (e.g. a race, permissions), but still emits
+        # valid JSON for every file it *could* read. Failing the whole batch
+        # over one bad file would silently drop rating-based ordering for
+        # everything else, which defeats the point.
+        result = subprocess.run(
+            ["exiftool", "-@", "-", "-j", "-n", "-Rating"],
+            input="\n".join(files),
+            capture_output=True,
+            text=True,
+        )
+        entries = json.loads(result.stdout or "[]")
+    except (FileNotFoundError, OSError, ValueError) as e:
+        logging.warning(f"rating scan failed, importing unsorted ({e})")
+        return {}
+
+    ratings = {}
+    for entry in entries:
+        src = entry.get("SourceFile")
+        rating = entry.get("Rating")
+        try:
+            ratings[src] = int(rating) if rating is not None else 0
+        except (TypeError, ValueError):
+            ratings[src] = 0
+    return ratings
 
 
 def get_exif_data(image_path):
