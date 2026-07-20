@@ -60,7 +60,12 @@ sync_to_local() {
 	for item in "${SYNC_ITEMS[@]}"; do
 		src="$PHOTOS_DIR/$item/"
 		if [ -d "$src" ]; then
-			rsync -a --delete "$src" "$dest_path/$item/"
+			# --no-links: many local destinations (e.g. an exFAT travel SSD)
+			# can't store symlinks. The only symlinks in the working set are
+			# transcoded/{180-rule,not-180-rule}/ categorization pointers back
+			# to real files already covered by this same sync, so skipping
+			# them loses no data.
+			rsync -a --no-links --info=nonreg0 --delete "$src" "$dest_path/$item/"
 		else
 			echo "Warning: $src does not exist, skipping..." >&2
 		fi
