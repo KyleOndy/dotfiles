@@ -252,6 +252,137 @@ in
   ];
 
   # ---------------------------------------------------------------------------
+  # SMB file sharing for LAN clients (trex, the Mac). Two authenticated,
+  # read-write shares: /mnt/data (general files) and /mnt/photos (the laptop
+  # photo dump).
+  #
+  #   * No Time Machine: network TM over SMB is notorious for silently
+  #     invalidating its whole backup history. The data worth protecting
+  #     already lives on tiger (snapshotted; photos also archived to S3), so
+  #     the Mac's own OS state is treated as disposable.
+  #   * No media share: Jellyfin already serves /mnt/media over HTTP.
+  #   * /mnt/photos caveat: dino pushes into it with `rsync -a --delete`
+  #     (backup-photos-to-dr.sh), so dino is authoritative. Anything trex
+  #     writes there that dino doesn't also have gets deleted on dino's next
+  #     sync. Accepted for now; revisit once the photo pipeline is reworked.
+  #   * LAN-only via defense in depth: smbd binds only to the LAN interface,
+  #     Samba's own hosts allow/deny restricts to loopback + private ranges,
+  #     and the host firewall (normally off, see deployment_target.nix) is
+  #     force-enabled here with 445 opened only on that interface. The router
+  #     forwards just 80/443 to tiger, so 445 was never WAN-reachable even
+  #     before this, but the belt-and-suspenders costs nothing.
+  # ---------------------------------------------------------------------------
+  services.samba = {
+    enable = true;
+    openFirewall = false; # 445 is opened explicitly below, LAN interface only
+    nmbd.enable = false; # NetBIOS not needed for macOS; avahi handles discovery
+    settings = {
+      global = {
+        "server string" = "tiger";
+        "workgroup" = "WORKGROUP";
+        "security" = "user";
+        "map to guest" = "never";
+        "server min protocol" = "SMB3";
+        "bind interfaces only" = "yes";
+        "interfaces" = "lo enp10s0";
+        # Coarse RFC1918 allowlist (plus loopback); tighten to the exact LAN
+        # CIDR if it's ever pinned down elsewhere in this repo. The interface
+        # bind above and the router's port-forward scope (80/443 only, not
+        # 445) already keep this off the WAN regardless.
+        "hosts allow" = "127. 192.168. 10. 172.16.";
+        "hosts deny" = "0.0.0.0/0";
+        # macOS (vfs_fruit) friendliness: correct AppleDouble/resource-fork
+        # handling, sane renames, no stray ._ files.
+        "vfs objects" = "catia fruit streams_xattr";
+        "fruit:metadata" = "stream";
+        "fruit:resource" = "stream";
+        "fruit:posix_rename" = "yes";
+        "fruit:veto_appledouble" = "no";
+        "fruit:nfs_aces" = "no";
+        "fruit:wipe_intentionally_left_blank_rfork" = "yes";
+        "fruit:delete_empty_adfiles" = "yes";
+      };
+      data = {
+        path = "/mnt/data";
+        "valid users" = "kyle";
+        "read only" = "no";
+        "force user" = "kyle";
+        "force group" = "kyle";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
+      photos = {
+        path = "/mnt/photos";
+        "valid users" = "kyle";
+        "read only" = "no";
+        "force user" = "kyle";
+        "force group" = "kyle";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
+    };
+  };
+
+  # Seed kyle's Samba password (separate from the system login password) from
+  # a sops secret before smbd starts, the same pattern as nut-genpass below
+  # but sops-backed instead of self-generated since this credential needs to
+  # be typed into a Mac. Idempotent: smbpasswd -a resets the password every
+  # activation, matching how kyle's system password is enforced every
+  # activation via hashedPasswordFile rather than only on first boot.
+  systemd.services.samba-smbpasswd-seed = {
+    description = "Seed kyle's Samba password from sops";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "samba-smbd.service" ];
+    path = [ pkgs.samba ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      set -euo pipefail
+      pw=$(cat ${config.sops.secrets.smb_kyle_password.path})
+      printf '%s\n%s\n' "$pw" "$pw" | smbpasswd -s -a kyle
+      smbpasswd -e kyle
+    '';
+  };
+
+  # mDNS/Bonjour advertisement so tiger shows up in Finder's Network sidebar
+  # and `smb://tiger.local` resolves. LAN-scoped: 5353/udp is link-local
+  # multicast, never routed to the WAN.
+  services.avahi = {
+    enable = true;
+    openFirewall = true;
+    nssmdns4 = true;
+    publish = {
+      enable = true;
+      userServices = true;
+    };
+    extraServiceFiles = {
+      smb = ''
+        <?xml version="1.0" standalone='no'?><!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+        <service-group>
+          <name replace-wildcards="yes">%h</name>
+          <service>
+            <type>_smb._tcp</type>
+            <port>445</port>
+          </service>
+        </service-group>
+      '';
+    };
+  };
+
+  # deployment_target.nix (shared by every host) disables the firewall
+  # entirely; override for tiger only now that it's serving SMB to the LAN.
+  # This does not newly expose anything to the WAN: every service module
+  # already declares its own allowedTCPPorts (e.g. caddyReverseProxy.nix's
+  # 80/443, which the router actually forwards), and openssh's 2332 opens
+  # automatically (openFirewall defaults to true). Those were inert no-ops
+  # with the firewall off; enabling it just activates them. SMB is the only
+  # port added here, and it's scoped to the LAN interface.
+  networking.firewall.enable = lib.mkForce true;
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 445 ];
+
+  # ---------------------------------------------------------------------------
   # UPS monitoring, automatic shutdown, and power-loss alerts
   # (Tripp Lite, USB 09ae:2012)
   #
@@ -1002,6 +1133,9 @@ in
       mode = "0440";
       group = "jellyfin-secrets";
     };
+    # Samba password for kyle (SMB has its own credential store, separate
+    # from the system login password). Read by samba-smbpasswd-seed as root.
+    smb_kyle_password.mode = "0400";
   };
   users.groups.exportarr = { };
   users.groups.jellyfin-secrets = { };
