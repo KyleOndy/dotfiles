@@ -16,6 +16,9 @@ self: super: {
   mutt-gruvbox = super.callPackage ./mutt-gruvbox { };
   my-scripts = super.callPackage ./my-scripts { };
   octo = super.callPackage ./octo { };
+  photos-fanout = super.callPackage ./photos-fanout { };
+  photos-promote = super.callPackage ./photos-promote { };
+  photos-recall = super.callPackage ./photos-recall { };
   pragmata-pro = super.callPackage ./pragmata-pro { };
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   vscode-ls = super.callPackage ./vscode-ls { };

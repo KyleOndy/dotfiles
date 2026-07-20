@@ -682,18 +682,31 @@
     # Photo tools that only make sense on the desktop workstation, not the
     # tiger server (which also runs the shared desktop profile).
     home.packages = with pkgs; [
-      backup-photos # syncs ~/photos to tiger and S3 Deep Archive
+      backup-photos # mirrors the working set to tiger, an external SSD, or S3
+      photos-recall # pull a subset of tiger's archive/ back to work on it
+      photos-promote # push finished assets from the working set to tiger's archive/
       fuji-transcode # bakes F-Log2 LUT + transcodes X-T5 clips to DNxHR
       helios # hand rolled photo management
       winnow # photo culling viewer
     ];
 
+    # ~/photos layout: _provisional/YYYY/YYYY_MM_DD/ is the import/cull
+    # inbox (helios lands fresh imports here; cull by deleting rejects).
+    # _projects/<name>/ is for in-flight work that needs more than a cull
+    # -- gathering RAW/footage for editing before promoting the finished
+    # assets to tiger's archive/ with photos-promote (e.g.
+    # _projects/2026-08-family-trip/). Named with a leading underscore so
+    # both sort ahead of archive/ in a directory listing. dino still keeps
+    # a local archive/ mirror during the dino->trex transition; trex's
+    # working set is not expected to hold one (see the photo management
+    # plan for the target model).
+    #
     # helios defaults its dedup db to XDG_STATE_HOME, but the canonical
     # database (56k+ imports) lives with the library it tracks. Point it
     # there explicitly so a fresh XDG_STATE_HOME never starts an empty db
     # and reimports everything. HELIOS_LIBRARY_PATH is also what
-    # backup-photos-to-dr.sh falls back to, so both stay pointed at the
-    # same canonical library.
+    # backup-photos-to-dr.sh (and photos-recall/photos-promote) fall back
+    # to, so all of them stay pointed at the same canonical library.
     #
     # Recipes are version-controlled in fuji-recipes/ in this repo rather
     # than under the photo library, so they get their own env var instead

@@ -11,6 +11,19 @@
 
   networking.hostName = "trex";
 
+  # Photo working set (~/photos/_provisional, ~/photos/_projects). Import
+  # and cull tooling (helios, winnow) does not run on macOS yet -- that is
+  # a separate follow-up; dino stays the import/cull front door until then.
+  # These tools cover the storage side: mirror the working set out (to
+  # tiger, an external SSD, or opportunistically to S3 while traveling),
+  # recall a shoot from tiger's archive to work on it, and promote finished
+  # assets back. See the photo management plan for the full model.
+  home-manager.users.kyle.home.packages = with pkgs; [
+    backup-photos
+    photos-recall
+    photos-promote
+  ];
+
   # System version (managed by nix-darwin) - snapshot from when trex was
   # created, per-host, never bumped in lockstep with other hosts.
   system.stateVersion = 6;

@@ -7,7 +7,7 @@
 }:
 
 writeShellApplication {
-  name = "backup-photos-to-dr";
+  name = "backup-photos";
   runtimeInputs = [
     awscli2
     terraform

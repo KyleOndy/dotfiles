@@ -205,6 +205,36 @@ in
     };
   };
 
+  # Photo archive fan-out: tiger owns the routine push from the
+  # authoritative archive/ to S3 (Deep Archive for archive/, Standard-IA
+  # for _projects/, since Deep Archive's 180-day minimum and
+  # re-upload-on-modtime-change are a bad fit for churny WIP) and to an
+  # external HDD when mounted. The laptop's own backup-photos handles the
+  # working set independently (--to/--s3 modes), so this stays off the
+  # critical path when the laptop can't reach tiger (see the photo
+  # management plan).
+  systemd.services.photos-fanout = {
+    description = "Fan the photo archive out to S3 and external HDD";
+    environment = {
+      PHOTOS_BACKUP_BUCKET = "my-photo-backup-archive-holy-mink";
+      AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.photos_backup_aws_credentials.path;
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      User = "kyle"; # matches the owner of the rsynced archive/_projects trees
+      ExecStart = "${pkgs.photos-fanout}/bin/photos-fanout";
+    };
+  };
+
+  systemd.timers.photos-fanout = {
+    description = "Daily photo archive fan-out";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "daily";
+      Persistent = true;
+    };
+  };
+
   # media managment
   users.groups."${mediaGroup}".members = [
     config.systemFoundry.sabnzbd.user
@@ -236,6 +266,23 @@ in
     "d /mnt/scratch-big/downloads/complete/tv 0775 root ${mediaGroup} -"
     "d /mnt/scratch-big/downloads/complete/music 0775 root ${mediaGroup} -"
     "d /mnt/scratch-big/downloads/complete/books 0775 root ${mediaGroup} -"
+
+    # Grant immich read-only access to the photo archive via a POSIX ACL,
+    # so the filesystem enforces "on disk is truth": immich can read to
+    # index the external library but cannot write .xmp sidecars or delete
+    # originals (see nix/modules/nix_modules/immich.nix -- there is no `:ro`
+    # bind-mount flag for the native NixOS module, this is the equivalent).
+    # "A+" sets a default ACL on the directory, so files rsynced in later
+    # (via photos-promote / photos-fanout's mirror) automatically pick up
+    # group-immich read. This does NOT retroactively cover files that
+    # existed before the ACL was set.
+    #
+    # PREREQUISITE (one-time, manual, not run by this config -- ZFS
+    # datasets don't accept POSIX ACLs until acltype is enabled, and
+    # existing files need a one-time backfill):
+    #   zfs set acltype=posixacl storage/photos
+    #   setfacl -R -m g:immich:rX /mnt/photos/personal/photos/archive
+    "A+ /mnt/photos/personal/photos/archive - - - - g:immich:rX"
   ];
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
@@ -1136,6 +1183,17 @@ in
     # Samba password for kyle (SMB has its own credential store, separate
     # from the system login password). Read by samba-smbpasswd-seed as root.
     smb_kyle_password.mode = "0400";
+    # AWS credentials for photos-fanout (see systemd.services.photos-fanout
+    # below), in the ~/.aws/credentials INI format awscli2 expects:
+    #   [ondy-org]
+    #   aws_access_key_id = ...
+    #   aws_secret_access_key = ...
+    # svc.photos-backup (tf/photos-backup.tf), scoped to read+write on just
+    # the my-photo-backup-archive-* bucket.
+    photos_backup_aws_credentials = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
   users.groups.exportarr = { };
   users.groups.jellyfin-secrets = { };

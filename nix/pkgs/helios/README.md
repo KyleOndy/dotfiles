@@ -41,7 +41,7 @@ The dedup database defaults to `<library>/helios.db`. Losing it (or pointing
 next import re-copies everything already in the library, landing as
 `_md5suffix` duplicates next to the originals.
 
-Raws are a local edit cache, not archival: `backup-photos-to-dr` mirrors the
+Raws are a local edit cache, not archival: `backup-photos` mirrors the
 whole library to tiger, but excludes `.RAF` from the S3 disaster-recovery
 copy on purpose (see `tf/photos-backup.tf`). Culling a JPEG from
 `_provisional/` should take its RAF sibling with it; that's a cull-tool

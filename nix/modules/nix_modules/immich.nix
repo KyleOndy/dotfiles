@@ -50,7 +50,16 @@ in
 
       machine-learning.enable = true;
 
-      # settings = null means all configuration is done through the web UI
+      # settings = null means all configuration is done through the web UI.
+      # This is also where an External Library and its import path get
+      # configured (there's no NixOS option for it); on tiger that's a
+      # read-only view of the photo archive (nix/hosts/tiger/configuration.nix
+      # grants immich a read-only POSIX ACL there -- there's no native
+      # NixOS-module equivalent of Docker's `:ro` mount flag). Run Immich
+      # >= v2.4.0 before pointing an external library at it: earlier
+      # versions have a permanent-delete bug for offline assets
+      # (immich-app/immich#24354). Check the version in the web UI footer
+      # and bump the nixpkgs/immich pin if needed.
       settings = null;
 
       database = {
