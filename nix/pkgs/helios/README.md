@@ -21,25 +21,45 @@ helios fuji-recipes             # film recipe management, see below
 
 ## Import
 
-`import camera` and `import filesystem` both process files in three passes,
-in this order: JPEGs, then videos (`.MOV`), then raws (`.RAF`). Same content
-dedup (by md5) applies to all three. If a camera connection drops mid-import,
-the earlier, more important passes are already downloaded and imported
-rather than stranded.
+`import camera` and `import filesystem` both process files in passes, in
+this order: JPEGs, then HEIFs (`.HIF`), then videos (`.MOV`), then raws
+(`.RAF`). Same content dedup (by md5) applies to all of them. If a camera
+connection drops mid-import, the earlier, more important passes are already
+downloaded and imported rather than stranded.
 
 Everything lands together in `<library>/_provisional/YYYY/YYYY_MM_DD/`, one
 flat date tree regardless of type: a JPEG, its RAF, and any MOVs from the
 same session sit side by side.
 
-JPEG timestamps come from Pillow's EXIF reader. RAF and MOV timestamps come
-from `exiftool` instead (Pillow can't open either format); the nix package
-puts `exiftool` on `PATH` for the wrapped binary, so nothing extra to
-install.
+Timestamps and star ratings come from one batched `exiftool` call per run,
+except JPEGs, whose timestamps come from Pillow's EXIF reader (no
+subprocess needed). The nix package puts `exiftool` on `PATH` for the
+wrapped binary, so nothing extra to install.
 
-The dedup database defaults to `<library>/helios.db`. Losing it (or pointing
-`HELIOS_DB_PATH` somewhere empty) doesn't lose photos, but it does mean the
-next import re-copies everything already in the library, landing as
-`_md5suffix` duplicates next to the originals.
+Imports are atomic and durable: each file streams to a hidden `.part` temp
+in its destination directory (hashed during the same read), gets fsynced,
+and is renamed into place before the database records it. The library
+never contains a partial file, and the db never claims a photo the disk
+does not durably hold. helios never deletes source files; clean cards up
+out of band once the end-of-run summary looks right.
+
+Re-imports are fast: a file whose (name, size, mtime) was recorded on a
+previous import, and whose content demonstrably reached the library, is
+skipped without being read at all. A re-run over an already-imported card
+takes seconds instead of re-hashing every byte. `--force-hash` bypasses
+the shortcut and verifies by content again; the theoretical false-skip (a
+name/size/mtime collision across card formats) leaves the file untouched
+on the card, so nothing is ever lost to it.
+
+Files with extensions helios does not handle are counted and reported in
+the end-of-run summary, not silently ignored. Check that summary before
+formatting a card.
+
+The dedup database defaults to `~/.local/state/helios/helios.db` (or
+`$XDG_STATE_HOME/helios/helios.db`); `HELIOS_DB_PATH` overrides it. Losing
+it doesn't lose photos, but it does mean the next import re-hashes and
+re-considers everything; content already in the library is detected and
+recorded again without creating duplicates.
 
 Raws are a local edit cache, not archival: `backup-photos` mirrors the
 whole library to tiger, but excludes `.RAF` from the S3 disaster-recovery

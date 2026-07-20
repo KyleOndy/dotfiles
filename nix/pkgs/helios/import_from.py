@@ -3,10 +3,11 @@ import contextlib
 import hashlib
 import json
 import shutil
+from collections import Counter
 from PIL import Image, ExifTags
 import sqlite3
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing_extensions import Annotated
 import sys
 import os
@@ -33,44 +34,76 @@ app = typer.Typer()
 
 UNKNOWN = "_unknown"
 
-# Imported in this order: JPEGs (the SOOC library) first, then videos, then
-# raws, so a dropped connection or an interrupted import still lands the
-# most important files.
+# Imported in this order: JPEGs (the SOOC library) first, then HEIFs, then
+# videos, then raws, so a dropped connection or an interrupted import still
+# lands the most important files.
 IMAGE_EXTENSIONS = [".jpg", ".jpeg"]
+HEIF_EXTENSIONS = [".hif", ".heic"]
 VIDEO_EXTENSIONS = [".mov"]
 RAW_EXTENSIONS = [".raf"]
-IMPORT_GROUPS = [IMAGE_EXTENSIONS, VIDEO_EXTENSIONS, RAW_EXTENSIONS]
-GROUP_LABELS = ["JPEG", "MOV", "RAF"]
+IMPORT_GROUPS = [IMAGE_EXTENSIONS, HEIF_EXTENSIONS, VIDEO_EXTENSIONS, RAW_EXTENSIONS]
+GROUP_LABELS = ["JPEG", "HEIF", "MOV", "RAF"]
+MEDIA_EXTENSIONS = [ext for group in IMPORT_GROUPS for ext in group]
+
+# One filesystem read per imported file: the same chunks feed both the md5
+# and the destination write.
+CHUNK_SIZE = 1024 * 1024
 
 
-def group_counts(files):
-    """Per-group (label, count) pairs and the grand total, via filter_files()."""
-    counts = [
-        (label, len(filter_files(files, extensions)))
-        for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS)
-    ]
-    total = sum(count for _, count in counts)
-    return counts, total
+def filter_files(files, allowed_extensions):
+    return [f for f in files if os.path.splitext(f)[1].lower() in allowed_extensions]
 
 
-def group_sizes(files, size_of):
-    """Per-group byte totals (keyed by label) and the grand total, mirroring
-    group_counts() but weighted by size instead of file count. size_of(f) is
-    f.size for camera files (already known from PTP metadata, no transfer
-    required) or os.path.getsize for local paths."""
-    sizes = {
-        label: sum(size_of(f) for f in filter_files(files, extensions))
+def group_files_by_type(files):
+    """One {label: files} dict per run, in import order, so counting,
+    sizing, and the import loop all share the same lists."""
+    return {
+        label: filter_files(files, extensions)
         for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS)
     }
-    total = sum(sizes.values())
-    return sizes, total
+
+
+@dataclass
+class ImportSummary:
+    """End-of-run accounting, logged loudly on purpose: these numbers are
+    what you sanity-check before wiping a card. In particular unhandled
+    extensions must never disappear silently -- a card of files we do not
+    recognize should look like a problem, not like a clean import."""
+
+    imported: int = 0
+    seen: int = 0
+    skipped_metadata: int = 0
+    failed: int = 0
+    unhandled: Counter = field(default_factory=Counter)
+
+    @property
+    def total_media(self):
+        return self.imported + self.seen + self.skipped_metadata + self.failed
+
+    def merge(self, other):
+        self.imported += other.imported
+        self.seen += other.seen
+        self.skipped_metadata += other.skipped_metadata
+        self.failed += other.failed
+        self.unhandled.update(other.unhandled)
+
+    def log(self):
+        logging.info(
+            f"imported {self.imported}, skipped {self.seen} by content and "
+            f"{self.skipped_metadata} by metadata, {self.failed} failed"
+        )
+        if self.unhandled:
+            detail = ", ".join(
+                f"{ext} x{count}" for ext, count in sorted(self.unhandled.items())
+            )
+            logging.warning(f"ignored unsupported files: {detail}")
 
 
 class ImportProgress:
     """Live overall + per-type progress for an import run, weighted by
     bytes rather than file count -- one huge video should not read the same
     as one tiny JPEG. A whole file's byte total is known upfront (camera
-    sizes come from PTP metadata, local sizes from os.path.getsize), so
+    sizes come from PTP metadata, local sizes from os.stat), so
     begin_file()/end_file() alone produce a correct byte-weighted bar even
     if update_file() is never called. update_file() is an optional
     smoothing layer driven by a transfer's own progress callback when the
@@ -299,9 +332,10 @@ def camera(
 ):
     db = ctx.obj.db_path
     logging.debug(f"db path: {db}")
-    init_db(db)
+    imports_root = os.path.join(xdg_cache_home(), "helios", "imports")
+    warn_stale_import_caches(imports_root)
     dte = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    cache = os.path.join(xdg_cache_home(), "helios", "imports", dte)
+    cache = os.path.join(imports_root, dte)
     logging.debug(f"using cache: {cache}")
     os.makedirs(cache, exist_ok=True)
 
@@ -354,72 +388,134 @@ def camera(
         )
     camera_files = deduped
 
-    _, total_files = group_counts(camera_files)
-    group_bytes, total_bytes = group_sizes(camera_files, lambda f: f.size)
+    summary = ImportSummary()
+    for f in camera_files:
+        ext = os.path.splitext(f.name)[1].lower()
+        if ext not in MEDIA_EXTENSIONS:
+            summary.unhandled[ext or "(no extension)"] += 1
+    groups = group_files_by_type(camera_files)
+    group_bytes = {label: sum(f.size for f in files) for label, files in groups.items()}
+    total_bytes = sum(group_bytes.values())
+    total_files = sum(len(files) for files in groups.values())
     provisional_dir = os.path.join(ctx.obj.photo_dir, "_provisional")
 
-    # Download and import one media type at a time (JPEGs, then videos, then
-    # raws), so a dropped connection partway through still leaves the
-    # earlier, more important groups fully downloaded and imported rather
-    # than stranded in the cache. Nothing is recorded as imported here; the
-    # filesystem import below is the sole place that marks a photo imported
-    # (by content md5), and only after it is safely in the library. That way
-    # an aborted or interrupted import never orphans a photo: it just gets
+    # Download and import one media type at a time (JPEGs, then HEIFs, then
+    # videos, then raws), so a dropped connection partway through still
+    # leaves the earlier, more important groups fully downloaded and
+    # imported rather than stranded in the cache. The filesystem import
+    # below is the sole place that marks a photo imported (by content md5),
+    # and only after it is durably in the library; the camera_files marker
+    # written right after each download only ever skips a transfer when its
+    # md5 also shows up there (see check_camera_file_seen), so an aborted
+    # or interrupted import never orphans a photo -- it just gets
     # re-downloaded and re-considered next run.
     #
-    # Before that: a cheap, conservative pre-download check (camera serial +
-    # name + size + mtime, all readable from the camera without transferring
-    # file content) can skip the USB transfer itself for a file already
-    # known to be imported. Any mismatch just falls through to a real
-    # download -- the md5 dedup below remains the sole authority on what
-    # lands in the library, so a wrong skip-check miss costs at worst a
-    # redundant download, never a duplicate or a dropped photo.
-    # --force-download bypasses the skip check entirely.
-    with progress.run(total_bytes, total_files):
-        for group_index, (label, extensions) in enumerate(
-            zip(GROUP_LABELS, IMPORT_GROUPS)
-        ):
-            group_files = filter_files(camera_files, extensions)
-            if not group_files:
-                continue
-            progress.start_group(label, len(group_files), group_bytes[label])
-            group_cache = os.path.join(cache, str(group_index))
-            os.makedirs(group_cache, exist_ok=True)
-            for f in group_files:
-                progress.begin_file(f.size)
-                if not force_download and check_camera_file_seen(
-                    db, serial, f.name, f.size, f.mtime
-                ):
-                    logging.debug(
-                        f"skipping download of {f}: already imported "
-                        "(matched by camera serial, name, size, mtime)"
+    # The pre-download check (camera serial + name + size + mtime, all
+    # readable from the camera without transferring file content) skips the
+    # USB transfer itself for a file already known to be imported. Any
+    # mismatch just falls through to a real download -- the md5 dedup below
+    # remains the sole authority on what lands in the library, so a wrong
+    # skip-check miss costs at worst a redundant download, never a
+    # duplicate or a dropped photo. --force-download bypasses the skip
+    # check entirely.
+    with contextlib.closing(open_db(db)) as con:
+        with progress.run(total_bytes, total_files):
+            for group_index, label in enumerate(GROUP_LABELS):
+                group_files = groups[label]
+                if not group_files:
+                    continue
+                progress.start_group(label, len(group_files), group_bytes[label])
+                group_cache = os.path.join(cache, str(group_index))
+                os.makedirs(group_cache, exist_ok=True)
+                for f in group_files:
+                    progress.begin_file(f.size)
+                    if not force_download and check_camera_file_seen(
+                        con, serial, f.name, f.size, f.mtime
+                    ):
+                        logging.debug(
+                            f"skipping download of {f}: already imported "
+                            "(matched by camera serial, name, size, mtime)"
+                        )
+                        summary.skipped_metadata += 1
+                        progress.end_file()
+                        continue
+                    dst = os.path.join(group_cache, f.name)
+                    logging.debug(f"copying from camera: {f} -> {dst}")
+                    try:
+                        camera_file = gp.check_result(
+                            gp.gp_camera_file_get(
+                                camera,
+                                f.folder,
+                                f.name,
+                                gp.GP_FILE_TYPE_NORMAL,
+                                None,
+                                context,
+                            )
+                        )
+                        gp.check_result(gp.gp_file_save(camera_file, dst))
+                    except gp.GPhoto2Error as e:
+                        # A failed transfer can leave a partial file behind;
+                        # remove it so the group import below cannot land a
+                        # truncated photo in the library.
+                        with contextlib.suppress(OSError):
+                            os.remove(dst)
+                        msg = f"download of {f} failed ({e}); leaving it on the camera"
+                        if os.path.splitext(f.name)[1].lower() in VIDEO_EXTENSIONS:
+                            msg += (
+                                "; files over 4GB exceed the PTP transfer "
+                                "limit, import them from the card with "
+                                "'helios import filesystem'"
+                            )
+                        logging.warning(msg)
+                        summary.failed += 1
+                        progress.end_file()
+                        continue
+                    mark_camera_file_seen(
+                        con, serial, f.name, f.size, f.mtime, md5(dst)
                     )
                     progress.end_file()
-                    continue
-                dst = os.path.join(group_cache, f.name)
-                logging.debug(f"copying from camera: {f} -> {dst}")
-                camera_file = gp.check_result(
-                    gp.gp_camera_file_get(
-                        camera, f.folder, f.name, gp.GP_FILE_TYPE_NORMAL, None, context
+                # Quiet: this is a fast, local, already-accounted-for step
+                # (the progress bars above already ticked once per file as
+                # it was downloaded), and rich only supports one live
+                # display at a time.
+                summary.merge(
+                    _run_filesystem_import(
+                        con,
+                        group_cache,
+                        provisional_dir,
+                        move=True,
+                        force_hash=False,
+                        progress=NullProgress(),
                     )
                 )
-                gp.check_result(gp.gp_file_save(camera_file, dst))
-                mark_camera_file_seen(db, serial, f.name, f.size, f.mtime, md5(dst))
-                progress.end_file()
-            # Quiet: this is a fast, local, already-accounted-for step (the
-            # progress bars above already ticked once per file as it was
-            # downloaded), and rich only supports one live display at a time.
-            _run_filesystem_import(
-                db,
-                group_cache,
-                provisional_dir,
-                move=True,
-                prune=False,
-                clobber=False,
-                progress=NullProgress(),
-            )
 
+    # Safe even after per-file failures: anything still in the cache is
+    # either already in the library (its md5 was seen) or still on the
+    # camera and will re-download next run, because check_camera_file_seen
+    # only skips files whose md5 reached the library.
     shutil.rmtree(cache)
+    summary.log()
+    if summary.failed:
+        raise typer.Exit(1)
+
+
+def warn_stale_import_caches(imports_root):
+    """A crashed camera import leaves its cache dir behind, and if the card
+    was formatted since, that cache may hold the only copy of those photos.
+    Point at them loudly and never delete them automatically."""
+    if not os.path.isdir(imports_root):
+        return
+    for name in sorted(os.listdir(imports_root)):
+        path = os.path.join(imports_root, name)
+        if not os.path.isdir(path):
+            continue
+        if any(files for _, _, files in os.walk(path)):
+            logging.warning(
+                f"leftover import cache from an interrupted run: {path} -- "
+                f"it may hold photos not yet imported. Recover with "
+                f"'helios import filesystem {path} --move', then remove the "
+                "directory."
+            )
 
 
 @app.command()
@@ -427,88 +523,243 @@ def filesystem(
     ctx: typer.Context,
     src: str,
     move: Annotated[bool, typer.Option(help="Move files instead of copying")] = False,
-    prune: Annotated[
+    force_hash: Annotated[
         bool,
         typer.Option(
-            help="DANGER! Remove files that already have been imported when seen"
+            "--force-hash",
+            help=(
+                "Skip the fast metadata (name, size, mtime) check and "
+                "verify every file by content hash -- use this if the fast "
+                "skip is ever suspected of skipping something it shouldn't."
+            ),
         ),
-    ] = False,
-    clobber: Annotated[
-        bool, typer.Option(help="Clobber files that exist at destination")
     ] = False,
 ):
     db = ctx.obj.db_path
-    init_db(db)
+    if not os.path.isdir(src):
+        logging.error(f"source directory does not exist: {src}")
+        raise typer.Exit(1)
+    # Importing the library into itself is never intended: every file is
+    # its own duplicate, and with --move it reshuffles the library.
+    src_real = os.path.realpath(src)
+    library_real = os.path.realpath(ctx.obj.photo_dir)
+    if src_real == library_real or src_real.startswith(library_real + os.sep):
+        logging.error(
+            f"refusing to import from inside the library "
+            f"({src} is under {ctx.obj.photo_dir})"
+        )
+        raise typer.Exit(1)
+
     logging.info(f"importing from filesystem at '{src}'")
     logging.info(f"Files will be moved instead of copied: {move}")
 
-    # TODO: refactor out to somewhere
-    PROVISIONAL_DIR = os.path.join(ctx.obj.photo_dir, "_provisional")
+    provisional_dir = os.path.join(ctx.obj.photo_dir, "_provisional")
+    with contextlib.closing(open_db(db)) as con:
+        summary = _run_filesystem_import(
+            con, src, provisional_dir, move, force_hash, progress=ImportProgress()
+        )
+    summary.log()
+    if summary.total_media == 0:
+        logging.error(f"no media files found under {src}")
+        raise typer.Exit(1)
+    if summary.failed:
+        raise typer.Exit(1)
 
-    _run_filesystem_import(
-        db, src, PROVISIONAL_DIR, move, prune, clobber, progress=ImportProgress()
-    )
 
+def _run_filesystem_import(con, src, provisional_dir, move, force_hash, progress):
+    summary = ImportSummary()
+    with progress.listing():
+        all_files = get_all_files(src)
 
-def _run_filesystem_import(db, src, provisional_dir, move, prune, clobber, progress):
-    all_files = get_all_files(src)
-    ratings = scan_ratings(all_files)
-    sizes = {f: os.path.getsize(f) for f in all_files}
-    _, total_files = group_counts(all_files)
-    group_bytes, total_bytes = group_sizes(all_files, sizes.__getitem__)
-    with progress.run(total_bytes, total_files):
-        for label, extensions in zip(GROUP_LABELS, IMPORT_GROUPS):
-            group_files = filter_files(all_files, extensions)
+    media_files = []
+    for f in all_files:
+        ext = os.path.splitext(f)[1].lower()
+        if ext in MEDIA_EXTENSIONS:
+            media_files.append(f)
+        else:
+            logging.debug(f"ignoring unsupported file {f}")
+            summary.unhandled[ext or "(no extension)"] += 1
+
+    # Pass 1, cheap: stat every media file and drop the ones the metadata
+    # skip already knows reached the library. No file content is read here,
+    # so a re-run over an already-imported card gets through in seconds.
+    stats = {}
+    for f in media_files:
+        try:
+            st = os.stat(f)
+        except OSError as e:
+            # dangling symlink, or the file vanished since the walk
+            logging.warning(f"cannot stat {f}, skipping ({e})")
+            summary.failed += 1
+            continue
+        if not force_hash and check_filesystem_file_skip(
+            con, os.path.basename(f), st.st_size, int(st.st_mtime)
+        ):
+            logging.debug(
+                f"skipping {f}: already imported (matched by name, size, mtime)"
+            )
+            summary.skipped_metadata += 1
+            continue
+        stats[f] = st
+
+    # Pass 2: one batched exiftool call over just the survivors, then the
+    # import itself.
+    metadata = scan_metadata(list(stats))
+    groups = group_files_by_type(list(stats))
+    group_bytes = {
+        label: sum(stats[f].st_size for f in files) for label, files in groups.items()
+    }
+    with progress.run(sum(group_bytes.values()), len(stats)):
+        for label in GROUP_LABELS:
+            group_files = groups[label]
             if not group_files:
                 continue
             # Rated shots first (5* .. 1*), then unrated; os.walk order kept
             # within each rating tier because Python's sort is stable.
-            group_files.sort(key=lambda f: ratings.get(f, 0), reverse=True)
+            group_files.sort(key=lambda f: metadata.get(f, (0, None))[0], reverse=True)
             progress.start_group(label, len(group_files), group_bytes[label])
             for f in group_files:
-                progress.begin_file(sizes[f])
-                _import_file(db, f, provisional_dir, move, prune, clobber)
+                progress.begin_file(stats[f].st_size)
+                try:
+                    outcome = _import_file(
+                        con,
+                        f,
+                        stats[f],
+                        provisional_dir,
+                        move,
+                        _timestamp_for(f, metadata),
+                    )
+                except OSError as e:
+                    logging.warning(f"failed to import {f} ({e})")
+                    summary.failed += 1
+                else:
+                    if outcome == "imported":
+                        summary.imported += 1
+                    else:
+                        summary.seen += 1
                 progress.end_file()
+    return summary
 
 
-def _import_file(db, f, provisional_dir, move, prune, clobber):
-    logging.debug(f"file: {f}")
-    timestamp = get_media_timestamp(f)
-    logging.debug(f"{f} timestamp: {timestamp}")
+def _timestamp_for(path, metadata):
+    ext = os.path.splitext(path)[1].lower()
+    if ext in IMAGE_EXTENSIONS:
+        # Pillow reads JPEG EXIF locally, no subprocess needed.
+        return get_image_timestamp(path)
+    if path in metadata:
+        # Present in the batch output; a None timestamp there means the
+        # file really has no date tags, so do not re-ask per file.
+        return metadata[path][1]
+    return get_exiftool_timestamp(path)
+
+
+def _import_file(con, f, st, provisional_dir, move, timestamp):
+    """Land one file in the library, atomically and durably.
+
+    Order matters: the destination bytes are fsynced and renamed into
+    place before the DB records the import. The dedup record must never
+    claim content the disk does not durably hold, because everything else
+    (skip checks, out-of-band card cleanup) trusts that record.
+
+    Returns "imported" or "seen" for the run summary."""
+    logging.debug(f"file: {f} timestamp: {timestamp}")
     if timestamp is None:
         timestamp = UNKNOWN
-
     dest_dir = get_target_dir(provisional_dir, timestamp)
     f_name = os.path.basename(f)
-    md5sum = md5(f)
-    if check_is_file_seen_before(db, md5sum):
-        logging.info(f"have seen {f} ({md5sum})")
-        if prune:
-            logging.info(f"Removing {f} since we are pruning")
-            os.remove(f)
-        return
+    os.makedirs(dest_dir, exist_ok=True)
 
+    # A same-filesystem move needs no temp copy: hash the source in place
+    # and rename it, which is already atomic.
+    fast_move = move and st.st_dev == os.stat(dest_dir).st_dev
+
+    tmp = None
+    try:
+        if fast_move:
+            md5sum = md5(f)
+        else:
+            tmp = os.path.join(dest_dir, f".{f_name}.part")
+            md5sum = copy_to_temp(f, tmp)
+
+        if check_is_file_seen_before(con, md5sum):
+            logging.info(f"have seen {f} ({md5sum})")
+            mark_filesystem_file_seen(con, f_name, st, md5sum)
+            return "seen"
+
+        dst, already_present = resolve_destination(dest_dir, f_name, md5sum)
+        if already_present:
+            # A previous run landed this exact content but crashed before
+            # recording it. Record it now; nothing to copy.
+            logging.info(f"{dst} already holds this content; recording it as imported")
+        else:
+            if fast_move:
+                fsync_file(f)
+                os.rename(f, dst)
+            else:
+                fsync_file(tmp)
+                os.utime(tmp, ns=(st.st_atime_ns, st.st_mtime_ns))
+                os.rename(tmp, dst)
+                tmp = None
+            fsync_dir(dest_dir)
+            logging.debug(f"{'moved' if move else 'copied'} {f} -> {dst}")
+        mark_file_as_imported(con, f, md5sum)
+        mark_filesystem_file_seen(con, f_name, st, md5sum)
+        if move and not fast_move and not already_present:
+            try:
+                os.remove(f)
+            except OSError as e:
+                # e.g. a read-only card; the import itself succeeded
+                logging.warning(f"imported {f} but could not remove the source ({e})")
+        return "imported"
+    finally:
+        if tmp is not None and os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def copy_to_temp(src, tmp):
+    """Stream src into tmp, hashing as it goes: one read of the source
+    serves both the dedup md5 and the copy. Returns the md5 hexdigest."""
+    digest = hashlib.md5()
+    with open(src, "rb") as fsrc, open(tmp, "wb") as fdst:
+        while chunk := fsrc.read(CHUNK_SIZE):
+            digest.update(chunk)
+            fdst.write(chunk)
+    return digest.hexdigest()
+
+
+def resolve_destination(dest_dir, f_name, md5sum):
+    """Pick the final path for new content, disambiguating name
+    collisions. Returns (dst, already_present); already_present means dst
+    holds byte-identical content from a previous run that crashed before
+    recording it, so there is nothing left to copy."""
     dst = os.path.join(dest_dir, f_name)
-    if os.path.exists(dst) and not clobber:
-        # Different content landed on the same name/date as an existing
-        # photo (the seen-before check above already ruled out this
-        # being the same file). Never abort the whole batch over one
-        # collision: disambiguate with a content-derived suffix so both
-        # photos are kept.
-        base, ext = os.path.splitext(f_name)
-        renamed = f"{base}_{md5sum[:8]}{ext}"
-        logging.warning(
-            f"{dst} already exists with different content; saving {f} as {renamed}"
-        )
-        dst = os.path.join(dest_dir, renamed)
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    if move:
-        shutil.move(f, dst)
-        logging.debug(f"moving {f} -> {dst}")
-    else:
-        shutil.copyfile(f, dst)
-        logging.debug(f"copying {f} -> {dst}")
-    mark_file_as_imported(db, f, md5sum)
+    if not os.path.exists(dst):
+        return dst, False
+    if md5(dst) == md5sum:
+        return dst, True
+    # Different content landed on the same name/date as an existing photo.
+    # Never abort the whole batch over one collision: disambiguate with a
+    # content-derived suffix so both photos are kept.
+    base, ext = os.path.splitext(f_name)
+    renamed = f"{base}_{md5sum[:8]}{ext}"
+    logging.warning(f"{dst} already exists with different content; saving as {renamed}")
+    dst = os.path.join(dest_dir, renamed)
+    if os.path.exists(dst) and md5(dst) == md5sum:
+        return dst, True
+    return dst, False
+
+
+def fsync_file(path):
+    with open(path, "rb") as f:
+        os.fsync(f.fileno())
+
+
+def fsync_dir(path):
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def connect_to_camera(context=None):
@@ -617,33 +868,45 @@ def dedupe_camera_files(files):
     return deduped
 
 
-# TODO: better handling of "constants"
 FILE_IMPORT_TABLE = "file_imports"
 CAMERA_FILE_TABLE = "camera_files"
+FILESYSTEM_FILE_TABLE = "filesystem_files"
+
+SCHEMA = f"""
+create table if not exists {FILE_IMPORT_TABLE} (
+    file_name TEXT NOT NULL,
+    md5 TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+    );
+create index if not exists file_imports_md5 on {FILE_IMPORT_TABLE}(md5);
+create table if not exists {CAMERA_FILE_TABLE} (
+    serial TEXT NOT NULL,
+    name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mtime INTEGER NOT NULL,
+    md5 TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    UNIQUE(serial, name, size, mtime)
+    );
+create table if not exists {FILESYSTEM_FILE_TABLE} (
+    name TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    mtime INTEGER NOT NULL,
+    md5 TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    UNIQUE(name, size, mtime)
+    );
+"""
 
 
-def init_db(db_path):
-    dir = os.path.dirname(db_path)
-    os.makedirs(dir, exist_ok=True)
-    cmd = f"""
-    create table if not exists {FILE_IMPORT_TABLE} (
-        file_name TEXT NOT NULL,
-        md5 TEXT NOT NULL,
-        timestamp TEXT NOT NULL
-        );
-    create table if not exists {CAMERA_FILE_TABLE} (
-        serial TEXT NOT NULL,
-        name TEXT NOT NULL,
-        size INTEGER NOT NULL,
-        mtime INTEGER NOT NULL,
-        md5 TEXT NOT NULL,
-        imported_at TEXT NOT NULL,
-        UNIQUE(serial, name, size, mtime)
-        );
-      """
-    with contextlib.closing(sqlite3.connect(db_path)) as con:
-        con.executescript(cmd)
-        con.commit()
+def open_db(db_path):
+    """One connection per command run, passed down through the import;
+    reconnecting per file was measurable overhead on large imports."""
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    con = sqlite3.connect(db_path)
+    con.executescript(SCHEMA)
+    con.commit()
+    return con
 
 
 def get_target_dir(parent_dir, timestamp):
@@ -664,40 +927,66 @@ def get_all_files(dir):
     return result
 
 
-def scan_ratings(files):
-    """Map each path to its embedded star rating (0 when unrated/unknown).
+EXIFTOOL_DATE_TAGS = ["DateTimeOriginal", "CreateDate", "MediaCreateDate"]
 
-    One batched exiftool call so a big RAF import does not pay per-file
-    process startup. Files are fed on stdin to avoid ARG_MAX on large cards.
-    """
+
+def scan_metadata(files):
+    """Map each path to (star rating, timestamp): rating 0 when unrated,
+    timestamp None when no date tag parses.
+
+    One batched exiftool call so a big import does not pay per-file Perl
+    startup. Files are fed on stdin to avoid ARG_MAX on large cards.
+    -Rating# disables print conversion for just that tag, so -d still
+    formats the date tags."""
     if not files:
         return {}
     try:
         # No check=True: exiftool exits non-zero when even one file in the
         # batch is unreadable (e.g. a race, permissions), but still emits
-        # valid JSON for every file it *could* read. Failing the whole batch
-        # over one bad file would silently drop rating-based ordering for
+        # valid JSON for every file it *could* read. Failing the whole
+        # batch over one bad file would drop ratings and timestamps for
         # everything else, which defeats the point.
         result = subprocess.run(
-            ["exiftool", "-@", "-", "-j", "-n", "-Rating"],
+            [
+                "exiftool",
+                "-@",
+                "-",
+                "-j",
+                "-d",
+                "%Y:%m:%d %H:%M:%S",
+                "-Rating#",
+                *(f"-{tag}" for tag in EXIFTOOL_DATE_TAGS),
+            ],
             input="\n".join(files),
             capture_output=True,
             text=True,
         )
         entries = json.loads(result.stdout or "[]")
     except (FileNotFoundError, OSError, ValueError) as e:
-        logging.warning(f"rating scan failed, importing unsorted ({e})")
+        logging.warning(f"batched metadata scan failed, falling back per file ({e})")
         return {}
 
-    ratings = {}
+    metadata = {}
     for entry in entries:
         src = entry.get("SourceFile")
-        rating = entry.get("Rating")
+        if src is None:
+            continue
         try:
-            ratings[src] = int(rating) if rating is not None else 0
+            rating = int(entry.get("Rating") or 0)
         except (TypeError, ValueError):
-            ratings[src] = 0
-    return ratings
+            rating = 0
+        timestamp = None
+        for tag in EXIFTOOL_DATE_TAGS:
+            raw = entry.get(tag)
+            if not raw:
+                continue
+            try:
+                timestamp = datetime.datetime.strptime(str(raw), "%Y:%m:%d %H:%M:%S")
+                break
+            except ValueError:
+                continue
+        metadata[src] = (rating, timestamp)
+    return metadata
 
 
 def get_exif_data(image_path):
@@ -711,7 +1000,6 @@ def get_exif_data(image_path):
                 # if the tag is an IFD block, nest into it
                 if tag_code in IFD_CODE_LOOKUP:
                     ifd_tag_name = IFD_CODE_LOOKUP[tag_code]
-                    # print(f"IFD '{ifd_tag_name}' (code {tag_code}):")
                     ifd_data = img_exif.get_ifd(tag_code).items()
 
                     for nested_key, nested_value in ifd_data:
@@ -720,11 +1008,9 @@ def get_exif_data(image_path):
                             or ExifTags.TAGS.get(nested_key, None)
                             or nested_key
                         )
-                        # print(f"  {nested_tag_name}: {nested_value}")
                         tags[nested_tag_name] = nested_value
                 else:
-                    # root-level tag
-                    # print(f"{ExifTags.TAGS.get(tag_code)}: {value}")
+                    # root-level tag, keyed by its numeric code
                     tags[tag_code] = value
     except (OSError, SyntaxError) as e:
         # corrupt file, or an extension-spoofed non-image; treat as no EXIF
@@ -741,15 +1027,13 @@ def get_image_timestamp(image_path):
         # some facebook rip or something
         return None
 
+    # Nested Exif-IFD tags are keyed by name, root-level tags by numeric
+    # code (306 is DateTime).
     if "DateTimeOriginal" in tags:
         # 2023:10:01 12:05:05
         raw = tags["DateTimeOriginal"]
-    elif "DateTime" in tags:
-        raw = tags["DateTime"]
     elif "DateTimeDigitized" in tags:
         raw = tags["DateTimeDigitized"]
-    elif 36867 in tags:
-        raw = tags[36867]
     elif 306 in tags:
         raw = tags[306]
     else:
@@ -760,17 +1044,6 @@ def get_image_timestamp(image_path):
     except ValueError:
         logging.warning(f"{image_path} has an unparseable EXIF date {raw!r}")
         return None
-
-
-EXIFTOOL_DATE_TAGS = ["DateTimeOriginal", "CreateDate", "MediaCreateDate"]
-
-
-def get_media_timestamp(path):
-    ext = os.path.splitext(path)[1].lower()
-    if ext in IMAGE_EXTENSIONS:
-        return get_image_timestamp(path)
-    # PIL can't open RAF or MOV; shell out to exiftool instead.
-    return get_exiftool_timestamp(path)
 
 
 def get_exiftool_timestamp(path):
@@ -803,47 +1076,65 @@ def get_exiftool_timestamp(path):
 
 
 def md5(fname):
-    hash_md5 = hashlib.md5()
     with open(fname, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+        return hashlib.file_digest(f, "md5").hexdigest()
 
 
-def check_is_file_seen_before(db_path, md5sum):
+def check_is_file_seen_before(con, md5sum):
     sql = f"SELECT EXISTS(SELECT 1 FROM {FILE_IMPORT_TABLE} WHERE md5=?)"
-    with contextlib.closing(sqlite3.connect(db_path)) as con:
-        cur = con.execute(sql, (md5sum,))
-        return cur.fetchone() == (1,)
+    return con.execute(sql, (md5sum,)).fetchone() == (1,)
 
 
-def mark_file_as_imported(db_path, file_name, md5sum):
+def mark_file_as_imported(con, file_name, md5sum):
     sql = f"INSERT INTO {FILE_IMPORT_TABLE} VALUES (?,?,CURRENT_TIMESTAMP)"
-    with contextlib.closing(sqlite3.connect(db_path)) as con:
-        con.execute(sql, (file_name, md5sum))
-        con.commit()
+    con.execute(sql, (file_name, md5sum))
+    con.commit()
 
 
-def check_camera_file_seen(db_path, serial, name, size, mtime):
+def check_filesystem_file_skip(con, name, size, mtime):
+    """Fast re-import check: skip reading a file entirely when this exact
+    (name, size, mtime) was recorded before AND its md5 demonstrably
+    reached the library (the join). A miss just means "hash it" -- the md5
+    dedup remains the sole authority on what enters the library, so the
+    worst a wrong miss costs is a redundant hash, never a duplicate or a
+    dropped photo."""
+    sql = (
+        f"SELECT EXISTS(SELECT 1 FROM {FILESYSTEM_FILE_TABLE} s "
+        f"JOIN {FILE_IMPORT_TABLE} i ON i.md5 = s.md5 "
+        "WHERE s.name=? AND s.size=? AND s.mtime=?)"
+    )
+    return con.execute(sql, (name, size, mtime)).fetchone() == (1,)
+
+
+def mark_filesystem_file_seen(con, name, st, md5sum):
+    sql = (
+        f"INSERT OR REPLACE INTO {FILESYSTEM_FILE_TABLE} "
+        "(name, size, mtime, md5, imported_at) VALUES (?,?,?,?,CURRENT_TIMESTAMP)"
+    )
+    con.execute(sql, (name, st.st_size, int(st.st_mtime), md5sum))
+    con.commit()
+
+
+def check_camera_file_seen(con, serial, name, size, mtime):
     """Conservative pre-download check: true only when a file matching this
-    exact (serial, name, size, mtime) has already been downloaded and
-    recorded. A miss (including an unreadable serial) just means "download
-    it" -- the md5 dedup after download remains the sole authority on
-    whether it enters the library."""
+    exact (serial, name, size, mtime) has been downloaded AND its md5
+    reached the library. The library join matters: the camera_files marker
+    is written right after download, before the import, so without it a
+    crash in between would make future runs skip a photo that never landed.
+    A miss (including an unreadable serial) just means "download it"."""
     if serial is None:
         # Can't scope the key to a specific camera body, so never skip on
         # an unreadable serial -- always fall through to a full download.
         return False
     sql = (
-        f"SELECT EXISTS(SELECT 1 FROM {CAMERA_FILE_TABLE} "
-        "WHERE serial=? AND name=? AND size=? AND mtime=?)"
+        f"SELECT EXISTS(SELECT 1 FROM {CAMERA_FILE_TABLE} c "
+        f"JOIN {FILE_IMPORT_TABLE} i ON i.md5 = c.md5 "
+        "WHERE c.serial=? AND c.name=? AND c.size=? AND c.mtime=?)"
     )
-    with contextlib.closing(sqlite3.connect(db_path)) as con:
-        cur = con.execute(sql, (serial, name, size, mtime))
-        return cur.fetchone() == (1,)
+    return con.execute(sql, (serial, name, size, mtime)).fetchone() == (1,)
 
 
-def mark_camera_file_seen(db_path, serial, name, size, mtime, md5sum):
+def mark_camera_file_seen(con, serial, name, size, mtime, md5sum):
     if serial is None:
         # Would never be matched by check_camera_file_seen()'s serial=None
         # guard above, so there is no point persisting it.
@@ -853,24 +1144,8 @@ def mark_camera_file_seen(db_path, serial, name, size, mtime, md5sum):
         "(serial, name, size, mtime, md5, imported_at) "
         "VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)"
     )
-    with contextlib.closing(sqlite3.connect(db_path)) as con:
-        con.execute(sql, (serial, name, size, mtime, md5sum))
-        con.commit()
-
-
-def filter_files(files, allowed_extensions):
-    # TODO: handle these cases in a better way
-    # TODO: allow passing in via CLI
-    filtered = []
-    for f in files:
-        extension = os.path.splitext(f)[1]
-        if extension.lower() not in allowed_extensions:
-            logging.debug(
-                f"Skipping {f} as it is not a supported file extension. Supported extensions are {allowed_extensions}"
-            )
-            continue
-        filtered.append(f)
-    return filtered
+    con.execute(sql, (serial, name, size, mtime, md5sum))
+    con.commit()
 
 
 if __name__ == "__main__":

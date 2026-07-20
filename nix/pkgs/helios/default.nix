@@ -22,7 +22,7 @@ let
 in
 stdenv.mkDerivation {
   pname = "helios";
-  version = "20260715";
+  version = "20260720";
 
   src = ./.;
 
