@@ -216,6 +216,30 @@
       ];
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
 
+      # deploy-rs's own lib.activate.nixos bakes in a `deploy-rs` binary built
+      # from deploy-rs's own flake (its own, disjoint, stale nixpkgs pin), not
+      # from our nixpkgs. cache.nixos.org never serves that exact derivation,
+      # so every deploy compiles it from source. Override it with nixpkgs's
+      # own (Hydra-cached) deploy-rs package, per upstream's documented fix:
+      # https://github.com/serokell/deploy-rs/blob/6d3087eedff75a715b40c0e124ba15d2dd7bec28/README.md#L92-L116
+      deployRsLib =
+        system:
+        let
+          plainPkgs = import inputs.nixpkgs { inherit system; };
+        in
+        (import inputs.nixpkgs {
+          inherit system;
+          overlays = [
+            inputs.deploy-rs.overlays.default
+            (_final: super: {
+              deploy-rs = {
+                inherit (plainPkgs) deploy-rs;
+                lib = super.deploy-rs.lib;
+              };
+            })
+          ];
+        }).deploy-rs.lib;
+
       # Helper function to create nixosSystem configurations
       # Profile is now required and must be specified from the profiles registry
       mkNixosSystem =
@@ -843,7 +867,7 @@
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.dino;
+              path = (deployRsLib "x86_64-linux").activate.nixos self.nixosConfigurations.dino;
             };
           };
           cogsworth = {
@@ -852,7 +876,7 @@
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
-              path = inputs.deploy-rs.lib.aarch64-linux.activate.nixos self.nixosConfigurations.cogsworth;
+              path = (deployRsLib "aarch64-linux").activate.nixos self.nixosConfigurations.cogsworth;
             };
           };
           tiger = {
@@ -860,7 +884,7 @@
             profiles.system = {
               sshUser = "svc.deploy";
               user = "root";
-              path = inputs.deploy-rs.lib.x86_64-linux.activate.nixos self.nixosConfigurations.tiger;
+              path = (deployRsLib "x86_64-linux").activate.nixos self.nixosConfigurations.tiger;
             };
           };
 
