@@ -1,5 +1,7 @@
 """Tests for the session module."""
 
+import os
+
 from winnow.core.session import PhotoStatus, Session, raw_siblings
 
 
@@ -483,6 +485,28 @@ def test_raw_siblings_stem_with_dots(tmp_path):
     raw.touch()
 
     assert raw_siblings(photo) == [raw]
+
+
+def test_raw_siblings_dedups_same_file_via_different_paths(tmp_path):
+    """Test raw_siblings dedupes when two candidate paths are the same file.
+
+    On a case-insensitive filesystem (e.g. macOS's default APFS), the
+    lowercase and uppercase candidates both exist and are the same on-disk
+    file, which would otherwise be returned twice and later deleted twice.
+    A hardlink reproduces "two path strings, one inode" deterministically
+    on any filesystem, exercising the samefile()-based dedup in
+    raw_siblings without depending on an actual case-insensitive volume.
+    """
+    photo = tmp_path / "photo.jpg"
+    photo.touch()
+    raw_lower = tmp_path / "photo.raf"
+    raw_upper = tmp_path / "photo.RAF"
+    raw_lower.touch()
+    os.link(raw_lower, raw_upper)  # hardlink: same inode, different path/case
+
+    result = raw_siblings(photo)
+
+    assert len(result) == 1
 
 
 # Session.count_raw_deletes() tests

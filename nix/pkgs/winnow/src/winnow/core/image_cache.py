@@ -112,7 +112,7 @@ class ImageCache(QObject):
     def __init__(
         self,
         max_threads: int = 6,
-        max_memory_mb: float = 24576.0,
+        max_memory_mb: float = 8192.0,
         parent: QObject | None = None,
     ) -> None:
         """Initialize the image cache.
@@ -122,7 +122,9 @@ class ImageCache(QObject):
             max_memory_mb: Soft memory budget in MB. Once cached pixmaps
                 exceed this, least-recently-used entries are evicted (never
                 the currently active/displayed images) until back under
-                budget. Default is generous - see --max-memory.
+                budget. This constructor default is a conservative fallback;
+                winnow.app computes the real default as a fraction of
+                physical RAM - see --max-memory.
             parent: Optional parent QObject.
         """
         super().__init__(parent)

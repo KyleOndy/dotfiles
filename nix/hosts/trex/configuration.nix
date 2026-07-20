@@ -11,17 +11,19 @@
 
   networking.hostName = "trex";
 
-  # Photo working set (~/photos/_provisional, ~/photos/_projects). Import
-  # and cull tooling (helios, winnow) does not run on macOS yet -- that is
-  # a separate follow-up; dino stays the import/cull front door until then.
-  # These tools cover the storage side: mirror the working set out (to
-  # tiger, an external SSD, or opportunistically to S3 while traveling),
-  # recall a shoot from tiger's archive to work on it, and promote finished
-  # assets back. See the photo management plan for the full model.
+  # Photo working set (~/photos/_provisional, ~/photos/_projects). winnow
+  # (culling) runs natively on macOS; helios (import) is still Linux-only
+  # and a separate follow-up -- dino stays the import front door until then.
+  # backup-photos/photos-recall/photos-promote cover the storage side:
+  # mirror the working set out (to tiger, an external SSD, or opportunistically
+  # to S3 while traveling), recall a shoot from tiger's archive to work on it,
+  # and promote finished assets back. See the photo management plan for the
+  # full model.
   home-manager.users.kyle.home.packages = with pkgs; [
     backup-photos
     photos-recall
     photos-promote
+    winnow
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was

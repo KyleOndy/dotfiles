@@ -1,9 +1,11 @@
 """Tests for MainWindow close event and file deletion."""
 
+import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import QMessageBox
 
+import winnow.core.session as session_module
 from winnow.core.session import PhotoStatus
 from winnow.ui.main_window import MainWindow
 
@@ -287,6 +289,76 @@ def test_delete_marked_files_mixed_results(tmp_path, monkeypatch):
     assert not photo1.exists()
     assert photo2.exists()  # Still exists due to permission error
     assert not photo3.exists()
+
+
+def test_delete_marked_files_uses_trash_on_darwin(tmp_path, monkeypatch):
+    """Test delete_marked_files routes to send2trash instead of unlink on macOS."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    photo.touch()
+
+    from winnow.core.session import Session
+
+    session = Session(directory=test_dir, images=[photo])
+    session.set_status(photo, PhotoStatus.DELETE)
+
+    trashed = []
+    monkeypatch.setattr(session_module, "send2trash", trashed.append)
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    failed = session.delete_marked_files()
+
+    assert len(failed) == 0
+    assert trashed == [photo]
+    assert photo.exists()  # send2trash mocked out, so unlink never ran
+
+
+def test_delete_marked_files_unlinks_on_non_darwin(tmp_path, monkeypatch):
+    """Test delete_marked_files still permanently unlinks on non-macOS platforms."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    photo.touch()
+
+    from winnow.core.session import Session
+
+    session = Session(directory=test_dir, images=[photo])
+    session.set_status(photo, PhotoStatus.DELETE)
+
+    trashed = []
+    monkeypatch.setattr(session_module, "send2trash", trashed.append)
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    failed = session.delete_marked_files()
+
+    assert len(failed) == 0
+    assert trashed == []  # send2trash never called on this platform
+    assert not photo.exists()  # permanently unlinked instead
+
+
+def test_delete_marked_files_trash_failure_recorded(tmp_path, monkeypatch):
+    """Test a send2trash failure on darwin is added to the failed list."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    photo.touch()
+
+    from winnow.core.session import Session
+
+    session = Session(directory=test_dir, images=[photo])
+    session.set_status(photo, PhotoStatus.DELETE)
+
+    def failing_send2trash(path):
+        raise OSError(f"Trash unavailable: {path}")
+
+    monkeypatch.setattr(session_module, "send2trash", failing_send2trash)
+    monkeypatch.setattr(sys, "platform", "darwin")
+
+    failed = session.delete_marked_files()
+
+    assert failed == [photo]
+    assert photo.exists()
 
 
 # MainWindow.closeEvent() tests

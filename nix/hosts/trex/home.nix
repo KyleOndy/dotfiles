@@ -27,10 +27,15 @@
 
   # Kensington trackball remapping - same physical hardware/need as dino's
   # hmFoundry.desktop.input.trackball, just the darwin-side mechanism.
+  #
+  # pcStyle (Ctrl->Cmd for copy/paste/etc) is disabled: going mac-native for
+  # OS-wide shortcuts instead, which also keeps physical Ctrl free for
+  # winnow's Ctrl+h/j/k/l/0/r bindings (see AA_MacDontSwapCtrlAndMeta in
+  # winnow's app.py) without needing a per-app Karabiner exclusion.
   hmFoundry.desktop.input.karabiner = {
     enable = true;
     kensingtonExpert.enable = true;
-    pcStyle.enable = true;
+    pcStyle.enable = false;
   };
 
   # App quick-switching

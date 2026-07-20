@@ -2,7 +2,7 @@
 
 **winnow:** _verb_ — to separate the good from the chaff
 
-Fast Linux photo viewer for culling. Compare multiple photos side-by-side
+Fast photo viewer for culling. Compare multiple photos side-by-side
 with synchronized zoom and pan. Rate, filter, and quickly separate keepers
 from rejects. Built for batch culling JPEGs without the weight of a full DAM.
 
@@ -15,7 +15,7 @@ cache, nothing persisted between runs. Deletion is two-phase — mark in-app
 (undoable), confirm and delete on quit — so a stray keystroke can't lose a
 whole cull pass.
 
-Linux only, JPEG only. A few hundred photos per directory is the sweet
+Linux and macOS, JPEG only. A few hundred photos per directory is the sweet
 spot; comparisons top out around 5 photos before things degrade.
 
 ## Keys
@@ -50,8 +50,8 @@ collapses back to single view.
 ## Non-goals
 
 Persistent state, thumbnail caching to disk, RAW support, editing,
-metadata beyond keeper/delete, catalogs, export, cloud sync, non-Linux
-platforms, video, printing. This is a culling tool, not a DAM.
+metadata beyond keeper/delete, catalogs, export, cloud sync, video,
+printing. This is a culling tool, not a DAM.
 
 ## Structure
 
@@ -66,8 +66,8 @@ threads, off the UI thread, to keep navigation responsive.
 ## Development
 
 ```
-nix develop
-pytest          # unit + pytest-qt UI tests, needs a Qt/X11 environment
+nix develop .#winnow
+pytest          # unit + pytest-qt UI tests, runs headless via QT_QPA_PLATFORM=offscreen
 ruff check .
 ruff format .
 ```

@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "winnow"
 version = "0.1.0"
-description = "Fast Linux photo viewer for culling JPEG photos"
+description = "Fast photo viewer for culling JPEG photos"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -18,6 +18,7 @@ classifiers = [
     "Intended Audience :: End Users/Desktop",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -27,6 +28,7 @@ classifiers = [
 dependencies = [
     "PySide6>=6.6.0",
     "Pillow>=10.0.0",
+    "Send2Trash>=1.8.0",
 ]
 
 [project.optional-dependencies]
@@ -65,7 +67,7 @@ known-first-party = ["winnow"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["tests"]
+pythonpath = ["src", "tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

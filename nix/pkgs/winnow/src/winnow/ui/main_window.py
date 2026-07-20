@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
     - Window lifecycle events (close handling)
     """
 
-    def __init__(self, directory: Path, max_memory_mb: float = 24576.0) -> None:
+    def __init__(self, directory: Path, max_memory_mb: float = 8192.0) -> None:
         """Initialize the MainWindow with a photo directory.
 
         Scans the directory for JPEG files and initializes a new session.
@@ -46,6 +46,9 @@ class MainWindow(QMainWindow):
             directory: Path to the directory containing JPEG photos to cull.
             max_memory_mb: Soft memory budget (MB) for the full-resolution
                 image cache - see ImageCache and the --max-memory CLI flag.
+                This constructor default is a conservative fallback for
+                direct construction; winnow.app computes the real default
+                as a fraction of physical RAM.
         """
         super().__init__()
 

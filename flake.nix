@@ -577,6 +577,31 @@
             # Skip nix flake check in smart-test hook to speed up claude-code
             CLAUDE_SKIP_NIX_TESTS = "true";
           };
+
+          # Dev shell for nix/pkgs/winnow: `nix develop .#winnow` then `pytest`,
+          # `ruff check .`, `ruff format .` per its README. Not part of the
+          # winnow package build (that stays doCheck = false there).
+          winnow = pkgs.mkShell {
+            buildInputs = [
+              (pkgs.python3.withPackages (
+                ps: with ps; [
+                  pyside6
+                  pillow
+                  send2trash
+                  pytest
+                  pytest-qt
+                  pytest-cov
+                ]
+              ))
+              pkgs.ruff
+            ];
+
+            # pytest-qt needs to find Qt's platform plugins (conftest.py
+            # defaults QT_QPA_PLATFORM to offscreen, which still needs
+            # QT_PLUGIN_PATH to locate libqoffscreen); also lets `winnow`
+            # run interactively via the cocoa/xcb plugin if invoked directly.
+            QT_PLUGIN_PATH = "${pkgs.qt6.qtbase}/lib/qt-6/plugins";
+          };
         }
       );
 

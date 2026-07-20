@@ -5,17 +5,20 @@ including photo status tracking and session state.
 """
 
 import bisect
+import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
 from PySide6.QtGui import QPixmap
+from send2trash import send2trash
 
 from winnow.core.image_cache import ImageCache
 
 # RAW extensions whose sibling file should be deleted alongside a JPEG.
-# Fuji writes uppercase .RAF; both cases are checked since Linux paths are
-# case-sensitive. Extend this tuple to support other RAW formats.
+# Fuji writes uppercase .RAF; both cases are checked since some filesystems
+# (ext4, most Linux) are case-sensitive. Extend this tuple to support other
+# RAW formats.
 RAW_EXTENSIONS = (".raf",)
 
 
@@ -25,20 +28,32 @@ def raw_siblings(jpeg_path: Path) -> list[Path]:
     Fuji (and similar RAW+JPEG workflows) write a RAW file alongside the JPEG
     under the same base name in the same directory, e.g. DSCF1234.JPG next to
     DSCF1234.RAF. This checks both lowercase and uppercase forms of each known
-    RAW extension and returns only the ones that actually exist on disk.
+    RAW extension and returns the ones that actually exist on disk.
+
+    On a case-insensitive filesystem (e.g. macOS's default APFS), the
+    lowercase and uppercase candidates for a given extension both exist and
+    refer to the same on-disk file, so a naive existence check would return
+    it twice - and later delete it twice. Results are deduped with
+    Path.samefile() (device + inode comparison), which correctly identifies
+    "same file on disk" regardless of *why* two path strings collide (case
+    folding, a hard link, a bind mount, etc.), unlike comparing resolved path
+    strings, which wouldn't reliably collapse a same-file-different-case pair.
 
     Args:
         jpeg_path: Path to the JPEG file to find RAW siblings for.
 
     Returns:
-        List of existing sibling RAW paths (possibly empty).
+        List of existing sibling RAW paths (possibly empty), deduped.
     """
-    siblings = []
+    siblings: list[Path] = []
     for ext in RAW_EXTENSIONS:
         for candidate_ext in (ext, ext.upper()):
             candidate = jpeg_path.with_suffix(candidate_ext)
-            if candidate.exists():
-                siblings.append(candidate)
+            if not candidate.exists():
+                continue
+            if any(candidate.samefile(existing) for existing in siblings):
+                continue
+            siblings.append(candidate)
     return siblings
 
 
@@ -189,6 +204,10 @@ class Session:
         (permission error, file not found, etc.), it is skipped and added to
         the failed list. The session state is not modified.
 
+        On macOS, files are sent to the Trash (recoverable from Finder)
+        instead of being permanently removed, since that's the platform's
+        native expectation. Elsewhere, files are unlinked permanently.
+
         Returns:
             List of paths that failed to delete (empty if all succeeded).
         """
@@ -196,7 +215,10 @@ class Session:
         for path in self.deletes:
             for target in (path, *raw_siblings(path)):
                 try:
-                    target.unlink()
+                    if sys.platform == "darwin":
+                        send2trash(target)
+                    else:
+                        target.unlink()
                 except OSError:
                     failed.append(target)
         return failed

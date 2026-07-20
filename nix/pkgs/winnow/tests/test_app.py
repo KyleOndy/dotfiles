@@ -46,7 +46,7 @@ class _FakeWindow:
     tests here avoid that too.
     """
 
-    def __init__(self, directory, max_memory_mb=24576.0):
+    def __init__(self, directory, max_memory_mb=8192.0):
         self.directory = directory
         self.max_memory_mb = max_memory_mb
         _FakeWindow.last_instance = self
@@ -83,7 +83,13 @@ def test_main_threads_max_memory_argument_to_main_window(monkeypatch, tmp_path):
 
 
 def test_main_default_max_memory(monkeypatch, tmp_path):
-    """Without --max-memory, MainWindow gets the documented default."""
+    """Without --max-memory, MainWindow gets the RAM-fraction default.
+
+    The default is computed once by argparse when the parser is built
+    (default_max_memory_mb() called at add_argument time), so it's captured
+    before main() runs; assert against that same call rather than a fixed
+    literal, since the real default depends on the machine's physical RAM.
+    """
     import winnow.app as app_module
 
     photos = tmp_path / "photos"
@@ -93,9 +99,10 @@ def test_main_default_max_memory(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "QApplication", _FakeApp)
     monkeypatch.setattr(sys, "argv", ["winnow", str(photos)])
 
+    expected_default = app_module.default_max_memory_mb()
     main()
 
-    assert _FakeWindow.last_instance.max_memory_mb == 24576.0
+    assert _FakeWindow.last_instance.max_memory_mb == expected_default
 
 
 def test_main_version_exits_cleanly(monkeypatch, capsys):
@@ -113,3 +120,61 @@ def test_main_version_exits_cleanly(monkeypatch, capsys):
     assert exc_info.value.code == 0
     captured = capsys.readouterr()
     assert "winnow" in captured.out
+
+
+# default_max_memory_mb() tests
+#
+# The RAM-fraction arithmetic (given a byte count, computed via
+# _physical_memory_bytes()) and the no-detection fallback are tested
+# directly here. The platform-specific detection mechanics themselves
+# (os.sysconf on Linux, ctypes/sysctlbyname on darwin) aren't re-verified
+# against a real value - that's exercised by actually running winnow (see
+# the port plan's on-device verification steps).
+
+
+def test_default_max_memory_mb_is_40_percent_of_detected_ram(monkeypatch):
+    """default_max_memory_mb() returns 40% of physical RAM, in MB."""
+    import winnow.app as app_module
+
+    sixteen_gib = 16 * 1024**3
+    monkeypatch.setattr(app_module, "_physical_memory_bytes", lambda: sixteen_gib)
+
+    result = app_module.default_max_memory_mb()
+
+    assert result == pytest.approx(sixteen_gib * 0.4 / (1024 * 1024))
+
+
+def test_default_max_memory_mb_falls_back_when_ram_undetected(monkeypatch):
+    """default_max_memory_mb() falls back to a fixed value if RAM can't be read."""
+    import winnow.app as app_module
+
+    monkeypatch.setattr(app_module, "_physical_memory_bytes", lambda: None)
+
+    result = app_module.default_max_memory_mb()
+
+    assert result == app_module._FALLBACK_MAX_MEMORY_MB
+
+
+def test_physical_memory_bytes_linux_uses_sysconf(monkeypatch):
+    """_physical_memory_bytes() computes pages * page_size on non-darwin."""
+    import winnow.app as app_module
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    values = {"SC_PHYS_PAGES": 1000, "SC_PAGE_SIZE": 4096}
+    monkeypatch.setattr(app_module.os, "sysconf", lambda name: values[name])
+
+    assert app_module._physical_memory_bytes() == 1000 * 4096
+
+
+def test_physical_memory_bytes_returns_none_on_sysconf_failure(monkeypatch):
+    """_physical_memory_bytes() returns None rather than raising if sysconf fails."""
+    import winnow.app as app_module
+
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    def raise_value_error(name):
+        raise ValueError(f"unsupported sysconf name: {name}")
+
+    monkeypatch.setattr(app_module.os, "sysconf", raise_value_error)
+
+    assert app_module._physical_memory_bytes() is None
