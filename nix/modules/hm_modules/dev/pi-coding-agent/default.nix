@@ -350,6 +350,57 @@ in
         '';
       };
     };
+
+    modelsJson = lib.mkOption {
+      type = lib.types.attrsOf lib.types.anything;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          providers.local = {
+            baseUrl = "http://127.0.0.1:8000/v1";
+            api = "openai-completions";
+            apiKey = "local-no-key";
+            compat.supportsDeveloperRole = false;
+            models = [
+              {
+                id = "qwen3-coder";
+                name = "Qwen3 Coder (local, mlx)";
+                reasoning = false;
+                input = [ "text" ];
+                cost = {
+                  input = 0;
+                  output = 0;
+                  cacheRead = 0;
+                  cacheWrite = 0;
+                };
+                contextWindow = 128000;
+                maxTokens = 8192;
+              }
+            ];
+          };
+        }
+      '';
+      description = ''
+        Contents of ~/.pi/agent/models.json, rendered verbatim via
+        builtins.toJSON. Empty by default (pi ships built-in providers;
+        this option only exists to register additional ones — custom
+        OpenAI-compatible endpoints such as a local mlx-openai-server,
+        Ollama, vLLM, or a proxy).
+
+        See pi's custom-provider docs:
+        https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md
+
+        This option owns the whole file — home-manager overwrites
+        ~/.pi/agent/models.json on every activation, so a manually edited
+        file (e.g. providers added by hand before this option existed) will
+        be clobbered. Fold any such providers into this option's value
+        first.
+
+        Select a configured model per-invocation with `pi --model
+        <provider>/<model-id>`, or pin one host-wide via
+        sandbox.defaultArgs.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -362,5 +413,9 @@ in
 
     home.file.".pi/agent/extensions".source =
       config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
+
+    home.file.".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
+      text = builtins.toJSON cfg.modelsJson;
+    };
   };
 }
