@@ -90,10 +90,40 @@
     ];
   };
 
+  # Disable macOS screenshot shortcuts so Shottr (fired by the trackball's
+  # remapped buttons, see hmFoundry.desktop.input.karabiner in home.nix) can
+  # intercept them.
+  system.defaults.CustomUserPreferences."com.apple.symbolichotkeys".AppleSymbolicHotKeys = {
+    "28".enabled = false; # Cmd+Shift+3 (full screen to file)
+    "29".enabled = false; # Ctrl+Cmd+Shift+3 (full screen to clipboard)
+    "30".enabled = false; # Cmd+Shift+4 (selection to file)
+    "31".enabled = false; # Ctrl+Cmd+Shift+4 (selection to clipboard)
+    "184".enabled = false; # Cmd+Shift+5 (screenshot options panel)
+    "164".enabled = false; # Ctrl+Cmd+Space (Emoji & Symbols / Character Viewer)
+  };
+
+  # Add screenshots directory to Finder sidebar
+  launchd.agents.finder-sidebar = {
+    serviceConfig = {
+      ProgramArguments = [
+        "/bin/sh"
+        "-c"
+        ''
+          mkdir -p ~/screenshots
+          /usr/bin/sfltool add-item com.apple.LSSharedFileList.FavoriteItems file:///Users/kyle/screenshots
+        ''
+      ];
+      RunAtLoad = true;
+    };
+  };
+
   # Homebrew integration for GUI applications and tools not in nixpkgs.
-  # Starting minimal; add casks/taps/brews here as needed.
   homebrew = {
-    casks = lib.mkDefault [ ];
+    casks = lib.mkDefault [
+      "karabiner-elements" # applies the Kensington trackball remapping, see home.nix
+      "shottr" # screenshot tool the trackball buttons trigger
+      "hammerspoon" # already enabled in home.nix; installs the app that runs it
+    ];
     taps = [ ];
     brews = [ ];
   };
