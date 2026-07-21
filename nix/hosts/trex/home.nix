@@ -41,8 +41,14 @@
   # App quick-switching
   hmFoundry.desktop.input.hammerspoon.enable = true;
 
-  # Add Homebrew to PATH for all managed shells (including Claude Code)
-  home.sessionPath = [ "/opt/homebrew/bin" ];
+  # Add Homebrew to PATH for all managed shells (including Claude Code).
+  # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
+  # executables) since `uv tool update-shell` can't write the home-manager
+  # managed .zshenv symlink.
+  home.sessionPath = [
+    "/opt/homebrew/bin"
+    "$HOME/.local/bin"
+  ];
 
   hmFoundry.dev = {
     claude-code.enable = true;
