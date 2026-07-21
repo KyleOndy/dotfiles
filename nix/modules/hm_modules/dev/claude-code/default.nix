@@ -165,6 +165,8 @@ in
           ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
           ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
           ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
+          ".claude/skills/i-have-adhd/SKILL.md".source =
+            "${inputs.claude-skills-adhd}/skills/i-have-adhd/SKILL.md";
         }
         // listToAttrs (
           map (

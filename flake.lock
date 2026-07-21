@@ -116,6 +116,22 @@
         "type": "github"
       }
     },
+    "claude-skills-adhd": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784625520,
+        "narHash": "sha256-oICKyhKv/wekwigpC1V5L2zplFmaD+gV0C8/ho0aNtI=",
+        "owner": "ayghri",
+        "repo": "i-have-adhd",
+        "rev": "0241185d6c7f2d0763a988ce52eceb13ea9f5c1f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ayghri",
+        "repo": "i-have-adhd",
+        "type": "github"
+      }
+    },
     "claude-skills-jeffallan": {
       "flake": false,
       "locked": {
@@ -950,6 +966,7 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
+        "claude-skills-adhd": "claude-skills-adhd",
         "claude-skills-jeffallan": "claude-skills-jeffallan",
         "claude-skills-rohitg00": "claude-skills-rohitg00",
         "claude-skills-voltagent": "claude-skills-voltagent",

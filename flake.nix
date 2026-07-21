@@ -65,6 +65,10 @@
       url = "github:rohitg00/awesome-claude-code-toolkit";
       flake = false;
     };
+    claude-skills-adhd = {
+      url = "github:ayghri/i-have-adhd";
+      flake = false;
+    };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
     };
