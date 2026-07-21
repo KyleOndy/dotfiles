@@ -77,6 +77,19 @@
   # created, per-host, never bumped in lockstep with other hosts.
   system.stateVersion = 6;
 
+  # Dock (macOS "taskbar"): pin to the bottom and pin a minimal app set.
+  # autohide/tilesize/show-recents etc. come from the shared defaults in
+  # nix/modules/darwin_modules/base.nix; only host-specific bits live here.
+  system.defaults.dock = {
+    orientation = "bottom";
+    persistent-apps = lib.mkDefault [
+      "/System/Library/CoreServices/Finder.app"
+      "/Users/kyle/Applications/Home Manager Apps/Alacritty.app"
+      "/Users/kyle/Applications/Home Manager Apps/Firefox.app"
+      "/System/Applications/Messages.app"
+    ];
+  };
+
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   # Starting minimal; add casks/taps/brews here as needed.
   homebrew = {
