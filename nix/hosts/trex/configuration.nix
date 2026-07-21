@@ -71,6 +71,7 @@
     photos-recall
     photos-promote
     winnow
+    ask # local LLM one-off questions and chat, see nix/pkgs/ask
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was
