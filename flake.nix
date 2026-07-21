@@ -156,6 +156,27 @@
             };
           }
         )
+
+        # notmuch's own ./configure probes for -fsanitize=address/=thread
+        # support by compiling AND RUNNING a trivial ASan/TSan binary. On
+        # aarch64-darwin, ASan's runtime deadlocks during its own init
+        # (recursive malloc into a non-reentrant spinlock while walking the
+        # dyld shared cache for shadow-memory setup) -- an upstream
+        # compiler-rt/macOS bug, unrelated to notmuch or the nix sandbox.
+        # These probes only gate notmuch's own test-suite sanitizer variants
+        # (test/T800-asan.sh, test/T810-tsan.sh), which already never run on
+        # darwin (doCheck = false upstream), so short-circuit them.
+        (_final: prev: {
+          notmuch = prev.notmuch.overrideAttrs (
+            old:
+            prev.lib.optionalAttrs prev.stdenv.hostPlatform.isDarwin {
+              postPatch = old.postPatch + ''
+                substituteInPlace configure \
+                  --replace-fail 'if ''${test_cmdline} >/dev/null 2>&1 && ./minimal' 'if false'
+              '';
+            }
+          );
+        })
       ];
 
       # Profile registry for consistent profile management
