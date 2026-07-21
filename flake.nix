@@ -16,6 +16,11 @@
       # packages installed via home-manager use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # trex runs Determinate Nix; this brings in its nix-darwin integration
+    # module (determinateNix.*), including its Determinate-compatible local
+    # Linux VM builder. Deliberately not following our own nixpkgs -- this
+    # feeds Determinate's own `nix` build, which they pin and test against.
+    determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
     nix-darwin = {
       url = "github:LnL7/nix-darwin/nix-darwin-25.11";
       # packages installed via nix-darwin use my nixpkgs
@@ -852,7 +857,7 @@
         username = "kyle";
         includeModules = [
           ./nix/hosts/trex/root-ssh-config.nix
-          ./nix/modules/nix_modules/nixBuilders.nix
+          inputs.determinate.darwinModules.default
         ];
         # Email (notmuch/neomutt/mbsync) is only used on trex, matching dino.
         extraConfig = {

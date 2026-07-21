@@ -11,6 +11,53 @@
 
   networking.hostName = "trex";
 
+  # trex runs Determinate Nix, whose own daemon owns /etc/nix/nix.conf and
+  # conflicts with nix-darwin's native Nix management:
+  #   error: Determinate detected, aborting activation
+  # Adopt Determinate's own nix-darwin module (flake input `determinate`)
+  # rather than a bare `nix.enable = false;`, so we also get its
+  # Determinate-compatible local Linux builder below -- nix-darwin's own
+  # nix.linux-builder doesn't work once nix-darwin stops managing Nix.
+  # https://docs.determinate.systems/guides/nix-darwin/
+  determinateNix = {
+    enable = true; # also forces nix.enable = false for us
+
+    # Local NixOS VM (via Apple's Virtualization.framework) that builds
+    # Linux derivations when tiger is unreachable. Determinate's
+    # replacement for nix-darwin's own nix.linux-builder, which asserts
+    # `requires nix.enable` once Determinate owns Nix
+    # (nix-darwin/nix-darwin#1505).
+    nixosVmBasedLinuxBuilder.enable = true;
+
+    # Prefer tiger (dedicated, faster) over the local VM; Nix falls back
+    # to whichever builder is reachable and idle. The short ConnectTimeout
+    # in root-ssh-config.nix keeps that failover fast instead of hanging.
+    buildMachines = [
+      {
+        hostName = "tiger.dmz.1ella.com";
+        sshUser = "svc.deploy";
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
+        maxJobs = 8;
+        speedFactor = 10;
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+        ];
+      }
+    ];
+  };
+
+  # nix-darwin's own nix.linux-builder and nix.optimise.automatic (both
+  # turned on for all darwin hosts in nix/modules/darwin_modules/base.nix)
+  # are separate from determinateNix.nixosVmBasedLinuxBuilder above and
+  # still assert `requires nix.enable` on their own. Store optimisation is
+  # Determinate's job now.
+  nix.linux-builder.enable = lib.mkForce false;
+  nix.optimise.automatic = lib.mkForce false;
+
   # Photo working set (~/photos/_provisional, ~/photos/_projects). winnow
   # (culling) runs natively on macOS; helios (import) is still Linux-only
   # and a separate follow-up -- dino stays the import front door until then.
@@ -36,29 +83,6 @@
     casks = lib.mkDefault [ ];
     taps = [ ];
     brews = [ ];
-  };
-
-  # Offload Linux package builds to tiger, same as dino. Also runs
-  # nix.linux-builder.enable (nix/modules/darwin_modules/base.nix) as a
-  # local fallback.
-  systemFoundry.nixBuilders = {
-    enable = true;
-    machines = [
-      {
-        hostName = "tiger.dmz.1ella.com";
-        sshUser = "svc.deploy";
-        systems = [
-          "x86_64-linux"
-          "aarch64-linux"
-        ];
-        maxJobs = 8;
-        speedFactor = 10;
-        supportedFeatures = [
-          "benchmark"
-          "big-parallel"
-        ];
-      }
-    ];
   };
 
   # Report metrics/logs to tiger, darwin-native equivalent of dino's
