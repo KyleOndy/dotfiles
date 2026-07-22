@@ -9,6 +9,16 @@ credential_masks=(@credentialMasks@)
 default_pi_args=(@defaultPiArgs@)
 real_pi="${PI_REAL_BIN:-@realPiBin@}"
 
+# Re-export so the pi process we're about to run (and extensions inside it,
+# e.g. the task subagent extension) can see the resolved real-binary path.
+# A subagent spawns $PI_REAL_BIN directly instead of re-invoking this `pi`
+# wrapper, which would otherwise try to open a second, redundant srt/bwrap/
+# sandbox-exec layer. It doesn't need one: OS-level sandboxes confine the
+# whole process tree, so a plain child process of the already-sandboxed pi
+# stays inside the same confinement for free.
+export PI_REAL_BIN="$real_pi"
+[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_REAL_BIN: %s\n' "$real_pi"
+
 extra_domains=()
 extra_write_paths=()
 extra_read_paths=()

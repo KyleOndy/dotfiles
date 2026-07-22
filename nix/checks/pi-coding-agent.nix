@@ -360,5 +360,18 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$captured" | grep -q "PI_PLAN_GIT:.*sign=false" \
       || fail "--no-sandbox dropped git identity. captured=$captured"
 
+    # PI_REAL_BIN is exported so an in-process extension (e.g. the task
+    # subagent tool) can spawn the real binary directly, bypassing another
+    # sandbox layer, instead of re-invoking this wrapper.
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_REAL_BIN: ${stubPi}/bin/pi" \
+      || fail "PI_REAL_BIN not exported to the resolved real-binary path. captured=$captured"
+
+    # A caller-supplied PI_REAL_BIN override still wins and is re-exported
+    # (not silently replaced by the build-time default).
+    captured=$(PI_REAL_BIN=/tmp/other-pi pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_REAL_BIN: /tmp/other-pi" \
+      || fail "PI_REAL_BIN override not honored/re-exported. captured=$captured"
+
     touch $out
   ''
