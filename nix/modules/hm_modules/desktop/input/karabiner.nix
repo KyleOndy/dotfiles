@@ -54,6 +54,36 @@ let
     {
       description = "Kensington Expert Trackball Button Remapping";
       manipulators = [
+        # Both bottom buttons together (button1 + button2) -> Middle click (button3)
+        {
+          type = "basic";
+          from = {
+            simultaneous = [
+              { pointing_button = "button1"; }
+              { pointing_button = "button2"; }
+            ];
+            simultaneous_options = {
+              key_down_order = "insensitive";
+              key_up_order = "insensitive";
+            };
+          };
+          to = [
+            {
+              pointing_button = "button3";
+            }
+          ];
+          conditions = [
+            {
+              type = "device_if";
+              identifiers = [
+                {
+                  vendor_id = 1149; # Kensington
+                  product_id = 4128; # Expert Mouse/Trackball (0x1020)
+                }
+              ];
+            }
+          ];
+        }
         # Top-left button (button3) -> Region screenshot (cmd+shift+4)
         {
           type = "basic";
