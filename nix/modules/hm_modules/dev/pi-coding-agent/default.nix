@@ -401,6 +401,38 @@ in
         sandbox.defaultArgs.
       '';
     };
+
+    settingsJson = lib.mkOption {
+      type = lib.types.attrsOf lib.types.anything;
+      default = { };
+      example = lib.literalExpression ''
+        {
+          compaction = {
+            enabled = true;
+            reserveTokens = 16384;
+            keepRecentTokens = 20000;
+          };
+        }
+      '';
+      description = ''
+        Contents of ~/.pi/agent/settings.json, rendered verbatim via
+        builtins.toJSON. Empty by default (pi's own defaults apply).
+
+        Pi's context management (auto-compaction, /compact, branch
+        summarization, session tree) is already native and doesn't need
+        building — this option exists so its knobs (compaction.reserveTokens
+        / keepRecentTokens, defaultProvider, defaultModel, ...) are
+        reproducible across hosts instead of hand-edited. See pi's settings
+        and compaction docs:
+        https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/settings.md
+        https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/compaction.md
+
+        This option owns the whole file — home-manager overwrites
+        ~/.pi/agent/settings.json on every activation, so hand edits don't
+        survive a rebuild. Fold any such settings into this option's value
+        first.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -416,6 +448,10 @@ in
 
     home.file.".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
       text = builtins.toJSON cfg.modelsJson;
+    };
+
+    home.file.".pi/agent/settings.json" = lib.mkIf (cfg.settingsJson != { }) {
+      text = builtins.toJSON cfg.settingsJson;
     };
   };
 }
