@@ -424,10 +424,16 @@ in
   # already declares its own allowedTCPPorts (e.g. caddyReverseProxy.nix's
   # 80/443, which the router actually forwards), and openssh's 2332 opens
   # automatically (openFirewall defaults to true). Those were inert no-ops
-  # with the firewall off; enabling it just activates them. SMB is the only
-  # port added here, and it's scoped to the LAN interface.
+  # with the firewall off; enabling it just activates them. SMB (445) and
+  # direct-LAN Jellyfin (8096/tcp, 7359/udp discovery) are added here,
+  # scoped to the LAN interface only -- Jellyfin's WAN path stays on
+  # Caddy/443, this never exposes plaintext 8096 externally.
   networking.firewall.enable = lib.mkForce true;
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 445 ];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [
+    445
+    8096
+  ];
+  networking.firewall.interfaces."enp10s0".allowedUDPPorts = [ 7359 ];
 
   # ---------------------------------------------------------------------------
   # UPS monitoring, automatic shutdown, and power-loss alerts
