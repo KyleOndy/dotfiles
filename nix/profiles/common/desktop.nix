@@ -21,7 +21,10 @@ with lib;
         gaming.steam.enable = true;
         media = {
           documents.enable = true;
-          makemkv.enable = true;
+          # Disabled: makemkv.com returns 403 on its tarball downloads, breaking
+          # every desktop-profile build (dino, tiger). Re-enable once upstream
+          # fixes the mirror or the derivation is updated to a working source.
+          makemkv.enable = false;
         };
         term = {
           wezterm.enable = false;
