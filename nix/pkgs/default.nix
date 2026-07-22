@@ -31,4 +31,5 @@ self: super: {
   zsh-histdb = super.callPackage ./zsh-histdb { };
   presence-debug = super.callPackage ./presence-debug { };
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
+  pi-overnight = super.callPackage ./pi-overnight { };
 }

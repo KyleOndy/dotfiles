@@ -72,6 +72,7 @@
     photos-promote
     winnow
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
+    pi-overnight # unattended pi runs against the local model, see nix/pkgs/pi-overnight
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was
