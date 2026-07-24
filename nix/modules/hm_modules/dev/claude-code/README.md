@@ -90,7 +90,7 @@ into the module.
 - Inspect what the module would install:
 
   ```bash
-  nix build .#nixosConfigurations.dino.config.home-manager.users.kyle.home.activationPackage
+  nix build .#nixosConfigurations.tiger.config.home-manager.users.kyle.home.activationPackage
   ls -la result/home-files/.claude/
   ```
 

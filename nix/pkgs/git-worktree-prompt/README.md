@@ -212,7 +212,7 @@ home-manager switch
 nixos-rebuild switch
 
 # Remote deployment (via deploy-rs)
-deploy .#dino
+deploy .#tiger
 ```
 
 ## Troubleshooting

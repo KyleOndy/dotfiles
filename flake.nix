@@ -726,24 +726,6 @@
       );
 
       nixosConfigurations = {
-        dino = mkNixosSystem {
-          hostname = "dino";
-          profile = "desktop";
-          hardwareModules = [
-            inputs.nixos-hardware.nixosModules.framework-12th-gen-intel
-          ];
-          includeModules = [
-            ./nix/hosts/dino/root-ssh-config.nix
-            inputs.disko.nixosModules.disko
-            ./disko-config.nix
-          ];
-          # Email (notmuch/neomutt/mbsync) is only used on dino.
-          extraConfig = {
-            home-manager.users.kyle = {
-              hmFoundry.terminal.email.enable = true;
-            };
-          };
-        };
         tiger = mkNixosSystem {
           hostname = "tiger";
           profile = "desktop";
@@ -799,59 +781,6 @@
             "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
           ];
         };
-        installer = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-            inputs.disko.nixosModules.disko
-            (
-              { pkgs, ... }:
-              {
-                environment.systemPackages = with pkgs; [
-                  inputs.disko.packages.x86_64-linux.disko
-                  git
-                  neovim
-                  tmux
-                ];
-
-                nix.settings.experimental-features = [
-                  "nix-command"
-                  "flakes"
-                ];
-
-                environment.etc."installer".source = self;
-                environment.etc."install.sh" = {
-                  source = pkgs.writeShellScript "install.sh" ''
-                    set -e
-
-                    echo "install"
-                    echo "partitioning disk"
-                    sudo nix --experimental-features "nix-command flakes" run github:nix-community/disko -- \
-                      --mode disko /etc/installer/disko-config.nix
-
-                    echo "gen config"
-                    sudo nixos-generate-config --no-filesystems --root /mnt
-
-                    echo copying flake
-                    sudo cp -r /etc/installer /mnt/etc/nixos
-
-                    echo installing
-                    sudo nixos-install --flake /mnt/etc/nixos/installer#dino
-
-                    echo done
-                    echo run sudo reboot
-                  '';
-                  mode = "0755";
-                };
-                services.getty.helpLine = ''
-                  To install: sudo /etc/install.sh
-                '';
-
-              }
-            )
-          ];
-        };
-
       };
       darwinConfigurations.work-mac = mkDarwinSystem {
         hostname = "work-mac";
@@ -866,7 +795,7 @@
           ./nix/hosts/trex/root-ssh-config.nix
           inputs.determinate.darwinModules.default
         ];
-        # Email (notmuch/neomutt/mbsync) is only used on trex, matching dino.
+        # Email (notmuch/neomutt/mbsync) is only used on trex.
         extraConfig = {
           home-manager.users.kyle = {
             hmFoundry.terminal.email.enable = true;
@@ -899,14 +828,6 @@
         fastConnection = true;
         confirmTimeout = 300;
         nodes = {
-          dino = {
-            hostname = "dino";
-            profiles.system = {
-              sshUser = "svc.deploy";
-              user = "root";
-              path = (deployRsLib "x86_64-linux").activate.nixos self.nixosConfigurations.dino;
-            };
-          };
           cogsworth = {
             fastConnection = false; # WiFi connection - use longer timeouts
             hostname = "cogsworth";

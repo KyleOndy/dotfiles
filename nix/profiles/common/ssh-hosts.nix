@@ -28,12 +28,6 @@ with lib;
         port = 2332;
         identityFile = "~/.ssh/id_ed25519";
       };
-      "dino" = {
-        hostname = "dino.lan.1ella.com";
-        user = "kyle";
-        identityFile = "~/.ssh/id_ed25519";
-      };
-
     };
   };
 }

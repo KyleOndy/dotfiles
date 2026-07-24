@@ -48,7 +48,7 @@ with lib;
         starship.enable = true;
       };
       terminal = {
-        # notmuch/neomutt/mbsync only run on dino; enabled there explicitly.
+        # notmuch/neomutt/mbsync only run on trex; enabled there explicitly.
         email.enable = lib.mkDefault false;
         tmux.enable = true;
         gpg.enable = true;

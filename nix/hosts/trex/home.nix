@@ -26,8 +26,9 @@
     };
   };
 
-  # Kensington trackball remapping - same physical hardware/need as dino's
-  # hmFoundry.desktop.input.trackball, just the darwin-side mechanism.
+  # Kensington trackball remapping - same physical hardware/need as the
+  # NixOS hmFoundry.desktop.input.trackball module, just the darwin-side
+  # mechanism.
   #
   # pcStyle (Ctrl->Cmd for copy/paste/etc) is disabled: going mac-native for
   # OS-wide shortcuts instead, which also keeps physical Ctrl free for

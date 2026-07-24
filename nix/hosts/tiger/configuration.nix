@@ -308,10 +308,10 @@ in
   #     already lives on tiger (snapshotted; photos also archived to S3), so
   #     the Mac's own OS state is treated as disposable.
   #   * No media share: Jellyfin already serves /mnt/media over HTTP.
-  #   * /mnt/photos caveat: dino pushes into it with `rsync -a --delete`
-  #     (backup-photos-to-dr.sh), so dino is authoritative. Anything trex
-  #     writes there that dino doesn't also have gets deleted on dino's next
-  #     sync. Accepted for now; revisit once the photo pipeline is reworked.
+  #   * /mnt/photos caveat: trex pushes into it with `rsync -a --delete`
+  #     (backup-photos-to-dr.sh), so that rsync is authoritative. Anything
+  #     written there outside of it gets deleted on trex's next sync.
+  #     Accepted for now; revisit once the photo pipeline is reworked.
   #   * LAN-only via defense in depth: smbd binds only to the LAN interface,
   #     Samba's own hosts allow/deny restricts to loopback + private ranges,
   #     and the host firewall (normally off, see deployment_target.nix) is

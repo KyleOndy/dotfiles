@@ -19,7 +19,7 @@ make build-cogsworth-sdimage    # SD image for reflashing
 make build-cogsworth-toplevel   # System toplevel (for deploy-rs iteration)
 
 # Build x86_64 systems
-make build-dino     # Intel c7i.16xlarge (64 vCPU)
+make build-tiger    # AMD c6a (96 vCPU)
 
 # Test with small instance
 make test
@@ -38,7 +38,7 @@ Your systems are built on EC2 instances matching their CPU architectures:
 | System    | CPU                         | EC2 Instance | vCPUs | Architecture |
 | --------- | --------------------------- | ------------ | ----- | ------------ |
 | cogsworth | Raspberry Pi 5 (Cortex-A76) | c7g.8xlarge  | 32    | aarch64      |
-| dino      | Intel i5-1240P (Alder Lake) | c7i.16xlarge | 64    | skylake      |
+| tiger     | AMD EPYC (Zen 3)            | c6a.24xlarge | 96    | znver3       |
 
 ## How It Works
 

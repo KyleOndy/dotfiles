@@ -71,7 +71,6 @@ in
         # password nobody uses — SSH pubkey auth and sudo are unaffected.
         # todo: make a key for just deploys
         openssh.authorizedKeys.keys = config.systemFoundry.users.kyle.authorizedKeys ++ [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIACXOhBDxjR0LAbLo0oIPSC9yY4ni7aoZB7Mt+WJ/GpU root@dino" # for nix distributed builds
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINYGnEHYJv1C/hCkXZjHjKZI8t6cHHLLNhE11oTf9DOn root@trex-nix-remote-builder" # for nix distributed builds
         ];
       };

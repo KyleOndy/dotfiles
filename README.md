@@ -170,16 +170,6 @@ make vm             # Build and run VM for testing
 make cleanup        # Clean up old generations and optimize store
 ```
 
-## Host Types and Roles
-
-### Current Infrastructure
-
-- **`dino`**: Development workstation (Framework laptop)
-  - Full desktop environment with KDE
-  - Complete development toolchain
-  - Claude Code integration with notifications
-  - Gaming and media capabilities
-
 ## Advanced Configuration
 
 ### Custom Packages

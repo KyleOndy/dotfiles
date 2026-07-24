@@ -27,9 +27,8 @@ readonly TF_DIR="${DOTFILES:-$HOME/src/dotfiles/main}/tf"
 
 # Items mirrored to tiger (or a local destination). "archive" is included
 # too, guarded by the existing-directory check below, purely for hosts that
-# still keep a local kept-tier mirror during the dino->trex transition;
-# trex is not expected to have one, since promotion goes straight to
-# tiger's archive/ via photos-promote.
+# keep a local kept-tier mirror; trex is not expected to have one, since
+# promotion goes straight to tiger's archive/ via photos-promote.
 readonly SYNC_ITEMS=(
 	"archive"
 	"_provisional"

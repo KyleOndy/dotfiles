@@ -60,7 +60,8 @@
 
   # Photo working set (~/photos/_provisional, ~/photos/_projects). winnow
   # (culling) runs natively on macOS; helios (import) is still Linux-only
-  # and a separate follow-up -- dino stays the import front door until then.
+  # and a separate follow-up -- there is currently no Linux host serving as
+  # the import front door (dino, which filled that role, has been sold).
   # backup-photos/photos-recall/photos-promote cover the storage side:
   # mirror the working set out (to tiger, an external SSD, or opportunistically
   # to S3 while traveling), recall a shoot from tiger's archive to work on it,
@@ -131,7 +132,7 @@
     brews = [ ];
   };
 
-  # Report metrics/logs to tiger, darwin-native equivalent of dino's
+  # Report metrics/logs to tiger, darwin-native equivalent of the NixOS
   # systemFoundry.monitoringStack (nix/modules/darwin_modules/monitoring-agent.nix).
   systemFoundry.monitoringAgent = {
     enable = true;
@@ -151,13 +152,14 @@
     };
     monitoring_password = {
       # vmagent and promtail run as root here (no DynamicUser on darwin),
-      # but keep the same permissive mode dino uses for consistency.
+      # but keep the same permissive mode used on the other NixOS hosts
+      # for consistency.
       mode = "0444";
     };
   };
 
   # Password script for automated mbsync service. Only kyle@ondy.org is
-  # wired up for automated sync (matching dino - the other two accounts in
+  # wired up for automated sync (the other two accounts in
   # nix/modules/hm_modules/terminal/email.nix have mbsync.enable = false).
   sops.templates."mbsync-password-script" = {
     owner = "kyle";
@@ -218,7 +220,7 @@
   home-manager.users.kyle.hmFoundry.terminal.email.passwordCommand =
     addr: "${config.sops.templates."mbsync-password-script".path} ${addr}";
 
-  # launchd equivalent of dino's systemd.user.timers.mbsync + notmuch-new
+  # launchd equivalent of the NixOS systemd.user.timers.mbsync + notmuch-new
   # (there's no systemd on darwin for home-manager's systemd.user.* to run).
   home-manager.users.kyle.launchd.agents.mbsync = {
     enable = true;
@@ -231,7 +233,7 @@
           config.sops.templates."mbsyncrc-automated".path
         } --all && ${pkgs.notmuch}/bin/notmuch new --no-hooks && ${pkgs.notmuch}/bin/notmuch tag +inbox +unread -new -- tag:new"
       ];
-      StartInterval = 900; # 15 minutes, matching dino's OnCalendar = "*:0/15"
+      StartInterval = 900; # 15 minutes, matching the equivalent systemd OnCalendar = "*:0/15"
       RunAtLoad = true;
       StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/mbsync.log";
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/mbsync.log";

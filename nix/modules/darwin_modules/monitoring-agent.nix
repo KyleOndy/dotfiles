@@ -2,7 +2,7 @@
 # which is NixOS-only (systemd.tmpfiles/services, DynamicUser) and cannot be
 # imported under nix-darwin. Runs vmagent + node_exporter + promtail as
 # launchd daemons instead of systemd services, reporting to the same tiger
-# endpoints dino uses.
+# endpoints NixOS hosts use.
 {
   lib,
   pkgs,

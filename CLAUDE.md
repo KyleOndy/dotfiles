@@ -69,7 +69,7 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 #### Why?
 
 - `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `tiger`, `dino`
+- `host` shows friendly hostnames like `tiger`, `trex`
 
 #### How to Configure
 
@@ -450,7 +450,7 @@ The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
 
 **Labels available for filtering:**
 
-- `host` - Server hostname (tiger, dino)
+- `host` - Server hostname (e.g. tiger)
 - `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
 - `scheme` - Protocol (http, https)
 - `method` - HTTP method (GET, POST, PUT, DELETE)

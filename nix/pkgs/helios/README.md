@@ -199,8 +199,8 @@ assign it a slot.
 
 One YAML file per recipe. Everything is hand-editable. The version-controlled copy
 lives in this repo at `fuji-recipes/`. `HELIOS_RECIPE_DIR` points every command's
-recipe-dir default there instead of `<library>/settings/recipes` (dino sets it in
-`nix/hosts/dino/configuration.nix`), so `helios fuji-recipes backup` writes straight
+recipe-dir default there instead of `<library>/settings/recipes` (set it in your
+host's home-manager config), so `helios fuji-recipes backup` writes straight
 into the repo and `git diff fuji-recipes/` shows what changed on the camera since the
 last commit. Only the recipe dir moves; `HELIOS_LIBRARY_PATH` still governs
 whole-camera backups and the dedup db. `--dir` / `--recipe-dir` / `--output` override

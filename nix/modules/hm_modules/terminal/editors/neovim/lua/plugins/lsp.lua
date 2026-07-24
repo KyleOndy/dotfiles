@@ -201,7 +201,7 @@ vim.lsp.config("nixd", {
       options = {
         -- Enable NixOS options documentation
         nixos = {
-          expr = '(builtins.getFlake "/home/kyle/src/dotfiles/odds-and-ends").nixosConfigurations.dino.options',
+          expr = '(builtins.getFlake "/home/kyle/src/dotfiles/odds-and-ends").nixosConfigurations.tiger.options',
         },
       },
     },

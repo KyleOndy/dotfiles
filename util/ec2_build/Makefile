@@ -20,12 +20,6 @@ build-tiger:
 	  .#nixosConfigurations.tiger.config.system.build.toplevel \
 	  --family c6a
 
-.PHONY: build-dino
-build-dino:
-	./build-remote-auto x86_64-linux 64 \
-	  .#nixosConfigurations.dino.config.system.build.toplevel \
-	  --family c7i
-
 # Quick test with small instance (automatic spot selection)
 .PHONY: test
 test:
@@ -36,7 +30,7 @@ test:
 ssh-builder:
 	@if [ ! -f terraform.tfstate ] || ! terraform output ec2_dns &>/dev/null; then \
 		echo "ERROR: No builder instance is currently provisioned."; \
-		echo "Run a build target first (e.g., make build-dino)"; \
+		echo "Run a build target first (e.g., make build-tiger)"; \
 		exit 1; \
 	fi
 	@host=$$(terraform output -raw ec2_dns); \
@@ -65,7 +59,6 @@ help:
 	@echo "  build-tiger               - Build tiger system (96+ vCPU AMD EPYC)"
 	@echo "  build-cogsworth-sdimage   - Build cogsworth SD image (aarch64, c7g)"
 	@echo "  build-cogsworth-toplevel  - Build cogsworth system toplevel (aarch64, c7g)"
-	@echo "  build-dino                - Build dino system (64+ vCPU Intel)"
 	@echo "  test                      - Quick test build (4+ vCPU)"
 	@echo ""
 	@echo "Spot Instance Advisor:"

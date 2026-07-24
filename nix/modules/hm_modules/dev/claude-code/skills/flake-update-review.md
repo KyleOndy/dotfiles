@@ -10,7 +10,7 @@ Update all flake inputs, build every deploy target, diff the closures, and resea
 what changed before committing. The goal is a clear picture of what's being upgraded
 and whether anything needs attention.
 
-Hosts: dino (x86_64), tiger (x86_64), cogsworth (aarch64).
+Hosts: tiger (x86_64), cogsworth (aarch64).
 
 ## Phase 0: Pre-flight
 
@@ -24,7 +24,7 @@ Hosts: dino (x86_64), tiger (x86_64), cogsworth (aarch64).
 Before updating anything, build each host's current toplevel and record the store path.
 These should be fast if the user has deployed recently (already in the nix store).
 
-For each host in `dino tiger cogsworth`, run:
+For each host in `tiger cogsworth`, run:
 
 ```
 nix build --no-link --print-out-paths \
@@ -92,7 +92,7 @@ otherPackage: 2.0.0 -> 2.1.0, -0.1 MiB
 Parse each line into: `{package, old_version, new_version, size_delta}`.
 
 Then deduplicate across hosts. Create a unified list of unique version bumps:
-`{package, old_version, new_version, hosts: ["dino", "tiger", ...]}`.
+`{package, old_version, new_version, hosts: ["tiger", ...]}`.
 
 If there are no version changes across any host, report "no package changes" and
 skip to the commit checkpoint.

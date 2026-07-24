@@ -103,7 +103,6 @@ if [ $# -lt 3 ]; then
 	echo ""
 	echo "Examples:"
 	echo "  $0 x86_64-linux 96 .#nixosConfigurations.tiger.config.system.build.toplevel --family c6a"
-	echo "  $0 x86_64-linux 64 .#nixosConfigurations.dino.config.system.build.toplevel --family c7i"
 	echo ""
 	echo "This script automatically selects the best available spot instance."
 	exit 1
@@ -142,7 +141,7 @@ if [[ $ARCH == "aarch64-linux" ]]; then
 fi
 
 # Extract system name from build target for CPU architecture matching
-# Example: .#nixosConfigurations.dino.config... -> dino
+# Example: .#nixosConfigurations.tiger.config... -> tiger
 TARGET_SYSTEM=""
 if [[ $BUILD_TARGET =~ nixosConfigurations\.([^.]+) ]]; then
 	TARGET_SYSTEM="${BASH_REMATCH[1]}"
@@ -152,9 +151,6 @@ fi
 # This ensures the builder advertises features matching the target's requirements
 TARGET_GCCARCH=""
 case "$TARGET_SYSTEM" in
-dino)
-	TARGET_GCCARCH="gccarch-alderlake"
-	;;
 tiger)
 	TARGET_GCCARCH="gccarch-znver3"
 	;;
