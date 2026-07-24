@@ -33,4 +33,7 @@ self: super: {
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
   pi-overnight = super.callPackage ./pi-overnight { };
   search-mail = super.callPackage ./search-mail { };
+  mlx-start = super.callPackage ./mlx-start { };
+  mlx-stop = super.callPackage ./mlx-stop { };
+  mlx-status = super.callPackage ./mlx-status { };
 }

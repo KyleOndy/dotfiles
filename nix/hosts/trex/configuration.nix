@@ -75,6 +75,9 @@
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
     pi-overnight # unattended pi runs against the local model, see nix/pkgs/pi-overnight
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
+    mlx-start # manually kickstart the local model server, see nix/pkgs/mlx-start
+    mlx-stop # manually stop the local model server, see nix/pkgs/mlx-stop
+    mlx-status # check whether the local model server is running, see nix/pkgs/mlx-status
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was

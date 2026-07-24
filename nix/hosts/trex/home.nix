@@ -7,6 +7,40 @@
   config,
   ...
 }:
+let
+  # Processes that, if running, should cause the local model server
+  # (launchd.agents.mlx-openai-server below) to be stopped -- e.g. DaVinci
+  # Resolve, which competes for the same GPU/unified memory. Checked on every
+  # poll; the server is not auto-restarted when the watched process quits --
+  # the next search-mail/pi-overnight/mlx-start invocation starts it on
+  # demand. Add another entry to watch more apps. Names must match `pgrep -x`
+  # exactly (the process's own binary name, not necessarily its .app bundle
+  # name) -- verify with `pgrep -x <name>` while the app is running before
+  # adding it here.
+  mlxAutoStopWatchedProcesses = [ "Resolve" ]; # DaVinci Resolve
+  mlxAutoStopPollIntervalSec = 30;
+
+  mlxAutoStopWatcher = pkgs.writeShellApplication {
+    name = "mlx-auto-stop-watcher";
+    text = ''
+      readonly LABEL="org.ondy.mlx-openai-server"
+
+      state="$(launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | awk '/state = /{print $3; exit}')"
+      if [ "$state" != "running" ]; then
+        exit 0
+      fi
+
+      # shellcheck disable=SC2043  # mlxAutoStopWatchedProcesses has one entry today; the loop is written to support more
+      for name in ${lib.concatMapStringsSep " " lib.escapeShellArg mlxAutoStopWatchedProcesses}; do
+        if pgrep -x "$name" >/dev/null 2>&1; then
+          echo "mlx-auto-stop: $name is running, stopping $LABEL"
+          launchctl kill SIGTERM "gui/$(id -u)/$LABEL"
+          exit 0
+        fi
+      done
+    '';
+  };
+in
 {
   imports = [ ];
 
@@ -164,6 +198,24 @@
       EnvironmentVariables = {
         PATH = "${config.home.homeDirectory}/.local/bin:/opt/homebrew/bin:/run/current-system/sw/bin:/usr/bin:/bin:/usr/sbin:/sbin";
       };
+    };
+  };
+
+  # Polls every mlxAutoStopPollIntervalSec for mlxAutoStopWatchedProcesses
+  # (see the `let` block above) and stops mlx-openai-server if one is found
+  # running, so it doesn't hold GPU/unified memory against apps that need it
+  # (e.g. DaVinci Resolve). mlx-status/mlx-start (nix/pkgs/mlx-status,
+  # nix/pkgs/mlx-start) bring it back manually; search-mail/pi-overnight
+  # bring it back on demand.
+  launchd.agents.mlx-auto-stop = {
+    enable = true;
+    config = {
+      Label = "org.ondy.mlx-auto-stop";
+      ProgramArguments = [ (lib.getExe mlxAutoStopWatcher) ];
+      StartInterval = mlxAutoStopPollIntervalSec;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/mlx-auto-stop.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/mlx-auto-stop.log";
+      ProcessType = "Background";
     };
   };
 }
