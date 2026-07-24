@@ -163,9 +163,17 @@ cd "$workdir" || exit
 # pi's completion call fails deep inside the sandbox with an opaque 404. It
 # does NOT mean $SERVED_MODEL_NAME is warm: a cold on-demand model instead
 # pays its weight-load cost on the first real request below.
+#
+# `any` matters here: `.data[]?.id == $m` emits one boolean per served model,
+# and `jq -e` takes its exit status from the LAST output value only (see
+# https://jqlang.org/manual/v1.7/#invoking-jq -- "if the last output value was
+# either false or null, exit status is 1"). Against the three-model config that
+# passed only when $SERVED_MODEL_NAME happened to be the final entry in
+# /v1/models, so every other model looked permanently unready. `any` reduces
+# the stream to a single boolean, which is what -e is meant to read.
 served_model_ready() {
 	curl -fsS "$BASE_URL/v1/models" 2>/dev/null |
-		jq -e --arg m "$SERVED_MODEL_NAME" '.data[]?.id == $m' >/dev/null 2>&1
+		jq -e --arg m "$SERVED_MODEL_NAME" 'any(.data[]?.id; . == $m)' >/dev/null 2>&1
 }
 
 # mlx-openai-server runs on-demand (RunAtLoad/KeepAlive both false), so warm
