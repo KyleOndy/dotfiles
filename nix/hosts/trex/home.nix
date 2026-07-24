@@ -20,6 +20,13 @@ let
   mlxAutoStopWatchedProcesses = [ "Resolve" ]; # DaVinci Resolve
   mlxAutoStopPollIntervalSec = 30;
 
+  # Static multi-model config for mlx-openai-server -- see the file itself
+  # for the model list and rationale. No nix interpolation needed inside it
+  # (model paths are HF repo ids, not local paths), so it's just read as-is.
+  mlxModelsConfig = pkgs.writeText "mlx-openai-server-models.yaml" (
+    builtins.readFile ./mlx-models.yaml
+  );
+
   mlxAutoStopWatcher = pkgs.writeShellApplication {
     name = "mlx-auto-stop-watcher";
     text = ''
@@ -96,24 +103,26 @@ in
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # Local model for the pi coding agent, mirroring `ask`'s mlx backend
+    # Local models for the pi coding agent, mirroring `ask`'s mlx backend
     # (see nix/pkgs/ask/ask.sh) but served OpenAI-compatible so pi can talk
-    # to it as a regular provider. mlx-openai-server (not bare mlx_lm.server)
-    # because pi lives on tool calls and mlx_lm.server's OpenAI tool-calling
-    # is immature; mlx-openai-server ships first-class tool-call parsers.
+    # to them as a regular provider. mlx-openai-server (not bare
+    # mlx_lm.server) because pi lives on tool calls and mlx_lm.server's
+    # OpenAI tool-calling is immature; mlx-openai-server ships first-class
+    # tool-call parsers.
     #
-    # Model is Qwen3-14B (dense), not the earlier Qwen3-Coder-30B-A3B: that
-    # MoE's 3B active params frequently dropped the leading <tool_call> tag
-    # over long agentic loops (see github.com/QwenLM/Qwen3-Coder/issues/475).
-    # A dense model gives consistent tool-call formatting, and at 32GB
-    # unified memory on trex, KV cache -- not weights -- is the binding
-    # constraint for running several concurrent clients (main agent +
-    # advisor + task subagents all share this one resident model via
-    # mlx-openai-server's continuous batching): ~8GB of weights leaves
-    # ~14GB for KV, vs. ~4GB left over for a 32B-class model.
+    # Three models are registered (see nix/hosts/trex/mlx-models.yaml for
+    # the server-side config and current empirical notes): qwen3-14b is the
+    # long-standing dense baseline, kept over the earlier
+    # Qwen3-Coder-30B-A3B because that MoE's 3B active params frequently
+    # dropped the leading <tool_call> tag over long agentic loops (see
+    # github.com/QwenLM/Qwen3-Coder/issues/475). qwen3.5-9b and qwen3.5-4b
+    # are the newer generation, added to A/B against that baseline. All
+    # three load on demand server-side, so registering more than one here
+    # doesn't cost resident RAM until actually selected with `pi --model
+    # local/<id>`.
     #
-    # Model selection is per-invocation (`pi --model local/qwen3-14b`) --
-    # not pinned via sandbox.defaultArgs, so cloud models stay the default.
+    # Model selection is per-invocation -- not pinned via
+    # sandbox.defaultArgs, so cloud models stay the default.
     pi-coding-agent = {
       sandbox.allowLocalBinding = true; # only lever to reach 127.0.0.1 egress from the sandbox; see nix/pkgs/pi-wrapper/wrapper.sh
 
@@ -134,7 +143,35 @@ in
               cacheRead = 0;
               cacheWrite = 0;
             };
-            contextWindow = 24576; # matches --context-length below
+            contextWindow = 24576; # matches context_length in mlx-models.yaml
+            maxTokens = 8192;
+          }
+          {
+            id = "qwen3.5-9b";
+            name = "Qwen3.5 9B (local, mlx)";
+            reasoning = true;
+            input = [ "text" ];
+            cost = {
+              input = 0;
+              output = 0;
+              cacheRead = 0;
+              cacheWrite = 0;
+            };
+            contextWindow = 24576; # matches context_length in mlx-models.yaml
+            maxTokens = 8192;
+          }
+          {
+            id = "qwen3.5-4b";
+            name = "Qwen3.5 4B (local, mlx)";
+            reasoning = true;
+            input = [ "text" ];
+            cost = {
+              input = 0;
+              output = 0;
+              cacheRead = 0;
+              cacheWrite = 0;
+            };
+            contextWindow = 24576; # matches context_length in mlx-models.yaml
             maxTokens = 8192;
           }
         ];
@@ -147,17 +184,17 @@ in
   # Install once with: uv tool install mlx-openai-server
   #
   # RunAtLoad/KeepAlive both false: on-demand rather than always-resident, to
-  # avoid holding the model's RAM footprint when not in use. Start with:
+  # avoid holding a model's RAM footprint when not in use. Start with:
   #   launchctl kickstart -k gui/$(id -u)/org.ondy.mlx-openai-server
   # (nix/pkgs/pi-overnight does this automatically before an overnight run.)
-  # Flip both to true for an always-on server.
+  # Flip both to true for an always-on server -- the per-model on_demand
+  # settings in mlx-models.yaml still govern which model is actually
+  # resident, so this only affects how quickly the process itself answers.
   #
-  # --context-length and --decode/--prompt-concurrency are capped well below
-  # this server's defaults (unbounded / 32 / 8): on 32GB unified memory, KV
-  # cache -- not model weights -- is what runs out first when several
-  # clients (main agent, advisor, task subagents) share this one process
-  # concurrently via continuous batching. Raise them if trex ever gets more
-  # RAM or a smaller model is in use.
+  # Model list, tool-call parsers, and concurrency/context tuning all live
+  # in nix/hosts/trex/mlx-models.yaml (multi-model config -- see that file
+  # and its README link for the schema); this launchd job just points
+  # mlx-openai-server at it.
   launchd.agents.mlx-openai-server = {
     enable = true;
     config = {
@@ -165,30 +202,8 @@ in
       ProgramArguments = [
         "${config.home.homeDirectory}/.local/bin/mlx-openai-server"
         "launch"
-        "--model-path"
-        "mlx-community/Qwen3-14B-4bit"
-        "--served-model-name"
-        "qwen3-14b"
-        "--host"
-        "127.0.0.1"
-        "--port"
-        "8000"
-        "--tool-call-parser"
-        "qwen3"
-        "--enable-auto-tool-choice"
-        "--context-length"
-        "24576"
-        "--decode-concurrency"
-        "6"
-        "--prompt-concurrency"
-        "3"
-        # mlx-openai-server defaults to a relative log path (logs/app.log).
-        # launchd runs agents with CWD=/ (no WorkingDirectory set here), so
-        # that resolved to /logs/app.log -- read-only system volume, and the
-        # server crashed on every launch (Errno 30). stdout/stderr are
-        # already captured below via StandardOutPath/StandardErrorPath, so
-        # disabling the separate internal file logger loses nothing.
-        "--no-log-file"
+        "--config"
+        "${mlxModelsConfig}"
       ];
       RunAtLoad = false;
       KeepAlive = false;

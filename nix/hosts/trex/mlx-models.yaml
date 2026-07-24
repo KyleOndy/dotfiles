@@ -1,0 +1,75 @@
+# Multi-model config for mlx-openai-server (loaded via nix/hosts/trex/home.nix).
+# Lets search-mail (nix/pkgs/search-mail/search-mail.sh) and interactive
+# `pi --model local/<id>` pick between models per invocation. Each model
+# loads on demand and unloads after its idle timeout -- trex's 32GB unified
+# memory only comfortably holds one of these resident at a time. Schema:
+# https://github.com/cubist38/mlx-openai-server/blob/main/README.md
+server:
+  host: "127.0.0.1"
+  port: 8000
+  log_level: INFO
+  # mlx-openai-server defaults to a relative log path (logs/app.log).
+  # launchd runs agents with CWD=/ (no WorkingDirectory set in home.nix), so
+  # that resolved to /logs/app.log -- read-only system volume, and the
+  # server crashed on every launch (Errno 30). stdout/stderr are already
+  # captured via StandardOutPath/StandardErrorPath in home.nix, so disabling
+  # the separate internal file logger loses nothing.
+  no_log_file: true
+
+# context_length/batch_completion_size/batch_prefill_size are held identical
+# across all three models on purpose, so switching --model in search-mail
+# changes exactly one variable (the model) rather than also changing
+# concurrency/context behavior. Values match the single-model tuning this
+# file replaced: on 32GB unified memory, KV cache -- not weights -- is what
+# runs out first when several clients (main agent, advisor, task subagents)
+# share one resident model via continuous batching. Raise them if trex ever
+# gets more RAM.
+models:
+  # Baseline. Known-good tool-call *formatting* historically (see home.nix
+  # for why dense beat the earlier Qwen3-Coder-30B-A3B MoE), but as of
+  # 2026-07-24 qwen3-14b has not completed a single successful notmuch call
+  # in search-mail -- failing on argument quoting. Kept as the control while
+  # the Qwen3.5 models below are evaluated against the same workload.
+  - model_path: mlx-community/Qwen3-14B-4bit
+    served_model_name: qwen3-14b
+    model_type: lm
+    tool_call_parser: qwen3
+    enable_auto_tool_choice: true
+    context_length: 24576
+    batch_completion_size: 6
+    batch_prefill_size: 3
+    on_demand: true
+    on_demand_idle_timeout: 600
+
+  # tool_call_parser is qwen3_coder, not qwen3_5: checked against the
+  # installed package (~/.local/share/uv/tools/mlx-openai-server/lib/
+  # python3.13/site-packages/app/parsers/__init__.py, v1.8.1) --
+  # TOOL_PARSER_MAP has no "qwen3_5" key at all (it would silently resolve
+  # to no tool parsing), qwen3_5 is registered only in REASONING_PARSER_MAP.
+  # Qwen's own Qwen3.5-4B model card recommends vLLM's `--tool-call-parser
+  # qwen3_coder` for this family, which matches: qwen3_coder's
+  # FunctionParameterToolParser expects <tool_call><function=...>
+  # <parameter=...>, not plain qwen3's <tool_call>{"name":...} JSON form.
+  - model_path: mlx-community/Qwen3.5-9B-4bit
+    served_model_name: qwen3.5-9b
+    model_type: lm
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3_5
+    enable_auto_tool_choice: true
+    context_length: 24576
+    batch_completion_size: 6
+    batch_prefill_size: 3
+    on_demand: true
+    on_demand_idle_timeout: 600
+
+  - model_path: mlx-community/Qwen3.5-4B-4bit
+    served_model_name: qwen3.5-4b
+    model_type: lm
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3_5
+    enable_auto_tool_choice: true
+    context_length: 24576
+    batch_completion_size: 6
+    batch_prefill_size: 3
+    on_demand: true
+    on_demand_idle_timeout: 600

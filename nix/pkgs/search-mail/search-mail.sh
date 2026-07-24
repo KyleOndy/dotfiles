@@ -10,11 +10,18 @@
 # The cloud version this replaces lived at
 # nix/pkgs/my-scripts/scripts/search-mail.
 #
-#   search-mail [question words...]
+#   search-mail [--model <id>] [question words...]
+#
+# <id> is one of the models registered in nix/hosts/trex/mlx-models.yaml
+# (currently qwen3-14b, qwen3.5-9b, qwen3.5-4b) -- defaults to
+# $SEARCH_MAIL_MODEL if set, else qwen3-14b. The flag wins over the env var.
+# This exists to A/B models against this exact notmuch tool-call workload;
+# see mlx-models.yaml for current results.
 
-# The model behind this is a local 14B (see $MODEL below), not a frontier
-# model. It needs the shape of this particular maildir spelled out and worked
-# examples to copy, rather than a syntax summary it has to generalize from.
+# The model behind this is a local model in the 4B-14B range (see $MODEL
+# below), not a frontier model. It needs the shape of this particular
+# maildir spelled out and worked examples to copy, rather than a syntax
+# summary it has to generalize from.
 # The corpus facts below are not in notmuch's docs and are the difference
 # between a useful answer and a confidently wrong one -- all counts were
 # measured against the live database on trex (notmuch 0.39) and are stated as
@@ -122,9 +129,21 @@ readonly instructions
 
 readonly LABEL="org.ondy.mlx-openai-server"
 readonly BASE_URL="http://127.0.0.1:8000"
-readonly MODEL="local/qwen3-14b"
-readonly SERVED_MODEL_NAME="${MODEL#*/}"
 readonly READY_TIMEOUT_S=60
+
+# Which of the models in nix/hosts/trex/mlx-models.yaml to use. --model, if
+# given, must be the first argument (everything after it is the query, same
+# rule as pi's own --allow-*/--model flags below). Falls back to
+# $SEARCH_MAIL_MODEL, then to the qwen3-14b baseline.
+readonly DEFAULT_MODEL_ID="qwen3-14b"
+model_id="${SEARCH_MAIL_MODEL:-$DEFAULT_MODEL_ID}"
+if [ "${1:-}" = "--model" ]; then
+	model_id="${2:?--model requires a value}"
+	shift 2
+fi
+readonly model_id
+readonly MODEL="local/${model_id}"
+readonly SERVED_MODEL_NAME="$model_id"
 
 # pi's strict sandbox makes $PWD writable, so cd'ing to $HOME (as the cloud
 # version did) would make the whole home directory writable. ~/.pi is already
@@ -134,13 +153,16 @@ readonly workdir="$HOME/.pi/search-mail-cwd"
 mkdir -p "$workdir"
 cd "$workdir" || exit
 
-# Checks that the server is not just answering, but is actually serving
-# $SERVED_MODEL_NAME. A bare "does anything answer on :8000" check isn't
-# enough: mlx-openai-server is single-model, and if some other process (e.g.
-# a stray manually-started instance on an older model) is already squatting
-# on the port, launchctl kickstart can't bind the correct one, and every
-# request would silently run against the wrong model until pi's completion
-# call fails deep inside the sandbox with an opaque 404.
+# Checks that the server knows about $SERVED_MODEL_NAME. mlx-openai-server
+# runs multi-model (nix/hosts/trex/mlx-models.yaml) with every model
+# on-demand: all three register in /v1/models as soon as the process is up,
+# well before any of them actually loads weights, so this only confirms the
+# right server/config is bound to the port -- e.g. that some stray
+# manually-started single-model instance isn't squatting on 8000, which
+# would otherwise make requests silently run against the wrong model until
+# pi's completion call fails deep inside the sandbox with an opaque 404. It
+# does NOT mean $SERVED_MODEL_NAME is warm: a cold on-demand model instead
+# pays its weight-load cost on the first real request below.
 served_model_ready() {
 	curl -fsS "$BASE_URL/v1/models" 2>/dev/null |
 		jq -e --arg m "$SERVED_MODEL_NAME" '.data[]?.id == $m' >/dev/null 2>&1
