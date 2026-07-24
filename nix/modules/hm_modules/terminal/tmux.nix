@@ -176,6 +176,12 @@ in
         set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
         # battery power draw
         set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.battery-draw}/bin/battery-draw) "
+        # hottest cpu/gpu die sensor.
+        #   Emits its own #[fg=] so it can go orange past 80C and red past 95C,
+        #   then restores colour246 for the segments that follow. Prints
+        #   nothing and exits 1 where no sensor is readable (WSL, VMs), which
+        #   collapses the segment rather than showing an error.
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-temp}/bin/system-temp)"
         # system load.
         #   This has been tested on debian, OSX, and darwin, and seems to work
         #   across all systems

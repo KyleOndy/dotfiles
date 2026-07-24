@@ -36,4 +36,5 @@ self: super: {
   mlx-start = super.callPackage ./mlx-start { };
   mlx-stop = super.callPackage ./mlx-stop { };
   mlx-status = super.callPackage ./mlx-status { };
+  system-temp = super.callPackage ./system-temp { };
 }
