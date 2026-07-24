@@ -131,7 +131,14 @@
           claude-code = inputs.claude-code-nix.packages.${final.stdenv.hostPlatform.system}.default;
         })
 
-        inputs.llm-agents.overlays.default
+        # overlays.shared-nixpkgs builds llm-agents' npm packages against our
+        # nixpkgs pin, which requires fetchNpmDeps fetcherVersion = 2
+        # (nixpkgs >= 2026-02-15). We're pinned to nixos-25.11, which lacks
+        # that backport, so build against llm-agents' own nixpkgs instead.
+        # https://github.com/numtide/llm-agents.nix/issues/4320
+        (final: _prev: {
+          llm-agents = inputs.llm-agents.packages.${final.stdenv.hostPlatform.system};
+        })
 
         # TODO: remove once direnv fixes fish test sandbox kills on macOS
         # direnv 2.37.1 fish tests get Killed: 9 in macOS sandbox during nix build
