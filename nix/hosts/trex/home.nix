@@ -148,6 +148,13 @@
         "6"
         "--prompt-concurrency"
         "3"
+        # mlx-openai-server defaults to a relative log path (logs/app.log).
+        # launchd runs agents with CWD=/ (no WorkingDirectory set here), so
+        # that resolved to /logs/app.log -- read-only system volume, and the
+        # server crashed on every launch (Errno 30). stdout/stderr are
+        # already captured below via StandardOutPath/StandardErrorPath, so
+        # disabling the separate internal file logger loses nothing.
+        "--no-log-file"
       ];
       RunAtLoad = false;
       KeepAlive = false;
