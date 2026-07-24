@@ -443,22 +443,18 @@ in
             # https://github.com/sainnhe/tmux-fzf
             export TMUX_FZF_ORDER="window|session|pane|command|keybinding"
 
-            # PS$ is used when command printing (`set -x`) it turned on. The will
-            # print the scripts, function, and line number.
+            # PS4 is used when command printing (`set -x`) is turned on. This
+            # prints the script, function, and line number.
             #
-            # see `man bash` for available expansions
+            # Deliberately not exported. PS4 is only read by the shell doing the
+            # tracing, so zsh has no reason to hand it to children -- and if it
+            # does, a child bash inherits these zsh %-escapes and prints them
+            # literally: "+ %D{%s.%6.}: %x @ %I: (%N):    echo hi". Bash gets
+            # its own PS4 from BASH_ENV instead (see shell/bash.nix).
+            #
+            # see `man zshmisc` for available expansions
             # https://news.ycombinator.com/item?id=27617128
-            #
-            export PS4='+ %D{%s.%6.}: %x @ %I: (%N):    '
-
-            # A bash variable may appear strange in a zsh config. This is really
-            # for a single specific reason. When I am writing a bash script and I
-            # `set -x` without this the bash script runs with zsh's PS4 above.
-            # This outputs just junk. I have a bash PS4 set is bashrc and I want
-            # to use that when a non-interactive non-login shell is staeted. This
-            # is fairly safe since this bashrc checks if it is invoked as an
-            # interactive and exits pretty early if so.
-            export BASH_ENV=$HOME/.bashrc
+            PS4='+ %D{%s.%6.}: %x @ %I: (%N):    '
 
             assume_aws_role() {
               local role_arn=$1
