@@ -13,7 +13,7 @@
 #   search-mail [--model <id>] [question words...]
 #
 # <id> is one of the models registered in nix/hosts/trex/mlx-models.yaml
-# (currently qwen3-14b, qwen3.5-9b, qwen3.5-4b) -- defaults to
+# (currently qwen3-14b, qwen3.5-9b, qwen3.5-4b, qwen3.6-27b) -- defaults to
 # $SEARCH_MAIL_MODEL if set, else qwen3-14b. The flag wins over the env var.
 # This exists to A/B models against this exact notmuch tool-call workload;
 # see mlx-models.yaml for current results.

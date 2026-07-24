@@ -73,3 +73,31 @@ models:
     batch_prefill_size: 3
     on_demand: true
     on_demand_idle_timeout: 600
+
+  # Added 2026-07-24 as another candidate to replace qwen3-14b, which has not
+  # completed a single successful notmuch call in search-mail (see baseline
+  # comment above). Qwen3.6-27B (released April 2026) is dense like the
+  # baseline, not MoE like the earlier rejected Qwen3-Coder-30B-A3B -- same
+  # architectural property the baseline was chosen for, just a newer/bigger
+  # generation. ~16GB at 4-bit, still fits the single-resident on-demand
+  # design.
+  #
+  # reasoning_parser/tool_call_parser come from Qwen's own recommended vLLM
+  # and SGLang launch flags for this model (huggingface.co/Qwen/Qwen3.6-27B,
+  # github.com/QwenLM/Qwen3.6): `--reasoning-parser qwen3 --tool-call-parser
+  # qwen3_coder`. Unlike the qwen3_5-as-tool-parser trap above, both keys are
+  # confirmed present in the installed mlx-openai-server v1.8.1
+  # REASONING_PARSER_MAP/TOOL_PARSER_MAP, so this isn't a silent no-op.
+  # Not yet run against the search-mail notmuch workload -- evaluate
+  # alongside the qwen3.5 models before promoting anything to baseline.
+  - model_path: mlx-community/Qwen3.6-27B-4bit
+    served_model_name: qwen3.6-27b
+    model_type: lm
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3
+    enable_auto_tool_choice: true
+    context_length: 24576
+    batch_completion_size: 6
+    batch_prefill_size: 3
+    on_demand: true
+    on_demand_idle_timeout: 600
