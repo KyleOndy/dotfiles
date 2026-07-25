@@ -226,7 +226,7 @@ in
                 description: "Radarr queue has items stuck - no movement in 6 hours"
 
             - alert: SABnzbdQueueHigh
-              expr: sabnzbd_queue_total > 20
+              expr: sabnzbd_queue_length > 20
               for: 4h
               labels:
                 severity: warning
@@ -235,18 +235,8 @@ in
                 summary: "SABnzbd queue depth is high: {{ $value }} items"
                 description: "SABnzbd has more than 20 items in queue for 4+ hours"
 
-            - alert: SABnzbdDownloadFailed
-              expr: increase(sabnzbd_downloads_failed_total[1h]) > 5
-              for: 5m
-              labels:
-                severity: critical
-                service: sabnzbd
-              annotations:
-                summary: "SABnzbd has {{ $value }} failed downloads in past hour"
-                description: "SABnzbd download failure rate is elevated"
-
             - alert: SABnzbdDiskSpaceLow
-              expr: sabnzbd_free_space_bytes{host="tiger"} < 50 * 1024 * 1024 * 1024
+              expr: (sabnzbd_disk_total_bytes{folder="download"} - sabnzbd_disk_used_bytes{folder="download"}) < 50 * 1024 * 1024 * 1024
               for: 1h
               labels:
                 severity: warning
@@ -341,24 +331,6 @@ in
               annotations:
                 summary: "NVMe endurance exceeded on {{ $labels.host }}:{{ $labels.device }}"
                 description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} has Percentage Used >= 100% (warranty endurance exhausted). Drive is still healthy while Available Spare > threshold."
-
-            - alert: RaidDriveFailedInArray
-              expr: node_md_disks{state="failed"} > 0
-              for: 5m
-              labels:
-                severity: critical
-              annotations:
-                summary: "Failed disk in RAID array {{ $labels.device }} on {{ $labels.host }}"
-                description: "{{ $value }} disk(s) in mdraid array {{ $labels.device }} on {{ $labels.host }} are in failed state. Run: mdadm --detail /dev/{{ $labels.device }}"
-
-            - alert: RaidDegradedNotRecovering
-              expr: node_md_degraded > 0 unless on(device, host) (node_md_state{state="recovering"} > 0)
-              for: 1h
-              labels:
-                severity: warning
-              annotations:
-                summary: "RAID array {{ $labels.device }} is degraded on {{ $labels.host }}"
-                description: "mdraid array {{ $labels.device }} on {{ $labels.host }} has been degraded for over an hour without recovery. Manual intervention may be needed."
 
         # Resource usage monitoring
         - name: resource_usage
