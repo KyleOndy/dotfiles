@@ -69,9 +69,7 @@ instead of the ambient PATH, and shellcheck runs at build time.
 
 ## Slash commands
 
-- `/task` plus `/task:decompose`, `/task:plan`, `/task:decide`,
-  `/task:done`: the PLANNING.md/TASKS.md workflow
-- `/git:history-clean`: AI-friendly git history cleanup
+- `/git:history-clean`: rebase and tidy unpushed commits
 
 The command directories are real directories with per-file symlinks
 (`recursive = true`), so a command under test can be dropped straight

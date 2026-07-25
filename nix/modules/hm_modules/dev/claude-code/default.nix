@@ -118,14 +118,9 @@ in
 
       # recursive = true creates real directories with per-file symlinks, so
       # experimental commands can be dropped alongside the managed ones while
-      # testing. All mkDefault so work-config can override freely.
-      ".claude/commands/task.md" = lib.mkDefault { source = ./commands/task.md; };
+      # testing. mkDefault so work-config can override freely.
       ".claude/commands/git" = lib.mkDefault {
         source = ./commands/git;
-        recursive = true;
-      };
-      ".claude/commands/task" = lib.mkDefault {
-        source = ./commands/task;
         recursive = true;
       };
 
