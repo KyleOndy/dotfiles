@@ -215,7 +215,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{host=\"tiger\",job=\"jellyfin\"} |~ \"(?i)(started playing|playback)\"",
+          "expr": "{host=\"tiger\",unit=\"jellyfin.service\"} |~ \"(?i)(started playing|playback)\"",
           "refId": "A"
         }
       ],
@@ -250,7 +250,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{host=\"tiger\",job=\"jellyfin\"} |= \"FFmpeg exited\" != \"code 0\"",
+          "expr": "{host=\"tiger\",unit=\"jellyfin.service\"} |= \"FFmpeg exited\" != \"code 0\"",
           "refId": "A"
         }
       ],
