@@ -1,7 +1,16 @@
 # InstaxLink.py vendored from https://github.com/paorin/InstaxLink
 # commit b66f40f9e2b3f529535b4cf8593e3e23da9ea76f (2025-02-09)
 # Reverse-engineered BLE client for the Fujifilm Instax Link WIDE printer;
-# no official Linux driver exists.
+# no official desktop driver exists.
+#
+# Upstream's RFCOMM socket transport (pybluez) is dropped: it only ran for
+# printers advertising as INSTAX-xxxxxxxx(ANDROID), and instax_print.py
+# only ever matched (IOS). Everything here goes over BLE via bleak.
+#
+# Still Linux-only, and not because of this package. nixpkgs' bleak pins
+# platforms.linux and propagates dbus-fast unconditionally; upstream's
+# macOS backend needs pyobjc-framework-CoreBluetooth and
+# pyobjc-framework-libdispatch, neither of which is in nixpkgs.
 #
 # instax_print.py is Kyle's own wrapper: auto-resizes or interactively
 # crops an arbitrary image to the Wide Link's required 1260x840, then
@@ -17,7 +26,6 @@ let
   pythonEnv = pkgs.python3.withPackages (
     pythonPackages: with pythonPackages; [
       bleak
-      pybluez
       pillow
       tkinter
     ]
