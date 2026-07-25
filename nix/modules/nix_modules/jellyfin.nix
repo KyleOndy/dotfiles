@@ -87,17 +87,6 @@ in
       description = "Domain to server jellyfin under";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for this service";
-    };
-
-    user = mkOption {
-      type = types.str;
-      default = "jellyfin";
-      description = "User to server jellyfin under";
-    };
     backup = mkOption {
       default = { };
       description = "Automated backup via Jellyfin native backup API";
@@ -226,7 +215,6 @@ in
     services.jellyfin = {
       enable = true;
       package = pkgs.jellyfin;
-      user = cfg.user;
       group = cfg.group;
     };
 
@@ -249,7 +237,7 @@ in
 
     # Configure debug logging when enabled
     systemd.tmpfiles.rules = mkIf (cfg.debugAuthLogging || cfg.transcodeDebugLogging) [
-      "L+ ${stateDir}/config/logging.json - ${cfg.user} ${cfg.group} - ${
+      "L+ ${stateDir}/config/logging.json - jellyfin ${cfg.group} - ${
         pkgs.writeText "jellyfin-logging.json" (
           builtins.toJSON {
             Serilog = {
@@ -365,8 +353,8 @@ in
       path = with pkgs; [ coreutils ];
       script = ''
         mkdir -p ${stateDir}/config
-        install -o ${cfg.user} -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml
-        chown ${cfg.user}:${cfg.group} ${stateDir}/config
+        install -o jellyfin -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml
+        chown jellyfin:${cfg.group} ${stateDir}/config
       '';
       # No RemainAfterExit: re-run on every Jellyfin (re)start so a dashboard edit
       # never outlives a restart. partOf ties our lifecycle to jellyfin.service.
@@ -413,7 +401,7 @@ in
             rm /tmp/playback_reporting.zip
 
             # Set ownership
-            chown -R ${cfg.user}:${cfg.group} "${pluginDir}"
+            chown -R jellyfin:${cfg.group} "${pluginDir}"
 
             echo "Playback Reporting plugin installed successfully"
           else

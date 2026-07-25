@@ -25,11 +25,6 @@ in
       description = "Domain name for Grafana (defaults to grafana.{parent domain})";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for Grafana domain";
-    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {

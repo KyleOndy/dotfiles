@@ -151,12 +151,6 @@ in
               description = "For isDefault: the redirect target. For external sites: additional SAN names.";
             };
 
-            provisionCert = mkOption {
-              type = types.bool;
-              default = false;
-              description = "Unused; Caddy always provisions certs";
-            };
-
             proxyPass = mkOption {
               type = types.nullOr types.str;
               default = null;

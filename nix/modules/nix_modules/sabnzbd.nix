@@ -26,24 +26,6 @@ in
       description = "Domain to server sabnzbd under";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for this service";
-    };
-
-    user = mkOption {
-      type = types.str;
-      default = "sabnzbd";
-      description = "User to server sabnzbd under";
-    };
-
-    extraGroups = mkOption {
-      type = types.listOf types.str;
-      default = [ "media" ];
-      description = "Additional groups for the sabnzbd user (e.g., for shared media access)";
-    };
-
     backup = mkOption {
       default = { };
       description = "Move the backups somewhere";
@@ -69,19 +51,16 @@ in
         # currently all config is done via the web.
         enable = true;
         package = pkgs.sabnzbd;
-        user = cfg.user;
         group = cfg.group;
       };
     };
 
     # Add service user to extra groups for media access
-    users.users.${cfg.user} = mkIf (cfg.extraGroups != [ ]) {
-      extraGroups = cfg.extraGroups;
-    };
+    users.users.sabnzbd.extraGroups = [ "media" ];
 
     # Configure systemd service to use supplementary groups
-    systemd.services.sabnzbd.serviceConfig = mkIf (cfg.extraGroups != [ ]) {
-      SupplementaryGroups = cfg.extraGroups;
+    systemd.services.sabnzbd.serviceConfig = {
+      SupplementaryGroups = [ "media" ];
       # Set umask to 0002 so files are created with group read/write (664)
       # This allows other media group members (sonarr, radarr, etc.) to access downloaded files
       UMask = "0002";
@@ -92,7 +71,6 @@ in
         {
           enable = true;
           proxyPass = "http://127.0.0.1:8080";
-          provisionCert = cfg.provisionCert;
         };
 
     systemd.services.sabnzbd-backup = mkIf cfg.backup.enable {

@@ -240,7 +240,7 @@ in
   # The *arr services also put themselves in this group from arr.nix via
   # users.users.<name>.extraGroups; listing them here too is belt and braces.
   users.groups."${mediaGroup}".members = [
-    config.systemFoundry.sabnzbd.user
+    "sabnzbd"
     "bazarr"
     "radarr"
     "sonarr"
@@ -675,7 +675,6 @@ in
         };
       };
 
-      # *.tiger.infra.ondy.org wildcard cert covers all — no provisionCert needed.
       sonarr = {
         enable = true;
         group = mediaGroup;
@@ -743,7 +742,6 @@ in
         # matching Import Path still has to be set on a library in the Immich
         # admin UI; this only constrains Immich's access to the path.
         externalLibraryPaths = [ "/mnt/photos/personal/photos/archive" ];
-        # provisionCert not needed — covered by the *.tiger.infra.ondy.org wildcard cert
       };
 
       # Monitoring stack configuration. tiger is the central server running

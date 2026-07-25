@@ -31,12 +31,6 @@ in
       description = "Domain name for vmalert UI (defaults to vmalert.{parent domain})";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for vmalert domain";
-    };
-
     datasourceUrl = mkOption {
       type = types.str;
       default = "http://127.0.0.1:8428";

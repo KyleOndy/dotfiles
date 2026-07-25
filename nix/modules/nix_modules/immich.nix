@@ -17,12 +17,6 @@ in
       description = "Domain to serve Immich under";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for this service";
-    };
-
     mediaLocation = mkOption {
       type = types.path;
       default = "/mnt/storage/photos";
@@ -145,7 +139,6 @@ in
         {
           enable = true;
           proxyPass = "http://127.0.0.1:${toString cfg.port}";
-          provisionCert = cfg.provisionCert;
           # Disable response buffering for upload progress streaming
           flushInterval = "-1";
           # Large video uploads and ML processing can take a while

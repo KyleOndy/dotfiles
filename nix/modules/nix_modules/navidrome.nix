@@ -14,27 +14,9 @@ in
       Batteries included wrapper for Navidrome
     '';
 
-    group = mkOption {
-      type = types.str;
-      default = "navidrome";
-      description = "Group to run navidrome under";
-    };
-
     domainName = mkOption {
       type = types.str;
       description = "Domain to serve navidrome under";
-    };
-
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for this service";
-    };
-
-    user = mkOption {
-      type = types.str;
-      default = "navidrome";
-      description = "User to run navidrome under";
     };
 
     musicFolder = mkOption {
@@ -70,8 +52,6 @@ in
   config = mkIf cfg.enable {
     services.navidrome = {
       enable = true;
-      user = cfg.user;
-      group = cfg.group;
       settings = {
         MusicFolder = cfg.musicFolder;
         Address = "127.0.0.1";
@@ -84,7 +64,6 @@ in
         {
           enable = true;
           proxyPass = "http://127.0.0.1:${toString cfg.port}";
-          provisionCert = cfg.provisionCert;
         };
 
     systemd.services.navidrome-backup = mkIf cfg.backup.enable {

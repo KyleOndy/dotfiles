@@ -19,11 +19,6 @@ in
       description = "Domain to server jellyseerr under";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for this service";
-    };
   };
 
   config = mkIf cfg.enable {
@@ -41,7 +36,6 @@ in
         {
           enable = true;
           proxyPass = "http://127.0.0.1:5055";
-          provisionCert = cfg.provisionCert;
         };
   };
 }

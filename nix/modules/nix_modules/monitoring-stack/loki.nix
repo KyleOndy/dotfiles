@@ -37,12 +37,6 @@ in
       description = "Domain name for Loki (defaults to loki.{parent domain})";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for Loki domain";
-    };
-
     instanceInterfaceNames = mkOption {
       type = types.listOf types.str;
       default = [

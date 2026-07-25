@@ -37,11 +37,6 @@ in
       description = "Domain name for VictoriaMetrics (defaults to metrics.{parent domain})";
     };
 
-    provisionCert = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Provision SSL certificate for VictoriaMetrics domain";
-    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
