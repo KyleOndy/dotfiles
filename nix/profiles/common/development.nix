@@ -19,10 +19,7 @@ with lib;
       # foundry is the namespace I've given to my internal modules
       dev = {
         enable = true;
-        clojure = {
-          enable = lib.mkDefault true;
-          globalDepsEdn.enable = lib.mkDefault true;
-        };
+        clojure.enable = lib.mkDefault true;
         python.enable = lib.mkDefault true;
         terraform.enable = lib.mkDefault false;
         git.enable = lib.mkDefault true;
