@@ -129,13 +129,10 @@ let
         }
 
         (mkIf (!dynamicUser) {
-          # Put the service user in the media group and create files 664 so the
-          # other *arr services and jellyfin can read what it writes.
-          users.users.${name}.extraGroups = [ "media" ];
-          systemd.services.${name}.serviceConfig = {
-            SupplementaryGroups = [ "media" ];
-            UMask = "0002";
-          };
+          # Create files 664 so the other *arr services and jellyfin can read
+          # what this one writes. Group membership is the host's job: tiger
+          # sets `group = mediaGroup`, which is already the process GID.
+          systemd.services.${name}.serviceConfig.UMask = "0002";
         })
 
         (spec.extraConfig or { })

@@ -55,16 +55,10 @@ in
       };
     };
 
-    # Add service user to extra groups for media access
-    users.users.sabnzbd.extraGroups = [ "media" ];
-
-    # Configure systemd service to use supplementary groups
-    systemd.services.sabnzbd.serviceConfig = {
-      SupplementaryGroups = [ "media" ];
-      # Set umask to 0002 so files are created with group read/write (664)
-      # This allows other media group members (sonarr, radarr, etc.) to access downloaded files
-      UMask = "0002";
-    };
+    # Files land 664 so the *arr services can import what sabnzbd downloads.
+    # Group membership is the host's job: tiger sets `group = mediaGroup`,
+    # which is already the process GID.
+    systemd.services.sabnzbd.serviceConfig.UMask = "0002";
 
     systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable

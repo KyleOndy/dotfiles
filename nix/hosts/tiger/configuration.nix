@@ -237,15 +237,10 @@ in
 
   # media managment
   #
-  # The *arr services also put themselves in this group from arr.nix via
-  # users.users.<name>.extraGroups; listing them here too is belt and braces.
+  # Only the two accounts that have no other route in. Every service that
+  # touches the media tree gets it as its primary group instead, from the
+  # `group = mediaGroup` lines further down.
   users.groups."${mediaGroup}".members = [
-    "sabnzbd"
-    "bazarr"
-    "radarr"
-    "sonarr"
-    "lidarr"
-    "jellyfin"
     "svc.deploy"
     "kyle"
   ];
@@ -295,13 +290,13 @@ in
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
 
+  # media is jellyfin's primary group (set below), so only the GPU groups
+  # need adding here.
   users.users.jellyfin.extraGroups = [
-    mediaGroup
     "render" # Intel GPU access for VA-API/QSV transcoding
     "video" # Intel GPU access for VA-API/QSV transcoding
   ];
   systemd.services.jellyfin.serviceConfig.SupplementaryGroups = [
-    mediaGroup
     "render"
     "video"
   ];
