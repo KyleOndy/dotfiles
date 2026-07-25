@@ -99,6 +99,31 @@ install, launch it once and grant **Accessibility** and **Screen Recording**
 permission in System Settings -> Privacy & Security, then set its trigger to
 Cmd+Tab in its preferences.
 
+## tiger's SMB Shares
+
+Two shares mount at login and show up under Locations in the Finder sidebar:
+
+- **/Volumes/tiger-data** - `/mnt/data` on tiger, general files.
+- **/Volumes/tiger-photos** - `/mnt/photos` on tiger, the photo dump. Note that
+  `backup-photos-to-dr.sh` rsyncs into it with `--delete`, so anything written
+  there by hand disappears on the next sync.
+
+No manual setup. Two launch agents do the work, both defined in
+`configuration.nix`:
+
+- **smb-tiger-keychain** - copies the sops secret `smb_kyle_password` into the
+  login keychain at each login, so NetFS can authenticate on its own.
+- **smb-tiger-mount** - mounts whatever is not mounted, at login and every five
+  minutes after, which also covers reconnects after sleep or a network drop.
+
+Both log to `~/Library/Logs/smb-tiger.log`.
+
+tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
+10.24.89.0/24 and tiger on 10.25.89.0/24, and mDNS does not cross subnets.
+
+If the volumes mount but never appear in the sidebar, check Finder -> Settings
+-> Sidebar -> Locations -> Connected servers.
+
 ## Deployment
 
 ```bash

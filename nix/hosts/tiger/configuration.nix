@@ -349,7 +349,11 @@ in
         "fruit:wipe_intentionally_left_blank_rfork" = "yes";
         "fruit:delete_empty_adfiles" = "yes";
       };
-      data = {
+      # Share names are tiger-prefixed because macOS names the mount after
+      # the share: these land at /Volumes/tiger-data and /Volumes/tiger-photos
+      # rather than a context-free /Volumes/data. Renaming a share is the only
+      # lever for that name -- NetFS gives the client no say in it.
+      tiger-data = {
         path = "/mnt/data";
         "valid users" = "kyle";
         "read only" = "no";
@@ -358,7 +362,7 @@ in
         "create mask" = "0644";
         "directory mask" = "0755";
       };
-      photos = {
+      tiger-photos = {
         path = "/mnt/photos";
         "valid users" = "kyle";
         "read only" = "no";
@@ -396,6 +400,12 @@ in
   # mDNS/Bonjour advertisement so tiger shows up in Finder's Network sidebar
   # and `smb://tiger.local` resolves. LAN-scoped: 5353/udp is link-local
   # multicast, never routed to the WAN.
+  #
+  # That link-local scope means trex cannot use it: trex sits on 10.24.89.0/24
+  # and tiger on 10.25.89.0/24, and mDNS does not cross the subnet boundary.
+  # trex's mount agents therefore address tiger as tiger.dmz.1ella.com (the
+  # same name its buildMachines entry uses), which resolves to 10.25.89.6 and
+  # is routed. This block still serves clients on tiger's own subnet.
   services.avahi = {
     enable = true;
     openFirewall = true;
