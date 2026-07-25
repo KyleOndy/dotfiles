@@ -67,6 +67,36 @@ This document outlines the conventions and best practices for creating and maint
 - `pool` - ZFS pool name (storage, scratch, etc.)
 - `service` - Systemd service name
 
+### In Loki, select on `unit`, not `job`
+
+The metrics rule above does not carry over to LogQL. promtail ships a
+whole journal under one job, so `job` has only two values across every
+host and there is no per-service job to select on:
+
+```bash
+$ ssh tiger 'curl -s localhost:3100/loki/api/v1/label/job/values' | jq -r '.data[]'
+darwin-unified-log
+systemd-journal
+```
+
+A selector like `{host="tiger",job="jellyfin"}` therefore matches
+nothing and the panel sits empty forever. Name the systemd unit
+instead:
+
+```logql
+# Bad - no such stream, panel is always empty
+{host="tiger",job="jellyfin"} |= "FFmpeg exited"
+
+# Good
+{host="tiger",unit="jellyfin.service"} |= "FFmpeg exited"
+```
+
+Check what is actually there before writing the query:
+
+```bash
+ssh tiger 'curl -s localhost:3100/loki/api/v1/label/unit/values' | jq -r '.data[]'
+```
+
 ## Dashboard Organization
 
 ### Folder Structure

@@ -123,9 +123,12 @@ ssh tiger 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 ssh tiger 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
 
-A dashboard showing "No data" is usually one of three things: the exporter is
+A dashboard showing "No data" is usually one of four things: the exporter is
 down (`systemctl status`), vmagent is not scraping it (no job in
-`scrapeConfigs`), or the query filters on `instance` instead of `host`.
+`scrapeConfigs`), the query filters on `instance` instead of `host`, or it is
+a Loki panel selecting on `job` instead of `unit`. Loki only has two job
+values (`systemd-journal`, `darwin-unified-log`), so per-service log queries
+must name the unit.
 
 ## Clojure
 
