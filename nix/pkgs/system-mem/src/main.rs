@@ -41,6 +41,11 @@ const NORMAL: &str = "colour246";
 const WARM: &str = "colour214";
 const HOT: &str = "colour167";
 
+/// U+E0B3, the powerline thin separator, carried as a trailing suffix. Every
+/// metric segment can collapse to nothing, so a separator written between the
+/// segments in tmux.nix would outlive its segment and leave `│ │` behind.
+const SEP: &str = " \u{e0b3} ";
+
 const MIB: u64 = 1024 * 1024;
 const GIB: u64 = 1024 * MIB;
 
@@ -103,9 +108,9 @@ fn format_mem(mem: &Memory, color: bool) -> String {
     }
 
     if color {
-        format!("#[fg={}]{}#[fg={}] ", color_for(mem), body, NORMAL)
+        format!("#[fg={}]{}#[fg={}]{}", color_for(mem), body, NORMAL, SEP)
     } else {
-        format!("{body} ")
+        format!("{body}{SEP}")
     }
 }
 
@@ -138,9 +143,15 @@ mod tests {
 
     #[test]
     fn swap_is_hidden_until_it_is_worth_reading() {
-        assert_eq!(format_mem(&mem(12 * GIB, 0), false), "12G ");
-        assert_eq!(format_mem(&mem(12 * GIB, 200 * MIB), false), "12G ");
-        assert_eq!(format_mem(&mem(12 * GIB, 460 * MIB), false), "12G+460M ");
+        assert_eq!(format_mem(&mem(12 * GIB, 0), false), "12G \u{e0b3} ");
+        assert_eq!(
+            format_mem(&mem(12 * GIB, 200 * MIB), false),
+            "12G \u{e0b3} "
+        );
+        assert_eq!(
+            format_mem(&mem(12 * GIB, 460 * MIB), false),
+            "12G+460M \u{e0b3} "
+        );
     }
 
     #[test]
@@ -164,8 +175,8 @@ mod tests {
     fn colored_output_restores_the_surrounding_style() {
         assert_eq!(
             format_mem(&mem(512 * MIB, 0), true),
-            "#[fg=colour167]512M#[fg=colour246] "
+            "#[fg=colour167]512M#[fg=colour246] \u{e0b3} "
         );
-        assert!(format_mem(&mem(24 * GIB, 0), true).ends_with("#[fg=colour246] "));
+        assert!(format_mem(&mem(24 * GIB, 0), true).ends_with("#[fg=colour246] \u{e0b3} "));
     }
 }

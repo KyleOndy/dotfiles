@@ -28,6 +28,12 @@ fn busy_percent() -> Result<u8, Box<dyn std::error::Error>> {
 /// Below this the GPU is doing window compositing, not work worth watching.
 const FLOOR: u8 = 5;
 
+/// U+E0B3, the powerline thin separator, carried as a trailing suffix. This
+/// segment is the reason the separator lives here rather than between the
+/// segments in tmux.nix: an idle GPU prints nothing, and a separator owned by
+/// tmux.nix would stay behind and collide with the neighbouring one.
+const SEP: &str = " \u{e0b3} ";
+
 fn main() {
     match busy_percent() {
         // Idle is a successful reading with nothing to say, so it prints
@@ -44,7 +50,7 @@ fn format_gpu(pct: u8) -> String {
     if pct < FLOOR {
         String::new()
     } else {
-        format!("gpu {pct}% ")
+        format!("gpu {pct}%{SEP}")
     }
 }
 
@@ -52,6 +58,8 @@ fn format_gpu(pct: u8) -> String {
 mod tests {
     use super::*;
 
+    /// The separator has to go with it. Left behind, it would sit against the
+    /// separator of the segment before and read as a double rule.
     #[test]
     fn idle_renders_nothing_at_all() {
         assert_eq!(format_gpu(0), "");
@@ -62,8 +70,8 @@ mod tests {
     fn busy_renders_a_labelled_percentage() {
         // The bar already shows a bare percentage for the battery, so this one
         // needs the label to not be read as a second battery reading.
-        assert_eq!(format_gpu(5), "gpu 5% ");
-        assert_eq!(format_gpu(82), "gpu 82% ");
-        assert_eq!(format_gpu(100), "gpu 100% ");
+        assert_eq!(format_gpu(5), "gpu 5% \u{e0b3} ");
+        assert_eq!(format_gpu(82), "gpu 82% \u{e0b3} ");
+        assert_eq!(format_gpu(100), "gpu 100% \u{e0b3} ");
     }
 }

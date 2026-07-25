@@ -26,6 +26,11 @@ const NORMAL: &str = "colour246";
 const WARM: &str = "colour214";
 const HOT: &str = "colour167";
 
+/// U+E0B3, the powerline thin separator, carried as a trailing suffix. Every
+/// metric segment can collapse to nothing, so a separator written between the
+/// segments in tmux.nix would outlive its segment and leave `│ │` behind.
+const SEP: &str = " \u{e0b3} ";
+
 // Apple Silicon idles in the 50s and throttles near 100. AMD Zen reports Tctl,
 // which throttles at 95. One pair of thresholds is a rough fit for both.
 const WARM_AT: f32 = 80.0;
@@ -57,9 +62,15 @@ fn color_for(celsius: f32) -> &'static str {
 fn format_temp(celsius: f32, color: bool) -> String {
     let rounded = celsius.round() as i64;
     if color {
-        format!("#[fg={}]{}°C#[fg={}] ", color_for(celsius), rounded, NORMAL)
+        format!(
+            "#[fg={}]{}°C#[fg={}]{}",
+            color_for(celsius),
+            rounded,
+            NORMAL,
+            SEP
+        )
     } else {
-        format!("{rounded}°C ")
+        format!("{rounded}°C{SEP}")
     }
 }
 
@@ -69,8 +80,8 @@ mod tests {
 
     #[test]
     fn plain_output_matches_battery_draw_shape() {
-        assert_eq!(format_temp(72.4, false), "72°C ");
-        assert_eq!(format_temp(72.6, false), "73°C ");
+        assert_eq!(format_temp(72.4, false), "72°C \u{e0b3} ");
+        assert_eq!(format_temp(72.6, false), "73°C \u{e0b3} ");
     }
 
     #[test]
@@ -86,8 +97,8 @@ mod tests {
     fn colored_output_restores_the_surrounding_style() {
         assert_eq!(
             format_temp(96.0, true),
-            "#[fg=colour167]96°C#[fg=colour246] "
+            "#[fg=colour167]96°C#[fg=colour246] \u{e0b3} "
         );
-        assert!(format_temp(50.0, true).ends_with("#[fg=colour246] "));
+        assert!(format_temp(50.0, true).ends_with("#[fg=colour246] \u{e0b3} "));
     }
 }

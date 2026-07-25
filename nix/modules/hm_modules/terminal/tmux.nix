@@ -89,7 +89,6 @@ in
         # -----------------------
         set-option -g status on                # turn the status bar on
         set -g status-interval 5               # set update frequencey (default 15 seconds)
-        set -g status-justify centre           # center window list for clarity
 
         # visual notification of activity in other windows
         setw -g monitor-activity on
@@ -172,10 +171,20 @@ in
         # (name of session) (window index):(pane index)
         set-option -g status-left "#[fg=colour248, bg=colour241] #S #I:#P #[fg=colour241, bg=colour237, nobold, noitalics, nounderscore]"
 
-        # left most solid arrow
-        set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]"
-        # battery power draw
-        set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.battery-draw}/bin/battery-draw) "
+        # left most solid arrow, then the single pad space before the metrics.
+        #   The pad lives here rather than on the battery segment because any
+        #   metric can collapse to nothing. Owned by the first segment it
+        #   would vanish with it and leave the row flush against the arrow.
+        set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]#[fg=colour246,bg=colour239] "
+        # battery charge and power draw.
+        #   Each metric below emits its own trailing thin separator, so the
+        #   spacing between segments belongs to them and is not set here.
+        #   That is what lets one disappear without orphaning a divider.
+        #   Colours by charge only while discharging: plugging in at 15% is
+        #   the fix, so a warning colour that outlives it only trains you to
+        #   ignore it. Collapses on AC above 95% the way system-gpu hides
+        #   when idle, rather than spending 12 columns to say "docked".
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.battery-draw}/bin/battery-draw)"
         # hottest cpu/gpu die sensor.
         #   Emits its own #[fg=] so it can go orange past 80C and red past 95C,
         #   then restores colour246 for the segments that follow. Prints
@@ -199,9 +208,13 @@ in
         #   Shows the 1 minute figure only; the 5 and 15 minute values cost ten
         #   columns on a bar that is nearly full. Colours by load per core, so
         #   the same number reads correctly on trex and on a two core VM.
-        set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.system-load}/bin/system-load)"
-        # local time
-        set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M%Z/#(TZ="UTC" date +'%%H:%%M%%Z') (#(date +'%z'))"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-load}/bin/system-load)"
+        # local time.
+        #   The UTC half still needs a subshell, as tmux cannot run strftime
+        #   against another zone, but the offset does not: tmux expands
+        #   status-right through strftime itself, so a bare %z drops one
+        #   process from every five second refresh.
+        set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M%Z/#(TZ="UTC" date +'%%H:%%M%%Z') (%z)"
         set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
         # host name
         set-option -ga status-right "#[fg=colour237, bg=colour248] #h "
