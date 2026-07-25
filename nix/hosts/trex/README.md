@@ -108,8 +108,11 @@ Two shares mount at login and show up under Locations in the Finder sidebar:
   `backup-photos-to-dr.sh` rsyncs into it with `--delete`, so anything written
   there by hand disappears on the next sync.
 
-No manual setup. Two launch agents do the work, both defined in
-`configuration.nix`:
+No manual setup. Two launch agents do the work, both defined in `home.nix`
+rather than `configuration.nix`. nix-darwin's `launchd.agents` runs agents as
+root in the system domain, which puts the keychain item somewhere NetAuthAgent
+does not read; home-manager's runs them as kyle in `gui/501`, which is what
+NetFS wants.
 
 - **smb-tiger-keychain** - copies the sops secret `smb_kyle_password` into the
   login keychain at each login, so NetFS can authenticate on its own.

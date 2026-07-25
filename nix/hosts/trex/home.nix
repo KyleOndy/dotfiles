@@ -5,9 +5,104 @@
   lib,
   pkgs,
   config,
+  osConfig,
   ...
 }:
 let
+  # SMB shares tiger exports (services.samba in nix/hosts/tiger/configuration.nix).
+  # Addressed by DNS name, not tiger.local: trex is on 10.24.89.0/24 and tiger
+  # on 10.25.89.0/24, and mDNS is link-local, so .local never resolves here.
+  smbServer = "tiger.dmz.1ella.com";
+  smbAccount = "kyle";
+  smbShares = [
+    "tiger-data"
+    "tiger-photos"
+  ];
+
+  # Both agents have to run as kyle in the GUI session, which is why they are
+  # here rather than in configuration.nix: nix-darwin's launchd.agents get
+  # bootstrapped into the system domain and run as root, so the keychain item
+  # landed in /Library/Keychains/System.keychain where NetAuthAgent (which
+  # only reads the console user's keychains) never looked, and every mount
+  # attempt fell through to a password prompt.
+
+  # Puts kyle's Samba password (its own credential, separate from the login
+  # password, seeded on tiger by samba-smbpasswd-seed) into the login keychain
+  # so NetFS can mount unattended. Runs at login only, and re-reads sops every
+  # time, so a rotated secret propagates on the next login rather than needing
+  # the keychain item cleared by hand.
+  #
+  # The password does cross argv here, visible in `ps` for the lifetime of one
+  # `security` call: the tool takes it no other way (-w with no value prompts
+  # on a tty, which a launchd agent does not have). Every process that could
+  # read that argv already runs as kyle, who can read the secret file anyway.
+  smbKeychainSeed = pkgs.writeShellApplication {
+    name = "smb-tiger-keychain-seed";
+    text = ''
+      readonly SERVER=${lib.escapeShellArg smbServer}
+      readonly ACCOUNT=${lib.escapeShellArg smbAccount}
+      # Named explicitly rather than left to the default keychain, which is
+      # whatever the running user's default happens to be.
+      readonly KEYCHAIN="${config.home.homeDirectory}/Library/Keychains/login.keychain-db"
+
+      pw="$(cat ${osConfig.sops.secrets.smb_kyle_password.path})"
+
+      # Delete-then-add rather than `add -U`: the item's ACL trusts only
+      # NetAuthAgent, so an in-place update by /usr/bin/security raises a
+      # keychain authorisation dialog. Deletion needs no access to the
+      # password, so it stays silent.
+      /usr/bin/security delete-internet-password \
+        -a "$ACCOUNT" -s "$SERVER" -r "smb " "$KEYCHAIN" >/dev/null 2>&1 || true
+
+      /usr/bin/security add-internet-password \
+        -a "$ACCOUNT" \
+        -s "$SERVER" \
+        -r "smb " \
+        -D "network password" \
+        -l "$SERVER" \
+        -T /System/Library/CoreServices/NetAuthAgent.app/Contents/MacOS/NetAuthAgent \
+        -w "$pw" \
+        "$KEYCHAIN"
+
+      echo "smb-tiger: refreshed keychain entry for $ACCOUNT@$SERVER"
+    '';
+  };
+
+  # Mounts anything not already mounted, via NetFS (the same path Finder's
+  # Cmd+K takes), so the volumes land in /Volumes and show up under Locations
+  # in the Finder sidebar. mount_smbfs would allow an arbitrary mount point but
+  # does not read the keychain, which would put the password back on argv.
+  smbMount = pkgs.writeShellApplication {
+    name = "smb-tiger-mount";
+    text = ''
+      readonly SERVER=${lib.escapeShellArg smbServer}
+      readonly ACCOUNT=${lib.escapeShellArg smbAccount}
+      readonly KEYCHAIN="${config.home.homeDirectory}/Library/Keychains/login.keychain-db"
+
+      # Attribute-only lookup (no -w), so this never touches the password and
+      # never prompts. If the seeder has not run yet, bail out rather than let
+      # NetFS raise an auth dialog in the middle of login. Scoped to the login
+      # keychain: a stale copy in the system keychain would satisfy a wider
+      # search but is exactly the thing NetAuthAgent cannot use.
+      if ! /usr/bin/security find-internet-password \
+        -a "$ACCOUNT" -s "$SERVER" -r "smb " "$KEYCHAIN" >/dev/null 2>&1; then
+        echo "smb-tiger: no keychain entry for $SERVER yet, skipping"
+        exit 0
+      fi
+
+      for share in ${lib.concatMapStringsSep " " lib.escapeShellArg smbShares}; do
+        if /sbin/mount | grep -q " on /Volumes/$share "; then
+          continue
+        fi
+        if /usr/bin/osascript -e "mount volume \"smb://$ACCOUNT@$SERVER/$share\"" >/dev/null 2>&1; then
+          echo "smb-tiger: mounted $share"
+        else
+          echo "smb-tiger: could not mount $share"
+        fi
+      done
+    '';
+  };
+
   # Processes that, if running, should cause the local model server
   # (launchd.agents.mlx-openai-server below) to be stopped -- e.g. DaVinci
   # Resolve, which competes for the same GPU/unified memory. Checked on every
@@ -231,6 +326,39 @@ in
   # (e.g. DaVinci Resolve). mlx-status/mlx-start (nix/pkgs/mlx-status,
   # nix/pkgs/mlx-start) bring it back manually; search-mail/pi-overnight
   # bring it back on demand.
+  # tiger's SMB shares, mounted at login so they sit under Locations in the
+  # Finder sidebar (and on the Desktop) without a Cmd+K every session.
+  #
+  # Two agents rather than one: the seeder rewrites a keychain item and only
+  # needs to run once per login, while the mounter reruns on a timer to pick
+  # the shares back up after a network drop, sleep, or a manual eject. The
+  # mounter no-ops until the keychain entry exists, so the ordering between
+  # them is not load-bearing -- at worst the first pass after a fresh install
+  # skips and the next one, five minutes later, mounts.
+  launchd.agents.smb-tiger-keychain = {
+    enable = true;
+    config = {
+      Label = "org.ondy.smb-tiger-keychain";
+      ProgramArguments = [ (lib.getExe smbKeychainSeed) ];
+      RunAtLoad = true;
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
+    };
+  };
+
+  launchd.agents.smb-tiger-mount = {
+    enable = true;
+    config = {
+      Label = "org.ondy.smb-tiger-mount";
+      ProgramArguments = [ (lib.getExe smbMount) ];
+      RunAtLoad = true;
+      StartInterval = 300;
+      ProcessType = "Background";
+      StandardOutPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
+      StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
+    };
+  };
+
   launchd.agents.mlx-auto-stop = {
     enable = true;
     config = {
