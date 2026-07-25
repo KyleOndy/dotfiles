@@ -1,0 +1,40 @@
+[package]
+name = "tmux-status"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kyle Ondy <kyle@ondy.org>"]
+description = "Status bar segments for tmux"
+license = "MIT"
+
+[lib]
+name = "tmux_status"
+path = "src/lib.rs"
+
+[[bin]]
+name = "battery-draw"
+path = "src/bin/battery-draw/main.rs"
+
+[[bin]]
+name = "system-gpu"
+path = "src/bin/system-gpu/main.rs"
+
+[[bin]]
+name = "system-load"
+path = "src/bin/system-load/main.rs"
+
+[[bin]]
+name = "system-mem"
+path = "src/bin/system-mem/main.rs"
+
+[[bin]]
+name = "system-temp"
+path = "src/bin/system-temp/main.rs"
+
+[dependencies]
+# battery-draw only. Cargo has no per-binary dependencies, so the other four
+# binaries link it and never call it; the linker drops it.
+battery = "0.7.8"
+
+[profile.release]
+lto = true
+strip = true

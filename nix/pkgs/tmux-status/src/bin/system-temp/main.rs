@@ -21,15 +21,7 @@ fn hottest() -> Result<f32, Box<dyn std::error::Error>> {
     Err("unsupported platform".into())
 }
 
-// tmux colours, matching the gruvbox palette already used in tmux.nix.
-const NORMAL: &str = "colour246";
-const WARM: &str = "colour214";
-const HOT: &str = "colour167";
-
-/// U+E0B3, the powerline thin separator, carried as a trailing suffix. Every
-/// metric segment can collapse to nothing, so a separator written between the
-/// segments in tmux.nix would outlive its segment and leave `│ │` behind.
-const SEP: &str = " \u{e0b3} ";
+use tmux_status::{colors_enabled, styled, HOT, NORMAL, SEP, WARM};
 
 // Apple Silicon idles in the 50s and throttles near 100. AMD Zen reports Tctl,
 // which throttles at 95. One pair of thresholds is a rough fit for both.
@@ -43,10 +35,6 @@ fn main() {
     }
 }
 
-fn colors_enabled() -> bool {
-    std::env::var_os("NO_COLOR").is_none()
-}
-
 fn color_for(celsius: f32) -> &'static str {
     if celsius >= HOT_AT {
         HOT
@@ -57,20 +45,12 @@ fn color_for(celsius: f32) -> &'static str {
     }
 }
 
-/// tmux re-expands the stdout of a `#()` job through its format parser, so
-/// `#[fg=...]` here is honoured (tmux 3.6a, format.c `format_job_get`).
 fn format_temp(celsius: f32, color: bool) -> String {
-    let rounded = celsius.round() as i64;
+    let body = format!("{}°C", celsius.round() as i64);
     if color {
-        format!(
-            "#[fg={}]{}°C#[fg={}]{}",
-            color_for(celsius),
-            rounded,
-            NORMAL,
-            SEP
-        )
+        styled(color_for(celsius), &body)
     } else {
-        format!("{rounded}°C{SEP}")
+        format!("{body}{SEP}")
     }
 }
 

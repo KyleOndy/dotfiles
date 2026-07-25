@@ -15,7 +15,6 @@ self: super: {
   pragmata-pro = super.callPackage ./pragmata-pro { };
   tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   winnow = super.callPackage ./winnow { };
-  battery-draw = super.callPackage ./battery-draw { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   zsh-histdb = super.callPackage ./zsh-histdb { };
@@ -26,8 +25,5 @@ self: super: {
   mlx-start = super.callPackage ./mlx-start { };
   mlx-stop = super.callPackage ./mlx-stop { };
   mlx-status = super.callPackage ./mlx-status { };
-  system-temp = super.callPackage ./system-temp { };
-  system-mem = super.callPackage ./system-mem { };
-  system-gpu = super.callPackage ./system-gpu { };
-  system-load = super.callPackage ./system-load { };
+  tmux-status = super.callPackage ./tmux-status { };
 }

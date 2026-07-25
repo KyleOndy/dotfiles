@@ -34,20 +34,7 @@ pub struct Charge {
     pub discharging: bool,
 }
 
-// tmux colours, matching the gruvbox palette already used in tmux.nix.
-const NORMAL: &str = "colour246";
-const WARM: &str = "colour214";
-const HOT: &str = "colour167";
-
-/// U+E0B3, the powerline thin separator, matching the one the clock segment
-/// already puts between the date and the time. The left-pointing variants
-/// (E0B2 solid, E0B3 thin) are the ones for the right of the bar; the window
-/// tabs use the right-pointing E0B0/E0B1 for the same reason.
-///
-/// Carried as a trailing suffix rather than written between the segments in
-/// tmux.nix on purpose: every metric segment can collapse to nothing, and a
-/// separator owned by tmux.nix would survive its segment and leave `│ │`.
-const SEP: &str = " \u{e0b3} ";
+use tmux_status::{colors_enabled, styled, HOT, NORMAL, SEP, WARM};
 
 // Sized for "should I go find a charger": warm while there is still time to
 // react, hot once it is the next thing you have to deal with.
@@ -80,10 +67,6 @@ fn sample() -> Result<Charge, Box<dyn std::error::Error>> {
     })
 }
 
-fn colors_enabled() -> bool {
-    std::env::var_os("NO_COLOR").is_none()
-}
-
 /// Charge only reads as a warning when nothing is refilling it.
 fn color_for(charge: &Charge) -> &'static str {
     if !charge.discharging {
@@ -102,8 +85,6 @@ fn is_idle(charge: &Charge) -> bool {
     !charge.discharging && charge.percent >= FULL_AT
 }
 
-/// tmux re-expands the stdout of a `#()` job through its format parser, so
-/// `#[fg=...]` here is honoured (tmux 3.6a, format.c `format_job_get`).
 fn format_charge(charge: &Charge, color: bool) -> String {
     if is_idle(charge) {
         return String::new();
@@ -118,7 +99,7 @@ fn format_charge(charge: &Charge, color: bool) -> String {
     }
 
     if color {
-        format!("#[fg={}]{}#[fg={}]{}", color_for(charge), body, NORMAL, SEP)
+        styled(color_for(charge), &body)
     } else {
         format!("{body}{SEP}")
     }

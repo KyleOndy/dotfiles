@@ -25,14 +25,10 @@ fn busy_percent() -> Result<u8, Box<dyn std::error::Error>> {
     Err("unsupported platform".into())
 }
 
+use tmux_status::SEP;
+
 /// Below this the GPU is doing window compositing, not work worth watching.
 const FLOOR: u8 = 5;
-
-/// U+E0B3, the powerline thin separator, carried as a trailing suffix. This
-/// segment is the reason the separator lives here rather than between the
-/// segments in tmux.nix: an idle GPU prints nothing, and a separator owned by
-/// tmux.nix would stay behind and collide with the neighbouring one.
-const SEP: &str = " \u{e0b3} ";
 
 fn main() {
     match busy_percent() {

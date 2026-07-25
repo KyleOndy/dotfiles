@@ -184,23 +184,23 @@ in
         #   the fix, so a warning colour that outlives it only trains you to
         #   ignore it. Collapses on AC above 95% the way system-gpu hides
         #   when idle, rather than spending 12 columns to say "docked".
-        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.battery-draw}/bin/battery-draw)"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/battery-draw)"
         # hottest cpu/gpu die sensor.
         #   Emits its own #[fg=] so it can go orange past 80C and red past 95C,
         #   then restores colour246 for the segments that follow. Prints
         #   nothing and exits 1 where no sensor is readable (WSL, VMs), which
         #   collapses the segment rather than showing an error.
-        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-temp}/bin/system-temp)"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-temp)"
         # memory headroom, plus swap in use once it is past incidental.
         #   Headroom rather than a used percentage: both kernels keep RAM full
         #   of reclaimable cache on purpose, so "percent used" idles high on a
         #   healthy machine. Same collapse-on-failure contract as system-temp.
-        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-mem}/bin/system-mem)"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-mem)"
         # gpu utilization, hidden while the gpu is idle.
         #   Answers whether the model server is working or wedged. Prints
         #   nothing below 5%, so the segment is only here when it has
         #   something to say.
-        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-gpu}/bin/system-gpu)"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-gpu)"
         # one minute load average.
         #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on
         #   every refresh, to paper over uptime's output differing on darwin.
@@ -208,7 +208,7 @@ in
         #   Shows the 1 minute figure only; the 5 and 15 minute values cost ten
         #   columns on a bar that is nearly full. Colours by load per core, so
         #   the same number reads correctly on trex and on a two core VM.
-        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-load}/bin/system-load)"
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-load)"
         # local time.
         #   The UTC half still needs a subshell, as tmux cannot run strftime
         #   against another zone, but the offset does not: tmux expands

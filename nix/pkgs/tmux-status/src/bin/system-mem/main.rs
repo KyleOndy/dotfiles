@@ -36,15 +36,7 @@ fn sample() -> Result<Memory, Box<dyn std::error::Error>> {
     Err("unsupported platform".into())
 }
 
-// tmux colours, matching the gruvbox palette already used in tmux.nix.
-const NORMAL: &str = "colour246";
-const WARM: &str = "colour214";
-const HOT: &str = "colour167";
-
-/// U+E0B3, the powerline thin separator, carried as a trailing suffix. Every
-/// metric segment can collapse to nothing, so a separator written between the
-/// segments in tmux.nix would outlive its segment and leave `│ │` behind.
-const SEP: &str = " \u{e0b3} ";
+use tmux_status::{colors_enabled, styled, HOT, NORMAL, SEP, WARM};
 
 const MIB: u64 = 1024 * 1024;
 const GIB: u64 = 1024 * MIB;
@@ -65,10 +57,6 @@ fn main() {
         Ok(mem) => print!("{}", format_mem(&mem, colors_enabled())),
         Err(_) => process::exit(1),
     }
-}
-
-fn colors_enabled() -> bool {
-    std::env::var_os("NO_COLOR").is_none()
 }
 
 /// Headroom decides the colour and swap does not, because swap used is close to
@@ -102,8 +90,6 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-/// tmux re-expands the stdout of a `#()` job through its format parser, so
-/// `#[fg=...]` here is honoured (tmux 3.6a, format.c `format_job_get`).
 fn format_mem(mem: &Memory, color: bool) -> String {
     let mut body = format_bytes(mem.available);
     if mem.swap_used >= SWAP_FLOOR {
@@ -112,7 +98,7 @@ fn format_mem(mem: &Memory, color: bool) -> String {
     }
 
     if color {
-        format!("#[fg={}]{}#[fg={}]{}", color_for(mem), body, NORMAL, SEP)
+        styled(color_for(mem), &body)
     } else {
         format!("{body}{SEP}")
     }

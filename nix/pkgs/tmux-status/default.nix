@@ -4,7 +4,7 @@
 }:
 
 rustPlatform.buildRustPackage {
-  pname = "system-gpu";
+  pname = "tmux-status";
   version = "0.1.0";
 
   src = ./.;
@@ -14,7 +14,7 @@ rustPlatform.buildRustPackage {
   };
 
   meta = with lib; {
-    description = "Fast GPU utilization monitoring for tmux status bars";
+    description = "Status bar segments for tmux: battery, GPU, load, memory, temperature";
     homepage = "https://github.com/kyleondy";
     license = licenses.mit;
     maintainers = with maintainers; [ kyleondy ];

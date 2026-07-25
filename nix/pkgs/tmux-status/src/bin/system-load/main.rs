@@ -22,10 +22,7 @@ unsafe extern "C" {
     fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
 }
 
-// tmux colours, matching the gruvbox palette already used in tmux.nix.
-const NORMAL: &str = "colour246";
-const WARM: &str = "colour214";
-const HOT: &str = "colour167";
+use tmux_status::{colors_enabled, HOT, NORMAL, WARM};
 
 /// A bare load figure means nothing without knowing the core count: 4.0 is
 /// idle on trex and on fire on a two core VM. Thresholds are per core.
@@ -58,10 +55,6 @@ fn cores() -> f64 {
     std::thread::available_parallelism()
         .map(|n| n.get() as f64)
         .unwrap_or(1.0)
-}
-
-fn colors_enabled() -> bool {
-    std::env::var_os("NO_COLOR").is_none()
 }
 
 fn color_for(load: f64, cores: f64) -> &'static str {
