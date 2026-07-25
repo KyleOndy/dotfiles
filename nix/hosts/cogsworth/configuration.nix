@@ -1083,17 +1083,6 @@ in
             }
           ];
         }
-        {
-          job_name = "cogsworth";
-          static_configs = [
-            {
-              targets = [ "127.0.0.1:8080" ];
-              labels = {
-                host = "cogsworth";
-              };
-            }
-          ];
-        }
       ];
     };
 
