@@ -310,3 +310,39 @@ validate_file() {
 		die "$description does not exist: $file"
 	fi
 }
+
+# Unlock git-crypt in a freshly added worktree, then check its files out
+#
+# `git worktree add --no-checkout` is what makes this necessary: a worktree has
+# its own git dir, and git-crypt's symmetric key lives there rather than in the
+# shared repository, so checking out before unlocking writes the ciphertext to
+# disk. Callers add the worktree with --no-checkout and hand it to this.
+#
+# A repository without git-crypt configured just gets the checkout.
+#
+# Usage: checkout_worktree "/path/to/worktree" "branch-name"
+checkout_worktree() {
+	local worktree_path=$1
+	local branch=$2
+
+	if git config --get filter.git-crypt.smudge &>/dev/null; then
+		log_info "Setting up git-crypt..."
+
+		local worktree_git_dir gpg_key
+		worktree_git_dir=$(git -C "$worktree_path" rev-parse --git-dir)
+		mkdir -p "$worktree_git_dir/git-crypt/keys"
+
+		# The key is encrypted once per authorized GPG key, so try each and
+		# stop at the first that this machine can actually decrypt.
+		for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+			if [[ -f $gpg_key ]]; then
+				if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+					break
+				fi
+			fi
+		done
+	fi
+
+	log_info "Checking out files..."
+	(cd "$worktree_path" && git checkout "$branch")
+}

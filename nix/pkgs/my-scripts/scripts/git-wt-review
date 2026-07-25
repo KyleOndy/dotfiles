@@ -92,25 +92,7 @@ feature_path="${wt_root}/reviews/${branch_name}"
 log_info "Creating review worktree..."
 git worktree add --no-checkout "$feature_path" "$branch_name"
 
-# Set up git-crypt for new worktree if configured
-if git config --get filter.git-crypt.smudge &>/dev/null; then
-	log_info "Setting up git-crypt..."
-
-	worktree_git_dir=$(git -C "$feature_path" rev-parse --git-dir)
-	mkdir -p "$worktree_git_dir/git-crypt/keys"
-
-	for gpg_key in .git-crypt/keys/default/0/*.gpg; do
-		if [ -f "$gpg_key" ]; then
-			if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
-				break
-			fi
-		fi
-	done
-fi
-
-# Checkout files
-log_info "Checking out files..."
-(cd "$feature_path" && git checkout "${branch_name}")
+checkout_worktree "$feature_path" "$branch_name"
 
 echo ""
 log_info "Created review worktree: ${feature_path}"

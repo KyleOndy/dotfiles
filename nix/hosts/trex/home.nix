@@ -85,7 +85,7 @@ let
   # (launchd.agents.mlx-openai-server below) to be stopped -- e.g. DaVinci
   # Resolve, which competes for the same GPU/unified memory. Checked on every
   # poll; the server is not auto-restarted when the watched process quits --
-  # the next search-mail/pi-overnight/mlx-start invocation starts it on
+  # the next search-mail/pi-overnight/`mlx start` invocation starts it on
   # demand. Add another entry to watch more apps. Names must match `pgrep -x`
   # exactly (the process's own binary name, not necessarily its .app bundle
   # name) -- verify with `pgrep -x <name>` while the app is running before
@@ -297,9 +297,8 @@ in
   # Polls every mlxAutoStopPollIntervalSec for mlxAutoStopWatchedProcesses
   # (see the `let` block above) and stops mlx-openai-server if one is found
   # running, so it doesn't hold GPU/unified memory against apps that need it
-  # (e.g. DaVinci Resolve). mlx-status/mlx-start (nix/pkgs/mlx-status,
-  # nix/pkgs/mlx-start) bring it back manually; search-mail/pi-overnight
-  # bring it back on demand.
+  # (e.g. DaVinci Resolve). `mlx status` and `mlx start` (nix/pkgs/mlx) bring
+  # it back manually; search-mail/pi-overnight bring it back on demand.
   # tiger's SMB shares, mounted at login so they sit under Locations in the
   # Finder sidebar (and on the Desktop) without a Cmd+K every session. Reruns
   # every five minutes, which also covers reconnects after a network drop,
