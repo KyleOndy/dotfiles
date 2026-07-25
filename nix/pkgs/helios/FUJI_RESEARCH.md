@@ -164,45 +164,13 @@ Source for the property names: libfuji `lib/fujiptp.h`
 
 ## The whole-camera backup blob
 
-Details, offsets, and encodings are in `FUJI_BLOB_FORMAT.md`. Summary: the blob
-carries the full per-slot state the PTP preset block misses (auto-ISO decoded and
-verified). The image-quality look was also located in blob offsets by
-known-plaintext correlation against known recipes (`helios fuji-settings
-correlate`): film sim, dynamic range, color, sharpness, highlight/shadow tone,
-color chrome (+FX blue), and grain, each with its own encoding distinct from the
-PTP codes. The whole-file checksum at `+0xE8` is **solved** (a 16-bit additive
-byte-sum over `[0xA8, EOF)` with two skipped ranges and a `+0xF936` bias,
-recovered from the X Acquire SDK and verified on five captures; `helios
-fuji-settings edit` recomputes it). The field at `+0xE8` is a u32 whose high half
-is a save counter; the sum skips all four bytes, and getting that wrong (summing a
-nonzero high half) was a one-count error that failed the first edited restore. The
-**restore transport** is now solved too: restore is plain PTP
-`SendObjectInfo`/`SendObject`, and one `PTP 0x200F` denial was a 12-byte-too-long
-ObjectInfo (helios padded to 1088 where the camera wants 1076). An edited blob
-now writes back and **applies**: editing the C7 slot name and restoring it showed
-on the camera, with no per-record checksum needed (see `FUJI_BLOB_FORMAT.md`).
+The blob carries the full per-slot state the PTP preset block misses, and both
+the read and the write paths are solved. This file does not restate the
+findings, because they moved four times before landing and the copies drifted:
 
-The transport is solved and a restore commits **every slot's look in one shot**,
-the same as X Acquire, confirmed 2026-07-16 on the X-T5 (a one-byte-per-slot
-seven-slot edit and the full look of all seven recipes both applied). The catch is
-slot **names**, not a slot count.
-
-The earlier "four-slot cap" framing is wrong. Look-field changes have no cap (seven
-at once is fine). What is capped is **renames**, by a camera-side **total
-slot-name-length budget**: the restore path validates the sum of the seven names
-and denies with `0x200F` (data phase) when it overflows. On this X-T5 the seven
-recipe names summed to 105 chars and did not fit (six committed, the seventh
-rejected); the ceiling is in the mid-90s of total characters and is sensitive to how
-names are applied, consistent with a limited/fragmenting name store. Two aggravators:
-the post-name tag at `+0x1E9` (`CC24`/`CC60` on swept slots) must be cleared on
-rename or the camera rejects two-plus tagged renames (helios now clears it in
-`patch_slot_name`); and `0x200F` is overloaded with the not-clean-state denial, so
-restore clean and first. Intermediate guesses that were wrong and are recorded so
-they are not retried: the `+0xE8` high half is one file-global u16 save counter (not
-per-slot tracking), and there is no per-record integrity token, `fuji-settings
-commit-probe` showed the camera re-stamps nothing inside the record, only a global
-lens/state block (`0x7aac..0x7b24`) it accepts stale. See `FUJI_WRITE_SURFACE.md`,
-"Restoring many slots at once."
+- Offsets, encodings, and the `+0xE8` whole-file checksum: `FUJI_BLOB_FORMAT.md`
+- Restore transport, what commits in one pass, and the slot-name-length budget:
+  `FUJI_WRITE_SURFACE.md`, "Restoring many slots at once"
 
 ## Prior-art landscape (annotated)
 
@@ -271,10 +239,8 @@ needs the blob-edit path, and that path now works end to end: `edit`/`--recipe-d
 rewrites slots and `restore` commits every slot's look at once on the X-T5 (image-quality
 look, wb-shift, high-ISO-NR, sharpness, and auto-ISO all confirmed committing). The
 whole-file checksum is the only integrity gate on the look, and it is solved. The one
-restore-time cap is on slot _names_: the camera limits the total length of all seven
-names together (mid-90s of characters on this body), so a set of long recipe names may
-not all fit in one pass even though their looks do. What is left is broadening the set
-of _editable_ fields. In priority order:
+restore-time cap is on slot _names_ (see `FUJI_WRITE_SURFACE.md`). What is left is
+broadening the set of _editable_ fields. In priority order:
 
 - **A per-record sub-checksum does not gate a slot edit (resolved).** The concern
   was that the record trailer `+0x37C..0x3FF` or the u16 near `+0x7B24` might be

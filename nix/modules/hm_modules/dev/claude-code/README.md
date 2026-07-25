@@ -18,17 +18,15 @@ NixOS/darwin module; standalone `home-manager switch` is not used here).
 ## Options
 
 - **enable**: turn the module on
-- **enableHooks** (default `true`): install the notification and
-  tmux-indicator hook scripts
-- **enableCommands** (default `true`): install slash commands
-- **enableSkills** (default `true`): install skills
 - **skills** (default `[]`): extra skills as `{ name, source, isFile }`;
   work-mac uses this for vendored third-party skills
 - **enableNotifications** (default `false`): install `libnotify` so the
   notifier hook can send desktop notifications (Linux only; the hook
   no-ops without `notify-send`)
-- **userMemory** (default `./CLAUDE.md`): file installed as
-  `~/.claude/CLAUDE.md`
+
+Hooks, commands, skills and the user memory file are not switchable. Every
+host that enables the module wants all of them, so the toggles were dead
+weight.
 
 ## What gets installed
 
@@ -47,8 +45,10 @@ NixOS/darwin module; standalone `home-manager switch` is not used here).
 - `~/.claude/statusline.sh`: git branch, model, context usage, rate
   limits, cost, duration
 - `~/.claude/hooks/`: hook scripts (below)
-- `~/.claude/skills/`: commit-guidelines, flake-update-review,
-  personal-prose, plus anything from `cfg.skills`
+- `~/.claude/skills/`: commit-guidelines, flake-update-review, grill-me,
+  personal-prose, and i-have-adhd (that last one from the
+  `claude-skills-adhd` flake input, not this directory), plus anything
+  from `cfg.skills`
 - `~/.claude/commands/`: the task family and git commands (below)
 
 Hook and statusline scripts are packaged with `writeShellApplication`,
@@ -90,9 +90,12 @@ into the module.
 - Inspect what the module would install:
 
   ```bash
-  nix build .#nixosConfigurations.tiger.config.home-manager.users.kyle.home.activationPackage
+  nix build .#darwinConfigurations.trex.config.home-manager.users.kyle.home.activationPackage
   ls -la result/home-files/.claude/
   ```
+
+  Only trex and work-mac enable this module, so building tiger shows
+  nothing.
 
 For general Claude Code support, see the
 [official documentation](https://code.claude.com/docs).

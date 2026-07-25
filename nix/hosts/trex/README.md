@@ -78,7 +78,8 @@ defaults read cc.ffitch.shottr
 ### Karabiner-Elements (Kensington Expert Trackball)
 
 The button remapping rules are generated declaratively by home-manager
-(`hmFoundry.desktop.input.karabiner.kensingtonExpert.enable = true` in `home.nix`),
+(`hmFoundry.desktop.input.karabiner.enable = true` in `home.nix`; the trackball
+rule is unconditional once the module is on),
 but Karabiner-Elements itself needs one-time OS approval after install:
 
 1. Launch Karabiner-Elements.

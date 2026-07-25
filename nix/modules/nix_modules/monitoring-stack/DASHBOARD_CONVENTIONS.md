@@ -46,10 +46,10 @@ This document outlines the conventions and best practices for creating and maint
 2. **Panel Queries**: Filter by `host` not `instance`
 
    ```promql
-   # ✅ Good
+   # Good
    node_cpu_seconds_total{host="$host"}
 
-   # ❌ Bad - shows IP:port instead of hostname
+   # Bad - shows IP:port instead of hostname
    node_cpu_seconds_total{instance="$instance"}
    ```
 
@@ -71,28 +71,30 @@ This document outlines the conventions and best practices for creating and maint
 
 ### Folder Structure
 
-Dashboards should be organized into logical folders:
+`grafana.nix` sets `foldersFromFilesStructure = true`, so the subdirectory a
+dashboard sits in under `dashboards/` becomes its Grafana folder. Adding one
+is dropping in a file; there is nothing to register.
 
-- **System Monitoring** - Host-level metrics (node-exporter, systemd services)
-- **Network & Web** - Caddy metrics, traffic analysis
-- **Storage** - ZFS pools, disk usage
-- **Applications** - Application-specific dashboards (media services, youtube-downloader)
-- **Alerting** - Alert status and history
+Three folders exist:
+
+- `system/` - host-level metrics (node exporter, systemd services)
+- `network/` - Caddy
+- `applications/` - per-service dashboards (\*arr, jellyfin, cogsworth, media)
 
 ### Naming Conventions
 
 Dashboard titles should follow this pattern:
 
 ```text
-[Category] - [Specific Component] - [Host (if applicable)]
+[Specific Component] - [Detail or Host (if applicable)]
 ```
 
-Examples:
+Examples, from dashboards that exist:
 
-- `System - Node Exporter Full`
-- `Network - Caddy Overview`
-- `Storage - ZFS - Wolf`
-- `App - YouTube Downloader - Operational`
+- `System Overview`
+- `Caddy Reverse Proxy Overview`
+- `Cogsworth - Request Performance`
+- `Jellyfin Operational`
 
 ## Dashboard Metadata
 
@@ -329,48 +331,6 @@ Grafana auto-reloads dashboards every 10 seconds.
 - Increment `version` when making significant changes
 - Test changes in Grafana UI before committing
 
-## Dashboard Folder Organization
-
-To organize dashboards into folders in Grafana, use the `folderUid` property in provisioning or set folders via the Grafana API.
-
-### Creating Folders via Provisioning
-
-Folders are created automatically when you reference them in dashboard JSON:
-
-```json
-{
-  "title": "My Dashboard",
-  "folderTitle": "System Monitoring",
-  "uid": "my-dashboard"
-}
-```
-
-However, the current provisioning setup uses a flat structure (`foldersFromFilesStructure = false`). To use folders:
-
-1. Create subdirectories in `dashboards/`:
-
-   ```text
-   dashboards/
-   ├── system/
-   │   ├── node-exporter.json
-   │   └── systemd-services.json
-   ├── network/
-   │   └── caddy-overview.json
-   └── storage/
-       └── zfs-storage.json
-   ```
-
-2. Enable folder structure in `grafana.nix`:
-
-   ```nix
-   options = {
-     path = "/etc/grafana-dashboards";
-     foldersFromFilesStructure = true;
-   };
-   ```
-
-3. Update provisioning paths to include subdirectories.
-
 ## Troubleshooting
 
 ### Dashboard Shows "No data"
@@ -484,10 +444,10 @@ When importing dashboards from grafana.com or updating exporters, metric names m
 **Solution:**
 
 ```bash
-# ❌ Bad - doesn't work in VictoriaMetrics
+# Bad - doesn't work in VictoriaMetrics
 node_systemd_unit_state{name=~".*\\.service"}
 
-# ✅ Good - works in VictoriaMetrics
+# Good - works in VictoriaMetrics
 node_systemd_unit_state{name=~".*.service"}
 ```
 
@@ -519,11 +479,11 @@ Only the current state has value `1`, all others have value `0`.
 **Common Mistake**: Counting time series instead of actual states:
 
 ```promql
-# ❌ WRONG - counts all time series with state="failed" label (even if value=0)
+# WRONG - counts all time series with state="failed" label (even if value=0)
 count(node_systemd_unit_state{state="failed"})
 # Result: 308 (counts time series, not failed services)
 
-# ✅ CORRECT - counts only services actually in failed state (value=1)
+# CORRECT - counts only services actually in failed state (value=1)
 count(node_systemd_unit_state{state="failed"} == 1)
 # Result: 0 (no services are failed)
 ```
