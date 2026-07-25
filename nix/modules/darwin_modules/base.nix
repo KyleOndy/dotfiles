@@ -65,6 +65,15 @@
       FXDefaultSearchScope = lib.mkDefault "SCcf"; # Search current folder by default
     };
 
+    # Drop the Tags section from the Finder sidebar. nix-darwin has no option
+    # for either key. An empty FavoriteTagNames unchecks every tag in Finder
+    # Settings > Tags, ShowRecentTags = false kills the "Recent Tags" row, and
+    # with nothing left to list Finder stops drawing the Tags header.
+    CustomUserPreferences."com.apple.finder" = {
+      FavoriteTagNames = [ ];
+      ShowRecentTags = false;
+    };
+
     trackpad.Clicking = lib.mkDefault true; # Tap to click
 
     NSGlobalDomain = {
