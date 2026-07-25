@@ -9,7 +9,4 @@
     # No desktop.nix - kiosk manages its own display via Sway and Chromium
     # No ssh-hosts.nix - kiosk doesn't need SSH host configs
   ];
-
-  # Minimal hmFoundry configuration
-  # Most features disabled for kiosk - only essential tools
 }
