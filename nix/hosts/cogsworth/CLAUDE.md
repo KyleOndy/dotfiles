@@ -1,12 +1,13 @@
 # Cogsworth Host
 
-NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (Go backend, dev loop, DevTools tunnel) live in the upstream repo at `/home/kyle/src/cogsworth/v3/CLAUDE.md`.
+NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (Go backend, dev loop, DevTools tunnel) live in the upstream repo at `/Users/kyle/src/cogsworth/v3/CLAUDE.md`.
 
 ## Services
 
-- `cogsworth.service` — Go backend on `:8080`
-- `cogsworth-kiosk.service` — Sway + Chromium kiosk display
-- `cogsworth-watchdog.service` / `.timer` — HTTP health check for the backend (runs every 30s)
+- `cogsworth.service` — Go backend on `:8080`, `Restart = "always"` after 2s
+- `cogsworth-kiosk.service` — Sway + Chromium kiosk display, `Restart = "on-failure"` after 5s
+- `cogsworth-watchdog.service` / `.timer` — health checks (runs every 30s, first run 2min after boot)
+- `cogsworth-db-restore` / `cogsworth-db-snapshot` — move the SQLite DB between tmpfs and the SD card
 
 ## Viewing Logs
 
@@ -42,19 +43,56 @@ Via Grafana Explore at `https://grafana.apps.ondy.org`:
 {host="cogsworth"} |~ "(?i)error|warn"
 ```
 
-## Watchdog State
+## Watchdog
+
+Three independent checks, all in one script that the timer runs every 30s
+(grep `systemd.services.cogsworth-watchdog` in `configuration.nix`). Each
+keeps its own counter in `/var/lib/cogsworth-watchdog/`, resets it on the
+first success, and calls `systemctl reset-failed` before restarting so a
+service that hit the restart limit still recovers.
+
+| Check          | Probe                                  | Threshold | Action                                       |
+| -------------- | -------------------------------------- | --------- | -------------------------------------------- |
+| Backend health | `GET 127.0.0.1:8080/api/health`        | 3 (90s)   | restart `cogsworth.service`                  |
+| Kiosk renderer | `Runtime.evaluate` over CDP on `:9222` | 5 (150s)  | restart `cogsworth-kiosk.service`            |
+| Off-origin     | top-frame URL is not localhost         | 3 (90s)   | `Page.navigate` back each tick, then restart |
+
+Kiosk checks are skipped for the first 60s after a kiosk start: a cold Pi 5
+takes longer than that to bring up Sway and Chromium, and the counter also
+resets whenever `ActiveEnterTimestampMonotonic` changes, so failures from a
+previous run never count against a new one.
+
+Above all three, systemd feeds the Pi's hardware watchdog
+(`systemd.settings.Manager.RuntimeWatchdogSec = "30s"`). `bcm2835_wdt` is
+built into the rpi5 kernel rather than a loadable module, so `/dev/watchdog0`
+comes up on its own and there is nothing to `lsmod` for.
 
 ```bash
-# Consecutive health-check failures (resets to 0 on success or restart)
-ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
+# Consecutive failures per check (0 when healthy)
+ssh cogsworth 'head -n99 /var/lib/cogsworth-watchdog/*count*'
 
 # How many times the backend has restarted this boot
 ssh cogsworth systemctl show cogsworth.service -p NRestarts
 ```
 
+## SD Card Wear
+
+`systemFoundry.sdCardOptimization.enable = true` puts `/tmp` (512M) and
+`/var/log` (256M) on tmpfs, makes the journal volatile (50M, 1h), sets
+`noatime`, enables zstd zram swap at 25% of RAM, and raises the vm.dirty
+ratios so writes batch. It has no other options; the sizes live in
+`nix/modules/nix_modules/sd-card-optimization.nix`.
+
+`/var/lib/cogsworth/db` is separately a 16M tmpfs. `cogsworth-db-restore`
+copies the DB (plus `-wal` and `-shm`) up from
+`/var/lib/cogsworth/persistent` before the backend starts, and
+`cogsworth-db-snapshot` copies it back every 5 minutes. A hard power cut
+therefore loses up to 5 minutes of DB writes and every log line not yet
+shipped to Loki.
+
 ## Interactive DevTools
 
-For live debugging, `make devtools` from the repo root opens an SSH tunnel to Chromium's remote debugging port (`localhost:9222`). See `/home/kyle/src/cogsworth/v3/CLAUDE.md` for details.
+For live debugging, `make devtools` from the repo root opens an SSH tunnel to Chromium's remote debugging port (`localhost:9222`). See `/Users/kyle/src/cogsworth/v3/CLAUDE.md` for details.
 
 ## 60fps / Rendering
 
@@ -62,7 +100,6 @@ Target is steady 60fps. Hardware is Pi 5 + Mesa V3D at 1080p60 rotated portrait 
 
 **Verify on-device:**
 
-- `--show-fps-counter` is enabled — the number is visible top-right on the physical display.
 - `make devtools` → DevTools → Rendering → Frame Rendering Stats for frame timing detail.
 - DevTools → Performance → Record 10s of swipe to see what's eating frame budget.
 
@@ -84,7 +121,15 @@ Frontend rendering optimizations (body noise → WebP, external SVG dividers, pr
 
 ## Deployment
 
-No deploy-rs wiring for cogsworth yet — changes require rebuilding the SD image:
+deploy-rs handles cogsworth like any other node (`flake.nix`, with
+`fastConnection = false` because it is on WiFi):
+
+```bash
+make deploy-rs-all-dry      # dry run
+deploy --skip-checks -- .
+```
+
+Rebuilding the SD image is only for a fresh card or an unbootable Pi:
 
 ```bash
 make sdcard-cogsworth

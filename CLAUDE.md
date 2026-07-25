@@ -1,1089 +1,141 @@
-# Monitoring Stack Documentation
+# Dotfiles
 
-This directory contains the NixOS configuration for a VictoriaMetrics-based monitoring stack with Grafana, Loki, and Alertmanager.
+Nix flake covering four hosts. Per-host detail lives in
+`nix/hosts/<host>/CLAUDE.md`. Grafana dashboard rules live in
+`nix/modules/nix_modules/monitoring-stack/DASHBOARD_CONVENTIONS.md`.
 
-## Git Worktree Structure
+## Worktrees
 
-**CRITICAL**: This repository uses git worktrees. Each branch lives in its own directory under `/home/kyle/src/dotfiles/`.
-
-### Directory Layout
-
-```
-/home/kyle/src/dotfiles/
-├── .bare/           # Bare repository (DO NOT use for file operations)
-├── kube-context/    # Worktree for kube-context branch
-├── main/            # Worktree for main branch
-└── ...              # Other feature branch worktrees
-```
-
-### Important Rules for File Operations
-
-When working in a worktree, **always use the worktree root as the base directory** for all file operations:
-
-- ✅ **Correct**: `/home/kyle/src/dotfiles/kube-context/nix/modules/...`
-- ❌ **Wrong**: `/home/kyle/src/dotfiles/nix/modules/...` (ambiguous - which worktree?)
-- ❌ **Wrong**: `/home/kyle/src/dotfiles/.bare/...` (bare repo has no working files)
-
-### Finding the Current Worktree Root
+The repo is a bare checkout at `/Users/kyle/src/dotfiles/.bare` with one
+directory per branch beside it. Resolve every path from the worktree root,
+not from `/Users/kyle/src/dotfiles/`:
 
 ```bash
-git rev-parse --show-toplevel
-# Returns: /home/kyle/src/dotfiles/kube-context
+git rev-parse --show-toplevel   # /Users/kyle/src/dotfiles/main
 ```
 
-### Why This Matters
+The flake reads the git tree, so a new file is invisible to `nix eval` and
+`nix build` until it is `git add`ed.
 
-Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. Using the wrong path will result in:
+## Hosts
 
-- File not found errors
-- Editing the wrong worktree's files
-- Confusion about which branch is being modified
+| Host        | Platform       | Role                    | Deploy                                                  |
+| ----------- | -------------- | ----------------------- | ------------------------------------------------------- |
+| `tiger`     | x86_64-linux   | homelab server          | `deploy --skip-checks -- .`                             |
+| `cogsworth` | aarch64-linux  | Raspberry Pi 5 kiosk    | deploy-rs, or `make sdcard-cogsworth` for a fresh image |
+| `trex`      | aarch64-darwin | personal mac            | `make deploy-trex`                                      |
+| `work-mac`  | aarch64-darwin | work mac (user `kondy`) | `make deploy-mac`                                       |
 
-**Always verify you're in the correct worktree before starting work.**
+`make deploy-rs-all-dry` dry-runs both Linux hosts. `make help` lists the rest.
 
-## Architecture Overview
+## Secrets
 
-### Server Components (tiger)
+Managed with `sops` (`nix/secrets/secrets.yaml`). Never `.env` files, never
+plaintext. The berkeley-mono fonts are git-crypt encrypted, which is why
+`git worktree add` fails on a fresh checkout without the key.
 
-- **VictoriaMetrics**: Time-series database for metrics storage
-- **Loki**: Log aggregation system
-- **Grafana**: Visualization and dashboarding
-- **Alertmanager**: Alert routing and notification
-- **vmalert**: Alert rule evaluation
+## Monitoring
 
-### Agent Components (all hosts)
+tiger is the server: VictoriaMetrics, Loki, Grafana, Alertmanager, vmalert.
+Retention is 400 days for both metrics and logs
+(`nix/hosts/tiger/configuration.nix`).
 
-- **vmagent**: Metrics collection and forwarding
-- **promtail**: Log collection and forwarding
-- **node_exporter**: System metrics
-- **zfs_exporter**: ZFS filesystem metrics
+Agents run on tiger, cogsworth and trex: vmagent, promtail, node_exporter.
+tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus sabnzbd) and
+unpoller exporters.
 
-## Important Conventions
+Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
+cert. Grafana, Loki, metrics and vmalert also have `<name>.apps.ondy.org`
+public aliases with individual Route53 DNS-01 certs; Alertmanager
+deliberately does not.
 
-### Label Naming: Use `host` not `instance`
+### Label naming: `host`, not `instance`
 
-**CRITICAL**: Always use the `host` label instead of `instance` when creating or modifying dashboards.
+`instance` renders as `127.0.0.1:9100`; `host` renders as `tiger`. Every
+scrape config must set a `host` label, and every dashboard query must filter
+on it. Full rules and the migration one-liners for imported dashboards are in
+`DASHBOARD_CONVENTIONS.md`.
 
-#### Why?
-
-- `instance` shows technical endpoint addresses like `127.0.0.1:9100` or `127.0.0.1:4040`
-- `host` shows friendly hostnames like `tiger`, `trex`
-
-#### How to Configure
-
-When creating or importing Grafana dashboards:
-
-1. **Template Variables**: Use `host` label for hostname selection
-
-   ```json
-   {
-     "name": "host",
-     "query": "label_values(metric_name, host)"
-   }
-   ```
-
-2. **Panel Queries**: Filter by `host` not `instance`
-
-   ```promql
-   # Good
-   node_cpu_seconds_total{host="$host"}
-
-   # Bad - shows IP:port instead of hostname
-   node_cpu_seconds_total{instance="$instance"}
-   ```
-
-3. **Legend Formatting**: Use `{{host}}` in legend
-
-   ```json
-   {
-     "legendFormat": "{{host}} - {{device}}"
-   }
-   ```
-
-#### Applying to Existing Dashboards
-
-When importing dashboards from grafana.com:
-
-1. Download the JSON file
-2. Replace `label_values(..., instance)` with `label_values(..., host)`
-3. Replace all `instance=~"$variable"` with `host=~"$variable"`
-4. Update variable names if needed
-
-Example using `sed`:
-
-```bash
-sed -i 's/label_values(\([^,]*\),instance)/label_values(\1,host)/g' dashboard.json
-sed -i 's/instance=~"\$\([^"]*\)"/host=~"$\1"/g' dashboard.json
-```
-
-Or use `jq` for more precise replacements (see nix/modules/nix_modules/monitoring-stack/dashboards/ for examples).
-
-## SMTP Configuration
-
-### Current Setup
-
-- **Provider**: MXRoute
-- **SMTP Server**: `london.mxroute.com:587`
-- **From Address**: `monitoring@ondy.org`
-- **Recipient**: `kyle@ondy.org`
-- **Authentication**: Required (credentials in sops secrets)
-
-### Important Notes
-
-- The SMTP server MUST match the configuration in `nix/modules/hm_modules/terminal/email.nix`
-- MXRoute uses server-specific hostnames: `london.mxroute.com`, not `mail.ondy.org`
-- Check MX records if changing providers: `dig ondy.org MX +short`
-
-### Testing Email Alerts
-
-After configuration changes:
-
-1. Deploy to tiger
-2. Check alertmanager logs: `ssh tiger systemctl status alertmanager`
-3. Look for SMTP connection errors in logs
-4. Verify alerts are firing: `curl http://127.0.0.1:8880/api/v1/alerts` (on tiger)
-
-## Adding New Dashboards
-
-Grafana dashboards are provisioned via NixOS configuration.
-
-### Step 1: Add Dashboard File
-
-Place the JSON file in `nix/modules/nix_modules/monitoring-stack/dashboards/`:
-
-```bash
-cd nix/modules/nix_modules/monitoring-stack/dashboards/
-curl -o my-dashboard.json https://grafana.com/api/dashboards/<ID>/revisions/<REV>/download
-```
-
-### Step 2: Fix Label References
-
-Update the dashboard to use `host` instead of `instance`:
-
-```bash
-# Fix template variables
-sed -i 's/label_values(\([^,]*\),instance)/label_values(\1,host)/g' my-dashboard.json
-
-# Fix query filters
-sed -i 's/instance=\"\$host\"/host=\"$host"/g' my-dashboard.json
-```
-
-### Step 3: Add to Grafana Configuration
-
-Edit `nix/modules/nix_modules/monitoring-stack/grafana.nix`:
-
-```nix
-environment.etc."grafana-dashboards/my-dashboard.json" = {
-  source = ./dashboards/my-dashboard.json;
-  mode = "0644";
-};
-```
-
-### Step 4: Deploy
-
-```bash
-make deploy-rs-all-dry  # Dry run to check
-# Review changes, then:
-deploy --skip-checks -- .
-```
-
-Grafana auto-reloads dashboards every 10 seconds.
-
-## Adding New Exporters
-
-### Step 1: Create NixOS Module
-
-Create `nix/modules/nix_modules/monitoring-stack/my_exporter.nix`:
-
-```nix
-{
-  lib,
-  pkgs,
-  config,
-  ...
-}:
-with lib;
-let
-  parentCfg = config.systemFoundry.monitoringStack;
-  cfg = config.systemFoundry.monitoringStack.myExporter;
-in
-{
-  options.systemFoundry.monitoringStack.myExporter = {
-    enable = mkEnableOption "my-exporter";
-    port = mkOption {
-      type = types.port;
-      default = 9999;
-      description = "Port for my-exporter";
-    };
-  };
-
-  config = mkIf (parentCfg.enable && cfg.enable) {
-    # Exporter service configuration here
-  };
-}
-```
-
-### Step 2: Import in Stack
-
-Add to `nix/modules/nix_modules/monitoring-stack/default.nix`:
-
-```nix
-imports = [
-  # ... existing imports
-  ./my_exporter.nix
-];
-```
-
-### Step 3: Configure vmagent Scraping
-
-In host configuration (e.g., `nix/hosts/tiger/configuration.nix`):
-
-```nix
-vmagent = {
-  enable = true;
-  scrapeConfigs = [
-    # ... existing configs
-    {
-      job_name = "my_exporter";
-      static_configs = [
-        {
-          targets = [ "127.0.0.1:9999" ];
-          labels = {
-            host = "tiger";  # Use 'host' label!
-          };
-        }
-      ];
-    }
-  ];
-};
-```
-
-**IMPORTANT**: Always add `host = "<hostname>"` label in scrape configs!
-
-## Troubleshooting
-
-### Dashboard Shows "No data"
-
-1. **Check if metrics exist in VictoriaMetrics**:
-
-   ```bash
-   ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=metric_name" | jq .'
-   ```
-
-2. **Verify exporter is running**:
-
-   ```bash
-   ssh tiger systemctl status <exporter-name>
-   ```
-
-3. **Check exporter metrics endpoint**:
-
-   ```bash
-   ssh tiger 'curl http://127.0.0.1:<port>/metrics | head -20'
-   ```
-
-4. **Verify vmagent is scraping**:
-
-   ```bash
-   ssh tiger 'curl http://127.0.0.1:8429/metrics | grep scrape'
-   ```
-
-5. **Check for label mismatches**: Dashboard using `instance` instead of `host`?
-
-### Alerts Not Sending Email
-
-1. **Check alertmanager is running**:
-
-   ```bash
-   ssh tiger systemctl status alertmanager
-   ```
-
-2. **Check for SMTP errors in logs**:
-
-   ```bash
-   ssh tiger journalctl -u alertmanager -n 50
-   ```
-
-3. **Common errors**:
-   - `lookup mail.ondy.org: no such host` → Wrong SMTP server configured
-   - `authentication failed` → Check sops secrets are loaded
-   - `connection refused` → Check SMTP port (587 for STARTTLS)
-
-4. **Verify alerts are firing**:
-
-   ```bash
-   ssh tiger 'curl http://127.0.0.1:8880/api/v1/alerts | jq .'
-   ```
-
-5. **Check Alertmanager has received alerts**:
-
-   ```bash
-   ssh tiger 'curl http://127.0.0.1:9093/api/v2/alerts | jq .'
-   ```
-
-### Exporter Permission Issues
-
-Common issue: Exporter can't read log files or access resources.
-
-**Example**: promtail reading the jellyfin log directory
-
-1. **Check service user groups**:
-
-   ```bash
-   ssh tiger id promtail
-   ```
-
-2. **Verify file permissions**:
-
-   ```bash
-   ssh tiger ls -la /var/log/jellyfin/
-   ```
-
-3. **Add user to appropriate group**:
-
-   ```nix
-   users.users.promtail.extraGroups = [ "media" ];
-   ```
-
-## Authentication & Security
-
-### Basic Auth for Metrics/Logs Ingestion
+### Authentication
 
 Caddy protects the VictoriaMetrics write endpoints, the Loki push endpoint,
-and the whole vmalert UI with HTTP basic auth.
+and the whole vmalert and Alertmanager UIs with HTTP basic auth. Those two
+UIs are not read-only: they create and expire silences.
 
-**How it works**:
+tiger sets `monitoringStack.monitoringBasicAuth` to a sops secret holding
+`username bcrypt-hash` lines (sops key `monitoring_basicauth`); Caddy checks
+it per site via `basicAuthPaths` in
+`nix/modules/nix_modules/caddyReverseProxy.nix`. Remote agents on cogsworth
+and trex send the matching credentials from sops key `monitoring_password`.
 
-1. tiger sets `monitoringStack.monitoringBasicAuth` to a sops secret holding
-   `username bcrypt-hash` lines (`nix/hosts/tiger/configuration.nix`,
-   sops key `monitoring_basicauth`)
-2. Caddy checks it on `basicAuthPaths` per site
-   (`nix/modules/nix_modules/caddyReverseProxy.nix`)
-3. Remote vmagent and promtail send the matching credentials via their
-   `basicAuth` option (`nix/hosts/cogsworth/configuration.nix`)
+Loopback callers bypass all of this: vmalert's notifier and tiger's upssched
+dispatcher post to `127.0.0.1:9093` directly.
 
-Caddy also terminates TLS and provisions its own certs, so `security.acme`
-is not involved.
+Caddy terminates TLS and provisions its own certs, so `security.acme` is not
+involved.
 
-## Useful Commands
+### SMTP
 
-### Query Metrics Directly
+One MXRoute account at `london.mxroute.com:587` sends as
+`monitoring@ondy.org` to `kyle@ondy.org`, shared by Alertmanager and
+Grafana (`monitoring-stack/default.nix`, sops key
+`monitoring_smtp_password`). MXRoute uses server-specific hostnames, so keep
+this in step with `nix/modules/hm_modules/terminal/email.nix`; check
+`dig ondy.org MX +short` if the provider changes.
+
+### Adding an exporter
+
+1. Write `monitoring-stack/<name>.nix` with options under
+   `systemFoundry.monitoringStack.<name>`, gated on
+   `mkIf (parentCfg.enable && cfg.enable)`.
+2. Add it to the `imports` list in `monitoring-stack/default.nix`.
+3. Add a scrape job in the host's `vmagent.scrapeConfigs`, with
+   `labels.host = "<hostname>"`.
+
+### Adding a dashboard
+
+Drop the JSON in `monitoring-stack/dashboards/`, fix its label references per
+`DASHBOARD_CONVENTIONS.md`, and add an `environment.etc."grafana-dashboards/
+<name>.json"` entry in `grafana.nix`. Grafana reloads every 10 seconds.
+
+### Silences
+
+`silence-host` (`nix/modules/hm_modules/dev/monitoring.nix`) silences every
+alert for one host:
 
 ```bash
-# Query VictoriaMetrics
-ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
-
-# List all metric names
-ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/label/__name__/values" | jq .'
-
-# Get label values
-ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
+silence-host cogsworth "7 days" "Maintenance window"
 ```
 
-### Check Alert Status
+Duration is anything `date -d` accepts. For narrower matchers, use the
+Alertmanager UI.
+
+### Queries
 
 ```bash
-# vmalert firing alerts
-ssh tiger 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
+# metrics
+ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=up" | jq .'
+ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/label/host/values" | jq .'
 
-# Alertmanager alerts
+# alerts: vmalert is what fires, alertmanager is what routes
+ssh tiger 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 ssh tiger 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
 
-### Manage Alert Silences
-
-The `alert-silence` script (available on tiger) wraps the Alertmanager API.
-
-```bash
-# Silence an alert by name
-ssh tiger alert-silence add -a SonarrQueueHigh -d 7d -c "large download in progress"
-
-# Silence with extra label matchers
-ssh tiger alert-silence add -a InstanceDown -m job=exportarr-bazarr -d 2h
-
-# List active silences
-ssh tiger alert-silence list
-
-# Expire a silence early
-ssh tiger alert-silence expire <silence-id>
-```
-
-Duration units: `m` (minutes), `h` (hours), `d` (days). Default is `1d`.
-
-### Grafana Dashboard Reload
-
-Dashboards auto-reload every 10 seconds. To force reload:
-
-```bash
-ssh tiger systemctl restart grafana
-```
-
-## Retention Policy
-
-Configured in `nix/hosts/tiger/configuration.nix`:
-
-```nix
-monitoringStack = {
-  retention = {
-    metrics = 400;  # days
-    logs = 400;     # days
-  };
-};
-```
-
-## Cogsworth Kiosk Watchdog Architecture
-
-The Cogsworth Raspberry Pi kiosk implements a **three-tier watchdog system** for maximum reliability and automatic recovery from failures.
-
-### Tier 1: Enhanced Systemd Restart Policy
-
-**Purpose**: Handle service crashes and immediate failures
-
-**Implementation** (both `cogsworth.service` and `cogsworth-kiosk.service`):
-
-```nix
-Restart = "on-failure";
-RestartSec = "5s";
-```
-
-**Configuration locations**:
-
-- `cogsworth.service`: grep `systemd.services.cogsworth` in `nix/hosts/cogsworth/configuration.nix`
-- `cogsworth-kiosk.service`: grep `systemd.services.cogsworth-kiosk` in `nix/hosts/cogsworth/configuration.nix`
-
-**Recovery scenarios**:
-
-- Go process crashes (cogsworth)
-- Chromium/Sway crashes (cogsworth-kiosk)
-- Wayland compositor errors (cogsworth-kiosk)
-- Out of memory errors
-- Segmentation faults
-- Unhandled exceptions
-
-**Behavior**:
-
-- Automatic restart after 5 seconds
-- Allows up to 10 restarts in 2 minutes
-- Won't permanently fail from transient issues (thanks to `StartLimitAction = "none"`)
-- If restart limit is hit, Tier 2 watchdog will detect and use `reset-failed` to recover
-- Counter resets after issue resolves
-
-### Tier 2: Health Check Watchdog
-
-**Purpose**: Detect hung/frozen states or service failures and automatically recover
-
-**Implementation** (grep `systemd.services.cogsworth-watchdog` in `nix/hosts/cogsworth/configuration.nix`):
-
-**Components**:
-
-1. `cogsworth-watchdog.service` - Oneshot service that health-checks `cogsworth.service`
-2. `cogsworth-watchdog.timer` - Runs every 30 seconds
-
-**How it works**:
-
-```bash
-# Every 30 seconds:
-1. Check if http://127.0.0.1:8080/api/health responds within 5 seconds
-2. If success: reset failure counter
-   If failure: increment counter; if counter >= 3, reset-failed + restart cogsworth.service
-```
-
-**State tracking**:
-
-- Cogsworth failure count: `/var/lib/cogsworth-watchdog/failure_count`
-- Requires 3 consecutive failures (90 seconds total)
-- Prevents false positives from transient network issues
-
-**Recovery scenarios**:
-
-- HTTP server hung but process alive (cogsworth)
-- Service hit systemd restart limit (reset-failed clears it)
-- Deadlocked threads
-- Infinite loops in request handlers
-- Resource exhaustion preventing responses
-
-**Monitoring**:
-
-```bash
-# View watchdog status
-ssh cogsworth journalctl -u cogsworth-watchdog -f
-
-# Check current failure count
-ssh cogsworth cat /var/lib/cogsworth-watchdog/failure_count
-
-# View timer schedule
-ssh cogsworth systemctl list-timers cogsworth-watchdog
-```
-
-### Tier 3: Hardware Watchdog
-
-**Purpose**: Ultimate failsafe - reboot system if kernel hangs
-
-**Implementation** (grep `bcm2712_wdt` in `nix/hosts/cogsworth/configuration.nix`):
-
-```nix
-boot.kernelModules = [ "bcm2712_wdt" ];  # Raspberry Pi 5 watchdog
-systemd.watchdog = {
-  runtimeTime = "30s";   # Reboot if systemd doesn't ping within 30s
-  rebootTime = "2min";   # Force reboot if graceful reboot hangs
-};
-```
-
-**How it works**:
-
-1. Kernel module exposes `/dev/watchdog` device
-2. Systemd periodically "feeds" the watchdog (sends keepalive)
-3. If systemd hangs/dies, watchdog not fed
-4. Hardware timer expires → hard reboot
-
-**Recovery scenarios**:
-
-- Kernel panic
-- Systemd deadlock
-- Critical system process hang
-- GPU driver crash
-
-**Verification**:
-
-```bash
-# Check watchdog module loaded
-ssh cogsworth lsmod | grep bcm2712_wdt
-
-# Check systemd watchdog status
-ssh cogsworth systemctl show-environment | grep WATCHDOG
-
-# View hardware watchdog device
-ssh cogsworth ls -la /dev/watchdog*
-```
-
-### Recovery Flow Diagram
-
-```
-┌─────────────────────────────────────────────────────┐
-│ Cogsworth Application Running                       │
-└──────────────────┬──────────────────────────────────┘
-                   │
-                   ▼
-         ┌─────────────────────┐
-         │  Failure Occurs?    │
-         └─────────┬───────────┘
-                   │
-    ┌──────────────┼──────────────┐
-    │              │              │
-    ▼              ▼              ▼
-┌───────┐    ┌──────────┐   ┌─────────┐
-│Crash  │    │  Hung    │   │ Kernel  │
-│Process│    │ Process  │   │  Panic  │
-└───┬───┘    └────┬─────┘   └────┬────┘
-    │             │              │
-    ▼             ▼              ▼
-┌───────┐    ┌──────────┐   ┌─────────┐
-│Tier 1 │    │ Tier 2   │   │ Tier 3  │
-│Systemd│    │ Health   │   │Hardware │
-│Restart│    │ Watchdog │   │Watchdog │
-└───┬───┘    └────┬─────┘   └────┬────┘
-    │             │              │
-    │  5 sec      │  90 sec      │  Hard
-    │  delay      │  delay       │ Reboot
-    │             │              │
-    └─────────────┴──────────────┘
-                   │
-                   ▼
-         Service Recovered
-```
-
-### Testing the Watchdog
-
-#### Test Tier 1: Process Crash
-
-```bash
-# SSH to cogsworth
-ssh cogsworth
-
-# Kill the Go process (simulates crash)
-sudo systemctl kill -s KILL cogsworth
-
-# Watch service restart
-journalctl -u cogsworth -f
-
-# Expected: Service restarts within 5 seconds
-```
-
-#### Test Tier 2: Hung Process
-
-Since cogsworth doesn't expose a way to simulate a hang, test manually:
-
-```bash
-# SSH to cogsworth
-ssh cogsworth
-
-# Block port 8080 with iptables (simulates hung server)
-sudo iptables -I INPUT -p tcp --dport 8080 -j DROP
-
-# Watch watchdog detect failure
-journalctl -u cogsworth-watchdog -f
-
-# Expected output:
-# Health check failed (attempt 1/3)
-# Health check failed (attempt 2/3)
-# Health check failed (attempt 3/3)
-# WATCHDOG TRIGGERED - Restarting cogsworth.service
-
-# Cleanup: Remove iptables rule
-sudo iptables -D INPUT -p tcp --dport 8080 -j DROP
-```
-
-#### Test Tier 3: Hardware Watchdog
-
-**WARNING**: This will reboot the system!
-
-```bash
-# Disable systemd watchdog feeding (kernel will reboot in 30s)
-ssh cogsworth "echo c | sudo tee /proc/sysrq-trigger"
-
-# Expected: System reboots within 30-60 seconds
-```
-
-### Watchdog Tuning Parameters
-
-All values can be adjusted in `nix/hosts/cogsworth/configuration.nix`:
-
-| Parameter                 | Default | Purpose                                        |
-| ------------------------- | ------- | ---------------------------------------------- |
-| `RestartSec`              | 5s      | Delay between restart attempts                 |
-| `StartLimitBurst`         | 10      | Max restarts before giving up                  |
-| `StartLimitIntervalSec`   | 120s    | Time window for burst limit                    |
-| `OnUnitActiveSec`         | 30s     | Health check interval                          |
-| `FAILURE_THRESHOLD`       | 3       | Backend consecutive failures before restart    |
-| `KIOSK_FAILURE_THRESHOLD` | 5       | Kiosk consecutive failures before restart      |
-| `KIOSK_GRACE_PERIOD_S`    | 60s     | Skip kiosk checks for N sec after kiosk starts |
-| `runtimeTime`             | 30s     | Hardware watchdog timeout                      |
-
-**Recommended adjustments**:
-
-- **Faster recovery**: Reduce `RestartSec` to 2s and health check interval to 15s
-- **More tolerance**: Increase `FAILURE_THRESHOLD` to 5 (150s of downtime)
-- **Production hardening**: Keep defaults for balance of recovery speed vs. stability
-
-### Monitoring Watchdog Activity
-
-**View real-time watchdog logs**:
-
-```bash
-ssh cogsworth journalctl -u cogsworth-watchdog -f
-```
-
-**Check restart count** (Tier 1):
-
-```bash
-ssh cogsworth systemctl show cogsworth.service -p NRestarts
-```
-
-**View failure history** (Tier 2):
-
-```bash
-ssh cogsworth "grep 'WATCHDOG TRIGGERED' /var/log/journal/*/*"
-```
-
-**Check if hardware watchdog is active** (Tier 3):
-
-```bash
-ssh cogsworth cat /sys/class/watchdog/watchdog0/state
-# Should show: active
-```
-
-### Integration with Monitoring Stack
-
-The watchdog logs are automatically collected by promtail and available in Loki:
-
-**Query watchdog activity in Grafana**:
-
-```logql
-# All watchdog events
-{host="cogsworth", unit="cogsworth-watchdog.service"}
-
-# Watchdog triggers only
-{host="cogsworth", unit="cogsworth-watchdog.service"} |= "WATCHDOG TRIGGERED"
-
-# Service restart events
-{host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"
-```
-
-**Create alerts for excessive restarts**:
-
-```promql
-# Alert if cogsworth restarted more than 5 times in 1 hour
-count_over_time({host="cogsworth", unit="cogsworth.service"} |= "Started Cogsworth"[1h]) > 5
-```
-
-### Troubleshooting
-
-**Watchdog timer not running**:
-
-```bash
-ssh cogsworth systemctl status cogsworth-watchdog.timer
-ssh cogsworth systemctl start cogsworth-watchdog.timer
-```
-
-**Excessive restarts (hitting burst limit)**:
-
-```bash
-# Check systemd restart limit status
-ssh cogsworth systemctl show cogsworth.service -p NRestarts -p Result
-
-# Reset service if it hit the limit
-ssh cogsworth sudo systemctl reset-failed cogsworth.service
-ssh cogsworth sudo systemctl start cogsworth.service
-```
-
-**False positive health checks**:
-
-- Increase `FAILURE_THRESHOLD` from 3 to 5
-- Increase `--max-time` in curl from 5s to 10s
-- Check if cogsworth startup time exceeds 60s (increase `OnBootSec`)
-
-**Hardware watchdog not enabled**:
-
-```bash
-# Verify kernel module loaded
-ssh cogsworth lsmod | grep bcm2712_wdt
-
-# If not loaded, rebuild with the configuration:
-nix build .#nixosConfigurations.cogsworth.config.system.build.sdImage
-```
-
-### Deployment
-
-After modifying watchdog configuration:
-
-```bash
-# Build and flash new SD card image
-make sdcard-cogsworth
-
-# Or if cogsworth is already running, use deploy-rs
-# (Note: deploy-rs not yet configured for cogsworth)
-```
-
-## SD Card Wear Reduction (Cogsworth)
-
-Raspberry Pi SD cards have limited write cycles (~10,000-100,000 writes per cell). Cogsworth implements aggressive optimizations to minimize SD card writes and extend card lifespan.
-
-### Implementation Overview
-
-**Module**: `nix/modules/nix_modules/sd-card-optimization.nix`
-**Enabled in**: `nix/hosts/cogsworth/configuration.nix` (grep `sdCardOptimization`)
-
-### What's Stored in RAM vs SD Card
-
-#### RAM (tmpfs) - Lost on Power Failure
-
-- **`/tmp`** (512MB tmpfs)
-  - Chromium profile (fresh each boot)
-  - Application temporary files
-  - Session data
-- **`/var/log`** (256MB tmpfs)
-  - All system logs
-  - Systemd journal (max 50MB, 1 hour retention)
-  - Service logs
-  - **Safe because**: Promtail forwards all logs to Loki on tiger
-
-#### SD Card - Persists Across Reboots
-
-- **`/nix/store`** - NixOS packages (read-mostly, rarely written)
-- **`/etc`** - System configuration (written only on upgrades)
-- **`/var/lib/cogsworth`** - Application state (minimal writes)
-- **`/var/lib/cogsworth-watchdog/failure_count`** - Watchdog state (writes every 30s)
-- **`/var/lib/cogsworth/db/`** - SQLite database (WAL + single-writer; infrequent writes)
-
-### Optimizations Applied
-
-#### 1. tmpfs Mounts
-
-```nix
-fileSystems."/tmp" = {
-  fsType = "tmpfs";
-  options = [ "mode=1777" "nosuid" "nodev" "size=512M" ];
-};
-
-fileSystems."/var/log" = {
-  fsType = "tmpfs";
-  options = [ "mode=0755" "nosuid" "nodev" "noexec" "size=256M" ];
-};
-```
-
-#### 2. Systemd Journal Configuration
-
-```ini
-# Store journal in RAM only
-Storage=volatile
-RuntimeMaxUse=50M
-MaxRetentionSec=1h
-
-# Reduce write frequency - batch writes
-SyncIntervalSec=60s
-```
-
-#### 3. Root Filesystem Mount Options
-
-```nix
-fileSystems."/" = {
-  device = "/dev/disk/by-label/NIXOS_SD";
-  fsType = "ext4";
-  options = [ "noatime" "nodiratime" ];
-};
-```
-
-**Effect**: File reads don't update access times, eliminating millions of tiny writes.
-
-#### 4. zram Compressed Swap
-
-```nix
-zramSwap = {
-  enable = true;
-  memoryPercent = 25;  # Use up to 25% of RAM
-  algorithm = "zstd";  # Fast compression
-};
-```
-
-**Purpose**: Emergency memory pressure handled in RAM, not SD card.
-
-#### 5. Kernel VM Tuning
-
-```nix
-boot.kernel.sysctl = {
-  "vm.dirty_ratio" = 80;              # More RAM buffering before flush
-  "vm.dirty_background_ratio" = 50;   # Background flush threshold
-  "vm.dirty_expire_centisecs" = 6000; # 60 seconds before dirty pages written
-  "vm.swappiness" = 10;               # Prefer RAM over swap
-};
-```
-
-**Effect**: Batch more writes together, reducing total write operations.
-
-### Monitoring SD Card Health
-
-#### Check Filesystem Writes
-
-```bash
-# View I/O statistics for SD card
-ssh cogsworth "iostat -x 5 3 mmcblk0"
-
-# Check dirty page writeback rate
-ssh cogsworth "watch -n 1 'cat /proc/vmstat | grep dirty'"
-```
-
-#### Verify tmpfs Usage
-
-```bash
-# Check RAM filesystem usage
-ssh cogsworth "df -h | grep tmpfs"
-
-# Expected output:
-# tmpfs      512M   4.0K  512M   1% /tmp
-# tmpfs      256M    52M  204M  21% /var/log
-```
-
-#### Check Journal Size
-
-```bash
-ssh cogsworth "journalctl --disk-usage"
-# Should show: "Archived and active journals take up XXM in the file system"
-# Should be < 50MB and in /run/log/journal (RAM)
-```
-
-#### Verify No Swap on SD Card
-
-```bash
-ssh cogsworth "swapon --show"
-# Should show zram0 or empty (no SD card swap)
-```
-
-### Trade-offs and Caveats
-
-#### ⚠️ Logs Lost on Power Failure
-
-**Problem**: Unexpected power loss means recent logs (< 1 hour) are gone.
-
-**Mitigation**:
-
-- Promtail continuously forwards logs to Loki on tiger
-- Query Loki for historical logs: `{host="cogsworth"}`
-- Most logs available within 30 seconds of generation
-
-**Recovery**: After power failure, check Loki for events before crash.
-
-#### ⚠️ Debugging Without Network
-
-**Problem**: If WiFi is down, can't access Loki logs.
-
-**Mitigation**:
-
-- systemd journal still available in RAM (1 hour)
-- SSH over local network still works
-- Physical access to view `journalctl` output
-
-**Workaround**: Temporarily disable optimization to debug network issues:
-
-```nix
-# In cogsworth configuration.nix
-systemFoundry.sdCardOptimization.enable = false;
-```
-
-#### ⚠️ Limited Temp Space
-
-**Problem**: `/tmp` only 512MB - could fill up with large files.
-
-**Current Usage**: Chromium profile ~100MB max, logs forwarding ~10MB.
-
-**Mitigation**: Increase `tmpfsSize` if needed (plenty of RAM available).
-
-#### ⚠️ Some State Lost on Reboot
-
-**Example**: Watchdog failure counter resets on reboot.
-
-**Impact**: Minimal - services start fresh anyway.
-
-### Tuning Parameters
-
-All settings in `nix/hosts/cogsworth/configuration.nix` (grep `sdCardOptimization`):
-
-```nix
-systemFoundry.sdCardOptimization = {
-  enable = true;
-  tmpfsSize = "512M";      # /tmp size (increase if needed)
-  logTmpfsSize = "256M";   # /var/log size (increase for verbose logging)
-  journalMaxSize = "50M";  # Max journal in RAM
-  enableZram = true;       # Compressed swap in RAM (sized at 25% of RAM)
-};
-```
-
-#### Recommended Adjustments
-
-**More aggressive (ultra-low writes)**:
-
-```nix
-tmpfsSize = "1G";        # More temp space
-logTmpfsSize = "128M";   # Less log storage
-journalMaxSize = "30M";  # Minimal journal
-enableZram = false;      # No swap at all
-```
-
-**More conservative (safer debugging)**:
-
-```nix
-tmpfsSize = "1G";        # Plenty of temp space
-logTmpfsSize = "512M";   # Keep more logs
-journalMaxSize = "100M"; # More journal history
-enableZram = true;       # Emergency swap available
-```
-
-### Expected SD Card Lifespan
-
-#### Without Optimizations
-
-- Typical logging: 50MB/hour = 1.2GB/day
-- With 10,000 write cycles: ~33 days to failure
-- With 100,000 cycles: ~330 days (< 1 year)
-
-#### With Optimizations
-
-- Only NixOS upgrades and state writes
-- Estimated: 10-50MB/day (mostly system metadata)
-- With 10,000 cycles: ~20 years
-- With 100,000 cycles: **200+ years**
-
-**In practice**: SD card will outlive the Raspberry Pi hardware.
-
-### Testing the Optimization
-
-#### Verify tmpfs Mounts Active
-
-```bash
-ssh cogsworth "mount | grep tmpfs | grep -E '(tmp|log)'"
-
-# Expected:
-# tmpfs on /tmp type tmpfs (rw,nosuid,nodev,size=524288k)
-# tmpfs on /var/log type tmpfs (rw,nosuid,nodev,noexec,size=262144k)
-```
-
-#### Check Journal is Volatile
-
-```bash
-ssh cogsworth "systemctl status systemd-journald | grep Storage"
-# Should show: Storage=volatile
-```
-
-#### Monitor Write Operations
-
-```bash
-# Before optimization (hypothetical):
-ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
-# w/s might show 50-100 writes/sec
-
-# After optimization:
-ssh cogsworth "iostat -x 1 5 mmcblk0 | grep mmcblk0"
-# w/s should show 0-5 writes/sec (mostly metadata)
-```
-
-### Deployment
-
-After modifying SD card optimization:
-
-```bash
-# Build new SD image
-make sdcard-cogsworth
-
-# Flash to SD card
-sudo dd if=result/sd-image/nixos-sd-image-*.img of=/dev/sdX bs=4M status=progress
-```
-
-### Disabling Optimization
-
-To temporarily disable (for debugging):
-
-```nix
-# In nix/hosts/cogsworth/configuration.nix
-systemFoundry.sdCardOptimization.enable = false;
-```
-
-Rebuild and reboot. Logs will persist to SD card, but wear will increase.
-
-## Clojure & Babashka Development
-
-### REPL Tools
-
-The dev shell provides `clj-nrepl-eval` for stateless nREPL evaluation and `clj-paren-repair-claude-hook` for automatic Clojure delimiter repair on file writes.
-
-### Starting a REPL
-
-```bash
-clojure -M:nrepl    # Start nREPL on port 7888
-```
-
-### Evaluating via nREPL
-
-```bash
-# Simple expression
-clj-nrepl-eval -p 7888 '(+ 1 1)'
-
-# Multi-line with heredoc
-clj-nrepl-eval -p 7888 <<'EOF'
-(do (require '[my.namespace] :reload)
-    (my.namespace/some-fn))
-EOF
-```
-
-### Paren Repair
-
-The `clj-paren-repair-claude-hook` fires automatically on every Edit/Write via Claude Code's PostToolUse hook — no action needed. It fixes unbalanced delimiters and applies cljfmt formatting.
+A dashboard showing "No data" is usually one of three things: the exporter is
+down (`systemctl status`), vmagent is not scraping it (no job in
+`scrapeConfigs`), or the query filters on `instance` instead of `host`.
+
+## Clojure
+
+`clojure -M:nrepl` starts an nREPL on port 7888. `clj-nrepl-eval -p 7888
+'(+ 1 1)'` evaluates against it statelessly, and takes a heredoc for
+multi-line forms. `clj-paren-repair-claude-hook` fires on every Edit/Write
+and fixes unbalanced delimiters plus cljfmt formatting; nothing to invoke by
+hand.
 
 ## References
 
-- [VictoriaMetrics Documentation](https://docs.victoriametrics.com/)
-- [PromQL Cheat Sheet](https://promlabs.com/promql-cheat-sheet/)
-- [LogQL Documentation](https://grafana.com/docs/loki/latest/query/)
-- [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/best-practices/)
-- [Prometheus Exporters](https://prometheus.io/docs/instrumenting/exporters/)
-- [systemd.service - Restart behavior](https://www.freedesktop.org/software/systemd/man/systemd.service.html#Restart=)
-- [systemd Watchdog](https://www.freedesktop.org/software/systemd/man/systemd.service.html#WatchdogSec=)
-- [Raspberry Pi Hardware Watchdog](https://www.raspberrypi.com/documentation/computers/config_txt.html#watchdog)
+- [VictoriaMetrics](https://docs.victoriametrics.com/)
+- [LogQL](https://grafana.com/docs/loki/latest/query/)
+- [PromQL cheat sheet](https://promlabs.com/promql-cheat-sheet/)
