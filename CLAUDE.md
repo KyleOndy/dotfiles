@@ -1136,8 +1136,7 @@ systemFoundry.sdCardOptimization = {
   tmpfsSize = "512M";      # /tmp size (increase if needed)
   logTmpfsSize = "256M";   # /var/log size (increase for verbose logging)
   journalMaxSize = "50M";  # Max journal in RAM
-  enableZram = true;       # Compressed swap in RAM
-  zramSize = 512;          # zram size in MB
+  enableZram = true;       # Compressed swap in RAM (sized at 25% of RAM)
 };
 ```
 

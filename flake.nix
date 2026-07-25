@@ -87,20 +87,7 @@
       overlays = [
         inputs.nur.overlays.default
         inputs.cogsworth.overlays.default
-        (
-          let
-            d = self.lastModifiedDate or "unknown";
-            buildDate =
-              if d == "unknown" then
-                "unknown"
-              else
-                "${builtins.substring 0 4 d}-${builtins.substring 4 2 d}-${builtins.substring 6 2 d}";
-          in
-          import ./nix/pkgs {
-            rev = self.rev or self.dirtyRev or "unknown";
-            inherit buildDate;
-          }
-        )
+        (import ./nix/pkgs)
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {

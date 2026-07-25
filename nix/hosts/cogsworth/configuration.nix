@@ -1118,7 +1118,6 @@ in
     logTmpfsSize = "256M"; # /var/log in RAM
     journalMaxSize = "50M"; # systemd journal max size in RAM
     enableZram = true; # Compressed swap in RAM for emergencies
-    zramSize = 512; # 512MB zram swap
   };
 
   system.stateVersion = "25.05";

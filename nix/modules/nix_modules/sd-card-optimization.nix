@@ -36,11 +36,6 @@ in
       description = "Enable zram compressed swap for emergency memory pressure";
     };
 
-    zramSize = mkOption {
-      type = types.int;
-      default = 512;
-      description = "Size of zram swap in MB";
-    };
   };
 
   config = mkIf cfg.enable {

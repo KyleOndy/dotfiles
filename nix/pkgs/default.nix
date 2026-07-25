@@ -1,7 +1,3 @@
-{
-  rev ? "unknown",
-  buildDate ? "unknown",
-}:
 self: super: {
   ask = super.callPackage ./ask { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
