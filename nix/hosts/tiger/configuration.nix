@@ -821,6 +821,21 @@ in
           };
         };
 
+        # UniFi metrics, polled from the UDM Pro's controller API. Runs here
+        # rather than on the gateway: the UDM Pro is a 4 GB box already running
+        # Protect, Mongo, Postgres and suricata, so nothing extra goes on it.
+        unpoller = {
+          enable = true;
+          # The UDM Pro's interface on tiger's own DMZ VLAN, not its LAN
+          # address (10.24.89.1). Same box -- both addresses present the same
+          # TLS cert, serial 114C24A833FEA31727 -- but this keeps the traffic
+          # on tiger's local segment, so the firewall policy that allows it is
+          # a single DMZ-to-gateway rule with no cross-VLAN routing.
+          controllerUrl = "https://10.25.89.1";
+          user = "unpoller";
+          passwordFile = config.sops.secrets.unpoller_password.path;
+        };
+
         # Scrape local exporters into the now-local VictoriaMetrics instance.
         vmagent = {
           enable = true;
@@ -924,6 +939,32 @@ in
                   labels = {
                     host = "tiger";
                   };
+                }
+              ];
+            }
+            {
+              job_name = "unpoller";
+              # unpoller polls the controller on scrape, so the scrape interval
+              # is the load the UDM Pro actually sees. 60s instead of the 15s
+              # global default keeps that off a memory-constrained gateway.
+              scrape_interval = "60s";
+              scrape_timeout = "30s";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9130" ];
+                  # No static host label: these series describe UniFi devices,
+                  # not tiger. The relabel below fills host in per device.
+                }
+              ];
+              # unpoller labels devices with `name`, not `host`. Copy it across
+              # to match the repo-wide host convention. The (.+) guard leaves
+              # unpoller's own go_*/process_* series untouched.
+              metric_relabel_configs = [
+                {
+                  source_labels = [ "name" ];
+                  regex = "(.+)";
+                  target_label = "host";
+                  replacement = "$1";
                 }
               ];
             }
@@ -1204,6 +1245,14 @@ in
     jellyfin_api_key = {
       mode = "0440";
       group = "jellyfin-secrets";
+    };
+    # UniFi read-only account password for unpoller. The "unifi-poller" user
+    # and group come from the upstream nixpkgs module, which runs the unit
+    # under a static User= (not DynamicUser), so sharing the group name here
+    # is safe -- unlike the jellyfin case above.
+    unpoller_password = {
+      mode = "0440";
+      group = "unifi-poller";
     };
     # Samba password for kyle (SMB has its own credential store, separate
     # from the system login password). Read by samba-smbpasswd-seed as root.
