@@ -58,6 +58,19 @@ autocmd("TermOpen", {
   end,
 })
 
+-- Disable undo files for temp files, such as zsh's edit-command-line buffer
+autocmd("BufWritePre", {
+  pattern = {
+    "/tmp/*",
+    "/private/tmp/*",
+    "/var/folders/*",
+    "/private/var/folders/*",
+  },
+  callback = function()
+    vim.opt_local.undofile = false
+  end,
+})
+
 -- Mojo file type detection
 autocmd({ "BufRead", "BufNewFile" }, {
   pattern = { "*.mojo", "*.🔥" },

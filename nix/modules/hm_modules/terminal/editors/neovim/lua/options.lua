@@ -44,7 +44,8 @@ opt.hidden = true
 if vim.fn.has("persistent_undo") == 1 then
   local target_path = vim.fn.expand("~/.undodir")
   if vim.fn.isdirectory(target_path) == 0 then
-    vim.fn.mkdir(target_path, "p", 0700)
+    -- lua has no octal literals, so 0700 would be decimal 700 (0o1274)
+    vim.fn.mkdir(target_path, "p", tonumber("700", 8))
   end
   opt.undodir = target_path
   opt.undofile = true
