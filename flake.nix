@@ -223,15 +223,14 @@
         }).deploy-rs.lib;
 
       # tiger and cogsworth share every part of this except the nixosSystem
-      # builder, the extra modules the Pi needs, and whether they run a
-      # desktop. cogsworth used to carry its own copy of the block and drifted:
-      # it silently lost dotfiles-worktree from extraSpecialArgs.
+      # builder, the extra modules the Pi needs, and their home profile.
+      # cogsworth used to carry its own copy of the block and drifted: it
+      # silently lost dotfiles-worktree from extraSpecialArgs.
       mkLinuxSystem =
         {
           hostname,
           builder,
           extraModules ? [ ],
-          desktop ? false,
           homeModule,
           homeConfig ? { },
         }:
@@ -252,8 +251,7 @@
                 systemFoundry = {
                   deployment_target.enable = true;
                   users.kyle.enable = true;
-                }
-                // inputs.nixpkgs.lib.optionalAttrs desktop { desktop.kde.enable = true; };
+                };
 
                 # Add git revision to generation labels
                 system.configurationRevision = self.rev or self.dirtyRev or "unknown";
@@ -268,8 +266,7 @@
                     dotfiles-worktree = dotfilesWorktree;
                     inherit inputs;
                   };
-                  sharedModules =
-                    hmCoreModules ++ [ nixCatsHomeModule ] ++ inputs.nixpkgs.lib.optionals desktop hmDesktopModules;
+                  sharedModules = hmCoreModules ++ [ nixCatsHomeModule ];
                   users.kyle = {
                     imports = [ homeModule ];
                   }
@@ -631,8 +628,7 @@
         tiger = mkLinuxSystem {
           hostname = "tiger";
           builder = args: inputs.nixpkgs.lib.nixosSystem (args // { system = "x86_64-linux"; });
-          desktop = true;
-          homeModule = ./nix/profiles/desktop.nix;
+          homeModule = ./nix/profiles/server.nix;
         };
 
         cogsworth = mkLinuxSystem {
