@@ -647,14 +647,6 @@
           homeModule = ./nix/profiles/kiosk.nix;
           homeConfig.hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
         };
-
-        iso = inputs.nixpkgs.lib.nixosSystem {
-          system = "x86_64-linux";
-          modules = [
-            ./nix/iso.nix
-            "${inputs.nixpkgs}/nixos/modules/installer/cd-dvd/installation-cd-minimal.nix"
-          ];
-        };
       };
       darwinConfigurations.work-mac = mkDarwinSystem {
         hostname = "work-mac";

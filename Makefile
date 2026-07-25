@@ -155,10 +155,6 @@ info: ## Print information about the system
 	@echo "Current generation's largest dependencies:"
 	@du -shc $(shell nix-store -qR "$(shell realpath /var/run/current-system)") | sort -hr | head -n 11
 
-.PHONY: iso
-iso: ## build install media with my customizations
-	nix build .#nixosConfigurations.iso.config.system.build.isoImage
-
 .PHONY: sdcard-cogsworth
 sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 	@echo "Decrypting SSH host key locally..."
