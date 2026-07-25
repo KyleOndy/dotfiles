@@ -137,16 +137,6 @@ in
                 summary: "Lidarr service is down on tiger"
                 description: "Lidarr has been unavailable for 5 minutes"
 
-            - alert: ReadarrDown
-              expr: node_systemd_unit_state{host="tiger",name="readarr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: readarr
-              annotations:
-                summary: "Readarr service is down on tiger"
-                description: "Readarr has been unavailable for 5 minutes"
-
             - alert: ProwlarrDown
               expr: node_systemd_unit_state{host="tiger",name="prowlarr.service",state="active"} != 1
               for: 5m

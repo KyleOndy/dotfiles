@@ -86,7 +86,6 @@ in
     sonarr = mkServiceOptions 9707 8989;
     radarr = mkServiceOptions 9708 7878;
     lidarr = mkServiceOptions 9709 8686;
-    readarr = mkServiceOptions 9710 8787;
     prowlarr = mkServiceOptions 9711 9696;
     bazarr = mkServiceOptions 9712 6767;
     sabnzbd = mkServiceOptions 9713 8080;
@@ -97,7 +96,6 @@ in
       optional (cfg.sonarr.enable) (mkExportarrService "sonarr" cfg.sonarr)
       ++ optional (cfg.radarr.enable) (mkExportarrService "radarr" cfg.radarr)
       ++ optional (cfg.lidarr.enable) (mkExportarrService "lidarr" cfg.lidarr)
-      ++ optional (cfg.readarr.enable) (mkExportarrService "readarr" cfg.readarr)
       ++ optional (cfg.prowlarr.enable) (mkExportarrService "prowlarr" cfg.prowlarr)
       ++ optional (cfg.bazarr.enable) (mkExportarrService "bazarr" cfg.bazarr)
       ++ optional (cfg.sabnzbd.enable) (mkExportarrService "sabnzbd" cfg.sabnzbd)

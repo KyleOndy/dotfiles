@@ -40,7 +40,6 @@ in
       extraGroups = [
         "audio"
         "dialout" # microcontoller dev
-        "docker"
         "input" # input device access for trackball remapping
         "networkmanager"
         "render" # gpu access

@@ -183,15 +183,6 @@
           "expr": "lidarr_album_total{host=\"tiger\"}",
           "legendFormat": "Albums",
           "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "victoriametrics"
-          },
-          "expr": "readarr_book_total{host=\"tiger\"}",
-          "legendFormat": "Books",
-          "refId": "D"
         }
       ],
       "title": "Media Library Size",
