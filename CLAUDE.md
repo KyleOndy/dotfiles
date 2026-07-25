@@ -94,9 +94,10 @@ this in step with `nix/modules/hm_modules/terminal/email.nix`; check
 
 ### Adding a dashboard
 
-Drop the JSON in `monitoring-stack/dashboards/`, fix its label references per
-`DASHBOARD_CONVENTIONS.md`, and add an `environment.etc."grafana-dashboards/
-<name>.json"` entry in `grafana.nix`. Grafana reloads every 10 seconds.
+Drop the JSON in `monitoring-stack/dashboards/<folder>/` and fix its label
+references per `DASHBOARD_CONVENTIONS.md`. That is the whole procedure:
+`grafana.nix` walks the directory with `listFilesRecursive`, and the
+subdirectory becomes the Grafana folder. Grafana reloads every 10 seconds.
 
 ### Silences
 
