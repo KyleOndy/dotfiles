@@ -1112,13 +1112,9 @@ in
 
   # SD card wear reduction - minimize writes to extend card lifespan
   # Logs stored in RAM (acceptable since promtail forwards to Loki)
-  systemFoundry.sdCardOptimization = {
-    enable = true;
-    tmpfsSize = "512M"; # /tmp in RAM
-    logTmpfsSize = "256M"; # /var/log in RAM
-    journalMaxSize = "50M"; # systemd journal max size in RAM
-    enableZram = true; # Compressed swap in RAM for emergencies
-  };
+  # /tmp and /var/log in RAM, journal capped, zram swap. Sizes live in the
+  # module; cogsworth is its only consumer.
+  systemFoundry.sdCardOptimization.enable = true;
 
   system.stateVersion = "25.05";
 }

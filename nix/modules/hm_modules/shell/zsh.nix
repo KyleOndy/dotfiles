@@ -294,34 +294,6 @@ in
               _reset_prompt
             }
 
-            # easily export which kube config I want. I can't break things if I can
-            # not connect to the cluster.
-            fzf_pick_kube_config() {
-              local config_dir="${config.home.homeDirectory}/.kube/configs"
-              local kubeconfig kube_configs prompt_prefix
-
-              # Try to get from cache
-              if kube_configs=$(_cache_get "kube_configs"); then
-                prompt_prefix="[cached] "
-              else
-                # Cache miss - fetch and cache
-                # becuase at $WORK I use darwin, I don't have GNU find, and need to do
-                # these shenanigans with `basename`.
-                kube_configs=$(${pkgs.findutils}/bin/find "$config_dir" -type f -exec ${pkgs.coreutils}/bin/basename {} \; | ${pkgs.coreutils}/bin/sort)
-                _cache_set "kube_configs" "$kube_configs"
-                prompt_prefix=""
-              fi
-
-              kubeconfig=$(echo "$kube_configs" | _fzf --prompt="''${prompt_prefix}Kube Config: " --preview "${pkgs.bat}/bin/bat --color=always "$config_dir/{}"")
-
-              if [[ -z "$kubeconfig" ]]; then
-                unset KUBECONFIG
-              else
-                export KUBECONFIG="$config_dir/$kubeconfig"
-              fi
-              _reset_prompt
-            }
-
             fzf_pick_k8s_cluster() {
               local config_dir="${config.home.homeDirectory}/.kube/configs"
               local kubeconfig k8s_clusters prompt_prefix
@@ -373,7 +345,6 @@ in
             zvm_define_widget fzf_git_repository_widget
             zvm_define_widget fzf_git_branch_widget
             zvm_define_widget fzf_pick_aws_profile
-            zvm_define_widget fzf_pick_kube_config
             zvm_define_widget fzf_pick_k8s_cluster
 
             # easily cycle through history with up and down arrow
@@ -393,11 +364,8 @@ in
             # p is for profile
             zvm_bindkey viins '^[p^[a' fzf_pick_aws_profile
             zvm_bindkey vicmd '^[p^[a' fzf_pick_aws_profile
-            # pk for kube is obvious, but the k binding is used to go down a pane
-            zvm_bindkey viins '^[p^[z' fzf_pick_kube_config
-            zvm_bindkey vicmd '^[p^[z' fzf_pick_kube_config
-
-            # make some assumptions and setup AWS envvars along with k8s
+            # pk for kube is obvious, but the k binding is used to go down a pane.
+            # Picks the kubeconfig and sets the matching AWS envvars with it.
             zvm_bindkey viins '^[p^[p' fzf_pick_k8s_cluster
             zvm_bindkey vicmd '^[p^[p' fzf_pick_k8s_cluster
 

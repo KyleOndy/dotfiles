@@ -12,30 +12,6 @@ in
   options.systemFoundry.sdCardOptimization = {
     enable = mkEnableOption "SD card wear reduction optimizations";
 
-    tmpfsSize = mkOption {
-      type = types.str;
-      default = "512M";
-      description = "Size limit for /tmp tmpfs mount";
-    };
-
-    logTmpfsSize = mkOption {
-      type = types.str;
-      default = "256M";
-      description = "Size limit for /var/log tmpfs mount";
-    };
-
-    journalMaxSize = mkOption {
-      type = types.str;
-      default = "50M";
-      description = "Maximum size of systemd journal (runtime storage)";
-    };
-
-    enableZram = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Enable zram compressed swap for emergency memory pressure";
-    };
-
   };
 
   config = mkIf cfg.enable {
@@ -48,7 +24,7 @@ in
         "mode=1777"
         "nosuid"
         "nodev"
-        "size=${cfg.tmpfsSize}"
+        "size=512M"
       ];
     };
 
@@ -62,7 +38,7 @@ in
         "nosuid"
         "nodev"
         "noexec"
-        "size=${cfg.logTmpfsSize}"
+        "size=256M"
       ];
     };
 
@@ -72,7 +48,7 @@ in
       Storage=volatile
 
       # Limit journal size in RAM
-      RuntimeMaxUse=${cfg.journalMaxSize}
+      RuntimeMaxUse=50M
       RuntimeMaxFileSize=10M
 
       # Keep only recent logs
@@ -90,19 +66,9 @@ in
       ForwardToConsole=no
     '';
 
-    # Enable noatime on root filesystem to avoid updating access times
-    # Note: For SD card systems, this should be set in the host configuration
-    # since the root filesystem is defined by the SD image builder
-    # Example for host config:
-    #   fileSystems."/" = lib.mkForce {
-    #     device = "/dev/disk/by-label/NIXOS_SD";
-    #     fsType = "ext4";
-    #     options = [ "noatime" "nodiratime" ];
-    #   };
-
     # Optional: zram compressed swap for emergency memory pressure
     # Uses RAM for swap with compression (no SD card writes)
-    zramSwap = mkIf cfg.enableZram {
+    zramSwap = {
       enable = true;
       memoryPercent = 25; # Use up to 25% of RAM for compressed swap
       algorithm = "zstd"; # Fast compression
@@ -140,24 +106,5 @@ in
     };
 
     # Periodic warning about tmpfs logs (printed to console on boot)
-    systemd.services.sd-card-optimization-notice = {
-      description = "SD card optimization notice";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "multi-user.target" ];
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-      };
-
-      script = ''
-        echo "========================================" | ${pkgs.systemd}/bin/systemd-cat
-        echo "SD CARD OPTIMIZATION ENABLED" | ${pkgs.systemd}/bin/systemd-cat
-        echo "Logs are stored in RAM (tmpfs)" | ${pkgs.systemd}/bin/systemd-cat
-        echo "Logs will be lost on power failure!" | ${pkgs.systemd}/bin/systemd-cat
-        echo "All logs forwarded to Loki for persistence" | ${pkgs.systemd}/bin/systemd-cat
-        echo "========================================" | ${pkgs.systemd}/bin/systemd-cat
-      '';
-    };
   };
 }

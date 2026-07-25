@@ -9,25 +9,20 @@
 with lib;
 {
   config = {
-    hmFoundry = {
-      desktop = {
-        apps = {
-          discord.enable = true;
-          slack.enable = true;
-        };
-        browsers = {
-          firefox.enable = true;
-        };
-        gaming.steam.enable = true;
-        media = {
-          documents.enable = true;
-          # Disabled: makemkv.com returns 403 on its tarball downloads, breaking
-          # every desktop-profile build (tiger). Re-enable once upstream
-          # fixes the mirror or the derivation is updated to a working source.
-          makemkv.enable = false;
-        };
-        term.foot.enable = true;
-      };
+    hmFoundry.desktop = {
+      browsers.firefox.enable = true;
+      term.alacritty.enable = pkgs.stdenv.isDarwin;
+
+      # Linux-only, guarded here so the Macs do not each have to turn six
+      # things back off by hand. makemkv stays off everywhere: makemkv.com
+      # returns 403 on its tarball downloads, which breaks every
+      # desktop-profile build (tiger). Re-enable once upstream fixes the
+      # mirror or the derivation moves to a working source.
+      apps.discord.enable = pkgs.stdenv.isLinux;
+      apps.slack.enable = pkgs.stdenv.isLinux;
+      gaming.steam.enable = pkgs.stdenv.isLinux;
+      media.documents.enable = pkgs.stdenv.isLinux;
+      term.foot.enable = pkgs.stdenv.isLinux;
     };
 
     # Desktop-specific packages

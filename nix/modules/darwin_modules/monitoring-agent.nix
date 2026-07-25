@@ -17,7 +17,19 @@ let
   vmagentScrapeConfig = pkgs.writeText "vmagent-scrape-config.yaml" (
     builtins.toJSON {
       global.scrape_interval = "15s";
-      scrape_configs = cfg.scrapeConfigs;
+      # The Macs run one exporter and always will; there is nothing to
+      # configure until a second one shows up.
+      scrape_configs = [
+        {
+          job_name = "node";
+          static_configs = [
+            {
+              targets = [ "127.0.0.1:9100" ];
+              labels.host = cfg.hostLabel;
+            }
+          ];
+        }
+      ];
     }
   );
 
@@ -94,23 +106,6 @@ in
       description = "Basic auth credentials shared by vmagent remote-write and promtail push";
     };
 
-    scrapeConfigs = mkOption {
-      type = types.listOf types.attrs;
-      default = [
-        {
-          job_name = "node";
-          static_configs = [
-            {
-              targets = [ "127.0.0.1:9100" ];
-              labels = {
-                host = cfg.hostLabel;
-              };
-            }
-          ];
-        }
-      ];
-      description = "Prometheus scrape configurations for vmagent";
-    };
   };
 
   config = mkIf cfg.enable {

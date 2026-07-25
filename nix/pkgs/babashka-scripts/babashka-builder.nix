@@ -5,58 +5,6 @@
   babashka,
 }:
 
-let
-  # Helper function to detect if a directory contains a bb.edn file
-  hasBbEdn = dir: builtins.pathExists (dir + "/bb.edn");
-
-  # Helper function to build a structured babashka project
-  buildStructuredProject =
-    {
-      name,
-      src,
-      buildInputs ? [ ],
-    }:
-    {
-      inherit name;
-      type = "structured";
-      build = ''
-        # Copy the entire project structure
-        mkdir -p $out/share/${name}
-        cp -r ${src}/* $out/share/${name}/
-
-        # Create a wrapper script that sets up classpath correctly
-        cat > $out/bin/${name} << EOF
-        #!${babashka}/bin/bb
-
-        ;; Set working directory to project root
-        (require '[babashka.classpath :as cp])
-
-        ;; Add project src to classpath if it exists
-        (when (.exists (java.io.File. "$out/share/${name}/src"))
-          (cp/add-classpath "$out/share/${name}/src"))
-
-        ;; Load and execute the main script
-        (load-file "$out/share/${name}/${name}.bb")
-        EOF
-        chmod +x $out/bin/${name}
-      '';
-    };
-
-  # Helper function to build a simple babashka script
-  buildSimpleScript =
-    { name, src }:
-    {
-      inherit name;
-      type = "simple";
-      build = ''
-        # Copy the script directly to bin
-        cp ${src} $out/bin/${name}
-        chmod +x $out/bin/${name}
-      '';
-    };
-
-in
-
 # Main function to build babashka scripts
 {
   pname,
@@ -93,12 +41,6 @@ stdenv.mkDerivation {
         if [ -d "$project_dir" ]; then
           project_name=$(basename "$project_dir")
 
-          # Read project version from VERSION file, fallback to package version
-          project_version="${version}"
-          if [ -f "$project_dir/VERSION" ]; then
-            project_version=$(cat "$project_dir/VERSION" | tr -d '\n')
-          fi
-
           # Copy the entire project structure
           mkdir -p "$out/share/$project_name"
           cp -r "$project_dir"* "$out/share/$project_name/"
@@ -134,9 +76,6 @@ stdenv.mkDerivation {
     ;; Add project src to classpath if it exists
     (when (.exists (java.io.File. "$out/share/$project_name/src"))
       (cp/add-classpath "$out/share/$project_name/src"))
-
-    ;; Set build version as environment variable
-    (System/setProperty "BUILD_VERSION" "$project_version")
 
     ;; Preserve command-line arguments and load the main script
     (binding [*command-line-args* *command-line-args*]

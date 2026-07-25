@@ -124,20 +124,6 @@ in
 {
   imports = [ ];
 
-  # Disable Linux-only features on macOS
-  hmFoundry.desktop = {
-    apps.discord.enable = lib.mkForce false;
-    apps.slack.enable = lib.mkForce false;
-    browsers.firefox.enable = lib.mkForce true;
-    gaming.steam.enable = lib.mkForce false;
-    term.foot.enable = lib.mkForce false;
-    term.alacritty.enable = true;
-    media = {
-      makemkv.enable = lib.mkForce false;
-      documents.enable = lib.mkForce false;
-    };
-  };
-
   # Kensington trackball remapping, the darwin-side mechanism.
   #
   # The module remaps trackball buttons only. OS-wide keys stay mac-native,

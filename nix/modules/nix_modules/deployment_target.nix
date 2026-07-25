@@ -232,19 +232,11 @@ in
     # this file path _feels_ suspect, but works
     sops.defaultSopsFile = ./../../secrets/secrets.yaml;
 
-    networking.firewall.allowedTCPPorts = [
-      # TODO: I don't think we need these ports open
-      # 80 # http
-      # 443 # http
-    ];
-    networking.firewall.enable = false; # TODO: why is this not true?
-
-    #######################################################################
-    # TODO: refactor out below configuration into more generic modules
-    #######################################################################
-    programs = {
-      # TODO: why?
-      systemtap.enable = true;
-    };
+    # Off by default: these hosts sit behind the router, and every service
+    # module already declares the ports it needs, so the firewall adds
+    # nothing until a host is exposed on a segment it does not trust. tiger
+    # is that host and turns it on itself (nix/hosts/tiger/configuration.nix,
+    # `networking.firewall.enable = lib.mkForce true`).
+    networking.firewall.enable = false;
   };
 }
