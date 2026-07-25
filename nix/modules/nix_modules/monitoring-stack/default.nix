@@ -13,7 +13,6 @@ with lib;
     ./zfs_exporter.nix
     ./exportarr.nix
     ./jellyfin-exporter.nix
-    ./jellyfin-playcount.nix
     ./unpoller.nix
   ];
 
