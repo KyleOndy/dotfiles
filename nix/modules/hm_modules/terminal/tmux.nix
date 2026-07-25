@@ -14,9 +14,7 @@ let
   # the claude-code module actually installs the script; otherwise every
   # status refresh would spawn a shell that fails on a missing path.
   claudeCfg = config.hmFoundry.dev.claude-code;
-  claudeIconSuffix = optionalString (
-    claudeCfg.enable && claudeCfg.enableHooks
-  ) "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
+  claudeIconSuffix = optionalString claudeCfg.enable "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
   mkTabFmt =
     { bg, fg }:
     "#[fg=colour237]#[bg=${bg}]#[noitalics]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[noitalics]${arrow}";

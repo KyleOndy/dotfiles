@@ -51,23 +51,6 @@ in
   options.hmFoundry.dev.claude-code = {
     enable = mkEnableOption "Claude Code configuration";
 
-    enableHooks = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Enable notification and tmux-indicator hooks";
-    };
-    enableCommands = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Enable slash commands";
-    };
-
-    enableSkills = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Enable skills";
-    };
-
     skills = mkOption {
       type = types.listOf (
         types.submodule {
@@ -98,11 +81,6 @@ in
       description = "Install libnotify so the notifier hook can send desktop notifications (Linux only; the hook no-ops without notify-send)";
     };
 
-    userMemory = mkOption {
-      type = types.path;
-      default = ./CLAUDE.md;
-      description = "File installed as user-level memory at ~/.claude/CLAUDE.md";
-    };
   };
 
   config = mkIf cfg.enable {
@@ -127,56 +105,46 @@ in
       run install -D -m 0644 ${./settings.json} "$HOME/.claude/settings.json"
     '';
 
-    home.file =
-      # Core config: user memory, rules, and the statusline that settings.json
-      # registers. Hooks are the only optional layer on top of these.
-      {
-        ".claude/CLAUDE.md".source = cfg.userMemory;
-        ".claude/rules/clojure.md".source = ./rules/clojure.md;
-        ".claude/statusline.sh".source = statusline;
-      }
-      # Hook scripts (conditional)
-      // (optionalAttrs cfg.enableHooks {
-        ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
-        ".claude/hooks/notification-bell.sh".source = notificationBell;
-        ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
-        ".claude/hooks/tmux-claude-icons.sh".source = tmuxClaudeIcons;
-        ".claude/assets/notification.wav".source = ./assets/notification.wav;
-      })
-      # Command files (conditional)
-      // (optionalAttrs cfg.enableCommands {
-        # recursive = true creates real directories with per-file symlinks, so
-        # experimental commands can be dropped alongside the managed ones while
-        # testing. All mkDefault so work-config can override freely.
-        ".claude/commands/task.md" = lib.mkDefault { source = ./commands/task.md; };
-        ".claude/commands/git" = lib.mkDefault {
-          source = ./commands/git;
-          recursive = true;
-        };
-        ".claude/commands/task" = lib.mkDefault {
-          source = ./commands/task;
-          recursive = true;
-        };
-      })
-      # Skill files (conditional)
-      // (optionalAttrs cfg.enableSkills (
-        {
-          ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
-          ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
-          ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
-          ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
-          ".claude/skills/i-have-adhd/SKILL.md".source =
-            "${inputs.claude-skills-adhd}/skills/i-have-adhd/SKILL.md";
-        }
-        // listToAttrs (
-          map (
-            skill:
-            if skill.isFile then
-              nameValuePair ".claude/skills/${skill.name}/SKILL.md" { source = skill.source; }
-            else
-              nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }
-          ) cfg.skills
-        )
-      ));
+    home.file = {
+      ".claude/CLAUDE.md".source = ./CLAUDE.md;
+      ".claude/rules/clojure.md".source = ./rules/clojure.md;
+      ".claude/statusline.sh".source = statusline;
+
+      ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
+      ".claude/hooks/notification-bell.sh".source = notificationBell;
+      ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
+      ".claude/hooks/tmux-claude-icons.sh".source = tmuxClaudeIcons;
+      ".claude/assets/notification.wav".source = ./assets/notification.wav;
+
+      # recursive = true creates real directories with per-file symlinks, so
+      # experimental commands can be dropped alongside the managed ones while
+      # testing. All mkDefault so work-config can override freely.
+      ".claude/commands/task.md" = lib.mkDefault { source = ./commands/task.md; };
+      ".claude/commands/git" = lib.mkDefault {
+        source = ./commands/git;
+        recursive = true;
+      };
+      ".claude/commands/task" = lib.mkDefault {
+        source = ./commands/task;
+        recursive = true;
+      };
+
+      ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
+      ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
+      ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
+      ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
+      ".claude/skills/i-have-adhd/SKILL.md".source =
+        "${inputs.claude-skills-adhd}/skills/i-have-adhd/SKILL.md";
+    }
+    # Extra skills contributed per-host, e.g. by work-config.
+    // listToAttrs (
+      map (
+        skill:
+        if skill.isFile then
+          nameValuePair ".claude/skills/${skill.name}/SKILL.md" { source = skill.source; }
+        else
+          nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }
+      ) cfg.skills
+    );
   };
 }

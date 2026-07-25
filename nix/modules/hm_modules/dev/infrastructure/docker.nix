@@ -34,21 +34,6 @@ let
       ARGS+=("--vm-type" "${cfg.service.vmType}")
     ''}
 
-    ${optionalString cfg.service.rosetta ''
-      ARGS+=("--vz-rosetta")
-    ''}
-
-    ${optionalString cfg.service.kubernetes.enable ''
-      ARGS+=("--kubernetes")
-      ${optionalString (cfg.service.kubernetes.version != null) ''
-        ARGS+=("--kubernetes-version" "${cfg.service.kubernetes.version}")
-      ''}
-    ''}
-
-    ${optionalString (cfg.service.extraArgs != [ ]) ''
-      ARGS+=(${concatMapStringsSep " " (arg: ''"${arg}"'') cfg.service.extraArgs})
-    ''}
-
     # Start colima if not already running
     echo "Starting colima with arguments: ''${ARGS[@]}"
     while true; do
@@ -78,12 +63,6 @@ in
 {
   options.hmFoundry.dev.docker = {
     enable = mkEnableOption "Docker and container tools";
-
-    enableLazydocker = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Include lazydocker TUI for container management";
-    };
 
     service = {
       enable = mkEnableOption "Colima background service (macOS only)";
@@ -121,41 +100,6 @@ in
         '';
       };
 
-      rosetta = mkOption {
-        type = types.bool;
-        default = false;
-        description = ''
-          Enable Rosetta for x86_64 emulation on ARM Macs.
-          Only works with vmType = "vz" on Apple Silicon.
-        '';
-      };
-
-      kubernetes = {
-        enable = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Enable Kubernetes cluster in Colima";
-        };
-
-        version = mkOption {
-          type = types.nullOr types.str;
-          default = null;
-          example = "v1.28.3+k3s2";
-          description = "Kubernetes version to install (defaults to latest stable)";
-        };
-      };
-
-      extraArgs = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        example = [
-          "--network-address"
-          "--dns"
-          "1.1.1.1"
-        ];
-        description = "Additional arguments to pass to colima start";
-      };
-
       sysctls = mkOption {
         type = types.listOf types.str;
         default = [ ];
@@ -171,13 +115,11 @@ in
       [
         docker_29
         docker-compose
+        lazydocker
       ]
       ++ optionals pkgs.stdenv.isDarwin [
         pkgs.master.colima
         pkgs.master.lima
-      ]
-      ++ optionals cfg.enableLazydocker [
-        lazydocker
       ];
 
     home.sessionVariables = mkIf pkgs.stdenv.isDarwin {
