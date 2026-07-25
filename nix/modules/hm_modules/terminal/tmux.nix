@@ -187,6 +187,11 @@ in
         #   of reclaimable cache on purpose, so "percent used" idles high on a
         #   healthy machine. Same collapse-on-failure contract as system-temp.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-mem}/bin/system-mem)"
+        # gpu utilization, hidden while the gpu is idle.
+        #   Answers whether the model server is working or wedged. Prints
+        #   nothing below 5%, so the segment is only here when it has
+        #   something to say.
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-gpu}/bin/system-gpu)"
         # one minute load average.
         #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on
         #   every refresh, to paper over uptime's output differing on darwin.

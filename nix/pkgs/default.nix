@@ -38,5 +38,6 @@ self: super: {
   mlx-status = super.callPackage ./mlx-status { };
   system-temp = super.callPackage ./system-temp { };
   system-mem = super.callPackage ./system-mem { };
+  system-gpu = super.callPackage ./system-gpu { };
   system-load = super.callPackage ./system-load { };
 }
