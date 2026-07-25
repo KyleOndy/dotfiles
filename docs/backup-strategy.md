@@ -1,7 +1,7 @@
 # Backup strategy
 
-Three copies, two places, one offsite. tiger holds the live primary, a
-Raspberry Pi pulls a second local copy, and S3 Glacier Deep Archive holds
+Three copies, two places, one offsite. tiger holds the live primary, an
+ODROID-H2 pulls a second local copy, and S3 Glacier Deep Archive holds
 the offsite one.
 
 This document is the design and the reasoning. Nothing in it is deployed
@@ -101,7 +101,8 @@ Exit code 0. `photos-fanout.sh:53-55` treats the external HDD as best
 effort, and best effort with no alerting is indistinguishable from not
 trying. This has been the state for at least months.
 
-The Pi supersedes that leg entirely, so we delete it rather than fix it.
+The ODROID supersedes that leg entirely, so we delete it rather than fix
+it.
 
 ### No backup alerting at all
 
@@ -142,28 +143,28 @@ It is on the same pool as the original. It buys no redundancy. It eats
 ## Target architecture
 
 ```
-tiger (DMZ)                  pi (LAN)                    AWS
------------                  --------                    ---
+tiger (DMZ)                  odroid (LAN)                AWS
+-----------                  ------------                ---
 storage/photos    --send-->  tank/photos     --sync-->   Deep Archive
 storage/backups   --send-->  tank/backups    --sync-->   Deep Archive
 
-raidz1, 3x 4TB SMR           mirror, 2x USB3 HDD         versioned
+raidz1, 3x 4TB SMR           mirror, 2x SATA HDD         versioned
 sanoid                       sanoid, longer retention    put-only IAM
-80% full                     on UPS                      no --delete
+80% full                     NVMe root, on UPS           no --delete
 ```
 
 Read the arrows as trust, not just data. Every arrow is initiated by the
 host on its right.
 
-tiger holds no credential for the Pi and no credential for AWS. The Pi
-pulls from tiger and pushes to S3. If tiger is compromised, the blast
-radius is tiger.
+tiger holds no credential for the ODROID and no credential for AWS. The
+ODROID pulls from tiger and pushes to S3. If tiger is compromised, the
+blast radius is tiger.
 
 ## Tier 1: tiger
 
 Nothing structural changes here in the near term, and that is the point.
-You do not rebuild the only copy. tiger gets touched after the Pi holds a
-verified second copy, not before.
+You do not rebuild the only copy. tiger gets touched after the ODROID
+holds a verified second copy, not before.
 
 What changes now: nothing on the pool. What changes later: see the risk
 register on the SMR drives.
@@ -184,7 +185,7 @@ create` invocation is recorded at `tiger/configuration.nix:200`, and the
 `disko` input was removed in `e94efb4e`, so this stays manual. Any new
 dataset needs the same treatment.
 
-### Delegating send to the Pi
+### Delegating send to the ODROID
 
 Pull needs no write permission on tiger at all:
 
@@ -202,108 +203,151 @@ semantics from when the plan pointed the other way. Pull is
 Snapshot creation stays with sanoid on tiger, so syncoid runs with
 `--no-sync-snap` and never needs the `snapshot` verb.
 
-## Tier 2: the Pi
+## Tier 2: the ODROID
 
-Hardware we already own. A Pi 4 with 4GB RAM, two matched USB3 external
-HDDs somewhere between 2 and 4TB, ZFS mirror, all of it on a UPS.
+Hardware we already own, boxed up since 2023. Three ODROID-H2 boards ran
+as `w1`, `w2` and `w3` until `58aed155` retired them. Each is a quad-core
+Celeron J4105 with 32GB of DDR4, a 500GB NVMe, and two SATA3 ports fed
+from the board's own 15V supply.
+
+That is a small x86 server, not a hobby board, and it changes the shape
+of this tier. The Pi plan this replaces spent most of its length working
+around 4GB of RAM and a USB-SATA bridge. Neither problem exists here.
+
+Two WD externals get shucked onto the SATA ports as a mirror. Root stays
+on the NVMe. All of it on a UPS.
 
 The UPS matters more than it sounds. Brownout during a write is the
-cleanest way to fault a pool, and two spinning drives at simultaneous
-spin-up will pull more than a Pi 4's 1.2A USB budget if they are
-bus-powered.
+cleanest way to fault a pool, and now one 15V brick carries the board and
+both drives, so there is exactly one thing to protect.
+
+The J4105 has no ECC support. Neither did the Pi, and ZFS on non-ECC
+memory is no worse off than any other filesystem would be. Recorded
+rather than solved.
 
 ### Isolation comes from the router
 
-tiger sits in the DMZ. The Pi sits on the LAN. The DMZ cannot initiate
-connections to the LAN.
+tiger sits in the DMZ. The ODROID sits on the LAN. The DMZ cannot
+initiate connections to the LAN.
 
 That is a stronger guarantee than an SSH forced-command, because it is
-enforced by a device that is not the one we are defending against. The Pi
-opens every connection: syncoid pulls from tiger, vmagent and promtail
-push metrics and logs to tiger, and the S3 sync goes straight out.
+enforced by a device that is not the one we are defending against. The
+ODROID opens every connection: syncoid pulls from tiger, vmagent and
+promtail push metrics and logs to tiger, and the S3 sync goes straight
+out.
 
 ### Two flags that would undo all of it
 
 **Never `zfs recv -F`. Never `syncoid --force-delete`.**
 
 Both make the receiving side roll back or destroy datasets to match the
-source. A compromised tiger cannot reach the Pi, but it can absolutely
-answer a request the Pi made. Those two flags turn that answer into a
-wipe of the second copy.
+source. A compromised tiger cannot reach the ODROID, but it can
+absolutely answer a request the ODROID made. Those two flags turn that
+answer into a wipe of the second copy.
 
 This is the single most important line in this document.
 
 ### Host configuration
 
-- **Register with `mkNixosSystem`, `system = "aarch64-linux"`.** Do not
-  copy cogsworth's `inputs.nixos-raspberrypi.lib.nixosSystem` block. ZFS
-  is an out-of-tree module and lags vendor RPi kernels. A Pi 4 runs fine
-  on the stock nixpkgs aarch64 kernel, and cogsworth force-disables ZFS
-  anyway (`cogsworth/configuration.nix:150`).
-- **Build on trex, not tiger.** `tiger/configuration.nix:61` sets
-  `binfmt.emulatedSystems`, and `deployment_target.nix:102` sets
+- **Register with `mkLinuxSystem`, x86_64.** The same builder line tiger
+  uses at `flake.nix:639`, not cogsworth's `nixos-raspberrypi` block. No
+  device tree, no sd-image, no vendor kernel. `w1`'s old
+  `hardware-configuration.nix` still describes the board and is one
+  command away:
+  ```bash
+  git show 58aed155^:nix/hosts/w1/hardware-configuration.nix
+  ```
+  `ahci`, `nvme`, `kvm-intel`, systemd-boot, and two NICs at `enp2s0` and
+  `enp3s0`.
+- **It builds itself.** Set `remoteBuild = true` on the deploy-rs
+  profile. The Pi plan said "build on trex" to keep tiger out of the
+  supply chain, and that does not survive an x86 target: trex's
+  Determinate VM builder is aarch64-linux, and the only x86_64-linux
+  build machine it knows about is tiger (`trex/configuration.nix:35-49`).
+  Four cores and 32GB builds its own closure without complaint.
+- **Drop tiger from the substituters.** `deployment_target.nix:102` hands
+  every deployment target
   `trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ]`.
-  Left alone, tiger builds the closure the Pi runs, which is a
-  supply-chain path around the firewall we just built. trex already has
-  `nixosVmBasedLinuxBuilder.enable = true`.
+  Left in place it gives tiger the supply-chain path we just closed. This
+  host takes `cache.nixos.org` and nothing else.
 - **`networking.hostId` is required for ZFS.** tiger has one at `:71`,
   cogsworth has none. Easy to miss.
-- **Cap the ARC.** On 4GB, the 50% default is too much:
-  ```nix
-  boot.extraModprobeConfig = "options zfs zfs_arc_max=1610612736";
-  ```
-- **`compression=lz4`, not zstd.** The Cortex-A72 bottlenecks on zstd,
-  and backup throughput is already slow enough.
+- **No ARC cap.** Pinning `zfs_arc_max` was sizing for 4GB of RAM. With
+  32GB the 50% default lands at 16GB, and nothing else on the box wants
+  memory. The metadata for a 1.18 TB pool fits outright, which is what
+  makes scrubs and syncoid deltas quick.
+- **`compression=lz4`, not zstd.** Not for CPU reasons any more. JPEG,
+  RAF and MOV do not compress, so zstd buys ratio we are never going to
+  see.
 - **`dedup=off`, `atime=off`, `xattr=sa`, `acltype=posixacl`.** The last
   one matches what `storage/photos` got by hand on tiger.
 - **Received datasets get `readonly=on`.**
-- **Monthly `services.zfs.autoScrub`.** Scrubs are how you find out the
-  USB bridge lied to you.
+- **Monthly `services.zfs.autoScrub`.**
 - **Its own sanoid, with retention at least as long as tiger's.** The
-  invariant: Pi retention >= tiger retention, always. Proposed daily 30 /
-  monthly 24 / yearly 10 against tiger's `storage/photos` daily 8 /
-  monthly 12. If the Pi ever holds less history than tiger, tiger pruning
-  an old snapshot cascades into the backup.
+  invariant: ODROID retention >= tiger retention, always. Proposed daily
+  30 / monthly 24 / yearly 10 against tiger's `storage/photos` daily 8 /
+  monthly 12. If the ODROID ever holds less history than tiger, tiger
+  pruning an old snapshot cascades into the backup.
 - **Monitoring in agent mode:** vmagent, promtail, node_exporter, plus
   `zfsExporter`. Copy cogsworth's block. All of it pushes outward, which
   is why it works across the DMZ boundary, and which is what makes
-  absence-based alerting possible when the Pi is the thing that died.
-- **`sdCardOptimization`:** enable if root stays on the SD card, skip if
-  root moves to USB.
-- **sops:** derive a new age key from the Pi's SSH host key and enroll
-  it. The recipe is in `.sops.yaml`'s own comments:
+  absence-based alerting possible when the ODROID is the thing that died.
+- **sops:** derive a new age key from the host's SSH key and enroll it.
+  The recipe is in `.sops.yaml`'s own comments:
   ```bash
   nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
   sops -r updatekeys ./nix/secrets/secrets.yaml
   ```
-- **deploy-rs node** alongside cogsworth's, with
-  `(deployRsLib "aarch64-linux").activate.nixos`.
+- **deploy-rs node** alongside cogsworth's and tiger's, with
+  `(deployRsLib "x86_64-linux").activate.nixos`.
 
-### Accepting that USB will misbehave
+### Shucking the drives
 
-USB-SATA bridges reset under sustained load. Many ignore cache-flush and
-FUA, which is exactly the ordering guarantee ZFS relies on. Most do not
-pass SMART through, so the existing `smartctl_device_smart_healthy`
-textfile collector at `deployment_target.nix:145-162` may see nothing on
-these drives.
+The WD externals come apart. A small adapter PCB plugs onto the drive's
+own SATA connector and pulls straight off, so what is inside is an
+ordinary SATA drive.
 
-We are choosing ZFS anyway, because on an unreliable transport the
-checksums are the point. A mirror that detects corruption and repairs it
-from the good side is worth more here than it would be on good hardware.
+Two things to get right:
 
-A faulted pool is recovered with `zpool clear` and a resilver. On USB
-HDD that is hours. Treat re-seeding as a routine event, not an incident.
+- **Pin 3.** WD white-labels implement the SATA power-disable feature. A
+  supply that puts 3.3V on pin 3 holds the drive in reset and it never
+  spins up. The board's 4-pin power header carries 5V, ground and 12V
+  only, so this should solve itself. Confirm with a meter before blaming
+  the drive.
+- **Spin-up current.** Hardkernel rates the board at 4W idle and 22W
+  stressed on a 15V/4A brick. Two 3.5" drives pull roughly 24W each for
+  the first few seconds. That is close enough to 60W to measure rather
+  than assume. Rev B added a "12V SATA power source improvement for high
+  power HDDs", which reads like an admission that rev A was marginal.
+
+What we get back pays for the fuss. AHCI passes SMART through, so the
+`smartctl_device_smart_healthy` textfile collector at
+`deployment_target.nix:145-162` covers these drives with no new
+machinery. No bridge means no resets under sustained write and no
+guessing about whether cache flushes are honoured.
+
+If the power budget does not hold, the fallback is both drives back in
+their enclosures on USB3. That costs us SMART and brings the bridge
+resets back, which is a good reminder that the ZFS checksums are earning
+their keep either way. Measure before deciding.
 
 ### Mirror now, rotation later
 
 Two drives in a mirror covers one failure mode: a drive dying. It does
-not cover the Pi's PSU, a bridge corrupting both writes identically, a
-mistyped `zfs destroy`, or a fire.
+not cover the board's PSU, a mistyped `zfs destroy`, or a fire.
 
 The better long-term answer is a third drive that gets synced, detached,
 and stored somewhere else. That is a later phase. Mirror first, because
 it is the fastest route to a real second copy and it needs no habit we
 have not tested.
+
+Two SATA ports means two drives in the pool, full stop. The rotating
+drive attaches over USB3, which is fine. It sits outside the pool at
+rest, and a slow transport on a monthly job is not the constraint.
+
+The other two boards stay on the shelf. An identical spare turns a dead
+backup host into a ten minute swap instead of a project, and that is
+worth more here than on any other machine in the house.
 
 When the rotating drive arrives, it needs its own staleness alert.
 "Offline copy older than N days" has to page, or the rotation quietly
@@ -349,15 +393,15 @@ today. Each new prefix needs its own lifecycle rule; the header at
 is wrong here (it double-transitions the Standard-IA objects).
 
 **Delete the external HDD leg.** `photos-fanout.sh:50-55` goes away. The
-Pi does that job properly.
+ODROID does that job properly.
 
 **Include the RAF files.** 752 files, 22.4 GiB in `_provisional`,
 currently excluded by `photos-fanout.sh:32` on the reasoning at
 `helios/README.md:65-67` that raws are a local edit cache. At Deep
 Archive rates the exclusion saves about $0.02/month. Keep the raws.
 
-**Move the sync to the Pi.** No AWS credential on tiger at all. See open
-decisions.
+**Move the sync to the ODROID.** No AWS credential on tiger at all. See
+open decisions.
 
 ### Cost
 
@@ -441,8 +485,8 @@ tolerance. This is exactly the check that would have caught 66 missing
 
 ### 4. Drills
 
-**Quarterly:** pick a random directory, restore it from the Pi, checksum
-it against tiger. Record that it happened.
+**Quarterly:** pick a random directory, restore it from the ODROID,
+checksum it against tiger. Record that it happened.
 
 **Annually:** `aws s3api restore-object` with the bulk tier on about five
 random objects, then verify checksums. Costs pennies. The point is to
@@ -472,18 +516,18 @@ cp -a /mnt/photos/.zfs/snapshot/autosnap_2026-07-24_00:00:03_daily/personal/phot
 
 ### A dataset got corrupted on tiger
 
-Reverse the syncoid direction. Pull from the Pi back to tiger, into a new
-dataset name, verify, then swap mountpoints. Do not receive over the live
-dataset.
+Reverse the syncoid direction. Pull from the ODROID back to tiger, into a
+new dataset name, verify, then swap mountpoints. Do not receive over the
+live dataset.
 
 ### tiger is gone
 
 Rebuild tiger from the flake, create the pool by hand (see
 `tiger/configuration.nix:200` and `:284-286` for the exact invocations),
-then syncoid from the Pi to tiger. ~1.18 TB over GbE from USB HDD, so
-plan on the better part of a day.
+then syncoid from the ODROID to tiger. ~1.18 TB over GbE, so several
+hours. The network is the constraint, not the drives.
 
-### tiger and the Pi are both gone
+### tiger and the ODROID are both gone
 
 Deep Archive. Restore requests first, then wait, then download.
 
@@ -511,18 +555,27 @@ where DM-SMR throughput collapses, and raidz1 carries zero redundancy for
 the whole window. The pool is also at 80%, where ZFS allocation starts to
 suffer.
 
-That inverts the obvious reading of this architecture. The Pi is not a
-nice-to-have second tier. It is insurance against a primary that is more
-fragile than it looks. It is also why tiger does not get restructured
-until the Pi copy exists and verifies. Long-term fix is CMR
-replacements.
+That inverts the obvious reading of this architecture. The ODROID is not
+a nice-to-have second tier. It is insurance against a primary that is
+more fragile than it looks. It is also why tiger does not get
+restructured until the ODROID copy exists and verifies. Long-term fix is
+CMR replacements.
 
 Sources:
 [WD Red SMR model codes](https://david.gardiner.net.au/2021/07/ws-red-nas-hdd),
 [TrueNAS notice on WD SMR with ZFS](https://www.truenas.com/docs/hardware/notices/wdsmr/).
 
-**ZFS over USB3 on 4GB.** Covered above. Faulted pools are expected;
-re-seeding is the recovery, not a crisis.
+**The backup drives may be SMR too.** WD 3.5" externals in the 2-6TB
+range are frequently the same DM-SMR family as the EFAX drives above.
+Check with `smartctl` before committing, because if both tiers are SMR
+then the resilver problem is not isolated to tiger, it is the house
+style.
+
+**The 60W budget.** Board plus two 3.5" drives at simultaneous spin-up
+lands near the brick's ceiling. A supply that sags during spin-up is a
+pool fault waiting for the least convenient moment. Measure a real cold
+start before trusting the tier, and find out whether these boards are rev
+A or rev B.
 
 **No client-side encryption in S3.** SSE-S3 means AWS holds the keys.
 That is a fine trade for photos and a thinner one for
@@ -540,11 +593,11 @@ scope, recorded so it is a known gap rather than an assumption.
 **`cp -rn` never prunes.** `arr.nix:126` copies each \*arr's own
 `Backups/` directory with `cp -rn` and nothing ever removes anything.
 `/mnt/backups/apps/nzbhydra2` has reached 21G. It inflates the pool, the
-Pi, and the S3 bill.
+ODROID, and the S3 bill.
 
 **The 216G duplicate.** `/mnt/backups/photos-backup` gets
 checksum-verified as a true subset of `/mnt/photos` and only then
-deleted, and only after the Pi holds a verified copy. It is the one
+deleted, and only after the ODROID holds a verified copy. It is the one
 destructive step in this whole plan.
 
 ## Rollout
@@ -561,17 +614,18 @@ staleness plus zpool alerts.
 That alone gets us three copies in two places with alerting on both,
 before anything gets unboxed.
 
-### Phase 2: the Pi
+### Phase 2: the ODROID
 
-Runs concurrently with phase 1. Blocked only on confirming the drives.
-Build, seed ~1.18 TB, add Pi-side sanoid with the longer retention.
+Runs concurrently with phase 1. Blocked on confirming the drives and the
+power budget. Shuck, build, seed ~1.18 TB, add its own sanoid with the
+longer retention.
 
 ### Phase 3: reclaim
 
-Only after the Pi copy verifies. Checksum and delete the 216G duplicate,
-prune nzbhydra2, drop `/var/lib/jellyfin.old-20260611` (3.4G). Takes the
-pool back off 80%, which is the cheapest thing we can do about the SMR
-resilver risk.
+Only after the ODROID copy verifies. Checksum and delete the 216G
+duplicate, prune nzbhydra2, drop `/var/lib/jellyfin.old-20260611` (3.4G).
+Takes the pool back off 80%, which is the cheapest thing we can do about
+the SMR resilver risk.
 
 ### Phase 4: assurance
 
@@ -583,24 +637,32 @@ adding the third rotating one.
 
 Not blockers for the design, but each one gates its phase.
 
-**The drives.** Sizes, models, and whether SMART survives the bridge:
+**The drives.** Sizes and models, and whether they are SMR. Run this
+while they are still in their enclosures:
 
 ```bash
 lsblk -o NAME,SIZE,MODEL,TRAN,ROTA
-sudo smartctl -i /dev/sda
+sudo smartctl -d sat -i /dev/sda
 ```
 
-If SMART does not pass through, the existing `smartctl-exporter` timer
-sees nothing on these drives and the zpool-health alert becomes the only
-signal we have.
+Two 2-4TB drives against 1.18 TB of data leaves room for years of
+snapshot growth. Anything smaller than the pair we need is a phase 2
+blocker.
 
-**Who pushes to S3.** Recommendation is the Pi, so no AWS credential
+**The board revision and the power budget.** Rev A or rev B, and whether
+a 15V/4A brick carries a real cold start with two 3.5" drives attached.
+If it does not, the drives go back in their enclosures and we keep USB3.
+
+**The hostname.** Every other Linux host here is an animal. This one has
+no name yet.
+
+**Who pushes to S3.** Recommendation is the ODROID, so no AWS credential
 exists on tiger and the threat model holds at every tier. tiger is the
 simpler option and keeps the existing unit where it is. Not yet decided.
 
-**Pi retention numbers.** Proposed daily 30 / monthly 24 / yearly 10. The
-constraint is the invariant, not the specific numbers: Pi retention is
-always at least tiger's.
+**ODROID retention numbers.** Proposed daily 30 / monthly 24 / yearly 10.
+The constraint is the invariant, not the specific numbers: ODROID
+retention is always at least tiger's.
 
 **`_projects/` storage class.** Four YouTube tutorials in Standard-IA.
 Move them to Deep Archive, or stop backing up downloadable videos.
