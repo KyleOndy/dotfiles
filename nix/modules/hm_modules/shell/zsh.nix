@@ -567,7 +567,7 @@ in
             EOF
             }
 
-            source ${pkgs.zsh-histdb}/sqlite-history.zsh
+            source ${pkgs.zsh-histdb}/share/zsh-histdb/sqlite-history.zsh
             autoload -Uz add-zsh-hook
 
             export PATH="$HOME/bin:$PATH"

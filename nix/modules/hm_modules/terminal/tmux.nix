@@ -140,7 +140,7 @@ in
         bind % split-window -h -c "#{pane_current_path}"
         bind c new-window -c "#{pane_current_path}"
 
-        run ${pkgs.tmux-gruvbox}/gruvbox-tpm.tmux
+        run ${pkgs.tmuxPlugins.gruvbox.rtp}
         set -g @tmux-gruvbox 'dark256'
 
         # Make active pane border more visible

@@ -13,11 +13,9 @@ self: super: {
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
   pragmata-pro = super.callPackage ./pragmata-pro { };
-  tmux-gruvbox = super.callPackage ./tmux-gruvbox { };
   winnow = super.callPackage ./winnow { };
   bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
-  zsh-histdb = super.callPackage ./zsh-histdb { };
   presence-debug = super.callPackage ./presence-debug { };
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
   pi-overnight = super.callPackage ./pi-overnight { };

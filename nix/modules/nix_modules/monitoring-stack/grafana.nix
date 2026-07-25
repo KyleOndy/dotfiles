@@ -299,63 +299,17 @@ in
     services.grafana.settings.security.admin_password =
       "$__file{${config.sops.secrets.grafana_admin_password.path}}";
 
-    # System dashboards
-    environment.etc."grafana-dashboards/system/system-overview.json" = {
-      source = ./dashboards/system/system-overview.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/system/node-exporter-full.json" = {
-      source = ./dashboards/system/node-exporter-full.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/system/systemd-services.json" = {
-      source = ./dashboards/system/systemd-services.json;
-      mode = "0644";
-    };
-
-    # Network dashboards
-    environment.etc."grafana-dashboards/network/caddy-overview.json" = {
-      source = ./dashboards/network/caddy-overview.json;
-      mode = "0644";
-    };
-
-    # Application dashboards
-    environment.etc."grafana-dashboards/applications/media-services.json" = {
-      source = ./dashboards/applications/media-services.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/cogsworth-overview.json" = {
-      source = ./dashboards/applications/cogsworth-overview.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/cogsworth-sync-performance.json" = {
-      source = ./dashboards/applications/cogsworth-sync-performance.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/cogsworth-http-health.json" = {
-      source = ./dashboards/applications/cogsworth-http-health.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/cogsworth-request-performance.json" = {
-      source = ./dashboards/applications/cogsworth-request-performance.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/arr-stack-health.json" = {
-      source = ./dashboards/applications/arr-stack-health.json;
-      mode = "0644";
-    };
-
-    environment.etc."grafana-dashboards/applications/jellyfin-operational.json" = {
-      source = ./dashboards/applications/jellyfin-operational.json;
-      mode = "0644";
-    };
-
+    # Every file under dashboards/ is provisioned at the path it already has in
+    # the tree, which is what foldersFromFilesStructure turns into Grafana
+    # folders. Adding a dashboard is dropping in a file, with no edit here.
+    environment.etc = listToAttrs (
+      map (path: {
+        name = "grafana-dashboards/${removePrefix "${toString ./dashboards}/" (toString path)}";
+        value = {
+          source = path;
+          mode = "0644";
+        };
+      }) (lib.filesystem.listFilesRecursive ./dashboards)
+    );
   };
 }
