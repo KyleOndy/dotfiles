@@ -28,16 +28,5 @@ in
       # helpers
       terragrunt
     ];
-    programs.neovim = {
-      plugins = with pkgs.vimPlugins; [
-        {
-          plugin = vim-terraform;
-          config = ''
-            let g:terraform_align=1
-            let g:terraform_fmt_on_save=1
-          '';
-        }
-      ];
-    };
   };
 }

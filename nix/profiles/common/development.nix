@@ -24,11 +24,8 @@ with lib;
           globalDepsEdn.enable = lib.mkDefault true;
         };
         python.enable = lib.mkDefault true;
-        dotnet.enable = lib.mkDefault false;
         terraform.enable = lib.mkDefault false;
         git.enable = lib.mkDefault true;
-        haskell.enable = lib.mkDefault false;
-        nix.enable = lib.mkDefault true;
         go.enable = lib.mkDefault true;
         rust.enable = lib.mkDefault true;
         pi-coding-agent = {

@@ -66,19 +66,6 @@ in
   options.hmFoundry.dev.clojure = {
     enable = mkEnableOption "clojure stuff";
 
-    clojureFormatting = {
-      enable = mkEnableOption "configurable Clojure code formatting";
-      formatter = mkOption {
-        type = types.enum [
-          "cljstyle"
-          "zprint"
-          "cljfmt"
-        ];
-        default = "cljstyle";
-        description = "Which Clojure formatter to use";
-      };
-    };
-
     enableKaocha = mkEnableOption "kaocha modern test runner";
 
     globalDepsEdn = {
@@ -207,36 +194,6 @@ in
 
       # Enable bash completion for clojure CLI
       bash.enableCompletion = true;
-      neovim = {
-        plugins = with pkgs.vimPlugins; [
-          # https://github.com/Olical/aniseed
-          { plugin = aniseed; }
-
-          # https://github.com/clojure-vim/vim-jack-in
-          { plugin = vim-jack-in; }
-
-          # cmp completion for conjure
-          { plugin = cmp-conjure; }
-
-          # https://github.com/radenling/vim-dispatch-neovim
-          # this is needed for vim-jackin
-          { plugin = vim-dispatch; }
-          { plugin = vim-dispatch-neovim; }
-
-          # https://github.com/tpope/vim-sexp-mappings-for-regular-people
-          # tpope to the rescue again
-          {
-            plugin = vim-sexp-mappings-for-regular-people;
-            config = "";
-          }
-        ];
-      };
-    };
-
-    # Environment variables for smart-lint.sh integration
-    home.sessionVariables = mkIf cfg.clojureFormatting.enable {
-      CLAUDE_CLOJURE_FORMATTING = "true";
-      CLAUDE_CLOJURE_FORMATTER = cfg.clojureFormatting.formatter;
     };
 
     # Manage global deps.edn file

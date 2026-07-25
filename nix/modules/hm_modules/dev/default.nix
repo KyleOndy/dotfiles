@@ -1,27 +1,10 @@
-# Development module hub - imports all development submodules
-# Package installation is now handled by feature-flag-aware submodules
+# Development module hub. Submodules in this directory are picked up
+# automatically by getModules (flake.nix); this file only declares the
+# umbrella enable flag they gate on.
 
 { lib, config, ... }:
 with lib;
 {
-  imports = [
-    ./cloud/aws.nix
-    ./cloud/k8s.nix
-    ./core.nix
-    ./documents.nix
-    ./infrastructure/docker.nix
-    ./java.nix
-    ./media.nix
-    ./monitoring.nix
-    ./nix-tools.nix
-    ./performance.nix
-    ./rust.nix
-    ./security.nix
-    ./sysadmin.nix
-    ./terraform.nix
-    ./tools.nix
-  ];
-
   options.hmFoundry.dev = {
     enable = mkEnableOption "General development utilities and configuration";
   };
