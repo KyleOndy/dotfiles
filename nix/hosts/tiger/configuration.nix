@@ -709,9 +709,9 @@ in
           destinationPath = "${backup_path}/bazarr/";
         };
       };
+      # prowlarr runs under DynamicUser, so it has no group to set.
       prowlarr = {
         enable = true;
-        group = mediaGroup;
         domainName = "prowlarr.tiger.infra.ondy.org";
       };
       sabnzbd = {
