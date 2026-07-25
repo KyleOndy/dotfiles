@@ -1,5 +1,6 @@
 # Home Manager configuration for WSL work environments
-# This is the base configuration - work forks can add ./work-home.nix for company-specific settings
+# Company-specific settings come from the work-config flake input
+# (flake.nix:771), overridden with --override-input on work machines.
 {
   config,
   pkgs,
@@ -103,65 +104,4 @@
     appendWindowsPath = true
   '';
 
-  # Work forks should create ./work-home.nix to add:
-  # - Company-specific git configuration (email, signing keys, credential manager)
-  # - SSH configuration for work servers (bastion hosts, jump boxes)
-  # - Cloud provider tools (awscli2, azure-cli, google-cloud-sdk)
-  # - Kubernetes and container tools (kubectl, helm, k9s)
-  # - Docker Desktop integration (if using Windows Docker)
-  # - Company VPN status checking
-  # - Work-specific aliases and environment variables
-  # - Windows-specific tool integration (PowerShell, Windows SSH agent)
-
-  # Example work-home.nix structure:
-  # {
-  #   home.packages = with pkgs; [
-  #     awscli2
-  #     kubectl
-  #     terraform
-  #     docker-compose
-  #   ];
-  #
-  #   programs.git = {
-  #     userEmail = lib.mkForce "you@company.com";
-  #     extraConfig = {
-  #       core.autocrlf = "input";
-  #       core.credentialStore = "wincredman";
-  #       user.signingkey = "WORK_GPG_KEY_ID";
-  #     };
-  #   };
-  #
-  #   programs.ssh.matchBlocks = {
-  #     "work-*" = {
-  #       user = "your-username";
-  #       forwardAgent = true;
-  #     };
-  #   };
-  #
-  #   programs.zsh.shellAliases = {
-  #     docker = "docker.exe";
-  #     kdev = "kubectl --context=dev";
-  #     vpn-check = "ping -c 1 internal.company.com";
-  #   };
-  #
-  #   hmFoundry.dev = {
-  #     aws.enable = true;
-  #     kubernetes.enable = true;
-  #     docker.enable = true;
-  #   };
-  #
-  #   # For work-specific Neovim plugins (e.g., copilot):
-  #   nvim.packageDefinitions.merge = {
-  #     nvim = { pkgs, ... }: {
-  #       categories = { work = true; };
-  #       work = { copilot = true; };
-  #     };
-  #   };
-  #
-  #   # Provision work Lua config from this directory:
-  #   xdg.configFile."nixCats-nvim/lua/plugins/work.lua".source = ./work.lua;
-  #   # Then create work.lua in this directory and add "plugins.work" to lua/plugins.lua
-  #
-  #   # See docs/nixcats-work-plugins.md for details.
-  # }
 }

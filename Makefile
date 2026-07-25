@@ -159,10 +159,6 @@ info: ## Print information about the system
 iso: ## build install media with my customizations
 	nix build .#nixosConfigurations.iso.config.system.build.isoImage
 
-.PHONY: sdcard
-sdcard: ## build install media with my customizations
-	nix build .#nixosConfigurations.sd_card.config.system.build.sdImage
-
 .PHONY: sdcard-cogsworth
 sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 	@echo "Decrypting SSH host key locally..."

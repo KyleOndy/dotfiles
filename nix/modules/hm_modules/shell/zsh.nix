@@ -37,7 +37,6 @@ in
           ":e" = "$EDITOR";
           ":q" = "exit";
           ":Q" = "exit";
-          cdf = "cd $FOUNDRY_DATA";
           cdtmp = "cd $(mktemp -d)";
           cdg = "cd $(git root)";
           claude-caffeine =
@@ -46,7 +45,6 @@ in
             else
               "caffeinate -disu claude";
           e = "sort -u | xargs --no-run-if-empty -- $EDITOR --";
-          f = "foundry";
           g = "git";
           j = "bat --language=json $@";
           k = "kubectl";

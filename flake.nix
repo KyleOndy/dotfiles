@@ -472,14 +472,6 @@
                 shellcheck.enable = true;
                 shfmt.enable = true;
                 stylua.enable = true;
-                pkg_version = {
-                  enable = false;
-                  name = "pkg-version-bump";
-                  entry = "bin/pre-commit-update-version";
-                  files = "^nix/pkgs/.*?/default\.nix$";
-                  language = "script";
-                  pass_filenames = true;
-                };
                 gofmt = {
                   enable = true;
                   name = "gofumpt";

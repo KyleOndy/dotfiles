@@ -13,13 +13,6 @@
         StrictHostKeyChecking accept-new
         ConnectTimeout 3
 
-      Host trex trex.lan.1ella.com
-        HostName trex.lan.1ella.com
-        User svc.deploy
-        IdentityFile /var/root/.ssh/id_ed25519
-        StrictHostKeyChecking accept-new
-        ConnectTimeout 3
-
       # Default settings for all hosts
       Host *
         IdentitiesOnly yes

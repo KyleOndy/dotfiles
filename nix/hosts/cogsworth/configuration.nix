@@ -973,25 +973,6 @@ in
     };
   };
 
-  # Daily reboot at 4am to clear accumulated state (Chromium leaks, tmpfs growth)
-  systemd.services.cogsworth-daily-reboot = {
-    enable = false;
-    description = "Daily scheduled reboot";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${pkgs.systemd}/bin/systemctl reboot";
-    };
-  };
-
-  systemd.timers.cogsworth-daily-reboot = {
-    enable = false;
-    description = "Daily reboot timer";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "*-*-* 04:00:00";
-    };
-  };
-
   # ── Google Photos display directory ─────────────────────────────────────────
   # Photos are downloaded directly by the cogsworth Go service via the Google
   # Photos Library API. No local processing pipeline is needed.
