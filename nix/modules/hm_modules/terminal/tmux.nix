@@ -170,9 +170,17 @@ in
         set-option -g status-left "#[fg=colour248, bg=colour241] #S #I:#P #[fg=colour241, bg=colour237, nobold, noitalics, nounderscore]"
 
         # left most solid arrow, then the single pad space before the metrics.
-        #   The pad lives here rather than on the battery segment because any
-        #   metric can collapse to nothing. Owned by the first segment it
-        #   would vanish with it and leave the row flush against the arrow.
+        #   The pad lives here rather than on the battery segment because a
+        #   metric whose hardware is missing collapses to nothing. Owned by
+        #   the first segment it would vanish with it and leave the row flush
+        #   against the arrow.
+        #
+        #   Missing hardware is the only thing that removes a segment, and
+        #   that is settled once per host. None of them hides on a machine
+        #   that can read it, not even to skip a zero: hiding while idle buys
+        #   back a few columns and pays by sliding every segment left of it
+        #   sideways on the way back, and a bar that rearranges itself is the
+        #   thing you end up watching instead of the numbers on it.
         set-option -g status-right  "#[fg=colour239, bg=colour237, nobold, nounderscore, noitalics]#[fg=colour246,bg=colour239] "
         # battery charge and power draw.
         #   Each metric below emits its own trailing thin separator, so the
@@ -180,8 +188,8 @@ in
         #   That is what lets one disappear without orphaning a divider.
         #   Colours by charge only while discharging: plugging in at 15% is
         #   the fix, so a warning colour that outlives it only trains you to
-        #   ignore it. Collapses on AC above 95% the way system-gpu hides
-        #   when idle, rather than spending 12 columns to say "docked".
+        #   ignore it. Prints nothing and exits 1 where there is no battery,
+        #   which is how it stays off tiger.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/battery-draw)"
         # hottest cpu/gpu die sensor.
         #   Emits its own #[fg=] so it can go orange past 80C and red past 95C,
@@ -189,15 +197,15 @@ in
         #   nothing and exits 1 where no sensor is readable (WSL, VMs), which
         #   collapses the segment rather than showing an error.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-temp)"
-        # memory headroom, plus swap in use once it is past incidental.
+        # memory headroom, plus swap in use.
         #   Headroom rather than a used percentage: both kernels keep RAM full
         #   of reclaimable cache on purpose, so "percent used" idles high on a
         #   healthy machine. Same collapse-on-failure contract as system-temp.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-mem)"
-        # gpu utilization, hidden while the gpu is idle.
-        #   Answers whether the model server is working or wedged. Prints
-        #   nothing below 5%, so the segment is only here when it has
-        #   something to say.
+        # gpu utilization.
+        #   Answers whether the model server is working or wedged. Reads
+        #   IOAccelerator on darwin and amdgpu's sysfs on linux, and exits 1
+        #   where neither answers, so cogsworth never shows this at all.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-gpu)"
         # one minute load average.
         #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on

@@ -47,11 +47,6 @@ const GIB: u64 = 1024 * MIB;
 const WARM_UNDER: u64 = 4 * GIB;
 const HOT_UNDER: u64 = 1 * GIB;
 
-// The darwin compressor and zram on the Pi both page a little during normal
-// operation, so a bare "swap is nonzero" test would pin the suffix on forever.
-// Only surface swap once it is past incidental. This gates the suffix alone.
-const SWAP_FLOOR: u64 = 256 * MIB;
-
 fn main() {
     match sample() {
         Ok(mem) => print!("{}", format_mem(&mem, colors_enabled())),
@@ -90,12 +85,15 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
+/// Swap is always appended, zero included. Gating it on a floor meant the
+/// darwin compressor drifting across 256M rewrote the width of the segment
+/// under you, which is exactly the flicker the bar is meant not to have.
 fn format_mem(mem: &Memory, color: bool) -> String {
-    let mut body = format_bytes(mem.available);
-    if mem.swap_used >= SWAP_FLOOR {
-        body.push('+');
-        body.push_str(&format_bytes(mem.swap_used));
-    }
+    let body = format!(
+        "{}+{}",
+        format_bytes(mem.available),
+        format_bytes(mem.swap_used)
+    );
 
     if color {
         styled(color_for(mem), &body)
@@ -132,11 +130,11 @@ mod tests {
     }
 
     #[test]
-    fn swap_is_hidden_until_it_is_worth_reading() {
-        assert_eq!(format_mem(&mem(12 * GIB, 0), false), "12G \u{e0b3} ");
+    fn swap_is_always_shown() {
+        assert_eq!(format_mem(&mem(12 * GIB, 0), false), "12G+0M \u{e0b3} ");
         assert_eq!(
             format_mem(&mem(12 * GIB, 200 * MIB), false),
-            "12G \u{e0b3} "
+            "12G+200M \u{e0b3} "
         );
         assert_eq!(
             format_mem(&mem(12 * GIB, 460 * MIB), false),
@@ -158,7 +156,7 @@ mod tests {
     #[test]
     fn swap_alone_never_colors_a_machine_that_has_headroom() {
         assert_eq!(color_for(&mem(24 * GIB, 8 * GIB)), NORMAL);
-        assert_eq!(color_for(&mem(24 * GIB, SWAP_FLOOR)), NORMAL);
+        assert_eq!(color_for(&mem(24 * GIB, 256 * MIB)), NORMAL);
         // Headroom still decides once it is actually gone.
         assert_eq!(color_for(&mem(0, 8 * GIB)), HOT);
     }
@@ -167,7 +165,7 @@ mod tests {
     fn colored_output_restores_the_surrounding_style() {
         assert_eq!(
             format_mem(&mem(512 * MIB, 0), true),
-            "#[fg=colour167]512M#[fg=colour246] \u{e0b3} "
+            "#[fg=colour167]512M+0M#[fg=colour246] \u{e0b3} "
         );
         assert!(format_mem(&mem(24 * GIB, 0), true).ends_with("#[fg=colour246] \u{e0b3} "));
     }

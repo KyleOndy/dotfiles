@@ -4,9 +4,9 @@
 //! working, or has the model server wedged. On trex that is the difference
 //! between waiting and restarting.
 //!
-//! Hidden while the GPU is idle. Zero is the common case, and a `gpu 0%` that
-//! never leaves the bar is a column tax with no information in it. The segment
-//! appears when something is running and gets out of the way otherwise.
+//! Always rendered, idle included. Hiding `gpu 0%` saved eight columns, but it
+//! shifted every segment to its left each time the GPU woke up, and a bar that
+//! rearranges itself is harder to read at a glance than one carrying a zero.
 
 use std::process;
 
@@ -27,14 +27,12 @@ fn busy_percent() -> Result<u8, Box<dyn std::error::Error>> {
 
 use tmux_status::SEP;
 
-/// Below this the GPU is doing window compositing, not work worth watching.
-const FLOOR: u8 = 5;
-
 fn main() {
     match busy_percent() {
-        // Idle is a successful reading with nothing to say, so it prints
-        // nothing and still exits 0. Only an unreadable source is a failure.
         Ok(pct) => print!("{}", format_gpu(pct)),
+        // Only an unreadable source collapses the segment, and that is a
+        // property of the machine rather than of the moment: a box with no
+        // amdgpu never shows this segment, instead of flickering it.
         Err(_) => process::exit(1),
     }
 }
@@ -43,23 +41,19 @@ fn main() {
 /// its job, so there is no threshold here that would mean trouble, and the
 /// surrounding `#[fg=colour246]` from tmux.nix carries the style.
 fn format_gpu(pct: u8) -> String {
-    if pct < FLOOR {
-        String::new()
-    } else {
-        format!("gpu {pct}%{SEP}")
-    }
+    format!("gpu {pct}%{SEP}")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// The separator has to go with it. Left behind, it would sit against the
-    /// separator of the segment before and read as a double rule.
+    /// An idle GPU holds its place in the bar rather than vacating it, so
+    /// nothing to its left moves when work starts.
     #[test]
-    fn idle_renders_nothing_at_all() {
-        assert_eq!(format_gpu(0), "");
-        assert_eq!(format_gpu(4), "");
+    fn idle_still_renders() {
+        assert_eq!(format_gpu(0), "gpu 0% \u{e0b3} ");
+        assert_eq!(format_gpu(4), "gpu 4% \u{e0b3} ");
     }
 
     #[test]
