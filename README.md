@@ -1,293 +1,81 @@
-# Personal Development Infrastructure System
+# dotfiles
 
-A comprehensive, declarative system for managing development environments, personal infrastructure, and configurations across multiple platforms and architectures.
+Nix flake defining four machines end to end: two NixOS hosts, two Macs via
+nix-darwin, all user config through home-manager. Personal repo, not a
+reference architecture.
 
-This repository defines everything needed to bootstrap and maintain a complete development ecosystem - from individual developer workstations to production servers and homelab infrastructure.
+## Hosts
 
-## Features
+| Host        | Platform       | Role                    | Profile   | Deploy             |
+| ----------- | -------------- | ----------------------- | --------- | ------------------ |
+| `tiger`     | x86_64-linux   | homelab server          | `desktop` | deploy-rs          |
+| `cogsworth` | aarch64-linux  | Raspberry Pi 5 kiosk    | `kiosk`   | deploy-rs          |
+| `trex`      | aarch64-darwin | personal mac            | `desktop` | `make deploy-trex` |
+| `work-mac`  | aarch64-darwin | work mac (user `kondy`) | `desktop` | `make deploy-mac`  |
 
-### 🏗️ **Modular Architecture**
+Profiles live in `nix/profiles/`: `desktop.nix` and `kiosk.nix`, both built
+from the pieces in `nix/profiles/common/`. There is no separate server
+profile; tiger runs the desktop profile because it has a monitor attached.
 
-- **Custom namespace system** with `hmFoundry` (Home Manager) and `systemFoundry` (NixOS) modules
-- **Profile-based configuration** for different roles (workstation, server, gaming, minimal)
-- **Multi-platform support** for Linux (x86_64, ARM), macOS (Intel, Apple Silicon)
-- **Sophisticated include system** for shared configurations
-
-### 🤖 **AI-Assisted Development**
-
-- **Claude Code integration** with intelligent hooks for linting, testing, and notifications
-- **Multi-language development workflows** with automatic tool detection
-- **Smart testing and linting** that adapts to project structure
-- **Custom development guidelines** and automated code quality enforcement
-
-### 🔧 **Advanced Tooling**
-
-- **Babashka ecosystem** for custom scripting and automation
-- **Custom package collection** including fonts, tools, and utilities
-- **Infrastructure as Code** with Terraform for cloud resources
-- **Comprehensive secrets management** with SOPS encryption
-
-### 🌐 **Complete Infrastructure Management**
-
-- **Multi-host deployment** with deploy-rs
-- **Service orchestration** for media servers, monitoring, and development tools
-- **Network topology management** with DNS and reverse proxy configuration
-- **Security-first design** with proper firewall, SSH hardening, and secret handling
-
-## Quick Start
-
-### Prerequisites
-
-1. **Install Nix** with flakes enabled:
-
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install
-   ```
-
-2. **Clone the repository**:
-
-   ```bash
-   git clone https://github.com/kyleondy/dotfiles.git ~/src/dotfiles
-   cd ~/src/dotfiles
-   ```
-
-### Setup Paths
-
-#### Development Workstation
-
-```bash
-# Enable flakes and direnv
-nix-shell -p direnv
-direnv allow
-
-# Deploy full workstation configuration
-make deploy
-```
-
-#### Server/Minimal Setup
-
-```bash
-# Deploy server profile (no desktop environment)
-sudo nixos-rebuild switch --flake .#<hostname>
-```
-
-#### macOS Setup
-
-```bash
-# Install nix-darwin and deploy
-nix run nix-darwin -- switch --flake .#<hostname>
-```
-
-### Post-Setup
-
-1. **Clone password store** (if using pass):
-
-   ```bash
-   git clone git@github.com:kyleondy/password-store.git ~/.password-store
-   ```
-
-2. **Configure Claude Code** (optional):
-
-   ```bash
-   claude  # Initialize in any project directory
-   ```
-
-## Architecture
-
-### Module Organization
+## Layout
 
 ```text
-nix/modules/
-├── hm_modules/           # Home Manager modules (user-level)
-│   ├── dev/             # Development tools and environments
-│   ├── desktop/         # Desktop applications and window managers
-│   ├── shell/           # Shell configuration (zsh, bash)
-│   └── terminal/        # Terminal tools and editors
-└── nix_modules/         # NixOS modules (system-level)
-    ├── security/        # Security configurations
-    ├── services/        # System services
-    └── users/           # User account management
+nix/
+├── hosts/          per-host configuration.nix + hardware-configuration.nix
+├── modules/
+│   ├── hm_modules/   home-manager modules, namespaced hmFoundry
+│   └── nix_modules/  NixOS modules, namespaced systemFoundry
+├── pkgs/           locally defined packages and overlays
+├── profiles/       desktop and kiosk, plus the common/ pieces
+├── nixcats/        neovim config as a nixCats package
+├── checks/         flake checks
+└── secrets/        sops-encrypted secrets
+docs/  keyboard/  tf/  util/  fuji-recipes/
 ```
 
-### Profile System
+Every `.nix` under `nix/modules/` is imported automatically, so a helper file
+that is not a module will break evaluation.
 
-- **`minimal`**: Base system with essential tools
-- **`ssh`**: Minimal + SSH access for servers
-- **`server`**: SSH + server services and monitoring
-- **`workstation`**: Full development environment with desktop
-- **`gaming`**: Workstation + gaming tools and optimizations
-
-### Host Configuration
-
-Each host in `nix/hosts/` defines:
-
-- Hardware-specific configuration
-- Service assignments and networking
-- User profiles and role assignments
-- Environment-specific overrides
-
-## Development Philosophy
-
-### Core Principles
-
-> "Stop. The simple solution is usually correct."
-
-- **Explicit over implicit**: Clear, readable configurations
-- **Modular design**: Small, focused modules with single responsibilities
-- **Security first**: Proper secrets management and hardening
-- **Reproducible environments**: Deterministic builds across all platforms
-
-### Quality Standards
-
-- **Automated testing**: Comprehensive test coverage for infrastructure
-- **Continuous validation**: Pre-commit hooks and CI/CD checks
-- **Documentation**: Every module and configuration is documented
-- **Maintainability**: Regular updates and dependency management
-
-## Repository Structure
-
-- **[bin/](./bin/)**: Management scripts and utilities
-- **[docs/](./docs/)**: Detailed documentation and guides
-- **[keyboard/](./keyboard/)**: QMK configuration for custom keyboards
-- **[nix/](./nix/)**: Core Nix/NixOS configuration system
-  - **[hosts/](./nix/hosts/)**: Per-host configurations
-  - **[modules/](./nix/modules/)**: Reusable system and user modules
-  - **[pkgs/](./nix/pkgs/)**: Custom package definitions
-  - **[profiles/](./nix/profiles/)**: Role-based configuration profiles
-- **[notes/](./notes/)**: Infrastructure documentation and planning
-- **[tf/](./tf/)**: Terraform infrastructure definitions
-- **[util/](./util/)**: Additional utilities and tools
-
-## Available Commands
+## Commands
 
 ```bash
-make help           # Show all available commands
-make build          # Build configuration for current host
-make deploy         # Deploy configuration to current host
-make update         # Update all flake inputs
-make check          # Run validation checks
-make vm             # Build and run VM for testing
-make cleanup        # Clean up old generations and optimize store
+make help              # everything else
+make build             # build the current host
+make deploy            # switch the current host
+make deploy-rs-all-dry # dry-run tiger and cogsworth
+make update            # update flake inputs
+make check             # flake checks
+make cleanup           # collect garbage, optimise the store
 ```
 
-## Advanced Configuration
+## Work config
 
-### Custom Packages
+`work-mac` pulls employer-specific config from a `work-config` flake input,
+which defaults to the empty stub at `nix/work-config-stub/`. Point it at the
+real thing to build with it, and nothing work-specific ever lands in this
+repo:
 
-The repository includes custom packages in `nix/pkgs/`:
-
-- **Fonts**: Berkeley Mono, Pragmata Pro
-- **Scripts**: Custom automation and utility scripts
-- **Development tools**: Enhanced versions of standard tools
-- **Babashka projects**: Structured Clojure scripting solutions
-
-### Service Management
-
-Services are configured declaratively:
-
-```nix
-# Example: Enable media server stack
-systemFoundry = {
-  services = {
-    jellyfin.enable = true;
-    sonarr.enable = true;
-    radarr.enable = true;
-  };
-};
+```bash
+make build-mac WORK_CONFIG=/Users/kondy/work
 ```
 
-### Development Environment
+The Makefile turns that into `--override-input work-config path:$WORK_CONFIG`.
 
-Development tools are organized by language and purpose:
+## Secrets
 
-```nix
-# Example: Enable development environment
-hmFoundry = {
-  dev = {
-    enable = true;
-    python.enable = true;
-    go.enable = true;
-    claude-code = {
-      enable = true;
-      enableNotifications = true;
-    };
-  };
-};
-```
+sops-nix, keyed to age. Encrypted values live in `nix/secrets/secrets.yaml`;
+the berkeley-mono fonts under `nix/pkgs/` are git-crypt encrypted separately,
+which is why a clone without the key cannot evaluate the flake.
 
-## Use Cases
+## Non-goals
 
-### Multi-Node Scenarios
+Reusability, stability, and being a good example. This is optimised for one
+person's workflow, `main` breaks when I am experimenting, and the modules
+assume my specific hosts.
 
-- **Laptop + Server**: Synchronized development environment with remote build capacity
-- **Work + Personal**: Separate profiles with shared base configuration
-- **VM Testing**: Quick environment spinning for testing configurations
+## Reference
 
-### Work Fork Management
-
-This repository is designed to be fork-friendly for work environments. See [docs/work-forks.md](docs/work-forks.md) for detailed instructions on:
-
-- Creating and maintaining work-specific forks
-- Extending configurations without modifying core files
-- Rebasing strategies to incorporate upstream changes
-- Best practices for keeping work and personal configurations separate
-
-### Multi-Architecture Support
-
-- **x86_64-linux**: Primary development and server platform
-- **aarch64-linux**: Raspberry Pi and ARM servers
-- **x86_64-darwin**: Intel Mac support
-- **aarch64-darwin**: Apple Silicon Mac support
-
-## Security
-
-- **Secrets management**: All sensitive data encrypted with SOPS
-- **SSH hardening**: Key-only authentication with proper key management
-- **Firewall configuration**: Minimal attack surface with required ports only
-- **User privilege management**: Principle of least privilege across all systems
-
-## Contributing
-
-This is a personal infrastructure repository, but the patterns and modules may be useful as reference. Key areas of innovation include:
-
-- Modular Nix configuration patterns
-- Multi-platform consistency approaches
-- Development workflow automation
-- Infrastructure as Code practices
-
-## Goals and Non-Goals
-
-### Goals
-
-- **Complete configuration**: Define everything that plugs into a wall
-- **Learning platform**: Experiment with new technologies and approaches
-- **Reproducible environments**: Consistent development experience everywhere
-- **Security by default**: Proper secrets and access management
-
-### Non-Goals
-
-- **Reference architecture**: This prioritizes personal workflow over best practices
-- **General reusability**: Optimized for specific use cases, not broad adoption
-- **Stability guarantees**: Main branch may break as experimentation continues
-
-## Roadmap
-
-Current focus areas include:
-
-- **Enhanced testing**: Automated testing for all configurations
-- **Improved secrets**: Migration to more sophisticated secret management
-- **Service expansion**: Additional homelab and development services
-- **Documentation**: Comprehensive guides for all major components
-
-## External Resources
-
-Inspiration and reference materials:
-
-- [Terje Larsen's (terlar) dotfiles](https://github.com/terlar/nix-config)
-- [Utku Demir's (utdemir) dotfiles](https://github.com/utdemir/dotfiles)
+- [terlar/nix-config](https://github.com/terlar/nix-config)
+- [utdemir/dotfiles](https://github.com/utdemir/dotfiles)
 - [NixOS Manual](https://nixos.org/manual/nixos/stable/)
 - [Home Manager Manual](https://nix-community.github.io/home-manager/)
-
----
-
-_This repository represents years of iteration on development environment management. While primarily personal, the architectural patterns and automation approaches may provide useful reference for others building similar systems._
