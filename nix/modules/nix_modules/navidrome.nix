@@ -1,6 +1,5 @@
 {
   lib,
-  pkgs,
   config,
   ...
 }:
@@ -30,23 +29,6 @@ in
       default = 4533;
       description = "Port for navidrome";
     };
-
-    backup = mkOption {
-      default = { };
-      description = "Move the backups somewhere";
-      type = types.submodule {
-        options.enable = mkOption {
-          type = types.bool;
-          default = false;
-          description = "Enable backup moving";
-        };
-        options.destinationPath = mkOption {
-          type = types.path;
-          default = "/var/backups/navidrome";
-          description = "Specifies the directory backups will be moved to.";
-        };
-      };
-    };
   };
 
   config = mkIf cfg.enable {
@@ -65,14 +47,5 @@ in
           enable = true;
           proxyPass = "http://127.0.0.1:${toString cfg.port}";
         };
-
-    systemd.services.navidrome-backup = mkIf cfg.backup.enable {
-      startAt = "*-*-* *:00:00";
-      path = [ pkgs.coreutils ];
-      script = ''
-        mkdir -p ${cfg.backup.destinationPath}
-        cp -rn /var/lib/navidrome ${cfg.backup.destinationPath}/
-      '';
-    };
   };
 }
