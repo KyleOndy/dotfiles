@@ -71,15 +71,11 @@ in
   # NixOS hmFoundry.desktop.input.trackball module, just the darwin-side
   # mechanism.
   #
-  # pcStyle (Ctrl->Cmd for copy/paste/etc) is disabled: going mac-native for
-  # OS-wide shortcuts instead, which also keeps physical Ctrl free for
-  # winnow's Ctrl+h/j/k/l/0/r bindings (see AA_MacDontSwapCtrlAndMeta in
-  # winnow's app.py) without needing a per-app Karabiner exclusion.
-  hmFoundry.desktop.input.karabiner = {
-    enable = true;
-    kensingtonExpert.enable = true;
-    pcStyle.enable = false;
-  };
+  # The module remaps trackball buttons only. OS-wide keys stay mac-native,
+  # which also keeps physical Ctrl free for winnow's Ctrl+h/j/k/l/0/r bindings
+  # (see AA_MacDontSwapCtrlAndMeta in winnow's app.py) without needing a
+  # per-app Karabiner exclusion.
+  hmFoundry.desktop.input.karabiner.enable = true;
 
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
