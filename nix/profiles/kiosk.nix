@@ -6,7 +6,7 @@
   imports = [
     ./common/base.nix
     # No development.nix - kiosk doesn't need dev tools
-    # No desktop.nix - kiosk manages its own display via flutter-pi
+    # No desktop.nix - kiosk manages its own display via Sway and Chromium
     # No ssh-hosts.nix - kiosk doesn't need SSH host configs
   ];
 

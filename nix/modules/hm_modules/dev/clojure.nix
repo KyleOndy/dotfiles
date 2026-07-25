@@ -229,9 +229,6 @@ in
             plugin = vim-sexp-mappings-for-regular-people;
             config = "";
           }
-
-          # https://github.com/PaterJason/nvim-treesitter-sexp
-          #{ plugin = nvim-treesitter-sexp; } # TODO: fix. build started to fail
         ];
       };
     };
