@@ -85,7 +85,6 @@ def main() -> int:
     Returns:
         Exit code (0 for success, 1 for error)
     """
-    # Parse command-line arguments
     parser = argparse.ArgumentParser(
         prog="winnow",
         description="A focused photo culling application for JPEG images",
@@ -110,7 +109,6 @@ def main() -> int:
 
     args = parser.parse_args()
 
-    # Validate directory path
     directory = Path(args.directory)
 
     if not directory.exists():
@@ -130,10 +128,8 @@ def main() -> int:
             Qt.ApplicationAttribute.AA_MacDontSwapCtrlAndMeta, True
         )
 
-    # Initialize Qt application
     app = QApplication(sys.argv)
 
-    # Create and show main window
     try:
         window = MainWindow(directory, max_memory_mb=args.max_memory)
     except OSError as e:
@@ -141,7 +137,6 @@ def main() -> int:
         return 1
     window.show()
 
-    # Run event loop
     return app.exec()
 
 

@@ -22,7 +22,6 @@ with lib;
         };
       };
       "tiger tiger.dmz.1ella.com" = {
-        # 10.25.89.5
         hostname = "tiger.dmz.1ella.com";
         user = "kyle";
         port = 2332;

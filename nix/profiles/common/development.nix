@@ -53,11 +53,5 @@ with lib;
       };
     };
 
-    # All packages are now handled by the dev modules
-    # Enable features by setting the corresponding dev module:
-    # - hmFoundry.dev.kubernetes.enable = true
-    # - hmFoundry.dev.aws.enable = true
-    # - hmFoundry.dev.terraform.enable = true
-    # - etc.
   };
 }

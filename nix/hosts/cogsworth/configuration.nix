@@ -347,10 +347,6 @@ in
     }
   ];
 
-  # Tier 3 Watchdog: Hardware watchdog timer
-  # Ultimate failsafe - reboots system if kernel hangs
-  # bcm2835_wdt is built into the rpi5 kernel (not a loadable module); /dev/watchdog0 comes up
-  # automatically. systemd.settings.Manager below feeds it.
   boot.kernelModules = [
     "v3d"
     "vc4"
@@ -364,8 +360,9 @@ in
     "snd_soc_simple_card_utils"
   ];
 
-  # Enable systemd hardware watchdog support
-  # Systemd will feed the watchdog; if systemd hangs, RPi reboots
+  # bcm2835_wdt is built into the rpi5 kernel rather than loadable, so
+  # /dev/watchdog0 comes up on its own. Reboots the Pi if systemd stops feeding
+  # it, the last failsafe under the two software watchdogs.
   systemd.settings.Manager = {
     RuntimeWatchdogSec = "30s"; # Reboot if systemd doesn't ping within 30s
     RebootWatchdogSec = "2min"; # Reboot timeout if normal reboot fails
@@ -374,7 +371,7 @@ in
   # ALSA audio chain for the MAX98357A amplifier.
   # speaker_dmix (dmix) -> hw:0,1 allows multiple processes to share the
   # hardware PCM simultaneously (the amp-keepalive silence stream and any
-  # on-demand playback from the Go backend coexist without "device busy" errors).
+  # on-demand playback from the backend coexist without "device busy" errors).
   # softvol wraps the dmix and exposes a "SpeakerVol" mixer control (0-100%).
   environment.etc."asound.conf".text = ''
     pcm.speaker_dmix {
@@ -500,7 +497,7 @@ in
 
   # Caddy reverse proxy: LAN HTTP access to cogsworth on port 80.
   # Using ":80" (not a hostname) disables Caddy's auto-HTTPS so no ACME/cert logic runs.
-  # The Go app stays on :8080 with its tight sandbox; only Caddy is LAN-reachable.
+  # The backend stays on :8080 with its tight sandbox; only Caddy is LAN-reachable.
   services.caddy = {
     enable = true;
     virtualHosts.":80".extraConfig = ''
@@ -736,8 +733,9 @@ in
       http://localhost:8080
   '';
 
-  # Chromium managed policy — disables DevTools entirely (no long-press
-  # inspect, no keyboard shortcuts), suppresses browser-level prompts.
+  # Chromium managed policy: suppresses sign-in, autofill and the other
+  # browser-level prompts. DevTools stay reachable on purpose, since
+  # --remote-debugging-port (make devtools) depends on them.
   environment.etc."chromium/policies/managed/cogsworth.json".text = builtins.toJSON {
     DeveloperToolsAvailability = 0; # 0 = Allowed (needed for --remote-debugging-port to function)
     BrowserSignin = 0; # disable sign-in UI
@@ -973,18 +971,14 @@ in
     };
   };
 
-  # ── Google Photos display directory ─────────────────────────────────────────
-  # Photos are downloaded directly by the cogsworth Go service via the Google
-  # Photos Library API. No local processing pipeline is needed.
+  # Photo screensaver and voice state directories. The backend pulls images from
+  # Immich (cogsworth-immich-env above); nothing processes them locally.
   systemd.tmpfiles.rules = [
     "d /var/lib/cogsworth/photos 0755 cogsworth cogsworth - -"
     "d /var/lib/cogsworth/photos/display 0755 cogsworth cogsworth - -"
     "d /var/lib/cogsworth/voice 0755 cogsworth cogsworth - -"
   ];
 
-  # /var/lib/cogsworth/persistent is now created by the cogsworth module's tmpfiles rule.
-
-  # Enable SSH for remote management
   services.openssh = {
     enable = true;
     settings = {

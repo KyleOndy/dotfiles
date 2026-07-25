@@ -23,9 +23,6 @@ in
   };
 
   config = mkIf cfg.enable {
-    # TODO: see note in ssh.nix
-    #home.sessionVariables = { GNUPGHOME = "${config.home.homeDirectory}/.gnupg"; };
-
     programs.gpg = {
       enable = true;
       settings = {

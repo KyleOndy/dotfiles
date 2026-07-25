@@ -727,8 +727,9 @@ in
         domainName = "immich.tiger.infra.ondy.org";
         # Dedicated dataset (storage/immich) mounted at /mnt/immich, kept out of
         # the storage/photos snapshot policy. Overrides the module default of
-        # After a DB restore, run `immich-admin change-media-location` to rewrite
-        # absolute paths from /mnt/storage/photos to /mnt/immich.
+        # /mnt/storage/photos. After a DB restore, run
+        # `immich-admin change-media-location` to rewrite absolute paths from
+        # /mnt/storage/photos to /mnt/immich.
         mediaLocation = "/mnt/immich";
         # The curated archive, served as a read-only External Library. The
         # matching Import Path still has to be set on a library in the Immich
@@ -762,10 +763,7 @@ in
         alertmanager.enable = true;
         vmalert.enable = true;
 
-        # Enable ZFS exporter for storage monitoring
         zfsExporter.enable = true;
-
-        # Enable node exporter for system metrics
         nodeExporter.enable = true;
 
         jellyfinExporter = {
@@ -991,8 +989,6 @@ in
         # OpenCL filter support (hardware tonemapping and subtitle burn-in)
         intel-compute-runtime
         ocl-icd # OpenCL ICD loader
-        # To make OBS HW recording work
-        # https://discourse.nixos.org/t/trouble-getting-quicksync-to-work-with-jellyfin/42275
       ];
     };
   };

@@ -163,8 +163,8 @@
       # for consistency.
       mode = "0444";
     };
-    # Same secret tiger seeds smbd with; read here by smb-tiger-keychain,
-    # which runs as kyle.
+    # Same secret tiger seeds smbd with; read here by smb-tiger-mount, which
+    # runs as kyle.
     smb_kyle_password = {
       owner = "kyle";
       mode = "0400";

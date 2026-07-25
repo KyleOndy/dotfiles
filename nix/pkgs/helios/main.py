@@ -18,12 +18,7 @@ app.add_typer(fuji_settings.app, name="fuji-settings")
 app.add_typer(fuji_recipes.app, name="fuji-recipes")
 
 
-"""
-Can take paramaters in order of higher precednece.
-- cli flag
-- env var
-- default
-"""
+# Option precedence, highest first: cli flag, env var, default.
 
 
 class LogLevel(str, Enum):

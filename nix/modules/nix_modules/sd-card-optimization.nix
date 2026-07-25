@@ -100,11 +100,7 @@ in
       "vm.swappiness" = 10;
     };
 
-    # Log rotation is unnecessary with tmpfs logs, but configure just in case
-    services.logrotate = {
-      enable = false; # Not needed for tmpfs logs
-    };
-
-    # Periodic warning about tmpfs logs (printed to console on boot)
+    # Logs live on tmpfs, so there is nothing to rotate.
+    services.logrotate.enable = false;
   };
 }

@@ -102,15 +102,14 @@ opt.spellfile = { "~/.config/nvim/spell/en.utf-8.add", "~/.config/nvim/spell/sha
 -- Wombat256 [1]. Gruvbox [2] is 90% of where I want to be, and its available
 -- for everything via the contrib repo [3]. Given that, I've learned to live
 -- with almost perfect due to the amount of work it would take to make my own
--- color scheme. However, since I am running neovim 0.5.x, I am
--- currently using gruvbox.nvim [4], which better supports new
--- features. I hope that gruvbox proper will intergate these features
--- in the future.
+-- color scheme. We run gruvbox.nvim [4], the Lua rewrite, rather than the
+-- original vimscript gruvbox, because it supports treesitter and LSP
+-- highlight groups.
 --
 -- [1] https://github.com/KyleOndy/wombat256mod
 -- [2] https://github.com/morhetz/gruvbox
 -- [3] https://github.com/morhetz/gruvbox-contrib
--- [4] https://github.com/npxbr/gruvbox.nvim
+-- [4] https://github.com/ellisonleao/gruvbox.nvim
 vim.cmd([[colorscheme gruvbox]])
 vim.opt.background = "dark"
 
