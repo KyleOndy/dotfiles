@@ -87,23 +87,10 @@
     };
   };
 
-  # Add screenshots directory to Finder sidebar
-  launchd.agents.finder-sidebar = {
-    serviceConfig = {
-      ProgramArguments = [
-        "/bin/sh"
-        "-c"
-        ''
-          # Create screenshots directory if it doesn't exist
-          mkdir -p ~/screenshots
-
-          # Add to Finder sidebar (idempotent - won't duplicate if already exists)
-          /usr/bin/sfltool add-item com.apple.LSSharedFileList.FavoriteItems file:///Users/kondy/screenshots
-        ''
-      ];
-      RunAtLoad = true;
-    };
-  };
+  # Finder sidebar favourites, see nix/modules/darwin_modules/finder-sidebar.nix
+  systemFoundry.finderSidebar.folders = [
+    "/Users/kondy/screenshots"
+  ];
 
   # DNS resolution for forge dev cluster
   # More-specific entries take priority; catch-all handles *.forge.test

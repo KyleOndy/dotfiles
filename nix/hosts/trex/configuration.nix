@@ -109,20 +109,10 @@
     "164".enabled = false; # Ctrl+Cmd+Space (Emoji & Symbols / Character Viewer)
   };
 
-  # Add screenshots directory to Finder sidebar
-  launchd.agents.finder-sidebar = {
-    serviceConfig = {
-      ProgramArguments = [
-        "/bin/sh"
-        "-c"
-        ''
-          mkdir -p ~/screenshots
-          /usr/bin/sfltool add-item com.apple.LSSharedFileList.FavoriteItems file:///Users/kyle/screenshots
-        ''
-      ];
-      RunAtLoad = true;
-    };
-  };
+  # Finder sidebar favourites, see nix/modules/darwin_modules/finder-sidebar.nix
+  systemFoundry.finderSidebar.folders = [
+    "${config.users.users.kyle.home}/screenshots"
+  ];
 
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   homebrew = {
