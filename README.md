@@ -30,7 +30,7 @@ nix/
 ├── nixcats/        neovim config as a nixCats package
 ├── checks/         flake checks
 └── secrets/        sops-encrypted secrets
-docs/  keyboard/  tf/  util/  fuji-recipes/
+docs/  keyboard/  tf/  fuji-recipes/
 ```
 
 Every `.nix` under `nix/modules/` is imported automatically, so a helper file
