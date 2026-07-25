@@ -516,7 +516,7 @@
             "uid": "victoriametrics"
           },
           "expr": "(1 - node_filesystem_avail_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"} / node_filesystem_size_bytes{host=\"tiger\",mountpoint=\"/mnt/storage\"}) * 100",
-          "legendFormat": "Elk Storage",
+          "legendFormat": "Media Storage",
           "refId": "A"
         }
       ],
@@ -622,7 +622,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Media Services - Elk",
+  "title": "Media Services",
   "uid": "media-services",
   "version": 0,
   "weekStart": ""
