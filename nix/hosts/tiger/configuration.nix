@@ -236,12 +236,15 @@ in
   };
 
   # media managment
+  #
+  # The *arr services also put themselves in this group from arr.nix via
+  # users.users.<name>.extraGroups; listing them here too is belt and braces.
   users.groups."${mediaGroup}".members = [
     config.systemFoundry.sabnzbd.user
-    config.systemFoundry.bazarr.user
-    config.systemFoundry.radarr.user
-    config.systemFoundry.sonarr.user
-    config.systemFoundry.lidarr.user
+    "bazarr"
+    "radarr"
+    "sonarr"
+    "lidarr"
     "jellyfin"
     "svc.deploy"
     "kyle"
