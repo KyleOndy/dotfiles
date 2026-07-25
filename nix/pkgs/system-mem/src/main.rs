@@ -21,13 +21,13 @@ use darwin::sample;
 #[cfg(target_os = "linux")]
 use linux::sample;
 
-/// What the bar needs: how much more can be allocated, and whether the machine
-/// has already started paying for overcommit.
+/// What the bar needs: how much more can be allocated, and how much has been
+/// pushed out to swap along the way.
 pub struct Memory {
     /// Bytes a new allocation can take without paging.
     pub available: u64,
     /// Bytes currently paged out. Compressed swap on darwin, zram or a real
-    /// swap device on linux.
+    /// swap device on linux. Displayed, never coloured; see `color_for`.
     pub swap_used: u64,
 }
 
@@ -57,7 +57,7 @@ const HOT_UNDER: u64 = 1 * GIB;
 
 // The darwin compressor and zram on the Pi both page a little during normal
 // operation, so a bare "swap is nonzero" test would pin the suffix on forever.
-// Only surface swap once it is past incidental.
+// Only surface swap once it is past incidental. This gates the suffix alone.
 const SWAP_FLOOR: u64 = 256 * MIB;
 
 fn main() {
@@ -71,10 +71,14 @@ fn colors_enabled() -> bool {
     std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Headroom decides the colour and swap does not, because swap used is close to
+/// a high water mark. It falls only when the kernel frees swapfiles, so one idle
+/// VM that paged out days ago holds it up on a machine with 15G to spare, and a
+/// segment stuck warm for days teaches you to stop reading the colour.
 fn color_for(mem: &Memory) -> &'static str {
     if mem.available < HOT_UNDER {
         HOT
-    } else if mem.available < WARM_UNDER || mem.swap_used >= SWAP_FLOOR {
+    } else if mem.available < WARM_UNDER {
         WARM
     } else {
         NORMAL
@@ -163,11 +167,13 @@ mod tests {
         assert_eq!(color_for(&mem(GIB - 1, 0)), HOT);
     }
 
+    /// Deep swap on a machine with room to spare is history, not a problem: the
+    /// pages went out once and nothing has wanted them back.
     #[test]
-    fn swap_past_the_floor_warms_an_otherwise_healthy_machine() {
-        assert_eq!(color_for(&mem(24 * GIB, SWAP_FLOOR)), WARM);
-        assert_eq!(color_for(&mem(24 * GIB, SWAP_FLOOR - 1)), NORMAL);
-        // Headroom still wins when both would fire.
+    fn swap_alone_never_colors_a_machine_that_has_headroom() {
+        assert_eq!(color_for(&mem(24 * GIB, 8 * GIB)), NORMAL);
+        assert_eq!(color_for(&mem(24 * GIB, SWAP_FLOOR)), NORMAL);
+        // Headroom still decides once it is actually gone.
         assert_eq!(color_for(&mem(0, 8 * GIB)), HOT);
     }
 
