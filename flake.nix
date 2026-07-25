@@ -33,13 +33,22 @@
       url = "github:natsukium/mcp-servers-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    nur.url = "github:nix-community/NUR";
-    sops-nix.url = "github:Mic92/sops-nix";
+    nur = {
+      url = "github:nix-community/NUR";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     deploy-rs.url = "github:serokell/deploy-rs";
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
     };
-    mac-app-util.url = "github:hraban/mac-app-util";
+    mac-app-util = {
+      url = "github:hraban/mac-app-util";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     claude-skills-jeffallan = {
       url = "github:jeffallan/claude-skills";
       flake = false;
