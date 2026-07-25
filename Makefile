@@ -226,19 +226,6 @@ test-trex-home: ## Test trex home-manager configuration
 deploy-trex: ## Deploy trex darwin configuration
 	darwin-rebuild $(IMPURE) --flake .#trex switch
 
-# WSL-specific targets
-.PHONY: build-wsl
-build-wsl: ## Build work-wsl home-manager configuration (set WORK_CONFIG=/path/to/work for work config)
-	nix build --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage
-
-.PHONY: build-wsl-dry
-build-wsl-dry: ## Dry-run build of work-wsl home-manager configuration
-	nix build --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage --dry-run
-
-.PHONY: deploy-wsl
-deploy-wsl: ## Deploy work-wsl home-manager configuration (set WORK_CONFIG=/path/to/work for work config)
-	nix run --impure $(WORK_INPUT_FLAG) .#homeConfigurations."kyle@work-wsl".activationPackage
-
 .PHONY: flash-ergodox
 flash-ergodox:
 	nix run .#flash-ergodox

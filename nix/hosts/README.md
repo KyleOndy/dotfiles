@@ -41,17 +41,3 @@ Features:
 - Optimized for Apple Silicon (aarch64-darwin)
 
 See [docs/work-forks.md](../../docs/work-forks.md) for details on using this in a work fork.
-
-## work-wsl
-
-Reference WSL (Windows Subsystem for Linux) configuration for work environments. This is a **template configuration** designed to be used in work forks of this repository.
-
-Features:
-
-- Home-manager only configuration (no NixOS system)
-- WSL-specific utilities and Windows interop
-- Workstation profile with development tools
-- Conditional import pattern for work-specific overrides
-- Optimized for x86_64-linux
-
-See [docs/work-forks.md](../../docs/work-forks.md) for details on using this in a work fork.

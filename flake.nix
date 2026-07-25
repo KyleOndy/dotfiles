@@ -758,26 +758,6 @@
         };
       };
 
-      homeConfigurations."kyle@work-wsl" = inputs.home-manager.lib.homeManagerConfiguration {
-        pkgs = inputs.nixpkgs.legacyPackages.x86_64-linux;
-        extraSpecialArgs = {
-          dotfiles-root = self.outPath;
-          dotfiles-worktree = dotfilesWorktree;
-          inherit inputs;
-        };
-        modules =
-          hmCoreModules
-          ++ [ nixCatsHomeModule ]
-          ++ [ inputs.work-config.homeManagerModule ]
-          ++ [
-            ./nix/hosts/work-wsl/home.nix
-            {
-              nixpkgs.overlays = overlays;
-              nixpkgs.config.allowUnfree = true;
-            }
-          ];
-      };
-
       # deploy-rs
       deploy = {
         fastConnection = true;
