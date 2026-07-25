@@ -187,14 +187,14 @@ in
         #   of reclaimable cache on purpose, so "percent used" idles high on a
         #   healthy machine. Same collapse-on-failure contract as system-temp.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-mem}/bin/system-mem)"
-        # system load.
-        #   This has been tested on debian, OSX, and darwin, and seems to work
-        #   across all systems
-        #   - the uptime command on darwin has an extra field with a ':'
-        #     character, so reverse the string under the assumption that the
-        #     load is the last part of the output.
-        #   - the xargs is to strip a leading whitespace
-        set-option -ga status-right "#[fg=colour246,bg=colour239] [ #(uptime | rev | cut -d':' -f1 | rev | xargs | sed -e 's/,//g') ]"
+        # one minute load average.
+        #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on
+        #   every refresh, to paper over uptime's output differing on darwin.
+        #   getloadavg(3) is on both, so that is one process and no parsing.
+        #   Shows the 1 minute figure only; the 5 and 15 minute values cost ten
+        #   columns on a bar that is nearly full. Colours by load per core, so
+        #   the same number reads correctly on trex and on a two core VM.
+        set-option -ga status-right "#[fg=colour246,bg=colour239] #(${pkgs.system-load}/bin/system-load)"
         # local time
         set-option -ga status-right "#[fg=colour246,bg=colour239] %a %Y-%m-%d  %H:%M%Z/#(TZ="UTC" date +'%%H:%%M%%Z') (#(date +'%z'))"
         set-option -ga status-right " #[fg=colour248, bg=colour239, nobold, noitalics, nounderscore]"
