@@ -16,8 +16,8 @@
   homebrew = {
     # Default casks (can be overridden with lib.mkForce in work.nix)
     casks = lib.mkDefault [
+      "alt-tab"
       "cursor"
-      "hammerspoon"
       "karabiner-elements"
       "linear"
       "pocket-casts"

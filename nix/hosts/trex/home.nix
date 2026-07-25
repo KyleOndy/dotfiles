@@ -81,9 +81,6 @@ in
     pcStyle.enable = false;
   };
 
-  # App quick-switching
-  hmFoundry.desktop.input.hammerspoon.enable = true;
-
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
   # executables) since `uv tool update-shell` can't write the home-manager

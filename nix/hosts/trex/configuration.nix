@@ -127,9 +127,9 @@
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   homebrew = {
     casks = lib.mkDefault [
+      "alt-tab" # app switcher; macOS only draws its own on a held Cmd+Tab
       "karabiner-elements" # applies the Kensington trackball remapping, see home.nix
       "shottr" # screenshot tool the trackball buttons trigger
-      "hammerspoon" # already enabled in home.nix; installs the app that runs it
     ];
     taps = [ ];
     brews = [ ];

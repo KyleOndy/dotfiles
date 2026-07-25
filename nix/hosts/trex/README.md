@@ -91,10 +91,13 @@ but Karabiner-Elements itself needs one-time OS approval after install:
 Once approved, the trackball's top-right button sends Cmd+Shift+3 (Shottr fullscreen
 capture) and the top-left button sends Cmd+Shift+4 (Shottr region capture).
 
-### Hammerspoon
+### AltTab
 
-Enabled in `home.nix` for app quick-switching. After install, launch it once and
-grant **Accessibility** permission in System Settings -> Privacy & Security.
+Installed as a cask for app switching. macOS only draws its own switcher when
+Cmd+Tab is held, so a quick tap silently swaps to the previous app. After
+install, launch it once and grant **Accessibility** and **Screen Recording**
+permission in System Settings -> Privacy & Security, then rebind its trigger from
+the default Option+Tab to Cmd+Tab in its preferences.
 
 ## Deployment
 

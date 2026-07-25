@@ -35,20 +35,6 @@
     pcStyle.enable = true;
   };
 
-  # Enable Hammerspoon for app quick-switching
-  hmFoundry.desktop.input.hammerspoon = {
-    enable = true;
-    extraConfig = ''
-      -- Forward delete moves to trash in Finder
-      hs.hotkey.bind({}, "forwarddelete", function()
-        local app = hs.application.frontmostApplication()
-        if app:bundleID() == "com.apple.finder" then
-          hs.eventtap.keyStroke({"cmd"}, "delete")
-        end
-      end)
-    '';
-  };
-
   # Enable work context for shell completions (Linear tickets, etc.)
   home.sessionVariables = {
     DOTS_CONTEXT = "work";
