@@ -145,12 +145,6 @@ in
           options = {
             enable = mkEnableOption "Create a Caddy reverse proxy site";
 
-            location = mkOption {
-              type = types.str;
-              default = "/";
-              description = "Unused (nginx interface compat)";
-            };
-
             extraDomainNames = mkOption {
               type = types.listOf types.str;
               default = [ ];
@@ -160,7 +154,7 @@ in
             provisionCert = mkOption {
               type = types.bool;
               default = false;
-              description = "Caddy always provisions certs; kept for nginx interface compat";
+              description = "Unused; Caddy always provisions certs";
             };
 
             proxyPass = mkOption {
@@ -186,18 +180,6 @@ in
               type = types.nullOr types.str;
               default = null;
               description = "301 redirect all requests to this domain";
-            };
-
-            enableSSLVerify = mkOption {
-              type = types.bool;
-              default = false;
-              description = "Unused (nginx interface compat)";
-            };
-
-            route53HostedZoneId = mkOption {
-              type = types.nullOr types.str;
-              default = null;
-              description = "Unused (nginx interface compat; Caddy auto-detects Route53 zones)";
             };
 
             publicAliases = mkOption {

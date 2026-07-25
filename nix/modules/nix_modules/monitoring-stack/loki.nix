@@ -145,25 +145,6 @@ in
       };
     };
 
-    # nginx reverse proxy (bearer token auth on push endpoint)
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
-      mkIf (config.systemFoundry.nginxReverseProxy.enable)
-        {
-          enable = true;
-          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
-          provisionCert = cfg.provisionCert;
-          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-          extraConfig = mkIf (parentCfg.tokenHashes != { }) ''
-            # Require valid bearer token for push endpoints
-            if ($request_uri ~ "^/loki/api/v1/push") {
-              set $auth_check_logs "$valid_logs_token";
-            }
-            if ($auth_check_logs = "") {
-              return 401 "Unauthorized: Invalid or missing bearer token\n";
-            }
-          '';
-        };
-
     # Caddy reverse proxy (basic auth on push endpoint)
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable

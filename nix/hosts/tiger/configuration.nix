@@ -575,12 +575,6 @@ in
       backup_path = "/mnt/backups/apps";
     in
     {
-      nginxReverseProxy.acme = {
-        email = "kyle@ondy.org";
-        dnsProvider = "namecheap";
-        credentialsSecret = "namecheap";
-      };
-
       caddyReverseProxy = {
         enable = true;
         infraDomain = "tiger.infra.ondy.org";
@@ -780,9 +774,6 @@ in
 
         # Enable node exporter for system metrics
         nodeExporter.enable = true;
-
-        # nginxlogExporter disabled: nginx is not running on tiger (was enabled by jellyfin)
-        nginxlogExporter.enable = false;
 
         jellyfinExporter = {
           enable = true;

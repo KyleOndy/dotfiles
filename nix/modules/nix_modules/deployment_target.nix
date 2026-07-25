@@ -238,19 +238,6 @@ in
       # 443 # http
     ];
     networking.firewall.enable = false; # TODO: why is this not true?
-    #services.nginx = {
-    #  enable = true;
-    #  # todo: return a more bare page
-    #  virtualHosts."default".default = true;
-    #  # todo: can I pass in the full domain name here?
-    #  # todo: add basic auth
-    #};
-    # todo: add in old stuff
-    #systemFoundry.nginxReverseProxy = {
-    #  enable = true;
-    #  domainName = "${config.networking.hostName}.*";
-    #  proxyPass = "http://127.0.0.1:9002/metrics";
-    #};
 
     #######################################################################
     # TODO: refactor out below configuration into more generic modules

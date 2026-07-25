@@ -19,12 +19,6 @@ in
       example = "https://metrics.apps.ondy.org/api/v1/write";
     };
 
-    bearerTokenFile = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description = "Path to file containing bearer token for authentication (nginx hosts)";
-    };
-
     basicAuth = mkOption {
       type = types.nullOr (
         types.submodule {
@@ -73,14 +67,10 @@ in
         };
         scrape_configs = cfg.scrapeConfigs;
       };
-      extraArgs =
-        optionals (cfg.bearerTokenFile != null) [
-          "-remoteWrite.bearerTokenFile=${cfg.bearerTokenFile}"
-        ]
-        ++ optionals (cfg.basicAuth != null) [
-          "-remoteWrite.basicAuth.username=${cfg.basicAuth.username}"
-          "-remoteWrite.basicAuth.passwordFile=${toString cfg.basicAuth.passwordFile}"
-        ];
+      extraArgs = optionals (cfg.basicAuth != null) [
+        "-remoteWrite.basicAuth.username=${cfg.basicAuth.username}"
+        "-remoteWrite.basicAuth.passwordFile=${toString cfg.basicAuth.passwordFile}"
+      ];
     };
 
     # Provide SSL CA certificate bundle for HTTPS remote write with DynamicUser

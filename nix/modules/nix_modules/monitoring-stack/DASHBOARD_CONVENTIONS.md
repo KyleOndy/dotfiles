@@ -63,8 +63,7 @@ This document outlines the conventions and best practices for creating and maint
 
 ### Other Important Labels
 
-- `job` - Type of metrics (node, nginx, zfs, etc.)
-- `vhost` - Virtual host for nginx metrics (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
+- `job` - Type of metrics (node, caddy, zfs, etc.)
 - `pool` - ZFS pool name (storage, scratch, etc.)
 - `service` - Systemd service name
 
@@ -75,7 +74,7 @@ This document outlines the conventions and best practices for creating and maint
 Dashboards should be organized into logical folders:
 
 - **System Monitoring** - Host-level metrics (node-exporter, systemd services)
-- **Network & Web** - NGINX metrics, traffic analysis
+- **Network & Web** - Caddy metrics, traffic analysis
 - **Storage** - ZFS pools, disk usage
 - **Applications** - Application-specific dashboards (media services, youtube-downloader)
 - **Alerting** - Alert status and history
@@ -91,7 +90,7 @@ Dashboard titles should follow this pattern:
 Examples:
 
 - `System - Node Exporter Full`
-- `Network - NGINX Log Metrics`
+- `Network - Caddy Overview`
 - `Storage - ZFS - Wolf`
 - `App - YouTube Downloader - Operational`
 
@@ -128,7 +127,7 @@ Dashboard UIDs should be:
 Examples:
 
 - `system-overview`
-- `nginx-vhost-details`
+- `caddy-overview`
 - `zfs-storage`
 - `youtube-downloader-operational`
 
@@ -137,7 +136,7 @@ Examples:
 Use consistent tags for easier filtering:
 
 - `system`, `network`, `storage`, `application`
-- Component-specific: `nginx`, `zfs`, `node`, `systemd`
+- Component-specific: `caddy`, `zfs`, `node`, `systemd`
 - Host-specific: `tiger`, `trex` (only if dashboard is host-specific)
 
 ## Panel Configuration
@@ -356,8 +355,7 @@ However, the current provisioning setup uses a flat structure (`foldersFromFiles
    │   ├── node-exporter.json
    │   └── systemd-services.json
    ├── network/
-   │   ├── nginx-exporter.json
-   │   └── nginx-log-metrics.json
+   │   └── caddy-overview.json
    └── storage/
        └── zfs-storage.json
    ```
@@ -454,7 +452,7 @@ When importing dashboards from grafana.com or updating exporters, metric names m
 
 - **ZFS exporter**: `zfs_zpool_*` (old) → `zfs_pool_*` (new), label `poolname` → `pool`
 - **Node exporter**: Metric names generally stable, but check label changes
-- **NGINX exporter**: Different exporters use different naming schemes
+- **Caddy**: Metrics come from Caddy's own `/metrics` endpoint, not an exporter
 
 **How to fix:**
 
@@ -565,7 +563,6 @@ count by (host, state) (node_systemd_unit_state{name=~".*.service"} == 1)
 
 See existing dashboards for examples:
 
-- `nginx-vhost-details.json` - Good use of template variables and host label
-- `zfs-storage.json` - Proper metric naming and gauge panels
-- `youtube-downloader-operational.json` - Well-organized multi-panel layout
-- `system-overview.json` - Clean, focused dashboard design
+- `network/caddy-overview.json` - Good use of template variables and host label
+- `applications/media-services.json` - Well-organized multi-panel layout
+- `system/system-overview.json` - Clean, focused dashboard design

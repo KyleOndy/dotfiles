@@ -587,27 +587,6 @@ in
 
     users.groups.vmalert = { };
 
-    # Expose vmalert UI via nginx reverse proxy with basic auth
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
-      mkIf (config.systemFoundry.nginxReverseProxy.enable)
-        {
-          enable = true;
-          proxyPass = "http://127.0.0.1:${toString cfg.port}";
-          provisionCert = cfg.provisionCert;
-          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-          extraConfig = ''
-            auth_basic "vmalert Admin";
-            auth_basic_user_file ${config.sops.secrets.vmalert_htpasswd.path};
-          '';
-        };
-
-    # htpasswd secret for nginx basic auth (nginx hosts only)
-    sops.secrets.vmalert_htpasswd = mkIf (config.systemFoundry.nginxReverseProxy.enable) {
-      owner = "nginx";
-      group = "nginx";
-      mode = "0440";
-    };
-
     # Caddy reverse proxy (basic auth on all paths — protects the UI)
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable

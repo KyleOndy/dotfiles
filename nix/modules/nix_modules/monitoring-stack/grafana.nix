@@ -284,15 +284,6 @@ in
       };
     };
 
-    systemFoundry.nginxReverseProxy.sites."${cfg.domain}" =
-      mkIf (config.systemFoundry.nginxReverseProxy.enable)
-        {
-          enable = true;
-          proxyPass = "http://127.0.0.1:${toString cfg.port}";
-          provisionCert = cfg.provisionCert;
-          route53HostedZoneId = "Z0365859SHHFAPNR0QXN"; # ondy.org zone
-        };
-
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable
         {

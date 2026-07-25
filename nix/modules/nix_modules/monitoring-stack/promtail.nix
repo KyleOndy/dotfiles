@@ -19,12 +19,6 @@ in
       example = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
     };
 
-    bearerTokenFile = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description = "Path to file containing bearer token for authentication (nginx hosts)";
-    };
-
     basicAuth = mkOption {
       type = types.nullOr (
         types.submodule {
@@ -82,10 +76,8 @@ in
       "d /var/lib/promtail 0755 promtail promtail -"
     ];
 
-    # Grant promtail access to nginx and jellyfin logs
-    users.users.promtail.extraGroups =
-      (optional config.services.nginx.enable "nginx")
-      ++ (optional config.services.jellyfin.enable "media");
+    # Grant promtail access to jellyfin logs
+    users.users.promtail.extraGroups = optional config.services.jellyfin.enable "media";
 
     services.promtail = {
       enable = true;
@@ -103,9 +95,6 @@ in
           (
             {
               url = cfg.lokiUrl;
-            }
-            // optionalAttrs (cfg.bearerTokenFile != null) {
-              bearer_token_file = toString cfg.bearerTokenFile;
             }
             // optionalAttrs (cfg.basicAuth != null) {
               basic_auth = {
@@ -142,21 +131,6 @@ in
             ];
           }
         ]
-        # Only scrape nginx access log if nginx is running
-        ++ optional config.services.nginx.enable {
-          job_name = "nginx";
-          static_configs = [
-            {
-              targets = [ "localhost" ];
-              labels = {
-                job = "nginx";
-                unit = "nginx.service";
-                __path__ = "/var/log/nginx/access.log";
-              }
-              // cfg.extraLabels;
-            }
-          ];
-        }
         ++ cfg.extraScrapeConfigs;
       };
     };

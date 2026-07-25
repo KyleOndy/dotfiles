@@ -1,13 +1,5 @@
-{
-  lib,
-  pkgs,
-  config,
-  ...
-}:
+{ lib, ... }:
 with lib;
-let
-  cfg = config.systemFoundry.monitoringStack;
-in
 {
   imports = [
     ./victoriametrics.nix
@@ -19,8 +11,6 @@ in
     ./promtail.nix
     ./node_exporter.nix
     ./zfs_exporter.nix
-    ./nginx_exporter.nix
-    ./nginxlog_exporter.nix
     ./exportarr.nix
     ./jellyfin-exporter.nix
     ./jellyfin-playcount.nix
@@ -50,19 +40,6 @@ in
       };
     };
 
-    tokenHashes = mkOption {
-      type = types.attrsOf types.str;
-      default = { };
-      description = ''
-        SHA-256 hashes of bearer tokens for authenticating vmagent/promtail clients.
-        Used only with the nginx reverse proxy (bearer token auth).
-        Not used when caddyReverseProxy is enabled (use monitoringBasicAuth instead).
-      '';
-      example = {
-        tiger = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-      };
-    };
-
     monitoringBasicAuth = mkOption {
       type = types.nullOr types.path;
       default = null;
@@ -72,30 +49,5 @@ in
         Set to config.sops.secrets.<name>.path in the host config.
       '';
     };
-  };
-
-  config = mkIf cfg.enable {
-    # Add bearer token authentication map directives for nginx reverse proxy.
-    # Only injected when nginx is being used (not Caddy).
-    systemFoundry.nginxReverseProxy.appendHttpConfig =
-      mkIf
-        (
-          (config.systemFoundry.nginxReverseProxy.enable)
-          && (cfg.victoriametrics.enable || cfg.loki.enable)
-          && cfg.tokenHashes != { }
-        )
-        ''
-          # Extract bearer token from Authorization header
-          map $http_authorization $bearer_token {
-            ~^Bearer\s+(\S+)$ $1;
-            default "";
-          }
-
-          # Include runtime-generated token hash maps
-          # These files are created by the monitoring-token-hash-generator systemd service
-          # and contain the actual SHA-256 hashes of the bearer tokens
-          include /run/monitoring-token-hashes/metrics-map.conf;
-          include /run/monitoring-token-hashes/logs-map.conf;
-        '';
   };
 }

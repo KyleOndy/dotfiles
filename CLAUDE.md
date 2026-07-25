@@ -56,8 +56,6 @@ Claude Code tools (Read, Edit, Grep, etc.) must use the correct worktree root. U
 - **vmagent**: Metrics collection and forwarding
 - **promtail**: Log collection and forwarding
 - **node_exporter**: System metrics
-- **nginx_exporter**: NGINX stub_status metrics
-- **nginxlog_exporter**: NGINX access log analytics
 - **zfs_exporter**: ZFS filesystem metrics
 
 ## Important Conventions
@@ -327,54 +325,45 @@ vmagent = {
 
 Common issue: Exporter can't read log files or access resources.
 
-**Example**: nginxlog-exporter reading `/var/log/nginx/access.log`
+**Example**: promtail reading the jellyfin log directory
 
 1. **Check service user groups**:
 
    ```bash
-   ssh tiger id nginxlog-exporter
+   ssh tiger id promtail
    ```
 
 2. **Verify file permissions**:
 
    ```bash
-   ssh tiger ls -la /var/log/nginx/
+   ssh tiger ls -la /var/log/jellyfin/
    ```
 
 3. **Add user to appropriate group**:
 
    ```nix
-   users.users.nginxlog-exporter = {
-     isSystemUser = true;
-     group = "nginxlog-exporter";
-     extraGroups = [ "nginx" ];  # Grant read access
-   };
+   users.users.promtail.extraGroups = [ "media" ];
    ```
 
 ## Authentication & Security
 
-### Bearer Token Auth for Metrics/Logs Ingestion
+### Basic Auth for Metrics/Logs Ingestion
 
-Remote vmagent/promtail instances authenticate using SHA-256 hashed bearer tokens.
+Caddy protects the VictoriaMetrics write endpoints, the Loki push endpoint,
+and the whole vmalert UI with HTTP basic auth.
 
 **How it works**:
 
-1. Secrets stored in sops (per host)
-2. Systemd service generates SHA-256 hashes at boot
-3. Nginx maps validate hashes for authentication
-4. Clients send SHA-256(token) as bearer token
+1. tiger sets `monitoringStack.monitoringBasicAuth` to a sops secret holding
+   `username bcrypt-hash` lines (`nix/hosts/tiger/configuration.nix`,
+   sops key `monitoring_basicauth`)
+2. Caddy checks it on `basicAuthPaths` per site
+   (`nix/modules/nix_modules/caddyReverseProxy.nix`)
+3. Remote vmagent and promtail send the matching credentials via their
+   `basicAuth` option (`nix/hosts/cogsworth/configuration.nix`)
 
-**Files**:
-
-- Token generation: Host config systemd service `monitoring-token-hash-generator`
-- Nginx validation: `nix/modules/nix_modules/monitoring-stack/default.nix`
-- Client config: Host config vmagent `bearerTokenFile`
-
-### vmalert UI Access
-
-Protected by HTTP basic auth at <https://vmalert.apps.ondy.org>
-
-Credentials in sops secret: `vmalert_htpasswd`
+Caddy also terminates TLS and provisions its own certs, so `security.acme`
+is not involved.
 
 ## Useful Commands
 
@@ -441,178 +430,6 @@ monitoringStack = {
   };
 };
 ```
-
-## NGINX Log Analytics Deep Dive
-
-### Available Prometheus Metrics
-
-The nginxlog-exporter provides these **aggregated** metrics (low cardinality):
-
-**Labels available for filtering:**
-
-- `host` - Server hostname (e.g. tiger)
-- `vhost` - Virtual host/website (<www.kyleondy.com>, grafana.apps.ondy.org, etc.)
-- `scheme` - Protocol (http, https)
-- `method` - HTTP method (GET, POST, PUT, DELETE)
-- `status` - HTTP status code (200, 404, 500, etc.)
-- `service` - Always "nginx"
-
-**Metrics exposed:**
-
-```promql
-# Request counts
-nginx_http_response_count_total{vhost="www.kyleondy.com", status="200"}
-
-# Response sizes in bytes
-nginx_http_response_size_bytes{vhost="www.kyleondy.com"}
-
-# Total request time (nginx processing + upstream)
-nginx_http_response_time_seconds{vhost="www.kyleondy.com"}
-
-# Backend/upstream response time
-nginx_upstream_response_time_seconds{vhost="www.kyleondy.com"}
-```
-
-**Example queries:**
-
-```promql
-# Requests per second by virtual host
-rate(nginx_http_response_count_total[5m])
-
-# 95th percentile response time by site
-histogram_quantile(0.95, rate(nginx_http_response_time_seconds_hist_bucket[5m]))
-
-# Error rate by site
-rate(nginx_http_response_count_total{status=~"5.."}[5m])
-  / rate(nginx_http_response_count_total[5m])
-
-# HTTPS vs HTTP traffic ratio
-sum(rate(nginx_http_response_count_total{scheme="https"}[5m]))
-  / sum(rate(nginx_http_response_count_total[5m]))
-
-# Backend latency (upstream time)
-rate(nginx_upstream_response_time_seconds_sum[5m])
-  / rate(nginx_upstream_response_time_seconds_count[5m])
-```
-
-### Querying IPs and Detailed Data with Loki
-
-#### Why not in Prometheus?
-
-IP addresses create **extreme cardinality** (one time series per IP). With 10,000 visitors, that's 10,000x more data, which destroys performance.
-
-#### Solution: Use Loki for IP-level analysis
-
-Loki stores the complete raw access logs. You can query IPs, full URLs, referrers, and more:
-
-**Access Loki in Grafana:**
-
-1. Go to Explore
-2. Select "Loki" datasource
-3. Run LogQL queries
-
-**Example LogQL queries:**
-
-```logql
-# All nginx access logs
-{job="systemd-journal", unit="nginx.service"}
-
-# Parse log fields
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-
-# Filter by specific IP
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | ip = "203.0.113.42"
-
-# Count unique IPs
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | __error__ = ""
-  | count by (ip)
-
-# Popular pages on www.kyleondy.com
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | vhost = "www.kyleondy.com"
-  | status = "200"
-  | count by (path)
-
-# Requests from specific referrer
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | referer =~ "reddit.com"
-
-# User agents (browsers/bots)
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | ua =~ "(?i)bot|crawl|spider"
-  | count by (ua)
-
-# Traffic by hour for specific site
-sum by (bin) (
-  count_over_time(
-    {job="systemd-journal", unit="nginx.service"}
-      | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-      | vhost = "www.kyleondy.com"
-    [1h]
-  )
-)
-
-# Slow requests (>1 second)
-{job="systemd-journal", unit="nginx.service"}
-  | pattern `<ip> - <user> [<time>] "<method> <path> <protocol>" <status> <size> "<referer>" "<ua>" <duration> <vhost> <scheme> <upstream>`
-  | duration > 1.0
-```
-
-### What You CANNOT Track (Without Additional Tools)
-
-These require client-side JavaScript tracking (like Google Analytics, Matomo, Plausible):
-
-- ❌ Geographic location (city/country) - requires GeoIP database
-- ❌ Session duration and bounce rate - requires session tracking
-- ❌ Screen resolution and device type - requires browser detection
-- ❌ JavaScript errors - requires client-side instrumentation
-- ❌ Page engagement metrics (scroll depth, time on page) - requires JS events
-
-### Options for Enhanced Analytics
-
-#### Option 1: GoAccess (Server-side, simple)
-
-```bash
-# Install GoAccess
-# Add to system packages, run as cron job
-
-ssh tiger 'goaccess /var/log/nginx/access.log \
-  --log-format=COMBINED \
-  --output=/var/www/stats/index.html \
-  --real-time-html'
-```
-
-Provides: Top pages, referrers, browsers, OS, geographic data (with GeoIP)
-
-#### Option 2: Matomo/Plausible (Client-side tracking)
-
-Privacy-focused analytics with JavaScript tracking.
-Requires: Database, web server, JavaScript snippet on pages
-
-#### Option 3: Extended Loki Analysis
-
-Keep using Loki + custom dashboards for server-side analysis.
-Add GeoIP database to map IPs to locations.
-
-### Current Limitations
-
-**What nginx logs CANNOT tell you:**
-
-1. **Actual visitor count** - Can't distinguish unique users vs. bots vs. repeated visits
-2. **Geographic location** - IPs are logged but not mapped to locations
-3. **Device/browser details** - User-agent is logged but requires parsing
-4. **Session analytics** - No concept of sessions/visitors without cookies
-5. **Page engagement** - Only knows request was made, not how user interacted
-
-**For true visitor analytics, you need client-side tracking (JavaScript).**
 
 ## Cogsworth Kiosk Watchdog Architecture
 
@@ -1267,7 +1084,6 @@ The `clj-paren-repair-claude-hook` fires automatically on every Edit/Write via C
 - [LogQL Documentation](https://grafana.com/docs/loki/latest/query/)
 - [Grafana Dashboard Best Practices](https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/best-practices/)
 - [Prometheus Exporters](https://prometheus.io/docs/instrumenting/exporters/)
-- [prometheus-nginxlog-exporter](https://github.com/martin-helmich/prometheus-nginxlog-exporter)
 - [systemd.service - Restart behavior](https://www.freedesktop.org/software/systemd/man/systemd.service.html#Restart=)
 - [systemd Watchdog](https://www.freedesktop.org/software/systemd/man/systemd.service.html#WatchdogSec=)
 - [Raspberry Pi Hardware Watchdog](https://www.raspberrypi.com/documentation/computers/config_txt.html#watchdog)

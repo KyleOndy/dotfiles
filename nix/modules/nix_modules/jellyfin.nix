@@ -223,86 +223,12 @@ in
   };
 
   config = mkIf cfg.enable {
-    services = {
-      # jellyfin service
-      jellyfin = {
-        enable = true;
-        package = pkgs.jellyfin;
-        user = cfg.user;
-        group = cfg.group;
-      };
-
-      # nginx reverse proxy with WebSocket support (nginx hosts)
-      nginx = mkIf config.systemFoundry.nginxReverseProxy.enable {
-        enable = true;
-
-        commonHttpConfig = mkAfter ''
-          # Rate limit zone for Jellyfin authentication (10 requests/minute per IP)
-          limit_req_zone $binary_remote_addr zone=jellyfin_auth:10m rate=10r/m;
-        '';
-
-        virtualHosts."${cfg.domainName}" = {
-          enableACME = cfg.provisionCert;
-          forceSSL = cfg.provisionCert;
-
-          locations."/" = {
-            proxyPass = "http://127.0.0.1:8096";
-            proxyWebsockets = true;
-            extraConfig = ''
-              # required when the target is also TLS server with multiple hosts
-              proxy_ssl_server_name on;
-              # required when the server wants to use HTTP Authentication
-              proxy_pass_header Authorization;
-
-              # Increase timeouts for large media files and slow transcodes
-              # Blu-ray ISOs over NFS can take 60+ seconds to probe
-              proxy_read_timeout 300s;
-              proxy_send_timeout 300s;
-              proxy_buffering off;
-            '';
-          };
-
-          locations."/Users/AuthenticateByName" = {
-            proxyPass = "http://127.0.0.1:8096";
-            extraConfig = ''
-              limit_req zone=jellyfin_auth burst=3 nodelay;
-              limit_req_status 429;
-            '';
-          };
-
-          extraConfig = ''
-            # Use prometheus log format for metrics collection
-            access_log /var/log/nginx/access.log prometheus;
-            error_log /var/log/nginx/${cfg.domainName}.error error;
-          '';
-        };
-      };
+    services.jellyfin = {
+      enable = true;
+      package = pkgs.jellyfin;
+      user = cfg.user;
+      group = cfg.group;
     };
-
-    # nginx: ACME certificate configuration
-    security.acme = mkIf (cfg.provisionCert && (config.systemFoundry.nginxReverseProxy.enable)) {
-      acceptTerms = true;
-      defaults.email = config.systemFoundry.nginxReverseProxy.acme.email;
-      certs."${cfg.domainName}" = {
-        dnsProvider = config.systemFoundry.nginxReverseProxy.acme.dnsProvider;
-        environmentFile =
-          config.sops.secrets.${config.systemFoundry.nginxReverseProxy.acme.credentialsSecret}.path;
-        webroot = null;
-      };
-    };
-
-    # nginx: allow nginx to read ACME certificates
-    users.users = mkIf (cfg.provisionCert && config.systemFoundry.nginxReverseProxy.enable) {
-      nginx.extraGroups = [ "acme" ];
-    };
-
-    # nginx: open firewall for HTTPS
-    networking.firewall.allowedTCPPorts =
-      mkIf (cfg.provisionCert && (config.systemFoundry.nginxReverseProxy.enable))
-        [
-          80
-          443
-        ];
 
     # Caddy: reverse proxy with automatic WebSocket support, 300s timeouts, and unbuffered streaming
     systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
