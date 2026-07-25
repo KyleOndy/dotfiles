@@ -114,13 +114,21 @@
     "${config.users.users.kyle.home}/screenshots"
   ];
 
-  # tiger's SMB shares mount at login; the agents that do it live in home.nix,
-  # not here. nix-darwin's launchd.agents bootstraps into the system domain and
-  # runs as root, which puts the keychain item in /Library/Keychains/System.
-  # NetAuthAgent only reads the console user's keychains, so the mount fell
-  # through to a password prompt. home-manager's launchd.agents land in
-  # ~/Library/LaunchAgents and run in gui/501 as kyle, which is what NetFS
-  # needs. The sops secret they read is declared below.
+  # tiger's SMB shares mount at login; the agent that does it lives in home.nix
+  # so it runs as kyle rather than root (see the comment there). All that is
+  # left here is the mount points and the secret it reads.
+  #
+  # /Volumes is root-owned, so kyle cannot create these. Handing them to kyle
+  # up front is what lets an unprivileged mount_smbfs land on them. They sit
+  # empty when nothing is mounted, which Finder ignores.
+  system.activationScripts.postActivation.text = lib.mkAfter ''
+    for mountpoint in /Volumes/tiger-data /Volumes/tiger-photos; do
+      if [ ! -d "$mountpoint" ]; then
+        mkdir -p "$mountpoint"
+      fi
+      chown kyle:staff "$mountpoint"
+    done
+  '';
 
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   homebrew = {

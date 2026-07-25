@@ -108,18 +108,26 @@ Two shares mount at login and show up under Locations in the Finder sidebar:
   `backup-photos-to-dr.sh` rsyncs into it with `--delete`, so anything written
   there by hand disappears on the next sync.
 
-No manual setup. Two launch agents do the work, both defined in `home.nix`
-rather than `configuration.nix`. nix-darwin's `launchd.agents` runs agents as
-root in the system domain, which puts the keychain item somewhere NetAuthAgent
-does not read; home-manager's runs them as kyle in `gui/501`, which is what
-NetFS wants.
+No manual setup. The `smb-tiger-mount` launch agent (`home.nix`) mounts whatever
+is not mounted, at login and every five minutes after, which also covers
+reconnects after sleep or a network drop. It logs to
+`~/Library/Logs/smb-tiger.log`.
 
-- **smb-tiger-keychain** - copies the sops secret `smb_kyle_password` into the
-  login keychain at each login, so NetFS can authenticate on its own.
-- **smb-tiger-mount** - mounts whatever is not mounted, at login and every five
-  minutes after, which also covers reconnects after sleep or a network drop.
+Two things about it are less obvious than they look:
 
-Both log to `~/Library/Logs/smb-tiger.log`.
+- **It lives in `home.nix`, not `configuration.nix`.** nix-darwin's
+  `launchd.agents` bootstraps into the system domain and runs as root, which
+  mounts the shares for the wrong user. home-manager's runs as kyle in
+  `gui/501`.
+- **It calls `mount_smbfs` with the sops password, not NetFS.** An item written
+  by `security add-internet-password` is not in the keychain's `apple:`
+  partition, so NetAuthAgent will not read it unattended and every mount
+  becomes a login-time password dialog. Repairing that needs the macOS login
+  password passed to `security set-internet-password-partition-list -k`, which
+  is worse than what it fixes.
+
+The mount points are created by an activation script in `configuration.nix`,
+since /Volumes is root-owned and the agent is not.
 
 tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
 10.24.89.0/24 and tiger on 10.25.89.0/24, and mDNS does not cross subnets.
