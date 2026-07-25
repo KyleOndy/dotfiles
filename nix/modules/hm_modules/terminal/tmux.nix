@@ -182,6 +182,11 @@ in
         #   nothing and exits 1 where no sensor is readable (WSL, VMs), which
         #   collapses the segment rather than showing an error.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-temp}/bin/system-temp)"
+        # memory headroom, plus swap in use once it is past incidental.
+        #   Headroom rather than a used percentage: both kernels keep RAM full
+        #   of reclaimable cache on purpose, so "percent used" idles high on a
+        #   healthy machine. Same collapse-on-failure contract as system-temp.
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.system-mem}/bin/system-mem)"
         # system load.
         #   This has been tested on debian, OSX, and darwin, and seems to work
         #   across all systems

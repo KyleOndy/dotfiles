@@ -37,4 +37,5 @@ self: super: {
   mlx-stop = super.callPackage ./mlx-stop { };
   mlx-status = super.callPackage ./mlx-status { };
   system-temp = super.callPackage ./system-temp { };
+  system-mem = super.callPackage ./system-mem { };
 }
