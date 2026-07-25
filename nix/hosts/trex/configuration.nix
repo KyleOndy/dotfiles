@@ -129,20 +129,6 @@
       "karabiner-elements" # applies the Kensington trackball remapping, see home.nix
       "shottr" # screenshot tool the trackball buttons trigger
     ];
-    # WireGuard client for the VPN server on the UniFi gateway. Ships only
-    # through the Mac App Store, so it is a masApp rather than a cask
-    # (https://www.wireguard.com/install/). nix-darwin puts pkgs.mas on PATH
-    # for `brew bundle` itself, but `mas install` only redownloads apps this
-    # Apple Account has already gotten -- get it once from App Store.app
-    # first, see README.md.
-    #
-    # The tunnels themselves are not declarative: the App Store build is
-    # sandboxed, so its config and private key live in the app's own
-    # container, not in sops. README.md has the peer setup and the AllowedIPs
-    # for the split and full profiles.
-    masApps = {
-      WireGuard = 1451685025;
-    };
     taps = [ ];
     brews = [ ];
   };
