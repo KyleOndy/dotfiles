@@ -68,16 +68,6 @@ in
               };
               receiver = "null";
             }
-            {
-              match = {
-                alertname = "SystemdServiceFailed";
-              };
-              match_re = {
-                name = "ytdl-sub-.*";
-              };
-              repeat_interval = "24h";
-              receiver = "default";
-            }
           ];
         };
 

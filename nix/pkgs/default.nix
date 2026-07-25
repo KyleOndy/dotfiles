@@ -14,7 +14,6 @@ self: super: {
   photos-recall = super.callPackage ./photos-recall { };
   pragmata-pro = super.callPackage ./pragmata-pro { };
   winnow = super.callPackage ./winnow { };
-  bgutil-ytdlp-pot-server = super.callPackage ./bgutil-ytdlp-pot-server { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };

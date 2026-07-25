@@ -202,9 +202,8 @@ in
     # Restrict Jellyfin to localhost only; all external traffic must go through Caddy.
     systemd.services.jellyfin.environment.ASPNETCORE_URLS = "http://127.0.0.1:8096";
 
-    # Relax UMask so trickplay directories are group-writable.
-    # Matches other *arr services (lidarr, sonarr, etc.). Without this,
-    # ytdl-sub (same media group) gets PermissionError scanning output dirs.
+    # Relax UMask so trickplay directories are group-writable, matching the
+    # other *arr services (lidarr, sonarr, etc.) that share the media group.
     systemd.services.jellyfin.serviceConfig.UMask = mkForce "0002";
 
     systemd.services = {
