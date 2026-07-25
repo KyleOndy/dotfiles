@@ -267,11 +267,16 @@ in
     "d /mnt/scratch-big/downloads/complete/music 0775 root ${mediaGroup} -"
     "d /mnt/scratch-big/downloads/complete/books 0775 root ${mediaGroup} -"
 
-    # Grant immich read-only access to the photo archive via a POSIX ACL,
-    # so the filesystem enforces "on disk is truth": immich can read to
-    # index the external library but cannot write .xmp sidecars or delete
-    # originals (see nix/modules/nix_modules/immich.nix -- there is no `:ro`
-    # bind-mount flag for the native NixOS module, this is the equivalent).
+    # Guarantee immich can READ the photo archive. This ACL grants read, it
+    # does not deny write, so it is not what makes the archive read-only:
+    # systemFoundry.immich.externalLibraryPaths does that, by remounting the
+    # path read-only in the service sandbox. The archive is currently
+    # kyle:kyle 0755, so `other` already grants immich the same read this ACL
+    # does. The ACL earns its place by surviving a tightening: if the archive
+    # ever stops being world-readable (a chmod, or an rsync running under a
+    # restrictive umask), immich keeps read access instead of silently
+    # failing to index.
+    #
     # "A+" sets a default ACL on the directory, so files rsynced in later
     # (via photos-promote / photos-fanout's mirror) automatically pick up
     # group-immich read. This does NOT retroactively cover files that
@@ -737,6 +742,10 @@ in
         # After a DB restore, run `immich-admin change-media-location` to rewrite
         # absolute paths from /mnt/storage/photos to /mnt/immich.
         mediaLocation = "/mnt/immich";
+        # The curated archive, served as a read-only External Library. The
+        # matching Import Path still has to be set on a library in the Immich
+        # admin UI; this only constrains Immich's access to the path.
+        externalLibraryPaths = [ "/mnt/photos/personal/photos/archive" ];
         # provisionCert not needed — covered by the *.tiger.infra.ondy.org wildcard cert
       };
 

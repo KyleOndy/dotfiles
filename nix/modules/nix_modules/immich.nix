@@ -34,6 +34,27 @@ in
       default = 2283;
       description = "Port for the Immich server";
     };
+
+    externalLibraryPaths = mkOption {
+      type = types.listOf types.path;
+      default = [ ];
+      example = [ "/mnt/photos/personal/photos/archive" ];
+      description = ''
+        Directories holding an Immich External Library. Each is remounted
+        read-only inside the Immich services, so Immich can index the photos
+        but cannot write .xmp sidecars or delete originals.
+
+        Immich has no application-level read-only mode: the `library` table
+        carries no such flag, and upstream documents the Docker `:ro` mount
+        as the only way to "disallow the images from being deleted in the web
+        UI, or adding metadata to the library". This option is that `:ro`,
+        expressed for the native NixOS module.
+
+        These paths must also be listed as Import Paths on a library in the
+        Immich admin UI. Setting one here only constrains Immich's access to
+        it, it does not create the library.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -51,13 +72,11 @@ in
       machine-learning.enable = true;
 
       # settings = null means all configuration is done through the web UI.
-      # This is also where an External Library and its import path get
-      # configured (there's no NixOS option for it); on tiger that's a
-      # read-only view of the photo archive (nix/hosts/tiger/configuration.nix
-      # grants immich a read-only POSIX ACL there -- there's no native
-      # NixOS-module equivalent of Docker's `:ro` mount flag). Run Immich
-      # >= v2.4.0 before pointing an external library at it: earlier
-      # versions have a permanent-delete bug for offline assets
+      # That includes creating an External Library and setting its import
+      # paths, which have no NixOS option. List those same paths in
+      # externalLibraryPaths above to hold Immich to read-only access.
+      # Run Immich >= v2.4.0 before pointing an external library at it:
+      # earlier versions have a permanent-delete bug for offline assets
       # (immich-app/immich#24354). Check the version in the web UI footer
       # and bump the nixpkgs/immich pin if needed.
       settings = null;
@@ -91,6 +110,29 @@ in
     systemd.tmpfiles.rules = [
       "d '${cfg.mediaLocation}' 0700 immich immich -"
     ];
+
+    # Enforce read-only access to external libraries in the service sandbox.
+    # systemd remounts these paths read-only inside each unit's mount
+    # namespace, so the kernel refuses writes no matter what Immich attempts
+    # or what the POSIX permissions would otherwise permit. This is the
+    # declarative equivalent of Docker's `:ro`, and unlike a file ACL it does
+    # not depend on the immich user staying outside the owning group.
+    #
+    # RequiresMountsFor is the safety interlock, not a convenience. Immich
+    # trashes assets whose files have gone missing, so if the dataset backing
+    # a library fails to mount, a scan would sweep the entire library into the
+    # trash. Refusing to start is the safe failure.
+    systemd.services.immich-server = mkIf (cfg.externalLibraryPaths != [ ]) {
+      serviceConfig.ReadOnlyPaths = cfg.externalLibraryPaths;
+      unitConfig.RequiresMountsFor = cfg.externalLibraryPaths;
+    };
+
+    systemd.services.immich-machine-learning =
+      mkIf (cfg.externalLibraryPaths != [ ] && config.services.immich.machine-learning.enable)
+        {
+          serviceConfig.ReadOnlyPaths = cfg.externalLibraryPaths;
+          unitConfig.RequiresMountsFor = cfg.externalLibraryPaths;
+        };
 
     # Grant the immich user access to the iGPU device
     users.users.immich.extraGroups = [
