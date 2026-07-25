@@ -663,11 +663,8 @@ in
 
         # Intel Arc A380 (QSV via VPL). renderD128 + OpenCL tone mapping verified
         # with vainfo/clinfo. AllowAv1Encoding leans on the Arc's AV1 encoder.
-        hardwareAcceleration = {
-          enable = true;
-          type = "qsv";
-          device = "/dev/dri/renderD128";
-        };
+        # The card's settings live in the module's encoding.xml.
+        hardwareAcceleration = true;
       };
 
       sonarr = {

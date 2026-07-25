@@ -26,6 +26,39 @@ with lib;
       example = "apps.ondy.org";
     };
 
+    # One mail account, used by both alertmanager (alert emails) and grafana
+    # (its own notifications). It lives here rather than in either module so
+    # neither has to reach into the other's option tree. The password is a
+    # sops secret, read as monitoring_smtp_password at both use sites.
+    #
+    # MXRoute uses server-specific hostnames; keep this in step with
+    # nix/modules/hm_modules/terminal/email.nix.
+    smtp = {
+      server = mkOption {
+        type = types.str;
+        default = "london.mxroute.com:587";
+        description = "SMTP server address";
+      };
+
+      from = mkOption {
+        type = types.str;
+        default = "monitoring@ondy.org";
+        description = "Email address to send alerts from";
+      };
+
+      to = mkOption {
+        type = types.listOf types.str;
+        default = [ "kyle@ondy.org" ];
+        description = "Email addresses to send alerts to";
+      };
+
+      username = mkOption {
+        type = types.str;
+        default = "monitoring@ondy.org";
+        description = "SMTP username for authentication";
+      };
+    };
+
     retention = {
       metrics = mkOption {
         type = types.int;

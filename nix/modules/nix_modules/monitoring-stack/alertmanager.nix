@@ -25,37 +25,6 @@ in
       description = "Address to listen on";
     };
 
-    smtp = {
-      server = mkOption {
-        type = types.str;
-        default = "london.mxroute.com:587";
-        description = "SMTP server address (e.g., smtp.gmail.com:587)";
-      };
-
-      from = mkOption {
-        type = types.str;
-        default = "monitoring@ondy.org";
-        description = "Email address to send alerts from";
-      };
-
-      to = mkOption {
-        type = types.listOf types.str;
-        default = [ "kyle@ondy.org" ];
-        description = "Email addresses to send alerts to";
-      };
-
-      username = mkOption {
-        type = types.str;
-        default = "monitoring@ondy.org";
-        description = "SMTP username for authentication";
-      };
-
-      passwordFile = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-        description = "Path to file containing SMTP password";
-      };
-    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -110,21 +79,21 @@ in
             {
               name = "default";
             }
-            // optionalAttrs (cfg.smtp.server != "") {
+            // optionalAttrs (parentCfg.smtp.server != "") {
               email_configs = map (recipient: {
                 to = recipient;
                 send_resolved = true;
-              }) cfg.smtp.to;
+              }) parentCfg.smtp.to;
             }
           )
           { name = "null"; }
         ];
       }
-      // optionalAttrs (cfg.smtp.server != "") {
+      // optionalAttrs (parentCfg.smtp.server != "") {
         global = {
-          smtp_smarthost = cfg.smtp.server;
-          smtp_from = cfg.smtp.from;
-          smtp_auth_username = cfg.smtp.username;
+          smtp_smarthost = parentCfg.smtp.server;
+          smtp_from = parentCfg.smtp.from;
+          smtp_auth_username = parentCfg.smtp.username;
           smtp_auth_password_file = config.sops.secrets.monitoring_smtp_password.path;
         };
       };

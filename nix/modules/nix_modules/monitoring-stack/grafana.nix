@@ -38,10 +38,10 @@ in
         };
         smtp = {
           enabled = true;
-          host = config.systemFoundry.monitoringStack.alertmanager.smtp.server;
-          user = config.systemFoundry.monitoringStack.alertmanager.smtp.username;
+          host = parentCfg.smtp.server;
+          user = parentCfg.smtp.username;
           password = "$__file{${config.sops.secrets.monitoring_smtp_password.path}}";
-          from_address = config.systemFoundry.monitoringStack.alertmanager.smtp.from;
+          from_address = parentCfg.smtp.from;
           from_name = "Grafana Monitoring";
         };
       };
