@@ -1,10 +1,10 @@
 # Cogsworth Host
 
-NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (Go backend, dev loop, DevTools tunnel) live in the upstream repo at `/Users/kyle/src/cogsworth/v3/CLAUDE.md`.
+NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, dev loop, DevTools tunnel) live in the upstream repo at `/Users/kyle/src/cogsworth/v3/CLAUDE.md`.
 
 ## Services
 
-- `cogsworth.service` — Go backend on `:8080`, `Restart = "always"` after 2s
+- `cogsworth.service` — JVM backend (`cogsworth.jar` on openjdk 21) on `:8080`, `Restart = "always"` after 2s
 - `cogsworth-kiosk.service` — Sway + Chromium kiosk display, `Restart = "on-failure"` after 5s
 - `cogsworth-watchdog.service` / `.timer` — health checks (runs every 30s, first run 2min after boot)
 - `cogsworth-db-restore` / `cogsworth-db-snapshot` — move the SQLite DB between tmpfs and the SD card
