@@ -11,13 +11,16 @@
   },
   "cleanupPeriodDays": 30,
   "tui": "fullscreen",
+  "voice": {
+    "enabled": true
+  },
   "statusLine": {
     "type": "command",
     "command": "~/.claude/statusline.sh",
     "padding": 0
   },
   "permissions": {
-    "defaultMode": "plan",
+    "defaultMode": "auto",
     "allow": [
       "Bash(git status:*)",
       "Bash(git diff:*)",
