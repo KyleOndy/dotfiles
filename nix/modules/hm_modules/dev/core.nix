@@ -48,7 +48,6 @@ in
 
       # File utilities
       file
-      man-pages
       groff
 
       # Compression
@@ -59,7 +58,6 @@ in
       bc
       entr
       fswatch
-      lorri
       lesspipe
       ranger
       visidata
