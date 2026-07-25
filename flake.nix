@@ -160,29 +160,6 @@
         })
       ];
 
-      # Profile registry for consistent profile management
-      # Each profile specifies:
-      # - homeModule: path to home-manager configuration
-      # - needsDesktop: whether desktop modules and environment are required
-      #
-      # Available profiles:
-      # - server: Headless systems accessed via SSH (full dev tools, no GUI)
-      # - desktop: Systems with physical access and GUI (full dev tools + desktop apps)
-      profiles = {
-        server = {
-          homeModule = ./nix/profiles/server.nix;
-          needsDesktop = false;
-        };
-        desktop = {
-          homeModule = ./nix/profiles/desktop.nix;
-          needsDesktop = true;
-        };
-        kiosk = {
-          homeModule = ./nix/profiles/kiosk.nix;
-          needsDesktop = false;
-        };
-      };
-
       # nixCats configuration for Neovim
       inherit (inputs.nixCats) utils;
       # Create the custom home-manager module for nixCats
@@ -217,7 +194,6 @@
       supportedSystems = [
         "x86_64-linux"
         "aarch64-linux"
-        "x86_64-darwin"
         "aarch64-darwin"
       ];
       forAllSystems = inputs.nixpkgs.lib.genAttrs supportedSystems;
@@ -246,88 +222,73 @@
           ];
         }).deploy-rs.lib;
 
-      # Helper function to create nixosSystem configurations
-      # Profile is now required and must be specified from the profiles registry
-      mkNixosSystem =
+      # tiger and cogsworth share every part of this except the nixosSystem
+      # builder, the extra modules the Pi needs, and whether they run a
+      # desktop. cogsworth used to carry its own copy of the block and drifted:
+      # it silently lost dotfiles-worktree from extraSpecialArgs.
+      mkLinuxSystem =
         {
           hostname,
-          system ? "x86_64-linux",
-          hardwareModules ? [ ],
-          includeModules ? [ ],
-          profile, # Required - no default
-          extraConfig ? { },
+          builder,
+          extraModules ? [ ],
+          desktop ? false,
+          homeModule,
+          homeConfig ? { },
         }:
-        let
-          profileConfig = profiles.${profile};
-          isDesktop = profileConfig.needsDesktop;
-        in
-        inputs.nixpkgs.lib.nixosSystem {
-          inherit system;
+        builder {
           specialArgs = {
             inherit inputs;
           };
           modules =
             nixModules
-            ++ hardwareModules
-            ++ includeModules
             ++ [
               ./nix/hosts/${hostname}/configuration.nix
               inputs.sops-nix.nixosModules.sops
               inputs.home-manager.nixosModules.home-manager
             ]
+            ++ extraModules
             ++ [
-              (
-                {
-                  systemFoundry = {
-                    deployment_target.enable = true;
-                    users.kyle.enable = true;
-                  }
-                  // (if isDesktop then { desktop.kde.enable = true; } else { });
-
-                  # Add git revision to generation labels
-                  system.configurationRevision = self.rev or self.dirtyRev or "unknown";
-                  system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
-
-                  nixpkgs.overlays = overlays;
-                  home-manager = {
-                    useGlobalPkgs = true;
-                    useUserPackages = true;
-                    extraSpecialArgs = {
-                      dotfiles-root = self.outPath;
-                      dotfiles-worktree = dotfilesWorktree;
-                      inherit inputs;
-                    };
-                    sharedModules =
-                      hmCoreModules ++ [ nixCatsHomeModule ] ++ (if isDesktop then hmDesktopModules else [ ]);
-                    users.kyle =
-                      let
-                        baseProfile = {
-                          imports = [ profileConfig.homeModule ];
-                        };
-                        extraUserConfig = extraConfig.home-manager.users.kyle or { };
-                      in
-                      baseProfile // extraUserConfig;
-                  };
+              {
+                systemFoundry = {
+                  deployment_target.enable = true;
+                  users.kyle.enable = true;
                 }
-                // (builtins.removeAttrs extraConfig [ "home-manager" ])
-              )
+                // inputs.nixpkgs.lib.optionalAttrs desktop { desktop.kde.enable = true; };
+
+                # Add git revision to generation labels
+                system.configurationRevision = self.rev or self.dirtyRev or "unknown";
+                system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
+
+                nixpkgs.overlays = overlays;
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  extraSpecialArgs = {
+                    dotfiles-root = self.outPath;
+                    dotfiles-worktree = dotfilesWorktree;
+                    inherit inputs;
+                  };
+                  sharedModules =
+                    hmCoreModules ++ [ nixCatsHomeModule ] ++ inputs.nixpkgs.lib.optionals desktop hmDesktopModules;
+                  users.kyle = {
+                    imports = [ homeModule ];
+                  }
+                  // homeConfig;
+                };
+              }
             ];
         };
 
       # Helper function to create darwinSystem configurations
-      # Profile is now required and must be specified from the profiles registry
       mkDarwinSystem =
         {
           hostname,
           system ? "aarch64-darwin",
           includeModules ? [ ],
-          profile, # Required - no default
           username ? "kyle.ondy",
           extraConfig ? { },
         }:
         let
-          profileConfig = profiles.${profile};
-          isDesktop = profileConfig.needsDesktop;
           hostHomeConfig = ./nix/hosts/${hostname}/home.nix;
         in
         inputs.nix-darwin.lib.darwinSystem {
@@ -363,12 +324,12 @@
                       ++ [ nixCatsHomeModule ]
                       ++ [ inputs.mac-app-util.homeManagerModules.default ]
                       ++ [ inputs.work-config.homeManagerModule ]
-                      ++ (if isDesktop then hmDesktopModules else [ ]);
+                      ++ hmDesktopModules;
                     users.${username} =
                       let
                         baseProfile = {
                           imports = [
-                            profileConfig.homeModule
+                            ./nix/profiles/desktop.nix
                           ]
                           ++ (if builtins.pathExists hostHomeConfig then [ hostHomeConfig ] else [ ]);
                         };
@@ -668,55 +629,25 @@
       );
 
       nixosConfigurations = {
-        tiger = mkNixosSystem {
+        tiger = mkLinuxSystem {
           hostname = "tiger";
-          profile = "desktop";
+          builder = args: inputs.nixpkgs.lib.nixosSystem (args // { system = "x86_64-linux"; });
+          desktop = true;
+          homeModule = ./nix/profiles/desktop.nix;
         };
 
-        cogsworth =
-          let
-            profileConfig = profiles.kiosk;
-          in
-          inputs.nixos-raspberrypi.lib.nixosSystem {
-            specialArgs = { inherit inputs; };
-            modules =
-              nixModules
-              ++ [
-                inputs.nixos-raspberrypi.nixosModules."raspberry-pi-5".base
-                inputs.nixos-raspberrypi.nixosModules.sd-image
-                ./nix/hosts/cogsworth/configuration.nix
-                inputs.sops-nix.nixosModules.sops
-                inputs.home-manager.nixosModules.home-manager
-                inputs.cogsworth.nixosModules.default
-              ]
-              ++ [
-                {
-                  systemFoundry = {
-                    deployment_target.enable = true;
-                    users.kyle.enable = true;
-                  };
+        cogsworth = mkLinuxSystem {
+          hostname = "cogsworth";
+          builder = inputs.nixos-raspberrypi.lib.nixosSystem;
+          extraModules = [
+            inputs.nixos-raspberrypi.nixosModules."raspberry-pi-5".base
+            inputs.nixos-raspberrypi.nixosModules.sd-image
+            inputs.cogsworth.nixosModules.default
+          ];
+          homeModule = ./nix/profiles/kiosk.nix;
+          homeConfig.hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
+        };
 
-                  system.configurationRevision = self.rev or self.dirtyRev or "unknown";
-                  system.nixos.label = self.shortRev or self.dirtyShortRev or "unknown";
-
-                  nixpkgs.overlays = overlays;
-                  home-manager = {
-                    useGlobalPkgs = true;
-                    useUserPackages = true;
-                    extraSpecialArgs = {
-                      dotfiles-root = self.outPath;
-                      dotfiles-worktree = dotfilesWorktree;
-                      inherit inputs;
-                    };
-                    sharedModules = hmCoreModules ++ [ nixCatsHomeModule ];
-                    users.kyle = {
-                      imports = [ profileConfig.homeModule ];
-                      hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
-                    };
-                  };
-                }
-              ];
-          };
         iso = inputs.nixpkgs.lib.nixosSystem {
           system = "x86_64-linux";
           modules = [
@@ -727,12 +658,10 @@
       };
       darwinConfigurations.work-mac = mkDarwinSystem {
         hostname = "work-mac";
-        profile = "desktop";
         username = "kondy";
       };
       darwinConfigurations.trex = mkDarwinSystem {
         hostname = "trex";
-        profile = "desktop";
         username = "kyle";
         includeModules = [
           ./nix/hosts/trex/root-ssh-config.nix
