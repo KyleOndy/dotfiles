@@ -29,7 +29,7 @@
 #     are the tradeoff; for warm caches add the real dir to the wrapper's
 #     default{Read,Write}Paths).
 #
-# Web mode (no domain restriction) bypasses srt — srt forbids wildcard domains.
+# Web mode (no domain restriction) bypasses srt, since srt forbids wildcard domains.
 # Linux: bwrap directly (FS isolation, no --unshare-net).
 # macOS: sandbox-exec FS profile (network unrestricted).
 #
@@ -40,7 +40,7 @@
 # mkOutOfStoreSymlink into ~/.pi/agent/, not copied into the nix store. Pi's
 # /reload hot-swaps extensions/skills/keybindings at runtime, and any file
 # pi writes round-trips back into git. sourceDir defaults to the worktree
-# you ran `make` from — see DOTFILES_WORKTREE in Makefile and the
+# you ran `make` from. See DOTFILES_WORKTREE in Makefile and the
 # dotfilesWorktree binding in flake.nix. Each worktree symlinks to its own
 # tree, so branch-based edits surface immediately without colliding.
 {
@@ -140,7 +140,7 @@ in
           rails s, etc.), and integration tests that stand up an in-process
           server.
 
-          Does not open external network egress — srt's domain filter still
+          Does not open external network egress, srt's domain filter still
           applies, only loopback addresses are unblocked. Runtime
           --allow-loopback extends this per-invocation.
         '';
@@ -163,7 +163,7 @@ in
                   Whether this bundle requires `com.apple.trustd.agent`
                   access (srt's `enableWeakerNetworkIsolation` toggle).
                   Set true for languages whose HTTPS client uses macOS
-                  Security framework for cert verification — Go is the
+                  Security framework for cert verification, Go is the
                   known case. Cargo, npm, pip honor their own CA env
                   vars and do NOT need this.
                 '';
@@ -218,18 +218,18 @@ in
           description = ''
             Name stamped on any git commit pi makes. Forwarded to the
             wrapper, which exports GIT_AUTHOR_NAME / GIT_COMMITTER_NAME in
-            pi's process tree only — repo and global git config are never
+            pi's process tree only, repo and global git config are never
             touched. Default is intentionally non-human so agent commits
             stand out in `git log`; override per-host if you want a
             different label. Signing is unconditionally disabled on agent
-            commits (see wrapper.sh) — that's not a knob.
+            commits (see wrapper.sh), that's not a knob.
           '';
         };
         email = lib.mkOption {
           type = lib.types.str;
           default = "ai-daemon@noreply.ondy.org";
           description = ''
-            Email paired with `gitIdentity.name`. Same scoping rules —
+            Email paired with `gitIdentity.name`. Same scoping rules,
             exported into pi's process tree, never written to config.
           '';
         };
@@ -269,14 +269,14 @@ in
       description = ''
         Contents of ~/.pi/agent/models.json, rendered verbatim via
         builtins.toJSON. Empty by default (pi ships built-in providers;
-        this option only exists to register additional ones — custom
+        this option only exists to register additional ones, custom
         OpenAI-compatible endpoints such as a local mlx-openai-server,
         Ollama, vLLM, or a proxy).
 
         See pi's custom-provider docs:
         https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md
 
-        This option owns the whole file — home-manager overwrites
+        This option owns the whole file, home-manager overwrites
         ~/.pi/agent/models.json on every activation, so a manually edited
         file (e.g. providers added by hand before this option existed) will
         be clobbered. Fold any such providers into this option's value

@@ -2,14 +2,14 @@
 
 The flake pulls some inputs over `git+ssh://` (e.g. `cogsworth`). On
 hosts where the default SSH identity isn't the personal GitHub
-account — typical for work machines where the agent holds the work
-key — Nix will auth with the wrong identity and GitHub returns
+account, typical for work machines where the agent holds the work
+key, Nix will auth with the wrong identity and GitHub returns
 `Repository not found` for private repos.
 
 The `Makefile` lifts this repo's `core.sshCommand` into
 `GIT_SSH_COMMAND` and preserves it through `sudo`, so the same key
 used for `git fetch` in this worktree is used by Nix's fetcher. That
-takes care of routing — but ssh still tries agent keys before the
+takes care of routing, but ssh still tries agent keys before the
 explicit `-i` key, so a wrong-identity agent key can still win.
 
 Add `IdentitiesOnly=yes` to the repo's `core.sshCommand` so ssh only
@@ -54,6 +54,6 @@ GIT_SSH_COMMAND="ssh -i $HOME/.ssh/personal -v" \
   nix flake metadata --refresh "git+ssh://git@github.com/<owner>/<repo>"
 ```
 
-Look for `Offering public key:` and `Server accepts key:` — if the
+Look for `Offering public key:` and `Server accepts key:`. If the
 fingerprint isn't your personal key, ssh is reaching past `-i` to the
 agent. Fix with `IdentitiesOnly=yes` as above.

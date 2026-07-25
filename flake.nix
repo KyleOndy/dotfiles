@@ -82,7 +82,7 @@
       # Working-tree path captured from the DOTFILES_WORKTREE env var (set
       # by the Makefile via `git rev-parse --show-toplevel`). Used by
       # home-manager modules that want mkOutOfStoreSymlink to point at the
-      # *worktree* being deployed from — not the store snapshot, not a
+      # *worktree* being deployed from, not the store snapshot, not a
       # hardcoded path. Empty/null when the flake is evaluated in pure
       # mode or outside `make`; the consuming module throws with a clear
       # message in that case.
@@ -378,7 +378,7 @@
               fail=0
               # git show's output is read into a real file, never piped
               # straight into a command that might exit early (grep -q,
-              # head -c) — an early-exiting reader closes its end of a pipe,
+              # head -c). An early-exiting reader closes its end of a pipe,
               # which kills the writer with SIGPIPE and aborts the whole
               # script under pipefail. Files also avoid bash variables
               # truncating at embedded NUL bytes, which git-crypt's magic

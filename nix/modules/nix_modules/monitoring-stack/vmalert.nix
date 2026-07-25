@@ -272,7 +272,7 @@ in
                 summary: "Disk will fill within 24 hours on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Based on the last 6 hours, filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} will fill up within 24 hours"
 
-        # Drive health monitoring — SMART and mdraid
+        # Drive health monitoring: SMART and mdraid
         - name: drive_health
           interval: 60s
           rules:
@@ -447,7 +447,7 @@ in
 
     users.groups.vmalert = { };
 
-    # Caddy reverse proxy (basic auth on all paths — protects the UI)
+    # Caddy reverse proxy (basic auth on all paths, protects the UI)
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable
         {

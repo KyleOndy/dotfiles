@@ -141,7 +141,7 @@ in
       "svc.backup" = {
         isSystemUser = true;
         group = "svc.backup";
-        # No login needed (isSystemUser, inert placeholder — no
+        # No login needed (isSystemUser, inert placeholder, no
         # services.syncoid wired up yet). Password removed entirely rather
         # than sops-ified; account stays locked out until it has an actual
         # login use case.
@@ -1045,7 +1045,7 @@ in
       mode = "0440";
       group = "exportarr";
     };
-    # Consumed by the jellyfin backup service (runs as root — unaffected) and
+    # Consumed by the jellyfin backup service (runs as root, unaffected) and
     # the jellyfin-exporter (DynamicUser, granted via supplementary group).
     #
     # Group is named "jellyfin-secrets", NOT "jellyfin-exporter": the
@@ -1053,7 +1053,7 @@ in
     # dynamic user/group after the unit itself ("jellyfin-exporter"). A
     # static group with that exact name collides with systemd's dynamic
     # allocation and fails the unit with exit code 217/USER (confirmed via
-    # a failed deploy — exportarr avoided this because its unit names are
+    # a failed deploy. exportarr avoided this because its unit names are
     # "exportarr-sonarr" etc., distinct from the shared "exportarr" group).
     jellyfin_api_key = {
       mode = "0440";

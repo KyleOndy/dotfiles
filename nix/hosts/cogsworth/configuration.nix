@@ -49,7 +49,7 @@ in
     owner = "cogsworth";
   };
 
-  # Location for weather widget (Open-Meteo API — no API key required)
+  # Location for weather widget (Open-Meteo API, no API key required)
   sops.secrets.weather_lat = {
     owner = "cogsworth";
   };
@@ -221,22 +221,22 @@ in
   hardware.i2c.enable = true;
 
   # Do NOT set hardware.deviceTree.filter on Pi 5: it breaks boot.
-  # Bisected 2026-04-23 — setting any filter (even one matching bcm2712*)
+  # Bisected 2026-04-23. Setting any filter (even one matching bcm2712*)
   # causes brcmuart_init → bcm2712_pull_config_set SError during kernel
   # init. The nixos-raspberrypi + raspberrypi-firmware DTB install path
   # doesn't interact cleanly with this option under kernelboot.
 
   # Enable UART3 on GPIO8/9 (pins 24/21) for SEN0557 sensor.
   # On BCM2712 (Pi 5), &uart3 is the RP1 UART muxed to GPIO 8/9; &uart4 is GPIO 12/13.
-  # The base DTB already defines uart3_pins via rp1_uart3_8_9 — just enable the UART.
+  # The base DTB already defines uart3_pins via rp1_uart3_8_9, so just enable the UART.
   # Do NOT target &gpio here: that is the BCM2712 SoC GPIO controller, not the RP1
   # GPIO controller that drives the 40-pin header; applying pinctrl there causes a
   # bcm2712_pull_config_set SError on boot.
   # NOTE: every overlay entry sets `filter = "broadcom/"` so apply_overlays.py
-  # only tries to apply it to DTBs under `dtbs/broadcom/` — skipping
+  # only tries to apply it to DTBs under `dtbs/broadcom/`, skipping
   # `dtbs/overlays/overlay_map.dtb`, which has no compatible string and isn't
   # a real device tree (the script would otherwise FDT_ERR_BADOFFSET on it).
-  # GPIO17 (pin 11) is the SEN0557 presence OUT. No DT overlay needed — a bare
+  # GPIO17 (pin 11) is the SEN0557 presence OUT. No DT overlay needed, a bare
   # pinctrl state has no effect without a consumer to request it. The cogsworth
   # app configures the pull-up via libgpiod (GPIO_V2_LINE_FLAG_BIAS_PULL_UP)
   # when it opens the line at startup.
@@ -685,7 +685,7 @@ in
     };
   };
 
-  # Cogsworth kiosk — Wayland (sway-unwrapped) + Chromium.
+  # Cogsworth kiosk: Wayland (sway-unwrapped) + Chromium.
   environment.etc."cogsworth/sway.config".text = ''
     # Panel is physically landscape but mounted portrait; rotate 90° CW.
     output HDMI-A-1 mode 1920x1080@60Hz transform 90 max_render_time 1
@@ -945,7 +945,7 @@ in
             ;;
         esac
       else
-        # Browser process not answering CDP — count as a kiosk failure.
+        # Browser process not answering CDP, count as a kiosk failure.
         KIOSK_FAILURES=$((KIOSK_FAILURES + 1))
         echo "$KIOSK_FAILURES" > "$KIOSK_STATE_FILE"
         echo "$(date): Kiosk CDP endpoint unavailable (attempt $KIOSK_FAILURES/$KIOSK_FAILURE_THRESHOLD)"

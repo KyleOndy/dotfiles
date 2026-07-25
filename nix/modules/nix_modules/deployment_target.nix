@@ -68,7 +68,7 @@ in
         # No password: this account is SSH-key + NOPASSWD-sudo only (deploy-rs
         # never types a password). Leaving hashedPassword/hashedPasswordFile
         # unset locks the account (`!` in /etc/shadow) instead of carrying a
-        # password nobody uses — SSH pubkey auth and sudo are unaffected.
+        # password nobody uses, SSH pubkey auth and sudo are unaffected.
         # todo: make a key for just deploys
         openssh.authorizedKeys.keys = config.systemFoundry.users.kyle.authorizedKeys ++ [
           "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINYGnEHYJv1C/hCkXZjHjKZI8t6cHHLLNhE11oTf9DOn root@trex-nix-remote-builder" # for nix distributed builds
@@ -107,7 +107,7 @@ in
         download-attempts = 3;
         substituters = [
           "https://cache.nixos.org"
-          # Prebuilt Pi-specific kernel/firmware for cogsworth — avoids local
+          # Prebuilt Pi-specific kernel/firmware for cogsworth, avoids local
           # rebuilds of linux_rpi-bcm2712. Public key from nixos-raspberrypi README.
           "https://nixos-raspberrypi.cachix.org"
         ];
@@ -132,8 +132,8 @@ in
     # restarts, the connection drops, causing timeouts and automatic rollback.
     #
     # WireGuard: Hosts with NFS mounts over WireGuard hang during
-    # daemon-reexec when the tunnel goes down — the NFS unmount blocks systemd.
-    # Both the interface and peer services must be pinned — removing a peer tears
+    # daemon-reexec when the tunnel goes down, the NFS unmount blocks systemd.
+    # Both the interface and peer services must be pinned, removing a peer tears
     # down the tunnel even when the interface stays up.
     #
     # Changes to these services take effect on next reboot.

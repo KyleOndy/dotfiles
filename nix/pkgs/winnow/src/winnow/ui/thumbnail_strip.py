@@ -788,7 +788,7 @@ class ThumbnailStrip(QWidget):
         """Navigate to the adjacent image in the filtered list.
 
         Moves selection forward or backward by one position. Clamped to list
-        boundaries — no wrapping at the start or end.
+        boundaries, no wrapping at the start or end.
 
         Args:
             direction: +1 for next image, -1 for previous image.

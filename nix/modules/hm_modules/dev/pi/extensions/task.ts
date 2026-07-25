@@ -1,5 +1,5 @@
 /**
- * task — parallel local-model subagents for the pi coding agent.
+ * task: parallel local-model subagents for the pi coding agent.
  *
  * pi has no built-in subagent tool (the upstream docs say so explicitly),
  * but its SDK/extension API is meant for exactly this: a custom tool whose

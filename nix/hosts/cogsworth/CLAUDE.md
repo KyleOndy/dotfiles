@@ -4,10 +4,10 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 
 ## Services
 
-- `cogsworth.service` — JVM backend (`cogsworth.jar` on openjdk 21) on `:8080`, `Restart = "always"` after 2s
-- `cogsworth-kiosk.service` — Sway + Chromium kiosk display, `Restart = "on-failure"` after 5s
-- `cogsworth-watchdog.service` / `.timer` — health checks (runs every 30s, first run 2min after boot)
-- `cogsworth-db-restore` / `cogsworth-db-snapshot` — move the SQLite DB between tmpfs and the SD card
+- `cogsworth.service`: JVM backend (`cogsworth.jar` on openjdk 21) on `:8080`, `Restart = "always"` after 2s
+- `cogsworth-kiosk.service`: Sway + Chromium kiosk display, `Restart = "on-failure"` after 5s
+- `cogsworth-watchdog.service` / `.timer`: health checks (runs every 30s, first run 2min after boot)
+- `cogsworth-db-restore` / `cogsworth-db-snapshot`: move the SQLite DB between tmpfs and the SD card
 
 ## Viewing Logs
 
@@ -17,7 +17,7 @@ Journal is RAM-only (50M cap, 1h retention). For anything older, query Loki.
 # Backend logs (calendar sync, API errors)
 ssh cogsworth journalctl -u cogsworth.service -f
 
-# Kiosk display logs — includes Chromium DevTools console output
+# Kiosk display logs, includes Chromium DevTools console output
 ssh cogsworth journalctl -u cogsworth-kiosk.service -f
 
 # Watchdog health check results
@@ -105,15 +105,15 @@ Target is steady 60fps. Hardware is Pi 5 + Mesa V3D at 1080p60 rotated portrait 
 
 **System-level knobs** (`nix/hosts/cogsworth/configuration.nix`):
 
-| Setting                   | Location         | Default | Notes                                                                                                                       |
-| ------------------------- | ---------------- | ------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `max_render_time`         | sway output line | `1`     | ms before vblank sway starts compositing; `1` is aggressive — any hiccup drops to 30fps. Try `2`–`4` if seeing frame drops. |
-| `--enable-logging=stderr` | Chromium flags   | on      | JS console output to journald; `--v=1` removed (was causing ~5–15% CPU overhead with no benefit).                           |
-| `VaapiVideoDecoder`       | Chromium flags   | on      | Pi 5 has no H.264 HW decode — this flag does nothing useful.                                                                |
+| Setting                   | Location         | Default | Notes                                                                                                                      |
+| ------------------------- | ---------------- | ------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `max_render_time`         | sway output line | `1`     | ms before vblank sway starts compositing; `1` is aggressive. Any hiccup drops to 30fps. Try `2`–`4` if seeing frame drops. |
+| `--enable-logging=stderr` | Chromium flags   | on      | JS console output to journald; `--v=1` removed (was causing ~5–15% CPU overhead with no benefit).                          |
+| `VaapiVideoDecoder`       | Chromium flags   | on      | Pi 5 has no H.264 HW decode, so this flag does nothing useful.                                                             |
 
 **Known V3D limitations:**
 
-- No hardware H.264 decode (VideoCore VII dropped it) — HTML5 video falls back to software.
+- No hardware H.264 decode (VideoCore VII dropped it), so HTML5 video falls back to software.
 - `mask-image` forces offscreen compositing per element; `backdrop-filter` and large `filter: blur()` are expensive.
 - `box-shadow` transitions trigger full repaints (not composited).
 

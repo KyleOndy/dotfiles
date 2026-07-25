@@ -14,7 +14,7 @@
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
   # Paths re-allowed for READING in strict mode, which now defaults to deny-all
-  # of $HOME. $PWD and ~/.pi are always readable; this list adds more — typically
+  # of $HOME. $PWD and ~/.pi are always readable; this list adds more, typically
   # the toolchain config/caches an agent's commands read (e.g. ~/.gitconfig,
   # ~/.cargo, ~/.rustup, ~/go, ~/.npmrc). Reads outside $HOME (/nix, /etc, system
   # tools) are unaffected. Runtime --allow-read extends this. Supports ~ expansion.
@@ -32,7 +32,7 @@
   defaultEnvVars ? { },
   # Default for srt's network.allowLocalBinding setting. When true (or when
   # --allow-loopback is passed), srt's macOS profile permits bind/listen on
-  # loopback only — external network is still gated by the domain allowlist.
+  # loopback only, external network is still gated by the domain allowlist.
   defaultAllowLoopback ? false,
   # Default for srt's enableWeakerNetworkIsolation setting. When true (or when
   # --allow-trustd is passed, or when an invoked bundle declares trustd=true),
@@ -42,7 +42,7 @@
   # URLs); off by default.
   defaultAllowTrustd ? false,
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each
-  # bundle is { domains = [str]; trustd = bool; } — domains extend the network
+  # bundle is { domains = [str]; trustd = bool; }, domains extend the network
   # allowlist; trustd ORs into the wrapper's allow_trustd. Default empty so
   # the wrapper itself is self-contained; the hm module ships the standard
   # set (go/rust/node/python).
@@ -55,7 +55,7 @@
   envFromCommands ? { },
   # Identity stamped on any git commit pi makes. Exported as GIT_AUTHOR_* /
   # GIT_COMMITTER_* in the wrapper process so it overrides repo & global
-  # config without mutating either. Defaults are deliberately non-human —
+  # config without mutating either. Defaults are deliberately non-human,
   # agent commits should be obvious in `git log` so a human auditor can
   # tell them apart at a glance. Signing is hardcoded off in wrapper.sh
   # (not a knob) for the same reason.
@@ -80,15 +80,15 @@ let
 
   # Tab-separated VAR<TAB>cmd lines, one per resolver entry. Empty for {}.
   # The wrapper reads this file at runtime and calls __pi_resolve per line.
-  # Keeping the resolver list out of wrapper.sh — and substituting a single
-  # file path instead of a code block — means the wrapper is byte-stable
+  # Keeping the resolver list out of wrapper.sh, and substituting a single
+  # file path instead of a code block, means the wrapper is byte-stable
   # across overrides and there's no token-in-comment hazard for code.
   envResolversFile = writeText "pi-env-resolvers" (
     lib.concatMapStrings (name: "${name}\t${envFromCommands.${name}}\n") (lib.attrNames envFromCommands)
   );
 
   # Tab-separated VAR<TAB>value lines for static env vars. Same sidecar
-  # pattern as envResolversFile — wrapper reads at runtime, bash-expands
+  # pattern as envResolversFile: wrapper reads at runtime, bash-expands
   # each value with double-quote semantics so $PWD/$HOME resolve, then
   # exports.
   envVarsFile = writeText "pi-env-vars" (

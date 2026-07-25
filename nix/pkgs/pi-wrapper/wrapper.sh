@@ -80,7 +80,7 @@ fi
 
 # Resolve a secret outside the sandbox and export it into pi's env. Driven
 # by a tab-separated VAR<TAB>cmd file generated at build time (see
-# envResolversFile in default.nix) — keeps the resolver list out of this
+# envResolversFile in default.nix), which keeps the resolver list out of this
 # script so the substitution surface is just one path. Under PI_DEBUG=plan
 # the resolver prints intent and skips execution, so the flake check never
 # invokes real Keychain / kubectl / etc. Hard-fail on resolver error so a
@@ -112,7 +112,7 @@ __pi_resolve_all() {
 # Static env vars exported before sandbox dispatch. Tab-separated
 # VAR<TAB>value sidecar; values get bash double-quote expansion at runtime
 # so $PWD/$HOME resolve to the user's CWD-at-invocation and home dir.
-# Trust model matches __pi_resolve_all — values come from user-authored
+# Trust model matches __pi_resolve_all, values come from user-authored
 # nix config. Under PI_DEBUG=plan, prints intent and still exports so
 # subsequent dispatch can observe the resolved values if it wants to.
 pi_env_vars_file="@envVarsFile@"

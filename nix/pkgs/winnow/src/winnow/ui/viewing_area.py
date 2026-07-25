@@ -664,7 +664,7 @@ class ViewingArea(QWidget):
                 )
 
                 # Adjust pan offset for viewport size change to maintain visual center
-                # (skip when restoring into fit mode — pan is irrelevant there)
+                # (skip when restoring into fit mode, pan is irrelevant there)
                 if saved_viewport_size is not None and not saved_fit_mode:
                     widget.viewport_size = saved_viewport_size
                     widget.adjust_pan_for_viewport_change(self.size())
@@ -738,7 +738,7 @@ class ViewingArea(QWidget):
                     )
 
                     # Adjust pan offset for viewport size change to maintain visual center
-                    # (skip when restoring into fit mode — pan is irrelevant there)
+                    # (skip when restoring into fit mode, pan is irrelevant there)
                     if saved_viewport_size is not None and not saved_fit_mode:
                         widget.viewport_size = saved_viewport_size
                         widget.adjust_pan_for_viewport_change(cell_size)

@@ -28,7 +28,7 @@
   security.pam.services.sudo_local.reattach = lib.mkDefault true;
 
   # Homebrew integration for GUI applications and tools not in nixpkgs.
-  # casks/taps/brews are intentionally left out here — those are host-specific.
+  # casks/taps/brews are intentionally left out here, those are host-specific.
   homebrew = {
     enable = lib.mkDefault true;
     onActivation = {

@@ -1,5 +1,5 @@
 /**
- * model-status — a footer line that always names the actual active model.
+ * model-status: a footer line that always names the actual active model.
  *
  * pi's built-in footer reads session.state.model directly (dist/modes/
  * interactive/components/footer.js), and in practice that's been observed

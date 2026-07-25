@@ -782,7 +782,7 @@ def test_shift_double_click_adjusts_individual_pan_not_shared(qapp, portrait_ima
 
     initial_pan = QPoint(widget.pan_offset.x(), widget.pan_offset.y())
 
-    # Click off-center (35px right, 30px down — offset from center of 50x50)
+    # Click off-center (35px right, 30px down, offset from center of 50x50)
     event = Mock()
     event.button.return_value = Qt.MouseButton.LeftButton
     event.modifiers.return_value = Qt.KeyboardModifier.ShiftModifier

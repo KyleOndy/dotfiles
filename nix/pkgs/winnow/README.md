@@ -1,6 +1,6 @@
 # winnow
 
-**winnow:** _verb_ — to separate the good from the chaff
+**winnow:** _verb_, to separate the good from the chaff
 
 Fast photo viewer for culling. Compare multiple photos side-by-side
 with synchronized zoom and pan. Rate, filter, and quickly separate keepers
@@ -11,8 +11,8 @@ winnow /path/to/photos
 ```
 
 State is entirely in-memory and ephemeral: no config files, no thumbnail
-cache, nothing persisted between runs. Deletion is two-phase — mark in-app
-(undoable), confirm and delete on quit — so a stray keystroke can't lose a
+cache, nothing persisted between runs. Deletion is two-phase: mark in-app
+(undoable), confirm and delete on quit, so a stray keystroke can't lose a
 whole cull pass.
 
 Linux and macOS, JPEG only. A few hundred photos per directory is the sweet
@@ -56,7 +56,7 @@ printing. This is a culling tool, not a DAM.
 ## Structure
 
 `src/winnow/core/` is the headless logic (scanner, session state,
-thumbnailer, LRU image cache, undo stack) — no Qt imports, unit-tested on
+thumbnailer, LRU image cache, undo stack), no Qt imports, unit-tested on
 its own. `src/winnow/ui/` is the Qt/PySide6 layer (main window, thumbnail
 strip, viewing area, image widget, keyboard controller) that drives it.
 

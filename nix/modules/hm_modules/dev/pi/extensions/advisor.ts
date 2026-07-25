@@ -1,5 +1,5 @@
 /**
- * advisor — local-model watchdog for unattended overnight pi runs.
+ * advisor: local-model watchdog for unattended overnight pi runs.
  *
  * Companion to nix/pkgs/pi-overnight: when nobody's watching a long
  * autonomous run, this periodically hands the last turn to trex's local

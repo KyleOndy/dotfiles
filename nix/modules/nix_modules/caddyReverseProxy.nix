@@ -221,7 +221,7 @@ in
     assertions = [
       {
         assertion = !config.services.nginx.enable;
-        message = "caddyReverseProxy: services.nginx.enable is true — disable nginx before enabling Caddy (both cannot bind to ports 80/443)";
+        message = "caddyReverseProxy: services.nginx.enable is true. Disable nginx before enabling Caddy (both cannot bind to ports 80/443)";
       }
     ];
 

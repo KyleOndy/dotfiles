@@ -1,10 +1,10 @@
 /**
- * secret-guard — in-process secret-read guard for the pi coding agent.
+ * secret-guard: in-process secret-read guard for the pi coding agent.
  *
  * Companion to the OS-level srt wrapper (nix/pkgs/pi-wrapper). That wrapper
  * default-denies reads across $HOME but must re-allow $PWD so the agent can
  * read the code it's working on. srt's allowRead beats denyRead, so it cannot
- * carve a deny hole inside $PWD — a repo-local .env / *.pem / *.key stays
+ * carve a deny hole inside $PWD, a repo-local .env / *.pem / *.key stays
  * readable. This extension closes that gap from inside pi: it intercepts the
  * read/edit/write/grep/find/ls tool calls and blocks any that target a
  * secret-looking path, then logs every block as JSONL for tuning.
@@ -52,7 +52,7 @@ interface SecretGuardConfig {
 const DEFAULT_CONFIG: SecretGuardConfig = {
   enabled: true,
   scanBash: true,
-  // Basename globs. High-signal secret material, not general config — the agent
+  // Basename globs. High-signal secret material, not general config, the agent
   // rarely needs to read these, so blocking them has a low false-positive rate.
   denyPatterns: [
     ".env",
@@ -130,7 +130,7 @@ function matchSecret(path: string, cfg: SecretGuardConfig): string | null {
   return null;
 }
 
-// Crude shell split for the bash best-effort scan — good enough to catch direct
+// Crude shell split for the bash best-effort scan, good enough to catch direct
 // references like `cat .env`, not a real parser.
 function bashTokens(command: string): string[] {
   return command
@@ -156,7 +156,7 @@ export default function (pi: ExtensionAPI) {
         if (statSync(file).size > 5 * 1024 * 1024)
           renameSync(file, `${file}.1`);
       } catch {
-        // no existing log yet — nothing to rotate
+        // no existing log yet, nothing to rotate
       }
       appendFileSync(
         file,
