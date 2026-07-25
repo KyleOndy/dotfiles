@@ -2,7 +2,24 @@
 
 import os
 
+import pytest
+
 from winnow.core.session import PhotoStatus, Session, raw_siblings
+
+
+def _fs_is_case_sensitive(tmp_path):
+    """Probe the filesystem under test rather than guessing from sys.platform.
+
+    macOS defaults to case-insensitive APFS but can be formatted either way,
+    and the tests below are about two distinct files whose names differ only
+    in case, which cannot exist on a case-insensitive volume.
+    """
+    probe = tmp_path / "_CaseProbe"
+    probe.touch()
+    try:
+        return not (tmp_path / "_caseprobe").exists()
+    finally:
+        probe.unlink()
 
 
 def test_session_initialization(tmp_path):
@@ -461,6 +478,8 @@ def test_raw_siblings_lowercase_found(tmp_path):
 
 def test_raw_siblings_uppercase_found(tmp_path):
     """Test raw_siblings finds an uppercase .RAF sibling (Fuji's convention)."""
+    if not _fs_is_case_sensitive(tmp_path):
+        pytest.skip("needs a case-sensitive filesystem to tell .raf from .RAF")
     photo = tmp_path / "photo.jpg"
     photo.touch()
     raw = tmp_path / "photo.RAF"
@@ -497,6 +516,8 @@ def test_raw_siblings_dedups_same_file_via_different_paths(tmp_path):
     on any filesystem, exercising the samefile()-based dedup in
     raw_siblings without depending on an actual case-insensitive volume.
     """
+    if not _fs_is_case_sensitive(tmp_path):
+        pytest.skip("case-insensitive fs: the two candidate paths are one file")
     photo = tmp_path / "photo.jpg"
     photo.touch()
     raw_lower = tmp_path / "photo.raf"

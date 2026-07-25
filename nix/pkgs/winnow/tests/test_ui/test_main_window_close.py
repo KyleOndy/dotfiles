@@ -9,6 +9,36 @@ import winnow.core.session as session_module
 from winnow.core.session import PhotoStatus
 from winnow.ui.main_window import MainWindow
 
+
+def _fail_deleting(monkeypatch, doomed):
+    """Make deletion of `doomed` raise PermissionError, whatever the platform.
+
+    delete_marked_files() routes through send2trash on darwin and
+    Path.unlink everywhere else (see core/session.py), so patching only
+    unlink means these tests assert nothing on a Mac: the deletion
+    succeeds, `failed` comes back empty, and the test fails without ever
+    exercising the error path it was written for.
+    """
+    if sys.platform == "darwin":
+
+        def fake_send2trash(target):
+            target = Path(target)
+            if target == doomed:
+                raise PermissionError(f"Permission denied: {target}")
+            target.unlink()
+
+        monkeypatch.setattr(session_module, "send2trash", fake_send2trash)
+    else:
+        original_unlink = Path.unlink
+
+        def mock_unlink(self, *args, **kwargs):
+            if self == doomed:
+                raise PermissionError(f"Permission denied: {self}")
+            return original_unlink(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", mock_unlink)
+
+
 # Session.delete_marked_files() tests
 
 
@@ -84,14 +114,7 @@ def test_delete_marked_files_permission_error(tmp_path, monkeypatch):
     session.set_status(photo2, PhotoStatus.DELETE)
 
     # Mock unlink to raise PermissionError for photo1 only
-    original_unlink = Path.unlink
-
-    def mock_unlink(self, *args, **kwargs):
-        if self == photo1:
-            raise PermissionError(f"Permission denied: {self}")
-        return original_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", mock_unlink)
+    _fail_deleting(monkeypatch, photo1)
 
     # Attempt deletion
     failed = session.delete_marked_files()
@@ -226,7 +249,12 @@ def test_delete_marked_files_raw_unlink_failure(tmp_path, monkeypatch):
     test_dir.mkdir()
     photo = test_dir / "photo.jpg"
     photo.touch()
-    raw = test_dir / "photo.RAF"
+    # Lowercase deliberately: this test is about a sibling that fails to
+    # delete, not about case. On a case-insensitive volume raw_siblings()
+    # resolves ".RAF" to the lowercase candidate, so the path this test
+    # holds would not be the path it patches. Uppercase discovery has its
+    # own test in test_core/test_session.py.
+    raw = test_dir / "photo.raf"
     raw.touch()
 
     from winnow.core.session import Session
@@ -234,14 +262,7 @@ def test_delete_marked_files_raw_unlink_failure(tmp_path, monkeypatch):
     session = Session(directory=test_dir, images=[photo])
     session.set_status(photo, PhotoStatus.DELETE)
 
-    original_unlink = Path.unlink
-
-    def mock_unlink(self, *args, **kwargs):
-        if self == raw:
-            raise PermissionError(f"Permission denied: {self}")
-        return original_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", mock_unlink)
+    _fail_deleting(monkeypatch, raw)
 
     failed = session.delete_marked_files()
 
@@ -271,14 +292,7 @@ def test_delete_marked_files_mixed_results(tmp_path, monkeypatch):
     session.set_status(photo3, PhotoStatus.DELETE)
 
     # Mock unlink to raise PermissionError for photo2 only
-    original_unlink = Path.unlink
-
-    def mock_unlink(self, *args, **kwargs):
-        if self == photo2:
-            raise PermissionError(f"Permission denied: {self}")
-        return original_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", mock_unlink)
+    _fail_deleting(monkeypatch, photo2)
 
     # Attempt deletion
     failed = session.delete_marked_files()
@@ -625,14 +639,7 @@ def test_close_event_prints_failures(qapp, tmp_path, monkeypatch, capsys):
     window.session.set_status(photo2, PhotoStatus.DELETE)
 
     # Mock unlink to raise PermissionError for photo1 only
-    original_unlink = Path.unlink
-
-    def mock_unlink(self, *args, **kwargs):
-        if self == photo1:
-            raise PermissionError(f"Permission denied: {self}")
-        return original_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", mock_unlink)
+    _fail_deleting(monkeypatch, photo1)
 
     # Mock to return Yes
     monkeypatch.setattr(

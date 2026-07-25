@@ -72,5 +72,11 @@ ruff check .
 ruff format .
 ```
 
+Run pytest on the platform you are changing. Deletion routes through
+send2trash on macOS and `Path.unlink` elsewhere, Qt's Ctrl/Cmd swap is
+disabled only on macOS, and APFS is case-insensitive by default, so a
+green suite on one platform says nothing about the other. Two tests skip
+themselves on a case-insensitive filesystem.
+
 This is a personal project. Contributions and feedback are welcome, but
 the scope is intentionally focused on my own workflow and needs.

@@ -61,6 +61,12 @@ class _FakeApp:
     def __init__(self, argv):
         pass
 
+    @staticmethod
+    def setAttribute(*args, **kwargs):
+        """main() disables Qt's Ctrl/Cmd swap on darwin before constructing
+        the app. The real call is a classmethod on QApplication, so the
+        stand-in needs it too or every darwin run of these tests errors out."""
+
     def exec(self):
         return 0
 
