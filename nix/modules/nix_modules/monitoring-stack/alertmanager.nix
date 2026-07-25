@@ -25,6 +25,11 @@ in
       description = "Address to listen on";
     };
 
+    domain = mkOption {
+      type = types.str;
+      default = "alertmanager.${parentCfg.domain}";
+      description = "Domain name for the Alertmanager UI (defaults to alertmanager.{parent domain})";
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -41,7 +46,9 @@ in
       extraFlags = [
         "--cluster.listen-address="
         "--cluster.advertise-address=127.0.0.1:9094"
-        "--web.external-url=https://vmalert.apps.ondy.org"
+        # Every "Silence" link in an alert email is built from this, so it has
+        # to be Alertmanager's own hostname and it has to resolve off-network.
+        "--web.external-url=https://${cfg.domain}"
       ];
 
       configuration = {
@@ -98,5 +105,18 @@ in
         };
       };
     };
+
+    # Basic auth on every path, same as vmalert: the UI is not read-only, it
+    # creates and expires silences. The loopback callers (vmalert's notifier,
+    # tiger's upssched dispatcher) hit 127.0.0.1:9093 directly and never pass
+    # through Caddy, so they are unaffected.
+    systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
+      mkIf config.systemFoundry.caddyReverseProxy.enable
+        {
+          enable = true;
+          proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
+          basicAuth = parentCfg.monitoringBasicAuth;
+          basicAuthPaths = [ ]; # empty = protect all paths
+        };
   };
 }
