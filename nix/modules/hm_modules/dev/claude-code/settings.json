@@ -3,7 +3,7 @@
     "commit": "",
     "pr": ""
   },
-  "model": "opusplan[1m]",
+  "model": "opus[1m]",
   "effortLevel": "xhigh",
   "alwaysThinkingEnabled": true,
   "env": {
