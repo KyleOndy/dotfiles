@@ -20,8 +20,6 @@
     gaming.steam.enable = lib.mkForce false;
     term.foot.enable = lib.mkForce false;
     term.alacritty.enable = true;
-    term.wezterm.enable = lib.mkForce false;
-    wm.i3.enable = lib.mkForce false;
     media = {
       makemkv.enable = lib.mkForce false;
       documents.enable = lib.mkForce false;

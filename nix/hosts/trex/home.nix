@@ -132,17 +132,13 @@ in
     gaming.steam.enable = lib.mkForce false;
     term.foot.enable = lib.mkForce false;
     term.alacritty.enable = true;
-    term.wezterm.enable = lib.mkForce false;
-    wm.i3.enable = lib.mkForce false;
     media = {
       makemkv.enable = lib.mkForce false;
       documents.enable = lib.mkForce false;
     };
   };
 
-  # Kensington trackball remapping - same physical hardware/need as the
-  # NixOS hmFoundry.desktop.input.trackball module, just the darwin-side
-  # mechanism.
+  # Kensington trackball remapping, the darwin-side mechanism.
   #
   # The module remaps trackball buttons only. OS-wide keys stay mac-native,
   # which also keeps physical Ctrl free for winnow's Ctrl+h/j/k/l/0/r bindings

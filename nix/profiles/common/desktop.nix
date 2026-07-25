@@ -26,11 +26,7 @@ with lib;
           # fixes the mirror or the derivation is updated to a working source.
           makemkv.enable = false;
         };
-        term = {
-          wezterm.enable = false;
-          foot.enable = true;
-        };
-        wm.i3.enable = false;
+        term.foot.enable = true;
       };
     };
 

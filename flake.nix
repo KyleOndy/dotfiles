@@ -39,13 +39,6 @@
     sops-nix.url = "github:Mic92/sops-nix";
     deploy-rs.url = "github:serokell/deploy-rs";
     # https://hydra.nixos.org/job/nixos/trunk-combined/nixos.sd_image.aarch64-linux
-    plasma-manager = {
-      url = "github:pjones/plasma-manager";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        home-manager.follows = "home-manager";
-      };
-    };
     framework-dsp = {
       url = "github:cab404/framework-dsp";
       flake = false;
@@ -329,17 +322,7 @@
                       inherit inputs;
                     };
                     sharedModules =
-                      hmCoreModules
-                      ++ [ nixCatsHomeModule ]
-                      ++ (
-                        if isDesktop then
-                          hmDesktopModules
-                          ++ [
-                            inputs.plasma-manager.homeModules.plasma-manager
-                          ]
-                        else
-                          [ ]
-                      );
+                      hmCoreModules ++ [ nixCatsHomeModule ] ++ (if isDesktop then hmDesktopModules else [ ]);
                     users.kyle =
                       let
                         baseProfile = {
@@ -399,21 +382,12 @@
                       inherit inputs;
                     };
                     # Include desktop modules for cross-platform validation
-                    # This allows desktop modules to reference programs.plasma without evaluation errors
                     sharedModules =
                       hmCoreModules
                       ++ [ nixCatsHomeModule ]
                       ++ [ inputs.mac-app-util.homeManagerModules.default ]
                       ++ [ inputs.work-config.homeManagerModule ]
-                      ++ (
-                        if isDesktop then
-                          hmDesktopModules
-                          ++ [
-                            inputs.plasma-manager.homeModules.plasma-manager
-                          ]
-                        else
-                          [ ]
-                      );
+                      ++ (if isDesktop then hmDesktopModules else [ ]);
                     users.${username} =
                       let
                         baseProfile = {
