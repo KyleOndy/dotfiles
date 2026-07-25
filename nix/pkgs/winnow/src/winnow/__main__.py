@@ -4,7 +4,9 @@ This module enables running Winnow as a Python module via `python -m winnow`.
 It delegates to the main() function in winnow.app for all application logic.
 """
 
+import sys
+
 from winnow.app import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

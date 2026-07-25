@@ -20,6 +20,10 @@
 # if you want belt and suspenders.
 
 readonly PHOTOS_DIR="${HELIOS_LIBRARY_PATH:-$HOME/photos}"
+# helios keeps its dedup database in XDG state, not in the library (see
+# nix/pkgs/helios/README.md). Copying it alongside the photos is what makes
+# a restored library still know what it has already seen.
+readonly HELIOS_DB="${HELIOS_DB_PATH:-${XDG_STATE_HOME:-$HOME/.local/state}/helios/helios.db}"
 readonly TIGER_HOST="tiger"
 readonly TIGER_DEST="/mnt/photos/personal/photos"
 readonly AWS_PROFILE="ondy-org"
@@ -37,8 +41,10 @@ readonly SYNC_ITEMS=(
 
 sync_to_tiger() {
 	echo "Syncing $PHOTOS_DIR to $TIGER_HOST:$TIGER_DEST..."
-	if [ -f "$PHOTOS_DIR/helios.db" ]; then
-		rsync -a "$PHOTOS_DIR/helios.db" "$TIGER_HOST:$TIGER_DEST/helios.db"
+	if [ -f "$HELIOS_DB" ]; then
+		rsync -a "$HELIOS_DB" "$TIGER_HOST:$TIGER_DEST/helios.db"
+	else
+		echo "Warning: no helios database at $HELIOS_DB, not backing it up" >&2
 	fi
 	for item in "${SYNC_ITEMS[@]}"; do
 		src="$PHOTOS_DIR/$item/"
@@ -53,8 +59,10 @@ sync_to_tiger() {
 sync_to_local() {
 	echo "Syncing $PHOTOS_DIR to $dest_path..."
 	mkdir -p "$dest_path"
-	if [ -f "$PHOTOS_DIR/helios.db" ]; then
-		rsync -a "$PHOTOS_DIR/helios.db" "$dest_path/helios.db"
+	if [ -f "$HELIOS_DB" ]; then
+		rsync -a "$HELIOS_DB" "$dest_path/helios.db"
+	else
+		echo "Warning: no helios database at $HELIOS_DB, not backing it up" >&2
 	fi
 	for item in "${SYNC_ITEMS[@]}"; do
 		src="$PHOTOS_DIR/$item/"

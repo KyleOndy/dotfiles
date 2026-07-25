@@ -88,7 +88,7 @@ in
           # show the upstream
           upstream = "rev-parse --abbrev-ref --symbolic-full-name @{upstream}";
           # Delete the remote version of the current branch
-          unpublish = "! git push origin :$(git branch-name)";
+          unpublish = "! git push origin :$(git rev-parse --abbrev-ref HEAD)";
           # get info from the git log
           lg = "log --graph --pretty=format:'%Cred%h%Creset -%G?-%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset'";
           # Grep the log

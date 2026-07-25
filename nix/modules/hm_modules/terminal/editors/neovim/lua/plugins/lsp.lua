@@ -3,8 +3,13 @@
 -- Diagnostic keymaps (global)
 local opts = { noremap = true, silent = true }
 vim.keymap.set("n", "<leader>ce", vim.diagnostic.open_float, opts)
-vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
-vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
+-- goto_prev/goto_next are deprecated as of nvim 0.11 in favour of jump()
+vim.keymap.set("n", "[d", function()
+  vim.diagnostic.jump({ count = -1, float = true })
+end, opts)
+vim.keymap.set("n", "]d", function()
+  vim.diagnostic.jump({ count = 1, float = true })
+end, opts)
 vim.keymap.set("n", "<leader>cl", vim.diagnostic.setloclist, opts)
 
 -- Document global diagnostic keybindings
@@ -199,9 +204,13 @@ vim.lsp.config("nixd", {
         expr = "import <nixpkgs> { }",
       },
       options = {
-        -- Enable NixOS options documentation
+        -- NixOS options documentation, read out of whichever worktree this
+        -- shell points at. Hardcoding a path here rots the moment the
+        -- worktree is removed, and nixd then silently serves nothing.
         nixos = {
-          expr = '(builtins.getFlake "/home/kyle/src/dotfiles/odds-and-ends").nixosConfigurations.tiger.options',
+          expr = '(builtins.getFlake "'
+            .. (vim.env.DOTFILES or (vim.env.HOME .. "/src/dotfiles/main"))
+            .. '").nixosConfigurations.tiger.options',
         },
       },
     },

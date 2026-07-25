@@ -4,6 +4,7 @@
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "helm",
   callback = function()
-    vim.diagnostic.disable(0)
+    -- disable() is deprecated as of nvim 0.10 in favour of enable(false, ...)
+    vim.diagnostic.enable(false, { bufnr = 0 })
   end,
 })

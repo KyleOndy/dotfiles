@@ -39,8 +39,12 @@ else
 	echo "No _projects directory yet, skipping S3 push for it."
 fi
 
+# backup-photos on the laptop is what puts helios.db here; helios itself
+# keeps it in XDG state on trex and never writes into the library.
 if [ -f "$PHOTOS_DIR/helios.db" ]; then
 	aws s3 cp "$PHOTOS_DIR/helios.db" "s3://$PHOTOS_BACKUP_BUCKET/helios.db"
+else
+	echo "Warning: no helios.db at $PHOTOS_DIR, has backup-photos run?" >&2
 fi
 
 if mountpoint -q "$EXTERNAL_HDD_MOUNT" 2>/dev/null; then

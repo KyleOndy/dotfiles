@@ -705,6 +705,7 @@
                     useUserPackages = true;
                     extraSpecialArgs = {
                       dotfiles-root = self.outPath;
+                      dotfiles-worktree = dotfilesWorktree;
                       inherit inputs;
                     };
                     sharedModules = hmCoreModules ++ [ nixCatsHomeModule ];
