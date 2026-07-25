@@ -1,7 +1,7 @@
 # Dotfiles
 
-Nix flake covering four hosts. Per-host detail lives in
-`nix/hosts/<host>/CLAUDE.md`. Grafana dashboard rules live in
+Nix flake covering four hosts. Per-host detail, where it exists, lives in
+`nix/hosts/<host>/`. Grafana dashboard rules live in
 `nix/modules/nix_modules/monitoring-stack/DASHBOARD_CONVENTIONS.md`.
 
 ## Worktrees

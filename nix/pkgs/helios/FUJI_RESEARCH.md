@@ -248,17 +248,12 @@ broadening the set of _editable_ fields. In priority order:
   it: the change went in with the trailer untouched and only the global `+0xE8`
   sum recomputed, and the camera applied it. Those trailer bytes that move +/-1
   with content are settings, not an integrity check.
-- **Extend `edit` beyond the slot name.** Auto-ISO and the packed recipe bytes
-  live in the same record region and are covered by the same global checksum, so
-  they should apply the same way, but only the name edit is hardware-confirmed.
-  Wire `--auto-iso` into `edit` and confirm one field on the camera before
-  trusting the rest.
-- Blob offsets for the remaining recipe fields: white balance mode, WB shift R/B,
-  `wb_color_temp`, high-ISO NR, and clarity (all vary across slots but match no
-  single byte/word; likely multi-byte or a different encoding).
 - Whether the clarity rejection during `fuji-recipes restore` is caused by the
   write order (a standalone same-value write is accepted). If so, reordering or
   isolating the clarity write could unblock it without the blob path.
-- The full min-shutter menu ladder (five points confirmed so far).
-- The blob film-sim code table is partial (four sims confirmed); grain "Off" is
-  unconfirmed.
+- Whether White Priority and Custom can author from a recipe file. Both decode
+  and the blob encoder writes them, but the shared validator only accepts the PTP
+  mode names, so a file naming either is rejected before it reaches the encoder.
+- The six single-diff toggles in `FUJI_BLOB_FORMAT.md` (`dof_scale`,
+  `self_timer_lamp`, `save_self_timer`, `interval_priority`, `preshot_es`,
+  `sports_finder`). One sample each, so the polarity is a guess.

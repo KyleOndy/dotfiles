@@ -121,16 +121,6 @@ Frontend rendering optimizations (body noise → WebP, external SVG dividers, pr
 
 ## Deployment
 
-deploy-rs handles cogsworth like any other node (`flake.nix`, with
-`fastConnection = false` because it is on WiFi):
-
-```bash
-make deploy-rs-all-dry      # dry run
-deploy --skip-checks -- .
-```
-
-Rebuilding the SD image is only for a fresh card or an unbootable Pi:
-
-```bash
-make sdcard-cogsworth
-```
+deploy-rs sets `fastConnection = false` for cogsworth in `flake.nix`, because
+it is on WiFi. `make sdcard-cogsworth` is only for a fresh card or an
+unbootable Pi.

@@ -18,8 +18,6 @@ This document outlines the conventions and best practices for creating and maint
   - [Exporter Metric Naming Mismatches](#exporter-metric-naming-mismatches)
   - [VictoriaMetrics Regex Quirks](#victoriametrics-regex-quirks)
   - [State-Based Metrics](#state-based-metrics-node_systemd_unit_state)
-- [Best Practices](#best-practices)
-- [Examples](#examples)
 
 ## Label Naming
 
@@ -138,15 +136,14 @@ Every dashboard JSON must include:
   "uid": "unique-dashboard-id",
   "tags": ["category", "component"],
   "description": "Brief description of what this dashboard shows",
-  "version": 1,
-  "id": null,
-  "editable": true,
-  "graphTooltip": 1,
-  "refresh": "30s",
-  "schemaVersion": 27,
-  "timezone": ""
+  "id": null
 }
 ```
+
+`id: null` is what provisioning requires; the rest is how we find things
+later. Everything else Grafana fills in. The shipped dashboards run
+schemaVersion 26 through 38 and refresh anywhere from unset to 1m, so do
+not copy those values from another file expecting them to mean something.
 
 ### UID Conventions
 
@@ -161,7 +158,7 @@ Examples:
 - `system-overview`
 - `caddy-overview`
 - `zfs-storage`
-- `youtube-downloader-operational`
+- `jellyfin-operational`
 
 ### Tags
 
@@ -314,18 +311,7 @@ Ensure the dashboard has:
 - Clear `description`
 - `id: null` (required for provisioning)
 
-### Step 4: Add to Grafana Configuration
-
-Edit `nix/modules/nix_modules/monitoring-stack/grafana.nix`:
-
-```nix
-environment.etc."grafana-dashboards/my-dashboard.json" = {
-  source = ./dashboards/my-dashboard.json;
-  mode = "0644";
-};
-```
-
-### Step 5: Deploy
+### Step 4: Deploy
 
 ```bash
 # Dry run to check
@@ -535,24 +521,3 @@ count by (host, state) (node_systemd_unit_state{name=~".*.service"} == 1)
 ```
 
 **When to use this pattern**: Any metric that uses boolean indicator time series for states (systemd units, alerting states, etc.)
-
-## Best Practices
-
-1. **Always use `host` label** for hostname filtering
-2. **Include template variables** for filtering (host, pool, service, etc.)
-3. **Set appropriate refresh rates** (30s for most dashboards)
-4. **Use consistent color schemes** (palette-classic for time series)
-5. **Add helpful text panels** with legends, references, or explanations
-6. **Test with different time ranges** (1h, 6h, 24h, 7d)
-7. **Keep dashboard focused** - Split complex dashboards into multiple focused ones
-8. **Document custom queries** with comments in panel descriptions
-9. **Use meaningful legend formats** - Include relevant labels
-10. **Set y-axis limits** when appropriate to improve readability
-
-## Examples
-
-See existing dashboards for examples:
-
-- `network/caddy-overview.json` - Good use of template variables and host label
-- `applications/media-services.json` - Well-organized multi-panel layout
-- `system/system-overview.json` - Clean, focused dashboard design

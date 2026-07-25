@@ -27,3 +27,8 @@ make deploy-mac WORK_CONFIG=/Users/kondy/work       # same thing
 
 Without `WORK_CONFIG`, builds use the stub and produce a personal/CI-safe
 configuration with no work-specific modules included.
+
+## Manual setup
+
+Shottr is installed here too. Its one-time manual setup is in
+`nix/hosts/trex/README.md`, which covers the same install.

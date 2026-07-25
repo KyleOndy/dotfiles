@@ -329,10 +329,11 @@ the same delta: that is why the after-restore backup reads `0x022E` though we se
 
 **Still fit to the samples on hand.** The `0xF936` bias absorbs whatever is
 constant across our captures, so an edit touching a genuinely-excluded region we
-never saw vary could still be mis-summed. Fields beyond the slot name (auto-ISO,
-the packed recipe bytes) live in the same record region and should apply the same
-way, but only the name edit is hardware-confirmed so far. Re-validate a new kind
-of edit against a fresh camera backup the first time.
+never saw vary could still be mis-summed. Beyond the slot name, auto-ISO,
+sharpness, wb-shift-R and high-ISO-NR are hardware-confirmed through the same
+recomputed checksum. The remaining look fields sit in that record region and
+should apply the same way. Re-validate a new kind of edit against a fresh camera
+backup the first time.
 
 ## Restore transport (solved)
 

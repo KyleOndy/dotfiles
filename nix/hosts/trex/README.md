@@ -10,9 +10,11 @@ set declaratively. Each needs a one-time manual step after first install.
 
 ### Shottr Screenshot Tool
 
-Shottr is installed via Homebrew but requires manual configuration because it uses a
-sandboxed container that prevents automated `defaults write` commands from working
-until after the first launch.
+Shottr keeps its preferences in a sandboxed container at
+`~/Library/Containers/cc.ffitch.shottr/Data/Library/Preferences/cc.ffitch.shottr.plist`.
+That directory does not exist until Shottr has launched once, so `defaults write`
+before first launch fails silently or writes to the wrong location. Hence the
+manual steps.
 
 #### Initial Setup
 
@@ -38,10 +40,7 @@ until after the first launch.
 - Area screenshot: `Cmd+Shift+4`
 
 > macOS's own screenshot shortcuts are disabled via `com.apple.symbolichotkeys` in
-> `configuration.nix`, so Shottr can claim these key combinations. The Kensington
-> trackball's top-right and top-left buttons are remapped by Karabiner-Elements to
-> these same shortcuts (see below), so a trackball button press triggers a Shottr
-> capture directly.
+> `configuration.nix`, so Shottr can claim these key combinations.
 
 **Capture:**
 
@@ -60,14 +59,6 @@ until after the first launch.
 
 - Thumbnail closing: Manual
 - Copy on Esc: On
-
-#### Why Not Automated?
-
-Shottr stores preferences in
-`~/Library/Containers/cc.ffitch.shottr/Data/Library/Preferences/cc.ffitch.shottr.plist`.
-This sandboxed container directory doesn't exist until Shottr is launched for the
-first time. Attempting to write preferences via `defaults write` before this
-directory exists will fail silently or write to the wrong location.
 
 #### Verifying Configuration
 
@@ -135,11 +126,3 @@ tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
 
 If the volumes mount but never appear in the sidebar, check Finder -> Settings
 -> Sidebar -> Locations -> Connected servers.
-
-## Deployment
-
-```bash
-make build-trex-dry   # dry run
-make build-trex        # build
-make deploy-trex       # darwin-rebuild --flake .#trex switch
-```

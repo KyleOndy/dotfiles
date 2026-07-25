@@ -166,9 +166,6 @@ Nothing structural changes here in the near term, and that is the point.
 You do not rebuild the only copy. tiger gets touched after the ODROID
 holds a verified second copy, not before.
 
-What changes now: nothing on the pool. What changes later: see the risk
-register on the SMR drives.
-
 Sanoid stays as configured (`tiger/configuration.nix:88`), covering
 `storage/backups` (hourly 4, daily 31, monthly 24, yearly 10) and
 `storage/photos` (daily 8, monthly 12). `autoScrub` is on at
@@ -244,8 +241,6 @@ Both make the receiving side roll back or destroy datasets to match the
 source. A compromised tiger cannot reach the ODROID, but it can
 absolutely answer a request the ODROID made. Those two flags turn that
 answer into a wipe of the second copy.
-
-This is the single most important line in this document.
 
 ### Host configuration
 
@@ -496,12 +491,8 @@ Bulk retrieval is 48 hours. That is a bad thing to discover mid-disaster.
 
 ## Restore runbook
 
-There is no S3 restore tooling in this repo today. No `restore-object`
-wrapper, no test restore, nothing. `photos-recall` restores from tiger,
-not from S3.
-
-That has to change, because a backup you have never restored is a
-hypothesis.
+There is no S3 restore tooling in this repo. `photos-recall` restores
+from tiger, not from S3.
 
 ### A file or directory got deleted
 
@@ -570,12 +561,6 @@ range are frequently the same DM-SMR family as the EFAX drives above.
 Check with `smartctl` before committing, because if both tiers are SMR
 then the resilver problem is not isolated to tiger, it is the house
 style.
-
-**The 60W budget.** Board plus two 3.5" drives at simultaneous spin-up
-lands near the brick's ceiling. A supply that sags during spin-up is a
-pool fault waiting for the least convenient moment. Measure a real cold
-start before trusting the tier, and find out whether these boards are rev
-A or rev B.
 
 **No client-side encryption in S3.** SSE-S3 means AWS holds the keys.
 That is a fine trade for photos and a thinner one for
@@ -659,10 +644,6 @@ no name yet.
 **Who pushes to S3.** Recommendation is the ODROID, so no AWS credential
 exists on tiger and the threat model holds at every tier. tiger is the
 simpler option and keeps the existing unit where it is. Not yet decided.
-
-**ODROID retention numbers.** Proposed daily 30 / monthly 24 / yearly 10.
-The constraint is the invariant, not the specific numbers: ODROID
-retention is always at least tiger's.
 
 **`_projects/` storage class.** Four YouTube tutorials in Standard-IA.
 Move them to Deep Archive, or stop backing up downloadable videos.

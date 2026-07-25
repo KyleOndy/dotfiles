@@ -1,22 +1,18 @@
 # Babashka Scripts
 
-This package contains Kyle's babashka scripts, organized for scalability and maintainability.
-
 ## Structure
 
 ```bash
 babashka-scripts/
-├── simple/                    # Single-file .bb scripts
-│   └── roku-check.bb         # Media compatibility checker
-├── projects/                  # Structured babashka projects
-│   └── roku-transcode/       # Video transcoding tool
-├── shared/                    # Common utilities library
-│   ├── bb.edn               # Shared dependencies
-│   └── src/common/          # Reusable namespaces
-├── templates/                 # DEV-ONLY: Not packaged
-│   ├── simple-script.bb      # Template for simple scripts
-│   └── structured-project/   # Template for complex projects
-└── babashka-builder.nix      # Custom Nix build function
+├── simple/                 # single-file .bb scripts
+│   ├── retry.bb
+│   └── roku-check.bb       # media compatibility checker
+├── projects/               # structured babashka projects
+│   └── roku-transcode/     # video transcoding tool
+├── shared/                 # shared library
+│   ├── bb.edn              # shared dependencies
+│   └── src/common/         # process.clj
+└── babashka-builder.nix    # custom Nix build function
 ```
 
 ## Available Scripts

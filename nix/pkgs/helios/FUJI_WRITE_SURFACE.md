@@ -145,26 +145,26 @@ note below). "Blob write" is whether `fuji-settings edit` can set the field.
 
 ### Image-quality look
 
-| Field                   | Blob offset    | Encoding                          | Blob write    | PTP fallback                  | Status                        |
-| ----------------------- | -------------- | --------------------------------- | ------------- | ----------------------------- | ----------------------------- |
-| film_simulation         | +0x4C          | own code table, all 20 mapped     | yes           | yes                           | full table, sweep-confirmed   |
-| dynamic_range           | +0x5C          | index 0/1/2/3 = Auto/100/200/400  | yes           | yes                           | offline-verified              |
-| color (chroma)          | +0x5F          | `7 - raw`                         | yes           | yes                           | offline-verified              |
-| sharpness               | +0x61          | `4 - raw`                         | yes           | yes                           | hardware-confirmed            |
-| highlight_tone          | +0x63          | `-2 + 0.5*raw`                    | yes           | yes                           | offline-verified              |
-| shadow_tone             | +0x65          | `-2 + 0.5*raw`                    | yes           | yes                           | offline-verified              |
-| color_chrome            | +0x67          | 0/1/2 = Off/Weak/Strong           | yes           | yes                           | offline-verified              |
-| color_chrome_fx_blue    | +0x68          | 0/1/2 = Off/Weak/Strong           | yes           | yes                           | offline-verified              |
-| grain                   | +0x69, +0x6A   | strength byte, size byte          | yes (not Off) | yes                           | Off not located               |
-| smooth_skin             | +0x6B          | 0/1/2 = Off/Weak/Strong           | yes           | yes                           | sweep-confirmed               |
-| high_iso_nr             | +0x22          | `raw - 4`, integer -4..+4         | yes           | yes                           | hardware-confirmed            |
-| clarity                 | +0x25          | `raw - 6`, integer -5..+5         | yes           | no (X-T5 rejects PTP)         | hardware-confirmed, JPEG only |
-| wb_shift_r / wb_shift_b | +0x06 / +0x08  | `9 - raw`, integer -9..+9         | yes           | yes                           | hardware-confirmed (R)        |
-| mono_wc                 | +0x5A          | `raw - 18`, integer -9..+9        | yes           | yes                           | sweep-confirmed (mono sims)   |
-| mono_mg                 | +0x58          | `raw - 18`, integer -9..+9        | yes           | yes                           | sweep-confirmed (mono sims)   |
-| white_balance           | preamble -0x18 | mode code table (12 codes mapped) | yes           | partial (no White Pri/Custom) | sweep-confirmed               |
-| wb_color_temp           | preamble -0x74 | u16 LE kelvin                     | yes           | yes                           | sweep-confirmed               |
-| long_exposure_nr        | preamble -0x48 | off = 1, on = 0                   | yes           | no (PTP hardcodes on)         | sweep-confirmed               |
+| Field                   | Blob offset    | Encoding                                                 | Blob write | PTP fallback                  | Status                        |
+| ----------------------- | -------------- | -------------------------------------------------------- | ---------- | ----------------------------- | ----------------------------- |
+| film_simulation         | +0x4C          | own code table, all 20 mapped                            | yes        | yes                           | full table, sweep-confirmed   |
+| dynamic_range           | +0x5C          | index 0/1/2/3 = Auto/100/200/400                         | yes        | yes                           | offline-verified              |
+| color (chroma)          | +0x5F          | `7 - raw`                                                | yes        | yes                           | offline-verified              |
+| sharpness               | +0x61          | `4 - raw`                                                | yes        | yes                           | hardware-confirmed            |
+| highlight_tone          | +0x63          | `-2 + 0.5*raw`                                           | yes        | yes                           | offline-verified              |
+| shadow_tone             | +0x65          | `-2 + 0.5*raw`                                           | yes        | yes                           | offline-verified              |
+| color_chrome            | +0x67          | 0/1/2 = Off/Weak/Strong                                  | yes        | yes                           | offline-verified              |
+| color_chrome_fx_blue    | +0x68          | 0/1/2 = Off/Weak/Strong                                  | yes        | yes                           | offline-verified              |
+| grain                   | +0x69, +0x6A   | strength 0/1/2 = Strong/Weak/Off; size 0/1 = Small/Large | yes        | yes                           | sweep-confirmed               |
+| smooth_skin             | +0x6B          | 0/1/2 = Off/Weak/Strong                                  | yes        | yes                           | sweep-confirmed               |
+| high_iso_nr             | +0x22          | `raw - 4`, integer -4..+4                                | yes        | yes                           | hardware-confirmed            |
+| clarity                 | +0x25          | `raw - 6`, integer -5..+5                                | yes        | no (X-T5 rejects PTP)         | hardware-confirmed, JPEG only |
+| wb_shift_r / wb_shift_b | +0x06 / +0x08  | `9 - raw`, integer -9..+9                                | yes        | yes                           | hardware-confirmed (R)        |
+| mono_wc                 | +0x5A          | `raw - 18`, integer -9..+9                               | yes        | yes                           | sweep-confirmed (mono sims)   |
+| mono_mg                 | +0x58          | `raw - 18`, integer -9..+9                               | yes        | yes                           | sweep-confirmed (mono sims)   |
+| white_balance           | preamble -0x18 | mode code table (12 codes mapped)                        | yes        | partial (no White Pri/Custom) | sweep-confirmed               |
+| wb_color_temp           | preamble -0x74 | u16 LE kelvin                                            | yes        | yes                           | sweep-confirmed               |
+| long_exposure_nr        | preamble -0x48 | off = 1, on = 0                                          | yes        | no (PTP hardcodes on)         | sweep-confirmed               |
 
 ### Auto-ISO (blob only, no PTP property at all)
 
@@ -182,13 +182,15 @@ note below). "Blob write" is whether `fuji-settings edit` can set the field.
 
 ## The per-slot preamble
 
-Three fields do not live in the 0x400 record body: white balance mode, color
-temperature, and long-exposure NR. They sit in a small block just _before_ each
-record start, at fixed distances back (`-0x74` color temp, `-0x48` long-exp NR,
-`-0x18` WB mode). The encoder writes them at those absolute offsets; they are
-covered by the whole-file checksum like everything else. This is almost certainly
-where the other per-custom-slot settings (AF, drive, image size) live too, still
-to be mapped.
+Five fields do not live in the 0x400 record body. They sit in a small block just
+_before_ each record start, at fixed distances back: `-0x74` color temp, `-0x4C`
+image quality (paired with body `+0x29`), `-0x48` long-exposure NR, `-0x41`
+AF+MF, `-0x18` WB mode. The encoder writes them at those absolute offsets; they
+are covered by the whole-file checksum like everything else.
+
+The guess that AF, drive and image size would turn up here was wrong. They live
+mostly in the record body (`af_mode` at `+0x6C` with a flag at `+0x70`,
+`image_size` at `+0x26`, `raw_recording` at `+0xE9`).
 
 ## Status legend
 
@@ -214,9 +216,8 @@ to be mapped.
   those two blob-only modes through the validator is a small follow-up. Whether
   Custom 2/3 take 0x0C/0x0D is also untested. An unmapped mode decodes as `?0xNN`
   and round trips, but writing one raises.
-- **Grain Off:** +0x69/+0x6A cannot express Off; the on/off byte is not located,
-  so `edit` refuses `grain: Off`. Weak and Strong work.
-- **Min-shutter ladder:** only a handful of menu positions are mapped. An
-  unmapped speed raises.
-- **The rest of the preamble:** AF mode, image size/quality, RAW recording, and
-  the other per-custom-slot settings are stored per slot but not yet located.
+- **Min-shutter ladder:** eleven menu positions are mapped. An unmapped speed
+  raises.
+- **Unconfirmed per-slot toggles:** `dof_scale`, `self_timer_lamp`,
+  `save_self_timer`, `interval_priority`, `preshot_es` and `sports_finder` each
+  come from a single diff, so their direction is a guess.
