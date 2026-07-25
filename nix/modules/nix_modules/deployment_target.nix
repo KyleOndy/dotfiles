@@ -246,24 +246,5 @@ in
       # TODO: why?
       systemtap.enable = true;
     };
-    security = {
-      acme = {
-        # TODO: acme being here feels very wrong
-        # so I do not need to set it in every module
-        acceptTerms = true;
-        defaults = {
-          email = "kyle@ondy.org";
-          dnsProvider = "namecheap";
-          environmentFile = config.sops.secrets.namecheap.path;
-        };
-      };
-    };
-    # todo: fix: need to create an acme user and group to get the deploy working
-    users.users.acme = {
-      isSystemUser = true;
-      group = "acme";
-    };
-    # /fix
-    users.groups.acme = { };
   };
 }

@@ -1182,7 +1182,6 @@ in
   ];
 
   sops.secrets = {
-    namecheap = { };
     apps_ondy_org_route53 = {
       # read by systemd as root (EnvironmentFile) before caddy drops privileges
       mode = "0400";
