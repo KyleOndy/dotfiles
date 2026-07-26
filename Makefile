@@ -220,7 +220,7 @@ test-trex-home: ## Test trex home-manager configuration
 
 .PHONY: deploy-trex
 deploy-trex: ## Deploy trex darwin configuration
-	darwin-rebuild $(IMPURE) --flake .#trex switch
+	$(SWITCH) --flake .#trex switch
 
 .PHONY: flash-ergodox
 flash-ergodox:
