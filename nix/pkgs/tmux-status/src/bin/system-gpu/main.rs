@@ -40,8 +40,13 @@ fn main() {
 /// Uncoloured on purpose. A pegged GPU during inference is the machine doing
 /// its job, so there is no threshold here that would mean trouble, and the
 /// surrounding `#[fg=colour246]` from tmux.nix carries the style.
+///
+/// The number is right-aligned in three columns for the same reason the idle
+/// case still renders: a segment that changes width drags everything left of it
+/// along with it. Three is what 100% needs, so the width is fixed across the
+/// whole range rather than only up to 99.
 fn format_gpu(pct: u8) -> String {
-    format!("gpu {pct}%{SEP}")
+    format!("gpu {pct:>3}%{SEP}")
 }
 
 #[cfg(test)]
@@ -52,16 +57,27 @@ mod tests {
     /// nothing to its left moves when work starts.
     #[test]
     fn idle_still_renders() {
-        assert_eq!(format_gpu(0), "gpu 0% \u{e0b3} ");
-        assert_eq!(format_gpu(4), "gpu 4% \u{e0b3} ");
+        assert_eq!(format_gpu(0), "gpu   0% \u{e0b3} ");
+        assert_eq!(format_gpu(4), "gpu   4% \u{e0b3} ");
     }
 
     #[test]
     fn busy_renders_a_labelled_percentage() {
         // The bar already shows a bare percentage for the battery, so this one
         // needs the label to not be read as a second battery reading.
-        assert_eq!(format_gpu(5), "gpu 5% \u{e0b3} ");
-        assert_eq!(format_gpu(82), "gpu 82% \u{e0b3} ");
+        assert_eq!(format_gpu(5), "gpu   5% \u{e0b3} ");
+        assert_eq!(format_gpu(82), "gpu  82% \u{e0b3} ");
         assert_eq!(format_gpu(100), "gpu 100% \u{e0b3} ");
+    }
+
+    /// The point of the padding: every reading occupies the same columns, so
+    /// no segment to the left of this one moves when the GPU wakes up.
+    #[test]
+    fn width_is_constant_across_the_range() {
+        let widths: Vec<usize> = [0, 7, 42, 99, 100]
+            .iter()
+            .map(|&p| format_gpu(p).chars().count())
+            .collect();
+        assert!(widths.windows(2).all(|w| w[0] == w[1]), "{widths:?}");
     }
 }
