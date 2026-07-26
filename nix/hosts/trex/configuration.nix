@@ -22,16 +22,48 @@
   determinateNix = {
     enable = true; # also forces nix.enable = false for us
 
-    # Local NixOS VM (via Apple's Virtualization.framework) that builds
-    # Linux derivations when tiger is unreachable. Determinate's
-    # replacement for nix-darwin's own nix.linux-builder, which asserts
-    # `requires nix.enable` once Determinate owns Nix
-    # (nix-darwin/nix-darwin#1505).
-    nixosVmBasedLinuxBuilder.enable = true;
+    # Local NixOS VM (QEMU with hvf acceleration, so native aarch64 speed)
+    # that builds Linux derivations. Determinate's replacement for
+    # nix-darwin's own nix.linux-builder, which asserts `requires nix.enable`
+    # once Determinate owns Nix (nix-darwin/nix-darwin#1505).
+    nixosVmBasedLinuxBuilder = {
+      enable = true;
 
-    # Prefer tiger (dedicated, faster) over the local VM; Nix falls back
-    # to whichever builder is reachable and idle. The short ConnectTimeout
-    # in root-ssh-config.nix keeps that failover fast instead of hanging.
+      # Upstream defaults are 1 vCPU, 3 GiB RAM and a 20 GiB disk, which
+      # leaves 9 of trex's 10 cores idle during a Linux build. trex has 32
+      # GiB; leave macOS the rest.
+      #
+      # The qcow2 is attached without discard, so it only ever grows toward
+      # diskSize and never shrinks. 40 GiB is the cap on real disk this can
+      # cost. The GC thresholds are raised off their 1/3 GiB defaults to
+      # match: reclaim below 8 GiB free, stop at 20 GiB, which keeps a
+      # closure build from wedging and holds the high-water mark down.
+      config = {
+        virtualisation.cores = 8;
+        virtualisation.darwin-builder = {
+          memorySize = 12 * 1024;
+          diskSize = 40 * 1024;
+          min-free = 8 * 1024 * 1024 * 1024;
+          max-free = 20 * 1024 * 1024 * 1024;
+        };
+      };
+
+      # maxJobs defaults to virtualisation.cores, and 8 derivations each
+      # taking all 8 cores thrashes 12 GiB. Four at a time, all cores each.
+      maxJobs = 4;
+
+      # Outrank tiger for aarch64-linux. Same zstd derivation, both boxes
+      # idle: 21s here, 284s on tiger, which has to emulate aarch64 through
+      # binfmt qemu. speedFactor only orders machines that can build a given
+      # system, so this decides aarch64 and leaves x86_64 alone.
+      speedFactor = 10;
+    };
+
+    # tiger is the only x86_64-linux builder, and at 23s for that same zstd
+    # it is not the slow one: emulation is, costing it 12.3x. It keeps
+    # aarch64-linux only as a fallback for when the local VM is down, at a
+    # speedFactor the VM always beats. The short ConnectTimeout in
+    # root-ssh-config.nix keeps that failover fast instead of hanging.
     buildMachines = [
       {
         hostName = "tiger.dmz.1ella.com";
@@ -41,7 +73,7 @@
           "aarch64-linux"
         ];
         maxJobs = 8;
-        speedFactor = 10;
+        speedFactor = 1;
         supportedFeatures = [
           "benchmark"
           "big-parallel"
