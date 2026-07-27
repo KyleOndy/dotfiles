@@ -153,6 +153,11 @@ writeShellApplication {
     jq
   ]
   ++ lib.optionals stdenv.isLinux [ bubblewrap ];
-  excludeShellChecks = [ "SC2064" ];
+  # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
+  # (${p/#\~/$HOME}) rather than by the shell, so the quoted tilde is correct.
+  excludeShellChecks = [
+    "SC2064"
+    "SC2088"
+  ];
   text = body;
 }
