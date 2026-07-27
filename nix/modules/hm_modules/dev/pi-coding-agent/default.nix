@@ -55,16 +55,18 @@ let
 
   piPackage =
     if cfg.sandbox.enable then
-      # Only the knobs a host actually turns. The wrapper's own defaults
-      # cover the rest: the base network allowlist and the extra FS
-      # read/write paths all start empty (strict mode is default-deny on
-      # both), trustd stays off, and no args are prepended. Widen them at
+      # The knobs a host actually turns; the wrapper's own defaults cover
+      # the rest. The extra FS read/write paths stay empty (strict mode is
+      # default-deny on both) and trustd stays off. Widen those at
       # nix/pkgs/pi-wrapper/default.nix, or per-invocation with the
-      # wrapper's --allow / --allow-read / --allow-write / --allow-trustd.
+      # wrapper's --allow-read / --allow-write / --allow-trustd.
       pkgs.pi-wrapper.override {
+        defaultDomains = cfg.sandbox.allowedDomains;
         defaultEnvVars = cfg.sandbox.envVars;
+        defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
         networkBundles = cfg.sandbox.networkBundles;
+        envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
       }
@@ -130,6 +132,33 @@ in
         '';
       };
 
+      envFromCommands = lib.mkOption {
+        type = with lib.types; attrsOf str;
+        default = { };
+        example = {
+          OPENROUTER_API_KEY = "security find-generic-password -s pi -a openrouter -w";
+        };
+        description = ''
+          Env vars resolved by the wrapper outside the sandbox before pi
+          execs. Each value is a shell command; its stdout (trailing newline
+          stripped by command substitution) becomes the env var, exported
+          into pi's environment.
+
+          Use this to inject API keys from macOS Keychain, pass, sops, etc.,
+          so pi's models.json can reference them via "!printenv VAR" without
+          granting the sandbox read access to credential paths or network
+          access to a secrets backend.
+
+          Resolver failure (non-zero exit) aborts pi startup with a
+          diagnostic on stderr. Resolvers are not cached; keep them cheap
+          (Keychain lookups are sub-10ms; avoid kubectl-per-run).
+
+          Note: macOS Keychain "Always Allow" entries are keyed to the
+          caller binary path, which changes on every pi-wrapper rebuild, so
+          a fresh allow-prompt fires once after each rebuild.
+        '';
+      };
+
       allowLocalBinding = lib.mkOption {
         type = lib.types.bool;
         default = false;
@@ -143,6 +172,22 @@ in
           Does not open external network egress, srt's domain filter still
           applies, only loopback addresses are unblocked. Runtime
           --allow-loopback extends this per-invocation.
+        '';
+      };
+
+      allowedDomains = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [
+          "openrouter.ai"
+          "api.anthropic.com"
+          "github.com"
+        ];
+        description = ''
+          Base network allowlist. Empty by default; each host configures
+          exactly the provider endpoints pi needs. Runtime --allow extends
+          this. srt passes these through its filtering proxy; programs not
+          respecting HTTP_PROXY/HTTPS_PROXY can bypass the filter.
         '';
       };
 
@@ -208,6 +253,21 @@ in
 
           Network + trustd only for v1. Pair with the wrapper's
           defaultWritePaths and `sandbox.envVars` for FS / env knobs.
+        '';
+      };
+
+      defaultArgs = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [
+          "--model"
+          "anthropic/claude-sonnet-4"
+        ];
+        description = ''
+          Args prepended to every `pi` invocation, before any user-supplied
+          args. Use this to pin a default model/provider so you don't have
+          to type --model on every command. User args still win on repeated
+          flags; pi takes the last occurrence of --model, --provider, etc.
         '';
       };
 
