@@ -305,6 +305,11 @@ in
         This is what separates an answer from thinking, both channels sharing
         one voice.
 
+        Submarine is the warmer alternative and works on the same pattern. Both
+        it and Glass run past a second, so under a three-strike pattern the
+        strikes overlap into one gesture; Tink is short enough that they stay
+        audibly separate.
+
         Rung once per reply, on entry into answer mode rather than per
         sentence. Its onset also covers the Bluetooth wake, so a cued utterance
         skips wakePadMs.
@@ -313,17 +318,18 @@ in
 
     cuePattern = lib.mkOption {
       type = lib.types.str;
-      default = "0:0,0.16:4";
-      example = "0:0,0.15:4,0.30:7";
+      default = "0:0,0.15:4,0.30:7";
+      example = "0:0,0.16:4";
       description = ''
         Comma-separated `onset:semitones` pairs: when each strike lands, in
         seconds from the start, and how far it is pitch-shifted. A rising
         interval reads as finished where a flat repeat reads as merely
         repeated.
 
-        The default is a two-strike major third. `0:0,0.15:4,0.30:7` is the
-        three-strike major triad; a single strike is `0:0`. Speech begins
-        cueLead after the *last* onset, so more strikes delay the reply.
+        The default is a three-strike major triad. `0:0,0.16:4` is the
+        two-strike major third and `0:0` a single strike, both of which start
+        the reply sooner: speech begins cueLead after the *last* onset, so each
+        extra strike delays the answer by its own onset.
       '';
     };
 
