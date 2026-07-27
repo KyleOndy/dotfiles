@@ -418,6 +418,60 @@
               exit "$fail"
             '';
           };
+
+          # The skills feed both Claude Code and pi. Claude Code's frontmatter
+          # parser tolerates YAML that pi's rejects outright (an unquoted
+          # description containing ": " is the case that bit us), and pi
+          # silently drops a skill whose description is missing, so validate
+          # against the stricter of the two before the file ships.
+          skillFrontmatter = pkgs.writeShellApplication {
+            name = "skill-frontmatter";
+            runtimeInputs = [
+              pkgs.yq-go
+              pkgs.gnugrep
+              pkgs.coreutils
+              pkgs.gawk
+            ];
+            text = ''
+              fail=0
+              for f in "$@"; do
+                if [ "$(head -n1 "$f")" != "---" ]; then
+                  echo "ERROR: $f: no YAML frontmatter (line 1 is not ---)" >&2
+                  fail=1
+                  continue
+                fi
+                fm=$(awk 'NR>1 { if ($0 == "---") exit; print }' "$f")
+
+                if ! err=$(printf '%s\n' "$fm" | yq -e '.' - 2>&1 >/dev/null); then
+                  # yq prefixes stdin failures with "bad file '-'", which reads
+                  # as a missing file rather than a parse error.
+                  case $err in *"yaml:"*) err="yaml:''${err#*yaml:}" ;; esac
+                  echo "ERROR: $f: frontmatter is not valid YAML" >&2
+                  echo "  $err" >&2
+                  fail=1
+                  continue
+                fi
+
+                name=$(printf '%s\n' "$fm" | yq -r '.name // ""' -)
+                desc=$(printf '%s\n' "$fm" | yq -r '.description // ""' -)
+
+                if [ -z "$name" ]; then
+                  echo "ERROR: $f: frontmatter has no name" >&2
+                  fail=1
+                elif ! printf '%s' "$name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+                  echo "ERROR: $f: name '$name' is not lowercase a-z0-9 with single hyphens" >&2
+                  fail=1
+                fi
+
+                if [ -z "$desc" ]; then
+                  echo "ERROR: $f: frontmatter has no description" >&2
+                  fail=1
+                fi
+              done
+
+              exit "$fail"
+            '';
+          };
         in
         {
           pre-commit-check =
@@ -454,6 +508,13 @@
                   entry = "${staysEncrypted}/bin/stays-encrypted";
                   language = "system";
                   pass_filenames = false;
+                };
+                skill-frontmatter = {
+                  enable = true;
+                  name = "skill-frontmatter";
+                  entry = "${skillFrontmatter}/bin/skill-frontmatter";
+                  language = "system";
+                  files = "^nix/modules/hm_modules/dev/claude-code/skills/.*\\.md$";
                 };
               };
             }
