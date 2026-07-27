@@ -47,6 +47,7 @@
   lib,
   pkgs,
   config,
+  inputs,
   dotfiles-worktree,
   ...
 }:
@@ -89,6 +90,35 @@ let
         pass --impure), or set
         `hmFoundry.dev.pi-coding-agent.sourceDir` explicitly.
       '';
+
+  claudeCfg = config.hmFoundry.dev.claude-code;
+  sharedSkillsDir = ../claude-code/skills;
+
+  # Sourced from the flake input rather than sharedSkillsDir, matching how the
+  # claude-code module installs it.
+  flakeSkills = {
+    ".pi/agent/skills/i-have-adhd/SKILL.md".source =
+      "${inputs.claude-skills-adhd}/skills/i-have-adhd/SKILL.md";
+  };
+
+  repoSkills =
+    lib.mapAttrs'
+      (
+        fname: _: lib.nameValuePair ".pi/agent/skills/${fname}" { source = "${sharedSkillsDir}/${fname}"; }
+      )
+      (
+        lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir sharedSkillsDir)
+      );
+
+  hostSkills = lib.listToAttrs (
+    map (
+      skill:
+      if skill.isFile then
+        lib.nameValuePair ".pi/agent/skills/${skill.name}/SKILL.md" { source = skill.source; }
+      else
+        lib.nameValuePair ".pi/agent/skills/${skill.name}" { source = skill.source; }
+    ) claudeCfg.skills
+  );
 in
 {
   options.hmFoundry.dev.pi-coding-agent = {
@@ -392,11 +422,19 @@ in
       PI_SKIP_VERSION_CHECK = "1";
     };
 
-    home.file.".pi/agent/extensions".source =
-      config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
+    # pi reads bare .md files at the root of ~/.pi/agent/skills/ as individual
+    # skills, so claude-code's flat sources need no restructuring. Store
+    # sources, matching claude-code, so /reload cannot see skill edits until
+    # the next home-manager switch.
+    home.file = {
+      ".pi/agent/extensions".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
 
-    home.file.".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
-      text = builtins.toJSON cfg.modelsJson;
-    };
+      ".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
+        text = builtins.toJSON cfg.modelsJson;
+      };
+    }
+    // repoSkills
+    // flakeSkills
+    // lib.optionalAttrs claudeCfg.enable hostSkills;
   };
 }
