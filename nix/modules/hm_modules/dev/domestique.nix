@@ -106,6 +106,18 @@ let
     readonly STAMP="$VENV/.requirements"
 
     if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$STAMP" 2>/dev/null)" != "${requirementsFile}" ]; then
+      # Every domestique command shares this venv, so an older binary still on
+      # some shell's PATH rebuilds it to that binary's requirements, deleting
+      # it under whatever is already running from it.
+      for holder in "$ROOT/watcher.pid" "$ROOT/listen.pid"; do
+        held=$(cat "$holder" 2>/dev/null) || continue
+        if [ -n "$held" ] && kill -0 "$held" 2>/dev/null; then
+          printf 'domestique: venv needs rebuilding, but pid %s is using it. Stop it first.\n' \
+            "$held" >&2
+          exit 1
+        fi
+      done
+
       printf 'domestique: building the speech venv, this runs once\n' >&2
       rm -rf "$VENV"
       uv venv --python "${pkgs.python312}/bin/python3.12" "$VENV" >&2
