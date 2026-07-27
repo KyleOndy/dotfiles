@@ -450,7 +450,11 @@ run_strict() {
 	# outside the sandbox, reference with "!printenv" in models.json) rather than
 	# on disk if that read matters in your threat model.
 	deny_read_json=$(printf '%s\n' "$HOME" | jq -Rs '[split("\n")[] | select(. != "")]')
-	read_paths=("$PWD" "$HOME/.pi" "${resolved_extra_reads[@]}")
+	# git reads its global config on every invocation, including read-only ones,
+	# and aborts with "unable to access ... Operation not permitted" when the
+	# $HOME deny hides it. Both standard locations are listed since git checks
+	# XDG first and ~/.gitconfig second (git-config(1), FILES).
+	read_paths=("$PWD" "$HOME/.pi" "$HOME/.config/git" "$HOME/.gitconfig" "${resolved_extra_reads[@]}")
 	allow_read_json=$(printf '%s\n' "${read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 
 	# allowPty=true is macOS-only (lets `pi`'s interactive TUI call setRawMode
