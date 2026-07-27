@@ -1,16 +1,12 @@
 {
   writeShellApplication,
   awscli2,
-  rsync,
-  util-linux,
 }:
 
 writeShellApplication {
   name = "photos-fanout";
-  runtimeInputs = [
-    awscli2
-    rsync
-    util-linux # mountpoint(8), to detect the external HDD
-  ];
+  # rsync and util-linux went with the external HDD leg. Nothing left here
+  # touches a local filesystem beyond reading the archive.
+  runtimeInputs = [ awscli2 ];
   text = builtins.readFile ./photos-fanout.sh;
 }

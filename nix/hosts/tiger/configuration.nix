@@ -235,13 +235,17 @@ in
   # Photo archive fan-out: tiger owns the routine push from the
   # authoritative archive/ to S3 (Deep Archive for archive/, Standard-IA
   # for _projects/, since Deep Archive's 180-day minimum and
-  # re-upload-on-modtime-change are a bad fit for churny WIP) and to an
-  # external HDD when mounted. The laptop's own backup-photos handles the
-  # working set independently (--to/--s3 modes), so this stays off the
-  # critical path when the laptop can't reach tiger (see the photo
-  # management plan).
+  # re-upload-on-modtime-change are a bad fit for churny WIP). The laptop's
+  # own backup-photos handles the working set independently (--to/--s3
+  # modes), so this stays off the critical path when the laptop can't reach
+  # tiger (see the photo management plan).
+  #
+  # This unit is temporary in its current home. The S3 push moves to pika
+  # once that copy verifies, so that no AWS credential exists on the host
+  # that faces the internet. Nothing has to be re-uploaded when it moves:
+  # `aws s3 sync` compares size and mtime, and zfs send/recv preserves both.
   systemd.services.photos-fanout = {
-    description = "Fan the photo archive out to S3 and external HDD";
+    description = "Fan the photo archive out to S3";
     environment = {
       PHOTOS_BACKUP_BUCKET = "my-photo-backup-archive-holy-mink";
       AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.photos_backup_aws_credentials.path;

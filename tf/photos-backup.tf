@@ -207,14 +207,25 @@ resource "aws_iam_policy" "photos_backup" {
         Resource = aws_s3_bucket.backup_bucket.arn
       },
       {
+        # Put-only. No delete verb of any kind, deliberately.
+        #
+        # This credential sits on a host that faces the internet, and bucket
+        # versioning does not protect you from a principal holding
+        # DeleteObjectVersion: it can remove the noncurrent versions too. So
+        # the offsite copy is only genuinely offsite if the machine writing
+        # to it cannot destroy what it already wrote.
+        #
+        # The sync legs dropped --delete at the same time, so nothing needs
+        # these. Pruning the bucket is now a deliberate, rare, manual job run
+        # with different credentials. At $0.00099/GB-month, keeping deleted
+        # objects around indefinitely is cheaper than the risk of an rm
+        # propagating within a day.
         Sid    = "ReadWriteObjects"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:DeleteObjectVersion",
         ]
         Resource = "${aws_s3_bucket.backup_bucket.arn}/*"
       },

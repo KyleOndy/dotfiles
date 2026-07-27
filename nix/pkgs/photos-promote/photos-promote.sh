@@ -6,7 +6,7 @@
 # archive. This is a copy, not a move: the local source is left in place so
 # you can verify the promotion landed before cleaning up _provisional/
 # or _projects/ yourself. tiger's routine fan-out (nix/pkgs/photos-fanout)
-# then carries archive/ on to S3 Deep Archive and the external HDD.
+# then carries archive/ on to S3 Deep Archive.
 #
 #   photos-promote LOCAL_SRC ARCHIVE_DEST
 #
