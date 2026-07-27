@@ -56,16 +56,20 @@ let
   piPackage =
     if cfg.sandbox.enable then
       # The knobs a host actually turns; the wrapper's own defaults cover
-      # the rest. The extra FS read/write paths stay empty (strict mode is
-      # default-deny on both) and trustd stays off. Widen those at
+      # the rest. The extra FS write paths stay empty (strict mode is
+      # default-deny) and trustd stays off. Widen those at
       # nix/pkgs/pi-wrapper/default.nix, or per-invocation with the
       # wrapper's --allow-read / --allow-write / --allow-trustd.
+      #
+      # sourceDir is always readable: srt checks a symlink's resolved
+      # target, and the extensions link below resolves into a worktree that
+      # the blanket $HOME deny would otherwise hide.
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
         defaultEnvVars = cfg.sandbox.envVars;
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
-        defaultReadPaths = cfg.sandbox.allowedReadPaths;
+        defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
         networkBundles = cfg.sandbox.networkBundles;
         envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
@@ -169,8 +173,9 @@ in
         ];
         description = ''
           Paths re-allowed for reading in strict mode, which denies all of
-          $HOME. $PWD and ~/.pi are always readable; this list adds more.
-          Leading `~` expands to $HOME. Runtime --allow-read extends it.
+          $HOME. $PWD, ~/.pi and `sourceDir` are always readable; this list
+          adds more. Leading `~` expands to $HOME. Runtime --allow-read
+          extends it.
 
           srt matches the path as written, not its target, so a symlink
           under $HOME needs its target listed here too. That covers
