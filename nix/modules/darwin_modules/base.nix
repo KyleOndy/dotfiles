@@ -32,7 +32,10 @@
   homebrew = {
     enable = lib.mkDefault true;
     onActivation = {
-      autoUpdate = lib.mkDefault false;
+      # Refresh cask metadata on activation so installs don't fail on a
+      # stale version whose upstream asset was pulled (brew bundle otherwise
+      # runs with HOMEBREW_NO_AUTO_UPDATE=1).
+      autoUpdate = lib.mkDefault true;
       upgrade = lib.mkDefault false;
       cleanup = lib.mkDefault "zap"; # Remove packages not in config
     };
