@@ -279,41 +279,24 @@ in
               };
             };
           });
-        default = {
-          go = {
-            domains = [
-              "proxy.golang.org"
-              "sum.golang.org"
-            ];
-            trustd = true;
-          };
-          rust = {
-            domains = [
-              "crates.io"
-              "static.crates.io"
-              "index.crates.io"
-            ];
-          };
-          node = {
-            domains = [ "registry.npmjs.org" ];
-          };
-          python = {
-            domains = [
-              "pypi.org"
-              "files.pythonhosted.org"
-            ];
-          };
-        };
+        default = { };
         description = ''
           Named bundles enabling per-invocation `--allow-<name>` CLI flags
           that extend the strict-mode network allowlist and (optionally)
           flip security loosenings the language needs.
 
-          attrsOf merging: setting
-          `sandbox.networkBundles.go = { ... }` replaces only the go
-          bundle. Override or extend per-host to add internal registries
-          or mirrors. Unknown `--allow-<name>` at the CLI fails fast with
-          the known-bundles list on stderr.
+          The go / rust / node / python bundles are supplied by this
+          module's own config rather than by this default, because the
+          module system applies an option's default only when nothing
+          defines the option at all. As a definition they merge with a
+          host's, so adding `sandbox.networkBundles.linear` keeps the
+          language bundles and setting `sandbox.networkBundles.go.domains`
+          overrides that list while leaving `go.trustd` alone. Naming them
+          in the default would instead have discarded all four the moment
+          a host added a fifth.
+
+          Unknown `--allow-<name>` at the CLI fails fast with the
+          known-bundles list on stderr.
 
           Network + trustd only for v1. Pair with the wrapper's
           defaultWritePaths and `sandbox.envVars` for FS / env knobs.
@@ -420,6 +403,35 @@ in
     home.sessionVariables = {
       PI_TELEMETRY = "0";
       PI_SKIP_VERSION_CHECK = "1";
+    };
+
+    # A definition, not the option's default, so a host adding its own bundle
+    # merges with these four instead of replacing them. See the option's
+    # description for why the distinction matters.
+    hmFoundry.dev.pi-coding-agent.sandbox.networkBundles = {
+      go = {
+        domains = [
+          "proxy.golang.org"
+          "sum.golang.org"
+        ];
+        trustd = true;
+      };
+      rust = {
+        domains = [
+          "crates.io"
+          "static.crates.io"
+          "index.crates.io"
+        ];
+      };
+      node = {
+        domains = [ "registry.npmjs.org" ];
+      };
+      python = {
+        domains = [
+          "pypi.org"
+          "files.pythonhosted.org"
+        ];
+      };
     };
 
     # pi reads bare .md files at the root of ~/.pi/agent/skills/ as individual
