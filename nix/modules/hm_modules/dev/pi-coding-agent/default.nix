@@ -11,7 +11,7 @@
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
 # Both network AND filesystem reads are default-deny: the allowlist starts
 # empty, and reads are denied across all of $HOME except CWD, ~/.pi, and
-# the wrapper's defaultReadPaths / --allow-read. System paths (/nix, /etc) stay
+# sandbox.allowedReadPaths / --allow-read. System paths (/nix, /etc) stay
 # readable. Add toolchain read paths (~/.gitconfig, ~/.cargo, ...) as needed.
 #
 # Hardening defaults applied in every mode (see wrapper.sh), all overridable
@@ -65,6 +65,7 @@ let
         defaultEnvVars = cfg.sandbox.envVars;
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
+        defaultReadPaths = cfg.sandbox.allowedReadPaths;
         networkBundles = cfg.sandbox.networkBundles;
         envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
@@ -156,6 +157,34 @@ in
           Note: macOS Keychain "Always Allow" entries are keyed to the
           caller binary path, which changes on every pi-wrapper rebuild, so
           a fresh allow-prompt fires once after each rebuild.
+        '';
+      };
+
+      allowedReadPaths = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [
+          "~/.gitconfig"
+          "/Users/me/private-config/files"
+        ];
+        description = ''
+          Paths re-allowed for reading in strict mode, which denies all of
+          $HOME. $PWD and ~/.pi are always readable; this list adds more.
+          Leading `~` expands to $HOME. Runtime --allow-read extends it.
+
+          srt matches the path as written, not its target, so a symlink
+          under $HOME needs its target listed here too. That covers
+          out-of-store symlinks placed in ~/.pi by another module:
+          models.json or AGENTS.md pointing into a working tree resolve to
+          a path outside the allowlist, and pi reports the file as missing
+          rather than as denied:
+
+          ```
+          Error: Model "provider/some-model" not found.
+          ```
+
+          A home-manager symlink into /nix/store hits the same rule, since
+          the link itself sits under $HOME.
         '';
       };
 
