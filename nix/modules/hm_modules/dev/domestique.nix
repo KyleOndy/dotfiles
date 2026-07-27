@@ -299,6 +299,26 @@ in
         PostgreSQL = "pˈOstɡɹɛs kjˌuˈɛl";
         NixOS = "nˈɪksOˌɛs";
         ArgoCD = "ˈɑɹɡO sˌidˈi";
+        AWS = "ˈA dˈʌbᵊlju ˈɛs";
+        Clojure = "klˈOʒəɹ";
+        nixfmt = "nˈɪks fˈɔɹmˌæt";
+        sabnzbd = "sˈæb ˈɛn zˈi bˈi dˈi";
+        ODROID = "ˈɑd ɹˈYd";
+        NaN = "nˈæn";
+        GEMM = "ʤˈɛm";
+        SIMD = "sˈɪmdˌi";
+        TFLOPS = "tˈɛɹəflˌɑps";
+        SMEM = "ˈɛs mˈɛm";
+        TMEM = "tˈi mˈɛm";
+        MoE = "ˈɛm ˈO ˈi";
+        CuTe = "kjˈut";
+        RoPE = "ɹˈOp";
+        comptime = "kˈɑmp tˈIm";
+        # Qwen takes its q from pinyin Qianwen, and NVIDIA spells NCCL nickel:
+        # https://github.com/NVIDIA/nccl/blob/v2.28.3-1/README.md
+        Qwen = "ʧwˈɛn";
+        NCCL = "nˈɪkᵊl";
+        RoCE = "ɹˈɑki";
       };
       example = {
         kubectl = "kjˈubkəntɹOl";
@@ -315,8 +335,10 @@ in
 
         Only add terms that are actually wrong. The default dictionary already
         handles nginx as "engine X", ZFS and vmagent as initialisms, tmux,
-        OAuth, PromQL and Grafana. Its failures are acronyms it spells out
-        letter by letter.
+        OAuth, PromQL and Grafana, and reads aarch64 as "arch sixty four",
+        ROCm as "rock em" and CUTLASS as a word. Its failures are acronyms it
+        spells out letter by letter, and acronyms it runs together into a word
+        when the letters were meant.
 
         Each entry is registered under both its own casing and lowercase,
         because misaki resolves an all-caps token through its acronym path and
