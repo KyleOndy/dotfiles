@@ -40,10 +40,6 @@ LISTENING = ROOT / "listening"
 # Finished transcripts, one file per utterance, drained by the pi extension.
 HEARD = ROOT / "heard"
 
-# The speech watcher's purge signal. A rider who starts talking has stopped
-# listening, so the answer in progress goes away rather than talking over them.
-STOP = ROOT / "stop"
-
 PIDFILE = ROOT / "listen.pid"
 READY = ROOT / "listen.ready"
 
@@ -128,7 +124,6 @@ def main() -> int:
         )
         stream.start()
         opened = time.monotonic()
-        STOP.touch()
 
     def finish() -> None:
         nonlocal stream

@@ -20,6 +20,7 @@
  */
 
 import {
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -43,6 +44,10 @@ const SPEED_FILE = join(ROOT, "speed");
 // needs no keystroke synthesis and no accessibility grant.
 const HEARD = join(ROOT, "heard");
 const HEARD_POLL_MS = 200;
+
+// Karabiner holds this open while the push-to-talk key is down. The watcher
+// rings for it; this is the same thing for anyone at a desk.
+const LISTENING = join(ROOT, "listening");
 
 // The watcher clamps to the same range; these bounds are here so /speed reports
 // the rate it actually set.
@@ -355,7 +360,19 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.setStatus("domestique", ctx.ui.theme.fg("accent", "domestique"));
     }
 
-    heardTimer = setInterval(() => drainHeard(ctx), HEARD_POLL_MS);
+    let shown = false;
+    heardTimer = setInterval(() => {
+      drainHeard(ctx);
+      const open = existsSync(LISTENING);
+      if (open === shown || !ctx.hasUI) return;
+      shown = open;
+      ctx.ui.setStatus(
+        "domestique",
+        open
+          ? ctx.ui.theme.fg("success", "listening")
+          : ctx.ui.theme.fg("accent", "domestique"),
+      );
+    }, HEARD_POLL_MS);
     // A held timer would keep pi alive after the session ends.
     heardTimer.unref?.();
   });

@@ -206,6 +206,7 @@ let
       }}"
       export DOMESTIQUE_CUE_SOUND="''${DOMESTIQUE_CUE_SOUND:-${cfg.cueSound}}"
       export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${cfg.cuePattern}}"
+      export DOMESTIQUE_LISTEN_CUE_SOUND="${cfg.listenCueSound}"
       export DOMESTIQUE_CUE_GAIN="${cfg.cueGain}"
       export DOMESTIQUE_CUE_LEAD="${cfg.cueLead}"
       export DOMESTIQUE_WAKE_PAD_MS="${toString cfg.wakePadMs}"
@@ -471,6 +472,25 @@ in
         two-strike major third and `0:0` a single strike, both of which start
         the reply sooner: speech begins cueLead after the *last* onset, so each
         extra strike delays the answer by its own onset.
+      '';
+    };
+
+    listenCueSound = lib.mkOption {
+      type = lib.types.str;
+      default = "Tink";
+      description = ''
+        Sound under /System/Library/Sounds marking the microphone opening and
+        closing, pitched down on the way in and up on the way out. Without it a
+        rider who is not looking at the screen has no way to know the key
+        registered.
+
+        Short on purpose. These two land far more often than the answer bell,
+        and the closing one sits between the question and the reply. Glass and
+        Submarine both run past a second, which is why the answer keeps them
+        and this does not.
+
+        Shares cueGain with the answer bell, so setting that to 0 silences
+        every cue.
       '';
     };
 

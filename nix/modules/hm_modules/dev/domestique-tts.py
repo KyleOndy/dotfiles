@@ -51,6 +51,12 @@ SPEED_FILE = ROOT / "speed"
 # finished before it takes the watcher down.
 SPEAKING = ROOT / "watcher.speaking"
 
+# Written by Karabiner while the push-to-talk key is held
+# (nix/modules/hm_modules/desktop/input/karabiner.nix). Read here as well as by
+# the recorder, because the answer has to get out of the rider's way and the
+# device that says so is this one.
+LISTENING = ROOT / "listening"
+
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
 SPEED = float(env("DOMESTIQUE_SPEED", "1.0"))
@@ -61,6 +67,15 @@ CUE_SOUND = env("DOMESTIQUE_CUE_SOUND", "Glass")
 CUE_PATTERN = env("DOMESTIQUE_CUE_PATTERN", "0:0,0.15:4,0.30:7")
 CUE_GAIN = float(env("DOMESTIQUE_CUE_GAIN", "0.30"))
 CUE_LEAD = float(env("DOMESTIQUE_CUE_LEAD", "0.25"))
+
+# Cues for the microphone rather than the answer, and the only sign a rider who
+# is not looking at the screen has that the key registered. A short sound, since
+# these two land far more often than the answer bell and the second of them
+# stands between the question and the reply.
+LISTEN_CUE_SOUND = env("DOMESTIQUE_LISTEN_CUE_SOUND", "Tink")
+LISTEN_OPEN_PATTERN = "0:-3"
+LISTEN_CLOSE_PATTERN = "0:4"
+
 WAKE_PAD_MS = int(env("DOMESTIQUE_WAKE_PAD_MS", "350"))
 WAKE_GAP_SECONDS = float(env("DOMESTIQUE_WAKE_GAP_SECONDS", "3"))
 POLL_SECONDS = float(env("DOMESTIQUE_POLL_SECONDS", "0.1"))
@@ -145,7 +160,7 @@ def pitch_shift(audio, semitones: float):
     return np.interp(idx, np.arange(len(audio)), audio).astype(np.float32)
 
 
-def build_cue():
+def build_cue(sound: str = CUE_SOUND, pattern: str = CUE_PATTERN):
     """Pre-mix the bell stack once; per-utterance cost is then a copy.
 
     Returns (buffer, lead_samples), where lead_samples is where speech starts:
@@ -156,16 +171,16 @@ def build_cue():
     import numpy as np
     import soundfile as sf
 
-    path = Path(f"/System/Library/Sounds/{CUE_SOUND}.aiff")
+    path = Path(f"/System/Library/Sounds/{sound}.aiff")
     if not path.is_file():
-        log(f"cue sound {CUE_SOUND} not found, running without a cue")
+        log(f"cue sound {sound} not found, running without a cue")
         return None, 0
 
     raw, src_sr = sf.read(str(path), dtype="float32")
     bell = resample_mono(raw, src_sr)
 
     hits = []
-    for spec in CUE_PATTERN.split(","):
+    for spec in pattern.split(","):
         onset, _, semis = spec.partition(":")
         hits.append((float(onset), float(semis or 0)))
 
@@ -201,6 +216,24 @@ def with_pad(speech, millis: int):
 # --- synthesis ---------------------------------------------------------------
 
 
+def speakable(text: str) -> str:
+    """Remove backticks and turn code separators into spaces so identifiers
+    read as words rather than spelled-out punctuation.
+    """
+
+    def fix_code(m: re.Match) -> str:
+        code = m.group(1)
+        # Separators that should be silent in speech
+        code = re.sub(r"[._-]", " ", code)
+        # Split camelCase: lower-to-upper boundary
+        code = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", code)
+        # Collapse multiple spaces
+        code = re.sub(r" +", " ", code)
+        return code.strip()
+
+    return re.sub(r"`([^`]+)`", fix_code, text)
+
+
 def chunk_phonemes(phonemes: str) -> list[str]:
     """Split an over-long phoneme string on word boundaries."""
     if len(phonemes) <= PHONEME_LIMIT:
@@ -229,6 +262,7 @@ def read_speed() -> float:
 def synth(pipe, g2p, text: str, speed: float):
     import numpy as np
 
+    text = speakable(text)
     phonemes, _ = g2p(text)
     parts = []
     for chunk in chunk_phonemes(phonemes):
@@ -310,6 +344,8 @@ def main() -> int:
     model = load_model(MODEL)
     pipe = model._get_pipeline("a")
     cue, cue_lead = build_cue()
+    open_cue, _ = build_cue(LISTEN_CUE_SOUND, LISTEN_OPEN_PATTERN)
+    close_cue, _ = build_cue(LISTEN_CUE_SOUND, LISTEN_CLOSE_PATTERN)
 
     # First synthesis builds the graph; paying that here rather than on the
     # first thing the rider says keeps the opening reply from arriving late.
@@ -338,6 +374,10 @@ def main() -> int:
         if playing_channel is not None:
             playing_channel = None
             last_finished = time.monotonic()
+
+    def ring(buf) -> None:
+        if buf is not None:
+            sd.play(buf, SR)
 
     def start(channel: str, path: Path) -> None:
         nonlocal playing_channel, last_channel, last_finished
@@ -375,8 +415,20 @@ def main() -> int:
         playing_channel = channel
         last_channel = channel
 
+    listening = False
+
     try:
         while True:
+            if LISTENING.exists() != listening:
+                listening = not listening
+                if listening:
+                    # A rider who has started talking has stopped listening,
+                    # and the answer would be recorded along with the question.
+                    hush()
+                    unlink(SPOOL.glob("*.txt"))
+                    unlink(SPOOL.glob("*.tmp"))
+                ring(open_cue if listening else close_cue)
+
             if STOP.exists():
                 STOP.unlink(missing_ok=True)
                 hush()
@@ -416,6 +468,10 @@ def main() -> int:
             elif playing_channel is not None:
                 playing_channel = None
                 last_finished = time.monotonic()
+
+            if listening:
+                time.sleep(POLL_SECONDS)
+                continue
 
             if speak_queue:
                 # Thinking queued before this sentence was narrating the wait
