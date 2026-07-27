@@ -28,6 +28,12 @@ let
   # misaki[en] minus spacy-curated-transformers. That extra serves only the
   # transformer POS tagger (G2P trf=True), which this never uses, and it pulls
   # torch: 493MB of a 1.1GB tree.
+  #
+  # numba arrives under parakeet-mlx via librosa and caps numpy at <2.5, so an
+  # unfloored resolve keeps numpy 2.5 and drops numba to 0.53.1, which predates
+  # cp312 wheels and fails building llvmlite from source. 0.59.0 is the first
+  # release supporting Python 3.12:
+  # https://numba.readthedocs.io/en/stable/release/0.59.0-notes.html
   requirementsFile = pkgs.writeText "domestique-requirements.txt" ''
     mlx-audio
     misaki
@@ -36,6 +42,8 @@ let
     phonemizer-fork
     spacy
     soundfile
+    parakeet-mlx
+    numba>=0.59
     en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
   '';
 
@@ -127,6 +135,25 @@ let
       mkdir -p "$ROOT"
       ${ensureVenv}
       exec "$VENV/bin/python" ${./domestique-phonemes.py} "$@"
+    '';
+  };
+
+  # Reports what the recognizer hears, so the lexicon corrector can be built
+  # against real transcripts rather than guesses about them.
+  domestique-transcribe = pkgs.writeShellApplication {
+    name = "domestique-transcribe";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.uv
+      # parakeet_mlx.audio decodes by execing ffmpeg, not through a library.
+      pkgs.ffmpeg
+    ];
+    text = ''
+      readonly ROOT="$HOME/.pi/domestique"
+      mkdir -p "$ROOT"
+      ${ensureVenv}
+      export DOMESTIQUE_STT_MODEL="${cfg.sttModel}"
+      exec "$VENV/bin/python" ${./domestique-stt.py} "$@"
     '';
   };
 
@@ -259,6 +286,22 @@ in
       description = ''
         Hugging Face repo for the MLX Kokoro weights. Fetched on first run into
         the shared HF cache.
+      '';
+    };
+
+    sttModel = lib.mkOption {
+      type = lib.types.str;
+      default = "mlx-community/parakeet-tdt-0.6b-v3";
+      description = ''
+        Hugging Face repo for the recognizer weights, used by
+        `domestique-transcribe`. 2.4GB, fetched on first run into the shared HF
+        cache.
+
+        Parakeet rather than Whisper because a trainer supplies a running fan,
+        elevated breathing and long pauses mid-sentence, which is where
+        Whisper's autoregressive decoder invents fluent text. A transducer emits
+        a blank per frame instead, so silence produces nothing. Nobody is
+        reading the screen to catch the difference.
       '';
     };
 
@@ -544,6 +587,7 @@ in
       domestique-speak
       domestique-fetch
       domestique-phonemes
+      domestique-transcribe
     ];
   };
 }
