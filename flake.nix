@@ -93,9 +93,16 @@
         if env != "" then env else null;
 
       # import all the overlays that extend packages via nix or home-manager.
+      #
+      # inputs.cogsworth.overlays.default is deliberately absent. It is a
+      # git+ssh input, so applying it here forced every host to fetch a
+      # private repo just to evaluate. The overlay defines exactly one
+      # attribute (`cogsworth`), consumed only by cogsworth's own
+      # nixosModule, so it now lives beside that consumer in cogsworth's
+      # extraModules. Keeping private inputs out of the shared path is what
+      # lets a host build its own closures without carrying a GitHub key.
       overlays = [
         inputs.nur.overlays.default
-        inputs.cogsworth.overlays.default
         (import ./nix/pkgs)
 
         (final: _prev: {
@@ -647,6 +654,9 @@
             inputs.nixos-raspberrypi.nixosModules."raspberry-pi-5".base
             inputs.nixos-raspberrypi.nixosModules.sd-image
             inputs.cogsworth.nixosModules.default
+            # The overlay that provides pkgs.cogsworth, scoped to the one host
+            # whose module reads it. See the note on `overlays` above.
+            { nixpkgs.overlays = [ inputs.cogsworth.overlays.default ]; }
           ];
           homeModule = ./nix/profiles/kiosk.nix;
           homeConfig.hmFoundry.dev.terraform.enable = inputs.nixpkgs.lib.mkForce false;
