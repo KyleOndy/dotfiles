@@ -25,6 +25,8 @@ with lib;
         git.enable = lib.mkDefault true;
         go.enable = lib.mkDefault true;
         rust.enable = lib.mkDefault true;
+        # Ride-mode speech for pi. macOS-only: the watcher drives `say`.
+        domestique.enable = lib.mkDefault pkgs.stdenv.hostPlatform.isDarwin;
         pi-coding-agent = {
           enable = lib.mkDefault true;
           # pi 0.80.5's startup tmux keyboard probe (checkTmuxKeyboardSetup)
