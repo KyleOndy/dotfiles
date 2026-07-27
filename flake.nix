@@ -601,6 +601,15 @@
             shellHook = self.checks.${system}.pre-commit-check.shellHook + ''
               if [ -L ".mcp.json" ]; then unlink .mcp.json; fi
               ln -sf ${mcpConfig} .mcp.json
+
+              # pkgs.qmk is a Python application, so the Python setup hook puts
+              # its whole dependency closure on PYTHONPATH: 33 site-packages
+              # directories belonging to one specific interpreter. Those shadow
+              # every venv entered under this tree, and a venv on another minor
+              # version then imports native extensions built for the wrong ABI
+              # (`No module named 'rpds.rpds'`). The qmk launcher resolves its
+              # own imports and does not read this.
+              unset PYTHONPATH
             '';
             buildInputs = self.checks.${system}.pre-commit-check.enabledPackages ++ [
               pkgs.qmk
