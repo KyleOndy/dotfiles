@@ -84,6 +84,10 @@ let
 
   allowReadFlags = lib.concatMapStrings (r: " --allow-read ${lib.escapeShellArg r}") cfg.repos;
 
+  allowBundleFlags = lib.concatMapStrings (b: " --allow-${b}") cfg.allowBundles;
+
+  piFlags = allowReadFlags + allowBundleFlags;
+
   # Kokoro and misaki are not packaged for darwin in nixpkgs:
   # python3Packages.kokoro depends on dlinfo, which carries
   # `broken = stdenv.hostPlatform.isDarwin`. So the wheels live in a venv built
@@ -146,7 +150,7 @@ let
       ${ensureVenv}
 
       printf 'domestique: run pi with\n  pi%s --domestique --append-system-prompt %s\n' \
-        "${allowReadFlags}" "$PROMPT"
+        "${piFlags}" "$PROMPT"
 
       export DOMESTIQUE_ROOT="$ROOT"
       export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${cfg.voice}}"
@@ -207,11 +211,12 @@ let
         printf 'domestique: watcher ready, logging to %s\n' "$LOG"
       fi
 
-      # --allow-read belongs to the pi wrapper, --domestique to pi, and the
-      # wrapper's arg loop breaks at the first flag it does not own
-      # (nix/pkgs/pi-wrapper/wrapper.sh). Anything after --domestique reaches pi
-      # verbatim, which rejects --allow-read outright, so wrapper flags go first.
-      pi${allowReadFlags} --domestique \
+      # --allow-read and --allow-<bundle> belong to the pi wrapper, --domestique
+      # to pi, and the wrapper's arg loop breaks at the first flag it does not
+      # own (nix/pkgs/pi-wrapper/wrapper.sh). Anything after --domestique reaches
+      # pi verbatim, which rejects --allow-read outright, so wrapper flags go
+      # first.
+      pi${piFlags} --domestique \
         --append-system-prompt "$ROOT/ride-prompt.md" "$@" || true
 
       if [ "$started" -eq 1 ]; then
@@ -455,6 +460,28 @@ in
 
         Host-specific by nature: set this where the paths belong rather than in
         a shared profile.
+      '';
+    };
+
+    allowBundles = lib.mkOption {
+      type = with lib.types; listOf str;
+      default = [ ];
+      example = [ "linear" ];
+      description = ''
+        Network bundles opened for every ride, passed as the pi wrapper's
+        `--allow-<name>` flags. Each name must exist in
+        `pi-coding-agent.sandbox.networkBundles`, since the wrapper hard-fails
+        on an unknown bundle rather than ignoring it.
+
+        This is how a ride reaches a vendor API that ordinary pi sessions
+        cannot. `linear` is the case it was built for: the credential arrives
+        through the wrapper's envFromCommands and is therefore present in every
+        session on the host, so egress is the only control left that a single
+        session can hold. Without the domain the key is inert.
+
+        Empty by default, and it has to stay that way here. domestique is
+        enabled on every darwin host, while the bundles it wants are defined
+        beside the credentials they serve.
       '';
     };
 
