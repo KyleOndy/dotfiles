@@ -1,6 +1,6 @@
 ---
 name: personal-prose
-description: Kyle's prose voice and anti-AI-ism rules. Apply whenever writing any non-code text on Kyle's behalf: commit message bodies, PR descriptions and reviews, documentation, READMEs, blog posts, emails.
+description: "Kyle's prose voice and anti-AI-ism rules. Apply whenever writing any non-code text on Kyle's behalf: commit message bodies, PR descriptions and reviews, documentation, READMEs, blog posts, emails."
 ---
 
 # Personal Prose Style
