@@ -157,6 +157,24 @@ let
     '';
   };
 
+  domestique-listen = pkgs.writeShellApplication {
+    name = "domestique-listen";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.uv
+    ];
+    text = ''
+      readonly ROOT="$HOME/.pi/domestique"
+      mkdir -p "$ROOT"
+      ${ensureVenv}
+      export DOMESTIQUE_ROOT="$ROOT"
+      export DOMESTIQUE_STT_MODEL="${cfg.sttModel}"
+      export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${cfg.inputDevice}}"
+      export DOMESTIQUE_POLL_SECONDS="${cfg.pollSeconds}"
+      exec "$VENV/bin/python" ${./domestique-listen.py} "$@"
+    '';
+  };
+
   domestique-speak = pkgs.writeShellApplication {
     name = "domestique-speak";
     runtimeInputs = [
@@ -208,35 +226,42 @@ let
     text = ''
       readonly ROOT="$HOME/.pi/domestique"
       readonly SPOOL="$ROOT/spool"
-      readonly PIDFILE="$ROOT/watcher.pid"
-      readonly READY="$ROOT/watcher.ready"
       readonly SPEAKING="$ROOT/watcher.speaking"
-      readonly LOG="$ROOT/speak.log"
 
       shopt -s nullglob
       mkdir -p "$ROOT"
 
-      watcher_alive() {
-        [ -e "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null
+      started=()
+
+      alive() {
+        [ -e "$1" ] && kill -0 "$(cat "$1" 2>/dev/null)" 2>/dev/null
       }
 
-      started=0
-      if [ ! -e "$READY" ] || ! watcher_alive; then
-        ${domestique-speak}/bin/domestique-speak >>"$LOG" 2>&1 &
-        started=1
-        # The first run of all builds a venv and downloads the voice model, so
-        # this waits in minutes rather than seconds. Steady state is ~3s.
-        waited=0
-        while [ "$waited" -lt 3000 ] && [ ! -e "$READY" ]; do
+      launch() {
+        local name="$1" bin="$2" pidfile="$3" ready="$4" log="$5"
+        if [ -e "$ready" ] && alive "$pidfile"; then
+          return
+        fi
+        "$bin" >>"$log" 2>&1 &
+        started+=("$pidfile")
+        # The first run of all builds a venv and downloads a model, so this
+        # waits in minutes rather than seconds. Steady state is a few.
+        local waited=0
+        while [ "$waited" -lt 3000 ] && [ ! -e "$ready" ]; do
           sleep 0.2
           waited=$((waited + 1))
         done
-        if [ ! -e "$READY" ]; then
-          printf 'domestique: watcher did not come up, see %s\n' "$LOG" >&2
+        if [ ! -e "$ready" ]; then
+          printf 'domestique: %s did not come up, see %s\n' "$name" "$log" >&2
           exit 1
         fi
-        printf 'domestique: watcher ready, logging to %s\n' "$LOG"
-      fi
+        printf 'domestique: %s ready, logging to %s\n' "$name" "$log"
+      }
+
+      launch speech "${domestique-speak}/bin/domestique-speak" \
+        "$ROOT/watcher.pid" "$ROOT/watcher.ready" "$ROOT/speak.log"
+      launch listening "${domestique-listen}/bin/domestique-listen" \
+        "$ROOT/listen.pid" "$ROOT/listen.ready" "$ROOT/listen.log"
 
       # --allow-read and --allow-<bundle> belong to the pi wrapper, --domestique
       # to pi, and the wrapper's arg loop breaks at the first flag it does not
@@ -246,7 +271,7 @@ let
       pi${piFlags} --domestique \
         --append-system-prompt "$ROOT/ride-prompt.md" "$@" || true
 
-      if [ "$started" -eq 1 ]; then
+      if [ "''${#started[@]}" -gt 0 ]; then
         # A pi exit drops the thinking channel but leaves the response queued,
         # so the watcher has to outlive it by however long the answer takes.
         waited=0
@@ -258,7 +283,9 @@ let
           sleep 0.2
           waited=$((waited + 1))
         done
-        kill "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null || true
+        for pidfile in "''${started[@]}"; do
+          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
+        done
       fi
     '';
   };
@@ -391,6 +418,22 @@ in
         Each entry is registered under both its own casing and lowercase,
         because misaki resolves an all-caps token through its acronym path and
         a mixed-case one through its proper-noun path.
+      '';
+    };
+
+    inputDevice = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      example = "MacBook Pro Microphone";
+      description = ''
+        Microphone for push to talk, as a sounddevice name or index. Empty
+        takes the system default.
+
+        Worth pinning to the built-in microphone when the answers play through
+        AirPods. macOS routes an open input on a Bluetooth headset over HFP,
+        which drops that headset's output to telephone quality for as long as
+        the stream is open. `domestique-listen` opens the microphone only while
+        the key is held for the same reason.
       '';
     };
 
@@ -585,6 +628,7 @@ in
     home.packages = [
       domestique
       domestique-speak
+      domestique-listen
       domestique-fetch
       domestique-phonemes
       domestique-transcribe

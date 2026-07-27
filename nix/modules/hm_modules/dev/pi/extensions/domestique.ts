@@ -24,6 +24,7 @@ import {
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -36,6 +37,12 @@ const SPOOL = join(ROOT, "spool");
 const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
 const SPEED_FILE = join(ROOT, "speed");
+
+// What the rider said, transcribed by domestique-listen.py. Speech goes out
+// through the spool and comes back in through here, so the microphone half
+// needs no keystroke synthesis and no accessibility grant.
+const HEARD = join(ROOT, "heard");
+const HEARD_POLL_MS = 200;
 
 // The watcher clamps to the same range; these bounds are here so /speed reports
 // the rate it actually set.
@@ -147,6 +154,12 @@ export default function (pi: ExtensionAPI) {
   let codeSuppressed = 0;
   let codeAnnounced = false;
   let uttered = 0;
+  let heard = 0;
+
+  // A turn is in flight, so a transcript has to say how it wants to be
+  // delivered rather than starting a second one.
+  let turnActive = false;
+  let heardTimer: ReturnType<typeof setInterval> | undefined;
 
   // Response text not yet classified as prose or code, and which of the two we
   // are in. Held outside the speech buffer because a fence marker arrives split
@@ -283,6 +296,42 @@ export default function (pi: ExtensionAPI) {
     writeFileSync(STOP, "", "utf8");
   }
 
+  /**
+   * Deliver whatever the rider has said, oldest first. Each file is unlinked
+   * before its send, so a throw costs one utterance instead of repeating it
+   * on every tick.
+   */
+  function drainHeard(ctx: {
+    ui?: { notify: (m: string, l: string) => void };
+  }) {
+    let names: string[];
+    try {
+      names = readdirSync(HEARD)
+        .filter((n) => n.endsWith(".txt"))
+        .sort();
+    } catch {
+      // The listener owns this directory.
+      return;
+    }
+
+    for (const name of names) {
+      const path = join(HEARD, name);
+      let text: string;
+      try {
+        text = readFileSync(path, "utf8").trim();
+      } catch {
+        continue;
+      }
+      rmSync(path, { force: true });
+      if (!text) continue;
+
+      heard += 1;
+      ctx.ui?.notify(`heard: ${text}`, "info");
+      // Streaming without deliverAs throws; idle with it never starts a turn.
+      pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
+    }
+  }
+
   /** Drop the thinking ticker, but let a queued response finish speaking. */
   function quietThinking(): void {
     buffers.think = "";
@@ -294,6 +343,7 @@ export default function (pi: ExtensionAPI) {
     if (!enabled) return;
 
     mkdirSync(SPOOL, { recursive: true });
+    mkdirSync(HEARD, { recursive: true });
     // A restart mid-ride would otherwise reuse numbers the watcher has not
     // drained yet, and the new utterances would sort behind the stale ones.
     for (const name of readdirSync(SPOOL)) {
@@ -304,12 +354,21 @@ export default function (pi: ExtensionAPI) {
     if (ctx.hasUI) {
       ctx.ui.setStatus("domestique", ctx.ui.theme.fg("accent", "domestique"));
     }
+
+    heardTimer = setInterval(() => drainHeard(ctx), HEARD_POLL_MS);
+    // A held timer would keep pi alive after the session ends.
+    heardTimer.unref?.();
+  });
+
+  pi.on("turn_end", () => {
+    turnActive = false;
   });
 
   pi.on("message_start", (event, _ctx) => {
     if (!enabled) return;
     const message = event.message as { role?: string } | undefined;
     if (message?.role !== "assistant") return;
+    turnActive = true;
     // The budget bounds one spoken chunk, not one exchange. A tool-heavy turn
     // produces several assistant messages and each gets its own allowance.
     spokenChars = 0;
@@ -412,6 +471,7 @@ export default function (pi: ExtensionAPI) {
         [
           `domestique: active, spool ${SPOOL}`,
           `utterances written: ${uttered}, pending: ${queued}`,
+          `transcripts heard: ${heard}`,
           `speech rate: ${storedSpeed().toFixed(2)}x`,
           `responses truncated at ${RESPONSE_CHAR_BUDGET} chars: ${truncated}`,
           `code blocks skipped: ${codeSuppressed}`,
@@ -425,6 +485,7 @@ export default function (pi: ExtensionAPI) {
   // The response still drains: in --print mode pi is gone before the answer
   // has finished speaking.
   pi.on("session_shutdown", () => {
+    if (heardTimer) clearInterval(heardTimer);
     if (enabled) quietThinking();
   });
 }
