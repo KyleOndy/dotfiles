@@ -46,6 +46,14 @@ let
     pkgs.jq
     pkgs.git
   ];
+  # GNU grep and sed: the script relies on -E alternation and \b, which BSD
+  # userland on darwin handles differently.
+  commentLint = mkScript "comment-lint" ./hooks/comment-lint.sh [
+    pkgs.jq
+    pkgs.gnugrep
+    pkgs.gnused
+    pkgs.coreutils
+  ];
 in
 {
   options.hmFoundry.dev.claude-code = {
@@ -110,6 +118,7 @@ in
       ".claude/rules/clojure.md".source = ./rules/clojure.md;
       ".claude/statusline.sh".source = statusline;
 
+      ".claude/hooks/comment-lint.sh".source = commentLint;
       ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
@@ -123,7 +132,12 @@ in
         source = ./commands/git;
         recursive = true;
       };
+      ".claude/commands/code" = lib.mkDefault {
+        source = ./commands/code;
+        recursive = true;
+      };
 
+      ".claude/skills/code-comments/SKILL.md".source = ./skills/code-comments.md;
       ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
       ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
       ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;

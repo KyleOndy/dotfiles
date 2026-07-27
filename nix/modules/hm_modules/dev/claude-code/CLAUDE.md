@@ -7,6 +7,22 @@
 Delete old code completely rather than commenting it out. When uncertain
 about an architecture decision, ask before committing to it.
 
+## Code Comments (code-comments, always-on)
+
+The default is no comment. A comment earns its place only by carrying
+information the code cannot:
+
+- Delete it if someone could write it just by reading the line below it.
+- A comment describes a state, never a transition. No "now uses", "no
+  longer", "changed to", "for now", "NEW:".
+- Attribute a constraint to its durable cause (an upstream issue, a
+  protocol, a hardware limit), never to the edit that introduced it.
+- Do write the things code cannot say: units, boundary inclusivity, what
+  nil means, who owns the resource, the invariant.
+- Never delete a `why` comment while refactoring the code it explains.
+
+Full ruleset: the code-comments skill. `/code:comments` cleans up a diff.
+
 ## Writing on My Behalf
 
 When writing prose (commit bodies, PR descriptions, docs, blog posts,
