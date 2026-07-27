@@ -149,12 +149,15 @@ in
       "svc.syncoid" = {
         isNormalUser = true;
         group = "svc.backup";
-        # was a hashedPassword reused verbatim from svc.backup. No password
-        # needed: no SSH key either (inert placeholder), so leaving it unset
-        # locks the account, same as svc.backup.
-        # wheel dropped: no services.syncoid exists yet, so this account has
-        # no need for sudo. Grant ZFS delegation instead if/when it's wired up:
-        #   zfs allow svc.syncoid receive,create,mount,destroy,snapshot,hold storage/backups
+        # No password, and no sudo. Its entire authority is the ZFS
+        # delegation granted by the zfs-delegate-syncoid unit below, which is
+        # send,hold,release and nothing else.
+        #
+        # Empty until pika exists. What goes here is the public half of the
+        # key pika's syncoid service uses, which is generated during pika's
+        # provisioning (see nix/hosts/pika/configuration.nix). Leaving it
+        # empty keeps the account locked, so this is inert rather than
+        # half-open.
         openssh.authorizedKeys.keys = [ ];
       };
     };
@@ -162,6 +165,30 @@ in
       "svc.backup"
       "kyle"
     ];
+  };
+
+  # ZFS delegation lives in pool metadata, not in the OS, so without this
+  # unit nothing in Nix would know it exists and a pool re-import or a
+  # recreated dataset would silently drop it. `zfs allow` is idempotent, so
+  # re-asserting it on every activation costs nothing and self-heals.
+  #
+  # send,hold,release is the complete set for a pull. Not `receive`, not
+  # `create`, not `destroy`: pika opens the connection and receives on its
+  # own side, so tiger needs no write verb at all. Not `snapshot` either,
+  # because sanoid on tiger owns snapshot creation and syncoid runs with
+  # --no-sync-snap.
+  systemd.services.zfs-delegate-syncoid = {
+    description = "Delegate send rights on the backup datasets to svc.syncoid";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "zfs.target" ];
+    serviceConfig.Type = "oneshot";
+    path = [ config.boot.zfs.package ];
+    script = ''
+      set -euo pipefail
+      for ds in storage/photos storage/backups; do
+        zfs allow -u svc.syncoid send,hold,release "$ds"
+      done
+    '';
   };
 
   fileSystems = {
