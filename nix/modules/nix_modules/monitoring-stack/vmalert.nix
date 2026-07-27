@@ -358,6 +358,52 @@ in
                 description: "The host is experiencing high page fault rate ({{ $value | printf \"%.2f\" }} faults/sec), indicating memory pressure on {{ $labels.instance }}"
 
 
+        # ZFS pool health and scrub freshness.
+        #
+        # Neither existed on any host before this group. SystemdServiceFailed
+        # looks like it covers the scrub and does not: a oneshot that never
+        # runs never enters `failed`, so a disabled timer, a misfire, or a
+        # host that was down at the trigger are all invisible. The only
+        # reliable signal is the absence of a recent success.
+        #
+        # Metric names matter here. zfs_zpool_* was renamed zfs_pool_* and
+        # the poolname label became pool (DASHBOARD_CONVENTIONS.md:413), so a
+        # rule written from memory matches nothing, forever, silently.
+        - name: zfs_storage
+          interval: 60s
+          rules:
+            - alert: ZpoolNotOnline
+              expr: zfs_pool_health != 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Pool {{ $labels.pool }} on {{ $labels.host }} is not ONLINE"
+                description: "zfs_pool_health is {{ $value }} for {{ $labels.pool }} on {{ $labels.host }} (0 ONLINE, 1 DEGRADED, 2 FAULTED, 3 OFFLINE, 4 UNAVAIL, 5 REMOVED, 6 SUSPENDED). Run `zpool status -v` there."
+
+            - alert: ZpoolScrubStale
+              expr: (time() - zfs_pool_scrub_end_timestamp_seconds > 45 * 86400) and on(pool, host) zfs_pool_scrub_in_progress == 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Pool {{ $labels.pool }} on {{ $labels.host }} has not completed a scrub in over 45 days"
+                description: "No scrub of {{ $labels.pool }} on {{ $labels.host }} has finished in 45 days and none is running. Silent corruption is only found by scrubbing, and a resilver is the worst time to discover it. Check services.zfs.autoScrub on that host."
+
+            # The two rules above both depend on metrics that come from a
+            # textfile collector, and a collector that stops writing takes
+            # its own alerts with it. This is the absence check on the
+            # absence check: any host reporting pool health but no scrub
+            # timestamp has lost ZpoolScrubStale without anyone noticing.
+            - alert: ZpoolScrubMetricMissing
+              expr: count by (host) (zfs_pool_health) unless count by (host) (zfs_pool_scrub_end_timestamp_seconds)
+              for: 2h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Scrub age metric missing on {{ $labels.host }}"
+                description: "{{ $labels.host }} reports zfs_pool_health but no zfs_pool_scrub_end_timestamp_seconds, so ZpoolScrubStale cannot fire there. Check the zfs-scrub-exporter unit and its timer."
+
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring
           interval: 30s

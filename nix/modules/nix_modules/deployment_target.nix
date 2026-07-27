@@ -210,6 +210,59 @@ in
           mv "$OUTFILE.tmp" "$OUTFILE"
         '';
       };
+
+      # Scrub age as a textfile metric, for hosts that have pools.
+      #
+      # The zfs_exporter publishes pool health, capacity and fragmentation
+      # but nothing at all about scrubs, so "alert when the last scrub is
+      # older than N days" has no metric behind it without this. Same
+      # textfile collector pattern as smartctl-exporter above.
+      #
+      # `zpool status -j` rather than a regex over the human-readable
+      # output. It gives scan_stats.end_time as a structured field, which is
+      # the difference between a parser that survives a resilver and one
+      # that does not.
+      zfs-scrub-exporter = lib.mkIf config.boot.zfs.enabled {
+        description = "Export ZFS scrub age to node_exporter textfile";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+        };
+        path = [
+          config.boot.zfs.package
+          pkgs.jq
+          pkgs.coreutils
+        ];
+        script = ''
+          set -euo pipefail
+          OUTFILE="/var/lib/prometheus-node-exporter-text-files/zfs_scrub.prom"
+          {
+            printf '# HELP zfs_pool_scrub_end_timestamp_seconds Unix time the last scrub finished (0 if never scrubbed)\n'
+            printf '# TYPE zfs_pool_scrub_end_timestamp_seconds gauge\n'
+            printf '# HELP zfs_pool_scrub_in_progress Whether a scrub or resilver is running now\n'
+            printf '# TYPE zfs_pool_scrub_in_progress gauge\n'
+            zpool status -j \
+              | jq -r '.pools | to_entries[]
+                       | [ .key,
+                           (.value.scan_stats.state    // ""),
+                           (.value.scan_stats.end_time // "") ]
+                       | @tsv' \
+              | while IFS="$(printf '\t')" read -r pool state end_time; do
+                  ts=0
+                  if [ -n "$end_time" ]; then
+                    ts=$(date -d "$end_time" +%s 2>/dev/null || echo 0)
+                  fi
+                  in_progress=0
+                  if [ "$state" = "SCANNING" ]; then
+                    in_progress=1
+                  fi
+                  printf 'zfs_pool_scrub_end_timestamp_seconds{pool="%s"} %s\n' "$pool" "$ts"
+                  printf 'zfs_pool_scrub_in_progress{pool="%s"} %d\n' "$pool" "$in_progress"
+                done
+          } > "$OUTFILE.tmp"
+          mv "$OUTFILE.tmp" "$OUTFILE"
+        '';
+      };
     }
     // lib.optionalAttrs (config.networking.wireguard.interfaces ? wg0) (
       {
@@ -228,6 +281,18 @@ in
         ) config.networking.wireguard.interfaces.wg0.peers
       )
     );
+
+    # Drives the zfs-scrub-exporter service above. Hourly is plenty for a
+    # value that changes monthly; the point is that the file stays fresh so
+    # the alert has something to read.
+    systemd.timers.zfs-scrub-exporter = lib.mkIf config.boot.zfs.enabled {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "5min";
+        OnUnitActiveSec = "1h";
+        Persistent = true;
+      };
+    };
 
     # this file path _feels_ suspect, but works
     sops.defaultSopsFile = ./../../secrets/secrets.yaml;
