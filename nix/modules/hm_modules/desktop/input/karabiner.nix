@@ -121,6 +121,28 @@ let
     ];
   };
 
+  # Push to talk for a domestique ride. The key cannot live inside pi: its
+  # extension API surfaces key names through ctx.ui.custom() and never a
+  # key-down paired with a key-up, so a hold is only expressible out here.
+  #
+  # Karabiner owns the two edges and the watcher owns the microphone. The file
+  # between them is the entire protocol, which is what makes toggle a one-line
+  # change: flip the file in `to` instead of setting it here and clearing it on
+  # release.
+  pushToTalkRule = {
+    description = "Push to talk for domestique";
+    manipulators = [
+      {
+        type = "basic";
+        from = {
+          key_code = cfg.pushToTalk.key;
+        };
+        to = [ { shell_command = "${pkgs.coreutils}/bin/touch ${cfg.pushToTalk.file}"; } ];
+        to_after_key_up = [ { shell_command = "${pkgs.coreutils}/bin/rm -f ${cfg.pushToTalk.file}"; } ];
+      }
+    ];
+  };
+
   karabinerConfig = {
     profiles = [
       {
@@ -134,7 +156,8 @@ let
             kensingtonExpertRule
             pcKeyboardRule
             finderRule
-          ];
+          ]
+          ++ optional cfg.pushToTalk.enable pushToTalkRule;
         };
         devices = [
           {
@@ -163,6 +186,32 @@ in
       ];
       default = "ansi";
       description = "Keyboard type for virtual HID keyboard";
+    };
+
+    pushToTalk = {
+      enable = mkEnableOption "hold a key to record a domestique utterance";
+
+      key = mkOption {
+        type = types.str;
+        default = "caps_lock";
+        description = ''
+          Key held to record. It has to be one pi's TUI never reads and one a
+          hand can find on the bars without looking, which caps_lock is.
+
+          The rule carries no application condition, so the key stops toggling
+          caps everywhere and not only during a ride. Outside one it creates
+          and removes a file nobody reads.
+        '';
+      };
+
+      file = mkOption {
+        type = types.str;
+        default = "${config.home.homeDirectory}/.pi/domestique/listening";
+        description = ''
+          Path that exists while the key is held. The domestique watcher polls
+          for it and opens the microphone; nothing else reads it.
+        '';
+      };
     };
   };
 
