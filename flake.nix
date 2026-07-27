@@ -647,6 +647,19 @@
           homeModule = ./nix/profiles/server.nix;
         };
 
+        # The backup host. Same builder line as tiger: plain x86_64, no device
+        # tree, no sd-image, no vendor kernel.
+        #
+        # Deliberately absent from `deploy.nodes` below until the board is on
+        # the network, because deploy-rs would otherwise try to resolve a
+        # hostname that does not exist and `make deploy-rs-all-dry` would fail
+        # for everything.
+        pika = mkLinuxSystem {
+          hostname = "pika";
+          builder = args: inputs.nixpkgs.lib.nixosSystem (args // { system = "x86_64-linux"; });
+          homeModule = ./nix/profiles/appliance.nix;
+        };
+
         cogsworth = mkLinuxSystem {
           hostname = "cogsworth";
           builder = inputs.nixos-raspberrypi.lib.nixosSystem;
