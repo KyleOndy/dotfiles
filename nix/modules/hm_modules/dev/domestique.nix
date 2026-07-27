@@ -4,7 +4,8 @@
 # sandbox and owns playback, because inside strict mode the CoreAudio mach
 # lookup is denied and srt's settings schema (nix/pkgs/pi-wrapper/wrapper.sh)
 # has no mach knob. The pi-side half is extensions/domestique.ts, which writes
-# one file per utterance into ~/.pi/domestique/spool and nothing else.
+# one file per utterance into ~/.pi/domestique/spool and the control files
+# beside it, and never touches the audio device.
 #
 # Speech is Kokoro, not macOS `say`; domestique-tts.py explains why, and it is
 # the reason `lexicon` can exist.
@@ -151,6 +152,9 @@ let
       export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${cfg.voice}}"
       export DOMESTIQUE_MODEL="${cfg.model}"
       export DOMESTIQUE_SPEED="''${DOMESTIQUE_SPEED:-${cfg.speed}}"
+      export DOMESTIQUE_NARRATE_THINKING="''${DOMESTIQUE_NARRATE_THINKING:-${
+        if cfg.narrateThinking then "1" else "0"
+      }}"
       export DOMESTIQUE_CUE_SOUND="''${DOMESTIQUE_CUE_SOUND:-${cfg.cueSound}}"
       export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${cfg.cuePattern}}"
       export DOMESTIQUE_CUE_GAIN="${cfg.cueGain}"
@@ -257,8 +261,30 @@ in
       type = lib.types.str;
       default = "1.0";
       description = ''
-        Kokoro speech rate multiplier. Distinct from `say -r`: this stretches
-        the generated audio rather than selecting words per minute.
+        Kokoro speech rate multiplier, and the rate every ride starts at.
+        Distinct from `say -r`: this stretches the generated audio rather than
+        selecting words per minute.
+
+        `/speed 1.3` moves it mid-ride and `/speed +` nudges it by 0.1, clamped
+        to 0.5 through 2.0. The watcher forgets that on restart, so a rate worth
+        keeping belongs here. Either way it applies to the next utterance, not
+        the one already playing.
+      '';
+    };
+
+    narrateThinking = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Speak the model's thinking while it streams, ahead of the answer.
+
+        It fills the wait on a slow turn, at the cost of hearing the model talk
+        itself toward something it then says again. Thinking also shares the one
+        voice with the answer, so only the cue distinguishes them.
+
+        pi spools thinking either way; the watcher drops it unread when this is
+        off. `DOMESTIQUE_NARRATE_THINKING=1 domestique` turns it back on for one
+        ride without a rebuild.
       '';
     };
 
@@ -272,6 +298,7 @@ in
         systemd = "sˈɪstəm dˈi";
         PostgreSQL = "pˈOstɡɹɛs kjˌuˈɛl";
         NixOS = "nˈɪksOˌɛs";
+        ArgoCD = "ˈɑɹɡO sˌidˈi";
       };
       example = {
         kubectl = "kjˈubkəntɹOl";
@@ -302,8 +329,9 @@ in
       default = "Glass";
       description = ''
         Name of a sound under /System/Library/Sounds, rung when a reply starts.
-        This is what separates an answer from thinking, both channels sharing
-        one voice.
+        It tells a rider who is not looking at the screen that the answer has
+        begun, and under narrateThinking it is the only thing separating the
+        answer from the thinking, both channels sharing one voice.
 
         Submarine is the warmer alternative and works on the same pattern. Both
         it and Glass run past a second, so under a three-strike pattern the

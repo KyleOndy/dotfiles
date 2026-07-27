@@ -41,6 +41,11 @@ STOP_THINK = ROOT / "stop-think"
 PIDFILE = ROOT / "watcher.pid"
 READY = ROOT / "watcher.ready"
 
+# Rate for the next utterance, written by /speed. State rather than an event, so
+# unlike `stop` it survives being read. The utterance already playing was
+# synthesized as one buffer and keeps the rate it was made at.
+SPEED_FILE = ROOT / "speed"
+
 # An empty spool is not silence: an utterance leaves the spool when playback
 # starts, not when it ends. `domestique` waits on this to know a reply has
 # finished before it takes the watcher down.
@@ -49,15 +54,21 @@ SPEAKING = ROOT / "watcher.speaking"
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
 SPEED = float(env("DOMESTIQUE_SPEED", "1.0"))
+NARRATE_THINKING = env("DOMESTIQUE_NARRATE_THINKING", "0") == "1"
 ESPEAK = env("DOMESTIQUE_ESPEAK", "")
 LEXICON_PATH = env("DOMESTIQUE_LEXICON", "")
 CUE_SOUND = env("DOMESTIQUE_CUE_SOUND", "Glass")
-CUE_PATTERN = env("DOMESTIQUE_CUE_PATTERN", "0:0,0.16:4")
+CUE_PATTERN = env("DOMESTIQUE_CUE_PATTERN", "0:0,0.15:4,0.30:7")
 CUE_GAIN = float(env("DOMESTIQUE_CUE_GAIN", "0.30"))
 CUE_LEAD = float(env("DOMESTIQUE_CUE_LEAD", "0.25"))
 WAKE_PAD_MS = int(env("DOMESTIQUE_WAKE_PAD_MS", "350"))
 WAKE_GAP_SECONDS = float(env("DOMESTIQUE_WAKE_GAP_SECONDS", "3"))
 POLL_SECONDS = float(env("DOMESTIQUE_POLL_SECONDS", "0.1"))
+
+# Bounds on /speed. A fat-fingered 12 instead of 1.2 would otherwise cost the
+# rest of the ride, and there is no way to see what you typed from the bike.
+SPEED_MIN = 0.5
+SPEED_MAX = 2.0
 
 
 def log(msg: str) -> None:
@@ -207,13 +218,21 @@ def chunk_phonemes(phonemes: str) -> list[str]:
     return chunks
 
 
-def synth(pipe, g2p, text: str):
+def read_speed() -> float:
+    try:
+        wanted = float(SPEED_FILE.read_text().strip())
+    except (OSError, ValueError):
+        return SPEED
+    return min(SPEED_MAX, max(SPEED_MIN, wanted))
+
+
+def synth(pipe, g2p, text: str, speed: float):
     import numpy as np
 
     phonemes, _ = g2p(text)
     parts = []
     for chunk in chunk_phonemes(phonemes):
-        for result in pipe.generate_from_tokens(chunk, voice=VOICE, speed=SPEED):
+        for result in pipe.generate_from_tokens(chunk, voice=VOICE, speed=speed):
             if result.audio is not None:
                 parts.append(np.asarray(result.audio).reshape(-1))
     if not parts:
@@ -273,6 +292,9 @@ def main() -> int:
     unlink(SPOOL.glob("*.tmp"))
     STOP.unlink(missing_ok=True)
     STOP_THINK.unlink(missing_ok=True)
+    # A ride starts at the configured rate, and publishing it is what lets
+    # /speed step relative to something.
+    SPEED_FILE.write_text(f"{SPEED}\n")
 
     wire_espeak()
 
@@ -291,10 +313,11 @@ def main() -> int:
 
     # First synthesis builds the graph; paying that here rather than on the
     # first thing the rider says keeps the opening reply from arriving late.
-    synth(pipe, g2p, "Ready.")
+    synth(pipe, g2p, "Ready.", SPEED)
     log(
         f"{VOICE} ready in {time.monotonic() - started:.1f}s, "
-        f"{count} lexicon terms, cue {CUE_SOUND} [{CUE_PATTERN}]"
+        f"{count} lexicon terms, cue {CUE_SOUND} [{CUE_PATTERN}], "
+        f"{SPEED:.2f}x, thinking {'narrated' if NARRATE_THINKING else 'silent'}"
     )
     READY.write_text("ready\n")
 
@@ -329,7 +352,8 @@ def main() -> int:
             return
 
         text = body.strip()
-        audio = synth(pipe, g2p, text)
+        speed = read_speed()
+        audio = synth(pipe, g2p, text, speed)
         if audio is None:
             return
 
@@ -344,8 +368,8 @@ def main() -> int:
             audio = with_pad(audio, WAKE_PAD_MS)
 
         log(
-            f"{channel:5} {len(audio) / SR:5.2f}s {'cue' if cued else '   '} "
-            f"{text[:60]}"
+            f"{channel:5} {len(audio) / SR:5.2f}s {speed:.2f}x "
+            f"{'cue' if cued else '   '} {text[:60]}"
         )
         sd.play(audio, SR)
         playing_channel = channel
@@ -365,6 +389,11 @@ def main() -> int:
                 # queued response is the answer that was asked for.
                 if playing_channel == "think":
                     hush()
+                unlink(queue("think"))
+
+            # pi spools thinking either way. Dropping it here rather than at the
+            # source keeps every drop policy in one place.
+            if not NARRATE_THINKING:
                 unlink(queue("think"))
 
             speak_queue = queue("speak")

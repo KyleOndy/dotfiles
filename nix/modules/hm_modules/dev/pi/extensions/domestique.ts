@@ -1,12 +1,11 @@
 /**
  * domestique: speak pi's stream aloud for trainer rides.
  *
- * This extension never calls `say`. Inside pi's strict sandbox `say` exits 0
- * and produces no audio: synthesis runs (`say -o file.aiff` writes a valid
- * AIFF) but the CoreAudio mach lookup is denied, and srt's settings schema
- * (nix/pkgs/pi-wrapper/wrapper.sh) exposes no mach knob to reopen it. So each
- * utterance lands in a spool file under ~/.pi, which strict mode keeps
- * writable, and the unsandboxed `domestique-speak` owns every call to `say`.
+ * This extension makes no sound itself. Inside pi's strict sandbox the CoreAudio
+ * mach lookup is denied, and srt's settings schema (nix/pkgs/pi-wrapper/
+ * wrapper.sh) exposes no mach knob to reopen it, so playback has to happen
+ * outside. Each utterance lands in a spool file under ~/.pi, which strict mode
+ * keeps writable, and the unsandboxed watcher owns the audio device.
  *
  * Two channels with opposite loss policies:
  *   think  Lossy, newest-wins. Thinking runs several hundred words per turn
@@ -20,7 +19,13 @@
  * Off unless --domestique is passed.
  */
 
-import { mkdirSync, readdirSync, renameSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -30,8 +35,15 @@ const ROOT = join(homedir(), ".pi", "domestique");
 const SPOOL = join(ROOT, "spool");
 const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
+const SPEED_FILE = join(ROOT, "speed");
 
-// Below this, an utterance is not worth its own `say` invocation and its own
+// The watcher clamps to the same range; these bounds are here so /speed reports
+// the rate it actually set.
+const SPEED_MIN = 0.5;
+const SPEED_MAX = 2.0;
+const SPEED_STEP = 0.1;
+
+// Below this, an utterance is not worth its own synthesis call and its own
 // bluetooth wake-up, so the buffer keeps accumulating past the boundary.
 const MIN_UTTERANCE_CHARS = 16;
 // Thinking often runs long stretches with no sentence punctuation at all, so
@@ -102,20 +114,18 @@ function hardCut(buf: string): number {
 }
 
 /**
- * Strip what does not survive being read aloud.
- *
- * `say` parses [[...]] as Speech Synthesis Manager commands, so model text
- * containing [[volm 0]] or [[slnc 30000]] would otherwise be executed rather
- * than spoken.
+ * Strip what does not survive being read aloud. Square brackets included:
+ * misaki reads `[word](/phonemes/)` as a pronunciation override, so
+ * "see [docs](/api/v1/)" phonemizes to `sˈi api/v1`.
  */
 function speakable(text: string): string {
   return text
-    .replace(/\[\[|\]\]/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/https?:\/\/\S+/g, "a link")
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s*[-*+]\s+/gm, "")
     .replace(/^\s*\d+[.)]\s+/gm, "")
-    .replace(/[*_`]+/g, "")
+    .replace(/[*_`\[\]]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -135,7 +145,14 @@ export default function (pi: ExtensionAPI) {
   let responseMuted = false;
   let truncated = 0;
   let codeSuppressed = 0;
+  let codeAnnounced = false;
   let uttered = 0;
+
+  // Response text not yet classified as prose or code, and which of the two we
+  // are in. Held outside the speech buffer because a fence marker arrives split
+  // across deltas as often as not.
+  let pending = "";
+  let inFence = false;
 
   function writeUtterance(channel: Channel, body: string): void {
     seq += 1;
@@ -188,9 +205,81 @@ export default function (pi: ExtensionAPI) {
     if (rest.trim()) spool(channel, rest);
   }
 
+  /** The rate the watcher will use next, which it publishes at startup. */
+  function storedSpeed(): number {
+    try {
+      const stored = Number.parseFloat(readFileSync(SPEED_FILE, "utf8"));
+      if (Number.isFinite(stored)) return stored;
+    } catch {
+      // No file means no watcher yet, and its startup write wins anyway.
+    }
+    return 1;
+  }
+
+  /** Rounded to two places, so stepping by 0.1 does not accumulate drift. */
+  function clampSpeed(rate: number): number {
+    const bounded = Math.min(SPEED_MAX, Math.max(SPEED_MIN, rate));
+    return Math.round(bounded * 100) / 100;
+  }
+
+  /** Backticks at the end of the text, short of a full fence marker. */
+  function trailingBackticks(text: string): number {
+    let n = 0;
+    while (n < 2 && text[text.length - 1 - n] === "`") n++;
+    return n;
+  }
+
+  /** Point the rider at the screen, once per message however many blocks. */
+  function announceCode(): void {
+    codeSuppressed += 1;
+    if (codeAnnounced) return;
+    codeAnnounced = true;
+    writeUtterance("speak", "Code on screen.");
+  }
+
+  /**
+   * Speak the prose of a response and skip the fenced blocks.
+   *
+   * A fence suspends speech rather than ending it. The explanation after a code
+   * block is usually the half of the answer worth hearing, and on a bike it is
+   * also the half that cannot be read.
+   */
+  function feedResponse(delta: string): void {
+    if (responseMuted) return;
+    pending += delta;
+    for (;;) {
+      const fence = pending.indexOf("```");
+      if (inFence) {
+        if (fence < 0) {
+          pending = "`".repeat(trailingBackticks(pending));
+          return;
+        }
+        pending = pending.slice(fence + 3);
+        inFence = false;
+        continue;
+      }
+      if (fence < 0) {
+        const held = trailingBackticks(pending);
+        feed("speak", pending.slice(0, pending.length - held));
+        pending = pending.slice(pending.length - held);
+        return;
+      }
+      feed("speak", pending.slice(0, fence));
+      pending = pending.slice(fence + 3);
+      inFence = true;
+      // The sentence introducing a block ("here is the unit file:") is still in
+      // the buffer, and waiting for a boundary that the code swallowed would
+      // speak it after the block or not at all.
+      drain("speak");
+      announceCode();
+    }
+  }
+
   function hush(): void {
     buffers.think = "";
     buffers.speak = "";
+    pending = "";
+    inFence = false;
     writeFileSync(STOP, "", "utf8");
   }
 
@@ -225,6 +314,9 @@ export default function (pi: ExtensionAPI) {
     // produces several assistant messages and each gets its own allowance.
     spokenChars = 0;
     responseMuted = false;
+    codeAnnounced = false;
+    pending = "";
+    inFence = false;
   });
 
   pi.on("message_update", (event, _ctx) => {
@@ -240,25 +332,14 @@ export default function (pi: ExtensionAPI) {
       case "thinking_end":
         drain("think");
         return;
-      case "text_delta": {
-        if (typeof delta.delta !== "string") return;
-        if (responseMuted) return;
-        const fence = (buffers.speak + delta.delta).indexOf("```");
-        if (fence < 0) {
-          feed("speak", delta.delta);
-          return;
-        }
-        // Fenced code cannot be read aloud usefully. Speak up to the fence,
-        // then hand the rest to the screen.
-        buffers.speak = (buffers.speak + delta.delta).slice(0, fence);
-        drain("speak");
-        if (!responseMuted) {
-          codeSuppressed += 1;
-          mute("Code on screen.");
-        }
+      case "text_delta":
+        if (typeof delta.delta === "string") feedResponse(delta.delta);
         return;
-      }
       case "text_end":
+        // An unterminated fence means the message ended inside a block, so
+        // whatever is held back is code and stays unspoken.
+        if (!inFence) feed("speak", pending);
+        pending = "";
         drain("speak");
         return;
       case "error":
@@ -281,6 +362,39 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("speed", {
+    description: "Speech rate: a multiplier, or + and - to step it by 0.1",
+    handler: (args, ctx) => {
+      if (!enabled) {
+        ctx.ui.notify("domestique: not active (pass --domestique)", "info");
+        return;
+      }
+
+      const current = storedSpeed();
+      const arg = args.trim();
+      let wanted = current;
+      if (arg === "+" || arg === "-") {
+        wanted = current + (arg === "+" ? SPEED_STEP : -SPEED_STEP);
+      } else if (arg) {
+        wanted = Number.parseFloat(arg);
+        if (!Number.isFinite(wanted)) {
+          ctx.ui.notify(
+            `domestique: /speed wants a number, got ${arg}`,
+            "warning",
+          );
+          return;
+        }
+      }
+
+      const speed = clampSpeed(wanted);
+      writeFileSync(SPEED_FILE, `${speed}\n`, "utf8");
+      ctx.ui.notify(
+        `domestique: ${speed.toFixed(2)}x from the next sentence`,
+        "info",
+      );
+    },
+  });
+
   pi.registerCommand("domestique", {
     description: "Show domestique speech-spool counters",
     handler: (_args, ctx) => {
@@ -288,18 +402,19 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify("domestique: disabled (pass --domestique)", "info");
         return;
       }
-      let pending = 0;
+      let queued = 0;
       try {
-        pending = readdirSync(SPOOL).filter((n) => n.endsWith(".txt")).length;
+        queued = readdirSync(SPOOL).filter((n) => n.endsWith(".txt")).length;
       } catch {
         // The watcher owns this directory; if it is gone, so is the audio.
       }
       ctx.ui.notify(
         [
           `domestique: active, spool ${SPOOL}`,
-          `utterances written: ${uttered}, pending: ${pending}`,
+          `utterances written: ${uttered}, pending: ${queued}`,
+          `speech rate: ${storedSpeed().toFixed(2)}x`,
           `responses truncated at ${RESPONSE_CHAR_BUDGET} chars: ${truncated}`,
-          `responses cut at a code fence: ${codeSuppressed}`,
+          `code blocks skipped: ${codeSuppressed}`,
         ].join("\n"),
         "info",
       );
