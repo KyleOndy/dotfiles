@@ -24,6 +24,7 @@
  * Off unless --domestique is passed.
  */
 
+import { spawn } from "node:child_process";
 import {
   appendFileSync,
   existsSync,
@@ -35,7 +36,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
+
+import { Type } from "typebox";
 
 import type {
   ExtensionAPI,
@@ -52,6 +55,17 @@ const SPEED_FILE = join(ROOT, "speed");
 // it should open on. TOPIC is absent for the first session of a ride.
 const RESTART = join(ROOT, "restart");
 const TOPIC = join(ROOT, "topic");
+
+// Repository git directories for clone_repo, outside the ride directory because
+// srt denies writes to any path ending .git/config.
+const GITDIRS = join(ROOT, "gitdirs");
+
+// Paths srt refuses to write inside the ride directory, so a clone has to leave
+// them out of the checkout. Verified against a strict-mode sandbox rather than
+// read off the wrapper: .git/config, .git/hooks and .gitmodules come from
+// nix/pkgs/pi-wrapper/wrapper.sh, the rest are srt's own and are matched by
+// subtree, not by exact name.
+const DENIED_PATHS = [".claude/", ".vscode/", ".mcp.json", ".gitmodules"];
 
 // What the rider said, transcribed by domestique-listen.py. Speech goes out
 // through the spool and comes back in through here, so the microphone half
@@ -192,6 +206,7 @@ export default function (pi: ExtensionAPI) {
   let heard = 0;
 
   let transcript = "";
+  let rideDir = "";
   // Spoken prose of the message in flight. Flushed whole so one answer is one
   // transcript line rather than one line per sentence.
   let said = "";
@@ -467,6 +482,178 @@ export default function (pi: ExtensionAPI) {
     writeFileSync(STOP_THINK, "", "utf8");
   }
 
+  function run(
+    command: string,
+    args: string[],
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const child = spawn(command, args, {
+        stdio: ["ignore", "ignore", "pipe"],
+      });
+      let stderr = "";
+      child.stderr?.on("data", (chunk: unknown) => {
+        stderr += String(chunk);
+      });
+      const abort = (): void => {
+        child.kill("SIGTERM");
+      };
+      signal?.addEventListener("abort", abort, { once: true });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        signal?.removeEventListener("abort", abort);
+        if (code === 0) resolve();
+        else reject(new Error(stderr.trim() || `${command} exited ${code}`));
+      });
+    });
+  }
+
+  /** Repo name to path, from the paths the wrapper exports (domestique.nix). */
+  function configuredRepos(): Map<string, string> {
+    const repos = new Map<string, string>();
+    for (const line of (process.env.DOMESTIQUE_REPOS ?? "").split("\n")) {
+      const path = line.trim();
+      if (path) repos.set(basename(path), path);
+    }
+    return repos;
+  }
+
+  /** A writable copy of one repo inside the ride directory.
+   *
+   * A tool rather than a documented recipe because the flag carries the cost:
+   * --shared points the clone's alternates at the original object store, and
+   * without it git copies 1.9G for the largest of these. The agent cannot be
+   * relied on to remember that mid-ride, and nobody is watching the screen.
+   *
+   * Registered per ride, so an ordinary pi session never sees it. */
+  function registerClone(): void {
+    const repos = configuredRepos();
+    if (repos.size === 0) return;
+    const names = [...repos.keys()].sort();
+    const available = names.join(", ");
+
+    pi.registerTool({
+      name: "clone_repo",
+      label: "Clone repo",
+      description:
+        "Make a writable clone of one of the rider's repositories inside the " +
+        `ride directory. Available: ${available}.`,
+      promptSnippet: `Clone a work repo into the ride directory (${available})`,
+      promptGuidelines: [
+        "Use clone_repo before editing, committing or testing anything in a work repository. The originals are read-only, and the ride directory is the only writable place.",
+        "clone_repo cannot push and neither can anything else here. Commit locally and name the branch out loud; the rider picks it up after the ride.",
+      ],
+      parameters: Type.Object({
+        name: Type.String({ description: `One of: ${available}.` }),
+      }),
+      async execute(_toolCallId, params, signal, onUpdate) {
+        const source = repos.get(params.name);
+        if (!source) {
+          throw new Error(
+            `No repo named "${params.name}". Available: ${available}.`,
+          );
+        }
+        if (!rideDir) throw new Error("No ride directory to clone into.");
+
+        const dest = join(rideDir, "repos", params.name);
+        if (existsSync(dest)) {
+          return {
+            content: [
+              { type: "text", text: `Already cloned at repos/${params.name}.` },
+            ],
+          };
+        }
+
+        // The worktrees carry a .git file pointing at a sibling .bare, matching
+        // what domestique-fetch freshens.
+        const source_gitdir = existsSync(join(source, ".bare"))
+          ? join(source, ".bare")
+          : source;
+
+        // Keyed by ride so domestique's start-of-ride prune can drop a git
+        // directory together with the worktree it belongs to.
+        const gitdir = join(GITDIRS, basename(rideDir), params.name);
+        mkdirSync(join(GITDIRS, basename(rideDir)), { recursive: true });
+
+        // Hundreds of megabytes of checkout is dead air otherwise, and dead air
+        // reads as a crash to someone who cannot see the screen.
+        writeUtterance("speak", `Cloning ${params.name}, one moment.`);
+        onUpdate?.({
+          content: [{ type: "text", text: `cloning ${params.name}` }],
+        });
+
+        try {
+          // Three steps rather than a plain clone, both forced by what srt
+          // refuses to write in the ride directory. --separate-git-dir keeps
+          // `config` out of any path ending .git/config, denied at any depth.
+          // The exclusions keep the checkout off DENIED_PATHS, where the first
+          // one reached aborts it with the tree half populated; skipped instead,
+          // `git status` stays clean. Every repo here carries at least one.
+          await run(
+            "git",
+            [
+              "clone",
+              "--no-checkout",
+              "--shared",
+              `--separate-git-dir=${gitdir}`,
+              source_gitdir,
+              dest,
+            ],
+            signal,
+          );
+          await run(
+            "git",
+            [
+              "-C",
+              dest,
+              "sparse-checkout",
+              "set",
+              "--no-cone",
+              "/*",
+              ...DENIED_PATHS.map((path) => `!${path}`),
+            ],
+            signal,
+          );
+          await run("git", ["-C", dest, "checkout"], signal);
+          // .bare keeps most branches as remote-tracking refs and a clone
+          // fetches refs/heads only, which leaves the branch the rider names
+          // absent more often than not: 72 refs of 496 for the busiest repo.
+          // The objects are already shared, so this copies refs and little else.
+          await run(
+            "git",
+            [
+              "-C",
+              dest,
+              "fetch",
+              "--quiet",
+              "origin",
+              "+refs/remotes/origin/*:refs/remotes/origin/*",
+            ],
+            signal,
+          );
+        } catch (error) {
+          writeUtterance("speak", `Cloning ${params.name} failed.`);
+          throw error;
+        }
+
+        writeUtterance("speak", `${params.name} ready.`);
+        logLine(`_cloned ${params.name}_`);
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `Cloned ${params.name} to repos/${params.name}, on its default ` +
+                "branch. Branch, switch, edit and commit freely; every branch " +
+                "is fetched. Pushing is not possible, so leave work on a " +
+                "local branch and say its name.",
+            },
+          ],
+        };
+      },
+    });
+  }
+
   pi.on("session_start", (_event, ctx) => {
     enabled = pi.getFlag("domestique") === true;
     if (!enabled) return;
@@ -482,7 +669,9 @@ export default function (pi: ExtensionAPI) {
 
     // The ride directory is pi's $PWD and the only place outside ~/.pi the
     // sandbox lets this write (nix/pkgs/pi-wrapper/wrapper.sh, write_paths).
+    rideDir = ctx.cwd;
     transcript = join(ctx.cwd, "transcript.md");
+    registerClone();
     openTopic();
 
     if (ctx.hasUI) {

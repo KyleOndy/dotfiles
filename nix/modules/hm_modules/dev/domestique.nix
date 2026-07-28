@@ -247,7 +247,10 @@ let
   # object store, and every history command fails on the gitdir instead.
   domestique = pkgs.writeShellApplication {
     name = "domestique";
-    runtimeInputs = [ pkgs.coreutils ];
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.git
+    ];
     text = ''
       readonly ROOT="$HOME/.pi/domestique"
       readonly SPOOL="$ROOT/spool"
@@ -255,6 +258,13 @@ let
       readonly RESTART="$ROOT/restart"
       RIDE="${cfg.rideDir}/$(date +%Y-%m-%d)"
       readonly RIDE
+
+      # Read by the clone_repo tool in extensions/domestique.ts, which needs the
+      # paths themselves rather than the --allow-read flags built from them. The
+      # names are private to the work config, so they arrive at runtime instead
+      # of being baked into the extension.
+      DOMESTIQUE_REPOS=$(printf '%s\n' ${lib.escapeShellArgs cfg.repos})
+      export DOMESTIQUE_REPOS
 
       shopt -s nullglob
       mkdir -p "$ROOT" "$RIDE/.sessions"
@@ -264,6 +274,21 @@ let
       # is the whole of what the agent can take notes in. Left to the caller it
       # is wherever the terminal happened to be.
       cd "$RIDE"
+
+      # A clone_repo checkout runs to hundreds of megabytes and is reproducible
+      # from .bare in under a minute, where the notes beside it are neither. Only
+      # the clones go, and only from rides that are over. Their git directories
+      # live under ~/.pi keyed by the same date, and are useless without the
+      # worktree, so the two are dropped together.
+      for old in "${cfg.rideDir}"/*/repos; do
+        [ "$old" = "$RIDE/repos" ] && continue
+        printf 'domestique: reclaiming %s\n' "$old"
+        rm -rf "$old"
+      done
+      for old in "$ROOT"/gitdirs/*; do
+        [ "$old" = "$ROOT/gitdirs/$(basename "$RIDE")" ] && continue
+        rm -rf "$old"
+      done
 
       started=()
 
@@ -813,6 +838,20 @@ in
     xdg.configFile."alacritty/domestique.toml" = lib.mkIf cfg.zoom.enable {
       source = zoomConfig;
     };
+
+    # A clone_repo checkout keeps its git directory under ~/.pi so that `config`
+    # sits outside any path ending .git/config, which srt refuses to write at any
+    # depth. The cost is that `hooks` lands outside the matching .git/hooks deny
+    # and becomes writable. The agent's own git ignores hooks via GIT_CONFIG
+    # core.hooksPath; this covers the rider's git against the same directory
+    # afterwards, which is the only place one would run unsandboxed. The trailing
+    # slash is what makes git append `**` (git-config(1), Conditional includes).
+    programs.git.includes = [
+      {
+        condition = "gitdir:${config.home.homeDirectory}/.pi/domestique/gitdirs/";
+        contents.core.hooksPath = "/dev/null";
+      }
+    ];
 
     home.packages = [
       domestique
