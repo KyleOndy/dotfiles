@@ -146,6 +146,9 @@ let
       readonly ROOT="$HOME/.pi/domestique"
       mkdir -p "$ROOT"
       ${ensureVenv}
+      # The report has to match the watcher, so the tool loads the watcher's
+      # normalizer and lexicon install rather than its own copy.
+      export DOMESTIQUE_TTS="${./domestique-tts.py}"
       exec "$VENV/bin/python" ${./domestique-phonemes.py} "$@"
     '';
   };

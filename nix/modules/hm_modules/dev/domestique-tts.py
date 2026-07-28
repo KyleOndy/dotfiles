@@ -217,21 +217,37 @@ def with_pad(speech, millis: int):
 
 
 def speakable(text: str) -> str:
-    """Remove backticks and turn code separators into spaces so identifiers
-    read as words rather than spelled-out punctuation.
+    """Turn code punctuation into word boundaries.
+
+    Kokoro is handed phonemes, so what misaki makes of punctuation is final.
+    Its vocabulary carries `.` and `:`, which land as a pause inside a name,
+    and lacks `-`, `_` and `/` entirely, so the words those join fuse into one:
+    read-only phonemizes to ɹˈidˌOnli.
+
+    Backticks mark text known to be code, so inside them a slash, a scope
+    operator and call parens are word boundaries too. camelCase splits only
+    there, and only before a lowercase letter, an uppercase run being an
+    acronym rather than a boundary. Lexicon lookup is an exact match on a whole
+    token, and PostgreSQL split in two reads "postgur sequel".
     """
 
-    def fix_code(m: re.Match) -> str:
-        code = m.group(1)
-        # Separators that should be silent in speech
-        code = re.sub(r"[._-]", " ", code)
-        # Split camelCase: lower-to-upper boundary
-        code = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", code)
-        # Collapse multiple spaces
-        code = re.sub(r" +", " ", code)
-        return code.strip()
+    def expand(m: re.Match) -> str:
+        code = re.sub(r"::|[/()]", " ", m.group(1))
+        return re.sub(r"(?<=[a-z])(?=[A-Z][a-z])", " ", code)
 
-    return re.sub(r"`([^`]+)`", fix_code, text)
+    text = re.sub(r"`([^`]+)`", expand, text)
+    # A span straddling a sentence boundary leaves one tick behind, and misaki
+    # reads a lone tick as an open quote.
+    text = text.replace("`", " ")
+    text = text.replace("_", " ")
+    text = re.sub(r"(?<=\w)-(?=\w)", " ", text)
+    # A dot after a digit is a decimal, and one before a space or the end of
+    # the utterance ends a sentence. Anything else joins two names.
+    text = re.sub(r"(?<![\d\s])\.(?=[^\W\d])", " ", text)
+    # A span ending in a separator, `listUsers()` most of all, leaves the
+    # sentence punctuation behind it detached and misaki keeps it a token.
+    text = re.sub(r"\s+(?=[.,!?;:])", "", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def chunk_phonemes(phonemes: str) -> list[str]:
@@ -263,6 +279,9 @@ def synth(pipe, g2p, text: str, speed: float):
     import numpy as np
 
     text = speakable(text)
+    # An utterance that was nothing but a straddling backtick has no words left.
+    if not text:
+        return None
     phonemes, _ = g2p(text)
     parts = []
     for chunk in chunk_phonemes(phonemes):

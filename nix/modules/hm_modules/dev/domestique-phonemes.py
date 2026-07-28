@@ -6,18 +6,32 @@ says nginx as "engine X" and reads ZFS and vmagent as initialisms. Its actual
 failures are acronyms it spells out letter by letter. Checking first is how a
 lexicon stays short enough to trust.
 
+A term is reported as the watcher normalizes it, so a backticked span or a
+dotted name is shown under the words it becomes.
+
     domestique-phonemes SIGTERM kubectl 'the pod ignored SIGTERM'
 """
 
 from __future__ import annotations
 
-import json
+import importlib.util
 import os
 import sys
 from pathlib import Path
 
-ESPEAK = os.environ.get("DOMESTIQUE_ESPEAK", "")
-LEXICON_PATH = os.environ.get("DOMESTIQUE_LEXICON", "")
+# The watcher's own module, so this reports what the rider hears rather than
+# what was typed. Nix gives each script its own store path, so the location
+# arrives in the environment; the sibling is the checkout's copy.
+TTS = os.environ.get(
+    "DOMESTIQUE_TTS", str(Path(__file__).with_name("domestique-tts.py"))
+)
+
+
+def load_tts():
+    spec = importlib.util.spec_from_file_location("domestique_tts", TTS)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def main() -> int:
@@ -26,14 +40,8 @@ def main() -> int:
         print(__doc__.strip(), file=sys.stderr)
         return 2
 
-    if ESPEAK:
-        # The espeakng-loader wheel bakes its build machine's data path into the
-        # dylib it ships, so its getters have to be replaced before
-        # misaki.espeak reads them.
-        import espeakng_loader
-
-        espeakng_loader.get_library_path = lambda: f"{ESPEAK}/lib/libespeak-ng.dylib"
-        espeakng_loader.get_data_path = lambda: f"{ESPEAK}/share/espeak-ng-data"
+    tts = load_tts()
+    tts.wire_espeak()
 
     from misaki import en, espeak
 
@@ -44,22 +52,19 @@ def main() -> int:
 
     bare = build()
     tuned = build()
+    tts.install_lexicon(tuned, tts.load_lexicon())
 
-    lexicon = {}
-    if LEXICON_PATH and Path(LEXICON_PATH).is_file():
-        lexicon = json.loads(Path(LEXICON_PATH).read_text())
-    for term, phonemes in lexicon.items():
-        tuned.lexicon.golds[term] = phonemes
-        tuned.lexicon.golds[term.lower()] = phonemes
+    spoken = [tts.speakable(t) for t in terms]
+    labels = [t if s == t else f"{t} -> {s}" for t, s in zip(terms, spoken)]
 
-    width = max(len(t) for t in terms)
+    width = max(len(label) for label in labels)
     print(f"{'term'.ljust(width)}  {'default':38}  configured")
     print(f"{'-' * width}  {'-' * 38}  {'-' * 38}")
-    for term in terms:
-        before = bare(term)[0]
-        after = tuned(term)[0]
+    for label, text in zip(labels, spoken):
+        before = bare(text)[0]
+        after = tuned(text)[0]
         mark = "" if before == after else "  <- lexicon"
-        print(f"{term.ljust(width)}  {before:38}  {after:38}{mark}")
+        print(f"{label.ljust(width)}  {before:38}  {after:38}{mark}")
     return 0
 
 

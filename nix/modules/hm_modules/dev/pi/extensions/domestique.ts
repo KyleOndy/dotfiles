@@ -129,6 +129,9 @@ function hardCut(buf: string): number {
  * Strip what does not survive being read aloud. Square brackets included:
  * misaki reads `[word](/phonemes/)` as a pronunciation override, so
  * "see [docs](/api/v1/)" phonemizes to `sˈi api/v1`.
+ *
+ * Backticks and underscores pass through: domestique-tts.py speakable() reads
+ * identifier word boundaries from them.
  */
 function speakable(text: string): string {
   return text
@@ -137,7 +140,7 @@ function speakable(text: string): string {
     .replace(/^\s{0,3}#{1,6}\s+/gm, "")
     .replace(/^\s*[-*+]\s+/gm, "")
     .replace(/^\s*\d+[.)]\s+/gm, "")
-    .replace(/[*_`\[\]]+/g, "")
+    .replace(/[*\[\]]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
