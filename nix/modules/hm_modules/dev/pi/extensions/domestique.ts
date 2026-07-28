@@ -16,10 +16,16 @@
  * The drop policy lives in the watcher; this side only decides what counts as
  * one utterance.
  *
+ * "new topic" restarts pi through the wrapper rather than clearing the session
+ * in place: newSession() is reachable only from a slash-command context, and
+ * discarding a finished topic costs a restart where compacting it costs a
+ * summarization.
+ *
  * Off unless --domestique is passed.
  */
 
 import {
+  appendFileSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -31,13 +37,21 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 
 const ROOT = join(homedir(), ".pi", "domestique");
 const SPOOL = join(ROOT, "spool");
 const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
 const SPEED_FILE = join(ROOT, "speed");
+
+// Read by the wrapper's relaunch loop, and by the next session for the topic
+// it should open on. TOPIC is absent for the first session of a ride.
+const RESTART = join(ROOT, "restart");
+const TOPIC = join(ROOT, "topic");
 
 // What the rider said, transcribed by domestique-listen.py. Speech goes out
 // through the spool and comes back in through here, so the microphone half
@@ -65,6 +79,19 @@ const MAX_UTTERANCE_CHARS = 320;
 // ride system prompt asks for two to four, so hitting this means the prompt
 // is not holding.
 const RESPONSE_CHAR_BUDGET = 900;
+
+// Announced once per session, and only while idle so it cannot land inside an
+// answer. Early enough that the rider picks the break rather than pi picking
+// it at the compaction threshold.
+const CONTEXT_WARN_PERCENT = 70;
+
+// Leading "new topic", with whatever separator the recognizer supplied. The
+// remainder is the topic and opens the next session.
+const TOPIC_RE = /^\s*new topic[\s,.:;-]*/i;
+
+// Matched against the whole normalized utterance, never a prefix: "should we
+// compact this" is a question about compaction, not a request for one.
+const COMPACT_PHRASES = new Set(["compact", "compact context"]);
 
 // Words that end in a period without ending a sentence. Deliberately short:
 // a missed boundary only means one longer utterance, while a wrong boundary
@@ -164,6 +191,12 @@ export default function (pi: ExtensionAPI) {
   let uttered = 0;
   let heard = 0;
 
+  let transcript = "";
+  // Spoken prose of the message in flight. Flushed whole so one answer is one
+  // transcript line rather than one line per sentence.
+  let said = "";
+  let contextWarned = false;
+
   // A turn is in flight, so a transcript has to say how it wants to be
   // delivered rather than starting a second one.
   let turnActive = false;
@@ -186,6 +219,42 @@ export default function (pi: ExtensionAPI) {
     uttered += 1;
   }
 
+  function logLine(line: string): void {
+    if (!transcript) return;
+    try {
+      appendFileSync(transcript, `${line}\n`, "utf8");
+    } catch {
+      // A ride does not end because its notes failed.
+    }
+  }
+
+  /** Hand text to drainHeard as though the rider had said it. Named as
+   * domestique-listen.py publish() names its files, so ordering holds. */
+  function publishHeard(text: string): void {
+    const name = String(Date.now()).padStart(13, "0");
+    const tmp = join(HEARD, `${name}.tmp`);
+    writeFileSync(tmp, `${text}\n`, "utf8");
+    renameSync(tmp, join(HEARD, `${name}.txt`));
+  }
+
+  /** Take up the topic the previous session was ended for. Absent on the
+   * first session of a ride. */
+  function openTopic(): void {
+    let topic = "";
+    try {
+      topic = readFileSync(TOPIC, "utf8").trim();
+    } catch {
+      // First session of the ride.
+    }
+    rmSync(TOPIC, { force: true });
+
+    const at = new Date().toTimeString().slice(0, 5);
+    logLine(`\n## ${at} ${topic || "ride start"}`);
+    if (!topic) return;
+    pi.setSessionName(topic);
+    publishHeard(topic);
+  }
+
   /** Stop the response channel for this message and say why instead. */
   function mute(marker: string): void {
     buffers.speak = "";
@@ -199,6 +268,7 @@ export default function (pi: ExtensionAPI) {
     if (channel === "speak" && responseMuted) return;
     writeUtterance(channel, body);
     if (channel !== "speak") return;
+    said = said ? `${said} ${body}` : body;
     spokenChars += body.length;
     if (spokenChars >= RESPONSE_CHAR_BUDGET) {
       truncated += 1;
@@ -304,14 +374,51 @@ export default function (pi: ExtensionAPI) {
     writeFileSync(STOP, "", "utf8");
   }
 
+  function normalize(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z ]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  /**
+   * End the session, leaving the topic for the next one. The wrapper relaunches
+   * pi, so the watchers, the spool numbering and the ride directory all survive
+   * while the context starts empty.
+   */
+  function newTopic(ctx: ExtensionContext, topic: string): void {
+    if (topic) writeFileSync(TOPIC, `${topic}\n`, "utf8");
+    else rmSync(TOPIC, { force: true });
+    writeFileSync(RESTART, "", "utf8");
+    writeUtterance("speak", "New topic.");
+    ctx.abort();
+    ctx.shutdown();
+  }
+
+  function compactNow(ctx: ExtensionContext): void {
+    if (!ctx.isIdle()) ctx.abort();
+    ctx.compact({
+      onError: (error) =>
+        writeUtterance("speak", `Compaction failed. ${error.message}`),
+    });
+  }
+
+  function warnContext(ctx: ExtensionContext): void {
+    if (contextWarned || !ctx.isIdle()) return;
+    const percent = ctx.getContextUsage()?.percent;
+    if (percent === null || percent === undefined) return;
+    if (percent < CONTEXT_WARN_PERCENT) return;
+    contextWarned = true;
+    writeUtterance("speak", "Context is filling up. Say new topic at a break.");
+  }
+
   /**
    * Deliver whatever the rider has said, oldest first. Each file is unlinked
    * before its send, so a throw costs one utterance instead of repeating it
    * on every tick.
    */
-  function drainHeard(ctx: {
-    ui?: { notify: (m: string, l: string) => void };
-  }) {
+  function drainHeard(ctx: ExtensionContext) {
     let names: string[];
     try {
       names = readdirSync(HEARD)
@@ -334,7 +441,21 @@ export default function (pi: ExtensionAPI) {
       if (!text) continue;
 
       heard += 1;
+      logLine(`> ${text}`);
       ctx.ui?.notify(`heard: ${text}`, "info");
+
+      // The key going down already hushed the watcher and cleared the spool
+      // (domestique-tts.py, LISTENING edge), so an acknowledgement spooled here
+      // cannot be caught by a stop file still in flight.
+      if (TOPIC_RE.test(text)) {
+        newTopic(ctx, text.replace(TOPIC_RE, "").trim());
+        return;
+      }
+      if (COMPACT_PHRASES.has(normalize(text))) {
+        compactNow(ctx);
+        continue;
+      }
+
       // Streaming without deliverAs throws; idle with it never starts a turn.
       pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
     }
@@ -359,6 +480,11 @@ export default function (pi: ExtensionAPI) {
       if (Number.isFinite(n) && n > seq) seq = n;
     }
 
+    // The ride directory is pi's $PWD and the only place outside ~/.pi the
+    // sandbox lets this write (nix/pkgs/pi-wrapper/wrapper.sh, write_paths).
+    transcript = join(ctx.cwd, "transcript.md");
+    openTopic();
+
     if (ctx.hasUI) {
       ctx.ui.setStatus("domestique", ctx.ui.theme.fg("accent", "domestique"));
     }
@@ -366,6 +492,7 @@ export default function (pi: ExtensionAPI) {
     let shown = false;
     heardTimer = setInterval(() => {
       drainHeard(ctx);
+      warnContext(ctx);
       const open = existsSync(LISTENING);
       if (open === shown || !ctx.hasUI) return;
       shown = open;
@@ -384,6 +511,19 @@ export default function (pi: ExtensionAPI) {
     turnActive = false;
   });
 
+  // Fires for pi's own threshold compaction as well as for a spoken one, and
+  // that is the case worth covering: it is silent, it runs for a while, and a
+  // rider who cannot see the screen has no way to tell it from a crash.
+  pi.on("session_before_compact", () => {
+    if (!enabled) return;
+    writeUtterance("speak", "Compacting, one moment.");
+    logLine("_compacted here_");
+  });
+
+  pi.on("session_compact", () => {
+    if (enabled) writeUtterance("speak", "Back.");
+  });
+
   pi.on("message_start", (event, _ctx) => {
     if (!enabled) return;
     const message = event.message as { role?: string } | undefined;
@@ -396,6 +536,7 @@ export default function (pi: ExtensionAPI) {
     codeAnnounced = false;
     pending = "";
     inFence = false;
+    said = "";
   });
 
   pi.on("message_update", (event, _ctx) => {
@@ -420,6 +561,10 @@ export default function (pi: ExtensionAPI) {
         if (!inFence) feed("speak", pending);
         pending = "";
         drain("speak");
+        if (said) {
+          logLine(said);
+          said = "";
+        }
         return;
       case "error":
         hush();
@@ -490,6 +635,8 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify(
         [
           `domestique: active, spool ${SPOOL}`,
+          `transcript: ${transcript}`,
+          `context: ${ctx.getContextUsage()?.percent?.toFixed(0) ?? "?"}%`,
           `utterances written: ${uttered}, pending: ${queued}`,
           `transcripts heard: ${heard}`,
           `speech rate: ${storedSpeed().toFixed(2)}x`,

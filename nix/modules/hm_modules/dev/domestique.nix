@@ -10,8 +10,11 @@
 # Speech is Kokoro, not macOS `say`; domestique-tts.py explains why, and it is
 # the reason `lexicon` can exist.
 #
-# Usage: `domestique` starts the watcher and pi together. `domestique-speak`
-# alone is the two-pane form, and prints the matching pi invocation.
+# Usage: `domestique` starts the watchers and pi together, in a dated
+# directory under `rideDir` that is the only place the agent can write.
+# `domestique-review` reopens the newest one afterwards, without speech.
+# `domestique-speak` alone is the two-pane form, and prints the matching pi
+# invocation.
 {
   lib,
   pkgs,
@@ -249,9 +252,18 @@ let
       readonly ROOT="$HOME/.pi/domestique"
       readonly SPOOL="$ROOT/spool"
       readonly SPEAKING="$ROOT/watcher.speaking"
+      readonly RESTART="$ROOT/restart"
+      RIDE="${cfg.rideDir}/$(date +%Y-%m-%d)"
+      readonly RIDE
 
       shopt -s nullglob
-      mkdir -p "$ROOT"
+      mkdir -p "$ROOT" "$RIDE/.sessions"
+
+      # pi's sandbox allows writes to $PWD and ~/.pi and nowhere else
+      # (nix/pkgs/pi-wrapper/wrapper.sh, write_paths), so the launch directory
+      # is the whole of what the agent can take notes in. Left to the caller it
+      # is wherever the terminal happened to be.
+      cd "$RIDE"
 
       started=()
 
@@ -290,8 +302,21 @@ let
       # own (nix/pkgs/pi-wrapper/wrapper.sh). Anything after --domestique reaches
       # pi verbatim, which rejects --allow-read outright, so wrapper flags go
       # first.
-      pi${piFlags} --domestique \
-        --append-system-prompt "$ROOT/ride-prompt.md" "$@" || true
+      #
+      # A spoken "new topic" leaves RESTART behind and ends the session, so a
+      # ride is one pi process per topic. The watchers outlive all of them,
+      # which is what keeps the model loaded and the speech continuous across
+      # the gap.
+      rm -f "$RESTART"
+      while true; do
+        pi${piFlags} --domestique \
+          --session-dir "$RIDE/.sessions" \
+          --append-system-prompt "$ROOT/ride-prompt.md" "$@" || true
+        [ -e "$RESTART" ] || break
+        rm -f "$RESTART"
+        # An opening prompt belongs to the first launch only.
+        set --
+      done
 
       if [ "''${#started[@]}" -gt 0 ]; then
         # A pi exit drops the thinking channel but leaves the response queued,
@@ -309,6 +334,39 @@ let
           kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
         done
       fi
+
+      # rmdir refuses a non-empty directory, so a ride that wrote something
+      # keeps it and one that died before pi started leaves nothing behind.
+      rmdir "$RIDE/.sessions" "$RIDE" 2>/dev/null || true
+    '';
+  };
+
+  # A ride writes into its own directory and reads the repos, so the pass that
+  # turns it into actions is an ordinary pi session with the same read grants,
+  # started where the ride left its notes.
+  domestique-review = pkgs.writeShellApplication {
+    name = "domestique-review";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      shopt -s nullglob
+      readonly RIDES="${cfg.rideDir}"
+
+      if [ "$#" -gt 0 ] && [ -d "$1" ]; then
+        ride="$1"
+        shift
+      else
+        dirs=("$RIDES"/*/)
+        if [ "''${#dirs[@]}" -eq 0 ]; then
+          printf 'domestique-review: nothing under %s yet\n' "$RIDES" >&2
+          exit 1
+        fi
+        # Glob order is lexical and the directories are ISO dates.
+        ride="''${dirs[-1]}"
+      fi
+
+      printf 'domestique-review: %s\n' "$ride"
+      cd "$ride"
+      exec pi${piFlags} "$@"
     '';
   };
 
@@ -581,6 +639,28 @@ in
       '';
     };
 
+    rideDir = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.home.homeDirectory}/work/rides";
+      defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/work/rides"'';
+      description = ''
+        Parent of the per-ride working directories. A ride runs in
+        `<rideDir>/<YYYY-MM-DD>`, which becomes pi's $PWD and is therefore the
+        only place outside ~/.pi the sandbox lets the agent write
+        (`nix/pkgs/pi-wrapper/wrapper.sh`, write_paths). Notes taken during a
+        ride land there, `transcript.md` records everything said aloud, and
+        `.sessions` holds one session file per topic.
+
+        One directory per day rather than per ride. A second ride appends to
+        the same transcript, under its own timestamped headings, and the whole
+        day reads as one document.
+
+        `domestique-review` opens the newest of these in an ordinary pi
+        session with the same `--allow-read` grants and no speech, which is
+        the pass that turns a ride into actions.
+      '';
+    };
+
     repos = lib.mkOption {
       type = with lib.types; listOf str;
       default = [ ];
@@ -741,6 +821,7 @@ in
       domestique-fetch
       domestique-phonemes
       domestique-transcribe
+      domestique-review
     ]
     ++ lib.optional cfg.zoom.enable domestique-zoom;
   };
