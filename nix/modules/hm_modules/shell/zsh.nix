@@ -315,17 +315,21 @@ in
                 unset AWS_PROFILE
                 unset AWS_REGION
               else
-                KUBECONFIG="$config_dir/$kubeconfig"
+                export KUBECONFIG="$config_dir/$kubeconfig"
                 AWS_PROFILE=$(${pkgs.yq-go}/bin/yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
                 AWS_REGION=$(${pkgs.yq-go}/bin/yq '.users[].user.exec.args' "$KUBECONFIG" | ${pkgs.ripgrep}/bin/rg -F -e '--region' -A1 | ${pkgs.coreutils}/bin/tail -n1 | ${pkgs.coreutils}/bin/cut -d' ' -f2)
 
-                # This checks if the cluster is AWS
                 # TODO: handle GKE cluster
                 if [[ -n $AWS_PROFILE ]] && [[ -n $AWS_REGION ]]; then
                   aws_sso_login "$AWS_PROFILE"
                   export AWS_PROFILE
                   export AWS_REGION
-                  export KUBECONFIG
+                else
+                  # Clusters authenticating with a static token carry no AWS
+                  # identity. Keeping the previous pick's profile exported would
+                  # aim kubectl and aws at different accounts.
+                  unset AWS_PROFILE
+                  unset AWS_REGION
                 fi
               fi
               _reset_prompt
