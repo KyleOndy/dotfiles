@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -75,6 +76,14 @@ CUE_LEAD = float(env("DOMESTIQUE_CUE_LEAD", "0.25"))
 LISTEN_CUE_SOUND = env("DOMESTIQUE_LISTEN_CUE_SOUND", "Tink")
 LISTEN_OPEN_PATTERN = "0:-3"
 LISTEN_CLOSE_PATTERN = "0:4"
+
+# The same signal as the cues, for eyes rather than ears. Socket and window come
+# from the terminal that started this watcher, which `domestique` makes the ride
+# window; both are empty anywhere but Alacritty, and the tint is then skipped.
+LISTEN_BACKGROUND = env("DOMESTIQUE_LISTEN_BACKGROUND", "#0f3d0f")
+ALACRITTY = env("DOMESTIQUE_ALACRITTY", "")
+ALACRITTY_SOCKET = env("ALACRITTY_SOCKET", "")
+ALACRITTY_WINDOW = env("ALACRITTY_WINDOW_ID", "")
 
 WAKE_PAD_MS = int(env("DOMESTIQUE_WAKE_PAD_MS", "350"))
 WAKE_GAP_SECONDS = float(env("DOMESTIQUE_WAKE_GAP_SECONDS", "3"))
@@ -211,6 +220,24 @@ def with_pad(speech, millis: int):
     if millis <= 0:
         return speech
     return np.concatenate([np.zeros(int(millis / 1000 * SR), dtype=np.float32), speech])
+
+
+# --- window ------------------------------------------------------------------
+
+
+def tint(on: bool) -> None:
+    if not (ALACRITTY and ALACRITTY_SOCKET and ALACRITTY_WINDOW and LISTEN_BACKGROUND):
+        return
+    cmd = [ALACRITTY, "msg", "-s", ALACRITTY_SOCKET, "config", "-w", ALACRITTY_WINDOW]
+    # -r drops every runtime override, which is the whole of this one. The ride
+    # window's own font and fullscreen come from domestique.toml, not from here.
+    cmd += [f'colors.primary.background="{LISTEN_BACKGROUND}"'] if on else ["-r"]
+    try:
+        subprocess.run(
+            cmd, timeout=1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    except Exception as exc:
+        log(f"tint failed: {exc}")
 
 
 # --- synthesis ---------------------------------------------------------------
@@ -446,6 +473,7 @@ def main() -> int:
                     hush()
                     unlink(SPOOL.glob("*.txt"))
                     unlink(SPOOL.glob("*.tmp"))
+                tint(listening)
                 ring(open_cue if listening else close_cue)
 
             if STOP.exists():
@@ -513,6 +541,9 @@ def main() -> int:
         return 0
     finally:
         sd.stop()
+        # A watcher that dies mid-utterance leaves the window green otherwise,
+        # and nothing else will ever put it back.
+        tint(False)
         PIDFILE.unlink(missing_ok=True)
         READY.unlink(missing_ok=True)
         SPEAKING.unlink(missing_ok=True)

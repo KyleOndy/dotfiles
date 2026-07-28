@@ -222,6 +222,12 @@ let
       export DOMESTIQUE_CUE_SOUND="''${DOMESTIQUE_CUE_SOUND:-${cfg.cueSound}}"
       export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${cfg.cuePattern}}"
       export DOMESTIQUE_LISTEN_CUE_SOUND="${cfg.listenCueSound}"
+      export DOMESTIQUE_LISTEN_BACKGROUND="${cfg.listenBackground}"
+      export DOMESTIQUE_ALACRITTY="${
+        lib.optionalString (
+          config.programs.alacritty.enable && config.programs.alacritty.package != null
+        ) "${config.programs.alacritty.package}/bin/alacritty"
+      }"
       export DOMESTIQUE_CUE_GAIN="${cfg.cueGain}"
       export DOMESTIQUE_CUE_LEAD="${cfg.cueLead}"
       export DOMESTIQUE_WAKE_PAD_MS="${toString cfg.wakePadMs}"
@@ -303,6 +309,23 @@ let
           kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
         done
       fi
+    '';
+  };
+
+  zoomConfig = (pkgs.formats.toml { }).generate "domestique-alacritty.toml" {
+    general.import = [ "~/.config/alacritty/alacritty.toml" ];
+    font.size = cfg.zoom.fontSize;
+    # Fullscreen gives the window its own Space, which a notification or a
+    # Mission Control gesture can then swap away mid-ride.
+    window.startup_mode = "SimpleFullscreen";
+  };
+
+  domestique-zoom = pkgs.writeShellApplication {
+    name = "domestique-zoom";
+    text = ''
+      exec ${config.programs.alacritty.package}/bin/alacritty \
+        --config-file "$HOME/.config/alacritty/domestique.toml" \
+        -e ${domestique}/bin/domestique "$@"
     '';
   };
 in
@@ -616,6 +639,53 @@ in
       '';
     };
 
+    listenBackground = lib.mkOption {
+      type = lib.types.str;
+      default = "#0f3d0f";
+      example = "";
+      description = ''
+        Background the ride window takes while the push-to-talk key is held,
+        applied with `alacritty msg config` and dropped again on release. Empty
+        turns it off, and anything but Alacritty ignores it.
+
+        This is the cues' signal in the other sense, for a glance rather than
+        an ear, and it is the whole window rather than a status line because
+        peripheral vision at 200 watts does not read text.
+
+        Dark on purpose. The window is fullscreen at 24pt, and a saturated
+        green behind gruvbox foreground is both unreadable and unpleasant for
+        the hour a ride lasts.
+      '';
+    };
+
+    zoom = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = config.programs.alacritty.enable && config.programs.alacritty.package != null;
+        defaultText = lib.literalExpression "config.programs.alacritty.enable";
+        description = ''
+          Write ~/.config/alacritty/domestique.toml, and `domestique-zoom`,
+          which opens a ride in a window using it.
+
+          That file is an overlay rather than a second config. Alacritty loads
+          imports in order with the importing file last, and a field already
+          set by an import is replaced, so importing alacritty.toml and setting
+          two fields inherits the colors and the font family and keeps them in
+          step with the desk config (man 5 alacritty, general.import).
+        '';
+      };
+
+      fontSize = lib.mkOption {
+        type = lib.types.number;
+        default = 24;
+        description = ''
+          Point size in the ride window, against 13 at the desk. Chosen to be
+          readable from the bars at arm's length, and untested until a ride
+          says otherwise.
+        '';
+      };
+    };
+
     ridePrompt = lib.mkOption {
       type = lib.types.lines;
       default = ''
@@ -660,6 +730,10 @@ in
       }
     ];
 
+    xdg.configFile."alacritty/domestique.toml" = lib.mkIf cfg.zoom.enable {
+      source = zoomConfig;
+    };
+
     home.packages = [
       domestique
       domestique-speak
@@ -667,6 +741,7 @@ in
       domestique-fetch
       domestique-phonemes
       domestique-transcribe
-    ];
+    ]
+    ++ lib.optional cfg.zoom.enable domestique-zoom;
   };
 }
