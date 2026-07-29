@@ -216,6 +216,22 @@ in
   };
 
   config = mkIf (pkgs.stdenv.isDarwin && cfg.enable) {
+    assertions = [
+      {
+        assertion =
+          !cfg.pushToTalk.enable
+          || cfg.pushToTalk.file == "${config.home.homeDirectory}/.pi/domestique/listening";
+        message = ''
+          hmFoundry.desktop.input.karabiner.pushToTalk.file is polled by
+          domestique-listen.py, domestique-tts.py and extensions/domestique.ts,
+          each of which resolves it under ~/.pi/domestique, and the domestique
+          wrappers export DOMESTIQUE_ROOT over anything set in the environment.
+          Any other path leaves the key touching a file nothing reads: no cue,
+          no tint, no recording, and nothing anywhere reporting a fault.
+        '';
+      }
+    ];
+
     home.file.".config/karabiner/karabiner.json" = {
       text = karabinerConfigJson;
       force = true;
