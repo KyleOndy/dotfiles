@@ -38,6 +38,20 @@
       autoUpdate = lib.mkDefault true;
       upgrade = lib.mkDefault false;
       cleanup = lib.mkDefault "zap"; # Remove packages not in config
+
+      # `--cleanup` on its own only asks. Homebrew gates the actual removal on
+      # `ask: context.ask || !context.force` (bundle/subcommand/cleanup.rb),
+      # so HOMEBREW_NO_ASK cannot answer it: without force it prompts either
+      # way, and `darwin-rebuild switch` then blocks on stdin mid-activation.
+      #
+      # --force-cleanup rather than --force, which brew bundle also reads as
+      # --force/--overwrite for the installs themselves.
+      #
+      # This also closes a latent failure. The prompt only appears on a TTY,
+      # and off one the same branch falls through to `exit 1 if
+      # would_uninstall`, so an unattended deploy fails activation the first
+      # time a cask leaves the Brewfile.
+      extraFlags = lib.mkDefault [ "--force-cleanup" ];
     };
   };
 
