@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -31,8 +32,27 @@ SR = 24000
 PHONEME_LIMIT = 510
 
 
+def log(msg: str) -> None:
+    print(f"domestique: {msg}", flush=True)
+
+
 def env(name: str, default: str) -> str:
     return os.environ.get(name, default)
+
+
+def number(name: str, default: str, floor: float) -> float:
+    """Read a setting that arrives as an unvalidated string from nix.
+
+    Parsed at import, which is before the ready file exists, so a raise here
+    reads to the launcher as a watcher that is merely slow to start. The floor
+    is what keeps a poll interval of 0 from spinning a core for the ride.
+    """
+    try:
+        value = float(env(name, default))
+    except ValueError:
+        value = float(default)
+        log(f"{name} is not a number, using {value}")
+    return max(floor, value)
 
 
 ROOT = Path(env("DOMESTIQUE_ROOT", str(Path.home() / ".pi/domestique")))
@@ -47,8 +67,8 @@ READY = ROOT / "watcher.ready"
 # synthesized as one buffer and keeps the rate it was made at.
 SPEED_FILE = ROOT / "speed"
 
-# An empty spool is not silence: an utterance leaves the spool when playback
-# starts, not when it ends. `domestique` waits on this to know a reply has
+# An empty spool is not silence: an utterance leaves the spool when synthesis
+# starts, not when playback ends. `domestique` waits on this to know a reply has
 # finished before it takes the watcher down.
 SPEAKING = ROOT / "watcher.speaking"
 
@@ -60,14 +80,14 @@ LISTENING = ROOT / "listening"
 
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
-SPEED = float(env("DOMESTIQUE_SPEED", "1.0"))
+SPEED = number("DOMESTIQUE_SPEED", "1.0", 0.1)
 NARRATE_THINKING = env("DOMESTIQUE_NARRATE_THINKING", "0") == "1"
 ESPEAK = env("DOMESTIQUE_ESPEAK", "")
 LEXICON_PATH = env("DOMESTIQUE_LEXICON", "")
 CUE_SOUND = env("DOMESTIQUE_CUE_SOUND", "Glass")
 CUE_PATTERN = env("DOMESTIQUE_CUE_PATTERN", "0:0,0.15:4,0.30:7")
-CUE_GAIN = float(env("DOMESTIQUE_CUE_GAIN", "0.30"))
-CUE_LEAD = float(env("DOMESTIQUE_CUE_LEAD", "0.25"))
+CUE_GAIN = number("DOMESTIQUE_CUE_GAIN", "0.30", 0.0)
+CUE_LEAD = number("DOMESTIQUE_CUE_LEAD", "0.25", 0.0)
 
 # Cues for the microphone rather than the answer, and the only sign a rider who
 # is not looking at the screen has that the key registered. A short sound, since
@@ -87,16 +107,12 @@ ALACRITTY_WINDOW = env("ALACRITTY_WINDOW_ID", "")
 
 WAKE_PAD_MS = int(env("DOMESTIQUE_WAKE_PAD_MS", "350"))
 WAKE_GAP_SECONDS = float(env("DOMESTIQUE_WAKE_GAP_SECONDS", "3"))
-POLL_SECONDS = float(env("DOMESTIQUE_POLL_SECONDS", "0.1"))
+POLL_SECONDS = number("DOMESTIQUE_POLL_SECONDS", "0.1", 0.01)
 
 # Bounds on /speed. A fat-fingered 12 instead of 1.2 would otherwise cost the
 # rest of the ride, and there is no way to see what you typed from the bike.
 SPEED_MIN = 0.5
 SPEED_MAX = 2.0
-
-
-def log(msg: str) -> None:
-    print(f"domestique: {msg}", flush=True)
 
 
 # --- espeak ------------------------------------------------------------------
@@ -190,10 +206,20 @@ def build_cue(sound: str = CUE_SOUND, pattern: str = CUE_PATTERN):
 
     hits = []
     for spec in pattern.split(","):
+        if not spec.strip():
+            continue
         onset, _, semis = spec.partition(":")
-        hits.append((float(onset), float(semis or 0)))
+        try:
+            hits.append((float(onset), float(semis or 0)))
+        except ValueError:
+            log(f"cue strike {spec!r} is not onset:semitones, ignoring it")
+    if not hits:
+        log(f"cue pattern {pattern!r} has no usable strikes, running without one")
+        return None, 0
 
-    lead = int((hits[-1][0] + CUE_LEAD) * SR)
+    # Speech lands after the last bell, which is the largest onset rather than
+    # the one written last.
+    lead = int((max(onset for onset, _ in hits) + CUE_LEAD) * SR)
     shifted = [(int(o * SR), pitch_shift(bell, s)) for o, s in hits]
     length = max(lead, max(p + len(b) for p, b in shifted))
     buf = np.zeros(length, dtype=np.float32)
@@ -349,6 +375,13 @@ def main() -> int:
     ROOT.mkdir(parents=True, exist_ok=True)
     SPOOL.mkdir(parents=True, exist_ok=True)
 
+    # A ride ends by SIGTERMing its watchers (dev/domestique.nix). Python's
+    # default disposition tears the process down without unwinding, which skips
+    # every bit of cleanup below, the window tint most of all: a watcher killed
+    # while the push-to-talk key is held would leave the ride window green with
+    # nothing left running to put it back.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
     # Two watchers on one spool each consume half the utterances and neither
     # sees the other's kills, so preemption stops working.
     if PIDFILE.exists():
@@ -366,8 +399,10 @@ def main() -> int:
     READY.unlink(missing_ok=True)
     SPEAKING.unlink(missing_ok=True)
 
-    # Utterances from an interrupted session would speak the moment the
-    # watcher came up, out of context and minutes late.
+    # Utterances from an interrupted session would speak the moment the watcher
+    # came up, out of context and minutes late. Half-written ones are swept
+    # here and nowhere else: pi publishes by rename, so unlinking a .tmp while
+    # pi is running throws inside its stream handler.
     unlink(SPOOL.glob("*.txt"))
     unlink(SPOOL.glob("*.tmp"))
     STOP.unlink(missing_ok=True)
@@ -427,6 +462,11 @@ def main() -> int:
 
     def start(channel: str, path: Path) -> None:
         nonlocal playing_channel, last_channel, last_finished
+        # Synthesis runs between the unlink below and the first sample, and
+        # `domestique` takes the watcher down the moment the spool is empty and
+        # this file is absent. Claiming it up front is what keeps the last reply
+        # of a ride from being killed while it is still being made.
+        SPEAKING.touch(exist_ok=True)
         try:
             body = path.read_text()
         except OSError:
@@ -438,26 +478,33 @@ def main() -> int:
             return
 
         text = body.strip()
-        speed = read_speed()
-        audio = synth(pipe, g2p, text, speed)
-        if audio is None:
+        # This process is unsupervised, so an escaping exception costs the ride
+        # its voice while pi goes on spooling into nothing. The utterance is
+        # the unit of loss.
+        try:
+            speed = read_speed()
+            audio = synth(pipe, g2p, text, speed)
+            if audio is None:
+                return
+
+            # The cue marks entry into answer mode, not each sentence of the
+            # answer; ringing it between every sentence is unbearable.
+            cued = channel == "speak" and last_channel != "speak"
+            if cued:
+                audio = with_cue(cue, cue_lead, audio)
+            elif time.monotonic() - last_finished >= WAKE_GAP_SECONDS:
+                # Bluetooth output leaves low-power state on the first sample
+                # and swallows the opening syllable. A cue covers that gap.
+                audio = with_pad(audio, WAKE_PAD_MS)
+
+            log(
+                f"{channel:5} {len(audio) / SR:5.2f}s {speed:.2f}x "
+                f"{'cue' if cued else '   '} {text[:60]}"
+            )
+            sd.play(audio, SR)
+        except Exception as exc:
+            log(f"dropped {text[:40]!r}: {exc}")
             return
-
-        # The cue marks entry into answer mode, not each sentence of the
-        # answer; ringing it between every sentence of one reply is unbearable.
-        cued = channel == "speak" and last_channel != "speak"
-        if cued:
-            audio = with_cue(cue, cue_lead, audio)
-        elif time.monotonic() - last_finished >= WAKE_GAP_SECONDS:
-            # Bluetooth output leaves low-power state on the first sample and
-            # swallows the opening syllable. A cue already covers that gap.
-            audio = with_pad(audio, WAKE_PAD_MS)
-
-        log(
-            f"{channel:5} {len(audio) / SR:5.2f}s {speed:.2f}x "
-            f"{'cue' if cued else '   '} {text[:60]}"
-        )
-        sd.play(audio, SR)
         playing_channel = channel
         last_channel = channel
 
@@ -472,7 +519,10 @@ def main() -> int:
                     # and the answer would be recorded along with the question.
                     hush()
                     unlink(SPOOL.glob("*.txt"))
-                    unlink(SPOOL.glob("*.tmp"))
+                    # A question is what makes the next utterance an entry into
+                    # answer mode. With thinking silent nothing else ever takes
+                    # the slot back, so without this the bell rings once a ride.
+                    last_channel = None
                 tint(listening)
                 ring(open_cue if listening else close_cue)
 
@@ -480,7 +530,6 @@ def main() -> int:
                 STOP.unlink(missing_ok=True)
                 hush()
                 unlink(SPOOL.glob("*.txt"))
-                unlink(SPOOL.glob("*.tmp"))
 
             if STOP_THINK.exists():
                 STOP_THINK.unlink(missing_ok=True)

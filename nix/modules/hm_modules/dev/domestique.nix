@@ -77,11 +77,16 @@ let
           continue
         fi
         # Ride time is not fetch time; a hung remote must not hold up the start.
-        if timeout "${toString cfg.fetchTimeoutSeconds}" \
-          git -C "$gitdir" fetch --all --prune --quiet 2>/dev/null; then
+        if err=$(timeout "${toString cfg.fetchTimeoutSeconds}" \
+          git -C "$gitdir" fetch --all --prune --quiet 2>&1); then
           printf 'domestique-fetch: %-40s ok\n' "$repo"
         else
-          printf 'domestique-fetch: %-40s FAILED\n' "$repo"
+          # An expired key, an unknown host and a timeout all print FAILED, and
+          # the reason is gone for good once the run ends.
+          status=$?
+          reason=$(printf '%s' "$err" | tail -n 1)
+          [ -n "$reason" ] || reason="exit $status"
+          printf 'domestique-fetch: %-40s FAILED  %s\n' "$repo" "$reason"
           failed=$((failed + 1))
         fi
       done
@@ -92,6 +97,17 @@ let
         "$failed" "''${#REPOS[@]}" >&2
     '';
   };
+
+  # Settings reach the generated scripts inside double quotes, where $, a
+  # backtick and a backslash are all still live. escapeShellArg is no use for
+  # most of them, which sit inside a ''${VAR:-default} expansion where its
+  # single quotes would land in the value.
+  dq = lib.escape [
+    "\\"
+    "\""
+    "$"
+    "`"
+  ];
 
   allowReadFlags = lib.concatMapStrings (r: " --allow-read ${lib.escapeShellArg r}") cfg.repos;
 
@@ -170,7 +186,7 @@ let
       readonly ROOT="$HOME/.pi/domestique"
       mkdir -p "$ROOT"
       ${ensureVenv}
-      export DOMESTIQUE_STT_MODEL="${cfg.sttModel}"
+      export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
       exec "$VENV/bin/python" ${./domestique-stt.py} "$@"
     '';
   };
@@ -186,9 +202,9 @@ let
       mkdir -p "$ROOT"
       ${ensureVenv}
       export DOMESTIQUE_ROOT="$ROOT"
-      export DOMESTIQUE_STT_MODEL="${cfg.sttModel}"
-      export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${cfg.inputDevice}}"
-      export DOMESTIQUE_POLL_SECONDS="${cfg.pollSeconds}"
+      export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
+      export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${dq cfg.inputDevice}}"
+      export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
       exec "$VENV/bin/python" ${./domestique-listen.py} "$@"
     '';
   };
@@ -216,26 +232,26 @@ let
         "${piFlags}" "$PROMPT"
 
       export DOMESTIQUE_ROOT="$ROOT"
-      export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${cfg.voice}}"
-      export DOMESTIQUE_MODEL="${cfg.model}"
-      export DOMESTIQUE_SPEED="''${DOMESTIQUE_SPEED:-${cfg.speed}}"
+      export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${dq cfg.voice}}"
+      export DOMESTIQUE_MODEL="${dq cfg.model}"
+      export DOMESTIQUE_SPEED="''${DOMESTIQUE_SPEED:-${dq cfg.speed}}"
       export DOMESTIQUE_NARRATE_THINKING="''${DOMESTIQUE_NARRATE_THINKING:-${
         if cfg.narrateThinking then "1" else "0"
       }}"
-      export DOMESTIQUE_CUE_SOUND="''${DOMESTIQUE_CUE_SOUND:-${cfg.cueSound}}"
-      export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${cfg.cuePattern}}"
-      export DOMESTIQUE_LISTEN_CUE_SOUND="${cfg.listenCueSound}"
-      export DOMESTIQUE_LISTEN_BACKGROUND="${cfg.listenBackground}"
+      export DOMESTIQUE_CUE_SOUND="''${DOMESTIQUE_CUE_SOUND:-${dq cfg.cueSound}}"
+      export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${dq cfg.cuePattern}}"
+      export DOMESTIQUE_LISTEN_CUE_SOUND="${dq cfg.listenCueSound}"
+      export DOMESTIQUE_LISTEN_BACKGROUND="${dq cfg.listenBackground}"
       export DOMESTIQUE_ALACRITTY="${
         lib.optionalString (
           config.programs.alacritty.enable && config.programs.alacritty.package != null
         ) "${config.programs.alacritty.package}/bin/alacritty"
       }"
-      export DOMESTIQUE_CUE_GAIN="${cfg.cueGain}"
-      export DOMESTIQUE_CUE_LEAD="${cfg.cueLead}"
+      export DOMESTIQUE_CUE_GAIN="${dq cfg.cueGain}"
+      export DOMESTIQUE_CUE_LEAD="${dq cfg.cueLead}"
       export DOMESTIQUE_WAKE_PAD_MS="${toString cfg.wakePadMs}"
       export DOMESTIQUE_WAKE_GAP_SECONDS="${toString cfg.wakeGapSeconds}"
-      export DOMESTIQUE_POLL_SECONDS="${toString cfg.pollSeconds}"
+      export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
 
       exec "$VENV/bin/python" ${./domestique-tts.py} "$@"
     '';
@@ -256,18 +272,99 @@ let
       readonly SPOOL="$ROOT/spool"
       readonly SPEAKING="$ROOT/watcher.speaking"
       readonly RESTART="$ROOT/restart"
-      RIDE="${cfg.rideDir}/$(date +%Y-%m-%d)"
+      readonly TOPIC="$ROOT/topic"
+      readonly LOCK="$ROOT/ride.lock"
+      RIDE="${dq cfg.rideDir}/$(date +%Y-%m-%d)"
       readonly RIDE
 
       # Read by the clone_repo tool in extensions/domestique.ts, which needs the
       # paths themselves rather than the --allow-read flags built from them. The
       # names are private to the work config, so they arrive at runtime instead
       # of being baked into the extension.
-      DOMESTIQUE_REPOS=$(printf '%s\n' ${lib.escapeShellArgs cfg.repos})
-      export DOMESTIQUE_REPOS
+      #
+      # Joined here rather than by printf in the shell: `repos` defaults to
+      # empty, and a format string with no arguments is SC2183, which fails the
+      # writeShellApplication build on any host that has not set it.
+      export DOMESTIQUE_REPOS=${lib.escapeShellArg (lib.concatStringsSep "\n" cfg.repos)}
+
+      # Held apart from "$@" because the loop below clears the arguments after
+      # the first topic: an opening prompt is one topic's, a model is the ride's.
+      model=()
+      rest=()
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          --model)
+            if [ "$#" -lt 2 ]; then
+              echo "domestique: --model needs a value" >&2
+              exit 1
+            fi
+            model=(--model "$2")
+            shift 2
+            ;;
+          --model=*)
+            model=(--model "''${1#--model=}")
+            shift
+            ;;
+          *)
+            rest+=("$1")
+            shift
+            ;;
+        esac
+      done
+      set -- "''${rest[@]}"
 
       shopt -s nullglob
-      mkdir -p "$ROOT" "$RIDE/.sessions"
+      mkdir -p "$ROOT"
+
+      # A ride is a singleton, and now says so. There is one rider, one
+      # microphone, one pair of headphones, and one push-to-talk key writing one
+      # hardcoded path (desktop/input/karabiner.nix), so a key press cannot name
+      # a session and two rides cannot both be answered. Nothing under $ROOT
+      # carries a session either: one spool, one speed, one restart flag.
+      #
+      # Unenforced, a second ride adopted the first's watchers and inherited its
+      # terminal, so its tint landed on the first ride's window; and whichever
+      # ride started the watchers killed them on exit, muting the other.
+      where="terminal"
+      if [ -n "''${TMUX_PANE:-}" ]; then
+        where="tmux pane $TMUX_PANE"
+      fi
+      if [ -n "''${ALACRITTY_WINDOW_ID:-}" ]; then
+        where="alacritty window $ALACRITTY_WINDOW_ID"
+      fi
+
+      # noclobber makes the redirection itself the test, so two rides starting
+      # in the same millisecond cannot both come away holding the lock.
+      claim() {
+        (
+          set -o noclobber
+          {
+            printf '%s\n' "$$"
+            printf '  pid %s, started %s, %s\n' "$$" "$(date +%H:%M)" "$where"
+          } >"$LOCK"
+        ) 2>/dev/null
+      }
+
+      if ! claim; then
+        held=$(head -n 1 "$LOCK" 2>/dev/null) || held=""
+        if [ -n "$held" ] && kill -0 "$held" 2>/dev/null; then
+          printf 'domestique: a ride is already running\n' >&2
+          tail -n +2 "$LOCK" >&2
+          printf '  stop it with:  kill %s\n' "$held" >&2
+          printf '  or review it:  domestique-review\n' >&2
+          exit 1
+        fi
+        # The pid is gone, so a ride died without releasing. Its watchers may
+        # still be running; launch() replaces them.
+        rm -f "$LOCK"
+        if ! claim; then
+          printf 'domestique: could not take the ride lock at %s\n' "$LOCK" >&2
+          exit 1
+        fi
+      fi
+      trap 'rm -f "$LOCK"' EXIT
+
+      mkdir -p "$RIDE/.sessions"
 
       # pi's sandbox allows writes to $PWD and ~/.pi and nowhere else
       # (nix/pkgs/pi-wrapper/wrapper.sh, write_paths), so the launch directory
@@ -280,7 +377,7 @@ let
       # the clones go, and only from rides that are over. Their git directories
       # live under ~/.pi keyed by the same date, and are useless without the
       # worktree, so the two are dropped together.
-      for old in "${cfg.rideDir}"/*/repos; do
+      for old in "${dq cfg.rideDir}"/*/repos; do
         [ "$old" = "$RIDE/repos" ] && continue
         printf 'domestique: reclaiming %s\n' "$old"
         rm -rf "$old"
@@ -296,22 +393,58 @@ let
         [ -e "$1" ] && kill -0 "$(cat "$1" 2>/dev/null)" 2>/dev/null
       }
 
+      stop_watchers() {
+        [ "''${#started[@]}" -gt 0 ] || return 0
+        local pidfile
+        for pidfile in "''${started[@]}"; do
+          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
+          # A watcher still loading its model has no cleanup to run yet, and a
+          # pid left behind reads as live once the number comes round again.
+          rm -f "$pidfile"
+        done
+        started=()
+      }
+
       launch() {
         local name="$1" bin="$2" pidfile="$3" ready="$4" log="$5"
-        if [ -e "$ready" ] && alive "$pidfile"; then
-          return
+        # The ride owns its watchers. Reaching here means we hold the lock, so a
+        # live watcher belongs to no ride: either a crash left it behind, or
+        # domestique-speak was started by hand. Either way it carries another
+        # terminal's identity and would tint a window nobody is riding in, so it
+        # is replaced rather than reused. Replacing costs the model load, but
+        # only on that path, since a ride exiting normally kills its own.
+        if alive "$pidfile"; then
+          printf 'domestique: replacing an orphaned %s watcher\n' "$name"
+          local orphan settle=0
+          orphan=$(cat "$pidfile")
+          kill "$orphan" 2>/dev/null || true
+          # The watcher refuses to start while another pid holds the spool, and
+          # the one just signalled takes as long as its current utterance to
+          # unwind, so the replacement waits it out rather than racing it.
+          while [ "$settle" -lt 50 ] && kill -0 "$orphan" 2>/dev/null; do
+            sleep 0.1
+            settle=$((settle + 1))
+          done
+          rm -f "$pidfile"
         fi
+        rm -f "$ready"
         "$bin" >>"$log" 2>&1 &
+        local child=$!
         started+=("$pidfile")
         # The first run of all builds a venv and downloads a model, so this
-        # waits in minutes rather than seconds. Steady state is a few.
+        # waits in minutes rather than seconds. Steady state is a few. A watcher
+        # that dies at startup never writes the file, so the pid bounds the wait
+        # that the file alone would leave at ten silent minutes.
         local waited=0
-        while [ "$waited" -lt 3000 ] && [ ! -e "$ready" ]; do
+        while [ "$waited" -lt 3000 ] && [ ! -e "$ready" ] && kill -0 "$child" 2>/dev/null; do
           sleep 0.2
           waited=$((waited + 1))
         done
         if [ ! -e "$ready" ]; then
           printf 'domestique: %s did not come up, see %s\n' "$name" "$log" >&2
+          tail -n 5 "$log" >&2 2>/dev/null || true
+          kill "$child" 2>/dev/null || true
+          stop_watchers
           exit 1
         fi
         printf 'domestique: %s ready, logging to %s\n' "$name" "$log"
@@ -332,33 +465,44 @@ let
       # ride is one pi process per topic. The watchers outlive all of them,
       # which is what keeps the model loaded and the speech continuous across
       # the gap.
-      rm -f "$RESTART"
+      # The topic outlives the restart flag it travels with: a pi that dies
+      # before session_start consumes neither, and the next ride would open
+      # itself on a subject from whenever that was.
+      rm -f "$RESTART" "$TOPIC"
       while true; do
         pi${piFlags} --domestique \
           --session-dir "$RIDE/.sessions" \
-          --append-system-prompt "$ROOT/ride-prompt.md" "$@" || true
+          --append-system-prompt "$ROOT/ride-prompt.md" \
+          "''${model[@]}" "$@" || true
         [ -e "$RESTART" ] || break
         rm -f "$RESTART"
         # An opening prompt belongs to the first launch only.
         set --
       done
 
-      if [ "''${#started[@]}" -gt 0 ]; then
-        # A pi exit drops the thinking channel but leaves the response queued,
-        # so the watcher has to outlive it by however long the answer takes.
-        waited=0
-        while [ "$waited" -lt 300 ]; do
-          queue=("$SPOOL"/*-speak.txt)
-          if [ "''${#queue[@]}" -eq 0 ] && [ ! -e "$SPEAKING" ]; then
-            break
-          fi
-          sleep 0.2
-          waited=$((waited + 1))
-        done
-        for pidfile in "''${started[@]}"; do
-          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
-        done
-      fi
+      # A pi exit drops the thinking channel but leaves the response queued, so
+      # the watcher has to outlive it by however long the answer takes. What is
+      # bounded here is silence, not the answer: speech playing or a shrinking
+      # queue starts the count over, so only a watcher that has stopped making
+      # progress runs it out. The outer bound is the one that survives a watcher
+      # wedged mid-utterance, which no amount of waiting would resolve.
+      idle=0
+      total=0
+      left=-1
+      while [ "$total" -lt 1500 ] && [ "$idle" -lt 150 ]; do
+        queue=("$SPOOL"/*-speak.txt)
+        if [ "''${#queue[@]}" -eq 0 ] && [ ! -e "$SPEAKING" ]; then
+          break
+        fi
+        if [ "''${#queue[@]}" -ne "$left" ] || [ -e "$SPEAKING" ]; then
+          left="''${#queue[@]}"
+          idle=0
+        fi
+        sleep 0.2
+        idle=$((idle + 1))
+        total=$((total + 1))
+      done
+      stop_watchers
 
       # rmdir refuses a non-empty directory, so a ride that wrote something
       # keeps it and one that died before pi started leaves nothing behind.
@@ -374,12 +518,31 @@ let
     runtimeInputs = [ pkgs.coreutils ];
     text = ''
       shopt -s nullglob
-      readonly RIDES="${cfg.rideDir}"
+      readonly RIDES="${dq cfg.rideDir}"
 
-      if [ "$#" -gt 0 ] && [ -d "$1" ]; then
-        ride="$1"
-        shift
-      else
+      ride=""
+      if [ "$#" -gt 0 ]; then
+        if [ -d "$1" ]; then
+          ride="$1"
+          shift
+        elif [ -d "$RIDES/$1" ]; then
+          # Rides are named by date, so the date on its own is what gets typed.
+          ride="$RIDES/$1"
+          shift
+        else
+          # Anything else is a message for pi, except a date, which can only
+          # have been meant as a ride and would otherwise open the newest one
+          # and reach pi as a stray word.
+          case "$1" in
+            [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9])
+              printf 'domestique-review: no ride on %s under %s\n' "$1" "$RIDES" >&2
+              exit 1
+              ;;
+          esac
+        fi
+      fi
+
+      if [ -z "$ride" ]; then
         dirs=("$RIDES"/*/)
         if [ "''${#dirs[@]}" -eq 0 ]; then
           printf 'domestique-review: nothing under %s yet\n' "$RIDES" >&2
@@ -753,6 +916,13 @@ in
         applied with `alacritty msg config` and dropped again on release. Empty
         turns it off, and anything but Alacritty ignores it.
 
+        tmux ignores it too, which is not obvious because nothing fails: the
+        message is delivered and Alacritty does change its background, but tmux
+        paints every cell from its own `window-style`, so the terminal
+        background never shows through. A ride started inside tmux is therefore
+        never green. Use `domestique-zoom`, which is a bare Alacritty window
+        with no multiplexer in the way.
+
         This is the cues' signal in the other sense, for a glance rather than
         an ear, and it is the whole window rather than a status line because
         peripheral vision at 200 watts does not read text.
@@ -767,7 +937,7 @@ in
       enable = lib.mkOption {
         type = lib.types.bool;
         default = config.programs.alacritty.enable && config.programs.alacritty.package != null;
-        defaultText = lib.literalExpression "config.programs.alacritty.enable";
+        defaultText = lib.literalExpression "config.programs.alacritty.enable && config.programs.alacritty.package != null";
         description = ''
           Write ~/.config/alacritty/domestique.toml, and `domestique-zoom`,
           which opens a ride in a window using it.
@@ -833,7 +1003,39 @@ in
           assumes CoreAudio; there is no Linux path yet.
         '';
       }
+      {
+        assertion = lib.all (
+          b: builtins.hasAttr b config.hmFoundry.dev.pi-coding-agent.sandbox.networkBundles
+        ) cfg.allowBundles;
+        message =
+          let
+            unknown = lib.filter (
+              b: !builtins.hasAttr b config.hmFoundry.dev.pi-coding-agent.sandbox.networkBundles
+            ) cfg.allowBundles;
+          in
+          ''
+            hmFoundry.dev.domestique.allowBundles names ${lib.concatStringsSep ", " unknown},
+            which pi-coding-agent.sandbox.networkBundles does not define. The
+            wrapper exits on an unknown bundle, so this would otherwise surface
+            at the start of a ride, after the venv and model load.
+          '';
+      }
+      {
+        assertion =
+          !cfg.zoom.enable || (config.programs.alacritty.enable && config.programs.alacritty.package != null);
+        message = ''
+          hmFoundry.dev.domestique.zoom.enable needs programs.alacritty enabled
+          with a package: domestique-zoom execs the terminal itself.
+        '';
+      }
     ];
+
+    warnings = lib.optional (!config.programs.git.enable) ''
+      hmFoundry.dev.domestique: programs.git.enable is false, so the
+      core.hooksPath include below is never written. A hook the agent leaves in
+      a ride clone under ~/.pi/domestique/gitdirs would then run under the
+      rider's own git.
+    '';
 
     xdg.configFile."alacritty/domestique.toml" = lib.mkIf cfg.zoom.enable {
       source = zoomConfig;

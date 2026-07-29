@@ -22,13 +22,33 @@ cost every spoken answer for the whole hour.
 from __future__ import annotations
 
 import os
+import signal
 import sys
 import time
 from pathlib import Path
 
 
+def log(message: str) -> None:
+    print(f"{time.strftime('%H:%M:%S')} {message}", flush=True)
+
+
 def env(name: str, default: str) -> str:
     return os.environ.get(name, default)
+
+
+def seconds(name: str, default: str, floor: float) -> float:
+    """Read a duration that arrives as an unvalidated string from nix.
+
+    Parsed at import, which is before the ready file exists, so a raise here
+    reads to the launcher as a watcher that is merely slow to start. The floor
+    is what keeps a poll interval of 0 from spinning a core for the ride.
+    """
+    try:
+        value = float(env(name, default))
+    except ValueError:
+        value = float(default)
+        log(f"{name} is not a number, using {value}")
+    return max(floor, value)
 
 
 ROOT = Path(env("DOMESTIQUE_ROOT", str(Path.home() / ".pi/domestique")))
@@ -45,19 +65,15 @@ READY = ROOT / "listen.ready"
 
 MODEL = env("DOMESTIQUE_STT_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
 INPUT_DEVICE = env("DOMESTIQUE_INPUT_DEVICE", "")
-POLL_SECONDS = float(env("DOMESTIQUE_POLL_SECONDS", "0.1"))
+POLL_SECONDS = seconds("DOMESTIQUE_POLL_SECONDS", "0.1", 0.01)
 
 # A tap while reaching for something else is not an utterance.
-MIN_SECONDS = float(env("DOMESTIQUE_MIN_UTTERANCE_SECONDS", "0.4"))
+MIN_SECONDS = seconds("DOMESTIQUE_MIN_UTTERANCE_SECONDS", "0.4", 0.0)
 
 # A key can stick, and a jersey pocket can hold one down. The recording is cut
 # here and still transcribed, because the alternative is unbounded memory and
 # nothing to show for it.
-MAX_SECONDS = float(env("DOMESTIQUE_MAX_UTTERANCE_SECONDS", "120"))
-
-
-def log(message: str) -> None:
-    print(f"{time.strftime('%H:%M:%S')} {message}", flush=True)
+MAX_SECONDS = seconds("DOMESTIQUE_MAX_UTTERANCE_SECONDS", "120", 1.0)
 
 
 def device() -> int | str | None:
@@ -85,6 +101,33 @@ def main() -> int:
 
     HEARD.mkdir(parents=True, exist_ok=True)
 
+    # A ride ends by SIGTERMing its watchers (dev/domestique.nix). Python's
+    # default disposition tears the process down without unwinding, leaving the
+    # input stream open and a pid on disk that a later ride reads as live.
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
+    # Two listeners on one key both record and both publish, so pi hears every
+    # utterance twice and a spoken "new topic" fires twice.
+    if PIDFILE.exists():
+        try:
+            os.kill(int(PIDFILE.read_text().strip()), 0)
+        except (OSError, ValueError):
+            pass
+        else:
+            print(
+                f"domestique-listen: already running as pid "
+                f"{PIDFILE.read_text().strip()}",
+                file=sys.stderr,
+            )
+            return 1
+    PIDFILE.write_text(f"{os.getpid()}\n")
+    READY.unlink(missing_ok=True)
+
+    # A transcript stranded by an interrupted ride reaches the next ride's
+    # first session, days late, and a stranded "new topic" restarts it there.
+    for stale in [*HEARD.glob("*.txt"), *HEARD.glob("*.tmp")]:
+        stale.unlink(missing_ok=True)
+
     started = time.monotonic()
     model = from_pretrained(MODEL)
     rate = model.preprocessor_config.sample_rate
@@ -100,7 +143,6 @@ def main() -> int:
     name = sd.query_devices(device(), "input")["name"]
     log(f"{MODEL} ready in {time.monotonic() - started:.1f}s, mic {name}")
 
-    PIDFILE.write_text(f"{os.getpid()}\n")
     READY.write_text("ready\n")
 
     blocks: list[np.ndarray] = []
@@ -150,18 +192,32 @@ def main() -> int:
 
     try:
         while True:
-            if stream is None:
-                if LISTENING.exists():
-                    start()
-            elif not LISTENING.exists():
-                finish()
-            elif time.monotonic() - opened >= MAX_SECONDS:
-                log(f"cut at {MAX_SECONDS:.0f}s, key still down")
-                finish()
-                # Waiting for the release keeps a stuck key from recording the
-                # same rider on a loop.
-                while LISTENING.exists():
-                    time.sleep(POLL_SECONDS)
+            try:
+                if stream is None:
+                    if LISTENING.exists():
+                        start()
+                elif not LISTENING.exists():
+                    finish()
+                elif time.monotonic() - opened >= MAX_SECONDS:
+                    log(f"cut at {MAX_SECONDS:.0f}s, key still down")
+                    finish()
+                    # Waiting for the release keeps a stuck key from recording
+                    # the same rider on a loop.
+                    while LISTENING.exists():
+                        time.sleep(POLL_SECONDS)
+            except Exception as exc:
+                # The cues and the window tint are rung by the speech watcher
+                # off the listening file alone, so an exit here leaves every
+                # later key press fully confirmed and silently unheard. A
+                # vanished Bluetooth microphone is the case that reaches this.
+                log(f"recovered: {exc}")
+                if stream is not None:
+                    try:
+                        stream.stop()
+                        stream.close()
+                    except Exception:
+                        pass
+                    stream = None
             time.sleep(POLL_SECONDS)
     except KeyboardInterrupt:
         return 0

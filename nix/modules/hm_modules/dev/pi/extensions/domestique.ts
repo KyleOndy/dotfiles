@@ -99,9 +99,14 @@ const RESPONSE_CHAR_BUDGET = 900;
 // it at the compaction threshold.
 const CONTEXT_WARN_PERCENT = 70;
 
-// Leading "new topic", with whatever separator the recognizer supplied. The
-// remainder is the topic and opens the next session.
-const TOPIC_RE = /^\s*new topic[\s,.:;-]*/i;
+// Leading "new topic" or a synonym, with whatever separator the recognizer
+// supplied. The remainder is the topic and opens the next session.
+//
+// Anchored, so "the next topic is alerting" mid-utterance is not a command.
+// "start over" and "reset" are deliberately absent: both are ordinary things to
+// say about the work, and a session discarded by accident does not come back.
+const TOPIC_RE =
+  /^\s*(?:new|next) (?:topic|session|chat|conversation)[\s,.:;-]*/i;
 
 // Matched against the whole normalized utterance, never a prefix: "should we
 // compact this" is a question about compaction, not a request for one.
