@@ -13,13 +13,18 @@
  * `--allow-linear`, from the networkBundles entry on the host that holds the
  * credential. domestique passes it on every ride.
  *
- * Read-only on purpose. A voice transcript nobody can proofread at 200 watts is
- * the wrong thing to post on a ticket the team reads.
+ * Read-only describes this tool surface, not the session. The credential is a
+ * personal API key carrying write scope, so a bash call to the same domain can
+ * mutate. The egress bundle is the control that binds; without the domain the
+ * key is inert.
  *
  * LINEAR_API_KEY arrives through the wrapper's envFromCommands, which resolves
  * it from the Keychain outside the sandbox. The wrapper scrubs anything
  * matching *_API_KEY that merely leaked in from the caller's shell, so a plain
- * shell export does not reach here.
+ * shell export does not reach here. It is read once at registration and
+ * dropped from process.env, which under Bun is a reduction rather than a
+ * boundary: process.env is a view, and a child that inherits the environment
+ * still carries the key.
  */
 
 import { Type } from "typebox";
@@ -45,6 +50,8 @@ const SEARCH_RESULTS = 10;
 const MAX_IDENTIFIERS = 5;
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
+
+let apiKey = "";
 
 const DETAIL_FRAGMENT = `
   fragment Detail on Issue {
@@ -113,6 +120,18 @@ function normalizeIdentifier(raw: string): string {
     .toUpperCase();
 }
 
+/** Ticket prose, quoted so it cannot pose as this tool's own output. Anyone
+ * with ticket access writes it, and it lands in the channel that also carries
+ * the section separator and the `not found:` line. */
+function quote(text: string): string {
+  return text.replace(/^/gm, "| ");
+}
+
+/** Ticket text for a field this renderer puts on one line. */
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
 function clamp(text: string, limit: number): string {
   const trimmed = text.trim();
   if (trimmed.length <= limit) return trimmed;
@@ -143,7 +162,7 @@ async function graphql(
       headers: {
         // Linear's personal API keys go in Authorization bare. A Bearer prefix
         // is not what the docs specify.
-        Authorization: process.env.LINEAR_API_KEY as string,
+        Authorization: apiKey,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
@@ -209,16 +228,19 @@ function renderDetail(issue: Issue): string {
       `updated ${day(issue.updatedAt)}`,
     ].join("  "),
   );
-  lines.push(`title: ${issue.title}`);
+  lines.push(`title: ${oneLine(issue.title)}`);
 
-  if (issue.project?.name) lines.push(`project: ${issue.project.name}`);
+  if (issue.project?.name)
+    lines.push(`project: ${oneLine(issue.project.name)}`);
 
-  const labels = (issue.labels?.nodes ?? []).map((l) => l.name).filter(Boolean);
+  const labels = (issue.labels?.nodes ?? [])
+    .map((l) => (l.name ? oneLine(l.name) : ""))
+    .filter(Boolean);
   if (labels.length > 0) lines.push(`labels: ${labels.join(", ")}`);
 
   if (issue.parent?.identifier) {
     lines.push(
-      `parent: ${issue.parent.identifier} ${issue.parent.title ?? ""}`,
+      `parent: ${issue.parent.identifier} ${oneLine(issue.parent.title ?? "")}`,
     );
   }
 
@@ -226,7 +248,7 @@ function renderDetail(issue: Issue): string {
   if (children.length > 0) {
     const shown = children
       .slice(0, CHILDREN_SHOWN)
-      .map((c) => `${c.identifier} ${c.title ?? ""}`)
+      .map((c) => `${c.identifier} ${oneLine(c.title ?? "")}`)
       .join("; ");
     const more =
       children.length > CHILDREN_SHOWN ? "; more sub-issues not shown" : "";
@@ -242,22 +264,25 @@ function renderDetail(issue: Issue): string {
   if (links.length > 0) {
     lines.push("links:");
     for (const link of links) {
-      lines.push(`  ${link.title || "untitled"}: ${link.url}`);
+      lines.push(
+        `  ${link.title ? oneLine(link.title) : "untitled"}: ${link.url}`,
+      );
     }
   }
 
   const description = issue.description?.trim();
-  lines.push("description:");
-  lines.push(description ? clamp(description, DESCRIPTION_CHARS) : "  (empty)");
+  lines.push("description, as written on the ticket:");
+  lines.push(
+    description ? quote(clamp(description, DESCRIPTION_CHARS)) : "  (empty)",
+  );
 
   const comments = issue.comments?.nodes ?? [];
   if (comments.length > 0) {
     lines.push(`comments (${comments.length} most recent):`);
     for (const comment of comments) {
-      const who = comment.user?.displayName ?? "unknown";
-      lines.push(
-        `  ${who}, ${day(comment.createdAt)}: ${clamp(comment.body ?? "", COMMENT_CHARS)}`,
-      );
+      const who = oneLine(comment.user?.displayName ?? "unknown");
+      lines.push(`  ${who}, ${day(comment.createdAt)}:`);
+      lines.push(quote(clamp(comment.body ?? "", COMMENT_CHARS)));
     }
   }
 
@@ -269,16 +294,19 @@ function renderSummary(issue: Issue): string {
     issue.identifier,
     issue.state?.name ?? "unknown state",
     issue.priorityLabel ?? "no priority",
-    issue.assignee?.displayName ?? "nobody",
+    oneLine(issue.assignee?.displayName ?? "nobody"),
     day(issue.updatedAt),
-    issue.title,
+    oneLine(issue.title),
   ].join("  ");
 }
 
 export default function (pi: ExtensionAPI) {
   // A host without the credential shows no tool at all, rather than a tool the
   // model will reach for and that can only fail.
-  if (!process.env.LINEAR_API_KEY) return;
+  const resolved = process.env.LINEAR_API_KEY;
+  if (!resolved) return;
+  apiKey = resolved;
+  delete process.env.LINEAR_API_KEY;
 
   pi.registerTool({
     name: "linear_issue",
@@ -344,7 +372,11 @@ export default function (pi: ExtensionAPI) {
       // ride is the difference between an answer and starting over.
       const sections = found.map(renderDetail);
       if (missing.length > 0) {
-        sections.push(`not found: ${missing.join(", ")}`);
+        // A null alias is as often a permission or rate-limit error as a typo,
+        // and reporting only "not found" tells the rider a ticket does not
+        // exist when the key simply cannot see it.
+        const why = errors.length > 0 ? ` (${errors.join("; ")})` : "";
+        sections.push(`not found: ${missing.join(", ")}${why}`);
       }
 
       return {

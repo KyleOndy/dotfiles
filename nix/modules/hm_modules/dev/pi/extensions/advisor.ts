@@ -29,6 +29,11 @@ If it looks fine -- on task, making progress, nothing risky -- reply with exactl
 If it looks stuck, drifting from the actual task, repeating itself, or about to do something risky or destructive, reply with one line: STEER: <short, concrete correction>
 Never explain your reasoning. Never say anything else. Only OK or STEER: <text>.`;
 
+// Belt to the chat_template_kwargs braces below. A model or server that ignores
+// enable_thinking leaves the block in the content, where it silently makes
+// every verdict read as neither OK nor STEER.
+const THINKING = /^\s*<think>[\s\S]*?<\/think>\s*/;
+
 // Duck-typed: pi's own message/tool-result shapes aren't fully documented,
 // so this extracts text defensively rather than assuming one exact shape.
 function extractText(value: unknown): string {
@@ -86,6 +91,13 @@ async function askAdvisor(turnSummary: string): Promise<string | undefined> {
       body: JSON.stringify({
         model: LOCAL_MODEL_ID,
         max_tokens: 200,
+        // qwen3-14b is registered without a reasoning_parser
+        // (nix/hosts/trex/mlx-models.yaml), so whatever it thinks arrives
+        // inside message.content rather than a field of its own, where it
+        // fails the STEER match below and eats the token budget the verdict
+        // needs. Qwen3's chat template leaves thinking on unless this says
+        // otherwise in as many words.
+        chat_template_kwargs: { enable_thinking: false },
         messages: [
           { role: "system", content: REVIEWER_SYSTEM_PROMPT },
           { role: "user", content: turnSummary },
@@ -96,7 +108,7 @@ async function askAdvisor(turnSummary: string): Promise<string | undefined> {
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
     };
-    return data.choices?.[0]?.message?.content?.trim();
+    return data.choices?.[0]?.message?.content?.replace(THINKING, "").trim();
   } catch {
     // Local server unreachable, slow, or model not loaded -- the advisor is
     // best-effort supervision, not a dependency the run should die on.

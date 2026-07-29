@@ -36,7 +36,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import { Type } from "typebox";
 
@@ -233,9 +233,16 @@ export default function (pi: ExtensionAPI) {
     const name = `${String(seq).padStart(6, "0")}-${channel}`;
     const tmp = join(SPOOL, `${name}.tmp`);
     // The watcher globs *.txt only, so the rename is what publishes the
-    // utterance and it never reads a half-written file.
-    writeFileSync(tmp, `${body}\n`, "utf8");
-    renameSync(tmp, join(SPOOL, `${name}.txt`));
+    // utterance and it never reads a half-written file. It also sweeps the
+    // spool at its own startup, which can take the temporary file out from
+    // between these two calls; one utterance is the right cost for that, where
+    // a throw would take the whole stream handler.
+    try {
+      writeFileSync(tmp, `${body}\n`, "utf8");
+      renameSync(tmp, join(SPOOL, `${name}.txt`));
+    } catch {
+      return;
+    }
     uttered += 1;
   }
 
@@ -249,12 +256,15 @@ export default function (pi: ExtensionAPI) {
   }
 
   /** Hand text to drainHeard as though the rider had said it. Named as
-   * domestique-listen.py publish() names its files, so ordering holds. */
-  function publishHeard(text: string): void {
+   * domestique-listen.py publish() names its files, so ordering holds. The
+   * replay suffix marks text this extension wrote rather than heard, which is
+   * not eligible to be read as a command: a topic of "new session handling"
+   * would otherwise end the session opened to discuss it. */
+  function publishHeard(text: string, replayed = false): void {
     const name = String(Date.now()).padStart(13, "0");
     const tmp = join(HEARD, `${name}.tmp`);
     writeFileSync(tmp, `${text}\n`, "utf8");
-    renameSync(tmp, join(HEARD, `${name}.txt`));
+    renameSync(tmp, join(HEARD, `${name}${replayed ? ".replay" : ""}.txt`));
   }
 
   /** Take up the topic the previous session was ended for. Absent on the
@@ -272,7 +282,7 @@ export default function (pi: ExtensionAPI) {
     logLine(`\n## ${at} ${topic || "ride start"}`);
     if (!topic) return;
     pi.setSessionName(topic);
-    publishHeard(topic);
+    publishHeard(topic, true);
   }
 
   /** Stop the response channel for this message and say why instead. */
@@ -390,7 +400,11 @@ export default function (pi: ExtensionAPI) {
     buffers.think = "";
     buffers.speak = "";
     pending = "";
-    inFence = false;
+    // inFence is not ours to clear. It tracks where the model is in the text it
+    // is still streaming, so clearing it here reads the rest of a code block as
+    // prose and speaks it, then takes the real closing fence as an opening one
+    // and swallows the paragraph that explains the block. message_start is
+    // where it belongs, being the only point the stream actually restarts.
     writeFileSync(STOP, "", "utf8");
   }
 
@@ -451,6 +465,7 @@ export default function (pi: ExtensionAPI) {
 
     for (const name of names) {
       const path = join(HEARD, name);
+      const replayed = name.endsWith(".replay.txt");
       let text: string;
       try {
         text = readFileSync(path, "utf8").trim();
@@ -467,17 +482,21 @@ export default function (pi: ExtensionAPI) {
       // The key going down already hushed the watcher and cleared the spool
       // (domestique-tts.py, LISTENING edge), so an acknowledgement spooled here
       // cannot be caught by a stop file still in flight.
-      if (TOPIC_RE.test(text)) {
+      if (!replayed && TOPIC_RE.test(text)) {
         newTopic(ctx, text.replace(TOPIC_RE, "").trim());
         return;
       }
-      if (COMPACT_PHRASES.has(normalize(text))) {
+      if (!replayed && COMPACT_PHRASES.has(normalize(text))) {
         compactNow(ctx);
         continue;
       }
 
       // Streaming without deliverAs throws; idle with it never starts a turn.
       pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
+      // The turn is live from here, while message_start is a round trip away.
+      // An utterance arriving in that gap goes bare into a streaming session,
+      // throws asynchronously, and is gone with its file already unlinked.
+      turnActive = true;
     }
   }
 
@@ -518,7 +537,15 @@ export default function (pi: ExtensionAPI) {
     const repos = new Map<string, string>();
     for (const line of (process.env.DOMESTIQUE_REPOS ?? "").split("\n")) {
       const path = line.trim();
-      if (path) repos.set(basename(path), path);
+      if (!path) continue;
+      // Two configured repos can share a last component, a work `infra` and a
+      // homelab one. Keyed on that alone the later would replace the earlier
+      // and clone the wrong codebase under the right name, with nothing said.
+      const name = basename(path);
+      repos.set(
+        repos.has(name) ? join(basename(dirname(path)), name) : name,
+        path,
+      );
     }
     return repos;
   }
@@ -637,6 +664,12 @@ export default function (pi: ExtensionAPI) {
             signal,
           );
         } catch (error) {
+          // The existsSync guard above reads a half-populated dest as a
+          // finished clone, and the start-of-ride prune skips the ride in
+          // progress, so leaving one behind means "already cloned" and an
+          // empty tree for the rest of the day.
+          rmSync(dest, { recursive: true, force: true });
+          rmSync(gitdir, { recursive: true, force: true });
           writeUtterance("speak", `Cloning ${params.name} failed.`);
           throw error;
         }

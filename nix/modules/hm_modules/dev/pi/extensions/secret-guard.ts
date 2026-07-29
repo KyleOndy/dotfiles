@@ -25,7 +25,10 @@
  *   ~/.pi/agent/secret-guard.json   and   <cwd>/.pi/secret-guard.json
  *   { "enabled": true, "scanBash": true,
  *     "denyPatterns": ["*.pem", ...], "allowPatterns": [".env.example", ...] }
- * Disable for one run with --no-secret-guard.
+ * Both of those paths are writable inside the sandbox, so secret-guard.json is
+ * itself a denied basename and the agent cannot author the file that would
+ * switch this off. Disable for one run with --no-secret-guard, which is the
+ * rider's to pass and not the model's.
  */
 
 import {
@@ -69,6 +72,12 @@ const DEFAULT_CONFIG: SecretGuardConfig = {
     "id_ed25519",
     "*.secret",
     "credentials.json",
+    // Not secret material, but the switch that turns this off. Both config
+    // paths sit inside the sandbox's write allowlist ($PWD and ~/.pi), and
+    // `enabled: false` in either one is read at the start of every later
+    // session, so an unguarded basename here is an off switch the agent can
+    // reach for itself.
+    "secret-guard.json",
   ],
   // Committed, non-secret templates that .env.* would otherwise catch.
   allowPatterns: [
@@ -85,6 +94,8 @@ function agentDir(): string {
 }
 
 // Minimal basename glob: * -> any run of non-slash chars, ? -> one, rest literal.
+// Case-insensitive, because APFS is: `.ENV` and `.env` name one file on darwin,
+// so a case-sensitive match would leave a one-keystroke way past every pattern.
 function globToRegExp(glob: string): RegExp {
   let re = "";
   for (const ch of glob) {
@@ -92,7 +103,7 @@ function globToRegExp(glob: string): RegExp {
     else if (ch === "?") re += "[^/]";
     else re += ch.replace(/[.+^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${re}$`);
+  return new RegExp(`^${re}$`, "i");
 }
 
 function loadConfig(cwd: string): SecretGuardConfig {
@@ -207,6 +218,12 @@ export default function (pi: ExtensionAPI) {
       const command = (event.input as Record<string, unknown>).command;
       if (typeof command === "string") {
         for (const tok of bashTokens(command)) {
+          // Quotes are stripped by the tokenizer, so `find . -name '*.pem'`
+          // arrives as the bare token `*.pem`, which the deny pattern matches
+          // literally. A token carrying glob characters names a shape rather
+          // than a file, and auditing the tree for stray keys is the thing this
+          // guard exists to support.
+          if (/[*?]/.test(tok)) continue;
           const pattern = matchSecret(tok, cfg);
           if (pattern) {
             logViolation({ tool: "bash", token: tok, pattern, cwd, command });
@@ -214,7 +231,7 @@ export default function (pi: ExtensionAPI) {
               block: true,
               reason:
                 `secret-guard: blocked bash command referencing "${basename(tok)}" (matches ${pattern}). ` +
-                `If this is a false positive, narrow denyPatterns in .pi/secret-guard.json.`,
+                `If this is a false positive, ask the user to narrow denyPatterns in .pi/secret-guard.json.`,
             };
           }
         }
@@ -231,11 +248,16 @@ export default function (pi: ExtensionAPI) {
     }
     cfg = loadConfig(ctx.cwd);
     active = cfg.enabled;
-    if (ctx.hasUI && active) {
+    if (!ctx.hasUI) return;
+    if (active) {
       ctx.ui.setStatus(
         "secret-guard",
         ctx.ui.theme.fg("accent", "secret-guard"),
       );
+    } else {
+      // The only other sign is the absence of the status chip, which reads the
+      // same as never having noticed it.
+      ctx.ui.notify("secret-guard disabled by secret-guard.json", "warning");
     }
   });
 
