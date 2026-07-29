@@ -201,6 +201,12 @@
       owner = "kyle";
       mode = "0400";
     };
+    # pi's only model provider here. Read by the pi wrapper's envFromCommands
+    # resolver, which runs as kyle outside the sandbox (see home.nix).
+    trex_openrouter_api_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   # Password script for automated mbsync service. Only kyle@ondy.org is

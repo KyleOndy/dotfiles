@@ -126,11 +126,18 @@ in
 
   # Kensington trackball remapping, the darwin-side mechanism.
   #
-  # The module remaps trackball buttons only. OS-wide keys stay mac-native,
-  # which also keeps physical Ctrl free for winnow's Ctrl+h/j/k/l/0/r bindings
-  # (see AA_MacDontSwapCtrlAndMeta in winnow's app.py) without needing a
-  # per-app Karabiner exclusion.
+  # The module remaps trackball buttons only. OS-wide keys stay mac-native
+  # apart from caps lock below, which also keeps physical Ctrl free for
+  # winnow's Ctrl+h/j/k/l/0/r bindings (see AA_MacDontSwapCtrlAndMeta in
+  # winnow's app.py) without needing a per-app Karabiner exclusion.
   hmFoundry.desktop.input.karabiner.enable = true;
+
+  # Caps lock is push to talk for a domestique ride: held, it creates
+  # ~/.pi/domestique/listening and domestique-listen opens the microphone.
+  # The rule carries no application condition, so caps lock stops toggling
+  # case everywhere and not only during a ride. That is the trade the module
+  # documents, and the key has to be one pi's TUI never reads.
+  hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;
 
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
@@ -146,6 +153,11 @@ in
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils
+
+    # Ride mode for pi, enabled by default on every darwin host. Only the
+    # working directory is host-specific: the default ~/work/rides is a
+    # work-mac shape, and trex has no ~/work.
+    domestique.rideDir = "${config.home.homeDirectory}/pi-ride";
 
     # Colima background service. Defaults (4 CPU / 8GB / 100GB) are
     # conservative starting points - tune once trex's actual RAM is known.
@@ -171,10 +183,25 @@ in
     # doesn't cost resident RAM until actually selected with `pi --model
     # local/<id>`.
     #
-    # Model selection is per-invocation -- not pinned via
-    # sandbox.defaultArgs, so cloud models stay the default.
+    # The local models stay per-invocation; sandbox.defaultArgs below pins
+    # only the cloud default.
     pi-coding-agent = {
       sandbox.allowLocalBinding = true; # only lever to reach 127.0.0.1 egress from the sandbox; see nix/pkgs/pi-wrapper/wrapper.sh
+
+      # Empty means no network at all rather than unrestricted, so this list
+      # is what pi can reach (sandbox-runtime 0.0.67 README, Network Isolation).
+      sandbox.allowedDomains = [ "openrouter.ai" ];
+
+      # Runs in the wrapper's parent shell, so the decrypted file is read
+      # outside the sandbox and only the value crosses in.
+      sandbox.envFromCommands.OPENROUTER_API_KEY = "cat ${osConfig.sops.secrets.trex_openrouter_api_key.path}";
+
+      # pi's built-in default is an Anthropic model, which now has neither a
+      # key nor a permitted domain. A repeated --model still wins.
+      sandbox.defaultArgs = [
+        "--model"
+        "openrouter/moonshotai/kimi-k3"
+      ];
 
       modelsJson.providers.local = {
         baseUrl = "http://127.0.0.1:8000/v1";
