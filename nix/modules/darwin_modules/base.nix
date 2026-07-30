@@ -19,6 +19,13 @@
         "root"
         "@admin"
       ];
+
+      # pi and sandbox-runtime come from the llm-agents input, which Hydra
+      # never sees; numtide's CI is the only thing that prebuilds them.
+      extra-substituters = [ "https://cache.numtide.com" ];
+      extra-trusted-public-keys = [
+        "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+      ];
     };
     nixPath = [ "nixpkgs=${pkgs.path}" ];
   };

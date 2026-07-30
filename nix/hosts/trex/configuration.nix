@@ -22,6 +22,15 @@
   determinateNix = {
     enable = true; # also forces nix.enable = false for us
 
+    # base.nix's nix.settings are never written here, so the numtide cache
+    # it adds for the llm-agents packages has to be restated.
+    customSettings = {
+      extra-substituters = [ "https://cache.numtide.com" ];
+      extra-trusted-public-keys = [
+        "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+      ];
+    };
+
     # Local NixOS VM (QEMU with hvf acceleration, so native aarch64 speed)
     # that builds Linux derivations. Determinate's replacement for
     # nix-darwin's own nix.linux-builder, which asserts `requires nix.enable`
