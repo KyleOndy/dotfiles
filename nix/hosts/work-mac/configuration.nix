@@ -35,9 +35,17 @@
     brews = [
       "go"
       "golangci-lint"
-      "chipmk/tap/docker-mac-net-connect"
-      "datadog-labs/pack/pup"
     ]; # Use Homebrew for CGO compatibility and Go version sync
+
+    # Homebrew 6 will not load a third-party tap's formula unless it is
+    # trusted, and `brew bundle cleanup --force` replaces the trust store with
+    # exactly what the Brewfile declares, so a hand-run `brew trust` survives
+    # only until the next activation. nix-darwin's `homebrew.brews` cannot emit
+    # the `trusted:` option, hence raw Brewfile lines.
+    extraConfig = ''
+      brew "chipmk/tap/docker-mac-net-connect", trusted: true
+      brew "datadog-labs/pack/pup", trusted: true
+    '';
   };
 
   system = {
