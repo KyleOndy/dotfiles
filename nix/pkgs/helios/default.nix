@@ -41,6 +41,6 @@ stdenv.mkDerivation {
 
   meta = with lib; {
     description = "Hand-rolled photo import and dedup CLI";
-    platforms = platforms.linux;
+    platforms = platforms.unix;
   };
 }

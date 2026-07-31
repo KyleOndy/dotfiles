@@ -233,12 +233,10 @@ in
   };
 
   # Photo archive fan-out: tiger owns the routine push from the
-  # authoritative archive/ to S3 (Deep Archive for archive/, Standard-IA
-  # for _projects/, since Deep Archive's 180-day minimum and
-  # re-upload-on-modtime-change are a bad fit for churny WIP). The laptop's
-  # own backup-photos handles the working set independently (--to/--s3
-  # modes), so this stays off the critical path when the laptop can't reach
-  # tiger (see the photo management plan).
+  # authoritative archive/ to S3 Deep Archive. The laptop's own backup-photos
+  # handles the working set independently (--to/--s3 modes), so this stays off
+  # the critical path when the laptop can't reach tiger (see the photo
+  # management plan).
   #
   # This unit is temporary in its current home. The S3 push moves to pika
   # once that copy verifies, so that no AWS credential exists on the host
@@ -252,7 +250,7 @@ in
     };
     serviceConfig = {
       Type = "oneshot";
-      User = "kyle"; # matches the owner of the rsynced archive/_projects trees
+      User = "kyle"; # matches the owner of the rsynced archive tree
       ExecStart = "${pkgs.photos-fanout}/bin/photos-fanout";
     };
   };

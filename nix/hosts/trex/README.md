@@ -96,9 +96,11 @@ Cmd+Tab in its preferences.
 Two shares mount at login and show up under Locations in the Finder sidebar:
 
 - **/Volumes/tiger-data** - `/mnt/data` on tiger, general files.
-- **/Volumes/tiger-photos** - `/mnt/photos` on tiger, the photo dump. Note that
-  `backup-photos-to-dr.sh` rsyncs into it with `--delete`, so anything written
-  there by hand disappears on the next sync.
+- **/Volumes/tiger-photos** - `/mnt/photos` on tiger, the photo dump. Anything
+  written by hand into a shoot directory this laptop also holds disappears on
+  the next `backup-photos`, which mirrors those directories with `--delete`.
+  Shoots the laptop does not hold are never touched. Finder also litters
+  `.DS_Store` files here; the sync excludes them rather than propagating them.
 
 No manual setup. The `smb-tiger-mount` launch agent (`home.nix`) mounts whatever
 is not mounted, at login and every five minutes after, which also covers
@@ -126,3 +128,44 @@ tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
 
 If the volumes mount but never appear in the sidebar, check Finder -> Settings
 -> Sidebar -> Locations -> Connected servers.
+
+## Photo Import
+
+trex is the import front door. dino filled that role before it was sold.
+
+```bash
+helios import filesystem /Volumes/<CARD>       # -> ~/photos/_provisional/YYYY/YYYY_MM_DD
+winnow ~/photos/_provisional/2026/2026_07_30   # cull
+backup-photos                                  # mirror to tiger, push helios.db
+photos-promote _provisional/2026/2026_07_30 2026/2026_07_30
+rm -rf ~/photos/_provisional/2026/2026_07_30   # free the laptop
+```
+
+Import is by SD card in a USB-C reader. Connecting the camera over USB-C does
+not work on macOS and is not a configuration problem; see the macOS section of
+`nix/pkgs/helios/README.md` for why.
+
+`~/photos` is deliberately sparse. tiger holds 321G of `_provisional` against
+340G free here, so this laptop only ever holds the shoots in flight, and
+`backup-photos` mirrors those shoot directories rather than the whole tree.
+Two consequences follow from that, and they are not symmetric:
+
+- Deleting files **inside** a shoot the laptop holds propagates. That is how a
+  winnow cull reaches tiger, the travel SSD, and S3.
+- Deleting the shoot **directory** propagates nowhere, because an absent
+  directory is never enumerated. That is what makes it safe to reclaim space
+  here without touching the archive. To actually prune tiger's copy after
+  promoting, do it there:
+
+  ```bash
+  ssh tiger rm -rf /mnt/photos/personal/photos/_provisional/2026/2026_07_30
+  ```
+
+The dedup database lives at `~/.local/state/helios/helios.db`, not in the
+library. It is the only record of what has already been imported, so a fresh
+machine needs it seeded from tiger before the first import:
+
+```bash
+mkdir -p ~/.local/state/helios
+scp tiger:/mnt/photos/personal/photos/helios.db ~/.local/state/helios/helios.db
+```

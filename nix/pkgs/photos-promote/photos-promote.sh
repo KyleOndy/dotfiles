@@ -5,14 +5,17 @@
 # Push finished assets from the local working set into tiger's authoritative
 # archive. This is a copy, not a move: the local source is left in place so
 # you can verify the promotion landed before cleaning up _provisional/
-# or _projects/ yourself. tiger's routine fan-out (nix/pkgs/photos-fanout)
-# then carries archive/ on to S3 Deep Archive.
+# yourself. tiger's routine fan-out (nix/pkgs/photos-fanout) then carries
+# archive/ on to S3 Deep Archive.
+#
+# Deleting the local shoot afterwards does not prune tiger's _provisional/
+# copy; backup-photos only mirrors shoots the laptop still holds. Prune that
+# copy on tiger directly when you want it gone.
 #
 #   photos-promote LOCAL_SRC ARCHIVE_DEST
 #
 #   LOCAL_SRC      path relative to $HELIOS_LIBRARY_PATH (default
-#                  ~/photos), e.g. _projects/family-trip/final or
-#                  _provisional/2026/2026_07_04
+#                  ~/photos), e.g. _provisional/2026/2026_07_04
 #   ARCHIVE_DEST   path relative to tiger's archive/, e.g. 2026/2026_07_04
 
 readonly PHOTOS_DIR="${HELIOS_LIBRARY_PATH:-$HOME/photos}"

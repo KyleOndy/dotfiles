@@ -90,16 +90,14 @@
   nix.linux-builder.enable = lib.mkForce false;
   nix.optimise.automatic = lib.mkForce false;
 
-  # Photo working set (~/photos/_provisional, ~/photos/_projects). winnow
-  # (culling) runs natively on macOS; helios (import) is still Linux-only
-  # and a separate follow-up -- there is currently no Linux host serving as
-  # the import front door (dino, which filled that role, has been sold).
-  # backup-photos/photos-recall/photos-promote cover the storage side:
-  # mirror the working set out (to tiger, an external SSD, or opportunistically
-  # to S3 while traveling), recall a shoot from tiger's archive to work on it,
-  # and promote finished assets back. See the photo management plan for the
-  # full model.
+  # Photo import front door, a role dino filled before it was sold. The working
+  # set is deliberately sparse: tiger holds 321G of _provisional against 340G
+  # free here, which is why backup-photos scopes its --delete per shoot rather
+  # than per tree. Import is by SD card reader; the X-T5 over USB-C presents as
+  # PTP rather than mass storage so it never mounts as a volume, and
+  # com.apple.ptpcamerad claims it before gphoto2 can (helios/README.md).
   home-manager.users.kyle.home.packages = with pkgs; [
+    helios
     backup-photos
     photos-recall
     photos-promote

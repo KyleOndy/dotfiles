@@ -910,8 +910,13 @@ def open_db(db_path):
 
 
 def get_target_dir(parent_dir, timestamp):
+    # Undated files get the same <year>/<date> depth as everything else, so
+    # that every shoot in the library sits at exactly one depth. backup-photos
+    # scopes its --delete per shoot and enumerates shoots by that fixed depth;
+    # a directory one level shallower would put the delete scope over a whole
+    # year. 0000 matches the archive/"0000-00 Oldies" naming already in use.
     if timestamp == UNKNOWN:
-        return os.path.join(parent_dir, timestamp)
+        return os.path.join(parent_dir, "0000", "0000_00_00")
 
     desired_format = "%Y/%Y_%m_%d/"
     dte = datetime.datetime.strftime(timestamp, desired_format)

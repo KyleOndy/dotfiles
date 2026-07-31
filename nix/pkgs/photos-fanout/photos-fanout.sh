@@ -5,14 +5,11 @@
 # Runs on tiger only (systemd.services.photos-fanout in
 # nix/hosts/tiger/configuration.nix), fanning the authoritative archive out
 # to cold storage. This is the routine, at-home half of the backup story;
-# the laptop's own backup-photos handles the working set
-# (_provisional/_projects) and the vacation case independently, so this
-# service being down or tiger being unreachable never blocks that.
+# the laptop's own backup-photos handles the working set (_provisional) and
+# the vacation case independently, so this service being down or tiger being
+# unreachable never blocks that.
 #
 #   archive/    -> S3 Deep Archive
-#   _projects/  -> S3 Standard-IA (churny WIP; Deep Archive's 180-day
-#                  minimum-storage charge and re-upload-on-modtime-change
-#                  make it a bad fit for actively-edited projects)
 #
 # No leg passes --delete, and the IAM policy no longer carries a delete verb
 # to back one up (tf/photos-backup.tf). An rm here must not be able to reach
@@ -41,14 +38,6 @@ export AWS_PROFILE
 
 echo "Fanning out $PHOTOS_DIR/archive to s3://$PHOTOS_BACKUP_BUCKET (Deep Archive)..."
 aws s3 sync "$PHOTOS_DIR/archive/" "s3://$PHOTOS_BACKUP_BUCKET/archive/"
-
-if [ -d "$PHOTOS_DIR/_projects" ]; then
-	echo "Fanning out $PHOTOS_DIR/_projects to s3://$PHOTOS_BACKUP_BUCKET (Standard-IA)..."
-	aws s3 sync "$PHOTOS_DIR/_projects/" "s3://$PHOTOS_BACKUP_BUCKET/_projects/" \
-		--storage-class STANDARD_IA
-else
-	echo "No _projects directory yet, skipping S3 push for it."
-fi
 
 # backup-photos on the laptop is what puts helios.db here; helios itself
 # keeps it in XDG state on trex and never writes into the library.

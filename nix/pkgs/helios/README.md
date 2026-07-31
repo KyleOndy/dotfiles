@@ -29,7 +29,11 @@ downloaded and imported rather than stranded.
 
 Everything lands together in `<library>/_provisional/YYYY/YYYY_MM_DD/`, one
 flat date tree regardless of type: a JPEG, its RAF, and any MOVs from the
-same session sit side by side.
+same session sit side by side. Files whose timestamp cannot be read land in
+`_provisional/0000/0000_00_00/`, which is the same depth as a real shoot on
+purpose: `backup-photos` scopes its `--delete` per shoot and finds shoots by
+that fixed depth, so a directory one level shallower would put the delete
+scope over an entire year.
 
 Timestamps and star ratings come from one batched `exiftool` call per run,
 except JPEGs, whose timestamps come from Pillow's EXIF reader (no
@@ -66,6 +70,34 @@ whole library to tiger, but excludes `.RAF` from the S3 disaster-recovery
 copy on purpose (see `tf/photos-backup.tf`). Culling a JPEG from
 `_provisional/` should take its RAF sibling with it; that's a cull-tool
 concern, not something helios does automatically.
+
+### On macOS, import from a card reader
+
+`import filesystem` is the only import path that works on macOS. Put the SD
+card in a USB-C reader; it mounts under `/Volumes` and helios walks it like
+any other directory. `import camera` does not work, for three reasons that
+compound:
+
+- **The camera never mounts as a volume.** In USB CARD READER mode the X-T5
+  identifies as a PTP device rather than USB mass storage, so it appears in
+  Image Capture and not in Finder. There is no path for `import filesystem` to
+  point at when the camera is connected directly. This is not true on Linux,
+  where the same camera shows up as a block device under `/run/media`.
+- **macOS claims the device first.** `com.apple.ptpcamerad` is a launch agent
+  that grabs PTP devices and respawns when killed, so libgphoto2 cannot claim
+  the interface. Reports of `sudo` working around it exist
+  ([gphoto2#562](https://github.com/gphoto/gphoto2/issues/562)) but it is
+  unverified here, and root-owned files in the library are their own problem.
+- **The clean fix is unbuilt upstream.** A backend using Apple's own
+  ImageCaptureCore was proposed in
+  [libgphoto2#351](https://github.com/gphoto/libgphoto2/issues/351) in 2019
+  and is still not implemented; the maintainers consider it out of scope.
+  Writing one here means shipping it inside an `.app` bundle for a stable TCC
+  identity, since camera contents sit behind `requestContentsAuthorization`
+  and TCC attributes a bare CLI's request to its parent terminal.
+
+The `fuji-settings` and `fuji-recipes` commands install on macOS but hit the
+same USB claim problem and are not expected to work there.
 
 ## Film recipes
 

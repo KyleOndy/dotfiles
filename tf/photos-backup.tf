@@ -1,31 +1,18 @@
 # S3 disaster-recovery target for the photo library. Versioned, no public
 # access. Raws are excluded at sync time (see nix/pkgs/backup-photos and
 # nix/pkgs/photos-fanout), not here: this bucket just holds whatever those
-# scripts send it. Three prefixes, three different lifecycle treatments:
+# scripts send it.
 #
-#   archive/     the authoritative, finished collection -> Deep Archive
-#                after 30 days (this is the "durable" tier).
-#   _projects/   in-flight work -- edited directly, so uploaded at
-#                Standard-IA from the start (aws s3 sync
-#                --storage-class STANDARD_IA in photos-fanout) rather than
-#                transitioned into it, and deliberately kept OUT of Deep
-#                Archive: Deep Archive's 180-day minimum-storage charge
-#                plus re-upload-on-modtime-change would punish an actively
-#                edited project.
-#   _provisional/, helios.db   only reached by S3 opportunistically (see
-#                backup-photos --s3), so still funneled into Deep Archive
-#                after 30 days like before -- there's no routine push to
-#                clean it up otherwise.
+# _provisional/ and helios.db are only reached opportunistically (backup-photos
+# --s3), so they get the same Deep Archive funnel as archive/; nothing else
+# would ever clean them up.
 #
-# IMPORTANT: these rules use explicit prefix filters rather than one
-# catch-all `filter {}` rule. A catch-all would also match _projects/,
-# silently double-transitioning Standard-IA objects into Deep Archive and
-# defeating the point of keeping WIP out of it. Any new prefix added to the
-# sync scripts needs its own rule here.
+# Rules filter by explicit prefix rather than one catch-all `filter {}`, so a
+# prefix needing different treatment can get it. A prefix the sync scripts
+# write with no rule here gets no lifecycle at all.
 locals {
   photos_bucket_name        = "my-photo-backup-archive"
   photos_provisional_prefix = "_provisional/"
-  photos_projects_prefix    = "_projects/"
   photos_archive_prefix     = "archive/"
 }
 
@@ -89,28 +76,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup_lifecycle" {
       storage_class   = "DEEP_ARCHIVE"
     }
 
-    noncurrent_version_expiration {
-      noncurrent_days = 90
-    }
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
-  }
-
-  rule {
-    id     = "ProjectsDataRule"
-    status = "Enabled"
-
-    filter {
-      prefix = local.photos_projects_prefix
-    }
-
-    # No transition action: photos-fanout uploads directly with
-    # --storage-class STANDARD_IA, so objects start there. (S3 also
-    # requires >=30 days in Standard before transitioning to Standard-IA,
-    # so a day-0 transition rule wouldn't validate anyway.) Deliberately
-    # never transitions to Deep Archive -- see the header comment.
     noncurrent_version_expiration {
       noncurrent_days = 90
     }

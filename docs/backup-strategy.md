@@ -55,7 +55,6 @@ The gap between the intent and the reality, measured rather than assumed.
 | ------------------------------ | ----- | ----------- | ----------------- |
 | `storage/photos` archive       | 7.7G  | yes         | yes, 935 objects  |
 | `storage/photos` \_provisional | 321G  | yes         | partial, drifted  |
-| `storage/photos` \_projects    | 2.2G  | yes         | yes, Standard-IA  |
 | `/mnt/backups/kristen`         | 185G  | yes         | **no**            |
 | `/mnt/backups/kyle`            | 75G   | yes         | **no**            |
 | `/mnt/backups/videos`          | 34G   | yes         | **no**            |
@@ -79,9 +78,8 @@ gap:                  66 objects   ~79 GiB
 The extension histogram says `_provisional` holds exactly 66 `.mov`
 files. The missing objects are the videos, roughly 1.2 GiB each.
 
-This is not a bug in `photos-fanout`. Read the header comment in
-`nix/pkgs/photos-fanout/photos-fanout.sh:5-17`: fanout handles `archive/`
-and `_projects/` from tiger, and the laptop's `backup-photos --s3` owns
+This is not a bug in `photos-fanout`. Read its header comment: fanout
+handles `archive/` from tiger, and the laptop's `backup-photos --s3` owns
 `_provisional/`. The division is intentional. The problem is that
 `backup-photos` is a manual script, and it last ran around Aug 2025.
 
@@ -415,10 +413,12 @@ Sources: [AWS S3 pricing](https://aws.amazon.com/s3/pricing/) for the
 [Deep Archive rates](https://www.usage.ai/blogs/aws/storage-cost/glacier-deep-archive-pricing/)
 for $0.00099/GB-month storage and $0.0025/GB bulk retrieval.
 
-One oddity worth cleaning up: the only Standard-IA objects in the bucket
-are four downloaded YouTube tutorials under
-`_projects/2026-learning/tuturials/`. They are the most expensive per
-byte in the bucket and the most replaceable data in it.
+The only Standard-IA objects in the bucket were four downloaded YouTube
+tutorials under `_projects/2026-learning/tuturials/`, the most expensive
+per byte in the bucket and the most replaceable data in it. `_projects`
+has since been deleted along with its lifecycle rule and both sync legs;
+the orphaned objects still need one `aws s3 rm --recursive
+"s3://$BUCKET/_projects/"`.
 
 ## Verification
 
@@ -592,9 +592,21 @@ Four phases. The ordering matters more than the dates.
 ### Phase 1: the cloud tier
 
 No hardware, no physical work, all Nix and Terraform. Extend coverage to
-`_provisional` and `/mnt/backups`, drop `--delete`, strip delete from the
+`_provisional` and `/mnt/backups`, fix `--delete`, strip delete from the
 IAM policy, delete the external HDD leg, keep the RAF files, and add the
 staleness plus zpool alerts.
+
+The `--delete` half is done, and it was scoped rather than dropped.
+Dropping it outright would have made a winnow cull stop propagating, so
+`backup-photos` now mirrors one shoot directory at a time instead of a
+whole tree, at a depth declared per tree (`archive:1`, `_provisional:2`).
+The laptop is authoritative over the shoots it holds and over nothing
+else, which is what was always true; the old code assumed it was
+authoritative over `_provisional/` entire, and would have deleted 321G the
+first time it ran against a sparse working set. Deleting a whole shoot
+locally now propagates nowhere, so pruning a remote copy is a deliberate
+act. helios lands undated files at `_provisional/0000/0000_00_00/` to keep
+that depth uniform.
 
 That alone gets us three copies in two places with alerting on both,
 before anything gets unboxed.
@@ -645,5 +657,6 @@ no name yet.
 exists on tiger and the threat model holds at every tier. tiger is the
 simpler option and keeps the existing unit where it is. Not yet decided.
 
-**`_projects/` storage class.** Four YouTube tutorials in Standard-IA.
-Move them to Deep Archive, or stop backing up downloadable videos.
+**Orphaned S3 prefixes.** `_projects/` is gone from the library and the
+tooling, and `_provisional/_unknown/` moved to `_provisional/0000/0000_00_00/`.
+Both old prefixes still hold objects nothing will ever enumerate again.

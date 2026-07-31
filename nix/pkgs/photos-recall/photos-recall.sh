@@ -12,7 +12,12 @@
 #   ARCHIVE_PATH   path relative to tiger's archive/, e.g. 2026/2026_07_04
 #   LOCAL_DEST     where to land it under the local library, relative to
 #                  $HELIOS_LIBRARY_PATH (default ~/photos). Defaults to
-#                  _projects/<basename of ARCHIVE_PATH>.
+#                  _tmp/<basename of ARCHIVE_PATH>.
+#
+# _tmp/ is outside backup-photos' SYNC_ITEMS on purpose. A recall is a second
+# copy of something archive/ still holds under snapshots and S3, so backing it
+# up again would be waste; delete a recalled shoot whenever, nothing
+# propagates.
 
 readonly PHOTOS_DIR="${HELIOS_LIBRARY_PATH:-$HOME/photos}"
 readonly TIGER_HOST="tiger"
@@ -24,7 +29,7 @@ if [ $# -lt 1 ]; then
 fi
 
 archive_path="${1%/}"
-local_dest="${2:-_projects/$(basename "$archive_path")}"
+local_dest="${2:-_tmp/$(basename "$archive_path")}"
 
 src="$TIGER_HOST:$TIGER_ARCHIVE/$archive_path/"
 dest="$PHOTOS_DIR/$local_dest/"
