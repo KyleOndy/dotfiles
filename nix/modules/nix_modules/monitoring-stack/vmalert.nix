@@ -244,9 +244,12 @@ in
                 summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Disk space is below 3% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
-            # Default disk space alerts for all other filesystems
+            # Default disk space alerts for all other filesystems.
+            # macOS mounts removable media, .dmg installers and network shares
+            # under /Volumes; none of them are this host's storage to manage, and
+            # a writable USB stick evades the readonly guard below.
             - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} < 0.15) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: warning
@@ -255,7 +258,7 @@ in
                 description: "Disk space is below 15% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} < 0.10) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 5m
               labels:
                 severity: critical
@@ -264,7 +267,7 @@ in
                 description: "Disk space is below 10% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
             - alert: DiskWillFillSoon
-              expr: predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}[6h], 24*3600) < 0
+              expr: (predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"}[6h], 24*3600) < 0) and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 30m
               labels:
                 severity: warning
