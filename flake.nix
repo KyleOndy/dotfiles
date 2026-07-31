@@ -669,7 +669,10 @@
           winnow = pkgs.winnow;
 
           # Ergodox EZ firmware
-          ergodox-firmware = pkgs.callPackage ./keyboard { };
+          ergodox-firmware = pkgs.callPackage ./keyboard/ergodox { };
+
+          # Two-key push-to-talk pad for domestique rides
+          pad-firmware = pkgs.callPackage ./keyboard/domestique-pad { };
         }
       );
 
@@ -704,6 +707,48 @@
                 ${pkgs.teensy-loader-cli}/bin/teensy-loader-cli -mmcu=atmega32u4 -w result/ergodox_ez_base_kyleondy.hex -v
                 echo ""
                 echo "✓ Firmware flashed successfully!"
+              ''
+            );
+          };
+
+          flash-pad = {
+            type = "app";
+            meta.description = "Flash the domestique push-to-talk pad";
+            program = toString (
+              pkgs.writeShellScript "flash-pad" ''
+                set -euo pipefail
+                readonly VOLUME=/Volumes/RPI-RP2
+
+                echo "Building pad firmware..."
+                ${pkgs.nix}/bin/nix build .#pad-firmware
+                echo ""
+                echo "Hold key 1 and plug the pad in."
+                echo "  First flash ever: hold the board's BOOT button instead;"
+                echo "  BOOTMAGIC only exists once QMK is on it."
+                echo ""
+
+                printf 'waiting for RPI-RP2 '
+                waited=0
+                while [ ! -d "$VOLUME" ] && [ "$waited" -lt 120 ]; do
+                  printf '.'
+                  sleep 0.5
+                  waited=$((waited + 1))
+                done
+                echo ""
+
+                if [ ! -d "$VOLUME" ]; then
+                  echo "Timed out: $VOLUME never appeared." >&2
+                  echo "The pad enumerates as a keyboard unless it is in the" >&2
+                  echo "bootloader, so this means the key or button was missed." >&2
+                  exit 1
+                fi
+
+                echo "Copying firmware..."
+                # RP2040 reboots the instant the uf2 lands, so the volume can
+                # vanish out from under cp. That is what success looks like.
+                cp result/domestique_pad_default.uf2 "$VOLUME/" 2>/dev/null || true
+                echo ""
+                echo "Done. The pad reboots into firmware on its own."
               ''
             );
           };

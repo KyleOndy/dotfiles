@@ -225,3 +225,7 @@ deploy-trex: ## Deploy trex darwin configuration
 .PHONY: flash-ergodox
 flash-ergodox:
 	nix run .#flash-ergodox
+
+.PHONY: flash-pad
+flash-pad: ## Flash the domestique push-to-talk pad
+	nix run .#flash-pad

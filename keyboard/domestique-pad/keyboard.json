@@ -1,0 +1,32 @@
+{
+  "manufacturer": "ondy.org",
+  "keyboard_name": "domestique_pad",
+  "maintainer": "kyleondy",
+  "processor": "RP2040",
+  "bootloader": "rp2040",
+  "usb": {
+    "vid": "0xFEED",
+    "pid": "0xD065",
+    "device_version": "0.0.1"
+  },
+  "matrix_pins": {
+    "direct": [["GP4", "GP5"]]
+  },
+  "features": {
+    "bootmagic": true,
+    "combo": true,
+    "command": false,
+    "console": false,
+    "extrakey": true,
+    "mousekey": false,
+    "nkro": false
+  },
+  "layouts": {
+    "LAYOUT": {
+      "layout": [
+        { "matrix": [0, 0], "x": 0, "y": 0 },
+        { "matrix": [0, 1], "x": 1, "y": 0 }
+      ]
+    }
+  }
+}
