@@ -140,6 +140,7 @@
   # Finder sidebar favourites, see nix/modules/darwin_modules/finder-sidebar.nix
   systemFoundry.finderSidebar.folders = [
     "${config.users.users.kyle.home}/screenshots"
+    "${config.users.users.kyle.home}/photos"
   ];
 
   # tiger's SMB shares mount at login; the agent that does it lives in home.nix
