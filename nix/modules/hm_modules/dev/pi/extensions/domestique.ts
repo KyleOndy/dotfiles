@@ -16,10 +16,11 @@
  * The drop policy lives in the watcher; this side only decides what counts as
  * one utterance.
  *
- * "new topic" restarts pi through the wrapper rather than clearing the session
- * in place: newSession() is reachable only from a slash-command context, and
- * discarding a finished topic costs a restart where compacting it costs a
- * summarization.
+ * A topic change arrives already decided, from the out-of-band channel outside
+ * pi (domestique-listen.py), and restarts pi through the wrapper rather than
+ * clearing the session in place: newSession() is reachable only from a
+ * slash-command context, and discarding a finished topic costs a restart where
+ * compacting it costs a summarization.
  *
  * Off unless --domestique is passed.
  */
@@ -98,15 +99,6 @@ const RESPONSE_CHAR_BUDGET = 900;
 // answer. Early enough that the rider picks the break rather than pi picking
 // it at the compaction threshold.
 const CONTEXT_WARN_PERCENT = 70;
-
-// Leading "new topic" or a synonym, with whatever separator the recognizer
-// supplied. The remainder is the topic and opens the next session.
-//
-// Anchored, so "the next topic is alerting" mid-utterance is not a command.
-// "start over" and "reset" are deliberately absent: both are ordinary things to
-// say about the work, and a session discarded by accident does not come back.
-const TOPIC_RE =
-  /^\s*(?:new|next) (?:topic|session|chat|conversation)[\s,.:;-]*/i;
 
 // Matched against the whole normalized utterance, never a prefix: "should we
 // compact this" is a question about compaction, not a request for one.
@@ -466,6 +458,7 @@ export default function (pi: ExtensionAPI) {
     for (const name of names) {
       const path = join(HEARD, name);
       const replayed = name.endsWith(".replay.txt");
+      const topicChange = name.endsWith(".newtopic.txt");
       let text: string;
       try {
         text = readFileSync(path, "utf8").trim();
@@ -473,19 +466,20 @@ export default function (pi: ExtensionAPI) {
         continue;
       }
       rmSync(path, { force: true });
+
+      // Classified outside pi (domestique-listen.py), where the rider has
+      // already had a window to cancel. An empty topic is a legitimate one,
+      // which is why this precedes the blank check.
+      if (topicChange) {
+        newTopic(ctx, text);
+        return;
+      }
       if (!text) continue;
 
       heard += 1;
       logLine(`> ${text}`);
       ctx.ui?.notify(`heard: ${text}`, "info");
 
-      // The key going down already hushed the watcher and cleared the spool
-      // (domestique-tts.py, LISTENING edge), so an acknowledgement spooled here
-      // cannot be caught by a stop file still in flight.
-      if (!replayed && TOPIC_RE.test(text)) {
-        newTopic(ctx, text.replace(TOPIC_RE, "").trim());
-        return;
-      }
       if (!replayed && COMPACT_PHRASES.has(normalize(text))) {
         compactNow(ctx);
         continue;

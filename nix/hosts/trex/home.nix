@@ -137,7 +137,11 @@ in
   # The rule carries no application condition, so caps lock stops toggling
   # case everywhere and not only during a ride. That is the trade the module
   # documents, and the key has to be one pi's TUI never reads.
+  #
+  # It stays bound alongside the pad because the pad is a thing that can be
+  # left in a bag, and a ride without one still needs a way to talk.
   hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;
+  hmFoundry.desktop.input.karabiner.pushToTalk.pad.enable = true;
 
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*

@@ -28,6 +28,8 @@ let
 
   lexiconFile = pkgs.writeText "domestique-lexicon.json" (builtins.toJSON cfg.lexicon);
 
+  classifyPromptFile = pkgs.writeText "domestique-classify.md" cfg.classifyPrompt;
+
   # misaki[en] minus spacy-curated-transformers. That extra serves only the
   # transformer POS tagger (G2P trf=True), which this never uses, and it pulls
   # torch: 493MB of a 1.1GB tree.
@@ -205,6 +207,10 @@ let
       export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
       export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${dq cfg.inputDevice}}"
       export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
+      export DOMESTIQUE_CLASSIFY_MODEL="${dq cfg.classifyModel}"
+      export DOMESTIQUE_CLASSIFY_PROMPT="${classifyPromptFile}"
+      export DOMESTIQUE_CLASSIFY_TIMEOUT="${toString cfg.classifyTimeoutSeconds}"
+      export DOMESTIQUE_CANCEL_SECONDS="${toString cfg.cancelSeconds}"
       exec "$VENV/bin/python" ${./domestique-listen.py} "$@"
     '';
   };
@@ -242,6 +248,9 @@ let
       export DOMESTIQUE_CUE_PATTERN="''${DOMESTIQUE_CUE_PATTERN:-${dq cfg.cuePattern}}"
       export DOMESTIQUE_LISTEN_CUE_SOUND="${dq cfg.listenCueSound}"
       export DOMESTIQUE_LISTEN_BACKGROUND="${dq cfg.listenBackground}"
+      export DOMESTIQUE_OUTOFBAND_CUE_SOUND="${dq cfg.outOfBandCueSound}"
+      export DOMESTIQUE_OUTOFBAND_BACKGROUND="${dq cfg.outOfBandBackground}"
+      export DOMESTIQUE_REPLAY_DEPTH="${toString cfg.replayDepth}"
       export DOMESTIQUE_ALACRITTY="${
         lib.optionalString (
           config.programs.alacritty.enable && config.programs.alacritty.package != null
@@ -449,6 +458,11 @@ let
         fi
         printf 'domestique: %s ready, logging to %s\n' "$name" "$log"
       }
+
+      # The out-of-band channel writes notes beside the transcript, and the
+      # listener is the only half that knows what was said. It learns where to
+      # put them here, because the ride directory is this script's to name.
+      export DOMESTIQUE_RIDE="$RIDE"
 
       launch speech "${domestique-speak}/bin/domestique-speak" \
         "$ROOT/watcher.pid" "$ROOT/watcher.ready" "$ROOT/speak.log"
@@ -930,6 +944,164 @@ in
         Dark on purpose. The window is fullscreen at 24pt, and a saturated
         green behind gruvbox foreground is both unreadable and unpleasant for
         the hour a ride lasts.
+      '';
+    };
+
+    outOfBandCueSound = lib.mkOption {
+      type = lib.types.str;
+      default = "Pop";
+      description = ''
+        Sound under /System/Library/Sounds marking the out-of-band channel
+        opening and closing, where `listenCueSound` marks the channel that
+        reaches the agent.
+
+        A different sound rather than a different pitch of the same one. The
+        failure this catches is a chord that only half landed: one key down
+        instead of two sends a private thought to the agent as a message, and
+        under a fan at 200 watts an interval is not enough to tell the two
+        apart. Timbre is.
+
+        Shares cueGain with every other cue, so setting that to 0 silences
+        this too.
+      '';
+    };
+
+    outOfBandBackground = lib.mkOption {
+      type = lib.types.str;
+      default = "#3d2f0f";
+      example = "";
+      description = ''
+        Background the ride window takes while the out-of-band chord is held,
+        against `listenBackground` for the agent channel. Empty turns it off,
+        and everything in listenBackground's description about tmux applies
+        here unchanged.
+
+        Amber against that green because the pair has to be separable in
+        peripheral vision, which reads hue long before it reads anything else.
+      '';
+    };
+
+    replayDepth = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 3;
+      description = ''
+        How many recent replies the watcher keeps as audio for the replay key.
+        One tap replays the newest, N taps replays the last N oldest first.
+
+        Cached as synthesized PCM rather than re-synthesized on demand, so a
+        replay starts instantly instead of costing another Kokoro pass while
+        the rider waits. At 24kHz mono float32 a ten second reply is about a
+        megabyte, so the default costs a few tens of megabytes and the number
+        that matters is how far back you would ever ask, not memory.
+      '';
+    };
+
+    classifyModel = lib.mkOption {
+      type = lib.types.str;
+      default = "openrouter/qwen/qwen3.7-flash";
+      description = ''
+        Model that sorts an out-of-band utterance into a note or a topic
+        change, passed to `pi --model`. Invoked as a one-shot `pi --print`
+        with no tools and no session, so it can act on nothing and the
+        provider credential stays with the wrapper rather than reaching this
+        watcher.
+
+        Measured on this task at roughly 1.2 seconds and two millionths of a
+        dollar per call. The pinned ride model is a frontier one and ran
+        between 2.5 and 60 seconds for no better answer, which is the whole
+        reason this is a separate setting.
+      '';
+    };
+
+    classifyTimeoutSeconds = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 20;
+      description = ''
+        Seconds to wait on the classifier before treating the utterance as a
+        note. Note is the safe verdict in both directions: a topic change read
+        as a note costs a repeat, where a note read as a topic change costs
+        the session.
+
+        Nothing waits on this. The note is already written by the time the
+        call starts, so the timeout only bounds how long a topic change can
+        take to happen.
+      '';
+    };
+
+    cancelSeconds = lib.mkOption {
+      type = lib.types.ints.unsigned;
+      default = 3;
+      description = ''
+        Seconds between announcing a topic change and carrying it out, during
+        which a tap on the replay key cancels it. 0 acts immediately.
+
+        This is what lets a cheap fast classifier hold an irreversible action.
+        Without it a misread passing mention ends the session and the only
+        signal is the silence that follows.
+      '';
+    };
+
+    classifyPrompt = lib.mkOption {
+      type = lib.types.lines;
+      default = ''
+        You classify one utterance spoken by a cyclist into a private side
+        channel while riding. The channel is not the conversation: it is where
+        they dump passing thoughts to read later. Reply with exactly one word,
+        note or new_topic, and nothing else.
+
+        new_topic means the speaker is instructing you, right now, to abandon
+        the current subject and start fresh. It is an imperative aimed at the
+        system.
+
+        note means everything else. It is the default. A thought, an
+        observation, a reminder, a complaint, a half-formed idea.
+
+        The trap is that people talk ABOUT topics and sessions without
+        commanding one. Describing, wishing, planning, or referring to a
+        subject change is a note. Only an instruction to change subject now is
+        new_topic. When the utterance would still make sense written down in a
+        notebook, it is a note.
+
+        Examples:
+
+        new topic, the vmagent scrape config
+        new_topic
+
+        we should probably start a new topic about that at some point
+        note
+
+        alright park that, I want to get into the scrape config instead
+        new_topic
+
+        I keep meaning to write a new session handler for the spool
+        note
+
+        next topic please
+        new_topic
+
+        that whole topic of dashboard conventions needs revisiting
+        note
+
+        forget that, new session about the pi sandbox
+        new_topic
+
+        the disk alert fired on Volumes again, the threshold looks wrong
+        note
+      '';
+      description = ''
+        System prompt for `classifyModel`, written to a store file and passed
+        with `--system-prompt`, which replaces pi's coding prompt rather than
+        appending to it.
+
+        The contrastive pairs are the load-bearing part. Without them a one
+        line instruction misread "we should probably start a new topic about
+        that at some point" as a command, which is the direction that costs a
+        session. With them the same model was right on every held-out case
+        tried.
+
+        Every out-of-band utterance is written to notes.md verbatim before
+        this runs, so the notes file accumulates the corpus this prompt should
+        be tuned against.
       '';
     };
 

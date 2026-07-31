@@ -121,25 +121,69 @@ let
     ];
   };
 
-  # Push to talk for a domestique ride. The key cannot live inside pi: its
+  # Push to talk for a domestique ride. The keys cannot live inside pi: its
   # extension API surfaces key names through ctx.ui.custom() and never a
   # key-down paired with a key-up, so a hold is only expressible out here.
   #
-  # Karabiner owns the two edges and the watcher owns the microphone. The file
-  # between them is the entire protocol, which is what makes toggle a one-line
+  # Karabiner owns the edges and the watchers own the microphone. The files
+  # between them are the entire protocol, which is what makes toggle a one-line
   # change: flip the file in `to` instead of setting it here and clearing it on
   # release.
+  listeningFile = "${cfg.pushToTalk.root}/listening";
+  replayFile = "${cfg.pushToTalk.root}/replay";
+  outOfBandFile = "${cfg.pushToTalk.root}/outofband";
+
+  heldWhile = file: {
+    to = [ { shell_command = "${pkgs.coreutils}/bin/touch ${file}"; } ];
+    to_after_key_up = [ { shell_command = "${pkgs.coreutils}/bin/rm -f ${file}"; } ];
+  };
+
   pushToTalkRule = {
     description = "Push to talk for domestique";
     manipulators = [
-      {
-        type = "basic";
-        from = {
-          key_code = cfg.pushToTalk.key;
-        };
-        to = [ { shell_command = "${pkgs.coreutils}/bin/touch ${cfg.pushToTalk.file}"; } ];
-        to_after_key_up = [ { shell_command = "${pkgs.coreutils}/bin/rm -f ${cfg.pushToTalk.file}"; } ];
-      }
+      (
+        {
+          type = "basic";
+          from.key_code = cfg.pushToTalk.key;
+        }
+        // heldWhile listeningFile
+      )
+    ];
+  };
+
+  # The pad (keyboard/domestique-pad) emits three bare F-keys and nothing else,
+  # the third of them a QMK combo of the other two. Each rule is gated on the
+  # device, so an F13 from any other keyboard cannot open the microphone.
+  mkPadManipulator =
+    key: actions:
+    {
+      type = "basic";
+      from.key_code = key;
+      conditions = [
+        {
+          type = "device_if";
+          identifiers = [
+            {
+              vendor_id = cfg.pushToTalk.pad.vendorId;
+              product_id = cfg.pushToTalk.pad.productId;
+            }
+          ];
+        }
+      ];
+    }
+    // actions;
+
+  padRule = {
+    description = "domestique pad";
+    manipulators = [
+      (mkPadManipulator "f13" (heldWhile listeningFile))
+      # A byte per press rather than a touch. The watcher polls at 0.1s and a
+      # tap lands entirely between two polls, so what has to accumulate on disk
+      # is the count, not the file's existence.
+      (mkPadManipulator "f16" {
+        to = [ { shell_command = "${pkgs.coreutils}/bin/printf . >> ${replayFile}"; } ];
+      })
+      (mkPadManipulator "f17" (heldWhile outOfBandFile))
     ];
   };
 
@@ -157,7 +201,8 @@ let
             pcKeyboardRule
             finderRule
           ]
-          ++ optional cfg.pushToTalk.enable pushToTalkRule;
+          ++ optional cfg.pushToTalk.enable pushToTalkRule
+          ++ optional (cfg.pushToTalk.enable && cfg.pushToTalk.pad.enable) padRule;
         };
         devices = [
           {
@@ -204,13 +249,44 @@ in
         '';
       };
 
-      file = mkOption {
+      root = mkOption {
         type = types.str;
-        default = "${config.home.homeDirectory}/.pi/domestique/listening";
+        default = "${config.home.homeDirectory}/.pi/domestique";
         description = ''
-          Path that exists while the key is held. The domestique watcher polls
-          for it and opens the microphone; nothing else reads it.
+          Directory the key files are written into: `listening` while channel
+          one is held, `outofband` while the pad chord is held, and `replay`,
+          which accumulates one byte per replay tap. The domestique watchers
+          poll for them; nothing else reads them.
         '';
+      };
+
+      pad = {
+        enable = mkEnableOption "the two-key domestique pad (keyboard/domestique-pad)";
+
+        vendorId = mkOption {
+          type = types.ints.unsigned;
+          default = 65261;
+          description = ''
+            USB vendor of the pad, matched per rule so an F13 from any other
+            keyboard cannot open the microphone. 65261 is 0xFEED, declared in
+            keyboard/domestique-pad/keyboard.json.
+
+            What has to match is what macOS enumerates rather than what the
+            firmware asks for. Karabiner-EventViewer reports it, and a mismatch
+            leaves every pad rule inert with nothing anywhere saying so.
+          '';
+        };
+
+        productId = mkOption {
+          type = types.ints.unsigned;
+          default = 53349;
+          description = ''
+            USB product of the pad. 53349 is 0xD065, declared alongside the
+            vendor. Arbitrary, but it has to be unusual: 0xFEED is the vendor
+            every hand-wired QMK board uses, so a common product id here would
+            match somebody else's keyboard as well as this one.
+          '';
+        };
       };
     };
   };
@@ -219,14 +295,13 @@ in
     assertions = [
       {
         assertion =
-          !cfg.pushToTalk.enable
-          || cfg.pushToTalk.file == "${config.home.homeDirectory}/.pi/domestique/listening";
+          !cfg.pushToTalk.enable || cfg.pushToTalk.root == "${config.home.homeDirectory}/.pi/domestique";
         message = ''
-          hmFoundry.desktop.input.karabiner.pushToTalk.file is polled by
+          hmFoundry.desktop.input.karabiner.pushToTalk.root is polled by
           domestique-listen.py, domestique-tts.py and extensions/domestique.ts,
           each of which resolves it under ~/.pi/domestique, and the domestique
           wrappers export DOMESTIQUE_ROOT over anything set in the environment.
-          Any other path leaves the key touching a file nothing reads: no cue,
+          Any other path leaves the keys touching files nothing reads: no cue,
           no tint, no recording, and nothing anywhere reporting a fault.
         '';
       }

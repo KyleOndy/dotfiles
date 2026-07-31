@@ -13,6 +13,12 @@ pronunciation back to the defaults.
 
 The spool protocol is the pi extension's (extensions/domestique.ts): one file
 per utterance, named `<zero-padded-seq>-<channel>.txt`, published by rename.
+
+Two things arrive from outside that stream, both written by
+domestique-listen.py, and both jump ahead of it: `say`, an announcement from a
+process that is not pi, and `replay-request`, a count of recent replies to
+repeat. Replies are cached here as synthesized audio because that watcher owns
+the keys and this one owns the sound, and neither reads the other's files.
 """
 
 from __future__ import annotations
@@ -78,6 +84,20 @@ SPEAKING = ROOT / "watcher.speaking"
 # device that says so is this one.
 LISTENING = ROOT / "listening"
 
+# The second push-to-talk channel, whose transcripts never reach pi. Read here
+# for the same reason as LISTENING: the answer has to get out of the rider's way
+# whichever key they are holding.
+OUTOFBAND = ROOT / "outofband"
+
+# How many recent replies to repeat, written by domestique-listen.py once the
+# tapping on the replay key has stopped. That watcher owns the tap count and
+# this one owns the audio, so neither reads the other's file.
+REPLAY_REQUEST = ROOT / "replay-request"
+
+# Out-of-band speech: something the rider needs now, from a process that is not
+# pi and therefore has no place in the spool's numbering.
+SAY = ROOT / "say"
+
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
 SPEED = number("DOMESTIQUE_SPEED", "1.0", 0.1)
@@ -96,6 +116,18 @@ CUE_LEAD = number("DOMESTIQUE_CUE_LEAD", "0.25", 0.0)
 LISTEN_CUE_SOUND = env("DOMESTIQUE_LISTEN_CUE_SOUND", "Tink")
 LISTEN_OPEN_PATTERN = "0:-3"
 LISTEN_CLOSE_PATTERN = "0:4"
+
+# A different sound rather than a different pitch of the same one. The failure
+# worth catching is a chord that only half landed, which sends a private thought
+# to the agent as a message; under a fan at 200 watts an interval does not
+# separate the two channels and timbre does.
+OUTOFBAND_CUE_SOUND = env("DOMESTIQUE_OUTOFBAND_CUE_SOUND", "Pop")
+OUTOFBAND_BACKGROUND = env("DOMESTIQUE_OUTOFBAND_BACKGROUND", "#3d2f0f")
+
+# Replies kept as synthesized audio for the replay key. Re-synthesizing instead
+# would cost a Kokoro pass while the rider waits for something they have already
+# heard once.
+REPLAY_DEPTH = max(1, int(env("DOMESTIQUE_REPLAY_DEPTH", "3")))
 
 # The same signal as the cues, for eyes rather than ears. Socket and window come
 # from the terminal that started this watcher, which `domestique` makes the ride
@@ -251,13 +283,14 @@ def with_pad(speech, millis: int):
 # --- window ------------------------------------------------------------------
 
 
-def tint(on: bool) -> None:
-    if not (ALACRITTY and ALACRITTY_SOCKET and ALACRITTY_WINDOW and LISTEN_BACKGROUND):
+def tint(color: str) -> None:
+    """Empty restores the window, which is also how a channel opts out."""
+    if not (ALACRITTY and ALACRITTY_SOCKET and ALACRITTY_WINDOW):
         return
     cmd = [ALACRITTY, "msg", "-s", ALACRITTY_SOCKET, "config", "-w", ALACRITTY_WINDOW]
     # -r drops every runtime override, which is the whole of this one. The ride
     # window's own font and fullscreen come from domestique.toml, not from here.
-    cmd += [f'colors.primary.background="{LISTEN_BACKGROUND}"'] if on else ["-r"]
+    cmd += [f'colors.primary.background="{color}"'] if color else ["-r"]
     try:
         subprocess.run(
             cmd, timeout=1, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -407,6 +440,11 @@ def main() -> int:
     unlink(SPOOL.glob("*.tmp"))
     STOP.unlink(missing_ok=True)
     STOP_THINK.unlink(missing_ok=True)
+    # The reply cache starts empty, so a request stranded by an interrupted
+    # ride replays nothing, and a stranded announcement speaks minutes out of
+    # the context that asked for it.
+    SAY.unlink(missing_ok=True)
+    REPLAY_REQUEST.unlink(missing_ok=True)
     # A ride starts at the configured rate, and publishing it is what lets
     # /speed step relative to something.
     SPEED_FILE.write_text(f"{SPEED}\n")
@@ -425,8 +463,15 @@ def main() -> int:
     model = load_model(MODEL)
     pipe = model._get_pipeline("a")
     cue, cue_lead = build_cue()
-    open_cue, _ = build_cue(LISTEN_CUE_SOUND, LISTEN_OPEN_PATTERN)
-    close_cue, _ = build_cue(LISTEN_CUE_SOUND, LISTEN_CLOSE_PATTERN)
+    open_cue = {
+        "agent": build_cue(LISTEN_CUE_SOUND, LISTEN_OPEN_PATTERN)[0],
+        "outofband": build_cue(OUTOFBAND_CUE_SOUND, LISTEN_OPEN_PATTERN)[0],
+    }
+    close_cue = {
+        "agent": build_cue(LISTEN_CUE_SOUND, LISTEN_CLOSE_PATTERN)[0],
+        "outofband": build_cue(OUTOFBAND_CUE_SOUND, LISTEN_CLOSE_PATTERN)[0],
+    }
+    background = {"agent": LISTEN_BACKGROUND, "outofband": OUTOFBAND_BACKGROUND}
 
     # First synthesis builds the graph; paying that here rather than on the
     # first thing the rider says keeps the opening reply from arriving late.
@@ -441,6 +486,12 @@ def main() -> int:
     playing_channel: str | None = None
     last_channel: str | None = None
     last_finished = 0.0
+
+    # One list per reply, holding the buffers actually played. A reply is
+    # however many sentences arrived between two cues, which is the unit the
+    # rider means by "say that again": they missed the answer, not sentence
+    # four of it.
+    replies: list[list] = []
 
     def active() -> bool:
         try:
@@ -498,9 +549,14 @@ def main() -> int:
                 audio = with_pad(audio, WAKE_PAD_MS)
 
             log(
-                f"{channel:5} {len(audio) / SR:5.2f}s {speed:.2f}x "
+                f"{channel:6} {len(audio) / SR:5.2f}s {speed:.2f}x "
                 f"{'cue' if cued else '   '} {text[:60]}"
             )
+            if channel == "speak":
+                if cued or not replies:
+                    replies.append([])
+                    del replies[:-REPLAY_DEPTH]
+                replies[-1].append(audio)
             sd.play(audio, SR)
         except Exception as exc:
             log(f"dropped {text[:40]!r}: {exc}")
@@ -508,23 +564,61 @@ def main() -> int:
         playing_channel = channel
         last_channel = channel
 
-    listening = False
+    def play_now(channel: str, audio) -> None:
+        nonlocal playing_channel, last_channel
+        SPEAKING.touch(exist_ok=True)
+        sd.play(audio, SR)
+        playing_channel = channel
+        last_channel = channel
+
+    def announce(text: str) -> None:
+        """Speak for a process that is not pi, so nothing arrives via the spool."""
+        try:
+            audio = synth(pipe, g2p, text, read_speed())
+        except Exception as exc:
+            log(f"could not announce {text[:40]!r}: {exc}")
+            return
+        if audio is None:
+            return
+        log(f"say    {len(audio) / SR:5.2f}s           {text[:60]}")
+        play_now("say", with_pad(audio, WAKE_PAD_MS))
+
+    def replay(count: int) -> None:
+        import numpy as np
+
+        take = [reply for reply in replies[-count:] if reply]
+        if not take:
+            log("nothing to replay yet")
+            return
+        buf = np.concatenate([chunk for reply in take for chunk in reply])
+        log(f"replay {len(buf) / SR:5.2f}s           {len(take)} of {len(replies)}")
+        play_now("replay", buf)
+
+    held = ""
 
     try:
         while True:
-            if LISTENING.exists() != listening:
-                listening = not listening
-                if listening:
-                    # A rider who has started talking has stopped listening,
-                    # and the answer would be recorded along with the question.
+            down = "agent" if LISTENING.exists() else ""
+            if not down and OUTOFBAND.exists():
+                down = "outofband"
+            if down != held:
+                if down:
+                    # An open microphone would record the answer along with the
+                    # question, so speech stops either way. Only a question
+                    # supersedes it: a note is aimed at nobody, so the queue
+                    # behind it survives and resumes on release.
                     hush()
-                    unlink(SPOOL.glob("*.txt"))
-                    # A question is what makes the next utterance an entry into
-                    # answer mode. With thinking silent nothing else ever takes
-                    # the slot back, so without this the bell rings once a ride.
-                    last_channel = None
-                tint(listening)
-                ring(open_cue if listening else close_cue)
+                    if down == "agent":
+                        unlink(SPOOL.glob("*.txt"))
+                        # With thinking silent nothing else ever takes the slot
+                        # back, so without this the answer bell rings once a
+                        # ride.
+                        last_channel = None
+                    ring(open_cue[down])
+                else:
+                    ring(close_cue[held])
+                tint(background[down] if down else "")
+                held = down
 
             if STOP.exists():
                 STOP.unlink(missing_ok=True)
@@ -543,6 +637,33 @@ def main() -> int:
             # source keeps every drop policy in one place.
             if not NARRATE_THINKING:
                 unlink(queue("think"))
+
+            # Both jump the spool: an announcement carries a cancel window the
+            # rider has to hear inside of, and a replay tap asks for something
+            # already missed once. Both wait out a held key rather than being
+            # consumed under it, since an announcement dropped because the
+            # rider was speaking leaves that window running in silence.
+            if SAY.exists() and not held:
+                try:
+                    announcement = SAY.read_text().strip()
+                except OSError:
+                    announcement = ""
+                SAY.unlink(missing_ok=True)
+                if announcement:
+                    hush()
+                    announce(announcement)
+                    continue
+
+            if REPLAY_REQUEST.exists() and not held:
+                try:
+                    wanted = int(REPLAY_REQUEST.read_text().strip())
+                except (OSError, ValueError):
+                    wanted = 0
+                REPLAY_REQUEST.unlink(missing_ok=True)
+                if wanted > 0:
+                    hush()
+                    replay(wanted)
+                    continue
 
             speak_queue = queue("speak")
 
@@ -565,7 +686,7 @@ def main() -> int:
                 playing_channel = None
                 last_finished = time.monotonic()
 
-            if listening:
+            if held:
                 time.sleep(POLL_SECONDS)
                 continue
 
@@ -590,9 +711,9 @@ def main() -> int:
         return 0
     finally:
         sd.stop()
-        # A watcher that dies mid-utterance leaves the window green otherwise,
+        # A watcher that dies mid-utterance leaves the window tinted otherwise,
         # and nothing else will ever put it back.
-        tint(False)
+        tint("")
         PIDFILE.unlink(missing_ok=True)
         READY.unlink(missing_ok=True)
         SPEAKING.unlink(missing_ok=True)
