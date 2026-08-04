@@ -231,8 +231,18 @@ in
   # Provisioning, done by hand once, recorded here because nothing in Nix
   # creates it. Same house style as tiger/configuration.nix:200.
   #
-  # 1. Boot the stock NixOS minimal ISO from USB. It already carries git,
-  #    rsync, zfs and sshd.
+  # 1. Get a NixOS installer onto the board. It arrived running Debian, so
+  #    nixos-anywhere kexecs one into RAM over the network and no media is
+  #    involved. It has no sudo support, so root needs a key of its own first:
+  #      ssh -t kyle@<ip> 'sudo install -d -m700 /root/.ssh &&
+  #        sudo cp ~/.ssh/authorized_keys /root/.ssh/'
+  #      nix run github:nix-community/nixos-anywhere -- \
+  #        --flake .#pika --phases kexec root@<ip>
+  #
+  #    `make iso-pika` builds a headless installer ISO for the case where
+  #    there is no running Linux to kexec from. That path wants a monitor
+  #    once, because the UEFI prefers whatever is already on the NVMe: F7 at
+  #    post picks the stick, DEL opens setup.
   #
   # 2. Partition the NVMe. Labels, because hardware-configuration.nix
   #    mounts by label:
@@ -245,9 +255,10 @@ in
   #      mkdir -p /mnt/boot && mount /dev/disk/by-label/NIXBOOT /mnt/boot
   #
   # 3. From trex, with the host key generated and its age key already
-  #    enrolled in .sops.yaml:
+  #    enrolled in .sops.yaml. --build-on remote so the closure is built by
+  #    the four cores in front of you and never passes through tiger:
   #      nix run github:nix-community/nixos-anywhere -- \
-  #        --flake .#pika --phases install,reboot \
+  #        --flake .#pika --phases install,reboot --build-on remote \
   #        --extra-files ./extra root@<ip>
   #
   # 4. The mirror, only once both drives are confirmed. by-id, never by-path,

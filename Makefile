@@ -164,6 +164,13 @@ sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 		echo "Done! Image at: result/sd-image/" || \
 		(echo "Build failed"; exit 1)
 
+# x86_64-linux, and trex has no local x86_64 builder, so this runs on tiger
+# and copies ~1GB back.
+.PHONY: iso-pika
+iso-pika: ## Build pika's headless install and rescue ISO
+	nix build $(IMPURE) .#nixosConfigurations.pika-installer.config.system.build.isoImage
+	@echo "Done! Image at: result/iso/pika-installer.iso"
+
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system
 	nix-collect-garbage --delete-older-than 7d

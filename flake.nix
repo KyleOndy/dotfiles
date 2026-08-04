@@ -775,6 +775,14 @@
           homeModule = ./nix/profiles/appliance.nix;
         };
 
+        # Install media, not a host. Deliberately outside mkLinuxSystem: it
+        # would pull in sops secrets pika-installer holds no key for, and a
+        # home-manager profile an ephemeral image has no use for.
+        pika-installer = inputs.nixpkgs.lib.nixosSystem {
+          system = "x86_64-linux";
+          modules = [ ./nix/hosts/pika/installer.nix ];
+        };
+
         cogsworth = mkLinuxSystem {
           hostname = "cogsworth";
           builder = inputs.nixos-raspberrypi.lib.nixosSystem;
