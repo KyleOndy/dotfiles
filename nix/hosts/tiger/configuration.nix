@@ -185,6 +185,12 @@ in
     path = [ config.boot.zfs.package ];
     script = ''
       set -euo pipefail
+      # An older grant on the pool itself carried destroy,mount,snapshot and
+      # descended to every dataset under it, which would let a compromised
+      # pika destroy the data it is supposed to be insuring. Delegations are
+      # per-dataset, so granting the right set below does not revoke a wider
+      # one above; this has to be explicit.
+      zfs unallow -u svc.syncoid storage
       for ds in storage/photos storage/backups; do
         zfs allow -u svc.syncoid send,hold,release "$ds"
       done
