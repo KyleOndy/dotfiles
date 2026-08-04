@@ -422,6 +422,67 @@ in
                 summary: "Scrub age metric missing on {{ $labels.host }}"
                 description: "{{ $labels.host }} reports zfs_pool_health but no zfs_pool_scrub_end_timestamp_seconds, so ZpoolScrubStale cannot fire there. Check the zfs-scrub-exporter unit and its timer."
 
+        # Tier 2 of docs/backup-strategy.md: tiger snapshots, pika pulls.
+        #
+        # Freshness is measured the same way on both ends, so the pair says
+        # which end broke. Stale on pika alone is replication; stale on both
+        # is sanoid on tiger. Nothing here watches a syncoid exit code, for
+        # the reason the doc gives at :439 and the ordering below encodes:
+        # a leg that never runs never fails.
+        - name: backup_replication
+          interval: 60s
+          rules:
+            # Ordered by what fails first. Empty and missing come before
+            # stale because both delete the timestamp series outright, and
+            # a staleness rule with nothing to subtract from matches
+            # nothing at all rather than firing.
+            - alert: BackupReplicaDatasetMissing
+              expr: absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/photos"}) or absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/backups"})
+              for: 1h
+              labels:
+                severity: critical
+              annotations:
+                summary: "Backup dataset {{ $labels.dataset }} is gone from pika"
+                description: "{{ $labels.dataset }} reports no snapshot metrics at all on pika. Either the dataset was destroyed, or zfs-snapshot-exporter is not writing. Both leave every other rule in this group matching nothing. Check `zfs list -r tank` and `systemctl status zfs-snapshot-exporter` on pika."
+
+            - alert: BackupReplicaEmpty
+              expr: zfs_dataset_snapshot_count{host="pika",dataset=~"tank/(photos|backups)"} == 0
+              for: 2h
+              labels:
+                severity: critical
+              annotations:
+                summary: "Backup dataset {{ $labels.dataset }} on pika holds no snapshots"
+                description: "{{ $labels.dataset }} exists on pika but holds zero snapshots, so the second copy of this data does not exist. sanoid on pika prunes and never creates, so it cannot refill this on its own. Check syncoid and pika's retention against tiger's."
+
+            - alert: BackupReplicaStale
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups)"} > 36 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Backup of {{ $labels.dataset }} on pika is over 36 hours old"
+                description: "The newest snapshot in {{ $labels.dataset }} on pika is more than 36 hours old, against a daily syncoid timer. If the matching storage dataset on tiger is fresh, replication is the broken end: check `systemctl status syncoid-storage-*` on pika."
+
+            - alert: BackupReplicaCriticallyStale
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups)"} > 72 * 3600
+              for: 1h
+              labels:
+                severity: critical
+              annotations:
+                summary: "Backup of {{ $labels.dataset }} on pika is over 72 hours old"
+                description: "The newest snapshot in {{ $labels.dataset }} on pika is more than 72 hours old. Three daily runs have now failed to land anything. Treat the second copy as not current."
+
+            # tiger's own snapshots, because pika can only be as fresh as
+            # what it is pulling from.
+            - alert: BackupSourceSnapshotsStale
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="tiger",dataset=~"storage/(photos|backups)"} > 36 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Snapshots of {{ $labels.dataset }} on tiger are over 36 hours old"
+                description: "sanoid on tiger has not made a snapshot of {{ $labels.dataset }} in over 36 hours, against an hourly-and-daily policy. pika replicates snapshots and creates none of its own, so this staleness reaches the backup too. Check `systemctl status sanoid` on tiger."
+
         # SMART health, scrub age and backup freshness all arrive this way.
         # node_exporter drops a file it cannot parse and keeps serving the
         # rest, so a broken producer costs its alerts in silence:
