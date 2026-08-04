@@ -110,16 +110,13 @@ in
           autosnap = true;
           autoprune = true;
 
-          # My thoughts for the number and frequency of snapshots. The photos
-          # that live on this zfs share are a 1:1 dump of my ~/photos directory
-          # on my local laptop. If I ever need to not keep the entire library
-          # local I need to revisit this. The backup here is more for a short
-          # term disaster recovery, such as if I lose my local storage. I am
-          # not worried about recovering a photo I deleted a long time ago.
+          # pika prunes and never snapshots, so its own yearly = 10 is inert
+          # unless this matches it. Photos outrank documents on reach: a cull
+          # deletes files nothing else references, and nothing reports it.
           hourly = 0;
           daily = 8;
           monthly = 12;
-          yearly = 0;
+          yearly = 10;
         };
       };
     };
