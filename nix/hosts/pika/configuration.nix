@@ -154,6 +154,18 @@ in
     };
   };
 
+  # syncoid runs as a system user with no home, so ssh has nowhere to write a
+  # known_hosts and every pull dies on "Host key verification failed". This
+  # writes /etc/ssh/ssh_known_hosts instead, which also pins tiger's identity
+  # rather than trusting whatever answers on first use. The bracket form is
+  # how ssh records a non-default port.
+  programs.ssh.knownHosts = lib.mkIf hasTank {
+    tiger = {
+      hostNames = [ "[tiger.dmz.1ella.com]:2332" ];
+      publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFjqSTUpNBfT0hwBYbPUjxgNhmYLDlEmv+juyxAzFiqt";
+    };
+  };
+
   sops.secrets = {
     # vmagent runs DynamicUser and promtail is a static user; both need to
     # read this, so it is group-scoped rather than world-readable.
