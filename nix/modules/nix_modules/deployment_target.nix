@@ -272,6 +272,57 @@ in
           mv "$OUTFILE.tmp" "$OUTFILE"
         '';
       };
+
+      # How current the data is, which is the question a backup has to
+      # answer. A syncoid exit code cannot: a leg that runs, succeeds, and
+      # transfers nothing because sanoid upstream stopped snapshotting looks
+      # identical to a healthy one. Snapshot age is the same measurement on
+      # tiger and on pika, so comparing the two says which end broke.
+      #
+      # The count goes out for every filesystem, including the ones holding
+      # no snapshots, so a dataset pruned to empty reads 0 instead of
+      # dropping out of the query and taking its alert with it.
+      zfs-snapshot-exporter = lib.mkIf config.boot.zfs.enabled {
+        description = "Export ZFS snapshot age to node_exporter textfile";
+        serviceConfig = {
+          Type = "oneshot";
+          User = "root";
+        };
+        path = [
+          config.boot.zfs.package
+          pkgs.gawk
+          pkgs.coreutils
+        ];
+        script = ''
+          set -euo pipefail
+          OUTFILE="/var/lib/prometheus-node-exporter-text-files/zfs_snapshots.prom"
+          {
+            printf '# HELP zfs_dataset_snapshot_count Snapshots held by this dataset\n'
+            printf '# TYPE zfs_dataset_snapshot_count gauge\n'
+            printf '# HELP zfs_dataset_latest_snapshot_timestamp_seconds Unix time the newest snapshot of this dataset was created\n'
+            printf '# TYPE zfs_dataset_latest_snapshot_timestamp_seconds gauge\n'
+            # -S creation sorts newest first, so the first row per dataset
+            # wins. Splitting on tab and @ makes a snapshot row 3 fields and
+            # a filesystem row 1, which is what separates the two inputs
+            # without an NR==FNR test that breaks when a host holds none.
+            awk '
+              BEGIN { FS = "[\t@]" }
+              NF >= 3 {
+                count[$1]++
+                if (!($1 in newest)) newest[$1] = $3
+                next
+              }
+              {
+                printf "zfs_dataset_snapshot_count{dataset=\"%s\"} %d\n", $1, count[$1] + 0
+                if ($1 in newest)
+                  printf "zfs_dataset_latest_snapshot_timestamp_seconds{dataset=\"%s\"} %s\n", $1, newest[$1]
+              }
+            ' <(zfs list -H -p -t snapshot -o name,creation -S creation) \
+              <(zfs list -H -o name -t filesystem)
+          } > "$OUTFILE.tmp"
+          mv "$OUTFILE.tmp" "$OUTFILE"
+        '';
+      };
     }
     // lib.optionalAttrs (config.networking.wireguard.interfaces ? wg0) (
       {
@@ -299,6 +350,17 @@ in
       timerConfig = {
         OnBootSec = "5min";
         OnUnitActiveSec = "1h";
+        Persistent = true;
+      };
+    };
+
+    # 15 minutes against staleness thresholds measured in hours. The cost is
+    # two `zfs list` calls, which is why this is not slower.
+    systemd.timers.zfs-snapshot-exporter = lib.mkIf config.boot.zfs.enabled {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "3min";
+        OnUnitActiveSec = "15min";
         Persistent = true;
       };
     };
