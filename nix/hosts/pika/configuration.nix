@@ -131,9 +131,12 @@ in
     # Trimmed from the module default, which also grants change-key,
     # compression and mountpoint. Nothing here sends raw encrypted or raw
     # compressed streams, so those are unused authority.
+    # A property named in recvOptions must be delegated by name, or zfs recv
+    # logs a permission error per stream, skips it, and still exits 0.
     localTargetAllow = [
       "create"
       "mount"
+      "readonly"
       "receive"
       "rollback"
     ];
