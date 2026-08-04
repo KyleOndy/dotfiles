@@ -22,12 +22,6 @@
   ...
 }:
 let
-  # Gates everything that touches the SATA mirror, so the host still
-  # installs, boots, reports metrics and takes deploys with no drives
-  # attached. Kept as a flag rather than deleted because a spare board with
-  # no drives is the recovery path.
-  hasTank = true;
-
   tigerSyncoid = "svc.syncoid@tiger.dmz.1ella.com";
 in
 {
@@ -44,7 +38,7 @@ in
     # of RAM. With 32GB the 50% default lands at 16GB and nothing else on the
     # box wants memory, so the metadata for a ~1.18TB pool fits outright,
     # which is what keeps scrubs and syncoid deltas quick.
-    zfs.extraPools = lib.mkIf hasTank [ "tank" ];
+    zfs.extraPools = [ "tank" ];
   };
 
   networking = {
@@ -93,7 +87,7 @@ in
   #
   #   tiger storage/backups: hourly 4,  daily 31, monthly 24, yearly 10
   #   tiger storage/photos:            daily  8, monthly 12
-  services.sanoid = lib.mkIf hasTank {
+  services.sanoid = {
     enable = true;
     extraArgs = [ "--verbose" ];
     datasets = {
@@ -119,7 +113,7 @@ in
   # Pull, never push. tiger's delegation is send,hold,release and nothing
   # more, so this cannot create, receive into, or destroy anything on tiger
   # even if pika is the compromised end.
-  services.syncoid = lib.mkIf hasTank {
+  services.syncoid = {
     enable = true;
     interval = "daily";
     sshKey = config.sops.secrets.pika_syncoid_ssh_key.path;
@@ -162,7 +156,7 @@ in
   # writes /etc/ssh/ssh_known_hosts instead, which also pins tiger's identity
   # rather than trusting whatever answers on first use. The bracket form is
   # how ssh records a non-default port.
-  programs.ssh.knownHosts = lib.mkIf hasTank {
+  programs.ssh.knownHosts = {
     tiger = {
       hostNames = [ "[tiger.dmz.1ella.com]:2332" ];
       publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFjqSTUpNBfT0hwBYbPUjxgNhmYLDlEmv+juyxAzFiqt";
@@ -176,8 +170,7 @@ in
       mode = "0440";
       group = "monitoring-secrets";
     };
-  }
-  // lib.optionalAttrs hasTank {
+
     pika_syncoid_ssh_key = {
       owner = "syncoid";
       mode = "0400";
@@ -286,13 +279,7 @@ in
   #    a ratio that is never going to show up. acltype=posixacl matches what
   #    storage/photos got by hand on tiger.
   #
-  # 5. Then flip hasTank above, add the two sops secrets, and deploy.
-  #
-  # Still open, and all three gate step 4 rather than anything above it:
-  # the drive sizes and whether they are SMR (smartctl -d sat -i /dev/sda),
-  # board rev A or B, and whether a 15V/4A brick carries a two-drive cold
-  # start. Measure, do not assume: two 3.5" drives pull roughly 24W each for
-  # the first few seconds against a board rated 22W stressed.
+  # 5. Then add the sops secrets and deploy.
   #
   # The S3 tier is deliberately not here yet. It moves to pika once this
   # copy verifies; see docs/backup-strategy.md.
