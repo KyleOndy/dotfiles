@@ -483,6 +483,69 @@ in
                 summary: "Snapshots of {{ $labels.dataset }} on tiger are over 36 hours old"
                 description: "sanoid on tiger has not made a snapshot of {{ $labels.dataset }} in over 36 hours, against an hourly-and-daily policy. pika replicates snapshots and creates none of its own, so this staleness reaches the backup too. Check `systemctl status sanoid` on tiger."
 
+        # The offsite tier, tier 3 of docs/backup-strategy.md. Same ordering
+        # as backup_replication above: absence first, because a push that
+        # never runs publishes nothing to be stale about.
+        #
+        # These rules go quiet during an initial seed, which legitimately runs
+        # for days before recording a first success. Silence, do not retune.
+        - name: offsite_archive
+          interval: 60s
+          rules:
+            - alert: S3ArchivePushNeverSucceeded
+              expr: absent(s3_archive_push_last_success_timestamp_seconds{host="pika",prefix="photos"}) or absent(s3_archive_push_last_success_timestamp_seconds{host="pika",prefix="backups"})
+              for: 24h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite push for one prefix has never recorded a success"
+                description: "No s3_archive_push_last_success_timestamp_seconds series exists for one of the two prefixes, so that half of the offsite copy may not exist at all. Expected while a prefix is still seeding. Otherwise check `systemctl status s3-archive-push-*` on pika: the unit refuses to run against an unmounted dataset, which is the usual cause."
+
+            - alert: S3ArchivePushStale
+              expr: time() - s3_archive_push_last_success_timestamp_seconds{host="pika"} > 36 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite push of {{ $labels.prefix }}/ is over 36 hours old"
+                description: "The last clean sync of {{ $labels.prefix }}/ to the archive bucket is more than 36 hours old, against a daily timer. pika still holds the second copy, so this is not yet data loss, only loss of the offsite one. Check `journalctl -u s3-archive-push-{{ $labels.prefix }}` on pika."
+
+            - alert: S3ArchivePushCriticallyStale
+              expr: time() - s3_archive_push_last_success_timestamp_seconds{host="pika"} > 96 * 3600
+              for: 1h
+              labels:
+                severity: critical
+              annotations:
+                summary: "Offsite push of {{ $labels.prefix }}/ is over 96 hours old"
+                description: "Four daily runs have failed to complete a sync of {{ $labels.prefix }}/. Treat the offsite copy as not current: anything imported since then exists only in the house."
+
+            - alert: S3ArchiveObjectsMissing
+              expr: s3_reconcile_missing_objects{host="pika"} > 0
+              for: 6h
+              labels:
+                severity: critical
+              annotations:
+                summary: "{{ $value }} files under {{ $labels.prefix }}/ are absent from the archive bucket"
+                description: "Reconciliation found source files with no object in the bucket, which means the sync believes it is current while the offsite copy is not. This is the failure the whole tier exists to prevent. Run `s3-archive-reconcile {{ $labels.prefix }}` on pika to list them."
+
+            - alert: S3ArchivePruneBlocked
+              expr: s3_reconcile_prune_blocked{host="pika"} > 0
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite prune of {{ $labels.prefix }}/ refused to run"
+                description: "The orphan count exceeded the safety threshold, so nothing was deleted. Either a genuinely large cull happened, or the source listing is wrong. Confirm the dataset is mounted and holds what you expect before overriding by hand."
+
+            - alert: S3ReconcileStale
+              expr: time() - s3_reconcile_last_run_timestamp_seconds{host="pika"} > 14 * 24 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite reconciliation of {{ $labels.prefix }}/ has not run in 14 days"
+                description: "Nothing has compared the bucket against the source in two weeks, against a weekly timer. Both S3ArchiveObjectsMissing and the orphan count are computed here, so this rule going quiet takes those with it."
+
         # SMART health, scrub age and backup freshness all arrive this way.
         # node_exporter drops a file it cannot parse and keeps serving the
         # rest, so a broken producer costs its alerts in silence:
