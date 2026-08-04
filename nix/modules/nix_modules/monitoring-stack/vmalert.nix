@@ -566,10 +566,16 @@ in
         Type = "simple";
         User = "vmalert";
         Group = "vmalert";
+        # remoteWrite persists alert state and remoteRead restores it.
+        # Without the pair, restartTriggers above resets every `for:` timer
+        # on each rules edit, so a `for:` past the deploy cadence never
+        # elapses. Same VictoriaMetrics as the datasource, over loopback.
         ExecStart = ''
           ${pkgs.victoriametrics}/bin/vmalert \
             -datasource.url=${cfg.datasourceUrl} \
             -notifier.url=${cfg.notifierUrl} \
+            -remoteWrite.url=${cfg.datasourceUrl} \
+            -remoteRead.url=${cfg.datasourceUrl} \
             -httpListenAddr=${cfg.listenAddress}:${toString cfg.port} \
             -external.url=https://${cfg.domain} \
             -rule=/etc/vmalert/rules.yml \
