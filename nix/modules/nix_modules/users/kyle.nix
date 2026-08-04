@@ -20,9 +20,7 @@ in
         Kyle's personal SSH public keys, trusted for both the kyle and
         svc.deploy accounts across the NixOS fleet.
       '';
-      default = [
-        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEJl9x835n7Sw4zbxo0bVGNsp0i3cITyYg6WOMj2DBkf kyle@trex.lan.1ella.com"
-      ];
+      default = import ../../../lib/kyle-authorized-keys.nix;
     };
   };
 
