@@ -153,12 +153,12 @@ in
         # delegation granted by the zfs-delegate-syncoid unit below, which is
         # send,hold,release and nothing else.
         #
-        # Empty until pika exists. What goes here is the public half of the
-        # key pika's syncoid service uses, which is generated during pika's
-        # provisioning (see nix/hosts/pika/configuration.nix). Leaving it
-        # empty keeps the account locked, so this is inert rather than
-        # half-open.
-        openssh.authorizedKeys.keys = [ ];
+        # The public half of the key pika's syncoid service uses. Its private
+        # half is sops key pika_syncoid_ssh_key, readable only by the syncoid
+        # user on pika.
+        openssh.authorizedKeys.keys = [
+          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOyqBqFsTK779kr21wva3XrD3oq9QJoWIYml2y9J/4HF syncoid@pika"
+        ];
       };
     };
     groups."svc.backup".members = [
