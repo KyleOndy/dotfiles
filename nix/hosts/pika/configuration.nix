@@ -19,9 +19,63 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
+  # `terraform -chdir=tf output archive_bucket_name`. Not looked up from
+  # state: pika carries no terraform checkout.
+  archiveBucket = "ondy-archive-resolved-pug";
+
+  pushUnit = dataset: prefix: {
+    description = "Push ${dataset} to the offsite archive bucket";
+    environment = {
+      ARCHIVE_BUCKET = archiveBucket;
+      AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.archive_push_aws_credentials.path;
+      AWS_CONFIG_FILE = "/etc/aws/s3-archive-push.conf";
+      AWS_PROFILE = "archive-push";
+    };
+    serviceConfig = {
+      # root because the received tree carries tiger's ownership and this has
+      # to read all of it.
+      Type = "oneshot";
+      User = "root";
+      ExecStart = "${pkgs.s3-archive-push}/bin/s3-archive-push ${dataset} ${prefix}";
+    };
+  };
+
+  pushTimer = at: {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* ${at}:00";
+      Persistent = true;
+    };
+  };
+
+  # The only thing in the fleet that deletes from the bucket, and it can only
+  # write delete markers: svc.archive-prune holds no DeleteObjectVersion.
+  pruneUnit = dataset: prefix: {
+    description = "Reconcile and prune ${prefix}/ in the offsite archive bucket";
+    environment = {
+      ARCHIVE_BUCKET = archiveBucket;
+      AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.archive_prune_aws_credentials.path;
+      AWS_PROFILE = "archive-prune";
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+      ExecStart = "${pkgs.s3-archive-reconcile}/bin/s3-archive-reconcile --prune ${dataset} ${prefix}";
+    };
+  };
+
+  pruneTimer = day: {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "${day} *-*-* 05:00:00";
+      Persistent = true;
+    };
+  };
+
   tigerSyncoid = "svc.syncoid@tiger.dmz.1ella.com";
 in
 {
@@ -151,6 +205,28 @@ in
     };
   };
 
+  # Held under the measured 24.6 Mbps uplink: saturating it fills the modem's
+  # buffer and takes interactive latency with it. A config file rather than
+  # the unit environment because awscli has no env var for max_bandwidth.
+  environment.etc."aws/s3-archive-push.conf".text = ''
+    [profile archive-push]
+    s3 =
+      max_bandwidth = 2MB/s
+  '';
+
+  # Fixed offsets rather than After= ordering on syncoid: a stuck pull delays
+  # the push instead of cancelling it. Two hours apart so the walks do not
+  # contend for the uplink.
+  systemd.services.s3-archive-push-photos = pushUnit "tank/photos" "photos";
+  systemd.services.s3-archive-push-backups = pushUnit "tank/backups" "backups";
+  systemd.timers.s3-archive-push-photos = pushTimer "04:00";
+  systemd.timers.s3-archive-push-backups = pushTimer "06:00";
+
+  systemd.services.s3-archive-prune-photos = pruneUnit "tank/photos" "photos";
+  systemd.services.s3-archive-prune-backups = pruneUnit "tank/backups" "backups";
+  systemd.timers.s3-archive-prune-photos = pruneTimer "Sun";
+  systemd.timers.s3-archive-prune-backups = pruneTimer "Mon";
+
   # syncoid runs as a system user with no home, so ssh has nowhere to write a
   # known_hosts and every pull dies on "Host key verification failed". This
   # writes /etc/ssh/ssh_known_hosts instead, which also pins tiger's identity
@@ -169,6 +245,17 @@ in
     monitoring_password = {
       mode = "0440";
       group = "monitoring-secrets";
+    };
+
+    # awscli2 credentials INI files, one profile each, for the two IAM users
+    # in tf/archive-backup.tf.
+    archive_push_aws_credentials = {
+      owner = "root";
+      mode = "0400";
+    };
+    archive_prune_aws_credentials = {
+      owner = "root";
+      mode = "0400";
     };
 
     pika_syncoid_ssh_key = {
@@ -280,9 +367,6 @@ in
   #    storage/photos got by hand on tiger.
   #
   # 5. Then add the sops secrets and deploy.
-  #
-  # The S3 tier is deliberately not here yet. It moves to pika once this
-  # copy verifies; see docs/backup-strategy.md.
 
   system.stateVersion = "25.11";
 }
