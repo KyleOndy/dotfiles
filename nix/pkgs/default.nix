@@ -13,6 +13,8 @@ self: super: {
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
   pragmata-pro = super.callPackage ./pragmata-pro { };
+  s3-archive-push = super.callPackage ./s3-archive-push { };
+  s3-archive-reconcile = super.callPackage ./s3-archive-reconcile { };
   winnow = super.callPackage ./winnow { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
