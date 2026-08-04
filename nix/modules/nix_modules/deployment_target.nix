@@ -241,6 +241,8 @@ in
             printf '# TYPE zfs_pool_scrub_end_timestamp_seconds gauge\n'
             printf '# HELP zfs_pool_scrub_in_progress Whether a scrub or resilver is running now\n'
             printf '# TYPE zfs_pool_scrub_in_progress gauge\n'
+            printf '# HELP zfs_pool_creation_timestamp_seconds Unix time the pool was created\n'
+            printf '# TYPE zfs_pool_creation_timestamp_seconds gauge\n'
             zpool status -j \
               | jq -r '.pools | to_entries[]
                        | [ .key,
@@ -256,8 +258,15 @@ in
                   if [ "$state" = "SCANNING" ]; then
                     in_progress=1
                   fi
+                  # `creation` is a dataset property, not a pool one, so
+                  # `zpool get creation` errors out. The pool's root dataset
+                  # shares its name and carries the value. It is what gives
+                  # ZpoolNeverScrubbed a grace window instead of paging the
+                  # moment a pool is created.
+                  created=$(zfs get -Hp -o value creation "$pool" 2>/dev/null || echo 0)
                   printf 'zfs_pool_scrub_end_timestamp_seconds{pool="%s"} %s\n' "$pool" "$ts"
                   printf 'zfs_pool_scrub_in_progress{pool="%s"} %d\n' "$pool" "$in_progress"
+                  printf 'zfs_pool_creation_timestamp_seconds{pool="%s"} %s\n' "$pool" "$created"
                 done
           } > "$OUTFILE.tmp"
           mv "$OUTFILE.tmp" "$OUTFILE"

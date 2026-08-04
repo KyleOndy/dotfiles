@@ -384,14 +384,29 @@ in
                 summary: "Pool {{ $labels.pool }} on {{ $labels.host }} is not ONLINE"
                 description: "zfs_pool_health is {{ $value }} for {{ $labels.pool }} on {{ $labels.host }} (0 ONLINE, 1 DEGRADED, 2 FAULTED, 3 OFFLINE, 4 UNAVAIL, 5 REMOVED, 6 SUSPENDED). Run `zpool status -v` there."
 
+            # The `> 0` is load-bearing: a never-scrubbed pool reports the
+            # sentinel 0, and `time() - 0` reads as 1970. ZpoolNeverScrubbed
+            # is what covers that case.
             - alert: ZpoolScrubStale
-              expr: (time() - zfs_pool_scrub_end_timestamp_seconds > 45 * 86400) and on(pool, host) zfs_pool_scrub_in_progress == 0
+              expr: (time() - (zfs_pool_scrub_end_timestamp_seconds > 0) > 45 * 86400) and on(pool, host) zfs_pool_scrub_in_progress == 0
               for: 1h
               labels:
                 severity: warning
               annotations:
                 summary: "Pool {{ $labels.pool }} on {{ $labels.host }} has not completed a scrub in over 45 days"
                 description: "No scrub of {{ $labels.pool }} on {{ $labels.host }} has finished in 45 days and none is running. Silent corruption is only found by scrubbing, and a resilver is the worst time to discover it. Check services.zfs.autoScrub on that host."
+
+            # Age lives in the expression, not in `for:`: vmalert runs with
+            # no -remoteRead.url and restarts on every rules edit, so a long
+            # `for:` resets before it ever elapses.
+            - alert: ZpoolNeverScrubbed
+              expr: (zfs_pool_scrub_end_timestamp_seconds == 0) and on(pool, host) (time() - zfs_pool_creation_timestamp_seconds > 7 * 86400) and on(pool, host) zfs_pool_scrub_in_progress == 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Pool {{ $labels.pool }} on {{ $labels.host }} has never been scrubbed"
+                description: "{{ $labels.pool }} on {{ $labels.host }} was created over 7 days ago and has never completed a scrub. A pool that has never been read end to end has never proven it can be. Check services.zfs.autoScrub, or run `zpool scrub {{ $labels.pool }}` there once."
 
             # The two rules above both depend on metrics that come from a
             # textfile collector, and a collector that stops writing takes
