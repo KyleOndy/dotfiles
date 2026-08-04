@@ -422,6 +422,22 @@ in
                 summary: "Scrub age metric missing on {{ $labels.host }}"
                 description: "{{ $labels.host }} reports zfs_pool_health but no zfs_pool_scrub_end_timestamp_seconds, so ZpoolScrubStale cannot fire there. Check the zfs-scrub-exporter unit and its timer."
 
+        # SMART health, scrub age and backup freshness all arrive this way.
+        # node_exporter drops a file it cannot parse and keeps serving the
+        # rest, so a broken producer costs its alerts in silence:
+        # test-youtube-metrics.prom did that on tiger for nine months.
+        - name: textfile_collector
+          interval: 60s
+          rules:
+            - alert: NodeTextfileCollectorFailing
+              expr: node_textfile_scrape_error != 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "node_exporter textfile collector failing on {{ $labels.host }}"
+                description: "At least one .prom file in /var/lib/prometheus-node-exporter-text-files on {{ $labels.host }} is unreadable or malformed, and every metric in it is absent. The file name is in the error: journalctl -u prometheus-node-exporter | grep textfile"
+
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring
           interval: 30s
