@@ -22,13 +22,11 @@
   ...
 }:
 let
-  # The SATA mirror does not exist yet. Everything that touches it is gated
-  # on this, so the host installs, boots, reports metrics and takes deploys
-  # with no drives attached at all.
-  #
-  # To turn it on: create the pool (see the provisioning block below), add
-  # the two sops secrets noted there, flip this to true, deploy.
-  hasTank = false;
+  # Gates everything that touches the SATA mirror, so the host still
+  # installs, boots, reports metrics and takes deploys with no drives
+  # attached. Kept as a flag rather than deleted because a spare board with
+  # no drives is the recovery path.
+  hasTank = true;
 
   tigerSyncoid = "svc.syncoid@tiger.dmz.1ella.com";
 in
