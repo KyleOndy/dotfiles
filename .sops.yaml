@@ -10,6 +10,11 @@ keys:
 
   - &trex age1ckcr5cc6g9nmfhhhwud0jkpjvfpz8lhsa7kdsshqmh5cfcma4qhse3vcak
 
+  # Derived from a host key generated on trex and installed via
+  # nixos-anywhere --extra-files, so it is enrolled before pika's first
+  # activation rather than after it fails on monitoring_password.
+  - &pika age1kxl2n6kvy48gjwyqg6gsa3mm493m3npm6dwam2r3k36jhqtlf93qmmjrtj
+
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
   # sops -r updatekeys ./nix/secrets/secrets.yaml
@@ -20,6 +25,7 @@ creation_rules:
           - *cogsworth
           - *tiger
           - *trex
+          - *pika
         pgp:
           - *kyle
   - path_regex: nix/hosts/cogsworth/keys/.*\.sops$
