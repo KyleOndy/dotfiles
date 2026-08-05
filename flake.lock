@@ -164,11 +164,11 @@
         "pre-commit-hooks": "pre-commit-hooks"
       },
       "locked": {
-        "lastModified": 1785932058,
-        "narHash": "sha256-SVNxfwW/4TKDV20kX78rrMqN4BABXaj/S+olWLfoBTE=",
+        "lastModified": 1785936262,
+        "narHash": "sha256-erESUKdOWm4D3lMcgddTjHuikIL1+VQF8hvPv8f3BY0=",
         "ref": "v3",
-        "rev": "25c0adab17c9d34dc31bce0330aea19919d5992f",
-        "revCount": 295,
+        "rev": "efd9903f84a65c46a7ef73db8d3a4d35cad1ba88",
+        "revCount": 297,
         "type": "git",
         "url": "ssh://git@github.com/KyleOndy/cogsworth"
       },
@@ -783,11 +783,11 @@
     },
     "nixpkgs-master": {
       "locked": {
-        "lastModified": 1785930874,
-        "narHash": "sha256-4DNi9ADjcA+YG/ijl9Kxt3WP1gFrY2IypHZDzY+tHNE=",
+        "lastModified": 1785935541,
+        "narHash": "sha256-lKGR4202zL+6MMuqeHaexgWDI2OSGttZALJaKK3PY30=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "18ea9296808884b1ebc4cd558decf2baf087f531",
+        "rev": "c38efa9027d0908ac5e57a7b3b02b571a154dc6c",
         "type": "github"
       },
       "original": {
@@ -929,11 +929,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1785932029,
-        "narHash": "sha256-44KPswxzwoHygvWEYjIjEbVxJTJ5SZD06ZX8vS79oGk=",
+        "lastModified": 1785935710,
+        "narHash": "sha256-zflm0uf3MAMMG7EoRynq9QNajxL4Qd5IvZ5p94WEELQ=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "4bc39746a5802d7d986eade09c8806d41059f8f3",
+        "rev": "9a7dc1d6d29ac0ae7108cb8961af969c238e4714",
         "type": "github"
       },
       "original": {
