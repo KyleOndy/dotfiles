@@ -116,7 +116,10 @@ let
         ;;
       status)
         if running=$(active); then
-          sudo "$WG" show "$running"
+          # wg addresses the utun device, not the profile name: the socket it
+          # looks for is named after the interface wg-quick actually claimed.
+          echo "$running:"
+          sudo "$WG" show all
         else
           echo "no tunnel is up"
         fi
