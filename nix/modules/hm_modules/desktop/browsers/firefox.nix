@@ -7,6 +7,27 @@
 with lib;
 let
   cfg = config.hmFoundry.desktop.browsers.firefox;
+
+  firefoxBin =
+    if pkgs.stdenv.hostPlatform.isDarwin then
+      # The darwin build ships an .app bundle and no bin/ directory.
+      "${config.programs.firefox.finalPackage}/Applications/Firefox.app/Contents/MacOS/firefox"
+    else
+      getExe config.programs.firefox.finalPackage;
+
+  ff-tmp = pkgs.writeShellApplication {
+    name = "ff-tmp";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      # Usage: ff-tmp [url...]
+      # --profile sets both the profile and the local profile directory, so the
+      # cache lands in the temp dir too. --new-instance, or Firefox hands the
+      # url to an already running instance and ignores the profile.
+      d=$(mktemp -d)
+      trap 'rm -rf "$d"' EXIT
+      "${firefoxBin}" --profile "$d" --new-instance "$@"
+    '';
+  };
 in
 {
   options.hmFoundry.desktop.browsers.firefox = {
@@ -14,6 +35,8 @@ in
   };
 
   config = mkIf cfg.enable {
+    home.packages = [ ff-tmp ];
+
     programs = {
       firefox = {
         enable = true;
