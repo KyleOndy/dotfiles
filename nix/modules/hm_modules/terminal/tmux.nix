@@ -215,6 +215,16 @@ in
         #   columns on a bar that is nearly full. Colours by load per core, so
         #   the same number reads correctly on trex and on a two core VM.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-load)"
+        # which wireguard tunnel is up.
+        #   The only place this is visible: wg-quick splits the default route
+        #   into 0.0.0.0/1 and 128.0.0.0/1 instead of replacing it, so macOS
+        #   does not count the tunnel as a VPN and never shows one in the menu
+        #   bar. Reads warm on a split tunnel and hot on one carrying
+        #   0.0.0.0/0, which is the state worth catching. Alone among these
+        #   segments it holds its width while connected and disconnected, so
+        #   toggling a tunnel does not shuffle the bar; it collapses only
+        #   where /etc/wireguard has no configs at all.
+        set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/vpn-state)"
         # local time.
         #   The UTC half still needs a subshell, as tmux cannot run strftime
         #   against another zone, but the offset does not: tmux expands

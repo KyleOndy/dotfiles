@@ -15,7 +15,10 @@ in
 
   config = mkIf cfg.enable {
     # Ensure our binary is in PATH
-    home.packages = [ pkgs.git-worktree-prompt ];
+    home.packages = [
+      pkgs.git-worktree-prompt
+      pkgs.tmux-status
+    ];
 
     programs.starship = {
       enable = true;
@@ -33,6 +36,7 @@ in
           "$time"
           "$directory"
           "\${custom.git-worktree}"
+          "\${custom.vpn}"
           "$git_state" # REBASING, MERGING, etc (starship built-in)
           "$nix_shell"
           "$python"
@@ -72,6 +76,18 @@ in
           format = "(on [$output]($style) )";
           style = "bold purple";
           description = "Git worktree-aware branch display";
+        };
+
+        # Active WireGuard tunnel, uppercased when it carries 0.0.0.0/0.
+        # macOS shows nothing for a wg-quick tunnel, so this and the tmux
+        # segment are the only signals. Exits 1 when none is up, which is what
+        # collapses the module.
+        custom.vpn = {
+          command = "vpn-state --prompt";
+          when = true;
+          format = "(via [$output]($style) )";
+          style = "bold red";
+          description = "Active WireGuard tunnel";
         };
 
         # Git state - use starship's built-in (REBASING, MERGING, etc.)
