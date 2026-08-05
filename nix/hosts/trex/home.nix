@@ -19,10 +19,17 @@ let
     "tiger-photos"
   ];
 
-  # Mounts anything not already mounted, reading the password straight from
-  # sops. The agent runs here rather than in configuration.nix because
-  # nix-darwin's launchd.agents get bootstrapped into the system domain and run
-  # as root, which mounts the volumes for the wrong user.
+  # Not /Volumes. Unmounting deletes a mountpoint there, and /Volumes is
+  # root-owned, so an agent running as kyle cannot recreate one and would skip
+  # the share for good after the first unmount. Under $HOME the directory
+  # survives the unmount and the agent needs no privilege at all.
+  smbMountRoot = "${config.home.homeDirectory}/mounts";
+
+  # Mounts what is missing when tiger answers, and force-unmounts what is left
+  # behind when it does not. The agent runs here rather than in
+  # configuration.nix because nix-darwin's launchd.agents get bootstrapped into
+  # the system domain and run as root, which mounts the volumes for the wrong
+  # user.
   #
   # NetFS (`osascript -e 'mount volume ...'`, what Finder's Cmd+K uses) would be
   # the tidier route, since it picks the mount point and the keychain holds the
@@ -48,6 +55,36 @@ let
       readonly SERVER=${lib.escapeShellArg smbServer}
       readonly ACCOUNT=${lib.escapeShellArg smbAccount}
       readonly SECRET=${osConfig.sops.secrets.smb_kyle_password.path}
+      readonly ROOT=${lib.escapeShellArg smbMountRoot}
+      readonly TIMEOUT=${pkgs.coreutils}/bin/timeout
+
+      # Reads the kernel's mount table; statting the mountpoint instead would
+      # block once the server is gone.
+      mounted() {
+        /sbin/mount | grep -q " on $1 "
+      }
+
+      # nc -z alone would hang in getaddrinfo, not connect(2): away from home
+      # this name resolves only through the UDM (wireguard.nix).
+      if ! "$TIMEOUT" 5 /usr/bin/nc -z "$SERVER" 445 >/dev/null 2>&1; then
+        for share in ${lib.concatMapStringsSep " " lib.escapeShellArg smbShares}; do
+          mountpoint="$ROOT/$share"
+
+          if ! mounted "$mountpoint"; then
+            continue
+          fi
+
+          # launchd will not start a second copy of a job while the first is
+          # alive, so an unbounded umount -f on a wedged vnode would retire
+          # this agent for good.
+          if "$TIMEOUT" 30 /sbin/umount -f "$mountpoint"; then
+            echo "smb-tiger: $SERVER unreachable, unmounted $share"
+          else
+            echo "smb-tiger: $SERVER unreachable, could not unmount $share"
+          fi
+        done
+        exit 0
+      fi
 
       pw="$(cat "$SECRET")"
 
@@ -59,20 +96,18 @@ let
       fi
 
       for share in ${lib.concatMapStringsSep " " lib.escapeShellArg smbShares}; do
-        mountpoint="/Volumes/$share"
+        mountpoint="$ROOT/$share"
 
-        if /sbin/mount | grep -q " on $mountpoint "; then
+        if mounted "$mountpoint"; then
           continue
         fi
 
-        # Created by the activation script in configuration.nix, since /Volumes
-        # is root-owned. Missing means that has not run yet.
-        if [ ! -d "$mountpoint" ]; then
-          echo "smb-tiger: $mountpoint does not exist, skipping"
-          continue
-        fi
+        mkdir -p "$mountpoint"
 
-        if /sbin/mount_smbfs "//$ACCOUNT:$pw@$SERVER/$share" "$mountpoint" 2>/dev/null; then
+        # soft fails file system calls after seconds instead of blocking.
+        # nobrowse keeps the volume out of Finder, which is what raises the
+        # "Server connections interrupted" panel when the server goes away.
+        if /sbin/mount_smbfs -o soft,nobrowse,automounted "//$ACCOUNT:$pw@$SERVER/$share" "$mountpoint" 2>/dev/null; then
           echo "smb-tiger: mounted $share"
         else
           echo "smb-tiger: could not mount $share"
@@ -311,28 +346,29 @@ in
     };
   };
 
-  # Polls every mlxAutoStopPollIntervalSec for mlxAutoStopWatchedProcesses
-  # (see the `let` block above) and stops mlx-openai-server if one is found
-  # running, so it doesn't hold GPU/unified memory against apps that need it
-  # (e.g. DaVinci Resolve). `mlx status` and `mlx start` (nix/pkgs/mlx) bring
-  # it back manually; search-mail/pi-overnight bring it back on demand.
-  # tiger's SMB shares, mounted at login so they sit under Locations in the
-  # Finder sidebar (and on the Desktop) without a Cmd+K every session. Reruns
-  # every five minutes, which also covers reconnects after a network drop,
-  # sleep, or a manual eject.
+  # configd rewrites resolv.conf on joining a network and on wg-home coming
+  # up, so a reconnect lands in seconds rather than waiting out StartInterval.
+  # Named by its real path because /etc/resolv.conf is a symlink and launchd
+  # watches the node it is handed.
   launchd.agents.smb-tiger-mount = {
     enable = true;
     config = {
       Label = "org.ondy.smb-tiger-mount";
       ProgramArguments = [ (lib.getExe smbMount) ];
       RunAtLoad = true;
-      StartInterval = 300;
+      StartInterval = 60;
+      WatchPaths = [ "/var/run/resolv.conf" ];
       ProcessType = "Background";
       StandardOutPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
       StandardErrorPath = "${config.home.homeDirectory}/Library/Logs/smb-tiger.log";
     };
   };
 
+  # Polls every mlxAutoStopPollIntervalSec for mlxAutoStopWatchedProcesses
+  # (see the `let` block above) and stops mlx-openai-server if one is found
+  # running, so it doesn't hold GPU/unified memory against apps that need it
+  # (e.g. DaVinci Resolve). `mlx status` and `mlx start` (nix/pkgs/mlx) bring
+  # it back manually; search-mail/pi-overnight bring it back on demand.
   launchd.agents.mlx-auto-stop = {
     enable = true;
     config = {

@@ -138,26 +138,16 @@
   };
 
   # Finder sidebar favourites, see nix/modules/darwin_modules/finder-sidebar.nix
+  # tiger's shares mount -o nobrowse (see home.nix), so they never appear under
+  # Locations. Their parent is pinned rather than the mountpoints themselves: a
+  # Favorite stores a bookmark carrying volume identity, not a path, and
+  # resolving one recorded in the opposite mount state segfaults mysides, which
+  # would abort this whole list. ~/mounts is never itself a mountpoint.
   systemFoundry.finderSidebar.folders = [
     "${config.users.users.kyle.home}/screenshots"
     "${config.users.users.kyle.home}/photos"
+    "${config.users.users.kyle.home}/mounts"
   ];
-
-  # tiger's SMB shares mount at login; the agent that does it lives in home.nix
-  # so it runs as kyle rather than root (see the comment there). All that is
-  # left here is the mount points and the secret it reads.
-  #
-  # /Volumes is root-owned, so kyle cannot create these. Handing them to kyle
-  # up front is what lets an unprivileged mount_smbfs land on them. They sit
-  # empty when nothing is mounted, which Finder ignores.
-  system.activationScripts.postActivation.text = lib.mkAfter ''
-    for mountpoint in /Volumes/tiger-data /Volumes/tiger-photos; do
-      if [ ! -d "$mountpoint" ]; then
-        mkdir -p "$mountpoint"
-      fi
-      chown kyle:staff "$mountpoint"
-    done
-  '';
 
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   homebrew = {

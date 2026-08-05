@@ -93,21 +93,49 @@ Cmd+Tab in its preferences.
 
 ## tiger's SMB Shares
 
-Two shares mount at login and show up under Locations in the Finder sidebar:
+Two shares mount whenever tiger is reachable:
 
-- **/Volumes/tiger-data** - `/mnt/data` on tiger, general files.
-- **/Volumes/tiger-photos** - `/mnt/photos` on tiger, the photo dump. Anything
+- **~/mounts/tiger-data** - `/mnt/data` on tiger, general files.
+- **~/mounts/tiger-photos** - `/mnt/photos` on tiger, the photo dump. Anything
   written by hand into a shoot directory this laptop also holds disappears on
   the next `backup-photos`, which mirrors those directories with `--delete`.
   Shoots the laptop does not hold are never touched. Finder also litters
   `.DS_Store` files here; the sync excludes them rather than propagating them.
 
-No manual setup. The `smb-tiger-mount` launch agent (`home.nix`) mounts whatever
-is not mounted, at login and every five minutes after, which also covers
-reconnects after sleep or a network drop. It logs to
-`~/Library/Logs/smb-tiger.log`.
+They do not appear under Locations or on the Desktop. The mounts are
+`-o soft,nobrowse,automounted`, which takes Finder out of the loop: a browsable
+hard mount that loses its server produces the "Server connections interrupted"
+panel and stalls every app that walks it, which happened on every trip away
+from home. `soft` makes file system calls fail in seconds instead of blocking.
 
-Two things about it are less obvious than they look:
+Reach them through the **mounts** Favorite in the Finder sidebar. The parent is
+pinned rather than the two mountpoints because a sidebar Favorite stores a
+bookmark carrying volume identity, not a path. A bookmark recorded while a
+share was mounted segfaults `mysides list` once it is unmounted, and vice
+versa, which would abort the sidebar agent before it added anything at all:
+
+```
+$ mysides add tiger-data "file:///Users/kyle/mounts/tiger-data/"
+$ mysides list >/dev/null; echo $?      # mounted
+0
+$ umount ~/mounts/tiger-data
+$ mysides list >/dev/null; echo $?      # unmounted
+139
+```
+
+No manual setup. The `smb-tiger-mount` launch agent (`home.nix`) runs at login,
+every 60 seconds, and whenever `/var/run/resolv.conf` changes, which is
+configd's signal for joining a network or bringing up `wg-home`. Each run does
+one of two things:
+
+- tiger answers on 445: mount whatever is not mounted.
+- tiger does not answer: `umount -f` whatever is still mounted, and do not
+  attempt a mount at all.
+
+It logs to `~/Library/Logs/smb-tiger.log` and says nothing unless it mounted or
+unmounted something.
+
+Three things about it are less obvious than they look:
 
 - **It lives in `home.nix`, not `configuration.nix`.** nix-darwin's
   `launchd.agents` bootstraps into the system domain and runs as root, which
@@ -119,15 +147,22 @@ Two things about it are less obvious than they look:
   becomes a login-time password dialog. Repairing that needs the macOS login
   password passed to `security set-internet-password-partition-list -k`, which
   is worse than what it fixes.
+- **It probes port 445 before doing anything else.** `mount_smbfs` against an
+  unreachable server burns its own connection timeout on every run. The probe
+  is wrapped in `timeout` because `nc -z` hangs in `getaddrinfo`, not
+  `connect(2)`, and away from home this name resolves only through the UDM.
 
-The mount points are created by an activation script in `configuration.nix`,
-since /Volumes is root-owned and the agent is not.
+The mountpoints are under `~/mounts` rather than `/Volumes` because unmounting
+deletes a `/Volumes` mountpoint, and `/Volumes` is root-owned, so an agent
+running as kyle could not recreate one. The share name still sets the volume
+name Finder shows.
 
 tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
 10.24.89.0/24 and tiger on 10.25.89.0/24, and mDNS does not cross subnets.
+Away from home nothing resolves that name until `wg-home` is up
+(`wireguard.nix`).
 
-If the volumes mount but never appear in the sidebar, check Finder -> Settings
--> Sidebar -> Locations -> Connected servers.
+If a Favorite opens an empty folder, nothing is mounted; check the log.
 
 ## Photo Import
 
