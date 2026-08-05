@@ -29,6 +29,9 @@ let
 
   pushUnit = dataset: prefix: {
     description = "Push ${dataset} to the offsite archive bucket";
+    # A cold push of tank/photos is 508G against the 2MB/s cap, so this runs
+    # for days. Activation must not stop a sync in flight.
+    restartIfChanged = false;
     environment = {
       ARCHIVE_BUCKET = archiveBucket;
       AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.archive_push_aws_credentials.path;
@@ -36,9 +39,13 @@ let
       AWS_PROFILE = "archive-push";
     };
     serviceConfig = {
+      # exec, not oneshot: a oneshot's start job stays pending for the whole
+      # run, and switch-to-configuration blocks on any start job it issues. A
+      # stale /run/nixos/start-list, left behind by an interrupted switch, is
+      # enough to make it issue one.
+      Type = "exec";
       # root because the received tree carries tiger's ownership and this has
       # to read all of it.
-      Type = "oneshot";
       User = "root";
       ExecStart = "${pkgs.s3-archive-push}/bin/s3-archive-push ${dataset} ${prefix}";
     };
@@ -56,13 +63,17 @@ let
   # write delete markers: svc.archive-prune holds no DeleteObjectVersion.
   pruneUnit = dataset: prefix: {
     description = "Reconcile and prune ${prefix}/ in the offsite archive bucket";
+    # Runs for hours against the same uplink. Activation must not stop a
+    # reconcile in flight.
+    restartIfChanged = false;
     environment = {
       ARCHIVE_BUCKET = archiveBucket;
       AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.archive_prune_aws_credentials.path;
       AWS_PROFILE = "archive-prune";
     };
     serviceConfig = {
-      Type = "oneshot";
+      # exec for the same reason as pushUnit.
+      Type = "exec";
       User = "root";
       ExecStart = "${pkgs.s3-archive-reconcile}/bin/s3-archive-reconcile --prune ${dataset} ${prefix}";
     };
