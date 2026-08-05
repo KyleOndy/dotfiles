@@ -61,6 +61,30 @@ in
                 summary: "Instance {{ $labels.instance }} is down"
                 description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 5 minutes."
 
+            # up{host="X"} is pushed by X's own vmagent, so an off or
+            # unreachable host drops the series rather than setting it to 0,
+            # leaving InstanceDown matching nothing. trex is excluded on
+            # purpose: it is dark about two thirds of the time. One rule per
+            # host with an equality matcher, because a regex matcher fires
+            # only once every host it matches is gone and carries no labels.
+            - alert: HostAbsent
+              expr: absent(up{host="cogsworth"})
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "{{ $labels.host }} has stopped reporting"
+                description: "No up series exists for {{ $labels.host }} at all, so the host is powered off, off the network, or its vmagent is dead. Check power and link first, then `systemctl status vmagent` on the host. A deploy reboot longer than 10 minutes also lands here."
+
+            - alert: HostAbsent
+              expr: absent(up{host="pika"})
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "{{ $labels.host }} has stopped reporting"
+                description: "No up series exists for {{ $labels.host }} at all, so the host is powered off, off the network, or its vmagent is dead. Check power and link first, then `systemctl status vmagent` on the host. A deploy reboot longer than 10 minutes also lands here."
+
         # Systemd service health
         - name: systemd_health
           interval: 30s
