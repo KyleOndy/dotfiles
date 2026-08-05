@@ -83,8 +83,10 @@ in
           printf '# TYPE arr_queue_janitor_last_run_timestamp_seconds gauge\n'
         } > "$OUTFILE.tmp"
 
+        # index()==1 is the anchor; a "^" here would be matched literally and
+        # every lookup would miss, resetting the counter on each run.
         prior_metric() {
-          awk -v pat="^$1{app=\"$2\"} " '
+          awk -v pat="$1{app=\"$2\"} " '
             index($0, pat) == 1 { print $2 }
           ' "$OUTFILE" 2>/dev/null || true
         }
