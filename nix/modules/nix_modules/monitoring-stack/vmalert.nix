@@ -427,8 +427,9 @@ in
         # Freshness is measured the same way on both ends, so the pair says
         # which end broke. Stale on pika alone is replication; stale on both
         # is sanoid on tiger. Nothing here watches a syncoid exit code, for
-        # the reason the doc gives at :439 and the ordering below encodes:
-        # a leg that never runs never fails.
+        # the reason the doc gives under "Why none of it watches an exit
+        # code", which the ordering below encodes: a leg that never runs
+        # never fails.
         - name: backup_replication
           interval: 60s
           rules:

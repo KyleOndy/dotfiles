@@ -1,34 +1,33 @@
 # Backup strategy
 
-Three copies, two places, one offsite. tiger holds the live primary, an
-ODROID-H2 pulls a second local copy, and S3 Glacier Deep Archive holds
-the offsite one.
+Three copies, two places, one offsite. tiger holds the live primary, pika
+pulls a second local copy, and S3 Glacier Deep Archive holds the offsite
+one.
 
-This document is the design and the reasoning. Nothing in it is deployed
-yet except the parts marked as already working.
+This document is the design, the reasoning, and what is actually running.
+Anything not yet built is under [What is left](#what-is-left).
 
-State as measured 2026-07-25. The numbers go stale; the shape does not.
+State as measured 2026-08-04. The numbers go stale; the shape does not.
 
 ## Scope
 
 In scope, and the only things in scope:
 
-- `storage/photos`, 531G used, 333G referenced. The curated photo
-  library plus `_provisional`.
-- `storage/backups`, 650G used, 534G referenced. `kristen` (185G),
-  `kyle` (75G), `videos` (34G), `apps` (25G).
+- `storage/photos`, 513G used, 327G referenced. The curated photo library
+  plus `_provisional`.
+- `storage/backups`, 650G used, 319G referenced. `kristen`, `kyle`,
+  `videos`, `apps`.
 
-That is ~1.18 TB of full ZFS send once tiger's snapshot history comes
-along, and ~700 GB of current files for the S3 tier.
+That is ~1.12 TB on pika once tiger's snapshot history comes along, and
+637 GB of current files across 157,301 objects for the S3 tier.
 
 Out of scope, deliberately:
 
 - **`storage/media`** (4.34T). Re-acquirable. Not worth the drives.
-- **`storage/immich`** (334G). The 233G of uploaded originals are being
-  deleted out of band. Immich becomes a read-only view of the curated
-  archive through `externalLibraryPaths`, which `immich.nix:119-121`
-  already enforces with `ReadOnlyPaths`. Once that lands, immich holds no
-  originals and needs no backup.
+- **`storage/immich`** (334G). Immich is a read-only view of the curated
+  archive through `externalLibraryPaths`, which `immich.nix:118-121`
+  enforces with `ReadOnlyPaths`. It holds no originals, so it needs no
+  backup. It is a projection of tier 1, not a source.
 - **tiger's root disk.** jellyfin, navidrome, sabnzbd, prowlarr, the
   \*arrs, and the monitoring stack are all rebuildable from the flake.
 - **`storage/scratch-big`, `scratch/scratch`, `storage/data`.** Scratch is
@@ -47,140 +46,72 @@ datasets. That is a deliberate constraint, not a limitation. It means the
 question "is this backed up?" has a one-word answer you can check with
 `zfs list`, instead of an audit.
 
-## Where we actually are
+### Writers into storage/backups
 
-The gap between the intent and the reality, measured rather than assumed.
+A Windows PC mirrors `Documents`, `Pictures` and `Desktop` into
+`/mnt/backups/kristen-data` over SMB, on a nightly scheduled task. See
+[windows-backup.md](windows-backup.md).
 
-| Data                           | Size  | Snapshotted | Offsite           |
-| ------------------------------ | ----- | ----------- | ----------------- |
-| `storage/photos` archive       | 7.7G  | yes         | yes, 935 objects  |
-| `storage/photos` \_provisional | 321G  | yes         | partial, drifted  |
-| `/mnt/backups/kristen`         | 185G  | yes         | **no**            |
-| `/mnt/backups/kyle`            | 75G   | yes         | **no**            |
-| `/mnt/backups/videos`          | 34G   | yes         | **no**            |
-| `/mnt/backups/apps`            | 25G   | yes         | **no**            |
-| `storage/immich`               | 334G  | **no**      | no (out of scope) |
-| `storage/media`                | 4.34T | **no**      | no (out of scope) |
+It gets one thing the other writers do not: its own freshness alert. Every
+other tier here is driven by a systemd timer on a host we control, so
+absence is measurable from the inside. The Windows push is not, so the
+client writes a heartbeat file on success and tiger alerts on its age. Any
+future writer that lives off-fleet needs the same treatment.
 
-So 319G of irreplaceable data has exactly one copy, and it sits on the
-least trustworthy hardware in the house. More on that in the risks.
-
-### The `_provisional` drift
-
-`_provisional` is in S3, and it has quietly fallen behind:
+## Architecture
 
 ```
-local, non-RAF:   50,863 files    298.3 GiB
-in S3:            50,797 objects  219.0 GiB
-gap:                  66 objects   ~79 GiB
-```
-
-The extension histogram says `_provisional` holds exactly 66 `.mov`
-files. The missing objects are the videos, roughly 1.2 GiB each.
-
-This is not a bug in `photos-fanout`. Read its header comment: fanout
-handles `archive/` from tiger, and the laptop's `backup-photos --s3` owns
-`_provisional/`. The division is intentional. The problem is that
-`backup-photos` is a manual script, and it last ran around Aug 2025.
-
-The fix is to stop depending on a human. `_provisional` moves onto the
-automated tiger-side schedule.
-
-### The silent skip
-
-Every run of `photos-fanout` ends like this:
-
-```
-External HDD not mounted at /mnt/photos-external, skipping that copy.
-Fan-out complete!
-```
-
-Exit code 0. `photos-fanout.sh:53-55` treats the external HDD as best
-effort, and best effort with no alerting is indistinguishable from not
-trying. This has been the state for at least months.
-
-The ODROID supersedes that leg entirely, so we delete it rather than fix
-it.
-
-### No backup alerting at all
-
-`monitoring-stack/vmalert.nix` carries 48 rules. None mentions backup,
-snapshot, sanoid, scrub, or zpool health. ZFS appears twice, only as
-`node_zfs_arc_size` being subtracted out of memory-pressure math.
-
-`SystemdServiceFailed` looks like coverage and is not. A `oneshot` that
-never runs never enters `failed`. A disabled timer, a misfire, a host
-that was down at the trigger: all invisible.
-
-Every backup alert has to be absence-based. Alert on the lack of a fresh
-success, not on the presence of an error.
-
-### The offsite copy is deletable
-
-`tf/photos-backup.tf:215-217` grants the `svc.photos-backup` credential
-`s3:PutObject`, `s3:DeleteObject`, and `s3:DeleteObjectVersion`. That
-credential lives on tiger at
-`/run/secrets/photos_backup_aws_credentials`.
-
-A compromised tiger can therefore permanently destroy the offsite copy,
-versions included. Bucket versioning does not save you from a principal
-that can delete versions.
-
-Every sync leg also runs `--delete` (`photos-fanout.sh:32`, `:37`,
-`:52`). A local `rm` propagates to S3 within a day.
-
-### The 216G that looks like a backup
-
-`/mnt/backups/photos-backup` is 216G, and it is a stale copy of the photo
-tree: same `helios.db`, same `infra/`, same `archive/` and
-`_provisional/`, last touched Aug 2025.
-
-It is on the same pool as the original. It buys no redundancy. It eats
-216G of a pool at 80% capacity.
-
-## Target architecture
-
-```
-tiger (DMZ)                  odroid (LAN)                AWS
------------                  ------------                ---
+tiger (DMZ)                  pika (LAN)                  AWS
+-----------                  ----------                  ---
 storage/photos    --send-->  tank/photos     --sync-->   Deep Archive
 storage/backups   --send-->  tank/backups    --sync-->   Deep Archive
 
-raidz1, 3x 4TB SMR           mirror, 2x SATA HDD         versioned
-sanoid                       sanoid, longer retention    put-only IAM
+raidz1, 3x 4TB SMR           mirror, 2x 6TB SATA         versioned
+sanoid, snapshots            sanoid, prune only          put-only IAM
 80% full                     NVMe root, on UPS           no --delete
 ```
 
 Read the arrows as trust, not just data. Every arrow is initiated by the
 host on its right.
 
-tiger holds no credential for the ODROID and no credential for AWS. The
-ODROID pulls from tiger and pushes to S3. If tiger is compromised, the
-blast radius is tiger.
+tiger holds no credential for pika and no credential for AWS. pika pulls
+from tiger and pushes to S3. If tiger is compromised, the blast radius is
+tiger.
+
+That property is the reason the topology is worth the second host at all,
+and it is the thing to check first when changing anything here.
 
 ## Tier 1: tiger
 
-Nothing structural changes here in the near term, and that is the point.
-You do not rebuild the only copy. tiger gets touched after the ODROID
-holds a verified second copy, not before.
+tiger does not get restructured. You do not rebuild the only writable copy
+of the data.
 
-Sanoid stays as configured (`tiger/configuration.nix:88`), covering
-`storage/backups` (hourly 4, daily 31, monthly 24, yearly 10) and
-`storage/photos` (daily 8, monthly 12). `autoScrub` is on at
-`:85`, `autoSnapshot` off at `:86`.
+Sanoid runs at `tiger/configuration.nix:98`, covering `storage/backups`
+(hourly 4, daily 31, monthly 24, yearly 10) and `storage/photos` (daily 8,
+monthly 12, yearly 10). `autoScrub` is on at `:95`, `autoSnapshot` off at
+`:96`.
+
+`storage/photos` carries `yearly = 10` so that pika's own `yearly = 10` has
+something to hold. sanoid on pika prunes and never creates, so a retention
+tier tiger does not produce is a tier pika cannot keep.
 
 The unsnapshotted datasets are a decision, recorded here so it reads as
 one: `storage/media` and `storage/scratch-big` are replaceable,
 `storage/data` is empty, `scratch/scratch` is scratch, and
-`storage/immich` is on its way out.
+`storage/immich` is a projection.
 
-The pools were created by hand and are not declared in Nix. The `zfs
-create` invocation is recorded at `tiger/configuration.nix:200`, and the
-`acltype=posixacl` that `storage/photos` needs is at `:284-286`. The
-`disko` input was removed in `e94efb4e`, so this stays manual. Any new
-dataset needs the same treatment.
+The pools were created by hand and are not declared in Nix. The `disko`
+input was removed in `e94efb4e`, so this stays manual, and any new dataset
+needs the same treatment.
 
-### Delegating send to the ODROID
+What is recorded is partial: the `zfs create` for `storage/immich` at
+`tiger/configuration.nix:240`, and the `acltype=posixacl` that
+`storage/photos` needs at `:326-328`. The `zpool create` that made
+`storage` itself is written down nowhere. Rebuilding tiger means
+reconstructing it from `zpool history` on a pool that, in the scenario
+where you need this, no longer exists. Worth fixing before it is needed.
+
+### Delegating send to pika
 
 Pull needs no write permission on tiger at all:
 
@@ -189,164 +120,114 @@ zfs allow -u svc.syncoid send,hold,release storage/photos
 zfs allow -u svc.syncoid send,hold,release storage/backups
 ```
 
-The `svc.backup` and `svc.syncoid` accounts already exist as locked
-placeholders at `tiger/configuration.nix:141-165`. The comment at `:157`
-proposes `receive,create,mount,destroy,snapshot,hold`, which is push
-semantics from when the plan pointed the other way. Pull is
-`send,hold,release` and nothing more.
+That runs as a systemd unit at `tiger/configuration.nix:188` rather than by
+hand, because `zfs allow` lives in dataset properties and a recreated
+dataset would silently drop it. It is idempotent, so it reapplies on every
+activation.
 
 Snapshot creation stays with sanoid on tiger, so syncoid runs with
 `--no-sync-snap` and never needs the `snapshot` verb.
 
-## Tier 2: the ODROID
+## Tier 2: pika
 
-Hardware we already own, boxed up since 2023. Three ODROID-H2 boards ran
-as `w1`, `w2` and `w3` until `58aed155` retired them. Each is a quad-core
-Celeron J4105 with 32GB of DDR4, a 500GB NVMe, and two SATA3 ports fed
-from the board's own 15V supply.
+An ODROID-H2 on the LAN. Quad-core Celeron J4105, 32GB of DDR4, a 500GB
+NVMe root, and two SATA3 ports fed from the board's own 15V supply. One of
+three boards that ran as `w1`, `w2` and `w3` until `58aed155` retired them,
+which means an identical spare sits on the shelf and a dead backup host is
+a ten minute swap rather than a project.
 
-That is a small x86 server, not a hobby board, and it changes the shape
-of this tier. The Pi plan this replaces spent most of its length working
-around 4GB of RAM and a USB-SATA bridge. Neither problem exists here.
+The pool is a mirror of two shucked WDC WD60EDAZ-11U78B0, 6TB 5400rpm.
+1.12T used of 5.3T. Board and both drives are on a UPS: brownout during a
+write is the cleanest way to fault a pool, and one 15V brick carries all of
+it, so there is exactly one thing to protect.
 
-Two WD externals get shucked onto the SATA ports as a mirror. Root stays
-on the NVMe. All of it on a UPS.
+The J4105 has no ECC support. Neither did the Pi this plan replaced, and
+ZFS on non-ECC memory is no worse off than any other filesystem would be.
+Recorded rather than solved.
 
-The UPS matters more than it sounds. Brownout during a write is the
-cleanest way to fault a pool, and now one 15V brick carries the board and
-both drives, so there is exactly one thing to protect.
-
-The J4105 has no ECC support. Neither did the Pi, and ZFS on non-ECC
-memory is no worse off than any other filesystem would be. Recorded
-rather than solved.
+Provisioning is not in Nix. The full sequence, from the nixos-anywhere
+kexec through partitioning to `zpool create`, is recorded in the comment at
+the foot of `pika/configuration.nix:324`.
 
 ### Isolation comes from the router
 
-tiger sits in the DMZ. The ODROID sits on the LAN. The DMZ cannot
-initiate connections to the LAN.
+tiger sits in the DMZ. pika sits on the LAN. The DMZ cannot initiate
+connections to the LAN.
 
 That is a stronger guarantee than an SSH forced-command, because it is
-enforced by a device that is not the one we are defending against. The
-ODROID opens every connection: syncoid pulls from tiger, vmagent and
-promtail push metrics and logs to tiger, and the S3 sync goes straight
-out.
+enforced by a device that is not the one we are defending against. pika
+opens every connection: syncoid pulls from tiger, vmagent and promtail push
+metrics and logs to tiger, and the S3 sync goes straight out.
+
+pika also takes nothing from tiger as a binary substituter.
+`deployment_target.nix:102` hands every NixOS node
+`trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ]`, and
+`pika/configuration.nix:118` forces that list empty. pika is the host that
+insures against tiger, so it accepts no store paths from it.
 
 ### Two flags that would undo all of it
 
 **Never `zfs recv -F`. Never `syncoid --force-delete`.**
 
 Both make the receiving side roll back or destroy datasets to match the
-source. A compromised tiger cannot reach the ODROID, but it can
-absolutely answer a request the ODROID made. Those two flags turn that
-answer into a wipe of the second copy.
+source. A compromised tiger cannot reach pika, but it can absolutely answer
+a request pika made. Those two flags turn that answer into a wipe of the
+second copy.
 
-### Host configuration
+The NixOS syncoid module defaults to neither, and nothing in
+`pika/configuration.nix` adds them.
 
-- **Register with `mkLinuxSystem`, x86_64.** The same builder line tiger
-  uses at `flake.nix:639`, not cogsworth's `nixos-raspberrypi` block. No
-  device tree, no sd-image, no vendor kernel. `w1`'s old
-  `hardware-configuration.nix` still describes the board and is one
-  command away:
-  ```bash
-  git show 58aed155^:nix/hosts/w1/hardware-configuration.nix
-  ```
-  `ahci`, `nvme`, `kvm-intel`, systemd-boot, and two NICs at `enp2s0` and
-  `enp3s0`.
-- **It builds itself.** Set `remoteBuild = true` on the deploy-rs
-  profile. The Pi plan said "build on trex" to keep tiger out of the
-  supply chain, and that does not survive an x86 target: trex's
-  Determinate VM builder is aarch64-linux, and the only x86_64-linux
-  build machine it knows about is tiger (`trex/configuration.nix:35-49`).
-  Four cores and 32GB builds its own closure without complaint.
-- **Drop tiger from the substituters.** `deployment_target.nix:102` hands
-  every deployment target
-  `trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ]`.
-  Left in place it gives tiger the supply-chain path we just closed. This
-  host takes `cache.nixos.org` and nothing else.
-- **`networking.hostId` is required for ZFS.** tiger has one at `:71`,
-  cogsworth has none. Easy to miss.
-- **No ARC cap.** Pinning `zfs_arc_max` was sizing for 4GB of RAM. With
-  32GB the 50% default lands at 16GB, and nothing else on the box wants
-  memory. The metadata for a 1.18 TB pool fits outright, which is what
-  makes scrubs and syncoid deltas quick.
-- **`compression=lz4`, not zstd.** Not for CPU reasons any more. JPEG,
-  RAF and MOV do not compress, so zstd buys ratio we are never going to
-  see.
-- **`dedup=off`, `atime=off`, `xattr=sa`, `acltype=posixacl`.** The last
-  one matches what `storage/photos` got by hand on tiger.
-- **Received datasets get `readonly=on`.**
-- **Monthly `services.zfs.autoScrub`.**
-- **Its own sanoid, with retention at least as long as tiger's.** The
-  invariant: ODROID retention >= tiger retention, always. Proposed daily
-  30 / monthly 24 / yearly 10 against tiger's `storage/photos` daily 8 /
-  monthly 12. If the ODROID ever holds less history than tiger, tiger
-  pruning an old snapshot cascades into the backup.
-- **Monitoring in agent mode:** vmagent, promtail, node_exporter, plus
-  `zfsExporter`. Copy cogsworth's block. All of it pushes outward, which
-  is why it works across the DMZ boundary, and which is what makes
-  absence-based alerting possible when the ODROID is the thing that died.
-- **sops:** derive a new age key from the host's SSH key and enroll it.
-  The recipe is in `.sops.yaml`'s own comments:
-  ```bash
-  nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
-  sops -r updatekeys ./nix/secrets/secrets.yaml
-  ```
-- **deploy-rs node** alongside cogsworth's and tiger's, with
-  `(deployRsLib "x86_64-linux").activate.nixos`.
+### Received datasets are readonly
 
-### Shucking the drives
+`recvOptions = "o readonly=on"` on both legs, set on receive rather than by
+hand afterwards, so it is true from the first stream rather than from
+whenever someone remembered.
 
-The WD externals come apart. A small adapter PCB plugs onto the drive's
-own SATA connector and pulls straight off, so what is inside is an
-ordinary SATA drive.
+This one has a trap worth recording. A property named in `recvOptions` must
+also appear in `localTargetAllow`, or `zfs recv` logs a permission error per
+stream, skips the property, and still exits 0. The receive succeeds, the
+dataset is writable, and nothing reports it. `localTargetAllow` is trimmed
+to `create,mount,readonly,receive,rollback`: the module default also grants
+`change-key`, `compression` and `mountpoint`, and nothing here sends raw
+encrypted or raw compressed streams.
 
-Two things to get right:
+Verify with `zfs get readonly tank/photos tank/backups`, not by reading the
+config.
 
-- **Pin 3.** WD white-labels implement the SATA power-disable feature. A
-  supply that puts 3.3V on pin 3 holds the drive in reset and it never
-  spins up. The board's 4-pin power header carries 5V, ground and 12V
-  only, so this should solve itself. Confirm with a meter before blaming
-  the drive.
-- **Spin-up current.** Hardkernel rates the board at 4W idle and 22W
-  stressed on a 15V/4A brick. Two 3.5" drives pull roughly 24W each for
-  the first few seconds. That is close enough to 60W to measure rather
-  than assume. Rev B added a "12V SATA power source improvement for high
-  power HDDs", which reads like an admission that rev A was marginal.
+### Retention must be longer on pika than on tiger
 
-What we get back pays for the fuss. AHCI passes SMART through, so the
-`smartctl_device_smart_healthy` textfile collector at
-`deployment_target.nix:145-162` covers these drives with no new
-machinery. No bridge means no resets under sustained write and no
-guessing about whether cache flushes are honoured.
+The invariant: pika retention >= tiger retention, always.
 
-If the power budget does not hold, the fallback is both drives back in
-their enclosures on USB3. That costs us SMART and brings the bridge
-resets back, which is a good reminder that the ZFS checksums are earning
-their keep either way. Measure before deciding.
+```
+             tiger                        pika
+tank/backups hourly 4, daily 31,          hourly 4, daily 60,
+             monthly 24, yearly 10        monthly 36, yearly 15
+tank/photos  daily 8, monthly 12,         daily 30, monthly 24,
+             yearly 10                    yearly 10
+```
 
-### Mirror now, rotation later
+sanoid on pika has `autosnap = false`. It prunes and never creates. If it
+ever prunes faster than tiger does, tiger dropping an old snapshot cascades
+into the backup and the second copy quietly becomes a mirror of the first
+rather than a longer history of it.
 
-Two drives in a mirror covers one failure mode: a drive dying. It does
-not cover the board's PSU, a mistyped `zfs destroy`, or a fire.
+### A received dataset does not mount itself
 
-The better long-term answer is a third drive that gets synced, detached,
-and stored somewhere else. That is a later phase. Mirror first, because
-it is the fastest route to a real second copy and it needs no habit we
-have not tested.
+`zfs recv` leaves a newly created dataset unmounted even with `canmount=on`
+and a mountpoint set. It mounts on the next boot, or when someone runs
+`zfs mount`.
 
-Two SATA ports means two drives in the pool, full stop. The rotating
-drive attaches over USB3, which is fine. It sits outside the pool at
-rest, and a slow transport on a monthly job is not the constraint.
+That matters because `aws s3 sync` against an empty mountpoint is
+indistinguishable from a healthy run that had nothing to do. Both push and
+reconcile check `zfs get mounted` first and exit non-zero, which turns the
+silent case into a failed unit and a firing alert.
 
-The other two boards stay on the shelf. An identical spare turns a dead
-backup host into a ten minute swap instead of a project, and that is
-worth more here than on any other machine in the house.
-
-When the rotating drive arrives, it needs its own staleness alert.
-"Offline copy older than N days" has to page, or the rotation quietly
-stops happening and we will not find out.
+Seen once for real, on the first receive of `tank/backups`.
 
 ## Tier 3: Glacier Deep Archive
+
+Bucket `ondy-archive-resolved-pug`, two prefixes, `photos/` and
+`backups/`. Defined in `tf/archive-backup.tf`.
 
 Plain files, `aws s3 sync`, no restic.
 
@@ -356,148 +237,216 @@ takes away is the thing that matters most for family photos: anyone with
 the bucket credentials and a browser can get them out. An encrypted repo
 needs the tool plus a password that has to outlive me.
 
-For irreplaceable photos, recoverable-by-a-non-technical-person wins.
+For irreplaceable photos, recoverable-by-a-non-technical-person wins. Same
+reasoning drives SSE-S3 over client-side or SSE-C: a key that must survive
+the event this bucket exists for is the same problem twice.
 
-### Fixes to the existing pipeline
+One bucket rather than two. The prefixes have identical policy, get
+restored together, and share a credential. Two buckets with identical
+policy is two things to drift.
 
-**Drop `--delete` from every leg.** At $0.00099/GB-month, keeping deleted
-objects around forever costs less than the risk of propagating an `rm`.
-Pruning becomes a deliberate, rare, manual reconciliation.
+### Storage class is set on the PUT
 
-**Strip delete from the IAM policy.** After dropping `--delete`, the
-credential needs:
+`s3-archive-push` passes `--storage-class DEEP_ARCHIVE`. There are no
+lifecycle transition rules anywhere in `tf/archive-backup.tf`.
 
-```
-s3:PutObject
-s3:GetObject
-s3:ListBucket
-s3:GetBucketLocation
-```
+Transitions have refused to move objects under 128 KB since September 2024
+([lifecycle transition constraints](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html#lifecycle-configuration-constraints)).
+Under a transition-based rule every sidecar and small JPEG would sit in
+Standard forever at 23x the price, and nothing would report it. Setting the
+class at PUT time also avoids a transition request per object.
 
-and nothing else. Remove `s3:DeleteObject` and `s3:DeleteObjectVersion`
-from `tf/photos-backup.tf:215-217`. A compromised host then cannot
-destroy the offsite copy at all, current or noncurrent.
+### Two credentials, split on one verb
 
-**Extend coverage.** `_provisional` moves onto the automated tiger-side
-schedule, which closes the 66-object drift. `/mnt/backups/{kristen,kyle,
-videos,apps}` gets added, which is the 319G that has no offsite copy
-today. Each new prefix needs its own lifecycle rule; the header at
-`tf/photos-backup.tf:20-24` already explains why a catch-all `filter {}`
-is wrong here (it double-transitions the Standard-IA objects).
+A simple DELETE against a versioned bucket cannot destroy anything. It
+inserts a delete marker and the data survives as a noncurrent version.
+Permanent removal requires DELETE with a `versionId`, gated by
+`s3:DeleteObjectVersion`
+([deleting object versions](https://docs.aws.amazon.com/AmazonS3/latest/userguide/DeletingObjectVersions.html#delete-request-use-cases)).
 
-**Delete the external HDD leg.** `photos-fanout.sh:50-55` goes away. The
-ODROID does that job properly.
+So no host in the fleet holds `s3:DeleteObjectVersion`.
 
-**Include the RAF files.** 752 files, 22.4 GiB in `_provisional`,
-currently excluded by `photos-fanout.sh:32` on the reasoning at
-`helios/README.md:65-67` that raws are a local edit cache. At Deep
-Archive rates the exclusion saves about $0.02/month. Keep the raws.
+| Credential          | Verbs                            | Used by                    |
+| ------------------- | -------------------------------- | -------------------------- |
+| `svc.archive-push`  | ListBucket, GetObject, PutObject | daily push, restore drills |
+| `svc.archive-prune` | ListBucket, DeleteObject         | weekly prune               |
 
-**Move the sync to the ODROID.** No AWS credential on tiger at all. See
-open decisions.
+A fully compromised pika can write 157,301 delete markers and destroy zero
+bytes. Permanent removal is exclusively the lifecycle rule, running as S3
+rather than as anything holding a key.
+
+MFA Delete would give a similar property and was considered. It is
+incompatible with having any lifecycle configuration at all
+([lifecycle configuration constraints](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html)),
+and the noncurrent expiry below is what keeps this affordable, so the IAM
+split does the job instead.
+
+### Pruning
+
+`noncurrent_version_expiration` at 180 days, plus
+`expired_object_delete_marker` and a 7 day
+`abort_incomplete_multipart_upload`.
+
+180 rather than 90 because Deep Archive bills a 180-day minimum and charges
+a prorated early-deletion fee for anything removed sooner
+([Glacier pricing considerations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html#glacier-pricing-considerations)).
+Expiring at 90 costs exactly the same and buys half the undelete window.
+
+The push never passes `--delete`. Orphan removal is a separate weekly job,
+`s3-archive-reconcile --prune`, with the prune credential and a safety
+threshold: if orphans exceed 5% of the objects in the bucket it refuses,
+sets `s3_reconcile_prune_blocked`, and exits non-zero so the unit fails.
+
+A large orphan set almost never means you deleted a lot. It means the
+source listing is wrong, and acting on it would propagate that to the one
+copy that survives the house.
+
+The prune runs on pika, not by hand. A manual reconciliation is a
+reconciliation that never happens, and this repo already has the receipt
+for that: `photos-fanout.sh` skipped its external HDD leg on every run for
+months, exit code 0 each time, because best effort with no alerting is
+indistinguishable from not trying.
+
+### Bandwidth
+
+The uplink measures 24.6 Mbps, so the push is capped at 2 MB/s in
+`/etc/aws/s3-archive-push.conf`. Saturating it fills the modem's buffer and
+takes interactive latency with it.
+
+It is a config file rather than a unit environment variable because awscli
+has no env var for `max_bandwidth`. Measured effect on a concurrent speed
+test: 2.94 MB/s down to 2.30 MB/s.
+
+The seed is therefore slow on purpose. 637 GB at 2 MB/s is about four
+days.
+Steady-state daily deltas are minutes.
+
+### Schedule
+
+| Unit                       | When           |
+| -------------------------- | -------------- |
+| `syncoid-storage-*`        | daily, 00:00   |
+| `s3-archive-push-photos`   | daily, 04:00   |
+| `s3-archive-push-backups`  | daily, 06:00   |
+| `s3-archive-prune-photos`  | Sundays, 05:00 |
+| `s3-archive-prune-backups` | Mondays, 05:00 |
+
+Fixed offsets rather than `After=` ordering on syncoid. A stuck pull should
+delay the push, not cancel it. Two hours between the pushes so the two
+directory walks do not contend for the uplink.
 
 ### Cost
 
-~700 GB of current files, of which 245.8 GB is already uploaded, so the
-incremental push is ~450 GB.
+637 GB of current files across 157,301 objects. Sizes here are binary GB,
+which is how S3 measures storage.
 
-|                     | Deep Archive                              |
-| ------------------- | ----------------------------------------- |
-| Store ~700 GB       | ~$0.69/month                              |
-| Full restore        | ~$65 ($1.75 bulk retrieval + ~$63 egress) |
-| Minimum retention   | 180 days                                  |
-| Per-object overhead | 40 KB (8 KB of it at Standard rates)      |
+|                     | Deep Archive                         |
+| ------------------- | ------------------------------------ |
+| Storage             | ~$0.67/month                         |
+| Full restore        | ~$54                                 |
+| Minimum retention   | 180 days                             |
+| Per-object overhead | 40 KB (8 KB of it at Standard rates) |
+
+Storage breaks down as $0.63 for the data, $0.03 for the 8 KB of
+Standard-rate metadata per object, and half a cent for the rest. Restore is
+$1.59 of bulk retrieval, $3.93 of retrieval requests across 157,301
+objects, and ~$48 of egress after the first 100 GB. The egress dominates,
+which is worth knowing before designing anything around partial
+restores.
 
 Sources: [AWS S3 pricing](https://aws.amazon.com/s3/pricing/) for the
 180-day minimum and the 40 KB metadata charge,
 [Deep Archive rates](https://www.usage.ai/blogs/aws/storage-cost/glacier-deep-archive-pricing/)
 for $0.00099/GB-month storage and $0.0025/GB bulk retrieval.
 
-The only Standard-IA objects in the bucket were four downloaded YouTube
-tutorials under `_projects/2026-learning/tuturials/`, the most expensive
-per byte in the bucket and the most replaceable data in it. `_projects`
-has since been deleted along with its lifecycle rule and both sync legs;
-the orphaned objects still need one `aws s3 rm --recursive
-"s3://$BUCKET/_projects/"`.
+At $0.67/month, cost is not what constrains this tier. Recoverability is.
 
 ## Verification
 
-Four layers. None of it is new machinery; every piece copies a pattern
-already running in this repo.
+Four layers, all in `monitoring-stack/vmalert.nix`.
 
-### 1. Staleness alerts
+### Why none of it watches an exit code
 
-Each backup leg writes a timestamp through the node_exporter textfile
-collector. The directory is already created at
-`deployment_target.nix:50`, and `smartctl-exporter` at `:145-162` is the
-working example to copy.
+`SystemdServiceFailed` looks like coverage and is not. A `oneshot` that
+never runs never enters `failed`. A disabled timer, a misfire, a host that
+was down at the trigger: all invisible.
 
-```
-backup_last_success_timestamp_seconds{job="syncoid-photos"} 1753459200
-```
+Every backup alert here is absence-based. It alerts on the lack of a fresh
+success, not on the presence of an error.
 
-Alert on absence of freshness:
+That also fixes the ordering within each group. Absence rules come before
+staleness rules, because a missing dataset or an empty one deletes the
+timestamp series outright, and `time() - <nothing>` matches nothing at all
+rather than firing.
 
-```
-time() - backup_last_success_timestamp_seconds{job="syncoid-photos"} > 129600
-```
+### 1. Replication freshness, group `backup_replication`
 
-`CalendarSyncStale` and `CalendarSyncCriticallyStale` at
-`vmalert.nix:468` and `:509` are the same shape, already in production.
+| Rule                           | Fires when                                 |
+| ------------------------------ | ------------------------------------------ |
+| `BackupReplicaDatasetMissing`  | no snapshot metrics for a pika dataset, 1h |
+| `BackupReplicaEmpty`           | dataset exists, zero snapshots, 2h         |
+| `BackupReplicaStale`           | newest snapshot older than 36h             |
+| `BackupReplicaCriticallyStale` | newest snapshot older than 72h             |
+| `BackupSourceSnapshotsStale`   | tiger's own snapshots older than 36h       |
 
-Proposed thresholds: daily legs warn at 36h and go critical at 72h. The
-monthly reconciliation warns at 40 days.
+Freshness is measured the same way on both ends, so the pair says which end
+broke. Stale on pika alone is replication. Stale on both is sanoid on
+tiger.
 
-### 2. zpool health and scrub age
+Metrics come from `zfs-snapshot-exporter` in
+`deployment_target.nix:285`, through the node_exporter textfile collector.
 
-Neither exists today, on either host. The `zfs_exporter` is already
-running on tiger (`monitoring-stack/zfs_exporter.nix`, port 9134, all
-pools).
+### 2. Pool health and scrub age, group `zfs_storage`
 
-Alert on any pool not `ONLINE`, and on last-scrub age over 45 days.
+`ZpoolNotOnline`, `ZpoolScrubStale` (45 days), `ZpoolNeverScrubbed`, and
+`ZpoolScrubMetricMissing`.
 
-Note the metric rename recorded in `DASHBOARD_CONVENTIONS.md:413`:
-`zfs_zpool_*` became `zfs_pool_*`, and the `poolname` label became
-`pool`. Easy to write a rule that silently matches nothing.
+That last one is the absence check on the absence check: a host reporting
+`zfs_pool_health` but no `zfs_pool_scrub_end_timestamp_seconds` has lost
+`ZpoolScrubStale` without anyone noticing.
 
-`DASHBOARD_CONVENTIONS.md:133` also lists a `zfs-storage` dashboard. It
-was never built. Build it.
+Note the metric rename recorded in `DASHBOARD_CONVENTIONS.md:429`:
+`zfs_zpool_*` became `zfs_pool_*`, and the `poolname` label became `pool`.
+Easy to write a rule that silently matches nothing.
 
-### 3. Monthly manifest reconciliation
+### 3. Offsite freshness and reconciliation, group `offsite_archive`
 
-Compare local file count and byte total against the bucket, per prefix:
+| Rule                           | Fires when                                    |
+| ------------------------------ | --------------------------------------------- |
+| `S3ArchivePushNeverSucceeded`  | a prefix has no success timestamp at all, 24h |
+| `S3ArchivePushStale`           | last clean sync older than 36h                |
+| `S3ArchivePushCriticallyStale` | last clean sync older than 96h                |
+| `S3ArchiveObjectsMissing`      | source files with no object in the bucket, 6h |
+| `S3ArchivePruneBlocked`        | orphan threshold refused a prune              |
+| `S3ReconcileStale`             | no comparison in 14 days                      |
 
-```bash
-aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "_provisional/" \
-  --query '[length(Contents), sum(Contents[].Size)]'
-```
+`S3ArchiveObjectsMissing` is the one that earns the tier. It is the failure
+where the sync believes it is current and the offsite copy is not, which is
+exactly what went unnoticed for a year under the old fanout arrangement.
 
-LIST is metadata-only. No retrieval, no egress, no cost worth measuring.
-
-Emit the deltas as metrics and alert on anything nonzero beyond a small
-tolerance. This is exactly the check that would have caught 66 missing
-`.mov` files instead of leaving them missing for a year.
+These rules go quiet during an initial seed, which legitimately runs for
+days before recording a first success. Silence them, do not retune them.
 
 ### 4. Drills
 
-**Quarterly:** pick a random directory, restore it from the ODROID,
-checksum it against tiger. Record that it happened.
+**Quarterly:** pick a random directory, restore it from pika, checksum it
+against tiger. Record that it happened.
 
 **Annually:** `aws s3api restore-object` with the bulk tier on about five
-random objects, then verify checksums. Costs pennies. The point is to
-learn that the archive tier works before the day it has to.
+random objects, then verify checksums. Costs pennies. The point is to learn
+that the archive tier works before the day it has to.
 
 Bulk retrieval is 48 hours. That is a bad thing to discover mid-disaster.
 
-## Restore runbook
+Neither drill has been run yet. Until one has, everything above is a
+hypothesis.
 
-There is no S3 restore tooling in this repo. `photos-recall` restores
-from tiger, not from S3.
+## Restore runbook
 
 ### A file or directory got deleted
 
-Recover from a tiger snapshot. `storage/backups` keeps hourly 4, daily
-31, monthly 24, yearly 10.
+Recover from a tiger snapshot. `storage/backups` keeps hourly 4, daily 31,
+monthly 24, yearly 10.
 
 ```bash
 ls /mnt/photos/.zfs/snapshot/
@@ -505,25 +454,41 @@ cp -a /mnt/photos/.zfs/snapshot/autosnap_2026-07-24_00:00:03_daily/personal/phot
       /mnt/photos/personal/photos/archive/
 ```
 
+Older than tiger's retention, pika holds it: daily 60, monthly 36, yearly
+15 for `tank/backups`, against tiger's 31, 24 and 10. Browse it the same
+way under `/tank/backups/.zfs/snapshot/`.
+
+Older than pika's retention, only S3 has it, and only if the file survived
+long enough to be pushed at all. The offsite tier keeps deleted objects for
+180 days after they go noncurrent, which is a different clock from either
+snapshot policy.
+
 ### A dataset got corrupted on tiger
 
-Reverse the syncoid direction. Pull from the ODROID back to tiger, into a
-new dataset name, verify, then swap mountpoints. Do not receive over the
-live dataset.
+Reverse the syncoid direction. Pull from pika back to tiger, into a new
+dataset name, verify, then swap mountpoints. Do not receive over the live
+dataset.
+
+`readonly=on` on pika does not get in the way: it blocks writes to the
+filesystem, not `zfs send`. What it does mean is that pika can never be
+made the writable primary in place. Restoring is always a send back to
+tiger, never a promotion of pika.
 
 ### tiger is gone
 
-Rebuild tiger from the flake, create the pool by hand (see
-`tiger/configuration.nix:200` and `:284-286` for the exact invocations),
-then syncoid from the ODROID to tiger. ~1.18 TB over GbE, so several
-hours. The network is the constraint, not the drives.
+Rebuild tiger from the flake, create the pool by hand, then syncoid from
+pika to tiger. The `zpool create` is not recorded anywhere; see tier 1
+above for what that costs you here.
 
-### tiger and the ODROID are both gone
+~1.12 TB over GbE. The seed in the other direction sustained 103 MB/s, so
+budget around three hours. The network is the constraint, not the drives.
+
+### tiger and pika are both gone
 
 Deep Archive. Restore requests first, then wait, then download.
 
 ```bash
-aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "archive/" \
+aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "photos/" \
   --query 'Contents[].Key' --output text | tr '\t' '\n' > keys.txt
 
 while read -r k; do
@@ -532,40 +497,43 @@ while read -r k; do
 done < keys.txt
 ```
 
-48 hours for bulk. Then `aws s3 sync` normally; restored objects read
-like any other. Budget ~$65 for the full ~700 GB.
+48 hours for bulk. Then `aws s3 sync` normally; restored objects read like
+any other. Budget ~$54 for the full 637 GB.
 
-Write this as a script before we need it, not during.
+The `svc.archive-push` credential can do this: it holds `GetObject` and
+`GetObjectVersion` for exactly this reason.
+
+This is still a shell snippet in a document rather than a script in the
+repo. Write it before we need it, not during.
 
 ## Risks
 
 **tiger's pool is the weakest link, not the strongest.** All three drives
-in `storage` are `WDC_WD40EFAX`. The EFAX code at 2-6TB is WD Red
-DM-SMR. A resilver is sustained-write, which is precisely the workload
-where DM-SMR throughput collapses, and raidz1 carries zero redundancy for
-the whole window. The pool is also at 80%, where ZFS allocation starts to
-suffer.
+in `storage` are `WDC_WD40EFAX`. The EFAX code at 2-6TB is WD Red DM-SMR. A
+resilver is sustained-write, which is precisely the workload where DM-SMR
+throughput collapses, and raidz1 carries zero redundancy for the whole
+window. The pool is also at 80%, where ZFS allocation starts to suffer.
 
-That inverts the obvious reading of this architecture. The ODROID is not
-a nice-to-have second tier. It is insurance against a primary that is
-more fragile than it looks. It is also why tiger does not get
-restructured until the ODROID copy exists and verifies. Long-term fix is
-CMR replacements.
+That inverts the obvious reading of this architecture. pika is not a
+nice-to-have second tier. It is insurance against a primary that is more
+fragile than it looks, which is also why tiger does not get restructured.
+Long-term fix is CMR replacements.
 
 Sources:
 [WD Red SMR model codes](https://david.gardiner.net.au/2021/07/ws-red-nas-hdd),
 [TrueNAS notice on WD SMR with ZFS](https://www.truenas.com/docs/hardware/notices/wdsmr/).
 
-**The backup drives may be SMR too.** WD 3.5" externals in the 2-6TB
-range are frequently the same DM-SMR family as the EFAX drives above.
-Check with `smartctl` before committing, because if both tiers are SMR
-then the resilver problem is not isolated to tiger, it is the house
-style.
+**pika's drives are unconfirmed.** `WDC WD60EDAZ-11U78B0`, shucked from WD
+externals. The EDAZ suffix is not on WD's SMR disclosure list, but it has
+not been positively confirmed as CMR either. The 650G seed sustained 103
+MB/s of sequential write with no collapse, which is encouraging and not
+conclusive: sequential write is SMR's good case. Confirm against WD's
+current list before treating the mirror as a resilver-safe tier.
 
-**No client-side encryption in S3.** SSE-S3 means AWS holds the keys.
-That is a fine trade for photos and a thinner one for
-`/mnt/backups/{kristen,kyle}`, which is 260G of personal documents rather
-than family snapshots. If it ever needs revisiting, the narrow fix is an
+**No client-side encryption in S3.** SSE-S3 means AWS holds the keys. That
+is a fine trade for photos and a thinner one for
+`/mnt/backups/{kristen,kyle}`, which is personal documents rather than
+family snapshots. If it ever needs revisiting, the narrow fix is an
 age-encrypted tarball for just that subset, leaving the photos in plain
 files where a family member can reach them.
 
@@ -575,88 +543,54 @@ lapsed card takes them. A periodic Google Takeout export landing in
 `_provisional` would inherit every tier of this design for free. Out of
 scope, recorded so it is a known gap rather than an assumption.
 
-**`cp -rn` never prunes.** `arr.nix:126` copies each \*arr's own
-`Backups/` directory with `cp -rn` and nothing ever removes anything.
-`/mnt/backups/apps/nzbhydra2` has reached 21G. It inflates the pool, the
-ODROID, and the S3 bill.
+**`cp -rn` never prunes.** `arr.nix:126` copies each \*arr's own `Backups/`
+directory with `cp -rn` and nothing ever removes anything.
+`/mnt/backups/apps/nzbhydra2` has reached 21G. It inflates the pool, pika,
+and the S3 bill.
 
-**The 216G duplicate.** `/mnt/backups/photos-backup` gets
-checksum-verified as a true subset of `/mnt/photos` and only then
-deleted, and only after the ODROID holds a verified copy. It is the one
-destructive step in this whole plan.
+**One offsite copy, one region.** The archive bucket is in a single AWS
+region under a single account. An account-level event takes the whole tier.
+Accepted: the second local copy covers the failure modes that are actually
+likely, and a second cloud provider is more moving parts than the risk
+justifies.
 
-## Rollout
+**Snapshots pin deleted blocks.** Deleting 216G from `storage/backups`
+moved `USED` not at all, because every snapshot holding those blocks still
+references them. Space comes back as those snapshots age out, up to 31 days
+later for daily and years for yearly. Plan reclamation on that timescale,
+not on the timescale of the `rm`.
 
-Four phases. The ordering matters more than the dates.
+## What is left
 
-### Phase 1: the cloud tier
+**Retire the old bucket.** `my-photo-backup-archive-holy-mink` still holds
+the only finished offsite copy, so it stays until the new bucket completes
+one clean push of both prefixes.
 
-No hardware, no physical work, all Nix and Terraform. Extend coverage to
-`_provisional` and `/mnt/backups`, fix `--delete`, strip delete from the
-IAM policy, delete the external HDD leg, keep the RAF files, and add the
-staleness plus zpool alerts.
+**Remove `photos-fanout` from tiger.** The unit at
+`tiger/configuration.nix:258` still runs nightly against the old bucket,
+and `photos_backup_aws_credentials` at `:1201` is the last AWS credential
+on the host that faces the internet. Removing both is the point of moving
+the push to pika. Blocked on the item above.
 
-The `--delete` half is done, and it was scoped rather than dropped.
-Dropping it outright would have made a winnow cull stop propagating, so
-`backup-photos` now mirrors one shoot directory at a time instead of a
-whole tree, at a depth declared per tree (`archive:1`, `_provisional:2`).
-The laptop is authoritative over the shoots it holds and over nothing
-else, which is what was always true; the old code assumed it was
-authoritative over `_provisional/` entire, and would have deleted 321G the
-first time it ran against a sparse working set. Deleting a whole shoot
-locally now propagates nowhere, so pruning a remote copy is a deliberate
-act. helios lands undated files at `_provisional/0000/0000_00_00/` to keep
-that depth uniform.
+**Write the S3 restore script.** The runbook section above is a snippet.
 
-That alone gets us three copies in two places with alerting on both,
-before anything gets unboxed.
+**Run the first drill.** Both kinds. Until then this document describes a
+design, not a demonstrated capability.
 
-### Phase 2: the ODROID
+**The `zfs-storage` Grafana dashboard.** `DASHBOARD_CONVENTIONS.md:160`
+lists it. It was never built.
 
-Runs concurrently with phase 1. Blocked on confirming the drives and the
-power budget. Shuck, build, seed ~1.18 TB, add its own sanoid with the
-longer retention.
+**A rotating offline drive.** A mirror covers a drive dying. It does not
+cover the board's PSU, a mistyped `zfs destroy`, or a fire. The answer is a
+third drive that gets synced, detached, and stored elsewhere. Two SATA
+ports means it attaches over USB3 and sits outside the pool at rest, which
+is fine for a monthly job.
 
-### Phase 3: reclaim
+When it arrives it needs its own staleness alert. "Offline copy older than
+N days" has to page, or the rotation quietly stops happening and we will
+not find out.
 
-Only after the ODROID copy verifies. Checksum and delete the 216G
-duplicate, prune nzbhydra2, drop `/var/lib/jellyfin.old-20260611` (3.4G).
-Takes the pool back off 80%, which is the cheapest thing we can do about
-the SMR resilver risk.
-
-### Phase 4: assurance
-
-The reconciliation job, the ZFS dashboard, the S3 restore script, and the
-first real restore drill. Then look at replacing the SMR drives and
-adding the third rotating one.
-
-## Open decisions
-
-Not blockers for the design, but each one gates its phase.
-
-**The drives.** Sizes and models, and whether they are SMR. Run this
-while they are still in their enclosures:
-
-```bash
-lsblk -o NAME,SIZE,MODEL,TRAN,ROTA
-sudo smartctl -d sat -i /dev/sda
-```
-
-Two 2-4TB drives against 1.18 TB of data leaves room for years of
-snapshot growth. Anything smaller than the pair we need is a phase 2
-blocker.
-
-**The board revision and the power budget.** Rev A or rev B, and whether
-a 15V/4A brick carries a real cold start with two 3.5" drives attached.
-If it does not, the drives go back in their enclosures and we keep USB3.
-
-**The hostname.** Every other Linux host here is an animal. This one has
-no name yet.
-
-**Who pushes to S3.** Recommendation is the ODROID, so no AWS credential
-exists on tiger and the threat model holds at every tier. tiger is the
-simpler option and keeps the existing unit where it is. Not yet decided.
-
-**Orphaned S3 prefixes.** `_projects/` is gone from the library and the
-tooling, and `_provisional/_unknown/` moved to `_provisional/0000/0000_00_00/`.
-Both old prefixes still hold objects nothing will ever enumerate again.
+**`mbuffer` on tiger.** syncoid inserts `mbuffer` on whichever side has it.
+pika has it, tiger does not, so the send side runs unbuffered. Compression
+was measured and dropped from scope: `compressratio` on these datasets is
+1.00x.
