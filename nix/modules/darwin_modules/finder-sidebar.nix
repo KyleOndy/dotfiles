@@ -16,8 +16,15 @@ let
 
   # mysides stores and prints directory URLs with a trailing slash. Match that
   # shape so a second run recognises its own entry instead of duplicating it.
+  # nix-darwin bootstraps launchd.agents into the system domain, so this runs
+  # as root, and a directory it creates under someone's home has to be handed
+  # to them. The nearest existing ancestor is what knows who that is.
   addFolder = path: ''
-    mkdir -p ${escapeShellArg path}
+    if [ ! -e ${escapeShellArg path} ]; then
+      anc=${escapeShellArg path}
+      while [ ! -e "$anc" ]; do anc="$(dirname "$anc")"; done
+      install -d -o "$(stat -f %Su "$anc")" -g "$(stat -f %Sg "$anc")" ${escapeShellArg path}
+    fi
     if ! printf '%s\n' "$current" | grep -qF "file://${path}/"; then
       "$mysides" add ${escapeShellArg (baseNameOf path)} "file://${path}/"
     fi
