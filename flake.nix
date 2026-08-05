@@ -61,8 +61,8 @@
       url = "github:rohitg00/awesome-claude-code-toolkit";
       flake = false;
     };
-    claude-skills-adhd = {
-      url = "github:ayghri/i-have-adhd";
+    claude-skills-ponytail = {
+      url = "github:DietrichGebert/ponytail";
       flake = false;
     };
     llm-agents = {

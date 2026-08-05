@@ -46,9 +46,9 @@ weight.
   limits, cost, duration
 - `~/.claude/hooks/`: hook scripts (below)
 - `~/.claude/skills/`: commit-guidelines, flake-update-review, grill-me,
-  personal-prose, and i-have-adhd (that last one from the
-  `claude-skills-adhd` flake input, not this directory), plus anything
-  from `cfg.skills`
+  personal-prose, and the ponytail family (those last five from the
+  `claude-skills-ponytail` flake input, not this directory), plus
+  anything from `cfg.skills`
 - `~/.claude/commands/`: the task family and git commands (below)
 
 Hook and statusline scripts are packaged with `writeShellApplication`,

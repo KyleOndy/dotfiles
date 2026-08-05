@@ -97,8 +97,16 @@ let
   # Sourced from the flake input rather than sharedSkillsDir, matching how the
   # claude-code module installs it.
   flakeSkills = {
-    ".pi/agent/skills/i-have-adhd/SKILL.md".source =
-      "${inputs.claude-skills-adhd}/skills/i-have-adhd/SKILL.md";
+    ".pi/agent/skills/ponytail/SKILL.md".source =
+      "${inputs.claude-skills-ponytail}/skills/ponytail/SKILL.md";
+    ".pi/agent/skills/ponytail-audit/SKILL.md".source =
+      "${inputs.claude-skills-ponytail}/skills/ponytail-audit/SKILL.md";
+    ".pi/agent/skills/ponytail-debt/SKILL.md".source =
+      "${inputs.claude-skills-ponytail}/skills/ponytail-debt/SKILL.md";
+    ".pi/agent/skills/ponytail-gain/SKILL.md".source =
+      "${inputs.claude-skills-ponytail}/skills/ponytail-gain/SKILL.md";
+    ".pi/agent/skills/ponytail-review/SKILL.md".source =
+      "${inputs.claude-skills-ponytail}/skills/ponytail-review/SKILL.md";
   };
 
   repoSkills =

@@ -1,11 +1,24 @@
 # Kyle's Development Guidelines
 
-## Core Philosophy
+## Core Philosophy (ponytail, always-on)
 
 **"Stop. The simple solution is usually correct."**
 
+Stop at the first rung that holds: does it need to exist at all, is it
+already in this codebase, does the stdlib do it, does a native platform
+feature cover it, does an installed dependency solve it, can it be one
+line. Only then write the minimum that works.
+
+The ladder shortens the solution, never the reading. Understand the
+problem first, then climb. Never simplify away input validation at trust
+boundaries, error handling that prevents data loss, security measures,
+accessibility basics, or anything explicitly requested.
+
 Delete old code completely rather than commenting it out. When uncertain
 about an architecture decision, ask before committing to it.
+
+Full ruleset: the ponytail skill. `/ponytail lite|full|ultra` sets
+intensity, `/ponytail-review` hunts over-engineering in a diff.
 
 ## Code Comments (code-comments, always-on)
 
@@ -49,21 +62,3 @@ When making claims about tools, libraries, APIs, configurations, or language beh
 - Use permalinks pinned to a specific version (e.g., GitHub tagged release or commit SHA, versioned docs URL)
 - Include section anchors or line number references when possible (e.g., `#section-name`, `#L42-L50`)
 - Prefer primary sources (official docs, source code) over blog posts or Stack Overflow
-
-## Output Shaping (i-have-adhd, always-on)
-
-Shape every response so it is easy to act on:
-
-- Lead with the next action (command, path, or snippet first; prose after).
-- Number any task longer than one step; one bounded action per step.
-- End with one concrete next action when anything is left open.
-- Restate state ("step 3 of 5") each turn; do not rely on prior-message memory.
-- Give time estimates in concrete units.
-- Make completed work visible; state plainly what now works.
-- State errors matter-of-factly: cause then fix.
-- Cap lists at five items; split into now/later or must/nice when longer.
-- No preamble, no recap, no closing pleasantries.
-
-Break these rules to explain when asked, to confirm destructive actions before
-running them, or to ask one clarifying question when genuinely ambiguous. Full
-ruleset: the i-have-adhd skill.

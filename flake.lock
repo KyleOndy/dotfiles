@@ -91,22 +91,6 @@
         "type": "github"
       }
     },
-    "claude-skills-adhd": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1785897970,
-        "narHash": "sha256-OofIFee+nQPZlannOZIR5Q0LJnDH88Q3b2H5p1nhuUY=",
-        "owner": "ayghri",
-        "repo": "i-have-adhd",
-        "rev": "0047e0d323af880d4a32acbcc8bf58b3ca3bb280",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ayghri",
-        "repo": "i-have-adhd",
-        "type": "github"
-      }
-    },
     "claude-skills-jeffallan": {
       "flake": false,
       "locked": {
@@ -120,6 +104,22 @@
       "original": {
         "owner": "jeffallan",
         "repo": "claude-skills",
+        "type": "github"
+      }
+    },
+    "claude-skills-ponytail": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784151135,
+        "narHash": "sha256-Y7d4s7uqjH6IbEXhqAiQ+yaxr6iiGcv2X64LuMtG1T8=",
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
+        "rev": "16f29800fd2681bdf24f3eb4ccffe38be3baec6b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "DietrichGebert",
+        "repo": "ponytail",
         "type": "github"
       }
     },
@@ -989,8 +989,8 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
-        "claude-skills-adhd": "claude-skills-adhd",
         "claude-skills-jeffallan": "claude-skills-jeffallan",
+        "claude-skills-ponytail": "claude-skills-ponytail",
         "claude-skills-rohitg00": "claude-skills-rohitg00",
         "claude-skills-voltagent": "claude-skills-voltagent",
         "cogsworth": "cogsworth",
