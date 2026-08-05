@@ -547,6 +547,59 @@ in
                 summary: "Offsite reconciliation of {{ $labels.prefix }}/ has not run in 14 days"
                 description: "Nothing has compared the bucket against the source in two weeks, against a weekly timer. Both S3ArchiveObjectsMissing and the orphan count are computed here, so this rule going quiet takes those with it."
 
+        # Windows machines mirroring into storage/backups over SMB
+        # (docs/windows-backup.md). Once the files land, tiger's snapshots,
+        # pika and the S3 tier already cover them and the groups above already
+        # watch that. The only leg with no coverage is the client, and it is
+        # the one leg nothing in this fleet controls: the push is a Windows
+        # scheduled task, so there is no unit to fail here when it stops.
+        - name: windows_backup
+          interval: 60s
+          rules:
+            # `> 0` is load-bearing for the same reason it is in ZpoolScrubStale
+            # above: a missing heartbeat reports the sentinel 0 and `time() - 0`
+            # reads as 1970. WindowsBackupHeartbeatMissing covers that case.
+            - alert: WindowsBackupStale
+              expr: time() - (windows_backup_last_success_timestamp_seconds{host="tiger"} > 0) > 36 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Windows backup of {{ $labels.machine }} is over 36 hours old"
+                description: "{{ $labels.machine }} has not completed a mirror in over 36 hours, against a daily scheduled task. The PC being off explains it; so does a task that has silently stopped, a changed SMB password, or a full pool. Check the Task Scheduler history and %LOCALAPPDATA%\\tiger-backup.log on the PC."
+
+            - alert: WindowsBackupCriticallyStale
+              expr: time() - (windows_backup_last_success_timestamp_seconds{host="tiger"} > 0) > 72 * 3600
+              for: 1h
+              labels:
+                severity: critical
+              annotations:
+                summary: "Windows backup of {{ $labels.machine }} is over 72 hours old"
+                description: "Three daily runs of the {{ $labels.machine }} mirror have failed to land anything. Whatever that PC has created since then exists only on that PC."
+
+            # Age in the expression rather than in `for:`, for the reason
+            # ZpoolNeverScrubbed gives above: vmalert restarts on every rules
+            # edit, so a long `for:` resets before it elapses. The directory
+            # mtime is the grace anchor, so provisioning a machine on tiger
+            # does not alert before anyone could have set the PC up.
+            - alert: WindowsBackupNeverSucceeded
+              expr: (windows_backup_last_success_timestamp_seconds{host="tiger"} == 0) and on(machine) (time() - windows_backup_target_mtime_seconds{host="tiger"} > 7 * 86400)
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Windows backup of {{ $labels.machine }} has never run"
+                description: "/mnt/backups/{{ $labels.machine }} was created over 7 days ago and still holds no _heartbeat, so that machine has never completed a mirror. Either the Windows side was never set up, or every run so far has failed before the last step. docs/windows-backup.md has the client setup; the log is %LOCALAPPDATA%\\tiger-backup.log on the PC."
+
+            - alert: WindowsBackupExporterMissing
+              expr: absent(windows_backup_last_success_timestamp_seconds{host="tiger"})
+              for: 2h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Windows backup freshness metric missing on tiger"
+                description: "No windows_backup_last_success_timestamp_seconds series exists at all, so every rule in this group matches nothing. This is the absence check on the absence check. Run `systemctl status win-backup-exporter` and check its timer on tiger."
+
         # SMART health, scrub age and backup freshness all arrive this way.
         # node_exporter drops a file it cannot parse and keeps serving the
         # rest, so a broken producer costs its alerts in silence:

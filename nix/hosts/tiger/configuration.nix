@@ -8,6 +8,16 @@ let
   mediaGroup = "media";
   service_root = "/var/lib";
 
+  # Directory under /mnt/backups -> the POSIX account that owns it, for each
+  # Windows machine mirroring in over SMB. Drives both the tmpfiles rules and
+  # the heartbeat exporter, so a machine cannot end up with a directory
+  # nothing watches or an alert label with no directory. The share itself is
+  # declared literally alongside the other two. Client side is
+  # docs/windows-backup.md.
+  windowsBackupDirs = {
+    kristen-data = "kristen";
+  };
+
   # Local Alertmanager endpoint; NUT pushes UPS events here so they email out
   # the same way as every other monitoring alert.
   amUrl = "http://${config.systemFoundry.monitoringStack.alertmanager.listenAddress}:${toString config.systemFoundry.monitoringStack.alertmanager.port}/api/v2/alerts";
@@ -318,7 +328,18 @@ in
     #   zfs set acltype=posixacl storage/photos
     #   setfacl -R -m g:immich:rX /mnt/photos/personal/photos/archive
     "A+ /mnt/photos/personal/photos/archive - - - - g:immich:rX"
-  ];
+  ]
+  # Only the directory. _heartbeat cannot be seeded here: /mnt/backups is
+  # owned by kyle and these are owned per-machine, and systemd-tmpfiles
+  # refuses to canonicalize a path across that ownership change.
+  #
+  #   Detected unsafe path transition /mnt/backups (owned by kyle) ->
+  #   /mnt/backups/kristen-data (owned by kristen)
+  #
+  # The client creates it instead, which is the better split anyway: a
+  # machine that has never run reads 0 and a machine that stopped reads
+  # stale, so the two cases get two alerts instead of one.
+  ++ lib.mapAttrsToList (dir: user: "d /mnt/backups/${dir} 0750 ${user} ${user} -") windowsBackupDirs;
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
 
@@ -406,17 +427,40 @@ in
         "create mask" = "0644";
         "directory mask" = "0755";
       };
+      # The client mirrors with `robocopy /MIR`, so this share carries delete
+      # rights over its whole path. Hence one subdirectory rather than
+      # /mnt/backups: rooting it at the dataset would put kyle/, videos/,
+      # apps/ and the 185G in kristen/ that predates this share inside the
+      # blast radius of one machine's mirror job.
+      tiger-kristen-data = {
+        path = "/mnt/backups/kristen-data";
+        "valid users" = "kristen";
+        "read only" = "no";
+        "force user" = "kristen";
+        "force group" = "kristen";
+        "create mask" = "0644";
+        "directory mask" = "0755";
+      };
     };
   };
 
-  # Seed kyle's Samba password (separate from the system login password) from
-  # a sops secret before smbd starts, the same pattern as nut-genpass below
-  # but sops-backed instead of self-generated since this credential needs to
-  # be typed into a Mac. Idempotent: smbpasswd -a resets the password every
-  # activation, matching how kyle's system password is enforced every
+  # smbd keeps its own passdb, but `force user` and NSS still need a POSIX
+  # account to resolve against. No password and no groups: its whole
+  # authority is the share.
+  users.users.kristen = {
+    isSystemUser = true;
+    group = "kristen";
+  };
+  users.groups.kristen = { };
+
+  # Seed the Samba passwords (separate from the system login passwords) from
+  # sops secrets before smbd starts, the same pattern as nut-genpass below but
+  # sops-backed instead of self-generated since these credentials get typed
+  # into a Mac and a Windows PC. Idempotent: smbpasswd -a resets the password
+  # every activation, matching how kyle's system password is enforced every
   # activation via hashedPasswordFile rather than only on first boot.
   systemd.services.samba-smbpasswd-seed = {
-    description = "Seed kyle's Samba password from sops";
+    description = "Seed the Samba passwords from sops";
     wantedBy = [ "multi-user.target" ];
     before = [ "samba-smbd.service" ];
     path = [ pkgs.samba ];
@@ -424,12 +468,64 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    script =
+      let
+        seed = user: secret: ''
+          pw=$(cat ${secret})
+          printf '%s\n%s\n' "$pw" "$pw" | smbpasswd -s -a ${user}
+          smbpasswd -e ${user}
+        '';
+      in
+      ''
+        set -euo pipefail
+        ${seed "kyle" config.sops.secrets.smb_kyle_password.path}
+        ${seed "kristen" config.sops.secrets.smb_kristen_password.path}
+      '';
+  };
+
+  # tiger initiates nothing here, so a Windows scheduled task that quietly
+  # stops running leaves no failed unit and no exit code to watch. The client
+  # writes _heartbeat after a clean mirror and this publishes its mtime, which
+  # is what makes the alerts absence-based like the rest of the backup rules.
+  #
+  # mtime and not file contents: the write arrives over SMB, so it carries
+  # tiger's clock. A PC with a wrong clock cannot report itself fresh.
+  systemd.services.win-backup-exporter = {
+    description = "Export Windows backup freshness to node_exporter textfile";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+    };
+    path = [ pkgs.coreutils ];
     script = ''
       set -euo pipefail
-      pw=$(cat ${config.sops.secrets.smb_kyle_password.path})
-      printf '%s\n%s\n' "$pw" "$pw" | smbpasswd -s -a kyle
-      smbpasswd -e kyle
+      OUTFILE="/var/lib/prometheus-node-exporter-text-files/windows_backup.prom"
+      {
+        printf '# HELP windows_backup_last_success_timestamp_seconds Unix time this machine last completed a mirror\n'
+        printf '# TYPE windows_backup_last_success_timestamp_seconds gauge\n'
+        # mtime and not %W: birth time reads 0 where the filesystem does not
+        # carry it, and a 0 anchor makes the grace window in
+        # WindowsBackupNeverSucceeded elapse instantly instead of holding.
+        printf '# HELP windows_backup_target_mtime_seconds Unix time this machine directory last changed\n'
+        printf '# TYPE windows_backup_target_mtime_seconds gauge\n'
+        ${lib.concatMapStrings (dir: ''
+          ts=$(stat -c %Y "/mnt/backups/${dir}/_heartbeat" 2>/dev/null || echo 0)
+          created=$(stat -c %Y "/mnt/backups/${dir}" 2>/dev/null || echo 0)
+          printf 'windows_backup_last_success_timestamp_seconds{machine="%s"} %s\n' "${dir}" "$ts"
+          printf 'windows_backup_target_mtime_seconds{machine="%s"} %s\n' "${dir}" "$created"
+        '') (lib.attrNames windowsBackupDirs)}
+      } > "$OUTFILE.tmp"
+      mv "$OUTFILE.tmp" "$OUTFILE"
     '';
+  };
+
+  systemd.timers.win-backup-exporter = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "5min";
+      OnUnitActiveSec = "1h";
+      Persistent = true;
+    };
   };
 
   # mDNS/Bonjour advertisement so tiger shows up in Finder's Network sidebar
@@ -1099,9 +1195,10 @@ in
       mode = "0440";
       group = "unifi-poller";
     };
-    # Samba password for kyle (SMB has its own credential store, separate
-    # from the system login password). Read by samba-smbpasswd-seed as root.
+    # Samba passwords (SMB has its own credential store, separate from the
+    # system login password). Read by samba-smbpasswd-seed as root.
     smb_kyle_password.mode = "0400";
+    smb_kristen_password.mode = "0400";
     # AWS credentials for photos-fanout (see systemd.services.photos-fanout
     # below), in the ~/.aws/credentials INI format awscli2 expects:
     #   [ondy-org]
