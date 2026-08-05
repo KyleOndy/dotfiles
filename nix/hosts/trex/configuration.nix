@@ -7,7 +7,7 @@
   ...
 }:
 {
-  imports = [ ];
+  imports = [ ./wireguard.nix ];
 
   networking.hostName = "trex";
 
