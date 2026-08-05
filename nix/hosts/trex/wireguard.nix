@@ -15,11 +15,17 @@ let
   # 192.168.5.2 and .3 belonged to dino and elk, both decommissioned.
   address = [ "192.168.5.4/32" ];
 
+  # The UDM's LAN address, not the 192.168.5.1 tunnel gateway that UniFi
+  # writes into the config it hands out. Nothing answers on port 53 there:
+  #   $ dig +time=2 +tries=1 @192.168.5.1 example.com
+  #   ;; communications error to 192.168.5.1#53: timed out
+  # 10.24.89.1 sits inside wg-home's allowedIPs, so it routes over the tunnel.
+  #
   # wg-quick sorts non-IP entries into search domains rather than resolvers.
   # lan.1ella.com and dmz.1ella.com are served only by the UDM, so without
   # this tiger and cogsworth are reachable by address alone.
   dns = [
-    "192.168.5.1"
+    "10.24.89.1"
     "lan.1ella.com"
     "dmz.1ella.com"
   ];
