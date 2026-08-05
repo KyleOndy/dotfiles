@@ -931,6 +931,22 @@ in
           };
         };
 
+        # Radarr and Sonarr retry a blocked import every 60s forever, so an
+        # item they refuse to match sits in the queue until someone decides
+        # between a manual import and a blocklist. This is the backstop for
+        # when nobody does.
+        arrQueueJanitor = {
+          enable = true;
+          sonarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.sonarr_api_key.path;
+          };
+          radarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.radarr_api_key.path;
+          };
+        };
+
         # UniFi metrics, polled from the UDM Pro's controller API. Runs here
         # rather than on the gateway: the UDM Pro is a 4 GB box already running
         # Protect, Mongo, Postgres and suricata, so nothing extra goes on it.

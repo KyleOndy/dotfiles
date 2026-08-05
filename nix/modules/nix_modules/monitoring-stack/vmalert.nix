@@ -171,15 +171,18 @@ in
                 summary: "Sonarr queue depth is high: {{ $value }} items"
                 description: "Sonarr has more than 50 items in queue for 4+ hours"
 
-            - alert: SonarrQueueStalled
-              expr: increase(sonarr_queue_total[6h]) == 0 AND sonarr_queue_total > 0
-              for: 6h
+            # Keyed on download_state, not on increase(gauge[6h]) == 0:
+            # MetricsQL reads a gauge decrease as a counter reset, so one item
+            # leaving the state restarts the `for:` for every other item in it.
+            - alert: SonarrImportBlocked
+              expr: sum by (host) (sonarr_queue_total{download_state=~"importBlocked|failedPending"}) > 0
+              for: 24h
               labels:
                 severity: warning
                 service: sonarr
               annotations:
-                summary: "Sonarr queue appears stalled"
-                description: "Sonarr queue has items stuck - no movement in 6 hours"
+                summary: "Sonarr has {{ $value }} queue item(s) blocked from importing"
+                description: "Sonarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://sonarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists anything still here at 48h."
 
             - alert: RadarrQueueHigh
               expr: radarr_queue_total > 50
@@ -191,15 +194,15 @@ in
                 summary: "Radarr queue depth is high: {{ $value }} items"
                 description: "Radarr has more than 50 items in queue for 4+ hours"
 
-            - alert: RadarrQueueStalled
-              expr: increase(radarr_queue_total[6h]) == 0 AND radarr_queue_total > 0
-              for: 6h
+            - alert: RadarrImportBlocked
+              expr: sum by (host) (radarr_queue_total{download_state=~"importBlocked|failedPending"}) > 0
+              for: 24h
               labels:
                 severity: warning
                 service: radarr
               annotations:
-                summary: "Radarr queue appears stalled"
-                description: "Radarr queue has items stuck - no movement in 6 hours"
+                summary: "Radarr has {{ $value }} queue item(s) blocked from importing"
+                description: "Radarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://radarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists anything still here at 48h."
 
             - alert: SABnzbdQueueHigh
               expr: sabnzbd_queue_length > 20

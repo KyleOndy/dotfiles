@@ -12,6 +12,7 @@ with lib;
     ./node_exporter.nix
     ./zfs_exporter.nix
     ./exportarr.nix
+    ./arr-queue-janitor.nix
     ./jellyfin-exporter.nix
     ./unpoller.nix
   ];

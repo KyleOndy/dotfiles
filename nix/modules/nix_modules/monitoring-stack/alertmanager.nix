@@ -68,6 +68,15 @@ in
               };
               receiver = "null";
             }
+            {
+              # Clearing an import block means opening the *arr UI and choosing
+              # between a manual import and a blocklist, and arr-queue-janitor
+              # sweeps whatever is left at 48h. Hourly mail buys no sooner fix.
+              match = {
+                alertgroup = "arr_queue_health";
+              };
+              repeat_interval = "24h";
+            }
           ];
         };
 
