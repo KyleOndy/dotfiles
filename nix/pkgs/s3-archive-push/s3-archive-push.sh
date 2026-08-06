@@ -42,9 +42,44 @@ fi
 
 started=$(date +%s)
 echo "syncing $SOURCE -> s3://$ARCHIVE_BUCKET/$PREFIX/ (Deep Archive)"
-aws s3 sync "$SOURCE/" "s3://$ARCHIVE_BUCKET/$PREFIX/" \
-	--storage-class DEEP_ARCHIVE \
-	--only-show-errors
+
+# `aws help return-codes`: 1 is a failed transfer, 2 is a skipped file.
+#
+# 2 is routine: syncoid receives at 00:00 daily and a full walk runs over a
+# day, so a receive rolls the mountpoint under awscli's file generator and
+# whatever it listed but had not stat'd reports as vanished. Those files are
+# still at the source, so the next run carries them, and
+# s3_reconcile_missing_objects fires if no run ever does.
+#
+# 1 is retried: botocore cannot rewind the non-seekable checksum wrapper it
+# puts around a PUT, so a connection reset fails the upload outright instead
+# of retrying it (aws/aws-cli#10026). A retry costs one LIST plus a stat walk
+# rather than a re-upload, because sync skips what the bucket already holds.
+readonly MAX_ATTEMPTS=3
+attempt=1
+while :; do
+	rc=0
+	aws s3 sync "$SOURCE/" "s3://$ARCHIVE_BUCKET/$PREFIX/" \
+		--storage-class DEEP_ARCHIVE \
+		--only-show-errors || rc=$?
+
+	case "$rc" in
+	0) break ;;
+	2)
+		echo "files vanished mid-walk, leaving them for the next run" >&2
+		break
+		;;
+	1)
+		if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+			echo "transfers still failing after $MAX_ATTEMPTS attempts" >&2
+			exit 1
+		fi
+		echo "attempt $attempt had failed transfers, retrying" >&2
+		attempt=$((attempt + 1))
+		;;
+	*) exit "$rc" ;;
+	esac
+done
 finished=$(date +%s)
 
 objects=$(find "$SOURCE" -type f | wc -l)
@@ -54,10 +89,10 @@ bytes=$(du -sb "$SOURCE" | cut -f1)
 # the comparison; publishing both sides from one job would let a single bug
 # claim agreement that was never checked.
 {
-	printf '# HELP s3_archive_push_last_success_timestamp_seconds Unix time this prefix last synced cleanly\n'
+	printf '# HELP s3_archive_push_last_success_timestamp_seconds Unix time this prefix last completed a sync with no failed transfers\n'
 	printf '# TYPE s3_archive_push_last_success_timestamp_seconds gauge\n'
 	printf 's3_archive_push_last_success_timestamp_seconds{prefix="%s"} %s\n' "$PREFIX" "$finished"
-	printf '# HELP s3_archive_push_duration_seconds Wall time of the last successful sync\n'
+	printf '# HELP s3_archive_push_duration_seconds Wall time of the last completed sync, retries included\n'
 	printf '# TYPE s3_archive_push_duration_seconds gauge\n'
 	printf 's3_archive_push_duration_seconds{prefix="%s"} %s\n' "$PREFIX" "$((finished - started))"
 	printf '# HELP s3_archive_push_source_objects Files under the source dataset\n'
