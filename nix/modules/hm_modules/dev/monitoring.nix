@@ -35,8 +35,8 @@ let
     COMMENT="''${3:-Maintenance window}"
 
     # Calculate timestamps
-    START=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
-    END=$(date -u -d "+''${DURATION}" +%Y-%m-%dT%H:%M:%S.000Z)
+    START=$(${pkgs.coreutils}/bin/date -u +%Y-%m-%dT%H:%M:%S.000Z)
+    END=$(${pkgs.coreutils}/bin/date -u -d "+''${DURATION}" +%Y-%m-%dT%H:%M:%S.000Z)
 
     # Create silence payload
     PAYLOAD=$(cat <<EOF

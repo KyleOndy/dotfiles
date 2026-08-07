@@ -57,26 +57,26 @@ fi
 # Print an info message
 # Usage: log_info "Operation completed successfully"
 log_info() {
-	echo -e "[$(date --iso-8601=seconds)] ${COLOR_GREEN}[INFO ]${COLOR_RESET} $*" >&2
+	echo -e "[$(date +%Y-%m-%dT%H:%M:%S%z)] ${COLOR_GREEN}[INFO ]${COLOR_RESET} $*" >&2
 }
 
 # Print a warning message
 # Usage: log_warn "This operation may take a while"
 log_warn() {
-	echo -e "[$(date --iso-8601=seconds)] ${COLOR_YELLOW}[WARN ]${COLOR_RESET} $*" >&2
+	echo -e "[$(date +%Y-%m-%dT%H:%M:%S%z)] ${COLOR_YELLOW}[WARN ]${COLOR_RESET} $*" >&2
 }
 
 # Print an error message
 # Usage: log_error "Operation failed"
 log_error() {
-	echo -e "[$(date --iso-8601=seconds)] ${COLOR_RED}[ERROR]${COLOR_RESET} $*" >&2
+	echo -e "[$(date +%Y-%m-%dT%H:%M:%S%z)] ${COLOR_RED}[ERROR]${COLOR_RESET} $*" >&2
 }
 
 # Print a debug message (only if DEBUG env var is set)
 # Usage: DEBUG=1 ./script.sh
 log_debug() {
 	[[ -n ${DEBUG:-} ]] &&
-		echo -e "[$(date --iso-8601=seconds)] ${COLOR_BLUE}[DEBUG]${COLOR_RESET} $*" >&2
+		echo -e "[$(date +%Y-%m-%dT%H:%M:%S%z)] ${COLOR_BLUE}[DEBUG]${COLOR_RESET} $*" >&2
 	return 0
 }
 
