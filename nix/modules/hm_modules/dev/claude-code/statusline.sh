@@ -106,8 +106,11 @@ format_reset_time() {
 		echo "($((diff / 3600))h)"
 	else
 		local time_str
-		printf -v time_str '%(%-I:%M%P)T' "$resets_at"
-		# Strip trailing 'm' from am/pm: 'am' -> 'a', 'pm' -> 'p'.
+		# %P (lowercase am/pm) is a glibc extension; Darwin's strftime emits
+		# it literally, so ask for %p and lowercase here. The trailing 'm' is
+		# then dropped: 'am' -> 'a', 'pm' -> 'p'.
+		printf -v time_str '%(%-I:%M%p)T' "$resets_at"
+		time_str=${time_str,,}
 		echo "(${time_str%m})"
 	fi
 }
