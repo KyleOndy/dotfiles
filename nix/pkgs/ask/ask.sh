@@ -9,8 +9,8 @@
 # detail behind this interface -- swap the mlx_lm.* calls below if it ever
 # changes (e.g. Ollama, llama.cpp, MAX) without touching callers.
 #
-#   ask [--fast|--smart] question words...
-#   ask --chat [--fast|--smart]
+#   ask [--fast|--smart|--model ID] question words...
+#   ask --chat [--fast|--smart|--model ID]
 
 readonly FAST_MODEL="mlx-community/Qwen3-8B-4bit"
 readonly SMART_MODEL="mlx-community/gpt-oss-20b-MXFP4-Q4"
@@ -24,12 +24,15 @@ readonly MAX_TOKENS=2048
 usage() {
 	cat >&2 <<EOF
 Usage:
-  ask [--fast|--smart] question words...
-  ask --chat [--fast|--smart]
+  ask [--fast|--smart|--model ID] question words...
+  ask --chat [--fast|--smart|--model ID]
 
-  --fast   $FAST_MODEL (default) -- ~4.7GB, ~30 tok/s
-  --smart  $SMART_MODEL -- MoE, more capable, ~11GB, ~55 tok/s
-  --chat   interactive session instead of a one-off question
+  --fast     $FAST_MODEL (default) -- ~4.7GB, ~30 tok/s
+  --smart    $SMART_MODEL -- MoE, more capable, ~11GB, ~55 tok/s
+  --model    any mlx-lm model id, e.g. mlx-community/Qwen3.6-27B-4bit
+  --chat     interactive session instead of a one-off question
+
+Anything not already in ~/.cache/huggingface is downloaded on first use.
 EOF
 	exit 1
 }
@@ -51,6 +54,12 @@ while [ $# -gt 0 ]; do
 	--smart)
 		model="$SMART_MODEL"
 		shift
+		;;
+	--model)
+		# Guarded because set -u would abort on $2 before usage could print.
+		[ $# -ge 2 ] || usage
+		model="$2"
+		shift 2
 		;;
 	--chat)
 		chat=true

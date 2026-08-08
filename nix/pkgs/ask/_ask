@@ -1,0 +1,22 @@
+#compdef ask
+# vi: ft=zsh
+
+# Offers only what is already downloaded, so nothing completed here triggers a
+# multi-GB fetch. Cache dirs are models--{org}--{name}: the first -- separates.
+_ask_cached_models() {
+  local hub=${HF_HOME:-$HOME/.cache/huggingface}/hub
+  local -a dirs
+  dirs=($hub/models--*(/N:t))
+  print -l ${${dirs#models--}/--//}
+}
+
+main() {
+  _arguments -s \
+    '(--smart --model)--fast[Qwen3-8B-4bit, ~4.7GB]' \
+    '(--fast --model)--smart[gpt-oss-20b MoE, ~11GB]' \
+    '(--fast --smart)--model[Model id]:model id:($(_ask_cached_models))' \
+    '--chat[Interactive session instead of a one-off question]' \
+    '*::question:'
+}
+
+main "$@"
