@@ -22,13 +22,8 @@ in
       };
     };
 
-    home.packages =
-      with pkgs;
-      [
-        passff-host # firefox plugin host extension
-      ]
-      ++ optionals stdenv.isLinux [
-        wl-clipboard # needed since upgrading
-      ];
+    home.packages = optionals pkgs.stdenv.isLinux [
+      pkgs.wl-clipboard # needed since upgrading
+    ];
   };
 }
