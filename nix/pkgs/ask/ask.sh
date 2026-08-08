@@ -10,7 +10,7 @@
 # changes (e.g. Ollama, llama.cpp, MAX) without touching callers.
 #
 #   ask [--fast|--smart|--model ID] question words...
-#   ask --chat [--fast|--smart|--model ID]
+#   ask [--fast|--smart|--model ID]
 #   ask --help
 
 readonly FAST_MODEL="mlx-community/Qwen3-8B-4bit"
@@ -26,13 +26,12 @@ usage() {
 	cat >&2 <<EOF
 Usage:
   ask [--fast|--smart|--model ID] question words...
-  ask --chat [--fast|--smart|--model ID]
+  ask [--fast|--smart|--model ID]                  interactive chat
   ask --help
 
   --fast     $FAST_MODEL (default) -- ~4.7GB, ~30 tok/s
   --smart    $SMART_MODEL -- MoE, more capable, ~11GB, ~55 tok/s
   --model    any mlx-lm model id, e.g. mlx-community/Qwen3.6-27B-4bit
-  --chat     interactive session instead of a one-off question
   --help     this message
 
 Anything not already in ~/.cache/huggingface is downloaded on first use.
@@ -46,7 +45,6 @@ if ! command -v mlx_lm.generate >/dev/null 2>&1; then
 fi
 
 model="$FAST_MODEL"
-chat=false
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -67,17 +65,15 @@ while [ $# -gt 0 ]; do
 		model="$2"
 		shift 2
 		;;
-	--chat)
-		chat=true
-		shift
-		;;
 	*)
 		break
 		;;
 	esac
 done
 
-if [ "$chat" = true ]; then
+# mlx_lm.chat loads the model before it reads any stdin, so without a
+# terminal to chat with, that is 5-11GB of load spent to reach EOF.
+if [ $# -eq 0 ] && [ -t 0 ]; then
 	exec mlx_lm.chat --model "$model" --max-tokens "$MAX_TOKENS"
 fi
 
