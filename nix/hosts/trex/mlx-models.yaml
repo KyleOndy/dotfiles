@@ -82,19 +82,19 @@ models:
   # generation. ~16GB at 4-bit, still fits the single-resident on-demand
   # design.
   #
-  # reasoning_parser/tool_call_parser come from Qwen's own recommended vLLM
-  # and SGLang launch flags for this model (huggingface.co/Qwen/Qwen3.6-27B,
-  # github.com/QwenLM/Qwen3.6): `--reasoning-parser qwen3 --tool-call-parser
-  # qwen3_coder`. Unlike the qwen3_5-as-tool-parser trap above, both keys are
-  # confirmed present in the installed mlx-openai-server v1.8.1
-  # REASONING_PARSER_MAP/TOOL_PARSER_MAP, so this isn't a silent no-op.
-  # Not yet run against the search-mail notmuch workload -- evaluate
-  # alongside the qwen3.5 models before promoting anything to baseline.
+  # tool_call_parser per Qwen's recommended vLLM/SGLang flags for this model
+  # (huggingface.co/Qwen/Qwen3.6-27B). reasoning_parser deliberately does not:
+  # those flags say qwen3, but the name means different behavior per framework.
+  # This template ends by emitting '<think>\n' into the prompt, so the model
+  # resumes mid-block and emits only the closing tag. Splitting that needs
+  # needs_redacted_reasoning_prefix() == True, which is qwen3_5 in
+  # mlx-openai-server v1.8.1, not qwen3. With qwen3 the chain-of-thought lands
+  # in message.content and reasoning_content is absent.
   - model_path: mlx-community/Qwen3.6-27B-4bit
     served_model_name: qwen3.6-27b
     model_type: lm
     tool_call_parser: qwen3_coder
-    reasoning_parser: qwen3
+    reasoning_parser: qwen3_5
     enable_auto_tool_choice: true
     context_length: 24576
     batch_completion_size: 6
@@ -108,12 +108,14 @@ models:
   # (huggingface.co/Qwen/Qwen3.6-27B), and worst on exactly the agentic axis
   # search-mail exercises -- SkillsBench 28.7 vs 48.2 against ~1pt on MMLU-Pro.
   # 20.4GB at 4-bit against a 26.8GB Metal working-set ceiling on trex's 32GB.
-  # Parsers per Qwen's recommended flags for this model, same as the 27B.
+  # Measured on trex (M5, 153GB/s) at a 13.2k-token prompt: 720 tok/s prefill
+  # and 48.9 tok/s decode, against 164 and 7.3 for the dense 27B above.
+  # reasoning_parser is qwen3_5 for the same reason as the 27B.
   - model_path: mlx-community/Qwen3.6-35B-A3B-4bit
     served_model_name: qwen3.6-35b-a3b
     model_type: lm
     tool_call_parser: qwen3_coder
-    reasoning_parser: qwen3
+    reasoning_parser: qwen3_5
     enable_auto_tool_choice: true
     context_length: 24576
     batch_completion_size: 6
