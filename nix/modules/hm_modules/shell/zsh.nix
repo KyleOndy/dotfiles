@@ -543,9 +543,15 @@ in
             export PATH="$HOME/bin:$PATH"
 
             private() {
+              # zsh-histdb records from its own zshaddhistory hook and reads
+              # neither HISTFILE nor SAVEHIST, so dropping those alone leaves
+              # the sqlite database, and the backups it ships to tiger,
+              # recording every command.
               unset HISTFILE
               SAVEHIST=0
-              echo "Private mode enabled"
+              add-zsh-hook -d zshaddhistory _histdb_addhistory
+              cd "$(mktemp -d)" || return
+              echo "Private mode enabled in $PWD"
             }
 
             wt_notes() {
