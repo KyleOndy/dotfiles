@@ -26,6 +26,14 @@ in
         history = {
           extended = true; # save timestamps
           ignoreDups = true;
+          # Values never reach argv, but the entry names alone inventory
+          # every account worth attacking, and a search-mail argument is
+          # the query text itself. zsh-histdb honours HISTORY_IGNORE too
+          # (sqlite-history.zsh:145), so one pattern covers both stores.
+          ignorePatterns = [
+            "pass *"
+            "search-mail *"
+          ];
           save = 1000000; # lots of history. Internal history list
           size = 1000000; # lots of history. Save to file.
           share = true; # let multiple ZSH session write to the history file
