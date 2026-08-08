@@ -33,6 +33,7 @@ Usage:
   --smart    $SMART_MODEL -- MoE, more capable, ~11GB, ~55 tok/s
   --model    any mlx-lm model id, e.g. mlx-community/Qwen3.6-27B-4bit
   --help     this message
+  --         end of flags, for a question that starts with a dash
 
 Anything not already in ~/.cache/huggingface is downloaded on first use.
 EOF
@@ -65,6 +66,13 @@ while [ $# -gt 0 ]; do
 		model="$2"
 		shift 2
 		;;
+	--)
+		shift
+		break
+		;;
+	-*)
+		usage
+		;;
 	*)
 		break
 		;;
@@ -78,4 +86,7 @@ if [ $# -eq 0 ] && [ -t 0 ]; then
 fi
 
 [ $# -ge 1 ] || usage
-exec mlx_lm.generate --model "$model" --prompt "$*" --max-tokens "$MAX_TOKENS"
+# --prompt="..." rather than two words: argparse binds a value across the
+# = regardless of leading dashes, but reads a separate `--foo` as the next
+# option and reports "--prompt: expected one argument".
+exec mlx_lm.generate --model "$model" --prompt="$*" --max-tokens "$MAX_TOKENS"
