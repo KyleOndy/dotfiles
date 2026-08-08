@@ -16,7 +16,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const LOCAL_MODEL_BASE_URL = "http://127.0.0.1:8000/v1";
-const LOCAL_MODEL_ID = "qwen3-14b";
+const LOCAL_MODEL_ID = "qwen3.6-35b-a3b";
 // Turns between advisor checks -- keeps it from competing with the main
 // agent (and any task subagents) for the local server's concurrency slots
 // on every single turn.
@@ -91,12 +91,10 @@ async function askAdvisor(turnSummary: string): Promise<string | undefined> {
       body: JSON.stringify({
         model: LOCAL_MODEL_ID,
         max_tokens: 200,
-        // qwen3-14b is registered without a reasoning_parser
-        // (nix/hosts/trex/mlx-models.yaml), so whatever it thinks arrives
-        // inside message.content rather than a field of its own, where it
-        // fails the STEER match below and eats the token budget the verdict
-        // needs. Qwen3's chat template leaves thinking on unless this says
-        // otherwise in as many words.
+        // A verdict is one word, so max_tokens above is far below what these
+        // models spend on a thinking block -- left on, they hit the cap
+        // mid-thought and return no verdict at all. Qwen3's chat template
+        // leaves thinking on unless this says otherwise in as many words.
         chat_template_kwargs: { enable_thinking: false },
         messages: [
           { role: "system", content: REVIEWER_SYSTEM_PROMPT },

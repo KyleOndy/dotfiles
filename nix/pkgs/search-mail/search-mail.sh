@@ -13,8 +13,9 @@
 #   search-mail [--model <id>] [question words...]
 #
 # <id> is one of the models registered in nix/hosts/trex/mlx-models.yaml
-# (currently qwen3-14b, qwen3.5-9b, qwen3.5-4b, qwen3.6-27b) -- defaults to
-# $SEARCH_MAIL_MODEL if set, else qwen3-14b. The flag wins over the env var.
+# (currently qwen3-14b, qwen3.5-9b, qwen3.5-4b, qwen3.6-27b, qwen3.6-35b-a3b)
+# -- defaults to $SEARCH_MAIL_MODEL if set, else qwen3.6-35b-a3b. The flag
+# wins over the env var.
 # This exists to A/B models against this exact notmuch tool-call workload;
 # see mlx-models.yaml for current results.
 
@@ -140,8 +141,8 @@ readonly READY_TIMEOUT_S=60
 # Which of the models in nix/hosts/trex/mlx-models.yaml to use. --model, if
 # given, must be the first argument (everything after it is the query, same
 # rule as pi's own --allow-*/--model flags below). Falls back to
-# $SEARCH_MAIL_MODEL, then to the qwen3-14b baseline.
-readonly DEFAULT_MODEL_ID="qwen3-14b"
+# $SEARCH_MAIL_MODEL, then to the default below.
+readonly DEFAULT_MODEL_ID="qwen3.6-35b-a3b"
 model_id="${SEARCH_MAIL_MODEL:-$DEFAULT_MODEL_ID}"
 if [ "${1:-}" = "--model" ]; then
 	model_id="${2:?--model requires a value}"

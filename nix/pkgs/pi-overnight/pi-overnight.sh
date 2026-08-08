@@ -15,7 +15,7 @@
 
 readonly LABEL="org.ondy.mlx-openai-server"
 readonly BASE_URL="http://127.0.0.1:8000"
-readonly LOCAL_MODEL="local/qwen3-14b"
+readonly LOCAL_MODEL="local/qwen3.6-35b-a3b"
 readonly LOG_DIR="$HOME/.pi/overnight/logs"
 readonly READY_TIMEOUT_S=60
 
