@@ -119,6 +119,12 @@ in
         ProgramArguments = [
           "${pkgs.prometheus-node-exporter}/bin/node_exporter"
           "--web.listen-address=127.0.0.1:9100"
+          # Every APFS volume in a container reports the container's free
+          # space, so one full disk raises one alert per volume. Data is the
+          # only one whose number is actionable. The smbfs mounts are tiger's
+          # shares, already monitored on tiger.
+          "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware))($|/)"
+          "--collector.filesystem.fs-types-exclude=^(devfs|autofs|smbfs)$"
         ];
         RunAtLoad = true;
         KeepAlive = true;
