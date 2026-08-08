@@ -745,6 +745,39 @@ in
               annotations:
                 summary: "Cogsworth CPU temperature is {{ $value }}°C"
                 description: "Raspberry Pi CPU temperature exceeds 70°C. Check cooling/ventilation."
+
+            # sync_state.last_sync_at is stamped on every outcome including
+            # the error branch, so staleness of that timestamp proves
+            # nothing and the status is the only usable signal. Calendars
+            # whose URL was blanked are filtered out by the app, not here.
+            - alert: CogsworthCalendarSyncFailing
+              expr: min_over_time(cogsworth_calendar_sync_ok[6h]) == 0
+              for: 15m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Calendar {{ $labels.calendar_id }} has not synced for 6 hours"
+                description: "Every webcal fetch for {{ $labels.calendar_id }} in the last 6 hours returned an error, so the kiosk is serving cached events that go on quietly aging while the display looks normal. A dead iCloud share URL is the usual cause and returns 404. Run `curl -s localhost:8080/api/admin/sync-states` on cogsworth for the error text, then re-share the calendar and paste the new URL into the admin UI."
+
+            # Every periodic task records success at one choke point in
+            # cogsworth.scheduler/safe-run, which already swallows throws to
+            # keep the ticker alive. A task that hangs stops the next tick
+            # with no exception and no log, and this is the only thing that
+            # sees it. The 24h cleanups are deliberately unalerted: their
+            # failure surfaces as disk growth, which DiskWillFillSoon covers.
+            - alert: CogsworthJobStalled
+              expr: |
+                time() - cogsworth_job_last_success_timestamp_seconds{job=~"display-loop|light-loop|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
+                or
+                time() - cogsworth_job_last_success_timestamp_seconds{job=~"immich-sync|gphotos-sync"} > 86400
+              for: 15m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth job {{ $labels.job }} has not succeeded in {{ $value | humanizeDuration }}"
+                description: "Background task {{ $labels.job }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
     '';
 
     systemd.services.vmalert = {
