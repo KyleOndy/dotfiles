@@ -42,11 +42,7 @@ in
         enable = true;
         profiles.default = {
           extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
-            browserpass
-            multi-account-containers
-            privacy-badger
             umatrix
-            vim-vixen
           ];
           settings = {
             # Dark mode
@@ -89,11 +85,6 @@ in
             "browser.toolbars.bookmarks.visibility" = "always";
           };
         };
-      };
-      browserpass = {
-        # this enabled the native application, not the firefox plugin
-        enable = true;
-        browsers = [ "firefox" ];
       };
     };
   };
