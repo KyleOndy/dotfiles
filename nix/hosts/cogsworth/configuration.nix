@@ -1077,6 +1077,24 @@ in
             }
           ];
         }
+        # Under /api/ because the app serves index.html for every other
+        # path, so a bare /metrics returns the SPA with a 200. 60s rather
+        # than the 15s default: every value moves on a sync interval, and
+        # a scrape costs two SQLite reads on an SD card.
+        {
+          job_name = "cogsworth";
+          metrics_path = "/api/metrics";
+          scrape_interval = "60s";
+          scrape_timeout = "10s";
+          static_configs = [
+            {
+              targets = [ "127.0.0.1:8080" ];
+              labels = {
+                host = "cogsworth";
+              };
+            }
+          ];
+        }
       ];
     };
 
