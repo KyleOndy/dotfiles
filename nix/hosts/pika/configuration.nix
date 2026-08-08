@@ -59,10 +59,15 @@ let
     };
   };
 
-  # The only thing in the fleet that deletes from the bucket, and it can only
-  # write delete markers: svc.archive-prune holds no DeleteObjectVersion.
-  pruneUnit = dataset: prefix: {
-    description = "Reconcile and prune ${prefix}/ in the offsite archive bucket";
+  # With prune, the only thing in the fleet that deletes from the bucket, and
+  # it can only write delete markers: svc.archive-prune holds no
+  # DeleteObjectVersion.
+  reconcileUnit = prune: dataset: prefix: {
+    description =
+      if prune then
+        "Reconcile and prune ${prefix}/ in the offsite archive bucket"
+      else
+        "Report ${prefix}/ against the offsite archive bucket";
     # Runs for hours against the same uplink. Activation must not stop a
     # reconcile in flight.
     restartIfChanged = false;
@@ -75,7 +80,7 @@ let
       # exec for the same reason as pushUnit.
       Type = "exec";
       User = "root";
-      ExecStart = "${pkgs.s3-archive-reconcile}/bin/s3-archive-reconcile --prune ${dataset} ${prefix}";
+      ExecStart = "${pkgs.s3-archive-reconcile}/bin/s3-archive-reconcile ${lib.optionalString prune "--prune "}${dataset} ${prefix}";
     };
   };
 
@@ -233,10 +238,14 @@ in
   systemd.timers.s3-archive-push-photos = pushTimer "04:00";
   systemd.timers.s3-archive-push-backups = pushTimer "06:00";
 
-  systemd.services.s3-archive-prune-photos = pruneUnit "tank/photos" "photos";
-  systemd.services.s3-archive-prune-backups = pruneUnit "tank/backups" "backups";
+  systemd.services.s3-archive-prune-photos = reconcileUnit true "tank/photos" "photos";
+  systemd.services.s3-archive-prune-backups = reconcileUnit true "tank/backups" "backups";
   systemd.timers.s3-archive-prune-photos = pruneTimer "Sun";
   systemd.timers.s3-archive-prune-backups = pruneTimer "Mon";
+
+  # No timer. Started by hand off the S3ArchiveObjectsMissing runbook.
+  systemd.services.s3-archive-reconcile-photos = reconcileUnit false "tank/photos" "photos";
+  systemd.services.s3-archive-reconcile-backups = reconcileUnit false "tank/backups" "backups";
 
   # syncoid runs as a system user with no home, so ssh has nowhere to write a
   # known_hosts and every pull dies on "Host key verification failed". This

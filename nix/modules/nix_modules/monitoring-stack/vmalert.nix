@@ -554,7 +554,7 @@ in
                 severity: critical
               annotations:
                 summary: "{{ $value }} files under {{ $labels.prefix }}/ are absent from the archive bucket"
-                description: "Reconciliation found source files with no object in the bucket, which means the sync believes it is current while the offsite copy is not. This is the failure the whole tier exists to prevent. Run `s3-archive-reconcile {{ $labels.prefix }}` on pika to list them."
+                description: "Reconciliation found source files with no object in the bucket, which means the sync believes it is current while the offsite copy is not. This is the failure the whole tier exists to prevent. Run `systemctl start s3-archive-reconcile-{{ $labels.prefix }}` on pika and read its journal to list them; that unit reports without deleting."
 
             - alert: S3ArchivePruneBlocked
               expr: s3_reconcile_prune_blocked{host="pika"} > 0
