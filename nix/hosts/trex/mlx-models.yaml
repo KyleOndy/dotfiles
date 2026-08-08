@@ -101,3 +101,22 @@ models:
     batch_prefill_size: 3
     on_demand: true
     on_demand_idle_timeout: 600
+
+  # The speed option, not the quality option, despite being the bigger
+  # download: 3B of 35B activated per token, so it decodes several times faster
+  # than the dense 27B but scores below it on every benchmark Qwen publishes
+  # (huggingface.co/Qwen/Qwen3.6-27B), and worst on exactly the agentic axis
+  # search-mail exercises -- SkillsBench 28.7 vs 48.2 against ~1pt on MMLU-Pro.
+  # 20.4GB at 4-bit against a 26.8GB Metal working-set ceiling on trex's 32GB.
+  # Parsers per Qwen's recommended flags for this model, same as the 27B.
+  - model_path: mlx-community/Qwen3.6-35B-A3B-4bit
+    served_model_name: qwen3.6-35b-a3b
+    model_type: lm
+    tool_call_parser: qwen3_coder
+    reasoning_parser: qwen3
+    enable_auto_tool_choice: true
+    context_length: 24576
+    batch_completion_size: 6
+    batch_prefill_size: 3
+    on_demand: true
+    on_demand_idle_timeout: 600

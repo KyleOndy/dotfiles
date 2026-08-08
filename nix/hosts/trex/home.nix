@@ -209,7 +209,7 @@ in
     # OpenAI tool-calling is immature; mlx-openai-server ships first-class
     # tool-call parsers.
     #
-    # Four models are registered (see nix/hosts/trex/mlx-models.yaml for
+    # Five models are registered (see nix/hosts/trex/mlx-models.yaml for
     # the server-side config and current empirical notes): qwen3-14b is the
     # long-standing dense baseline, kept over the earlier
     # Qwen3-Coder-30B-A3B because that MoE's 3B active params frequently
@@ -217,10 +217,12 @@ in
     # github.com/QwenLM/Qwen3-Coder/issues/475). qwen3.5-9b and qwen3.5-4b
     # are the newer generation, added to A/B against that baseline.
     # qwen3.6-27b (added 2026-07-24) is a further candidate, since qwen3-14b
-    # has since failed every notmuch call search-mail has thrown at it. All
-    # four load on demand server-side, so registering more than one here
-    # doesn't cost resident RAM until actually selected with `pi --model
-    # local/<id>`.
+    # has since failed every notmuch call search-mail has thrown at it.
+    # qwen3.6-35b-a3b is that same generation as an MoE, registered to trade
+    # quality for decode speed -- and to retest the <tool_call> weakness that
+    # disqualified the last 3B-active MoE. All five load on demand
+    # server-side, so registering more than one here doesn't cost resident RAM
+    # until actually selected with `pi --model local/<id>`.
     #
     # The local models stay per-invocation; sandbox.defaultArgs below pins
     # only the cloud default.
@@ -293,6 +295,20 @@ in
           {
             id = "qwen3.6-27b";
             name = "Qwen3.6 27B (local, mlx)";
+            reasoning = true;
+            input = [ "text" ];
+            cost = {
+              input = 0;
+              output = 0;
+              cacheRead = 0;
+              cacheWrite = 0;
+            };
+            contextWindow = 24576; # matches context_length in mlx-models.yaml
+            maxTokens = 8192;
+          }
+          {
+            id = "qwen3.6-35b-a3b";
+            name = "Qwen3.6 35B-A3B (local, mlx)";
             reasoning = true;
             input = [ "text" ];
             cost = {
