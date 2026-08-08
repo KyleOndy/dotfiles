@@ -99,8 +99,6 @@ in
               eval "$(${pkgs.starship}/bin/starship init zsh)"
             }
 
-            # shell hooks
-            eval "$(direnv hook zsh)"
             # zsh tweaks not included in home-manager.
             # reduce <ESC> key timeout in vim mode
             export KEYTIMEOUT=50
