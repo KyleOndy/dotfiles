@@ -833,10 +833,13 @@ in
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/media/yt-temp";
 
-        # Seeded at 1 while the pipeline proves itself. The archive stops each
-        # scan at the first video already held, so raising this only costs on
-        # the run that backfills.
-        max_videos = 1;
+        # A window of 1 starves a channel whose newest upload cannot be
+        # downloaded: a members-only video at position 1 consumes the only slot
+        # every run, and nothing alerts because the unit still exits 0. Nothing
+        # in the flat playlist entry distinguishes one, so no match_filter can
+        # skip it. The presets set break_on_existing, so a wider window stops at
+        # the first video already held and only costs on channels that are stuck.
+        max_videos = 3;
 
         housekeeping = {
           apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
