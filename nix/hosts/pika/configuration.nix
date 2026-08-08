@@ -282,6 +282,36 @@ in
       owner = "syncoid";
       mode = "0400";
     };
+
+    pika_histdb_ssh_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
+  };
+
+  # The second and last thing pika initiates to tiger. Everything the
+  # connection needs is spelled out here rather than coming from a user ssh
+  # config, so the appliance profile keeps its empty ~/.ssh. tiger's host key
+  # is pinned in programs.ssh.knownHosts above, and the credential is
+  # write-only into one directory (tiger/configuration.nix).
+  systemd.services.histdb-backup = {
+    description = "Push the shell history database to tiger";
+    environment.RSYNC_RSH = "ssh -p 2332 -i ${config.sops.secrets.pika_histdb_ssh_key.path} -o IdentitiesOnly=yes";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "kyle";
+      # Path is relative to the directory rrsync confines the key to.
+      ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup tiger.dmz.1ella.com:/";
+    };
+  };
+
+  systemd.timers.histdb-backup = {
+    description = "Daily shell history push";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "daily";
+      Persistent = true;
+    };
   };
 
   users.groups.monitoring-secrets = { };

@@ -277,10 +277,18 @@ in
     };
   };
 
+  # pika faces the internet, so this key buys exactly one capability and no
+  # shell: rrsync confines it to the one directory, -wo forbids reading the
+  # other hosts' history back out, and -no-del stops it deleting them. Same
+  # posture as its syncoid key, which carries only zfs send,hold,release.
+  users.users.kyle.openssh.authorizedKeys.keys = [
+    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/histdb\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2MvhvbsUVV1HjzbP7tL553Ux5bJyYufICn1jMCCHu8 kyle-histdb@pika"
+  ];
+
   # Shell history lives on the root disk, which is out of scope by design
   # (docs/backup-strategy.md). Landing a snapshot in storage/backups is what
   # puts it behind the snapshot, replication and S3 tiers, per the rule that
-  # the dataset is the backup boundary. trex pushes its own copy here.
+  # the dataset is the backup boundary. trex and pika push their copies here.
   systemd.services.histdb-backup = {
     description = "Snapshot the shell history database into storage/backups";
     serviceConfig = {
@@ -314,6 +322,9 @@ in
   # Downloads land on a different dataset than the library, so imports copy
   # rather than hardlink.
   systemd.tmpfiles.rules = [
+    # rrsync refuses to start if its restricted directory is absent, so this
+    # cannot be left to whichever histdb-backup run happens to land first.
+    "d /mnt/backups/kyle/histdb 0755 kyle kyle -"
     # svc.deploy owns so it can set timestamps via rsync; caddy group for serving.
     "d /var/www/kyleondy.com 0775 svc.deploy caddy -"
     "d /var/www/cogsworth.ondy.org 0775 svc.deploy caddy -"

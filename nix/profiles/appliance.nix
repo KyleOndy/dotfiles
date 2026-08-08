@@ -22,7 +22,9 @@
     ./common/base.nix
     # No development.nix. Not weight, blockers. See above.
     # No desktop.nix. Headless.
-    # No ssh-hosts.nix. Nothing here initiates ssh to the rest of the fleet.
+    # No ssh-hosts.nix. The two things that reach tiger (syncoid, the shell
+    # history push) are system units that spell out host, port and key
+    # themselves, so no interactive account here holds fleet ssh config.
   ];
 
   hmFoundry = {
