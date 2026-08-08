@@ -828,6 +828,46 @@ in
         hardwareAcceleration = true;
       };
 
+      ytdlSub = {
+        enable = true;
+        media_dir = "/mnt/media/yt";
+        temp_dir = "/mnt/media/yt-temp";
+
+        # Seeded at 1 while the pipeline proves itself. The archive stops each
+        # scan at the first video already held, so raising this only costs on
+        # the run that backfills.
+        max_videos = 1;
+
+        housekeeping = {
+          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+          jellyfinUser = "knk";
+        };
+
+        channels = {
+          Cycling = [
+            "@jjjjustin"
+            "@joshibbett"
+            "@pnwbikepacking"
+            "@TheVCAdventures"
+            "@worstretirementever"
+          ];
+          Science = [
+            "@AlphaPhoenixChannel"
+            "@miniminuteman773"
+          ];
+          Maker = [
+            "@matthiaswandel"
+            "@Paul.Sellers"
+            "@StuffMadeHere"
+            "@TomStantonEngineering"
+            "@WoodByWrightHowTo"
+          ];
+          Entertainment = [ "@SampsonBoatCo" ];
+          Tech = [ "@KRAZAM" ];
+          Outdoor = [ "@courtneyevewhite" ];
+        };
+      };
+
       sonarr = {
         enable = true;
         group = mediaGroup;

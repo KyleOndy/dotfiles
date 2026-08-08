@@ -643,6 +643,44 @@ in
                 summary: "node_exporter textfile collector failing on {{ $labels.host }}"
                 description: "At least one .prom file in /var/lib/prometheus-node-exporter-text-files on {{ $labels.host }} is unreadable or malformed, and every metric in it is absent. The file name is in the error: journalctl -u prometheus-node-exporter | grep textfile"
 
+        # SystemdServiceFailed already catches a run that exits non-zero. These
+        # two cover what it cannot see: a run that succeeds while fetching
+        # nothing, and a sweeper that dies and freezes the gauge the first rule
+        # reads. Ordering matters, so the sweeper rule fires first at 48h and
+        # answers "is the metric even live" before the stall rule speaks.
+        - name: ytdl_sub
+          interval: 60s
+          rules:
+            - alert: YtdlSubHousekeepingStale
+              expr: time() - ytdl_sub_housekeeping_last_run_timestamp_seconds > 172800
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "ytdl-sub housekeeping has not run in 48h on {{ $labels.host }}"
+                description: "The daily sweep writes every ytdl_sub_* metric, so while it is down the freshness gauge is frozen and YtdlSubStalled below is reading a stale number rather than a real stall. Fix this one first: systemctl status ytdl-sub-housekeeping on {{ $labels.host }}."
+
+            - alert: YtdlSubStalled
+              expr: time() - ytdl_sub_last_download_timestamp_seconds > 604800
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No new YouTube video downloaded in 7 days on {{ $labels.host }}"
+                description: >-
+                  Check format availability before anything else, because this
+                  is usually not throttling. Run `yt-dlp -F <any channel url>`
+                  on {{ $labels.host }}. If the only media format offered is 18
+                  (640x360), a player client has gone SABR-only and itag 18 is
+                  the one format exempt from the PO token check, which is
+                  exactly what stalled this service through spring 2026. The
+                  fix is a client change, not more sleeping: try
+                  `--extractor-args youtube:player_client=mweb` plus a PO token
+                  provider (bgutil, recoverable from git 0dc712f8). Genuine rate
+                  limiting looks different and shows HTTP 429. A quiet week
+                  across all channels is also possible, so confirm against
+                  ytdl_sub_videos_total before digging.
+
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring
           interval: 30s
