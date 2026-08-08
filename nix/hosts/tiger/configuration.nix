@@ -837,8 +837,7 @@ in
         # downloaded: a members-only video at position 1 consumes the only slot
         # every run, and nothing alerts because the unit still exits 0. Nothing
         # in the flat playlist entry distinguishes one, so no match_filter can
-        # skip it. The presets set break_on_existing, so a wider window stops at
-        # the first video already held and only costs on channels that are stuck.
+        # skip it.
         max_videos = 3;
 
         housekeeping = {

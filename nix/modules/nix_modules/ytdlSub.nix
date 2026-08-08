@@ -9,7 +9,11 @@ let
   cfg = config.systemFoundry.ytdlSub;
 
   displayName = handle: removePrefix "@" handle;
-  channelUrl = handle: "https://www.youtube.com/${handle}";
+
+  # The Videos tab, not the bare handle. A bare handle expands to every tab the
+  # channel has, and each one gets its own playlistend, so max_videos silently
+  # means "per tab" and the Shorts tab comes along with it.
+  channelUrl = handle: "https://www.youtube.com/${handle}/videos";
 
   # ytdl-sub reads "= Genre" keys as a preset override that tags every
   # subscription under it, which is what puts the genre on the Jellyfin entry.
@@ -55,10 +59,10 @@ in
       type = types.ints.positive;
       default = 1;
       description = ''
-        How far back into each channel's upload list to look on every run.
-        This is a lookback window, not a download count: the download archive
-        stops the scan at the first video already held, so the only run this
-        bounds is one against an empty archive. Raise it to backfill.
+        How far back into each channel's Videos tab to look on every run.
+        This is a lookback window, not a download count: entries already in
+        the download archive are skipped, so a steady-state run downloads
+        nothing. Raise it to backfill.
       '';
     };
 
@@ -166,10 +170,15 @@ in
             ytdl_options = {
               noprogress = true;
               playlistend = cfg.max_videos;
+
+              # The presets halt at the first video already held, which leaves
+              # max_videos unable to reach anything behind the newest video.
+              break_on_existing = false;
             };
 
+            # Shorts are excluded by requesting the Videos tab. A /shorts/ URL
+            # test cannot do it: one passed a 73 second 1080x1920 Short.
             match_filters.filters = [
-              "original_url!*=/shorts/"
               "duration>60"
               "availability != subscriber_only & availability != premium_only & availability != needs_auth"
             ];
