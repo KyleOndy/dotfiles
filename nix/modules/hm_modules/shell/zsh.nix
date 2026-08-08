@@ -571,5 +571,10 @@ in
       };
       dircolors.enable = true;
     };
+
+    # zsh-histdb shells out to sqlite3 and declares no dependency on it. macOS
+    # carries one in the base system, so this is what the Linux hosts were
+    # missing.
+    home.packages = [ pkgs.sqlite ];
   };
 }
