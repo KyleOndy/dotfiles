@@ -28,6 +28,42 @@ let
       "${firefoxBin}" --profile "$d" --new-instance "$@"
     '';
   };
+
+  ff-scratch = pkgs.writeShellApplication {
+    name = "ff-scratch";
+    runtimeInputs = [ pkgs.coreutils ];
+    text = ''
+      # Usage: ff-scratch <path_of_profile> [url...]
+      if [ $# -lt 1 ]; then
+        echo "usage: ff-scratch <path_of_profile> [url...]" >&2
+        exit 1
+      fi
+
+      mkdir -p "$1"
+      prof=$(realpath "$1")
+      shift
+      name=$(basename "$prof")
+      link="$HOME/Library/Application Support/Firefox/Profiles/$name"
+      localdir="$HOME/Library/Caches/Firefox/Profiles/$name"
+
+      if [ -e "$link" ] && [ "$(readlink "$link" || true)" != "$prof" ]; then
+        echo "ff-scratch: $link exists and is not a link to $prof" >&2
+        exit 1
+      fi
+
+      tmp=$(mktemp -d)
+      trap 'rm -rf "$tmp" "$link" "$localdir"' EXIT
+
+      # Firefox only splits the disposable half of a profile out of the root when
+      # the root sits under Profiles/, so launch against the link, not $prof.
+      mkdir -p "$(dirname "$link")" "$(dirname "$localdir")"
+      ln -sfn "$prof" "$link"
+      rm -rf "$localdir"
+      ln -s "$tmp" "$localdir"
+
+      "${firefoxBin}" --profile "$link" --new-instance "$@"
+    '';
+  };
 in
 {
   options.hmFoundry.desktop.browsers.firefox = {
@@ -35,7 +71,10 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [ ff-tmp ];
+    home.packages = [
+      ff-tmp
+      ff-scratch
+    ];
 
     programs = {
       firefox = {
