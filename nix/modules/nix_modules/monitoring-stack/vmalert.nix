@@ -293,14 +293,25 @@ in
                 summary: "Critical disk space on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Disk space is below 10% on {{ $labels.instance }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
+            # predict_linear reads any step change as a trend, so a one-off
+            # write (a batch of model downloads) forecasts a full disk. The
+            # floor keeps that arithmetic from mattering while headroom is
+            # ample, and the 24h window dilutes single bursts.
             - alert: DiskWillFillSoon
-              expr: (predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"}[6h], 24*3600) < 0) and on(instance, device, mountpoint) node_filesystem_readonly == 0
+              expr: |
+                (
+                  predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}[24h], 24*3600) < 0
+                  and
+                  node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}
+                    / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} < 0.20
+                )
+                and on(instance, device, mountpoint) node_filesystem_readonly == 0
               for: 30m
               labels:
                 severity: warning
               annotations:
                 summary: "Disk will fill within 24 hours on {{ $labels.instance }}:{{ $labels.mountpoint }}"
-                description: "Based on the last 6 hours, filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} will fill up within 24 hours"
+                description: "Based on the last 24 hours, filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} will fill up within 24 hours"
 
         # Drive health monitoring: SMART and mdraid
         - name: drive_health
