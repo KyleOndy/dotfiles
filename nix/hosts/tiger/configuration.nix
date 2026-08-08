@@ -277,6 +277,28 @@ in
     };
   };
 
+  # Shell history lives on the root disk, which is out of scope by design
+  # (docs/backup-strategy.md). Landing a snapshot in storage/backups is what
+  # puts it behind the snapshot, replication and S3 tiers, per the rule that
+  # the dataset is the backup boundary. trex pushes its own copy here.
+  systemd.services.histdb-backup = {
+    description = "Snapshot the shell history database into storage/backups";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "kyle";
+      ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup /mnt/backups/kyle/histdb";
+    };
+  };
+
+  systemd.timers.histdb-backup = {
+    description = "Daily shell history snapshot";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "daily";
+      Persistent = true;
+    };
+  };
+
   # media managment
   #
   # Only the two accounts that have no other route in. Every service that

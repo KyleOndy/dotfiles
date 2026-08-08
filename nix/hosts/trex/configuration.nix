@@ -288,4 +288,29 @@
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/mbsync.log";
     };
   };
+
+  # The laptop's shell history reaches storage/backups only by pushing; nothing
+  # on tiger can reach a roaming laptop to pull it. Midday because the machine
+  # has to be awake and able to route to tiger, and a missed calendar interval
+  # runs once on the next wake. Transport is the ssh key held by the session
+  # ssh-agent, so a run before the first interactive ssh of a boot will fail
+  # and the next one will not.
+  home-manager.users.kyle.launchd.agents.histdb-backup = {
+    enable = true;
+    config = {
+      Label = "org.ondy.histdb-backup";
+      ProgramArguments = [
+        "${pkgs.histdb-backup}/bin/histdb-backup"
+        "tiger:/mnt/backups/kyle/histdb"
+      ];
+      StartCalendarInterval = [
+        {
+          Hour = 13;
+          Minute = 0;
+        }
+      ];
+      StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/histdb-backup.log";
+      StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/histdb-backup.log";
+    };
+  };
 }
