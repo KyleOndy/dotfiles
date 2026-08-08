@@ -11,6 +11,7 @@
 #
 #   ask [--fast|--smart|--model ID] question words...
 #   ask --chat [--fast|--smart|--model ID]
+#   ask --help
 
 readonly FAST_MODEL="mlx-community/Qwen3-8B-4bit"
 readonly SMART_MODEL="mlx-community/gpt-oss-20b-MXFP4-Q4"
@@ -26,15 +27,17 @@ usage() {
 Usage:
   ask [--fast|--smart|--model ID] question words...
   ask --chat [--fast|--smart|--model ID]
+  ask --help
 
   --fast     $FAST_MODEL (default) -- ~4.7GB, ~30 tok/s
   --smart    $SMART_MODEL -- MoE, more capable, ~11GB, ~55 tok/s
   --model    any mlx-lm model id, e.g. mlx-community/Qwen3.6-27B-4bit
   --chat     interactive session instead of a one-off question
+  --help     this message
 
 Anything not already in ~/.cache/huggingface is downloaded on first use.
 EOF
-	exit 1
+	exit "${1:-1}"
 }
 
 if ! command -v mlx_lm.generate >/dev/null 2>&1; then
@@ -47,6 +50,9 @@ chat=false
 
 while [ $# -gt 0 ]; do
 	case "$1" in
+	-h | --help)
+		usage 0
+		;;
 	--fast)
 		model="$FAST_MODEL"
 		shift
