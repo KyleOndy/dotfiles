@@ -199,7 +199,7 @@ in
             # MetricsQL reads a gauge decrease as a counter reset, so one item
             # leaving the state restarts the `for:` for every other item in it.
             - alert: SonarrImportBlocked
-              expr: sum by (host) (sonarr_queue_total{download_state=~"importBlocked|failedPending"}) > 0
+              expr: sum by (host) (sonarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}) > 0
               for: 24h
               labels:
                 severity: warning
@@ -219,7 +219,7 @@ in
                 description: "Radarr has more than 50 items in queue for 4+ hours"
 
             - alert: RadarrImportBlocked
-              expr: sum by (host) (radarr_queue_total{download_state=~"importBlocked|failedPending"}) > 0
+              expr: sum by (host) (radarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}) > 0
               for: 24h
               labels:
                 severity: warning
@@ -227,6 +227,29 @@ in
               annotations:
                 summary: "Radarr has {{ $value }} queue item(s) blocked from importing"
                 description: "Radarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://radarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists anything still here at 48h."
+
+            - alert: LidarrQueueHigh
+              expr: lidarr_queue_total > 50
+              for: 4h
+              labels:
+                severity: warning
+                service: lidarr
+              annotations:
+                summary: "Lidarr queue depth is high: {{ $value }} items"
+                description: "Lidarr has more than 50 items in queue for 4+ hours"
+
+            # importFailed and not just importBlocked: lidarr parks an
+            # incomplete release here, where sonarr and radarr would say
+            # importBlocked. Without it the whole group matches nothing.
+            - alert: LidarrImportBlocked
+              expr: sum by (host) (lidarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}) > 0
+              for: 24h
+              labels:
+                severity: warning
+                service: lidarr
+              annotations:
+                summary: "Lidarr has {{ $value }} queue item(s) blocked from importing"
+                description: "Lidarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://lidarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists anything still here at 48h."
 
             - alert: SABnzbdQueueHigh
               expr: sabnzbd_queue_length > 20

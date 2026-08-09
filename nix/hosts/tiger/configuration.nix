@@ -1020,6 +1020,10 @@ in
             enable = true;
             apiKeyFile = config.sops.secrets.radarr_api_key.path;
           };
+          lidarr = {
+            enable = true;
+            apiKeyFile = config.sops.secrets.lidarr_api_key.path;
+          };
         };
 
         # UniFi metrics, polled from the UDM Pro's controller API. Runs here

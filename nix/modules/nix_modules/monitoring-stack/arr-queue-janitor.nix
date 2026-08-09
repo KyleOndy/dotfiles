@@ -11,13 +11,22 @@ let
 
   textfile = "/var/lib/prometheus-node-exporter-text-files/arr_queue_janitor.prom";
 
-  mkAppOptions = servicePort: {
+  mkAppOptions = servicePort: defaultApiVersion: {
     enable = mkEnableOption "queue janitor for this service";
 
     url = mkOption {
       type = types.str;
       default = "http://127.0.0.1:${toString servicePort}";
       description = "URL to the service";
+    };
+
+    apiVersion = mkOption {
+      type = types.str;
+      default = defaultApiVersion;
+      description = ''
+        Path segment of the queue API. Sonarr and Radarr are on v3, Lidarr is
+        still on v1 and answers 404 to a v3 request.
+      '';
     };
 
     apiKeyFile = mkOption {
@@ -27,7 +36,7 @@ let
   };
 
   enabledApps = filterAttrs (_: appCfg: appCfg.enable) {
-    inherit (cfg) sonarr radarr;
+    inherit (cfg) sonarr radarr lidarr;
   };
 in
 {
@@ -46,8 +55,9 @@ in
       '';
     };
 
-    sonarr = mkAppOptions 8989;
-    radarr = mkAppOptions 7878;
+    sonarr = mkAppOptions 8989 "v3";
+    radarr = mkAppOptions 7878 "v3";
+    lidarr = mkAppOptions 8686 "v1";
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -92,7 +102,7 @@ in
         }
 
         sweep_app() {
-          local app="$1" url="$2" keyfile="$3"
+          local app="$1" url="$2" keyfile="$3" api="$4"
           local key queue targets id title
           local removed=0 last_run
 
@@ -103,13 +113,16 @@ in
           last_run=''${last_run:-0}
 
           if queue=$(curl -sf --max-time 30 -H "X-Api-Key: $(cat "$keyfile")" \
-                       "$url/api/v3/queue?pageSize=200"); then
+                       "$url/api/$api/queue?pageSize=200"); then
             # Fractional seconds appear on some records and fromdateiso8601
             # rejects them.
             targets=$(printf '%s' "$queue" | jq -r --argjson now "$now" --argjson cutoff "$CUTOFF" '
               .records[]
               | select(.added != null)
+              # importFailed is where Lidarr parks an incomplete release;
+              # Sonarr and Radarr call the same condition importBlocked.
               | select(.trackedDownloadState == "importBlocked"
+                       or .trackedDownloadState == "importFailed"
                        or .trackedDownloadState == "failedPending")
               | select(((.added | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) + $cutoff) <= $now)
               | "\(.id)\t\(.title)"')
@@ -121,7 +134,7 @@ in
               # replacement after blocklisting; without it the item is simply
               # dropped and the movie or episode stays missing.
               if curl -sf --max-time 30 -X DELETE -o /dev/null -H "X-Api-Key: $key" \
-                   "$url/api/v3/queue/$id?removeFromClient=true&blocklist=true&skipRedownload=false"; then
+                   "$url/api/$api/queue/$id?removeFromClient=true&blocklist=true&skipRedownload=false"; then
                 echo "removed $app queue item $id: $title"
                 removed=$(( removed + 1 ))
               else
@@ -142,7 +155,7 @@ in
 
         ${concatStringsSep "\n" (
           mapAttrsToList (
-            app: appCfg: ''sweep_app ${app} "${appCfg.url}" "${appCfg.apiKeyFile}"''
+            app: appCfg: ''sweep_app ${app} "${appCfg.url}" "${appCfg.apiKeyFile}" "${appCfg.apiVersion}"''
           ) enabledApps
         )}
 
