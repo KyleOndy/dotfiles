@@ -768,9 +768,9 @@ in
             # failure surfaces as disk growth, which DiskWillFillSoon covers.
             - alert: CogsworthJobStalled
               expr: |
-                time() - cogsworth_job_last_success_timestamp_seconds{job=~"display-loop|light-loop|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
+                time() - cogsworth_job_last_success_timestamp_seconds{task=~"display-loop|light-loop|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
                 or
-                time() - cogsworth_job_last_success_timestamp_seconds{job=~"immich-sync|gphotos-sync"} > 86400
+                time() - cogsworth_job_last_success_timestamp_seconds{task=~"immich-sync|gphotos-sync"} > 86400
               for: 15m
               labels:
                 severity: warning

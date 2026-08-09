@@ -1094,6 +1094,21 @@ in
               };
             }
           ];
+          # The app names each scheduler task in a `job` label, which collides
+          # with the scrape's own and arrives as `exported_job`. Move it to
+          # `task` so rules can select on it by name.
+          metric_relabel_configs = [
+            {
+              source_labels = [ "exported_job" ];
+              regex = "(.+)";
+              target_label = "task";
+              replacement = "$1";
+            }
+            {
+              regex = "exported_job";
+              action = "labeldrop";
+            }
+          ];
         }
       ];
     };
