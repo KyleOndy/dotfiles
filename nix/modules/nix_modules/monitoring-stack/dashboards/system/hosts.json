@@ -170,7 +170,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max((1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)",
+          "expr": "max(((1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100) or ((node_memory_internal_bytes + node_memory_wired_bytes + node_memory_compressed_bytes) / node_memory_total_bytes * 100))",
           "instant": true
         }
       ],
@@ -236,12 +236,18 @@
     {
       "type": "timeseries",
       "title": "Memory Usage",
+      "description": "Linux is MemTotal minus MemAvailable. Darwin has no MemAvailable, so trex is app plus wired plus compressed, which is what Activity Monitor calls Memory Used.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
           "expr": "(1 - node_memory_MemAvailable_bytes{host=~\"$host\"} / node_memory_MemTotal_bytes{host=~\"$host\"}) * 100",
+          "legendFormat": "{{host}}"
+        },
+        {
+          "refId": "B",
+          "expr": "(node_memory_internal_bytes{host=~\"$host\"} + node_memory_wired_bytes{host=~\"$host\"} + node_memory_compressed_bytes{host=~\"$host\"}) / node_memory_total_bytes{host=~\"$host\"} * 100",
           "legendFormat": "{{host}}"
         }
       ],
@@ -453,7 +459,7 @@
     {
       "type": "timeseries",
       "title": "CPU Temperature",
-      "description": "CogsworthHighCPUTemp fires at 70C. The Pi 5 idles near 63C, so the headroom here is thin.",
+      "description": "CogsworthHighCPUTemp fires at 70C. The Pi 5 idles near 63C, so the headroom here is thin. Linux hosts only: darwin exposes no hwmon, so trex is absent by design.",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
