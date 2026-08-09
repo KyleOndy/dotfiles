@@ -151,7 +151,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="tiger",job="jellyfin"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
+                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -218,7 +218,7 @@ in
                         };
                         datasourceUid = "loki";
                         model = {
-                          expr = ''sum(count_over_time({host="tiger",job="jellyfin"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
+                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
