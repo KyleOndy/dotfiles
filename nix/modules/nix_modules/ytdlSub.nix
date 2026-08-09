@@ -213,6 +213,11 @@ in
         ExecStartPre = "+${fixTrickplayPerms}";
         Nice = 19;
         IOSchedulingClass = "idle";
+
+        # ytdl-sub exits 1 if any single video failed, so one video pulled
+        # private fails a run that fetched every other channel. A run that
+        # stops downloading for real surfaces as YtdlSubStalled at 7 days.
+        SuccessExitStatus = 1;
       };
     };
 
