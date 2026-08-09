@@ -115,6 +115,7 @@
     pi-overnight # unattended pi runs against the local model, see nix/pkgs/pi-overnight
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
+    mpv
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was
