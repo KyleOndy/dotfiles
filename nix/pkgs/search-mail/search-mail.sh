@@ -135,7 +135,7 @@ EOF
 readonly instructions
 
 readonly LABEL="org.ondy.mlx-openai-server"
-readonly BASE_URL="http://127.0.0.1:8000"
+readonly BASE_URL="http://127.0.0.1:8770"
 readonly READY_TIMEOUT_S=60
 
 # Which of the models in nix/hosts/trex/mlx-models.yaml to use. --model, if
@@ -165,7 +165,7 @@ cd "$workdir" || exit
 # on-demand: all three register in /v1/models as soon as the process is up,
 # well before any of them actually loads weights, so this only confirms the
 # right server/config is bound to the port -- e.g. that some stray
-# manually-started single-model instance isn't squatting on 8000, which
+# manually-started single-model instance isn't squatting on 8770, which
 # would otherwise make requests silently run against the wrong model until
 # pi's completion call fails deep inside the sandbox with an opaque 404. It
 # does NOT mean $SERVED_MODEL_NAME is warm: a cold on-demand model instead
@@ -202,7 +202,7 @@ if ! served_model_ready; then
 		echo "search-mail: local model server did not start serving '$SERVED_MODEL_NAME' within ${READY_TIMEOUT_S}s." >&2
 		if curl -fsS -o /dev/null "$BASE_URL/v1/models" 2>/dev/null; then
 			echo "search-mail: something is answering on $BASE_URL, but not with '$SERVED_MODEL_NAME'." >&2
-			echo "search-mail: a stray process may be holding port 8000 -- check 'lsof -i :8000' and 'launchctl print gui/$(id -u)/$LABEL'." >&2
+			echo "search-mail: a stray process may be holding port 8770 -- check 'lsof -i :8770' and 'launchctl print gui/$(id -u)/$LABEL'." >&2
 		fi
 		exit 1
 	fi

@@ -7,7 +7,7 @@
 # carried three copies of the launchd label and two of the state probe.
 
 readonly LABEL="org.ondy.mlx-openai-server"
-readonly BASE_URL="http://127.0.0.1:8000"
+readonly BASE_URL="http://127.0.0.1:8770"
 
 # Empty when the job is loaded but not running, and when launchctl cannot find
 # it at all. Neither case is an error worth distinguishing here.

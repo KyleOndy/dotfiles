@@ -247,7 +247,7 @@ in
       ];
 
       modelsJson.providers.local = {
-        baseUrl = "http://127.0.0.1:8000/v1";
+        baseUrl = "http://127.0.0.1:8770/v1";
         api = "openai-completions";
         apiKey = "local-no-key"; # mlx-openai-server does not check this
         compat.supportsDeveloperRole = false;

@@ -6,7 +6,15 @@
 # https://github.com/cubist38/mlx-openai-server/blob/main/README.md
 server:
   host: "127.0.0.1"
-  port: 8000
+  # Not 8000: that is uvicorn's default bind (host 127.0.0.1, port 8000), so
+  # every Python test suite that spins up a local server wants it too. nix
+  # builds on darwin share the host network stack, and curl-cffi's fixture
+  # waits on its uvicorn thread in an untimed `while not server.started` loop,
+  # so a squatter on 8000 hangs that build forever instead of failing it.
+  #
+  # Duplicated as BASE_URL in nix/pkgs/{mlx,search-mail,pi-overnight} and as
+  # modelsJson.providers.local.baseUrl in nix/hosts/trex/home.nix.
+  port: 8770
   log_level: INFO
   # mlx-openai-server defaults to a relative log path (logs/app.log).
   # launchd runs agents with CWD=/ (no WorkingDirectory set in home.nix), so
