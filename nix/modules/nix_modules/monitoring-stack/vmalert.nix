@@ -585,6 +585,17 @@ in
                 summary: "Offsite reconciliation of {{ $labels.prefix }}/ has not run in 14 days"
                 description: "Nothing has compared the bucket against the source in two weeks, against a weekly timer. Both S3ArchiveObjectsMissing and the orphan count are computed here, so this rule going quiet takes those with it."
 
+            # S3ReconcileStale subtracts from a series that only exists after a
+            # first successful run, so it cannot fire before one.
+            - alert: S3ReconcileNeverRan
+              expr: absent(s3_reconcile_last_run_timestamp_seconds{host="pika",prefix="photos"}) or absent(s3_reconcile_last_run_timestamp_seconds{host="pika",prefix="backups"})
+              for: 8d
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite reconciliation for one prefix has never recorded a run"
+                description: "No s3_reconcile_last_run_timestamp_seconds series exists for one of the two prefixes. The timers are weekly, photos on Sunday and backups on Monday, so 8 days is one full cycle plus slack. Check `systemctl status s3-archive-prune-photos s3-archive-prune-backups` on pika."
+
         # Windows machines mirroring into storage/backups over SMB
         # (docs/windows-backup.md). Once the files land, tiger's snapshots,
         # pika and the S3 tier already cover them and the groups above already
