@@ -118,25 +118,25 @@
     {
       "type": "stat",
       "title": "Blocked Imports",
-      "description": "Items stuck in importBlocked or failedPending. These never clear on their own.",
+      "description": "Items stuck in importBlocked, importFailed or failedPending. These never clear on their own.",
       "gridPos": { "h": 5, "w": 12, "x": 12, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(sonarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "expr": "sum(sonarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
           "legendFormat": "Sonarr",
           "instant": true
         },
         {
           "refId": "B",
-          "expr": "sum(radarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "expr": "sum(radarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
           "legendFormat": "Radarr",
           "instant": true
         },
         {
           "refId": "C",
-          "expr": "sum(lidarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "expr": "sum(lidarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
           "legendFormat": "Lidarr",
           "instant": true
         },
