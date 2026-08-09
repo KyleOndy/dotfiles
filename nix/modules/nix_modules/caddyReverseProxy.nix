@@ -40,6 +40,17 @@ let
   # Make a safe Caddyfile identifier from any string
   safeName = s: replaceStrings [ "-" "." "*" "/" ":" ] [ "_" "_" "star" "_" "_" ] s;
 
+  # Same path the NixOS caddy module derives, with a group-readable mode so
+  # promtail can ship these. Caddy's file writer defaults to 0600, which no
+  # amount of group membership can get around.
+  accessLogFormat = hostName: ''
+    output file ${config.services.caddy.logDir}/access-${
+      replaceStrings [ "/" " " ] [ "_" "_" ] hostName
+    }.log {
+      mode 640
+    }
+  '';
+
   # Generate basicauth directives for a site
   mkBasicAuth =
     site:
@@ -229,19 +240,22 @@ in
       enable = true;
       package = caddyWithPlugins;
 
-      # Global block: ACME email, Route53 DNS-01 challenge, Prometheus metrics endpoint
+      # Global block: ACME email, Route53 DNS-01 challenge, Prometheus metrics
+      # endpoint. `per_host` is deliberately absent: it labels series with the
+      # raw request Host, which on a public :443 grows a permanent series for
+      # every header a scanner sends. Per-site traffic comes from the access
+      # logs in Loki instead.
       globalConfig = ''
         email ${cfg.acme.email}
         acme_dns route53
-        servers {
-          metrics
-        }
+        metrics
       '';
 
       virtualHosts = mkMerge [
         # One wildcard vhost for all infra-domain sites (*.<infraDomain>)
         (optionalAttrs hasInfraSites {
           "*.${cfg.infraDomain}" = {
+            logFormat = accessLogFormat "*.${cfg.infraDomain}";
             extraConfig = wildcardVhostBody;
           };
         })
@@ -249,6 +263,7 @@ in
         # Individual vhosts for non-infra external sites (e.g. www.kyleondy.com)
         (mapAttrs (_name: site: {
           serverAliases = site.extraDomainNames;
+          logFormat = accessLogFormat _name;
           extraConfig = mkSiteBody _name site;
         }) externalSites)
 
@@ -257,6 +272,7 @@ in
           map (pair: {
             name = pair.name;
             value = {
+              logFormat = accessLogFormat pair.name;
               extraConfig = mkSiteBody pair.name pair.value.site;
             };
           }) publicAliasSites
@@ -265,6 +281,7 @@ in
         # HTTP catch-all for isDefault redirect sites
         (optionalAttrs (defaultSiteEntry != null) {
           "http://" = {
+            logFormat = accessLogFormat "http://";
             extraConfig =
               let
                 site = defaultSiteEntry.value;
@@ -280,6 +297,12 @@ in
     # Route53 credentials for ACME DNS-01 (read by systemd as root before privilege drop)
     systemd.services.caddy.serviceConfig.EnvironmentFile =
       config.sops.secrets.${cfg.acme.credentialsSecret}.path;
+
+    # `mode 640` only governs files Caddy creates from here on. Logs already on
+    # disk keep the 0600 they were opened with until they roll.
+    systemd.tmpfiles.rules = [
+      "z ${config.services.caddy.logDir}/access-*.log 0640 caddy caddy -"
+    ];
 
     networking.firewall.allowedTCPPorts = [
       80

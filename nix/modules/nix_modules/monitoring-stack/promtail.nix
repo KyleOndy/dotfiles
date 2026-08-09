@@ -76,8 +76,9 @@ in
       "d /var/lib/promtail 0755 promtail promtail -"
     ];
 
-    # Grant promtail access to jellyfin logs
-    users.users.promtail.extraGroups = optional config.services.jellyfin.enable "media";
+    # Grant promtail access to jellyfin and caddy logs
+    users.users.promtail.extraGroups =
+      optional config.services.jellyfin.enable "media" ++ optional config.services.caddy.enable "caddy";
 
     services.promtail = {
       enable = true;
