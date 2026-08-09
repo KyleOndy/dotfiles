@@ -234,7 +234,11 @@ in
           readonly OUTFILE="${textfile}"
           readonly MEDIA_DIR="${cfg.media_dir}"
           readonly API="${hk.jellyfinUrl}"
+          readonly STATE="${cfg.data_dir}/prune-counters"
           now=$(date +%s)
+
+          work=$(mktemp -d)
+          trap 'rm -rf "$work"' EXIT
 
           is_video() { case "$1" in *.mp4|*.mkv|*.webm) return 0;; *) return 1;; esac; }
 
@@ -243,37 +247,60 @@ in
             rm -vf "$f" "$base.nfo" "$base.info.json" "$base-thumb.jpg"
           }
 
-          # Metrics first and unconditionally: a Jellyfin outage below must not
-          # blank the freshness gauge and trip the staleness alert on its own.
-          newest=0 count=0 bytes=0
-          while IFS= read -r -d ''' f; do
-            is_video "$f" || continue
-            born=$(stat -c %W "$f" 2>/dev/null || echo 0)
-            if [ "$born" -gt "$newest" ]; then newest="$born"; fi
-            size=$(stat -c %s "$f" 2>/dev/null || echo 0)
-            count=$(( count + 1 ))
-            bytes=$(( bytes + size ))
-          done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
+          # Cumulative across runs, because the textfile collector rewrites the
+          # whole file each time and a counter that restarts at zero every day
+          # cannot be rated.
+          pruned_watched=0 pruned_expired=0
+          if [ -r "$STATE" ]; then
+            read -r pruned_watched pruned_expired < "$STATE" || true
+          fi
+          [ "''${pruned_watched:-x}" -ge 0 ] 2>/dev/null || pruned_watched=0
+          [ "''${pruned_expired:-x}" -ge 0 ] 2>/dev/null || pruned_expired=0
 
-          {
-            printf '# HELP ytdl_sub_videos_total Video files currently held\n'
-            printf '# TYPE ytdl_sub_videos_total gauge\n'
-            printf 'ytdl_sub_videos_total %s\n' "$count"
-            printf '# HELP ytdl_sub_bytes_total Bytes of video currently held\n'
-            printf '# TYPE ytdl_sub_bytes_total gauge\n'
-            printf 'ytdl_sub_bytes_total %s\n' "$bytes"
-            printf '# HELP ytdl_sub_housekeeping_last_run_timestamp_seconds Unix time of the last sweep\n'
-            printf '# TYPE ytdl_sub_housekeeping_last_run_timestamp_seconds gauge\n'
-            printf 'ytdl_sub_housekeeping_last_run_timestamp_seconds %s\n' "$now"
-            # Emitted only once something has landed, so a cold start does not
-            # read as a seven-day-old stall before the first download.
-            if [ "$newest" -gt 0 ]; then
-              printf '# HELP ytdl_sub_last_download_timestamp_seconds Birth time of the newest video held\n'
-              printf '# TYPE ytdl_sub_last_download_timestamp_seconds gauge\n'
-              printf 'ytdl_sub_last_download_timestamp_seconds %s\n' "$newest"
-            fi
-          } > "$OUTFILE.tmp"
-          mv "$OUTFILE.tmp" "$OUTFILE"
+          collect_gauges() {
+            newest=0 count=0 bytes=0
+            while IFS= read -r -d ''' f; do
+              is_video "$f" || continue
+              born=$(stat -c %W "$f" 2>/dev/null || echo 0)
+              if [ "$born" -gt "$newest" ]; then newest="$born"; fi
+              size=$(stat -c %s "$f" 2>/dev/null || echo 0)
+              count=$(( count + 1 ))
+              bytes=$(( bytes + size ))
+            done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
+          }
+
+          write_metrics() {
+            {
+              printf '# HELP ytdl_sub_videos_total Video files currently held\n'
+              printf '# TYPE ytdl_sub_videos_total gauge\n'
+              printf 'ytdl_sub_videos_total %s\n' "$count"
+              printf '# HELP ytdl_sub_bytes_total Bytes of video currently held\n'
+              printf '# TYPE ytdl_sub_bytes_total gauge\n'
+              printf 'ytdl_sub_bytes_total %s\n' "$bytes"
+              printf '# HELP ytdl_sub_housekeeping_last_run_timestamp_seconds Unix time of the last sweep\n'
+              printf '# TYPE ytdl_sub_housekeeping_last_run_timestamp_seconds gauge\n'
+              printf 'ytdl_sub_housekeeping_last_run_timestamp_seconds %s\n' "$now"
+              printf '# HELP ytdl_sub_pruned_watched_total Videos deleted after being watched\n'
+              printf '# TYPE ytdl_sub_pruned_watched_total counter\n'
+              printf 'ytdl_sub_pruned_watched_total %s\n' "$pruned_watched"
+              printf '# HELP ytdl_sub_pruned_expired_total Videos deleted unwatched at the retention horizon\n'
+              printf '# TYPE ytdl_sub_pruned_expired_total counter\n'
+              printf 'ytdl_sub_pruned_expired_total %s\n' "$pruned_expired"
+              # Emitted only once something has landed, so a cold start does not
+              # read as a seven-day-old stall before the first download.
+              if [ "$newest" -gt 0 ]; then
+                printf '# HELP ytdl_sub_last_download_timestamp_seconds Birth time of the newest video held\n'
+                printf '# TYPE ytdl_sub_last_download_timestamp_seconds gauge\n'
+                printf 'ytdl_sub_last_download_timestamp_seconds %s\n' "$newest"
+              fi
+            } > "$OUTFILE.tmp"
+            mv "$OUTFILE.tmp" "$OUTFILE"
+          }
+
+          # Written before the sweeps as well as after, so a Jellyfin outage
+          # cannot blank the freshness gauge and trip the staleness alert.
+          collect_gauges
+          write_metrics
 
           key=$(cat ${hk.apiKeyFile})
           auth="Authorization: MediaBrowser Token=\"$key\""
@@ -300,10 +327,16 @@ in
                   | select(.UserData.Played == true)
                   | select(.Path != null and (.Path | startswith($root)))
                   | select((.UserData.LastPlayedDate // "9999") < $cutoff)
-                  | .Path' \
-              | while IFS= read -r f; do
-                  if [ -n "$f" ] && [ -f "$f" ]; then drop "$f"; fi
-                done
+                  | .Path' > "$work/watched" || true
+
+            # Redirected from a file rather than piped, because a pipe puts the
+            # loop in a subshell and the counter increment would be discarded.
+            while IFS= read -r f; do
+              if [ -n "$f" ] && [ -f "$f" ]; then
+                drop "$f"
+                pruned_watched=$(( pruned_watched + 1 ))
+              fi
+            done < "$work/watched"
           fi
 
           # Backstop. %W is ZFS birth time, so this measures shelf life on disk
@@ -313,8 +346,17 @@ in
             is_video "$f" || continue
             born=$(stat -c %W "$f" 2>/dev/null || echo 0)
             [ "$born" -gt 0 ] || continue
-            if [ "$born" -lt "$horizon" ]; then drop "$f"; fi
+            if [ "$born" -lt "$horizon" ]; then
+              drop "$f"
+              pruned_expired=$(( pruned_expired + 1 ))
+            fi
           done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
+
+          printf '%s %s\n' "$pruned_watched" "$pruned_expired" > "$STATE.tmp"
+          mv "$STATE.tmp" "$STATE"
+
+          collect_gauges
+          write_metrics
 
           find "$MEDIA_DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true
 
