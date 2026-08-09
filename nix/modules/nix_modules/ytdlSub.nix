@@ -32,6 +32,9 @@ let
   '';
 
   textfile = "/var/lib/prometheus-node-exporter-text-files/ytdl_sub.prom";
+
+  # Where CacheDirectory below lands it.
+  cacheDir = "/var/cache/ytdl-sub";
 in
 {
   options.systemFoundry.ytdlSub = {
@@ -181,6 +184,11 @@ in
               noprogress = true;
               playlistend = cfg.max_videos;
 
+              # The unit's home is /var/empty and ProtectHome seals it, so the
+              # default ~/.cache/yt-dlp cannot be created and the player
+              # signature functions are re-solved from scratch every run.
+              cachedir = cacheDir;
+
               # The presets halt at the first video already held, which leaves
               # max_videos unable to reach anything behind the newest video.
               break_on_existing = false;
@@ -213,6 +221,8 @@ in
         ExecStartPre = "+${fixTrickplayPerms}";
         Nice = 19;
         IOSchedulingClass = "idle";
+
+        CacheDirectory = "ytdl-sub";
 
         # ytdl-sub exits 1 if any single video failed, so one video pulled
         # private fails a run that fetched every other channel. A run that
