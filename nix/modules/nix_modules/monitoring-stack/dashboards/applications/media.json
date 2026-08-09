@@ -1,0 +1,532 @@
+{
+  "id": null,
+  "uid": "media",
+  "title": "Media",
+  "description": "The media pipeline end to end: service state, download queues, library size and Jellyfin playback. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub and JellyfinDown.",
+  "tags": ["application", "media", "arr", "jellyfin", "tiger"],
+  "timezone": "",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Service State",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|jellyseerr.service\",state=\"active\"}",
+          "legendFormat": "{{name}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": { "text": "UP", "color": "green", "index": 0 },
+                "0": { "text": "DOWN", "color": "red", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "title": "Download Pipeline",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Queue Depth",
+      "description": "exportarr stops emitting a queue series when the queue empties, so or vector(0) is what keeps these reading 0 instead of No data.",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sonarr_queue_total) or vector(0)",
+          "legendFormat": "Sonarr",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(radarr_queue_total) or vector(0)",
+          "legendFormat": "Radarr",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "sum(lidarr_queue_total) or vector(0)",
+          "legendFormat": "Lidarr",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "sum(sabnzbd_queue_length) or vector(0)",
+          "legendFormat": "SABnzbd",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 20 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Blocked Imports",
+      "description": "Items stuck in importBlocked or failedPending. These never clear on their own.",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sonarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "legendFormat": "Sonarr",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(radarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "legendFormat": "Radarr",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "sum(lidarr_queue_total{download_state=~\"importBlocked|failedPending\"}) or vector(0)",
+          "legendFormat": "Lidarr",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "sum(increase(arr_queue_janitor_removed_total[24h])) or vector(0)",
+          "legendFormat": "Janitor removed 24h",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Janitor removed 24h" },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [{ "color": "text", "value": null }]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Queue Depth Over Time",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sonarr_queue_total) or vector(0)",
+          "legendFormat": "Sonarr"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(radarr_queue_total) or vector(0)",
+          "legendFormat": "Radarr"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(lidarr_queue_total) or vector(0)",
+          "legendFormat": "Lidarr"
+        },
+        {
+          "refId": "D",
+          "expr": "sum(sabnzbd_queue_length) or vector(0)",
+          "legendFormat": "SABnzbd"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "SABnzbd Disk Free",
+      "description": "SABnzbdDiskSpaceLow fires when the download folder drops under 50 GiB.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 11 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sabnzbd_disk_total_bytes - sabnzbd_disk_used_bytes",
+          "legendFormat": "{{folder}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 53687091200 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "min"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Library",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 19 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Library Size",
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sonarr_series_total",
+          "legendFormat": "Series",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "radarr_movie_total",
+          "legendFormat": "Movies",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "lidarr_albums_total",
+          "legendFormat": "Albums",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "jellyfin_media_count{type=\"Episode\"}",
+          "legendFormat": "Episodes",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "none",
+        "graphMode": "area",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Media Storage Used",
+      "description": "/mnt/media is a ZFS dataset. DiskSpaceLow fires for it at 5% free, tighter than the 10% used for every other mount.",
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(1 - node_filesystem_avail_bytes{host=\"tiger\",mountpoint=\"/mnt/media\"} / node_filesystem_size_bytes{host=\"tiger\",mountpoint=\"/mnt/media\"}) * 100",
+          "legendFormat": "/mnt/media"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 95 },
+              { "color": "red", "value": 97 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Jellyfin and Downloads",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Active Streams",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(jellyfin_now_playing_state) or vector(0)",
+          "legendFormat": "Streams"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "ytdl-sub Freshness",
+      "description": "Written by the housekeeping sweep, which runs daily at 06:00. Reads No data until the first run after a deploy.",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 26 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - ytdl_sub_housekeeping_last_run_timestamp_seconds",
+          "legendFormat": "Last housekeeping",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "time() - ytdl_sub_last_download_timestamp_seconds",
+          "legendFormat": "Newest video held",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 172800 },
+              { "color": "red", "value": 604800 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Transcode Failures",
+      "description": "Excludes code 0, which is a clean exit. Same query shape as the Grafana-managed Jellyfin Transcode Failure alert.",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 26 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({host=\"tiger\",unit=\"jellyfin.service\"} |= \"FFmpeg exited with code\" != \"code 0\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "Failures"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["sum"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Media Service Errors",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 33 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{host=\"tiger\",unit=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|jellyseerr.service\"} |~ \"(?i)(error|fatal|failed)\"",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    }
+  ]
+}
