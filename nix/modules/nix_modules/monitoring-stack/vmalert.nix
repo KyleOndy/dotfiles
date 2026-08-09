@@ -271,6 +271,32 @@ in
                 summary: "SABnzbd download free space low on {{ $labels.host }}: {{ $value | humanize1024 }}B free"
                 description: "SABnzbd reports less than 50GB free on its download directory for 1+ hour"
 
+            # A gauge and not increase() on a counter: a tar that will never
+            # extract is retried every sweep, and the counter would report the
+            # retries rather than the one file that needs a human.
+            - alert: UntarDownloadsStuck
+              expr: untar_downloads_stuck_archives > 0
+              for: 30m
+              labels:
+                severity: warning
+                service: sabnzbd
+              annotations:
+                summary: "untar-downloads left {{ $value }} archive(s) in place"
+                description: "A .tar in /mnt/scratch-big/downloads/complete would not extract, so the job stays archived and the *arr keeps failing its import. Run `journalctl -u untar-downloads` for the tar error; a truncated or password-protected archive needs the release grabbing again."
+
+            # absent() folded in: the timer writes this every 15 minutes, so a
+            # missing series means the sweep is gone rather than merely late,
+            # and a bare time() comparison would match nothing and stay quiet.
+            - alert: UntarDownloadsStale
+              expr: absent(untar_downloads_last_run_timestamp_seconds) or (time() - untar_downloads_last_run_timestamp_seconds > 6 * 3600)
+              for: 30m
+              labels:
+                severity: warning
+                service: sabnzbd
+              annotations:
+                summary: "untar-downloads has not swept in over 6 hours"
+                description: "Releases that ship as a single .tar will sit unextracted and the *arr import queue will fill. Check `systemctl status untar-downloads.timer` on tiger."
+
         # Disk space monitoring
         - name: disk_space
           interval: 60s

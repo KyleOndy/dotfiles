@@ -561,6 +561,89 @@ in
     };
   };
 
+  # SABnzbd unpacks rar, zip and 7z and nothing else: SEVENZIP_RE in
+  # sabnzbd/filesystem.py is `\.(zip|7z)$` and there is no tar unpacker behind
+  # it. A release that ships as one .tar therefore lands in the completed tree
+  # still archived, and lidarr parks the job on "Found archive file, might need
+  # to be extracted" and retries it forever.
+  #
+  # A post-processing script is SABnzbd's own hook for this, but it is
+  # configured in sabnzbd.ini, which SABnzbd rewrites to persist queue state
+  # and nix therefore cannot own. A sweep needs no cooperation from SABnzbd at
+  # all, and it clears the jobs that piled up before it existed.
+  systemd.services.untar-downloads = {
+    description = "Extract .tar releases SABnzbd cannot unpack";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "root";
+    };
+    path = [
+      pkgs.coreutils
+      pkgs.findutils
+      pkgs.gnutar
+    ];
+    script = ''
+      set -euo pipefail
+
+      readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/untar_downloads.prom"
+      now=$(date +%s)
+
+      # The counters have to carry across runs or increase() reads every sweep
+      # as a reset. index()==1 anchors the name; "^" would match literally.
+      prior_metric() {
+        awk -v pat="$1 " 'index($0, pat) == 1 { print $2 }' "$OUTFILE" 2>/dev/null || true
+      }
+
+      extracted=$(prior_metric untar_downloads_extracted_total)
+      extracted=''${extracted:-0}
+      # Deliberately not carried: a tar that will never extract would add one
+      # every sweep and read as 96 failures a day instead of one stuck file.
+      stuck=0
+
+      # Process substitution and not a pipe: a piped `while` runs in a subshell
+      # and both counters would be discarded at the end of the loop.
+      #
+      # -mmin +5 keeps the sweep off a tar SABnzbd is still writing out.
+      while IFS= read -r -d "" archive; do
+        dir=$(dirname "$archive")
+        # --no-same-owner: the archive carries whatever uid the release group
+        # packed it with, and root would honour it.
+        if tar --no-same-owner --no-same-permissions -xf "$archive" -C "$dir"; then
+          chown -R sabnzbd:${mediaGroup} "$dir"
+          rm -f "$archive"
+          extracted=$(( extracted + 1 ))
+          echo "extracted $archive"
+        else
+          stuck=$(( stuck + 1 ))
+          echo "failed to extract $archive" >&2
+        fi
+      done < <(find /mnt/scratch-big/downloads/complete \
+                 -maxdepth 3 -type f -name '*.tar' -mmin +5 -print0)
+
+      {
+        printf '# HELP untar_downloads_extracted_total Archives extracted and removed\n'
+        printf '# TYPE untar_downloads_extracted_total counter\n'
+        printf 'untar_downloads_extracted_total %s\n' "$extracted"
+        printf '# HELP untar_downloads_stuck_archives Archives left in place by the last sweep\n'
+        printf '# TYPE untar_downloads_stuck_archives gauge\n'
+        printf 'untar_downloads_stuck_archives %s\n' "$stuck"
+        printf '# HELP untar_downloads_last_run_timestamp_seconds Unix time of the last sweep\n'
+        printf '# TYPE untar_downloads_last_run_timestamp_seconds gauge\n'
+        printf 'untar_downloads_last_run_timestamp_seconds %s\n' "$now"
+      } > "$OUTFILE.tmp"
+      mv "$OUTFILE.tmp" "$OUTFILE"
+    '';
+  };
+
+  systemd.timers.untar-downloads = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnBootSec = "10min";
+      OnUnitActiveSec = "15min";
+      Persistent = true;
+    };
+  };
+
   # mDNS/Bonjour advertisement so tiger shows up in Finder's Network sidebar
   # and `smb://tiger.local` resolves. LAN-scoped: 5353/udp is link-local
   # multicast, never routed to the WAN.

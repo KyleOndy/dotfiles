@@ -145,6 +145,18 @@
           "expr": "sum(increase(arr_queue_janitor_removed_total[24h])) or vector(0)",
           "legendFormat": "Janitor removed 24h",
           "instant": true
+        },
+        {
+          "refId": "E",
+          "expr": "sum(increase(untar_downloads_extracted_total[24h])) or vector(0)",
+          "legendFormat": "Untarred 24h",
+          "instant": true
+        },
+        {
+          "refId": "F",
+          "expr": "sum(untar_downloads_stuck_archives) or vector(0)",
+          "legendFormat": "Untar stuck",
+          "instant": true
         }
       ],
       "options": {
