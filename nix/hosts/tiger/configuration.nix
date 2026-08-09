@@ -928,28 +928,119 @@ in
           jellyfinUser = "knk";
         };
 
+        # Commented entries are the remainder of the original subscription
+        # list, held back so per-run request volume stays under YouTube's bot
+        # check. Uncommenting one adds it to the nightly run.
         channels = {
           Cycling = [
+            # "@BeauMiles"
+            # "@BermPeakExpress"
+            # "@bike2reality814"
+            # "@BIKEPACKINGcom"
+            # "@BikePak"
+            # "@chadweberg1" # Chad Weberg
+            # "@ChumbaUSABikes"
+            # "@Cycling366"
+            # "@Danny_MacAskill"
+            # "@DirtyTeethMTB"
+            # "@duzer"
+            # "@DylanJohnsonCycling"
+            # "@EFProCycling"
+            # "@FarBeyond-EFPC"
+            # "@FullBeansCyclingCompany"
+            # "@hennapalosaari_"
+            # "@howtheracewaswon"
+            # "@JackScottkeogh"
+            # "@jasperverkuijl"
             "@jjjjustin"
+            # "@joe.nation"
+            # "@joffreymaluski"
             "@joshibbett"
+            # "@justinasleveika"
+            # "@katrinahase"
+            # "@KDubzDidWhat"
+            # "@KeepSmilingAdventures"
+            # "@lesperitdelbikepacking"
+            # "@MediocreAmateur"
+            # "@MickTurnbullFilms"
+            # "@msoleilblais74"
+            # "@omniumcargo"
+            # "@panoramacycles"
+            # "@PatrickMcGrady1"
+            # "@PaulComponentEngineering"
             "@pnwbikepacking"
-            "@TheVCAdventures"
-            "@worstretirementever"
+            # "@raphafilms"
+            # "@RideProductionsNZ"
+            # "@RousLigon"
+            # "@SethsBikeHacks"
+            # "@sofianeshl"
+            # "@sportscientist" # Stephen Seiler
+            # "@stephanwieser"
+            # "@TailfinCycling"
+            # "@TENTISTHENEWRENT"
+            # "@the_dirtbags"
+            # "@themountainraces"
+            "@TheVCAdventures" # The Vegan Cyclist
+            # "@tristanbogaard"
+            # "@tristantakevideo"
+            # "@TurnCycling"
+            # "@ValleyPreferredCyclingCenter"
+            # "@wattwagon"
+            # "@wheelstowaves"
+            "@worstretirementever" # Phil Gaimon
           ];
           Science = [
             "@AlphaPhoenixChannel"
+            # "@BetaPhoenixChannel"
             "@miniminuteman773"
           ];
           Maker = [
+            # "@aaedmusa"
+            # "@BennettStirton"
+            # "@dkbuilds"
+            # "@lostartpress"
+            # "@MarkRober"
             "@matthiaswandel"
             "@Paul.Sellers"
+            # "@propdepartment"
+            # "@RexKrueger"
             "@StuffMadeHere"
+            # "@StuffMadeHere2"
+            # "@tested"
+            # "@theslowmoguys"
             "@TomStantonEngineering"
             "@WoodByWrightHowTo"
           ];
-          Entertainment = [ "@SampsonBoatCo" ];
-          Tech = [ "@KRAZAM" ];
-          Outdoor = [ "@courtneyevewhite" ];
+          Entertainment = [
+            # "@2MuchColinFurze"
+            # "@Ben_Brainard"
+            # "@CaptainDisillusion"
+            # "@CharlieBerens"
+            # "@colinfurze"
+            # "@DudeDad"
+            # "@Gossip.Goblin"
+            # "@GxAce"
+            # "@kaptainkristian"
+            # "@kurzgesagt"
+            # "@PracticalEngineeringChannel"
+            # "@RudyAyoub"
+            "@SampsonBoatCo"
+            # "@theslappablejerk"
+            # "@treykennedy"
+            # "@whistlindiesel"
+          ];
+          Tech = [
+            # "@AdamJames-tv"
+            "@KRAZAM"
+            # "@programmersarealsohuman5909" # Kai Lentit
+          ];
+          Outdoor = [
+            # "@bronandjacob"
+            # "@ChrisburkardStudio"
+            "@courtneyevewhite"
+            # "@RabEquipment"
+            # "@theaudaciousreport"
+          ];
         };
       };
 
