@@ -833,12 +833,12 @@ in
         media_dir = "/mnt/media/yt";
         temp_dir = "/mnt/media/yt-temp";
 
-        # A window of 1 starves a channel whose newest upload cannot be
-        # downloaded: a members-only video at position 1 consumes the only slot
-        # every run, and nothing alerts because the unit still exits 0. Nothing
-        # in the flat playlist entry distinguishes one, so no match_filter can
-        # skip it.
-        max_videos = 3;
+        # Counts entries, so how far back it reaches in time varies with how
+        # often a channel posts. Must exceed 1 regardless: a video that cannot
+        # be downloaded at all, members-only being the case seen here, would
+        # otherwise consume the only slot on every run, and nothing alerts
+        # because the unit still exits 0.
+        max_videos = 20;
 
         housekeeping = {
           apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
