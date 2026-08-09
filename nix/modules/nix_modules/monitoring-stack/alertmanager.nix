@@ -77,8 +77,31 @@ in
               };
               repeat_interval = "24h";
             }
+            {
+              # A failed unit stays failed until someone opens a shell, and a
+              # nightly oneshot cannot retry before its next timer. Hourly mail
+              # restates the same units until then.
+              match = {
+                alertgroup = "systemd_health";
+              };
+              repeat_interval = "24h";
+            }
           ];
         };
+
+        # cogsworth and pika reach VictoriaMetrics only through Caddy on tiger,
+        # so a Caddy outage drops their up series entirely and reads as a host
+        # that stopped reporting. The write path is what broke, and the
+        # InstanceDown carrying job=caddy already says so.
+        inhibit_rules = [
+          {
+            source_matchers = [
+              "alertname = InstanceDown"
+              "job = caddy"
+            ];
+            target_matchers = [ "alertname = HostAbsent" ];
+          }
+        ];
 
         receivers = [
           (
