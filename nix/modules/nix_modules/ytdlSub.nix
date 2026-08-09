@@ -68,8 +68,18 @@ in
 
     schedule = mkOption {
       type = types.str;
-      default = "*-*-* 15:00:00";
+      default = "*-*-* 02:00:00";
       description = "Systemd calendar expression for the download run";
+    };
+
+    randomizedDelay = mkOption {
+      type = types.str;
+      default = "1h";
+      description = ''
+        Upper bound on a delay added to each run, as a systemd time span.
+        systemd re-rolls it per iteration, so runs land anywhere in
+        [schedule, schedule + this].
+      '';
     };
 
     channels = mkOption {
@@ -205,6 +215,8 @@ in
         IOSchedulingClass = "idle";
       };
     };
+
+    systemd.timers.ytdl-sub-youtube.timerConfig.RandomizedDelaySec = cfg.randomizedDelay;
 
     systemd.services.ytdl-sub-housekeeping = mkIf cfg.housekeeping.enable {
       description = "Prune watched and expired ytdl-sub videos, export freshness";
