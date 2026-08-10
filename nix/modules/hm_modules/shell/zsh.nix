@@ -82,16 +82,26 @@ in
             fpath=(~/.local/share/zsh/site-functions $fpath)
           '')
           (lib.mkBefore ''
-            # do this early, so I can overwrite settings as I want.
-            source ${pkgs.zsh-vi-mode}/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
-          '')
-          ''
-            # Only changing the escape key to `jk` in insert mode, we still
-            # keep using the default keybindings `^[` in other modes
-            ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
-            # I never _intend_ or _expect_ to start in normal mode and it throws
-            # me off every time.
-            ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
+            # zvm reads every ZVM_* setting while it is being sourced, so an
+            # assignment after the source below is too late. zvm_config is the
+            # hook it calls just before dispatching on ZVM_INIT_MODE.
+            # https://github.com/jeffreytse/zsh-vi-mode/blob/v0.12.0/zsh-vi-mode.zsh#L306
+            zvm_config() {
+              # The default lazy mode registers zvm_init as a precmd hook, so
+              # the widget table gets rewritten on the first prompt, in the same
+              # callhookfunc pass that runs zsh-autosuggestions'
+              # `$(builtin zle -la)`. Reading it mid-rewrite segfaults zsh:
+              # 7 coredumps in 48h on tiger, all in zle.so under execbuiltin.
+              # https://github.com/jeffreytse/zsh-vi-mode/blob/v0.12.0/zsh-vi-mode.zsh#L4034-L4037
+              ZVM_INIT_MODE=sourcing
+
+              # Only changing the escape key to `jk` in insert mode, we still
+              # keep using the default keybindings `^[` in other modes
+              ZVM_VI_INSERT_ESCAPE_BINDKEY=jk
+              # I never _intend_ or _expect_ to start in normal mode and it throws
+              # me off every time.
+              ZVM_LINE_INIT_MODE=$ZVM_MODE_INSERT
+            }
 
             zvm_after_init() {
               # White ZVM is super nifty, and better than the built in vi mode,
@@ -107,6 +117,10 @@ in
               eval "$(${pkgs.starship}/bin/starship init zsh)"
             }
 
+            # do this early, so I can overwrite settings as I want.
+            source ${pkgs.zsh-vi-mode}/share/zsh-vi-mode/zsh-vi-mode.plugin.zsh
+          '')
+          ''
             # zsh tweaks not included in home-manager.
             # reduce <ESC> key timeout in vim mode
             export KEYTIMEOUT=50
