@@ -675,6 +675,12 @@ in
     };
   };
 
+  # avahi-dbus.conf carries a <policy group="netdev"> stanza granting SetHostName.
+  # NixOS only creates that group under NetworkManager, which tiger does not run,
+  # so dbus-daemon logs "Unknown group" on every config parse. Empty is enough:
+  # the policy just needs the name to resolve.
+  users.groups.netdev = { };
+
   # deployment_target.nix (shared by every host) disables the firewall
   # entirely; override for tiger only now that it's serving SMB to the LAN.
   # This does not newly expose anything to the WAN: every service module
@@ -711,6 +717,11 @@ in
   #     battery drain (UPS cuts out) then mains return, with BIOS "restore on
   #     AC power loss" enabled.
   # ---------------------------------------------------------------------------
+  # nut ships 62-nut-usbups.rules with GROUP="nutmon" on every device line, and
+  # NixOS creates no such group, so a udev reload logs 129 errors. The driver
+  # runs as root here, so the group owns nothing; it exists to resolve the rules.
+  users.groups.nutmon = { };
+
   power.ups = {
     enable = true;
     mode = "standalone";
