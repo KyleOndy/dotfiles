@@ -752,6 +752,30 @@ in
                   across all channels is also possible, so confirm against
                   ytdl_sub_videos_total before digging.
 
+            # Not > 0: a members-only video and the odd transient refusal are
+            # normal. 25 is roughly "a whole channel was wiped", against the 63
+            # seen on 2026-08-11 when three channels fetched nothing at all.
+            - alert: YtdlSubBotBlocked
+              expr: sum by (host) (sum_over_time(ytdl_sub:bot_blocked_lines:count5m[26h])) > 25
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "YouTube bot check refused {{ $value }} downloads on {{ $labels.host }}"
+                description: >-
+                  The wall comes down partway into a run and then blocks every
+                  channel after it, so the run still fetches plenty and exits
+                  as it always does. Neither SystemdServiceFailed nor
+                  YtdlSubStalled can see this. The count follows refusal log
+                  lines, and yt-dlp retries each video several times, so it
+                  overstates the videos actually lost. For which channels lost
+                  out, read the Download Summary table at the end of the run:
+                  `journalctl -u ytdl-sub-youtube -o cat | grep -A40 "Download
+                  Summary"`. Channels showing 0 in the final column fetched
+                  nothing. Subscription order is shuffled per run, so a channel
+                  blocked one night is usually collected the next; the same
+                  channel starving several nights running is the real signal.
+
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring
           interval: 30s
@@ -906,6 +930,24 @@ in
               annotations:
                 summary: "vmagent is failing to remote-write"
                 description: "tiger's vmagent cannot deliver to VictoriaMetrics. It buffers on disk first, so a short outage is invisible; sustained failure ends in dropped samples."
+
+            - alert: LokiRulerDown
+              expr: absent_over_time(loki:ruler_heartbeat[15m])
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Loki ruler has stopped feeding VictoriaMetrics"
+                description: >-
+                  Every log-derived alert reads a series the ruler mints from
+                  LogQL and remote-writes here, so while this fires none of
+                  them can fire either, and the logs they watch look quiet
+                  rather than unwatched. The heartbeat is a constant evaluated
+                  every minute, so its absence means the ruler, its
+                  remote_write, or Loki itself has stopped. Check `systemctl
+                  status loki` on tiger, then `curl -s
+                  localhost:3100/metrics | grep loki_prometheus_rule` for
+                  evaluation failures.
 
             - alert: VmagentScrapesFailing
               expr: rate(vm_promscrape_scrapes_failed_total[10m]) > 0

@@ -8,6 +8,42 @@ with lib;
 let
   parentCfg = config.systemFoundry.monitoringStack;
   cfg = config.systemFoundry.monitoringStack.loki;
+
+  # Alerting stays in vmalert; these only mint series for it. Range equals
+  # interval to tile evaluations: the alert's 26h span would rescan a day of
+  # chunks every 5 minutes.
+  rulesYaml = ''
+    groups:
+      # vector(1) scans no chunks, so this is free, and it is the only series
+      # here that exists when nothing is wrong. Its absence is what proves the
+      # ruler and its remote_write are still alive.
+      - name: ruler_heartbeat
+        interval: 1m
+        rules:
+          - record: loki:ruler_heartbeat
+            expr: vector(1)
+            labels:
+              host: ${config.networking.hostName}
+
+      - name: ytdl_sub_logs
+        interval: 5m
+        rules:
+          # Counts refusals not videos (yt-dlp retries); match avoids the U+2019.
+          - record: ytdl_sub:bot_blocked_lines:count5m
+            expr: |
+              sum by (host) (
+                count_over_time({unit="ytdl-sub-youtube.service"} |= "Sign in to confirm you" [5m])
+              )
+  '';
+
+  # auth_enabled = false pins every stream to the "fake" tenant, and the local
+  # rule store keys by tenant, so rules have to sit one directory down.
+  ruleDir = pkgs.linkFarm "loki-rules" [
+    {
+      name = "fake/recording.yaml";
+      path = pkgs.writeText "loki-recording-rules.yaml" rulesYaml;
+    }
+  ];
 in
 {
   options.systemFoundry.monitoringStack.loki = {
@@ -35,6 +71,21 @@ in
       type = types.str;
       default = "loki.${parentCfg.domain}";
       description = "Domain name for Loki (defaults to loki.{parent domain})";
+    };
+
+    alertmanagerUrl = mkOption {
+      type = types.str;
+      default = "http://127.0.0.1:9093";
+      description = ''
+        Alertmanager the ruler notifies. Loopback, which is what lets it skip
+        the basic auth Caddy puts in front of the Alertmanager UI.
+      '';
+    };
+
+    remoteWriteUrl = mkOption {
+      type = types.str;
+      default = "http://127.0.0.1:8428/api/v1/write";
+      description = "Where the ruler ships recording rule samples";
     };
 
     instanceInterfaceNames = mkOption {
@@ -135,6 +186,27 @@ in
           retention_delete_delay = "2h";
           retention_delete_worker_count = 150;
           delete_request_store = "filesystem";
+        };
+
+        ruler = {
+          storage = {
+            type = "local";
+            local.directory = ruleDir;
+          };
+
+          # Scratch space, created by loki itself under its own state dir.
+          rule_path = "/var/lib/loki/ruler";
+
+          alertmanager_url = cfg.alertmanagerUrl;
+          enable_alertmanager_v2 = true;
+          enable_api = true;
+
+          ring.kvstore.store = "inmemory";
+
+          remote_write = {
+            enabled = true;
+            clients.victoriametrics.url = cfg.remoteWriteUrl;
+          };
         };
       };
     };
