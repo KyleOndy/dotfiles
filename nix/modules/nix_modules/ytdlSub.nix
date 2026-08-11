@@ -35,6 +35,24 @@ let
 
   # Where CacheDirectory below lands it.
   cacheDir = "/var/cache/ytdl-sub";
+
+  instance = config.services.ytdl-sub.instances.youtube;
+  yamlFormat = pkgs.formats.yaml { };
+
+  # Restated in full because the upstream module builds ExecStart inline with
+  # no hook to append a flag. The two files regenerate to upstream's own store
+  # paths: same generator, same option values.
+  #
+  # --shuffle because YouTube's bot check trips partway into a run and refuses
+  # everything after it, so a fixed order starves whichever channels sort last
+  # every single night. ytdl-sub shuffles after presets resolve, leaving the
+  # genre tags intact.
+  execStart = concatStringsSep " " [
+    (getExe config.services.ytdl-sub.package)
+    "--config ${yamlFormat.generate "config.yaml" instance.config}"
+    "sub ${yamlFormat.generate "subscriptions.yaml" instance.subscriptions}"
+    "--shuffle"
+  ];
 in
 {
   options.systemFoundry.ytdlSub = {
@@ -223,6 +241,8 @@ in
         IOSchedulingClass = "idle";
 
         CacheDirectory = "ytdl-sub";
+
+        ExecStart = mkForce execStart;
 
         # ytdl-sub exits 1 if any single video failed, so one video pulled
         # private fails a run that fetched every other channel. A run that
