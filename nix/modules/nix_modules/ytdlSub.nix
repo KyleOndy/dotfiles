@@ -369,12 +369,28 @@ in
             # LastPlayedDate is Zulu ISO8601, so a lexical compare orders it.
             curl -sSf --max-time 120 -H "$auth" \
               "$API/Items?userId=$uid&recursive=true&includeItemTypes=Episode&fields=Path&enableUserData=true&enableImages=false&enableTotalRecordCount=false" \
-              | jq -r --arg cutoff "$cutoff" --arg root "$MEDIA_DIR/" '
-                  .Items[]
-                  | select(.UserData.Played == true)
-                  | select(.Path != null and (.Path | startswith($root)))
-                  | select((.UserData.LastPlayedDate // "9999") < $cutoff)
-                  | .Path' > "$work/watched" || true
+              > "$work/items.json" || true
+
+            jq -r --arg cutoff "$cutoff" --arg root "$MEDIA_DIR/" '
+                .Items[]
+                | select(.UserData.Played == true)
+                | select(.Path != null and (.Path | startswith($root)))
+                | select((.UserData.LastPlayedDate // "9999") < $cutoff)
+                | .Path' "$work/items.json" > "$work/watched" || true
+
+            # Announced, not pruned. Without this a watched video inside its
+            # grace window is indistinguishable from one the sweep never saw,
+            # and the difference only shows up as an absence days later.
+            jq -r --arg cutoff "$cutoff" --arg root "$MEDIA_DIR/" \
+                  --argjson grace ${toString hk.watchedGraceDays} '
+                .Items[]
+                | select(.UserData.Played == true)
+                | select(.Path != null and (.Path | startswith($root)))
+                | select(.UserData.LastPlayedDate != null)
+                | select(.UserData.LastPlayedDate >= $cutoff)
+                | "will prune \(.Path | split("/") | last) on " +
+                  ((.UserData.LastPlayedDate | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)
+                    + $grace * 86400 | strftime("%Y-%m-%d"))' "$work/items.json" || true
 
             # Redirected from a file rather than piped, because a pipe puts the
             # loop in a subshell and the counter increment would be discarded.
