@@ -80,11 +80,14 @@ warn_strays() {
 
 # Run a command for every shoot in each named tree that exists locally. The
 # callback receives the absolute shoot directory and its path relative to
-# $PHOTOS_DIR.
+# $PHOTOS_DIR. Every tree is enumerated before the first shoot is synced so
+# the per-shoot line can carry a total; streaming would only ever know where
+# the run is, not how far it has left to go.
 for_each_shoot() {
 	local callback="$1"
 	shift
-	local spec item depth src dir rel
+	local spec item depth src dir rel i=0
+	local shoots=()
 	for spec in "$@"; do
 		item="${spec%:*}"
 		depth="${spec#*:}"
@@ -95,9 +98,14 @@ for_each_shoot() {
 		fi
 		warn_strays "$src" "$depth"
 		while IFS= read -r dir; do
-			rel="${dir#"$PHOTOS_DIR"/}"
-			"$callback" "$dir" "$rel"
+			shoots+=("$dir")
 		done < <(shoot_dirs "$src" "$depth")
+	done
+	for dir in "${shoots[@]}"; do
+		rel="${dir#"$PHOTOS_DIR"/}"
+		i=$((i + 1))
+		echo "[$i/${#shoots[@]}] $rel"
+		"$callback" "$dir" "$rel"
 	done
 }
 
@@ -111,8 +119,12 @@ copy_helios_db() {
 
 # --mkpath: a shoot sits below its tree (_provisional/<year>/<date>), and rsync
 # only ever creates the last component of a destination path on its own.
+#
+# --info: progress2 is the only thing distinguishing a large shoot in flight
+# from a hung ssh connection, and del names the files a winnow cull is
+# propagating, which is the one destructive thing this script does.
 shoot_to_tiger() {
-	rsync -a --delete --mkpath "${LITTER_EXCLUDES[@]}" \
+	rsync -a --delete --mkpath --info=progress2,del "${LITTER_EXCLUDES[@]}" \
 		"$1/" "$TIGER_HOST:$TIGER_DEST/$2/"
 }
 
@@ -127,7 +139,7 @@ shoot_to_local() {
 	# store symlinks. The only symlinks in the working set are
 	# transcoded/{180-rule,not-180-rule}/ categorization pointers back to real
 	# files already covered by this same sync, so skipping them loses no data.
-	rsync -a --no-links --info=nonreg0 --delete --mkpath "${LITTER_EXCLUDES[@]}" \
+	rsync -a --no-links --info=nonreg0,progress2,del --delete --mkpath "${LITTER_EXCLUDES[@]}" \
 		"$1/" "$dest_path/$2/"
 }
 
@@ -187,4 +199,4 @@ local) sync_to_local ;;
 s3) sync_to_s3 ;;
 esac
 
-echo "Sync complete!"
+echo "Sync complete in ${SECONDS}s"
