@@ -84,10 +84,13 @@ let
     };
   };
 
-  # Must land after the same prefix's push. The reconcile compares the source
-  # tree against the bucket, so a file written since the last push counts as
-  # missing, and s3_reconcile_missing_objects is a weekly gauge: one early run
-  # holds S3ArchiveObjectsMissing open until the next one seven days later.
+  # Must land after the same prefix's push finishes, not merely after it
+  # starts: the reconcile compares the source tree against the bucket, so a
+  # file still uploading counts as missing. s3_reconcile_missing_objects is a
+  # weekly gauge, so one early run holds S3ArchiveObjectsMissing open until
+  # the next one seven days later. A push carrying a bulk import runs for
+  # hours against the usual minute, so the gap is sized for that, not the
+  # average.
   pruneTimer = day: at: {
     wantedBy = [ "timers.target" ];
     timerConfig = {
@@ -244,8 +247,8 @@ in
 
   systemd.services.s3-archive-prune-photos = reconcileUnit true "tank/photos" "photos";
   systemd.services.s3-archive-prune-backups = reconcileUnit true "tank/backups" "backups";
-  systemd.timers.s3-archive-prune-photos = pruneTimer "Sun" "05:00";
-  systemd.timers.s3-archive-prune-backups = pruneTimer "Mon" "07:00";
+  systemd.timers.s3-archive-prune-photos = pruneTimer "Sun" "12:00";
+  systemd.timers.s3-archive-prune-backups = pruneTimer "Mon" "14:00";
 
   # No timer. Started by hand off the S3ArchiveObjectsMissing runbook.
   systemd.services.s3-archive-reconcile-photos = reconcileUnit false "tank/photos" "photos";
