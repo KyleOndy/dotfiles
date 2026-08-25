@@ -576,7 +576,10 @@ in
         # never runs publishes nothing to be stale about.
         #
         # These rules go quiet during an initial seed, which legitimately runs
-        # for days before recording a first success. Silence, do not retune.
+        # for days before recording a first success. S3ArchivePushStale also
+        # stays quiet for as long as a push is genuinely running. For anything
+        # else that outlives a threshold here, reach for a silence rather than
+        # a lower number.
         - name: offsite_archive
           interval: 60s
           rules:
@@ -589,14 +592,24 @@ in
                 summary: "Offsite push for one prefix has never recorded a success"
                 description: "No s3_archive_push_last_success_timestamp_seconds series exists for one of the two prefixes, so that half of the offsite copy may not exist at all. Expected while a prefix is still seeding. Otherwise check `systemctl status s3-archive-push-*` on pika: the unit refuses to run against an unmounted dataset, which is the usual cause."
 
+            # The unless guard separates "the push is dead" from "the push is
+            # still running". s3-archive-push writes its metrics only after
+            # the sync returns, so last_success on its own reads a 30-hour
+            # bulk import as a 30-hour outage; against the 2MB/s cap a push
+            # carrying one legitimately outlives the 36h threshold.
             - alert: S3ArchivePushStale
-              expr: time() - s3_archive_push_last_success_timestamp_seconds{host="pika"} > 36 * 3600
+              expr: |-
+                (time() - s3_archive_push_last_success_timestamp_seconds{host="pika"} > 36 * 3600)
+                unless on (prefix)
+                label_replace(
+                  node_systemd_unit_state{host="pika",state="active",name=~"s3-archive-push-.*\\.service"} == 1,
+                  "prefix", "$1", "name", "s3-archive-push-(.*)\\.service")
               for: 1h
               labels:
                 severity: warning
               annotations:
                 summary: "Offsite push of {{ $labels.prefix }}/ is over 36 hours old"
-                description: "The last clean sync of {{ $labels.prefix }}/ to the archive bucket is more than 36 hours old, against a daily timer. pika still holds the second copy, so this is not yet data loss, only loss of the offsite one. Check `journalctl -u s3-archive-push-{{ $labels.prefix }}` on pika."
+                description: "The last clean sync of {{ $labels.prefix }}/ to the archive bucket is more than 36 hours old and no push is running now, against a daily timer. pika still holds the second copy, so this is not yet data loss, only loss of the offsite one. Check `journalctl -u s3-archive-push-{{ $labels.prefix }}` on pika."
 
             - alert: S3ArchivePushCriticallyStale
               expr: time() - s3_archive_push_last_success_timestamp_seconds{host="pika"} > 96 * 3600
