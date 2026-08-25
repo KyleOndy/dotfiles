@@ -752,18 +752,25 @@ in
               annotations:
                 summary: "No new YouTube video downloaded in 7 days on {{ $labels.host }}"
                 description: >-
-                  Check format availability before anything else, because this
-                  is usually not throttling. Run `yt-dlp -F <any channel url>`
-                  on {{ $labels.host }}. If the only media format offered is 18
-                  (640x360), a player client has gone SABR-only and itag 18 is
-                  the one format exempt from the PO token check, which is
-                  exactly what stalled this service through spring 2026. The
-                  fix is a client change, not more sleeping: try
-                  `--extractor-args youtube:player_client=mweb` plus a PO token
-                  provider (bgutil, recoverable from git 0dc712f8). Genuine rate
-                  limiting looks different and shows HTTP 429. A quiet week
-                  across all channels is also possible, so confirm against
-                  ytdl_sub_videos_total before digging.
+                  Run `yt-dlp -F <any channel url>` on {{ $labels.host }}
+                  first; what it prints splits the two failure modes. A full
+                  ladder up to 2160p means extraction is healthy and the media
+                  fetch is what broke: every download returns HTTP 403 while
+                  the run still exits 0. That is YouTube blocking whichever
+                  player client yt-dlp defaults to, and the fix is a newer
+                  yt-dlp rather than any config change. On 2026-08-17 it was
+                  android_vr, dropped from the defaults upstream in 2026.08.19.
+                  If instead the only media format offered is 18 (640x360), a
+                  client is being served SABR-only and itag 18 is the one
+                  format exempt from the PO token check. That was spring 2026,
+                  and it was self-inflicted: player_client was pinned to "web",
+                  and unpinning it is what restored 2160p. So do not reach for
+                  a player_client pin here; the default set is what upstream
+                  maintains. A PO token provider (bgutil, recoverable from git
+                  0dc712f8) is the fallback if the defaults ever need one.
+                  Genuine rate limiting looks different and shows HTTP 429. A
+                  quiet week across all channels is also possible, so confirm
+                  against ytdl_sub_videos_total before digging.
 
             # Not > 0: a members-only video and the odd transient refusal are
             # normal. 25 is roughly "a whole channel was wiped", against the 63
