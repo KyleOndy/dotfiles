@@ -38,6 +38,22 @@ readonly PREFIX="${2:?usage: s3-archive-reconcile [--prune] <dataset> <prefix>}"
 readonly TEXTFILE_DIR="/var/lib/prometheus-node-exporter-text-files"
 readonly OUTFILE="$TEXTFILE_DIR/s3_reconcile_$PREFIX.prom"
 
+# The bucket only compares to the source between pushes. A push carrying a
+# bulk import runs for a day or more against the 2MB/s cap, and every file it
+# has not reached yet reads as missing: the run of 2026-08-25 landed mid-sync
+# and scored 1515 missing against 186 orphans it then pruned. Scheduling
+# cannot avoid this on its own, because a Persistent timer whose stamp
+# predates a changed OnCalendar fires at the next activation whatever the
+# clock says, which is how that run started.
+#
+# Skipping leaves s3_reconcile_last_run_timestamp_seconds untouched, so a
+# skip reads as staleness rather than as a clean comparison.
+# S3ReconcileStale allows 14 days against a weekly timer.
+if systemctl is-active --quiet "s3-archive-push-$PREFIX.service"; then
+	echo "s3-archive-push-$PREFIX is mid-sync, skipping: every file it has not reached yet would read as missing" >&2
+	exit 0
+fi
+
 mounted=$(zfs get -H -o value mounted "$DATASET")
 if [ "$mounted" != "yes" ]; then
 	echo "$DATASET is not mounted; every object would look like an orphan" >&2

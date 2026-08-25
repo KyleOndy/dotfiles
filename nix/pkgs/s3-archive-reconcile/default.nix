@@ -5,6 +5,7 @@
   jq,
   coreutils,
   findutils,
+  systemd,
 }:
 
 writeShellApplication {
@@ -17,6 +18,8 @@ writeShellApplication {
     jq
     coreutils
     findutils
+    # systemctl, for the guard that keeps a comparison out of a live push.
+    systemd
   ];
   text = builtins.readFile ./s3-archive-reconcile.sh;
 }
