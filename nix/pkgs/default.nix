@@ -6,6 +6,7 @@ self: super: {
   fuji-transcode = super.callPackage ./fuji-transcode { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
   helios = super.callPackage ./helios { };
+  histdb-backup = super.callPackage ./histdb-backup { };
   instax-link = super.callPackage ./instax-link { };
   linear-cli = super.callPackage ./linear-cli { };
   my-scripts = super.callPackage ./my-scripts { };
