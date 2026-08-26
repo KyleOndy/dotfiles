@@ -1176,6 +1176,86 @@ in
                 }
               ];
             }
+            # The monitoring stack scraping itself. Without these, a stalled
+            # ingest or a Loki rejecting pushes is invisible: `up` only proves
+            # the process answers, not that data is landing.
+            {
+              job_name = "victoriametrics";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:8428" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "vmagent";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:8429" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "vmalert";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:8880" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "alertmanager";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9093" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "loki";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:3100" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "promtail";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9080" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "grafana";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:3000" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
           ];
         };
 

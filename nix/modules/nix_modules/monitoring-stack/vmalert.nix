@@ -789,6 +789,101 @@ in
               annotations:
                 summary: "Cogsworth job {{ $labels.task }} has not succeeded in {{ $value | humanizeDuration }}"
                 description: "Background task {{ $labels.task }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
+
+        # unpoller reports the controller's view, so a device that drops off
+        # stops being reported rather than reporting down. The site-level
+        # counters are the only place an absence becomes a number.
+        - name: unifi
+          interval: 60s
+          rules:
+            - alert: UnifiDeviceDisconnected
+              expr: unpoller_site_disconnected > 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $value }} adopted UniFi {{ $labels.subsystem }} device(s) disconnected"
+                description: "The controller has adopted devices it cannot reach on the {{ $labels.subsystem }} subsystem. A switch or AP that is deliberately unplugged holds this alert open, so silence it rather than lowering the threshold. `ssh tiger 'curl -s localhost:9130/metrics | grep unpoller_device_uptime'` lists what is still reporting."
+
+            - alert: UnifiWanLatencyHigh
+              expr: unpoller_site_latency_seconds{subsystem="www"} > 0.15
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "WAN latency is {{ $value | humanizeDuration }}"
+                description: "The gateway's own latency probe is above 150ms against a ~17ms baseline. Everything served off tiger stays fast on the LAN; this is what the public aliases and any offsite push see."
+
+            # `intenet` is upstream's spelling in unpoller, not a typo here.
+            - alert: UnifiInternetDropping
+              expr: increase(unpoller_site_intenet_drops_total[1h]) > 3
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "WAN dropped {{ $value }} times in the last hour"
+                description: "The gateway recorded repeated internet drops. The S3 archive push and both public cert renewals depend on this link."
+
+        # The stack watching itself. `up` covers a process that stops
+        # answering; these cover the ones that answer and still move no data.
+        - name: monitoring_stack
+          interval: 60s
+          rules:
+            # A 200 that parses to nothing still sets up=1. This is the failure
+            # that hid the cogsworth app scrape for a month.
+            - alert: ScrapeReturnedNoSamples
+              expr: scrape_samples_scraped == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Scrape job {{ $labels.job }} on {{ $labels.host }} returns no samples"
+                description: "The target answers and `up` is 1, but every scrape parses to zero series, so every alert and panel built on this job is silently empty rather than broken. The usual cause is the wrong path: an SPA catch-all or an HTML error page returns 200 with no metrics. Check the endpoint by hand with curl."
+
+            - alert: VictoriaMetricsIngestStalled
+              expr: sum(rate(vm_rows_inserted_total[10m])) == 0
+              for: 15m
+              labels:
+                severity: critical
+              annotations:
+                summary: "VictoriaMetrics has ingested no rows for 15 minutes"
+                description: "Nothing is landing in the TSDB, so every metrics alert in this file is evaluating against a frozen series set and will not fire. Check `systemctl status victoriametrics vmagent` on tiger."
+
+            - alert: VmagentRemoteWriteFailing
+              expr: sum(rate(vmagent_remotewrite_errors_total[10m])) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "vmagent is failing to remote-write"
+                description: "tiger's vmagent cannot deliver to VictoriaMetrics. It buffers on disk first, so a short outage is invisible; sustained failure ends in dropped samples."
+
+            - alert: VmagentScrapesFailing
+              expr: rate(vm_promscrape_scrapes_failed_total[10m]) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "vmagent scrapes are failing on {{ $labels.host }}"
+                description: "One or more targets are erroring on scrape. InstanceDown catches a target that is fully down; this catches timeouts and malformed exposition that leave `up` flapping instead."
+
+            - alert: LokiPushFailing
+              expr: sum(rate(loki_request_duration_seconds_count{route="loki_api_v1_push",status_code=~"5.."}[10m])) > 0
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Loki is rejecting log pushes with 5xx"
+                description: "Promtail cannot deliver logs. Every Loki-backed panel and the two Grafana jellyfin alerts go blind while this lasts."
+
+            - alert: PromtailDroppingEntries
+              expr: sum by (reason) (rate(promtail_dropped_entries_total[15m])) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "promtail is dropping log entries ({{ $labels.reason }})"
+                description: "Log lines are being discarded before they reach Loki. `rate_limited` means Loki's ingestion limit; `line_too_long` means a single entry exceeded the max; `ingester_error` means Loki refused them. Entries dropped here are gone."
     '';
 
     systemd.services.vmalert = {
