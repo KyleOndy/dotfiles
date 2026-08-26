@@ -133,6 +133,29 @@
           });
         })
 
+        # zsh-histdb loses history when several shells are open. Both bugs are
+        # upstream at 90a6c10, the packaged revision, each with a fix that was
+        # proposed and closed unmerged. af7c2ce moved writes to a per-shell
+        # sqlite3 pipe without the `.timeout 1000` b20e9bb had added, so a
+        # concurrent write is discarded rather than retried (issues 103, 143);
+        # waiting is free off the prompt path. The outcome update takes the
+        # newest row across every session rather than this one, so an
+        # interleaved shell steals it (issue 45, PR 46).
+        (_final: prev: {
+          zsh-histdb = prev.zsh-histdb.overrideAttrs (old: {
+            postPatch = ''
+              substituteInPlace sqlite-history.zsh \
+                --replace-fail \
+                  'sqlite3 -batch -noheader "''${HISTDB_FILE}" < $PIPE' \
+                  'sqlite3 -batch -noheader -cmd ".timeout 5000" "''${HISTDB_FILE}" < $PIPE' \
+                --replace-fail \
+                  'where id = (select max(id) from history) and' \
+                  'where id = (select max(id) from history where session = ''${HISTDB_SESSION}) and'
+            ''
+            + old.postPatch;
+          });
+        })
+
         # pyopen-wakeword segfaults during installCheckPhase on aarch64
         # (numpy crash). Build wyoming-openwakeword against a Python with
         # patched package set so pyopen-wakeword skips the broken phase.
