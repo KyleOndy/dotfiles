@@ -143,6 +143,15 @@ Fields with a hyphen or an array need bracket form:
 {job="caddy-access"} | json ua="request.headers[\"User-Agent\"][0]"
 ```
 
+### Access logs carry credentials unless you filter them
+
+Caddy redacts `Cookie` and `Authorization` and nothing else, so the \*arr and
+immich API keys travel in `X-Api-Key` and in the `apikey` query parameter.
+`accessLogFormat` in `caddyReverseProxy.nix` drops them with a `format
+filter` block. Anything new that authenticates in a header or a query
+parameter needs a line there too, or the secret lands in Loki for the full
+retention window.
+
 ## Dashboard Organization
 
 ### Folder Structure

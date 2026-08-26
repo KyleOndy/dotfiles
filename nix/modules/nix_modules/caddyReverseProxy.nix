@@ -43,11 +43,27 @@ let
   # Same path the NixOS caddy module derives, with a group-readable mode so
   # promtail can ship these. Caddy's file writer defaults to 0600, which no
   # amount of group membership can get around.
+  # Caddy redacts Cookie and Authorization on its own, but nothing else. The
+  # *arr APIs and immich authenticate with X-Api-Key and with an apikey query
+  # parameter, both of which would otherwise reach Loki in clear text and sit
+  # there for the full 400 day retention.
   accessLogFormat = hostName: ''
     output file ${config.services.caddy.logDir}/access-${
       replaceStrings [ "/" " " ] [ "_" "_" ] hostName
     }.log {
       mode 640
+    }
+    format filter {
+      wrap json
+      fields {
+        request>headers>X-Api-Key delete
+        request>uri query {
+          replace apikey REDACTED
+          replace api_key REDACTED
+          replace token REDACTED
+          replace password REDACTED
+        }
+      }
     }
   '';
 
