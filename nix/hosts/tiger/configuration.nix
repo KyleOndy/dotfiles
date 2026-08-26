@@ -1167,19 +1167,12 @@ in
               static_configs = [
                 {
                   targets = [ "127.0.0.1:9130" ];
-                  # No static host label: these series describe UniFi devices,
-                  # not tiger. The relabel below fills host in per device.
-                }
-              ];
-              # unpoller labels devices with `name`, not `host`. Copy it across
-              # to match the repo-wide host convention. The (.+) guard leaves
-              # unpoller's own go_*/process_* series untouched.
-              metric_relabel_configs = [
-                {
-                  source_labels = [ "name" ];
-                  regex = "(.+)";
-                  target_label = "host";
-                  replacement = "$1";
+                  # Device names stay in unpoller's own `name` label. `host` is
+                  # the machine scraped, which is what label_values(up, host)
+                  # selects on across every dashboard.
+                  labels = {
+                    host = "tiger";
+                  };
                 }
               ];
             }
