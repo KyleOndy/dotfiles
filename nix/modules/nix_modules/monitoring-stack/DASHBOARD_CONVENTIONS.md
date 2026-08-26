@@ -143,6 +143,27 @@ Fields with a hyphen or an array need bracket form:
 {job="caddy-access"} | json ua="request.headers[\"User-Agent\"][0]"
 ```
 
+### Only aggregate by a bounded field
+
+`max_query_series` is 5000 (`monitoring-stack/loki.nix`). Loki materialises
+every series in `sum by (...)` before `topk` trims it, so `topk` does not
+protect you: the query fails outright with `maximum number of series (5000)
+reached`. Measured over a 15 minute window across all sites, `request.uri`
+and `request.client_ip` both blow past it, and stripping the query string
+does not save `uri` because immich and jellyfin put asset UUIDs in the path.
+
+`status`, `method` and `vhost` are bounded and safe. For an unbounded field,
+constrain the stream first so the aggregation stays small:
+
+```logql
+# Fails at every range the dashboard offers
+topk(15, sum by (client) (count_over_time({job="caddy-access"} | json client="request.client_ip" [6h])))
+
+# The investigation question anyway, and bounded
+topk(15, sum by (client) (count_over_time(
+  {job="caddy-access"} | json client="request.client_ip", status="status" | status >= 500 [6h])))
+```
+
 ### Access logs carry credentials unless you filter them
 
 Caddy redacts `Cookie` and `Authorization` and nothing else, so the \*arr and

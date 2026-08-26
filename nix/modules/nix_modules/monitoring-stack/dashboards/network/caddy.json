@@ -8,14 +8,20 @@
   "schemaVersion": 39,
   "version": 1,
   "refresh": "1m",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
         "name": "vhost",
         "label": "Site",
         "type": "query",
-        "datasource": { "type": "loki", "uid": "loki" },
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
         "definition": "label_values({job=\"caddy-access\"}, vhost)",
         "query": {
           "label": "vhost",
@@ -38,8 +44,16 @@
     {
       "type": "stat",
       "title": "Requests",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -49,7 +63,9 @@
         }
       ],
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
         "colorMode": "none",
         "graphMode": "none"
       },
@@ -58,7 +74,12 @@
           "unit": "short",
           "thresholds": {
             "mode": "absolute",
-            "steps": [{ "color": "text", "value": null }]
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
           }
         },
         "overrides": []
@@ -67,8 +88,16 @@
     {
       "type": "stat",
       "title": "5xx",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -78,7 +107,9 @@
         }
       ],
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
         "colorMode": "value",
         "graphMode": "none"
       },
@@ -88,8 +119,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           }
         },
@@ -99,8 +136,16 @@
     {
       "type": "stat",
       "title": "4xx",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -110,7 +155,9 @@
         }
       ],
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
         "colorMode": "value",
         "graphMode": "none"
       },
@@ -120,8 +167,14 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "text", "value": null },
-              { "color": "yellow", "value": 1000 }
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1000
+              }
             ]
           }
         },
@@ -131,8 +184,16 @@
     {
       "type": "stat",
       "title": "P95 Latency",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -142,7 +203,9 @@
         }
       ],
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
         "colorMode": "value",
         "graphMode": "none"
       },
@@ -153,9 +216,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 5 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
             ]
           }
         },
@@ -165,8 +237,16 @@
     {
       "type": "timeseries",
       "title": "Request Rate by Site",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -179,7 +259,9 @@
         "defaults": {
           "unit": "reqps",
           "min": 0,
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -197,14 +279,25 @@
           "placement": "right",
           "showLegend": true
         },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "type": "timeseries",
       "title": "Status Codes",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -217,14 +310,19 @@
         "defaults": {
           "unit": "reqps",
           "min": 0,
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 20,
             "showPoints": "never",
             "spanNulls": false,
-            "stacking": { "mode": "normal", "group": "A" }
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
         "overrides": []
@@ -236,14 +334,25 @@
           "placement": "right",
           "showLegend": true
         },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "type": "timeseries",
       "title": "P95 Latency by Site",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -256,7 +365,9 @@
         "defaults": {
           "unit": "s",
           "min": 0,
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -274,14 +385,25 @@
           "placement": "right",
           "showLegend": true
         },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "type": "timeseries",
       "title": "5xx Rate by Site",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -294,7 +416,9 @@
         "defaults": {
           "unit": "reqps",
           "min": 0,
-          "color": { "mode": "palette-classic" },
+          "color": {
+            "mode": "palette-classic"
+          },
           "custom": {
             "drawStyle": "bars",
             "lineWidth": 1,
@@ -312,18 +436,29 @@
           "placement": "right",
           "showLegend": true
         },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "type": "table",
-      "title": "Top Paths",
-      "gridPos": { "h": 9, "w": 8, "x": 0, "y": 20 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "title": "Top Clients by 5xx",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(15, sum by (uri) (count_over_time({job=\"caddy-access\", vhost=~\"$vhost\"} | json uri=\"request.uri\" [$__range])))",
+          "expr": "topk(15, sum by (client) (count_over_time({job=\"caddy-access\", vhost=~\"$vhost\"} | json client=\"request.client_ip\", status=\"status\" | status >= 500 [$__range])))",
           "queryType": "instant",
           "format": "table"
         }
@@ -332,65 +467,55 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true },
-            "renameByName": { "uri": "Path", "Value": "Requests" }
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "client": "Client IP",
+              "Value": "Requests"
+            }
           }
         },
         {
           "id": "sortBy",
           "options": {
             "fields": {},
-            "sort": [{ "field": "Requests", "desc": true }]
+            "sort": [
+              {
+                "field": "Requests",
+                "desc": true
+              }
+            ]
           }
         }
       ],
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto" } },
-        "overrides": []
-      },
-      "options": { "showHeader": true }
-    },
-    {
-      "type": "table",
-      "title": "Top Clients",
-      "gridPos": { "h": 9, "w": 8, "x": 8, "y": 20 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "topk(15, sum by (client) (count_over_time({job=\"caddy-access\", vhost=~\"$vhost\"} | json client=\"request.client_ip\" [$__range])))",
-          "queryType": "instant",
-          "format": "table"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": { "Time": true },
-            "renameByName": { "client": "Client IP", "Value": "Requests" }
+        "defaults": {
+          "custom": {
+            "align": "auto"
           }
         },
-        {
-          "id": "sortBy",
-          "options": {
-            "fields": {},
-            "sort": [{ "field": "Requests", "desc": true }]
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": { "custom": { "align": "auto" } },
         "overrides": []
       },
-      "options": { "showHeader": true }
+      "options": {
+        "showHeader": true
+      },
+      "description": "Who is receiving the errors. Aggregating every request by client IP exceeds Loki max_query_series (5000); scoping to 5xx keeps it bounded."
     },
     {
       "type": "table",
       "title": "Top User Agents",
       "description": "The public aliases are crawled. This is where bot traffic shows up against real use.",
-      "gridPos": { "h": 9, "w": 8, "x": 16, "y": 20 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -403,29 +528,53 @@
         {
           "id": "organize",
           "options": {
-            "excludeByName": { "Time": true },
-            "renameByName": { "ua": "User Agent", "Value": "Requests" }
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "ua": "User Agent",
+              "Value": "Requests"
+            }
           }
         },
         {
           "id": "sortBy",
           "options": {
             "fields": {},
-            "sort": [{ "field": "Requests", "desc": true }]
+            "sort": [
+              {
+                "field": "Requests",
+                "desc": true
+              }
+            ]
           }
         }
       ],
       "fieldConfig": {
-        "defaults": { "custom": { "align": "auto" } },
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
         "overrides": []
       },
-      "options": { "showHeader": true }
+      "options": {
+        "showHeader": true
+      }
     },
     {
       "type": "logs",
       "title": "Recent 5xx",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 29 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "refId": "A",
@@ -441,7 +590,10 @@
         "enableLogDetails": true,
         "dedupStrategy": "none"
       },
-      "fieldConfig": { "defaults": {}, "overrides": [] }
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
     }
   ]
 }
