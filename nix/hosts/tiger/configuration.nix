@@ -1294,6 +1294,15 @@ in
                     };
                   };
                 }
+                # request.host is the raw Host header, so a client that sends
+                # the default port explicitly splits the site in two. Ports
+                # other than 80 and 443 are a different listener and stay.
+                {
+                  regex = {
+                    source = "vhost";
+                    expression = "^(?P<vhost>[^:]+)(?::(?:80|443))?$";
+                  };
+                }
                 {
                   labels = {
                     vhost = "vhost";
