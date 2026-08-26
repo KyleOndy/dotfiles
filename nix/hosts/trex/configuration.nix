@@ -11,6 +11,19 @@
 
   networking.hostName = "trex";
 
+  # lan.1ella.com and dmz.1ella.com live only in the UDM's split-horizon
+  # view; the public 1ella.com zone carries no such records. iCloud Private
+  # Relay hands mDNSResponder's queries to mask.icloud.com over DoH, and
+  # that resolver answers NXDOMAIN out of the public zone, so getaddrinfo
+  # cannot reach tiger or pika by name while dig, going straight to the UDM
+  # over UDP, still resolves them. resolver(5) reads the file name as the
+  # domain it scopes, so this file pins the zone to the server that holds
+  # its records. Off the LAN without wg-home these names time out rather
+  # than failing fast.
+  environment.etc."resolver/1ella.com".text = ''
+    nameserver 10.24.89.1
+  '';
+
   # trex runs Determinate Nix, whose own daemon owns /etc/nix/nix.conf and
   # conflicts with nix-darwin's native Nix management:
   #   error: Determinate detected, aborting activation
