@@ -22,11 +22,16 @@ The flake reads the git tree, so a new file is invisible to `nix eval` and
 | Host        | Platform       | Role                    | Deploy                                                  |
 | ----------- | -------------- | ----------------------- | ------------------------------------------------------- |
 | `tiger`     | x86_64-linux   | homelab server          | `deploy --skip-checks -- .`                             |
+| `pika`      | x86_64-linux   | ODROID-H2, second copy  | deploy-rs, or `make iso-pika` for a fresh install       |
 | `cogsworth` | aarch64-linux  | Raspberry Pi 5 kiosk    | deploy-rs, or `make sdcard-cogsworth` for a fresh image |
 | `trex`      | aarch64-darwin | personal mac            | `make deploy-trex`                                      |
 | `work-mac`  | aarch64-darwin | work mac (user `kondy`) | `make deploy-mac`                                       |
 
-`make deploy-rs-all-dry` dry-runs both Linux hosts. `make help` lists the rest.
+`make deploy-rs-all-dry` dry-runs the Linux hosts. `make help` lists the rest.
+
+pika holds tier 2 of `docs/backup-strategy.md` and opens every connection
+itself: tiger holds no credential for it and cannot initiate anything toward
+it.
 
 ## Secrets
 
