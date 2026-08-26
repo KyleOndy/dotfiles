@@ -787,8 +787,8 @@ in
                 severity: warning
                 service: cogsworth
               annotations:
-                summary: "Cogsworth job {{ $labels.job }} has not succeeded in {{ $value | humanizeDuration }}"
-                description: "Background task {{ $labels.job }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
+                summary: "Cogsworth job {{ $labels.task }} has not succeeded in {{ $value | humanizeDuration }}"
+                description: "Background task {{ $labels.task }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
     '';
 
     systemd.services.vmalert = {
