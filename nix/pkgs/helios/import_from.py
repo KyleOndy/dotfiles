@@ -932,7 +932,17 @@ def get_all_files(dir):
     return result
 
 
-EXIFTOOL_DATE_TAGS = ["DateTimeOriginal", "CreateDate", "MediaCreateDate"]
+# Increasing UTC-ness, first match wins. QuickTime CreateDate and
+# MediaCreateDate are UTC; CreationDate carries local wall time and its offset,
+# and EXIF DateTimeOriginal is local. iPhone video is why the order matters: it
+# writes CreationDate and no DateTimeOriginal, so falling through to a UTC tag
+# files a clip shot near midnight on the wrong day.
+EXIFTOOL_DATE_TAGS = [
+    "CreationDate",
+    "DateTimeOriginal",
+    "CreateDate",
+    "MediaCreateDate",
+]
 
 
 def scan_metadata(files):
