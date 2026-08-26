@@ -45,9 +45,12 @@ tiger is the server: VictoriaMetrics, Loki, Grafana, Alertmanager, vmalert.
 Retention is 400 days for both metrics and logs
 (`nix/hosts/tiger/configuration.nix`).
 
-Agents run on tiger, cogsworth and trex: vmagent, promtail, node_exporter.
-tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus sabnzbd) and
-unpoller exporters.
+Agents run on tiger, pika, cogsworth and trex: vmagent, promtail,
+node_exporter. tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus
+sabnzbd) and unpoller exporters, and scrapes its own stack (VictoriaMetrics,
+vmagent, vmalert, Alertmanager, Loki, promtail, Grafana). cogsworth exposes the
+kiosk app at `/api/metrics`; pika exports zfs, smartctl and the S3 archive
+counters through the textfile collector.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
 cert. Grafana, Loki, metrics and vmalert also have `<name>.apps.ondy.org`
@@ -97,7 +100,20 @@ this in step with `nix/modules/hm_modules/terminal/email.nix`; check
 3. Add a scrape job in the host's `vmagent.scrapeConfigs`, with
    `labels.host = "<hostname>"`.
 
-### Adding a dashboard
+### Dashboards
+
+Seven, each the investigation surface for one or more alert groups. A
+dashboard nothing can send you to does not earn its place:
+
+| Dashboard                 | Alert groups it serves                                                         |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health                  |
+| `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, drive_health |
+| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, JellyfinDown                 |
+| `Cogsworth`               | cogsworth_monitoring                                                           |
+| `Caddy Reverse Proxy`     | none yet, reads Loki                                                           |
+| `UniFi Network`           | unifi                                                                          |
+| `Monitoring Stack Health` | monitoring_stack                                                               |
 
 Drop the JSON in `monitoring-stack/dashboards/<folder>/` and fix its label
 references per `DASHBOARD_CONVENTIONS.md`. That is the whole procedure:
@@ -128,12 +144,23 @@ ssh tiger 'curl -s http://127.0.0.1:8880/api/v1/alerts | jq .'
 ssh tiger 'curl -s http://127.0.0.1:9093/api/v2/alerts | jq .'
 ```
 
-A dashboard showing "No data" is usually one of four things: the exporter is
+A dashboard showing "No data" is usually one of five things: the exporter is
 down (`systemctl status`), vmagent is not scraping it (no job in
-`scrapeConfigs`), the query filters on `instance` instead of `host`, or it is
-a Loki panel selecting on `job` instead of `unit`. Loki only has two job
-values (`systemd-journal`, `darwin-unified-log`), so per-service log queries
-must name the unit.
+`scrapeConfigs`), the query filters on `instance` instead of `host`, the
+metric name never existed, or it is a Loki panel selecting on `job` instead of
+`unit`. Loki has three job values (`systemd-journal`, `darwin-unified-log`,
+`caddy-access`), so per-service log queries must name the unit.
+
+Before writing a panel, prove the query returns rows:
+
+```bash
+ssh tiger 'curl -sG --data-urlencode "query=<promql>" \
+  http://127.0.0.1:8428/api/v1/query | jq ".data.result | length"'
+```
+
+A `0` here is a panel that will ship broken. `scrape_samples_scraped == 0`
+finds the nastier version, where the endpoint answers and parses to nothing
+while `up` still reads 1; `ScrapeReturnedNoSamples` alerts on it.
 
 ## Clojure
 

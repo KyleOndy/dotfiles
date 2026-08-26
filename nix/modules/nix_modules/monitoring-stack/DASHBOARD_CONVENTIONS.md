@@ -64,18 +64,49 @@ This document outlines the conventions and best practices for creating and maint
 - `job` - Type of metrics (node, caddy, zfs, etc.)
 - `pool` - ZFS pool name (storage, scratch, etc.)
 - `service` - Systemd service name
+- `name` - UniFi device name on `unpoller_*`, dataset name on `zfs_dataset_*`
+- `task` - cogsworth scheduler task, relabelled off the app's own `job`
+- `vhost` - the site a Caddy access log line was served for
+
+### An exporter's own labels never win
+
+`honor_labels` is false, so any label the exporter emits that collides with
+one the scrape config sets arrives renamed to `exported_<label>`
+([Prometheus docs][honor-labels]). A rule written against the original name
+matches nothing, silently.
+
+Two live cases:
+
+- cogsworth labels each scheduler task `job`, which is also the scrape's own
+  label. `nix/hosts/cogsworth/configuration.nix` relabels it to `task`.
+- promtail labels its client series `host` with the Loki address. Nothing
+  renames it, so it reads `exported_host`, and `host` stays `tiger`.
+
+Before writing a rule against a label, check what the label is actually
+called once the sample has landed:
+
+```bash
+ssh tiger 'curl -sG --data-urlencode "query=<metric>" \
+  http://127.0.0.1:8428/api/v1/query | jq -c ".data.result[0].metric"'
+```
+
+[honor-labels]: https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config
 
 ### In Loki, select on `unit`, not `job`
 
 The metrics rule above does not carry over to LogQL. promtail ships a
-whole journal under one job, so `job` has only two values across every
-host and there is no per-service job to select on:
+whole journal under one job, so there is no per-service job to select on:
 
 ```bash
 $ ssh tiger 'curl -s localhost:3100/loki/api/v1/label/job/values' | jq -r '.data[]'
+caddy-access
 darwin-unified-log
 systemd-journal
 ```
+
+`caddy-access` is the exception, and the only one: it tails files rather than
+the journal, one per site, and carries a `vhost` label taken from
+`request.host` in the line.
 
 A selector like `{host="tiger",job="jellyfin"}` therefore matches
 nothing and the panel sits empty forever. Name the systemd unit
@@ -93,6 +124,23 @@ Check what is actually there before writing the query:
 
 ```bash
 ssh tiger 'curl -s localhost:3100/loki/api/v1/label/unit/values' | jq -r '.data[]'
+```
+
+### Parse Loki fields at read time, do not label them
+
+A Loki stream is one combination of label values, so labels multiply. The
+Caddy access logs carry `vhost` and nothing else off the line: adding `status`
+and `method` too would turn 20 streams into roughly 1600. Everything else
+comes back out with `| json` in the query:
+
+```logql
+sum by (status) (rate({job="caddy-access"} | json status="status" [$__auto]))
+```
+
+Fields with a hyphen or an array need bracket form:
+
+```logql
+{job="caddy-access"} | json ua="request.headers[\"User-Agent\"][0]"
 ```
 
 ## Dashboard Organization
@@ -119,10 +167,20 @@ Dashboard titles should follow this pattern:
 
 Examples, from dashboards that exist:
 
-- `System Overview`
-- `Caddy Reverse Proxy Overview`
-- `Cogsworth - Request Performance`
-- `Jellyfin Operational`
+- `Hosts`
+- `Storage and Data Safety`
+- `Caddy Reverse Proxy`
+- `Monitoring Stack Health`
+
+### Every dashboard answers an alert
+
+Each one is the place you land when something fires, and the mapping lives in
+the repo `CLAUDE.md`. A dashboard no alert can send you to gets opened once
+and then never again: of the eleven that predated this rule, nine went a full
+month without a single view.
+
+Adding a dashboard for a subsystem with no alerts means adding the alerts
+too.
 
 ## Dashboard Metadata
 
@@ -155,10 +213,10 @@ Dashboard UIDs should be:
 
 Examples:
 
-- `system-overview`
+- `hosts`
 - `caddy-overview`
-- `zfs-storage`
-- `jellyfin-operational`
+- `storage-data-safety`
+- `monitoring-stack`
 
 ### Tags
 
