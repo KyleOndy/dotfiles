@@ -465,13 +465,21 @@ install_argocd() {
 	local version
 	version="$(get_argocd_version)"
 	local context="kind-${mgmt}"
+	local chart_ref="${FORGE_ARGOCD_CHART:-argo/argo-cd}"
 
 	log "Installing ArgoCD ${version} on ${mgmt}"
 
-	# Add helm repo if not present
-	if ! helm repo list 2>/dev/null | grep -q '^argo\s'; then
-		helm repo add argo https://argoproj.github.io/argo-helm
-		helm repo update argo
+	# FORGE_ARGOCD_CHART installs from a local/OCI chart ref and skips the
+	# upstream repo add + pinned --version. Needed where the chart tgz CDN
+	# (release-assets.githubusercontent.com) is unreachable; default path
+	# is unchanged.
+	if [[ ${chart_ref} == "argo/argo-cd" ]]; then
+		if ! helm repo list 2>/dev/null | grep -q '^argo\s'; then
+			helm repo add argo https://argoproj.github.io/argo-helm
+			helm repo update argo
+		fi
+	else
+		log "Using chart override: ${chart_ref}"
 	fi
 
 	# Check if already installed
@@ -480,11 +488,16 @@ install_argocd() {
 		return
 	fi
 
-	helm install argocd argo/argo-cd \
+	local version_flags=()
+	if [[ ${chart_ref} == "argo/argo-cd" ]]; then
+		version_flags=(--version "${version}")
+	fi
+
+	helm install argocd "${chart_ref}" \
 		--kube-context "${context}" \
 		--namespace argocd \
 		--create-namespace \
-		--version "${version}" \
+		"${version_flags[@]}" \
 		--set configs.params."server\.insecure"=true \
 		--wait
 
