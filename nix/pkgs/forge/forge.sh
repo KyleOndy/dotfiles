@@ -334,6 +334,7 @@ create_cluster() {
 create_clusters_parallel() {
 	local pids=()
 	local names=()
+	local logs=()
 
 	# Management cluster
 	local mgmt
@@ -343,9 +344,12 @@ create_clusters_parallel() {
 
 	if ! cluster_exists "${mgmt}"; then
 		log "Creating management cluster '${mgmt}'"
-		create_cluster "${mgmt}" "${mgmt_roles}" &
+		local errlog
+		errlog="$(mktemp --tmpdir forge-cluster-XXXXXX.err)"
+		create_cluster "${mgmt}" "${mgmt_roles}" 2>"${errlog}" &
 		pids+=($!)
 		names+=("${mgmt}")
+		logs+=("${errlog}")
 	else
 		ok "Management cluster '${mgmt}' already exists"
 	fi
@@ -356,18 +360,27 @@ create_clusters_parallel() {
 		roles="$(get_cluster_nodes "${cname}")"
 		if ! cluster_exists "${cname}"; then
 			log "Creating workload cluster '${cname}'"
-			create_cluster "${cname}" "${roles}" &
+			local errlog
+			errlog="$(mktemp --tmpdir forge-cluster-XXXXXX.err)"
+			create_cluster "${cname}" "${roles}" 2>"${errlog}" &
 			pids+=($!)
 			names+=("${cname}")
+			logs+=("${errlog}")
 		else
 			ok "Workload cluster '${cname}' already exists"
 		fi
 	done < <(get_cluster_names)
 
-	# Wait for all parallel creates
+	# Wait for all parallel creates, surfacing each failure's stderr
 	local i=0
 	for pid in "${pids[@]}"; do
-		wait "${pid}" || die "Failed to create cluster '${names[$i]}'"
+		if ! wait "${pid}"; then
+			echo "    --- stderr from ${names[$i]} ---" >&2
+			sed 's/^/    /' "${logs[$i]}" >&2
+			rm -f "${logs[$i]}"
+			die "Failed to create cluster '${names[$i]}'"
+		fi
+		rm -f "${logs[$i]}"
 		i=$((i + 1))
 	done
 }
