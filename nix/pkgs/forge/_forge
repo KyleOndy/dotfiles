@@ -1,0 +1,15 @@
+#compdef forge
+# vi: ft=zsh
+
+# forge takes one command word and no flags, so there is nothing to complete
+# past position 1. -h and --help are spelled out because they are accepted
+# where the command word goes rather than alongside one.
+_arguments -s \
+  '(- 1)'{-h,--help}'[show the manual]' \
+  '1:command:((
+    up\:"create the VM if absent, then converge to the config"
+    down\:"delete every cluster, keeping the VM and its mirror caches"
+    status\:"print the VM, mirrors and clusters, changing nothing"
+    nuke\:"delete the VM and every cluster, mirror, volume and network"
+    help\:"show the manual"
+  ))'

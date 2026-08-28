@@ -2,6 +2,8 @@
   callPackage,
   stdenv,
   writeShellApplication,
+  runCommand,
+  symlinkJoin,
   docker_29,
   kind,
   kubectl,
@@ -45,22 +47,37 @@ let
         "${vmConfig}"
       ]
       (builtins.readFile ./forge.sh);
+  script = writeShellApplication {
+    name = "forge";
+    # docker_29 rather than the default `docker`, which nixpkgs marks insecure
+    # and which would put a second daemon version in the closure alongside the
+    # one hmFoundry.dev.docker already installs.
+    runtimeInputs = [
+      lima
+      docker_29
+      kind
+      kubectl
+      kubernetes-helm
+      yq-go
+      coreutils
+      gnugrep
+    ];
+    text = body;
+  };
+
+  # writeShellApplication builds through writeTextFile, whose buildCommand ends
+  # at `eval "$checkPhase"` and never runs postInstall, so the completion has to
+  # be joined in from its own derivation rather than appended to that one.
+  completion = runCommand "forge-completion" { } ''
+    install -Dm444 ${./_forge} $out/share/zsh/site-functions/_forge
+  '';
 in
-writeShellApplication {
+symlinkJoin {
   name = "forge";
-  # docker_29 rather than the default `docker`, which nixpkgs marks insecure
-  # and which would put a second daemon version in the closure alongside the
-  # one hmFoundry.dev.docker already installs.
-  runtimeInputs = [
-    lima
-    docker_29
-    kind
-    kubectl
-    kubernetes-helm
-    yq-go
-    coreutils
-    gnugrep
+  paths = [
+    script
+    completion
   ];
-  text = body;
   passthru = { inherit vmConfig; };
+  meta.mainProgram = "forge";
 }
