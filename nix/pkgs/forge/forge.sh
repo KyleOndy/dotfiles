@@ -531,20 +531,23 @@ register_workload_clusters() {
 register_cluster_with_argocd() {
 	local cluster_name="$1"
 	local mgmt_context="$2"
+	local work_context="kind-${cluster_name}"
 
-	# Check if already registered (secret exists)
+	# The secret holds a bearer token for a service account that lives in the
+	# workload cluster, so checking only the secret calls a cluster recreated
+	# underneath it registered while ArgoCD holds a credential for an account
+	# that no longer exists. Both ends have to be present.
 	local secret_name="argocd-cluster-${cluster_name}"
 	if kubectl --context "${mgmt_context}" -n argocd \
-		get secret "${secret_name}" &>/dev/null; then
+		get secret "${secret_name}" &>/dev/null &&
+		kubectl --context "${work_context}" -n kube-system \
+			get serviceaccount argocd-manager &>/dev/null; then
 		ok "Cluster '${cluster_name}' already registered"
 		return
 	fi
 
 	# Get the internal Docker-network API server address for this cluster
 	local api_server="https://${cluster_name}-control-plane:6443"
-
-	# Extract the CA cert and service account token from the workload cluster
-	local work_context="kind-${cluster_name}"
 
 	# Create a service account in the workload cluster for ArgoCD
 	kubectl --context "${work_context}" apply -f - <<EOF
