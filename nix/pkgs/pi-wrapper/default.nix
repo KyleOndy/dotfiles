@@ -41,6 +41,39 @@
   # tradeoff is a wider egress surface (trustd resolves LDAP / OCSP responder
   # URLs); off by default.
   defaultAllowTrustd ? false,
+  # Write access to the repo's git dirs, which is what lets the agent commit.
+  # "branch-gated" grants it off a non-protected branch only, "always" and
+  # "off" are unconditional; --allow-git-write / --no-git-write override per
+  # invocation. Reading those dirs is not a knob: without it git reports the
+  # workspace as "not a git repository" in any worktree layout.
+  gitWriteMode ? "branch-gated",
+  # Refs and reflogs kept in denyWrite even once write is granted for another
+  # branch, so an agent commit cannot move these.
+  protectedBranches ? [
+    "main"
+    "master"
+  ],
+  # Default for --allow-nix (nix's channel search path plus the daemon socket).
+  # Off because the grant is equivalent to --no-sandbox wherever the invoking
+  # user is in nix's trusted-users: such a client can build as root, outside
+  # srt, and read what denyRead covers. See the nix_daemon_socket comment in
+  # wrapper.sh for the measurement. Leave this false and grant per-invocation,
+  # so the escape is scoped to a session you chose it for rather than every
+  # session on the host, including ones spent reading someone else's code.
+  defaultAllowNix ? false,
+  # Default for --allow-docker (one lima instance's daemon socket). Off because
+  # a caller that reaches the socket can start a privileged container, so the
+  # real boundary becomes whatever the daemon's VM mounts rather than this
+  # policy. The wrapper refuses the grant unless that instance declares no
+  # mounts, which keeps the failure mode a refusal rather than a silent
+  # widening, but leaving this false still scopes the grant to sessions chosen
+  # for it.
+  defaultAllowDocker ? false,
+  # The lima instance whose docker socket --allow-docker grants, under
+  # ~/.lima/<name>. forge's VM (nix/pkgs/forge/vm.nix) is the one instance here
+  # that declares no mounts and denies the port forwards it does not name,
+  # which is what bounds the grant; colima's default profile mounts $HOME.
+  dockerLimaInstance ? "forge",
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each
   # bundle is { domains = [str]; trustd = bool; }, domains extend the network
   # allowlist; trustd ORs into the wrapper's allow_trustd. Default empty so
@@ -126,6 +159,11 @@ let
         "@networkBundlesFile@"
         "@defaultAllowLoopback@"
         "@defaultAllowTrustd@"
+        "@defaultAllowNix@"
+        "@defaultAllowDocker@"
+        "@dockerLimaInstance@"
+        "@gitWriteMode@"
+        "@protectedBranches@"
         "@gitAuthorName@"
         "@gitAuthorEmail@"
       ]
@@ -141,6 +179,11 @@ let
         "${networkBundlesFile}"
         (if defaultAllowLoopback then "true" else "false")
         (if defaultAllowTrustd then "true" else "false")
+        (if defaultAllowNix then "true" else "false")
+        (if defaultAllowDocker then "true" else "false")
+        dockerLimaInstance
+        (lib.escapeShellArg gitWriteMode)
+        (bashArray protectedBranches)
         (lib.escapeShellArg gitAuthorName)
         (lib.escapeShellArg gitAuthorEmail)
       ]

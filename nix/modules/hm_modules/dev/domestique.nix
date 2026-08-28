@@ -113,7 +113,9 @@ let
 
   allowReadFlags = lib.concatMapStrings (r: " --allow-read ${lib.escapeShellArg r}") cfg.repos;
 
-  allowBundleFlags = lib.concatMapStrings (b: " --allow-${b}") cfg.allowBundles;
+  allowBundleFlags = lib.concatMapStrings (
+    b: " ${lib.escapeShellArg "--allow-${b}"}"
+  ) cfg.allowBundles;
 
   piFlags = allowReadFlags + allowBundleFlags;
 
@@ -371,7 +373,39 @@ let
           exit 1
         fi
       fi
-      trap 'rm -f "$LOCK"' EXIT
+      started=()
+
+      alive() {
+        [ -e "$1" ] && kill -0 "$(cat "$1" 2>/dev/null)" 2>/dev/null
+      }
+
+      stop_watchers() {
+        [ "''${#started[@]}" -gt 0 ] || return 0
+        local pidfile
+        for pidfile in "''${started[@]}"; do
+          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
+          # A watcher still loading its model has no cleanup to run yet, and a
+          # pid left behind reads as live once the number comes round again.
+          rm -f "$pidfile"
+        done
+        started=()
+      }
+
+      # A SIGTERM aimed at the driver alone (kill from another terminal, a
+      # process manager) or a SIGHUP from a closing terminal never reaches the
+      # backgrounded watchers, so the drain loop below never runs and the EXIT
+      # trap that only removed the lock left them alive with models resident.
+      # Route every exit-causing signal through exit so the EXIT trap runs
+      # stop_watchers, which SIGTERMs the watchers into their own clean
+      # shutdown paths (tts.py / listen.py both handle SIGTERM). INT is trapped
+      # too: the watchers share the driver's process group and so already
+      # receive Ctrl-C as a KeyboardInterrupt they clean up themselves, and the
+      # driver running `exit 130` loses nothing the drain loop would have done
+      # with the watchers already dying.
+      trap 'stop_watchers; rm -f "$LOCK"' EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      trap 'exit 129' HUP
 
       mkdir -p "$RIDE/.sessions"
 
@@ -395,24 +429,6 @@ let
         [ "$old" = "$ROOT/gitdirs/$(basename "$RIDE")" ] && continue
         rm -rf "$old"
       done
-
-      started=()
-
-      alive() {
-        [ -e "$1" ] && kill -0 "$(cat "$1" 2>/dev/null)" 2>/dev/null
-      }
-
-      stop_watchers() {
-        [ "''${#started[@]}" -gt 0 ] || return 0
-        local pidfile
-        for pidfile in "''${started[@]}"; do
-          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
-          # A watcher still loading its model has no cleanup to run yet, and a
-          # pid left behind reads as live once the number comes round again.
-          rm -f "$pidfile"
-        done
-        started=()
-      }
 
       launch() {
         local name="$1" bin="$2" pidfile="$3" ready="$4" log="$5"
@@ -998,7 +1014,7 @@ in
 
     classifyModel = lib.mkOption {
       type = lib.types.str;
-      default = "openrouter/qwen/qwen3.7-flash";
+      default = "";
       description = ''
         Model that sorts an out-of-band utterance into a note or a topic
         change, passed to `pi --model`. Invoked as a one-shot `pi --print`
@@ -1006,10 +1022,17 @@ in
         provider credential stays with the wrapper rather than reaching this
         watcher.
 
-        Measured on this task at roughly 1.2 seconds and two millionths of a
-        dollar per call. The pinned ride model is a frontier one and ran
-        between 2.5 and 60 seconds for no better answer, which is the whole
-        reason this is a separate setting.
+        Empty disables classification: every utterance becomes a note, which
+        is the verdict that cannot destroy anything, and startup logs
+        `classifier off`. Empty is the default because a value here names a
+        model on a specific provider, and every provider this agent reaches
+        is host-private and configured through the work-config input.
+
+        Wants a small instruct model rather than the ride model. A frontier
+        model on the same endpoint ran between 2.5 and 60 seconds for no
+        better answer, and returns an empty message whenever a token cap
+        leaves no room after its reasoning, which is the whole reason this is
+        a separate setting from the ride model.
       '';
     };
 

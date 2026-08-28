@@ -6,6 +6,11 @@
 #   --allow-read PATH      add extra FS read path (repeatable)
 #   --web                  write+read confined to CWD/~.pi, network unrestricted
 #   --no-sandbox           bypass sandbox entirely (with warning)
+#   --allow-git-write      grant git-dir write on any branch (agent can commit)
+#   --no-git-write         withhold it on every branch
+#   --allow-nix            nix daemon socket + channel search path; equivalent
+#                          to --no-sandbox under trusted-users, and warns so
+#   --allow-docker         docker daemon socket + ~/.docker
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
@@ -18,7 +23,11 @@
 # via sandbox.envVars:
 #   - git: commit/tag signing off, core.hooksPath=/dev/null, fsmonitor/sshCommand
 #     off (a hostile repo's hooks/config can't run code under the agent's git).
-#     denyWrite also traps $PWD/.git/{hooks,config} + .gitmodules in strict mode.
+#     denyWrite also traps hooks, config and .gitmodules in strict mode, on the
+#     git dirs as `git rev-parse` resolves them, so the traps still land in a
+#     worktree layout where $PWD/.git is only a pointer file. Those dirs are
+#     always readable (git is unusable otherwise) and writable only per
+#     `sandbox.gitWrite`.
 #   - supply chain: npm/yarn lifecycle scripts blocked (npm_config_ignore_scripts);
 #     NODE_OPTIONS stripped of code-injection flags (--require/--import/...).
 #   - secrets: env vars whose names look secret-bearing (*_TOKEN/_SECRET/...) are
@@ -36,13 +45,14 @@
 # Wrapper implementation lives in nix/pkgs/pi-wrapper so it can be reused by
 # the flake check at nix/checks/pi-coding-agent.nix.
 #
-# Extension sources at nix/modules/hm_modules/dev/pi/ are symlinked via
-# mkOutOfStoreSymlink into ~/.pi/agent/, not copied into the nix store. Pi's
-# /reload hot-swaps extensions/skills/keybindings at runtime, and any file
-# pi writes round-trips back into git. sourceDir defaults to the worktree
-# you ran `make` from. See DOTFILES_WORKTREE in Makefile and the
-# dotfilesWorktree binding in flake.nix. Each worktree symlinks to its own
-# tree, so branch-based edits surface immediately without colliding.
+# Extension, agent, theme, keybinding and AGENTS.md sources at
+# nix/modules/hm_modules/dev/pi/ are symlinked via mkOutOfStoreSymlink into
+# ~/.pi/agent/, not copied into the nix store. Pi's /reload hot-swaps extensions/skills/keybindings at runtime, it
+# reloads the active theme file on write, and any file pi writes round-trips
+# back into git. sourceDir defaults to the worktree you ran `make` from. See
+# DOTFILES_WORKTREE in Makefile and the dotfilesWorktree binding in flake.nix.
+# Each worktree symlinks to its own tree, so branch-based edits surface
+# immediately without colliding.
 {
   lib,
   pkgs,
@@ -57,20 +67,22 @@ let
   piPackage =
     if cfg.sandbox.enable then
       # The knobs a host actually turns; the wrapper's own defaults cover
-      # the rest. The extra FS write paths stay empty (strict mode is
-      # default-deny) and trustd stays off. Widen those at
-      # nix/pkgs/pi-wrapper/default.nix, or per-invocation with the
-      # wrapper's --allow-read / --allow-write / --allow-trustd.
+      # the rest. trustd stays off, as do --allow-nix and --allow-docker.
+      # Widen those at nix/pkgs/pi-wrapper/default.nix, or per-invocation
+      # with the wrapper's --allow-trustd / --allow-nix / --allow-docker.
       #
       # sourceDir is always readable: srt checks a symlink's resolved
-      # target, and the extensions link below resolves into a worktree that
-      # the blanket $HOME deny would otherwise hide.
+      # target, and the extension and theme links below resolve into a
+      # worktree that the blanket $HOME deny would otherwise hide.
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
         defaultEnvVars = cfg.sandbox.envVars;
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
         defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
+        defaultWritePaths = cfg.sandbox.allowedWritePaths;
+        gitWriteMode = cfg.sandbox.gitWrite;
+        protectedBranches = cfg.sandbox.protectedBranches;
         networkBundles = cfg.sandbox.networkBundles;
         envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
@@ -138,11 +150,15 @@ in
       defaultText = lib.literalExpression "\${dotfiles-worktree}/nix/modules/hm_modules/dev/pi";
       description = ''
         Absolute path in the dotfiles working tree containing pi's
-        symlinked config (extensions/, etc.). mkOutOfStoreSymlink points
-        ~/.pi/agent/extensions at <sourceDir>/extensions so /reload picks
-        up edits without a home-manager rebuild. Defaults to the worktree
-        captured at make-time via DOTFILES_WORKTREE; override per-host if
-        you need a different path.
+        symlinked config (extensions/, agents/, themes/,
+        keybindings.json). mkOutOfStoreSymlink points ~/.pi/agent/extensions,
+        ~/.pi/agent/agents, ~/.pi/agent/themes and
+        ~/.pi/agent/keybindings.json at the matching entries, so /reload
+        picks up extension, agent and keybinding edits and pi's own theme
+        hot-reload picks up palette edits, all without a
+        home-manager rebuild. Defaults to the worktree captured at
+        make-time via DOTFILES_WORKTREE; override per-host if you need a
+        different path.
       '';
     };
 
@@ -228,6 +244,76 @@ in
 
           A home-manager symlink into /nix/store hits the same rule, since
           the link itself sits under $HOME.
+        '';
+      };
+
+      allowedWritePaths = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        example = [ "~/.kube/configs" ];
+        description = ''
+          Paths added to allowWrite in strict mode, which otherwise grants
+          only $PWD and ~/.pi. Leading `~` expands to $HOME. Runtime
+          --allow-write extends it.
+
+          A path listed here is not automatically readable; add it to
+          `allowedReadPaths` too if the tool reads back what it wrote.
+
+          Prefer redirecting a tool at a directory already inside the grant
+          (the wrapper does this for GOCACHE, CARGO_HOME and friends) over
+          opening its default location, which is usually somewhere broad
+          like ~/Library/Caches.
+        '';
+      };
+
+      gitWrite = lib.mkOption {
+        type = lib.types.enum [
+          "branch-gated"
+          "always"
+          "off"
+        ];
+        default = "branch-gated";
+        description = ''
+          Whether the agent may write the repo's git directories, which is
+          what lets it `git commit`. Reading them is unconditional and not a
+          knob: in a worktree layout `$PWD/.git` is a pointer file into a
+          `.bare` directory, so without the read grant every git command in
+          the workspace fails with `not a git repository`.
+
+          - `branch-gated` grants write when HEAD is a branch outside
+            `protectedBranches`. A detached HEAD counts as protected.
+          - `always` grants it on every branch.
+          - `off` never grants it, and denies the git dir even where it sits
+            inside the writable workspace.
+
+          Per-invocation `--allow-git-write` / `--no-git-write` override.
+
+          The grant is the whole git common directory, so an agent that can
+          commit can also move refs other than its own; `protectedBranches`
+          fences off the ones that matter. There is no narrower srt grant:
+          a commit touches the index in the per-worktree dir, new objects and
+          the branch ref in the common dir.
+        '';
+      };
+
+      protectedBranches = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [
+          "main"
+          "master"
+        ];
+        example = [
+          "main"
+          "release"
+        ];
+        description = ''
+          Branches `gitWrite = "branch-gated"` refuses to grant write for.
+          Their refs and reflogs (`refs/heads/<branch>`,
+          `logs/refs/heads/<branch>`) also stay in srt's denyWrite once write
+          is granted for some other branch, so an agent committing on its own
+          branch cannot move these. A `git pack-refs` or `git gc` rewrite of
+          the packed-refs file still can; treat this as a guardrail, not a
+          boundary.
         '';
       };
 
@@ -442,12 +528,49 @@ in
       };
     };
 
+    # A real writable file, not the usual store symlink: pi writes this file
+    # itself (it stamps lastChangelogVersion on first start, and /settings and
+    # `pi install` persist here). The repo copy is the source of truth, so
+    # runtime edits to it survive only until the next home-manager switch. A
+    # dropped lastChangelogVersion is read as a fresh install, stamped silently
+    # rather than replaying the changelog.
+    #
+    # retry.maxRetries 6 against the default 2s base: pi's agent-level backoff
+    # is baseDelayMs * 2^(attempt-1) with no jitter and no ceiling, so the
+    # budget is 126s and the longest single sleep is 64s. The default 3 gives up
+    # after 14s, which mcloud outranks on a routine overload; past 6 the
+    # doubling buys minutes of silent sleep that reads as a hang, with nothing
+    # on screen to say the session is only waiting.
+    home.activation.piSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run install -D -m 0644 ${./settings.json} "$HOME/.pi/agent/settings.json"
+    '';
+
     # pi reads bare .md files at the root of ~/.pi/agent/skills/ as individual
     # skills, so claude-code's flat sources need no restructuring. Store
     # sources, matching claude-code, so /reload cannot see skill edits until
     # the next home-manager switch.
     home.file = {
       ".pi/agent/extensions".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
+      # getAgentDir() is ~/.pi/agent (pi's core/config.ts), so task.ts reads
+      # its roster from this directory.
+      ".pi/agent/agents".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/agents";
+      ".pi/agent/themes".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/themes";
+
+      # Out-of-store because pi does write this file: startup's
+      # migrateKeybindingsConfigFile() rewrites it whenever an action id it
+      # holds has been renamed upstream. Namespaced ids do not trigger that,
+      # but if a future pi renames one, the rewrite lands in the worktree
+      # instead of failing against a read-only store path.
+      ".pi/agent/keybindings.json".source =
+        config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/keybindings.json";
+
+      # Phase discipline and the Assert rule, out-of-store like the extensions
+      # so an edit lands without a rebuild. mkDefault yields to a host or a
+      # private module shipping its own AGENTS.md, which would otherwise
+      # collide on this path rather than override it.
+      ".pi/agent/AGENTS.md".source = lib.mkDefault (
+        config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/AGENTS.md"
+      );
 
       ".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
         text = builtins.toJSON cfg.modelsJson;

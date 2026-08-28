@@ -75,21 +75,42 @@
       memory = 40;
       disk = 100;
       vmType = "vz";
-      # Required for running multiple kind clusters (each node runs systemd).
-      # Default of 128 is exhausted with mirrors + 3 clusters running concurrently.
+      # Each kind node runs a systemd watching that node's filesystem, so the
+      # default of 128 is gone after a couple of clusters. forge's own clusters
+      # are not among them: they live in the VM nix/pkgs/forge/vm.nix declares,
+      # which carries this limit in nix/pkgs/forge/guest.nix.
       sysctls = [ "fs.inotify.max_user_instances=1024" ];
+
+      # Nothing from this mac is visible inside the VM, so a container started
+      # through this daemon is not a route to ~/.ssh, ~/.aws or
+      # ~/.config/sops. Anything reaching a docker socket can start a
+      # privileged container, and what that container can read is whatever the
+      # VM mounts, so this is the only place the question gets decided. The
+      # cost is bind mounts in unrelated `docker run` invocations.
+      #
+      # pi's --allow-docker does not rest on this setting: it grants forge's VM
+      # (nix/pkgs/forge/vm.nix) and refuses unless that instance declares the
+      # same property, which is checked against the instance at grant time.
+      mounts = [ "none" ];
     };
   };
 
   home.packages = with pkgs; [
     argocd
     coder
+    forge
     linear-cli
     opencode
     pdm
     pulumi
     pkgs.pulumiPackages.pulumi-python
   ];
+
+  # The cluster count here is load-bearing twice over: forge assigns each
+  # cluster one API port from the window its VM forwards and refuses a config
+  # past the end of it, and guest.nix sizes the guest's inotify limits for this
+  # many kind nodes.
+  xdg.configFile."forge/forge.yaml".source = ../../pkgs/forge/forge.yaml;
 
   # Coder remote development SSH config
   programs.ssh.matchBlocks = {

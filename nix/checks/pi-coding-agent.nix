@@ -89,6 +89,38 @@ let
     gitAuthorEmail = "test-bot@example.invalid";
   };
 
+  wrapperWithGitWriteOff = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    gitWriteMode = "off";
+  };
+
+  wrapperWithGitWriteAlways = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    gitWriteMode = "always";
+  };
+
+  # Protects the branch the fixture commits on, so the gate's decision has to
+  # follow this list rather than the "main" default.
+  wrapperWithProtectedFeature = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    protectedBranches = [ "feature" ];
+  };
+
+  wrapperWithNixDefault = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowNix = true;
+  };
+
+  wrapperWithDockerDefault = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowDocker = true;
+  };
+
+  wrapperWithWritePaths = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultWritePaths = [ "~/.kube/configs" ];
+  };
+
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
 in
 pkgs.runCommand "pi-coding-agent-check"
@@ -96,6 +128,7 @@ pkgs.runCommand "pi-coding-agent-check"
     nativeBuildInputs = [
       wrapper
       pkgs.jq
+      pkgs.git
     ];
   }
   ''
@@ -372,6 +405,237 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(PI_REAL_BIN=/tmp/other-pi pi -- x 2>&1)
     echo "$captured" | grep -q "PI_PLAN_REAL_BIN: /tmp/other-pi" \
       || fail "PI_REAL_BIN override not honored/re-exported. captured=$captured"
+
+    # Outside a repo the git knobs resolve to nothing and add no paths
+    cd "$TMPDIR"
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_GIT_DIRS: dir=none common=none branch=none write=false" \
+      || fail "non-repo cwd should resolve no git dirs. captured=$captured"
+
+    # Fixture: primary checkout on main, a linked worktree on a feature branch
+    # (git dir outside the workspace, the layout that broke every git command),
+    # and a detached one.
+    repo=$TMPDIR/repo
+    git init -q -b main "$repo"
+    git -C "$repo" -c user.name=check -c user.email=check@example.invalid \
+      commit -q --allow-empty -m init
+    git -C "$repo" worktree add -q -b feature "$TMPDIR/wt-feature"
+    git -C "$repo" worktree add -q --detach "$TMPDIR/wt-detached"
+    wt_gitdir=$repo/.git/worktrees/wt-feature
+
+    # Primary checkout on a protected branch: git dir readable, and denied for
+    # writes even though it sits inside the writable workspace.
+    cd "$repo"
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$repo/.git\")" >/dev/null \
+      || fail "git dir must be readable. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git\")" >/dev/null \
+      || fail "protected branch must deny the git dir. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\") == null" >/dev/null \
+      || fail "protected branch must not grant git-dir write. settings=$settings"
+
+    # --allow-git-write overrides the branch gate
+    captured=$(pi --allow-git-write -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\")" >/dev/null \
+      || fail "--allow-git-write did not grant git-dir write. settings=$settings"
+
+    # Linked worktree on a feature branch: both dirs readable, common dir
+    # writable, traps on the resolved paths, protected refs still denied.
+    cd "$TMPDIR/wt-feature"
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$captured" | grep -q "PI_PLAN_GIT_DIRS:.*branch=feature write=true" \
+      || fail "feature worktree should grant git write. captured=$captured"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$repo/.git\")" >/dev/null \
+      || fail "worktree: common dir not readable. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$wt_gitdir\")" >/dev/null \
+      || fail "worktree: per-worktree git dir not readable. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\")" >/dev/null \
+      || fail "worktree: common dir not writable, cannot commit. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/hooks\")" >/dev/null \
+      || fail "worktree: hooks trap missing on the resolved dir. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/config\")" >/dev/null \
+      || fail "worktree: config trap missing on the resolved dir. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$wt_gitdir/config.worktree\")" >/dev/null \
+      || fail "worktree: config.worktree trap missing. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/refs/heads/main\")" >/dev/null \
+      || fail "worktree: main's ref must stay denied. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/logs/refs/heads/main\")" >/dev/null \
+      || fail "worktree: main's reflog must stay denied. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git\") == null" >/dev/null \
+      || fail "worktree: blanket git-dir deny would defeat the grant. settings=$settings"
+
+    # --no-git-write withholds it again
+    captured=$(pi --no-git-write -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\") == null" >/dev/null \
+      || fail "--no-git-write still granted git-dir write. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git\")" >/dev/null \
+      || fail "--no-git-write did not deny the git dir. settings=$settings"
+
+    # gitWriteMode="off" refuses on a non-protected branch
+    captured=$(${wrapperWithGitWriteOff}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\") == null" >/dev/null \
+      || fail "gitWriteMode=off granted git-dir write. settings=$settings"
+
+    # protectedBranches is what the gate consults: protecting "feature"
+    # withholds write on this same worktree.
+    captured=$(${wrapperWithProtectedFeature}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\") == null" >/dev/null \
+      || fail "protectedBranches=[feature] granted write anyway. settings=$settings"
+
+    # Detached HEAD has no branch to commit onto: treated as protected
+    cd "$TMPDIR/wt-detached"
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_GIT_DIRS:.*branch=none write=false" \
+      || fail "detached HEAD should not grant git write. captured=$captured"
+
+    # gitWriteMode="always" ignores both the branch and the detached state
+    captured=$(${wrapperWithGitWriteAlways}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$repo/.git\")" >/dev/null \
+      || fail "gitWriteMode=always did not grant git-dir write. settings=$settings"
+
+    # Unix sockets stay blocked unless --allow-nix asks for the daemon
+    cd "$TMPDIR"
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets == []' >/dev/null \
+      || fail "allowUnixSockets should be empty by default. settings=$settings"
+    echo "$captured" | grep -q "WARNING: --allow-nix" \
+      && fail "warned about a nix grant that was never made. captured=$captured"
+
+    captured=$(pi --allow-nix -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets | index("/nix/var/nix/daemon-socket/socket")' >/dev/null \
+      || fail "--allow-nix did not allow the daemon socket. settings=$settings"
+    # The grant is equivalent to --no-sandbox under trusted-users, so it has to
+    # say so on the way past rather than only in a comment nobody reads.
+    echo "$captured" | grep -q "WARNING: --allow-nix" \
+      || fail "--allow-nix granted the socket without warning. captured=$captured"
+    echo "$captured" | grep -q "unsandboxed" \
+      || fail "--allow-nix warning does not name the consequence. captured=$captured"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.nix-defexpr\")" >/dev/null \
+      || fail "--allow-nix missing the channel search path. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.local/state/nix\")" >/dev/null \
+      || fail "--allow-nix missing the channels symlink target. settings=$settings"
+
+    # defaultAllowNix=true does the same without any CLI flag
+    captured=$(${wrapperWithNixDefault}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets | index("/nix/var/nix/daemon-socket/socket")' >/dev/null \
+      || fail "defaultAllowNix=true did not allow the daemon socket. settings=$settings"
+
+    # --allow-docker grants one lima instance's socket, and the instance has to
+    # declare what bounds the grant, so the fixture is that instance's config.
+    # Written the way lima persists it: verbatim JSON of what it was created
+    # from (nix/pkgs/forge/vm.nix), including the deny pair its portForwards end
+    # in. `deny` is two rules because guestIP selects one address family.
+    forge_dir=$HOME/.lima/forge
+    forge_socket=$forge_dir/sock/docker.sock
+    mk_instance() {
+      mkdir -p "$forge_dir"
+      jq -n --argjson mounts "$1" --argjson deny "$2" \
+        '{mounts: $mounts, portForwards: ([{guestSocket: "/var/run/docker.sock"}] + $deny)}' \
+        >"$forge_dir/lima.yaml"
+    }
+    deny_pair='[{"guestIP":"127.0.0.1","proto":"any","ignore":true},
+                {"guestIP":"0.0.0.0","proto":"any","ignore":true}]'
+
+    mk_instance '[]' "$deny_pair"
+    captured=$(pi --allow-docker -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets | index($s)' >/dev/null \
+      || fail "--allow-docker did not allow the instance socket. settings=$settings"
+    echo "$settings" | jq -e --arg s "$forge_socket" '.filesystem.allowRead | index($s)' >/dev/null \
+      || fail "--allow-docker left the socket path unreadable. settings=$settings"
+
+    # ~/.docker holds registry credentials and credentialMasks covers it, so the
+    # grant must not re-allow it. DOCKER_CONFIG is what keeps the CLI working.
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.docker\")" >/dev/null \
+      && fail "--allow-docker re-allowed ~/.docker. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: DOCKER_CONFIG=$HOME/.pi/sandbox-cache/docker" \
+      || fail "--allow-docker did not redirect DOCKER_CONFIG. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: DOCKER_HOST=unix://$forge_socket" \
+      || fail "--allow-docker did not point DOCKER_HOST at the granted socket. captured=$captured"
+
+    # The socket path is not taken from the environment. It was, and since it
+    # becomes an allowRead entry, a .envrc in the checkout could pick any path
+    # for the sandbox to grant.
+    captured=$(DOCKER_HOST=unix:///Users/nobody/.ssh/agent.sock pi --allow-docker -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/Users/nobody/.ssh/agent.sock")' >/dev/null \
+      && fail "DOCKER_HOST chose a granted read path. settings=$settings"
+    echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
+      || fail "DOCKER_HOST changed the granted socket. settings=$settings"
+    captured=$(LIMA_HOME=/Users/nobody/evil pi --allow-docker -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
+      || fail "LIMA_HOME changed the granted socket. settings=$settings"
+
+    # A mount is the case that matters: anything reaching the socket can start a
+    # privileged container, which reads every path the VM has.
+    mk_instance '[{"location":"~","writable":true}]' "$deny_pair"
+    if captured=$(pi --allow-docker -- x 2>&1); then
+      fail "--allow-docker granted a socket on a VM mounting \$HOME. captured=$captured"
+    fi
+    echo "$captured" | grep -q "mounts a host path" \
+      || fail "refusal did not name the mount. captured=$captured"
+
+    # lima appends its own forward-everything fallback after the last rule, so a
+    # list that merely omits ports does not deny them.
+    mk_instance '[]' '[]'
+    if captured=$(pi --allow-docker -- x 2>&1); then
+      fail "--allow-docker granted a socket on a VM with no deny tail. captured=$captured"
+    fi
+    echo "$captured" | grep -q "does not deny the port" \
+      || fail "refusal did not name the port forwards. captured=$captured"
+
+    # No instance at all is a refusal too, not a grant of a path that does not
+    # exist yet and could be created later.
+    rm -rf "$forge_dir"
+    if captured=$(pi --allow-docker -- x 2>&1); then
+      fail "--allow-docker granted a socket with no instance. captured=$captured"
+    fi
+    echo "$captured" | grep -q "no lima instance" \
+      || fail "refusal did not name the missing instance. captured=$captured"
+    mk_instance '[]' "$deny_pair"
+
+    # Without the flag nothing is granted, and the CLI is not pointed anywhere
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets == []' >/dev/null \
+      || fail "a compliant instance alone should grant nothing. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: DOCKER_HOST=" \
+      && fail "DOCKER_HOST set without the grant. captured=$captured"
+
+    # Both flags together, which is the case that exercises the socket list
+    # rather than a single-element shortcut
+    captured=$(pi --allow-nix --allow-docker -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets | length == 2' >/dev/null \
+      || fail "--allow-nix --allow-docker did not yield both sockets. settings=$settings"
+
+    # defaultAllowDocker=true does the same without any CLI flag
+    captured=$(${wrapperWithDockerDefault}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets | index($s)' >/dev/null \
+      || fail "defaultAllowDocker=true did not allow the socket. settings=$settings"
+
+    # defaultWritePaths reaches allowWrite, with ~ expanded
+    captured=$(${wrapperWithWritePaths}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.kube/configs\")" >/dev/null \
+      || fail "defaultWritePaths did not reach allowWrite. settings=$settings"
+
+    # TMPDIR is redirected into the write grant; no inherited temp dir is in it
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: TMPDIR=$HOME/.pi/sandbox-cache/tmp" \
+      || fail "TMPDIR not redirected under the cache root. captured=$captured"
 
     touch $out
   ''

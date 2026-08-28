@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+show_help() {
+	cat <<'EOF'
+usage: git adopt [options] [base]
+
+Sign every commit on this branch that is not on the base branch.
+
+Agents commit unsigned: the pi wrapper exports commit.gpgsign=false and an
+`ai-daemon@` author, and `wtx` does the same for the agents it launches, so
+`git log --show-signature` tells you which commits nobody has vouched for.
+Adopting them is the review gate: once you have read the work, your signature
+says so.
+
+  git adopt
+    → base: merge-base of HEAD and the local default branch
+    → signs each commit in base..HEAD, rewriting it
+
+  git adopt main
+    → same, against an explicit base
+
+Options:
+  -n, --dry-run   List what would be signed and stop
+  -y, --yes       Skip the confirmation prompt
+  -h, --help      Show this help
+
+Refuses to run when:
+  - the worktree has uncommitted changes to tracked files (a rebase would
+    fail anyway); untracked files are left alone, as a rebase ignores them
+  - HEAD is detached, so there is no branch to rewrite
+  - any commit in the range is already on a remote, since rewriting it
+    would need a force push
+
+A range where everything is already signed is reported and left alone, so
+running this twice does not rewrite history for nothing.
+
+The signature column in the listing is git's own %G? code: N for no
+signature, G for a good one, and B, U, X, Y, R, E for the failure modes
+git-log(1) documents.
+EOF
+	exit 0
+}
+
+dry_run=false
+assume_yes=false
+base_arg=""
+
+while [[ $# -gt 0 ]]; do
+	case $1 in
+	-n | --dry-run)
+		dry_run=true
+		shift
+		;;
+	-y | --yes)
+		assume_yes=true
+		shift
+		;;
+	-h | --help)
+		show_help
+		;;
+	-*)
+		die "Unknown option $1. Use --help for usage."
+		;;
+	*)
+		[[ -z $base_arg ]] || die "Only one base may be given, got '${base_arg}' and '$1'"
+		base_arg=$1
+		shift
+		;;
+	esac
+done
+
+base=$(require_rewritable_range "$base_arg")
+branch=$(git rev-parse --abbrev-ref HEAD)
+
+total=$(git rev-list --count "${base}..HEAD")
+if [[ $total -eq 0 ]]; then
+	log_info "Nothing to adopt: ${branch} adds no commits over its base"
+	exit 0
+fi
+
+# N is git's code for "no signature". Every other %G? value means a signature
+# is present, whether or not this machine can validate it, and re-signing
+# would rewrite the commit for nothing.
+unsigned=$(git log --format='%G?' "${base}..HEAD" | grep -c '^N$' || true)
+if [[ $unsigned -eq 0 ]]; then
+	log_info "Already adopted: all ${total} commit(s) carry a signature"
+	exit 0
+fi
+
+echo "Commits to adopt on ${branch}:" >&2
+echo "" >&2
+git log --format='  %h %G? %<(24,trunc)%an %s' "${base}..HEAD" >&2
+echo "" >&2
+
+if [[ $dry_run == true ]]; then
+	log_info "Dry run: nothing was rewritten"
+	exit 0
+fi
+
+if [[ $assume_yes != true ]]; then
+	read -r -p "Sign ${total} commit(s), ${unsigned} of them unsigned, as $(git config user.name)? [y/N] " -n 1
+	echo "" >&2
+	[[ $REPLY =~ ^[Yy]$ ]] || die "Cancelled"
+fi
+
+# --force-rebase so commits already in place are still replayed; without it
+# git fast-forwards and signs nothing.
+log_info "Signing ${total} commit(s), ${unsigned} of them unsigned..."
+git rebase --force-rebase --gpg-sign "$base"
+
+echo "" >&2
+log_info "Adopted:"
+git log --format='  %h %G? %<(24,trunc)%an %s' "${base}..HEAD" >&2

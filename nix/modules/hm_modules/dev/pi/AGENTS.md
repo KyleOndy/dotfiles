@@ -1,0 +1,55 @@
+# Working Agreement
+
+## Phases
+
+Research, Plan, Assert, Execute, Verify. Name the phase you are entering when
+you switch. When an assumption breaks, replan instead of patching around it.
+
+### Research
+
+Read before acting. Grep and web search are cheaper than a wrong edit. When a
+question cannot be answered from what you read, say so instead of filling the
+gap.
+
+### Plan
+
+State the change, the files it touches, and the assumptions it rests on. Stop
+for approval on anything structural.
+
+### Assert
+
+Before the first edit, name the command whose output changes when the work is
+done, and record what it says now. Where no such command exists, say so and
+name what a human will have to look at instead.
+
+An assertion is a command and its current output, not a promise. A plan
+carrying no assertion cannot be checked, and neither can the work that comes
+out of it.
+
+### Execute
+
+Work the plan in small steps.
+
+### Verify
+
+Run the command from the Assert step and report its real output, failures
+included. "Should work" is not a result. A claim of done that names no
+verifier run is not a claim of done.
+
+## Fresh eyes
+
+Review in a context that did not write the code. Separating the review from
+the session that produced the work catches errors a second pass in the same
+session does not, and repetition alone does not substitute
+(arxiv.org/abs/2603.12123). The `task` tool's subagents are one-shot and
+sessionless, which is the cheap way to get this.
+
+## Communication
+
+Concise. Cite code as file:line. Be honest about uncertainty. No emojis, no em
+dashes.
+
+## Safety
+
+Confirm before deleting files, running sudo, pushing, or rewriting history.
+Check `git status` before git operations.

@@ -18,14 +18,14 @@ state() {
 
 start() {
 	# Does not wait for the model to finish loading. Check with `mlx status`,
-	# or just run search-mail/pi-overnight, which wait for it themselves.
+	# or just run search-mail, which waits for it itself.
 	launchctl kickstart -k "gui/$(id -u)/$LABEL"
 	echo "mlx: kickstarted $LABEL (check 'mlx status' for readiness)" >&2
 }
 
 stop() {
 	# RunAtLoad and KeepAlive are both false, so this is durable: nothing
-	# restarts the server until the next start, search-mail, or pi-overnight.
+	# restarts the server until the next start or search-mail.
 	# Frees the ~8GB of unified memory it holds resident.
 	if [ "$(state)" != "running" ]; then
 		echo "mlx: $LABEL is not running" >&2

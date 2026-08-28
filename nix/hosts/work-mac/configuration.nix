@@ -10,7 +10,13 @@
   imports = [ ];
 
   # Night Shift CLI tool
-  environment.systemPackages = [ pkgs.nightlight ];
+  environment.systemPackages = [
+    pkgs.nightlight
+    # Checks pinned mcloud model ids against the live endpoint. Wanted here in
+    # particular: this host's models.json comes from work-config, so nothing in
+    # this repo can spot a stale id in it.
+    pkgs.mcloud-pins
+  ];
 
   # Homebrew integration for GUI applications and tools not in nixpkgs
   homebrew = {
@@ -100,7 +106,8 @@
     "/Users/kondy/screenshots"
   ];
 
-  # DNS resolution for forge dev cluster
+  # DNS resolution for forge dev cluster. Names must match the clusters in
+  # nix/pkgs/forge/forge.yaml.
   # More-specific entries take priority; catch-all handles *.forge.test
   services.dnsmasq = {
     enable = true;

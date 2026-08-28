@@ -10,17 +10,26 @@ let
   # Powerline glyph characters (U+E0B0 solid arrow, U+E0B1 thin separator)
   arrow = builtins.fromJSON ''"\ue0b0"'';
   sep = builtins.fromJSON ''"\ue0b1"'';
-  # Aggregate per-pane Claude icons via external script. Only wired in when
-  # the claude-code module actually installs the script; otherwise every
-  # status refresh would spawn a shell that fails on a missing path.
+  # Aggregate per-pane coding agent state via external script. Only wired in
+  # when an agent module is enabled; otherwise every status refresh would
+  # spawn a script with nothing to report.
   claudeCfg = config.hmFoundry.dev.claude-code;
-  claudeIconSuffix = optionalString claudeCfg.enable "#(~/.claude/hooks/tmux-claude-icons.sh '#{window_id}')";
+  piCfg = config.hmFoundry.dev.pi-coding-agent;
+  agentIcons = pkgs.writeShellApplication {
+    name = "tmux-agent-icons";
+    runtimeInputs = [ pkgs.tmux ];
+    # writeShellApplication provides its own shebang and set -euo pipefail
+    text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./tmux-agent-icons.sh);
+  };
+  agentIconSuffix = optionalString (
+    claudeCfg.enable || piCfg.enable
+  ) "#(${getExe agentIcons} '#{window_id}')";
   mkTabFmt =
     { bg, fg }:
-    "#[fg=colour237]#[bg=${bg}]#[noitalics]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[noitalics]${arrow}";
+    "#[fg=colour237]#[bg=${bg}]#[noitalics]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}] #W${agentIconSuffix} #[fg=${bg}]#[bg=colour237]#[noitalics]${arrow}";
   mkCurrentTabFmt =
     { bg, fg }:
-    "#[fg=colour237]#[bg=${bg}]#[nobold]#[noitalics]#[nounderscore]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}]#[bold] #W${claudeIconSuffix} #[fg=${bg}]#[bg=colour237]#[nobold]#[noitalics]#[nounderscore]${arrow}";
+    "#[fg=colour237]#[bg=${bg}]#[nobold]#[noitalics]#[nounderscore]${arrow}#[fg=${fg}]#[bg=${bg}] #I ${sep}#[fg=${fg}]#[bg=${bg}]#[bold] #W${agentIconSuffix} #[fg=${bg}]#[bg=colour237]#[nobold]#[noitalics]#[nounderscore]${arrow}";
   windowFmt = mkTabFmt {
     bg = "colour239";
     fg = "colour223";
@@ -40,7 +49,11 @@ in
       enable = true;
       clock24 = true; # use 24 hour clock
       escapeTime = 0;
-      terminal = "screen-256color";
+      # tmux never emits sitm while default-terminal is screen or screen-*, it
+      # sends smso instead (tty.c, tty_set_italics), so every italic reaches
+      # the outer terminal as reverse video. screen-256color also carries no
+      # italics capability of its own for programs that read terminfo.
+      terminal = "tmux-256color";
       sensibleOnTop = false; # do not inject other configuration
       baseIndex = 1; # start window numbering at 1
       extraConfig = ''

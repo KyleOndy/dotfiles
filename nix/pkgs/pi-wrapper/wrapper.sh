@@ -26,6 +26,49 @@ web_mode=false
 no_sandbox=false
 allow_loopback=@defaultAllowLoopback@
 allow_trustd=@defaultAllowTrustd@
+allow_nix=@defaultAllowNix@
+allow_docker=@defaultAllowDocker@
+git_write_mode=@gitWriteMode@
+protected_branches=(@protectedBranches@)
+git_write_granted=false
+
+# nix talks to the daemon over this socket, and srt blocks unix sockets by
+# default on both platforms (sandbox-runtime README, Unix Socket Settings).
+# Only added to the policy under --allow-nix.
+#
+# This grant is not the narrow thing its name suggests. The daemon decides a
+# client is trusted by peer uid, so where the invoking user is covered by
+# nix.conf's trusted-users (`root @admin` on a mac where the human is an
+# admin), the client may override daemon settings. Overriding
+# build-users-group to empty makes the daemon build as itself, and a builder
+# is arbitrary code: measured on a darwin host whose human is an admin, a
+# build launched from inside srt reported uid=0 user=root and read a path
+# this policy's denyRead covers, which the same build as _nixbld1 could not.
+# Granting the socket is therefore equivalent to --no-sandbox, and the flag
+# warns as much.
+# Turning nix's own sandbox on does not help, since a trusted client can turn
+# it back off.
+nix_daemon_socket="/nix/var/nix/daemon-socket/socket"
+
+# The docker CLI reaches the daemon over this socket, blocked by the same
+# default-deny on unix sockets. Only added to the policy under --allow-docker.
+#
+# Anything that can reach this socket can run a privileged container, so the
+# grant is bounded by what the daemon's VM can see and not by this policy: a
+# container on a VM with $HOME mounted reads and writes all of it, which is
+# what denyRead exists to prevent. So the socket is one named instance's, and
+# __pi_assert_docker_vm checks that instance still declares the properties
+# that bound the grant.
+#
+# Read from neither DOCKER_HOST nor LIMA_HOME: this path becomes both a
+# filesystem.allowRead entry and an allowUnixSockets entry, so taking it from
+# the environment would let a checkout's .envrc choose what the sandbox grants.
+docker_lima_dir="$HOME/.lima/@dockerLimaInstance@"
+docker_socket="$docker_lima_dir/sock/docker.sock"
+# lima copies the config here at creation and reads this copy for the life of
+# the instance, so it describes the VM that is running rather than what some
+# store path intended.
+docker_vm_config="$docker_lima_dir/lima.yaml"
 
 # Toolchain caches are redirected under here (already inside allowWrite/allowRead
 # via ~/.pi) so default-deny reads/writes don't break compilers without widening
@@ -77,6 +120,50 @@ if [[ ${PI_DEBUG:-} == "plan" ]]; then
 	printf 'PI_PLAN_GIT: author=%s <%s> sign=false hooksPath=/dev/null\n' \
 		"$GIT_AUTHOR_NAME" "$GIT_AUTHOR_EMAIL"
 fi
+
+# Resolve the repo's real git directories. $PWD/.git is a pointer file in a
+# worktree layout, so both dirs sit outside the workspace, where the blanket
+# $HOME deny hides them and every git command fails with "not a git
+# repository". --path-format=absolute has to precede the queried options
+# (git-rev-parse(1)). Empty when git is absent or $PWD is not a repo.
+git_dir=""
+git_common_dir=""
+git_branch=""
+
+__pi_resolve_git_dirs() {
+	local dirs
+	command -v git >/dev/null 2>&1 || return 0
+	dirs=$(git -C "$PWD" rev-parse --path-format=absolute --git-dir --git-common-dir 2>/dev/null) || return 0
+	git_dir=${dirs%%$'\n'*}
+	git_common_dir=${dirs#*$'\n'}
+	[[ -n $git_common_dir ]] || git_common_dir="$git_dir"
+	git_branch=$(git -C "$PWD" symbolic-ref --short HEAD 2>/dev/null) || git_branch=""
+}
+
+# Whether the agent may write the git dirs, which is what lets it commit. The
+# same access lets it move any ref in the repo, so branch-gated (the default)
+# grants it only off a protected branch; a detached HEAD has no branch to
+# commit onto and is treated as protected.
+__pi_git_write_allowed() {
+	local b
+	[[ -n $git_common_dir ]] || return 1
+	case "$git_write_mode" in
+	off) return 1 ;;
+	always) return 0 ;;
+	branch-gated) ;;
+	*)
+		echo "pi: unknown git write mode: $git_write_mode (want branch-gated|always|off)" >&2
+		exit 1
+		;;
+	esac
+	[[ -n $git_branch ]] || return 1
+	for b in "${protected_branches[@]}"; do
+		if [[ $git_branch == "$b" ]]; then
+			return 1
+		fi
+	done
+	return 0
+}
 
 # Resolve a secret outside the sandbox and export it into pi's env. Driven
 # by a tab-separated VAR<TAB>cmd file generated at build time (see
@@ -150,12 +237,25 @@ __pi_set_hardening_env() {
 		"PIP_CACHE_DIR=$pi_cache_root/pip"
 		"UV_CACHE_DIR=$pi_cache_root/uv"
 		"XDG_CACHE_HOME=$pi_cache_root/xdg"
+		# Neither /tmp nor macOS's per-user $TMPDIR is in allowWrite, so a
+		# tool reaching for a temp file gets EPERM unless TMPDIR points
+		# somewhere granted. Programs that hardcode /tmp still fail.
+		"TMPDIR=$pi_cache_root/tmp"
+		# The CLI reads config.json from here. Redirected because ~/.docker
+		# holds registry credentials, which is why credentialMasks covers it:
+		# the agent gets a daemon, not the tokens to pull private images with.
+		"DOCKER_CONFIG=$pi_cache_root/docker"
 	)
+	# Whatever DOCKER_HOST the caller had names a daemon this policy does not
+	# grant, so point the CLI at the one it does.
+	if "$allow_docker"; then
+		hardening+=("DOCKER_HOST=unix://$docker_socket")
+	fi
 	for kv in "${hardening[@]}"; do
 		export "${kv%%=*}=${kv#*=}"
 		[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_HARDENING: %s\n' "$kv"
 	done
-	[[ ${PI_DEBUG:-} == "plan" ]] || mkdir -p "$pi_cache_root" 2>/dev/null || true
+	[[ ${PI_DEBUG:-} == "plan" ]] || mkdir -p "$pi_cache_root" "$pi_cache_root/tmp" 2>/dev/null || true
 }
 
 # Strip secret-bearing env vars (matched by name suffix) that leaked in from the
@@ -273,6 +373,24 @@ while [[ $# -gt 0 ]]; do
 		allow_trustd=true
 		shift
 		;;
+	--allow-git-write)
+		git_write_mode=always
+		shift
+		;;
+	--no-git-write)
+		git_write_mode=off
+		shift
+		;;
+	--allow-nix)
+		# Exact-match case: it shadows any network bundle named "nix".
+		allow_nix=true
+		shift
+		;;
+	--allow-docker)
+		# Exact-match case: it shadows any network bundle named "docker".
+		allow_docker=true
+		shift
+		;;
 	--allow-*)
 		# Bundle lookup. Resolves to a curated set of network hosts and an
 		# optional trustd flip. Unknown bundle names hard-fail so typos
@@ -300,11 +418,76 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# The VM is the boundary for everything reachable through the docker socket, so
+# refuse the grant unless the instance still declares what bounds it: no host
+# path mounted, and a port-forward list whose tail denies (lima appends its own
+# forward-everything fallback after the last rule, so omitting is not denying).
+# nix/pkgs/forge/vm.nix declares both, and nix/checks/forge-vm.nix asserts them
+# on the config in the store; this asserts them on the instance that exists.
+__pi_assert_docker_vm() {
+	if [[ ! -f $docker_vm_config ]]; then
+		echo "pi: --allow-docker: no lima instance at $docker_lima_dir" >&2
+		echo "pi:          'forge up' creates it. Refusing the grant." >&2
+		exit 1
+	fi
+	if ! jq -e '(.mounts // []) == []' "$docker_vm_config" >/dev/null 2>&1; then
+		echo "pi: --allow-docker: instance $docker_lima_dir mounts a host path," >&2
+		echo "pi:          so a privileged container would reach it. Refusing the grant." >&2
+		exit 1
+	fi
+	if ! jq -e '[.portForwards[]? | select(.ignore == true and .proto == "any")] | length >= 2' \
+		"$docker_vm_config" >/dev/null 2>&1; then
+		echo "pi: --allow-docker: instance $docker_lima_dir does not deny the port" >&2
+		echo "pi:          forwards it leaves unnamed. Refusing the grant." >&2
+		exit 1
+	fi
+}
+
+if "$allow_docker"; then
+	__pi_assert_docker_vm
+fi
+
 __pi_set_hardening_env
 __pi_resolve_all
 __pi_apply_env_vars
 __pi_scrub_secret_env
 __pi_scrub_node_options
+
+__pi_resolve_git_dirs
+if [[ -n $git_common_dir ]]; then
+	extra_read_paths+=("$git_common_dir")
+	if [[ $git_dir != "$git_common_dir" ]]; then
+		extra_read_paths+=("$git_dir")
+	fi
+	if __pi_git_write_allowed; then
+		extra_write_paths+=("$git_common_dir")
+		git_write_granted=true
+	fi
+fi
+
+# nix stats the channel search path even for a flake-only evaluation, and
+# ~/.nix-defexpr/channels is a symlink into ~/.local/state/nix, so both the
+# link and its target need re-allowing. The store is outside $HOME and already
+# readable; the flake's own git+file:// input is covered by the git dirs above.
+if "$allow_nix"; then
+	extra_read_paths+=("$HOME/.nix-defexpr" "$HOME/.local/state/nix")
+fi
+
+# The socket needs a read grant as well as an allowUnixSockets entry: the
+# $HOME deny covers the path it lives at, and srt gates connect() at the VFS
+# layer. ~/.docker is not granted with it, so the credential mask over it
+# holds and DOCKER_CONFIG points the CLI at a sandbox-local config instead.
+# Paths a container orchestrator writes (kubeconfigs, helm state) are
+# deliberately not here, they belong to whoever configures the tool.
+if "$allow_docker"; then
+	extra_read_paths+=("$docker_socket")
+fi
+
+if [[ ${PI_DEBUG:-} == "plan" ]]; then
+	printf 'PI_PLAN_GIT_DIRS: dir=%s common=%s branch=%s write=%s mode=%s nix=%s docker=%s\n' \
+		"${git_dir:-none}" "${git_common_dir:-none}" "${git_branch:-none}" \
+		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_docker"
+fi
 
 # Prepend the build-time default pi args before any user-supplied args. Pi
 # uses last-wins for repeated flags (e.g. --model), so the user can still
@@ -409,6 +592,7 @@ run_web_macos() {
 run_strict() {
 	local settings_file all_domains allowed_json write_paths write_json
 	local deny_read_json read_paths allow_read_json deny_write_paths deny_write_json
+	local unix_sockets_json unix_sockets b
 	settings_file=$(mktemp /tmp/pi-srt-XXXXXX.json)
 	# shellcheck disable=SC2064 # expand $settings_file now, not at trap time
 	trap "rm -f '$settings_file'" EXIT
@@ -433,7 +617,31 @@ run_strict() {
 		"$PWD/.git/config"
 		"$PWD/.gitmodules"
 	)
-	deny_write_json=$(printf '%s\n' "${deny_write_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
+	# The $PWD/.git entries above match nothing in a worktree layout, where
+	# that path is a pointer file and the hooks and config that actually run
+	# live in the common dir. config.worktree is the per-worktree config
+	# extension (git-config(1), extensions.worktreeConfig).
+	if [[ -n $git_common_dir ]]; then
+		deny_write_paths+=("$git_common_dir/hooks" "$git_common_dir/config")
+		if [[ $git_dir != "$git_common_dir" ]]; then
+			deny_write_paths+=("$git_dir/config.worktree")
+		fi
+	fi
+	if "$git_write_granted"; then
+		# Committing on the agent's own branch must not imply moving anyone
+		# else's. Not airtight: a packed-refs rewrite (git pack-refs, git gc)
+		# still reaches these refs, but update-ref, commit and branch -f stop
+		# here.
+		for b in "${protected_branches[@]}"; do
+			deny_write_paths+=("$git_common_dir/refs/heads/$b" "$git_common_dir/logs/refs/heads/$b")
+		done
+	else
+		# Withholding the grant is not enough when the git dir sits inside
+		# $PWD: the workspace grant already covers it, so the gate has to deny
+		# it outright. Read-only git needs no writes there.
+		deny_write_paths+=("$git_dir" "$git_common_dir")
+	fi
+	deny_write_json=$(printf '%s\n' "${deny_write_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")] | unique')
 
 	# Default-deny reads: deny all of $HOME, then re-allow the workspace ($PWD),
 	# pi's own config dir (~/.pi), and any operator-/invocation-supplied read
@@ -457,6 +665,21 @@ run_strict() {
 	read_paths=("$PWD" "$HOME/.pi" "$HOME/.config/git" "$HOME/.gitconfig" "${resolved_extra_reads[@]}")
 	allow_read_json=$(printf '%s\n' "${read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 
+	unix_sockets=()
+	if "$allow_nix"; then
+		unix_sockets+=("$nix_daemon_socket")
+		echo "pi: WARNING: --allow-nix grants the nix daemon socket. A trusted-users client can" >&2
+		echo "pi:          build as root outside this sandbox: treat the session as unsandboxed." >&2
+	fi
+	if "$allow_docker"; then
+		unix_sockets+=("$docker_socket")
+	fi
+	if [[ ${#unix_sockets[@]} -gt 0 ]]; then
+		unix_sockets_json=$(printf '%s\n' "${unix_sockets[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
+	else
+		unix_sockets_json='[]'
+	fi
+
 	# allowPty=true is macOS-only (lets `pi`'s interactive TUI call setRawMode
 	# through sandbox-exec). Linux's bwrap ignores unknown keys.
 	# allowLocalBinding=true tells srt to emit (allow network-bind (local ip "*:*"))
@@ -473,11 +696,13 @@ run_strict() {
 		--argjson denyWrite "$deny_write_json" \
 		--argjson allowLoopback "$allow_loopback" \
 		--argjson allowTrustd "$allow_trustd" \
+		--argjson unixSockets "$unix_sockets_json" \
 		'{
             "network": {
               "allowedDomains": $allowed,
               "deniedDomains": [],
-              "allowLocalBinding": $allowLoopback
+              "allowLocalBinding": $allowLoopback,
+              "allowUnixSockets": $unixSockets
             },
             "filesystem": {"allowRead": $allowRead, "allowWrite": $write, "denyRead": $denyRead, "denyWrite": $denyWrite},
             "allowPty": true,

@@ -346,3 +346,56 @@ checkout_worktree() {
 	log_info "Checking out files..."
 	(cd "$worktree_path" && git checkout "$branch")
 }
+
+# Resolve the range of commits that a history rewrite may safely touch, and
+# echo the base commit for `git rebase` to replay onto.
+#
+# Shared by git-adopt and git-claim, which differ only in what they do to each
+# commit. An empty first argument means the local default branch, so a rewrite
+# covers what this branch added and nothing already on the trunk.
+#
+# The caller handles the empty range: this echoes the base whether or not
+# anything sits above it, because dying on "nothing to do" would be wrong.
+#
+# Usage: base=$(require_rewritable_range "${base_arg}")
+require_rewritable_range() {
+	local base_arg=${1:-}
+	local branch base_ref local_default base total unpushed
+
+	git rev-parse --git-dir >/dev/null 2>&1 || die "Not a git repository"
+
+	branch=$(git rev-parse --abbrev-ref HEAD)
+	[[ $branch != "HEAD" ]] || die "HEAD is detached; check out a branch first"
+
+	# Untracked files survive a rebase, so only tracked changes are a problem.
+	if ! git diff --quiet || ! git diff --cached --quiet; then
+		die "Worktree has uncommitted changes; commit or discard them first"
+	fi
+
+	if [[ -n $base_arg ]]; then
+		base_ref=$base_arg
+	else
+		base_ref=$(get_default_branch)
+		local_default=${base_ref#origin/}
+		if git show-ref --verify --quiet "refs/heads/${local_default}"; then
+			base_ref=$local_default
+		fi
+	fi
+
+	git rev-parse --verify --quiet "$base_ref" >/dev/null ||
+		die "Base '${base_ref}' is not a valid ref"
+	base=$(git merge-base HEAD "$base_ref") ||
+		die "No common ancestor with '${base_ref}'"
+
+	# --not --remotes drops anything a remote already carries. Rewriting those
+	# would strand the remote copy and need a force push to reconcile.
+	total=$(git rev-list --count "${base}..HEAD")
+	if [[ $total -gt 0 ]]; then
+		unpushed=$(git rev-list --count "${base}..HEAD" --not --remotes)
+		if [[ $unpushed -ne $total ]]; then
+			die "$((total - unpushed)) of ${total} commits are already on a remote; rewriting them needs a force push"
+		fi
+	fi
+
+	echo "$base"
+}

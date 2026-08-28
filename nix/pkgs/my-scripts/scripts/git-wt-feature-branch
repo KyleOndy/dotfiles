@@ -59,17 +59,65 @@ Existing branch mode (--existing/-e flag):
     → branch: fix-typo (existing)
     → namespaced under: TRIVIAL
 
+Base branch (--base):
+  git wt-feature-branch --base main DEV-123 fix-the-thing
+    → base: main
+
+  The positional base is ambiguous when the name is ticket-shaped:
+  `DEV-123 main` reads as ticket DEV-123 plus name "main", not as a base.
+  --base says it unambiguously. Passing both is an error rather than a
+  silent win for either.
+
+Path output (--print-path):
+  git wt-feature-branch --print-path add-starship
+    → prints only the worktree path on stdout
+
+  Progress messages already go to stderr, so this makes the command safe to
+  read from a shell function that wants to cd into the result:
+
+      path=$(git wt-feature-branch --print-path "$@") || return
+      cd "$path"
+
 Notes:
   - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
   - Work mode requires valid ticket format (PROJ-123)
   - Existing mode accepts any prefix (Linear tickets, TRIVIAL, CHORE, etc.)
   - The script auto-detects mode based on flags and argument count
+  - --print-path and --base may appear anywhere in the arguments
 EOF
 	exit 0
 }
 
+# Pull the flags out before mode detection, which keys off $# and $1.
+print_path=false
+base_override=""
+positional=()
+while [[ $# -gt 0 ]]; do
+	case $1 in
+	--print-path)
+		print_path=true
+		shift
+		;;
+	--base)
+		[[ -n ${2:-} ]] || die "--base requires a git ref"
+		base_override=$2
+		shift 2
+		;;
+	--base=*)
+		base_override=${1#--base=}
+		[[ -n $base_override ]] || die "--base requires a git ref"
+		shift
+		;;
+	*)
+		positional+=("$1")
+		shift
+		;;
+	esac
+done
+set -- ${positional[@]+"${positional[@]}"}
+
 # Check for help flags first
-if [[ $1 == "-h" || $1 == "--help" || $# -eq 0 ]]; then
+if [[ ${1:-} == "-h" || ${1:-} == "--help" || $# -eq 0 ]]; then
 	show_help
 fi
 
@@ -85,7 +133,7 @@ if [[ $1 == "--existing" || $1 == "-e" ]]; then
 	fi
 
 	# Determine base branch using auto-detection
-	base_branch=$(get_default_branch)
+	base_branch=${base_override:-$(get_default_branch)}
 
 	# Build worktree path based on optional prefix
 	if [[ -n $folder_prefix ]]; then
@@ -122,7 +170,12 @@ elif [[ $# -ge 2 ]] && is_valid_ticket_id "${1^^}"; then
 	# WORK MODE: Ticket + name (detected by valid ticket ID format)
 	ticket="${1^^}" # Uppercase ticket
 	name="$2"
-	base_branch=${3:-$(get_default_branch)}
+	if [[ -n $base_override ]]; then
+		[[ $# -ge 3 ]] && die "--base ${base_override} conflicts with base argument ${3}"
+		base_branch=$base_override
+	else
+		base_branch=${3:-$(get_default_branch)}
+	fi
 
 	feature_path="${wt_root}/${ticket}/${name}"
 	branch_name="${ticket}-${name}"
@@ -132,7 +185,12 @@ elif [[ $# -eq 1 ]] || [[ $# -eq 2 ]]; then
 	# HOME MODE: name [base]
 	# Supports both simple names and nested paths
 	name="$1"
-	base_branch=${2:-$(get_default_branch)}
+	if [[ -n $base_override ]]; then
+		[[ $# -ge 2 ]] && die "--base ${base_override} conflicts with base argument ${2}"
+		base_branch=$base_override
+	else
+		base_branch=${2:-$(get_default_branch)}
+	fi
 
 	feature_path="${wt_root}/${name}"
 	branch_name="${name//\//-}" # Convert slashes to hyphens
@@ -165,7 +223,9 @@ fi
 
 checkout_worktree "$feature_path" "$branch_name"
 
-echo ""
+# Spacers go to stderr with the log lines they separate, so --print-path can
+# leave stdout carrying nothing but the path.
+echo "" >&2
 log_info "Created worktree: ${feature_path}"
 log_info "Branch: ${branch_name}"
 if [[ $checkout_existing == true ]]; then
@@ -173,6 +233,11 @@ if [[ $checkout_existing == true ]]; then
 else
 	log_info "Based on: ${base_branch}"
 fi
-echo ""
-echo "To start working:"
-echo "  cd ${feature_path}"
+
+if [[ $print_path == true ]]; then
+	echo "$feature_path"
+else
+	echo ""
+	echo "To start working:"
+	echo "  cd ${feature_path}"
+fi

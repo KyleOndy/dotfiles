@@ -36,7 +36,6 @@ let
     pkgs.jq
     pkgs.tmux
   ];
-  tmuxClaudeIcons = mkScript "tmux-claude-icons" ./hooks/tmux-claude-icons.sh [ pkgs.tmux ];
   notificationBell = mkScript "notification-bell" ./hooks/notification-bell.sh [
     pkgs.ffmpeg # ffplay
   ];
@@ -122,7 +121,6 @@ in
       ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
-      ".claude/hooks/tmux-claude-icons.sh".source = tmuxClaudeIcons;
       ".claude/assets/notification.wav".source = ./assets/notification.wav;
 
       # recursive = true creates real directories with per-file symlinks, so

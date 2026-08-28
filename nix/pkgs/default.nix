@@ -3,6 +3,7 @@ self: super: {
   babashka-scripts = super.callPackage ./babashka-scripts { };
   backup-photos = super.callPackage ./backup-photos { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
+  forge = super.callPackage ./forge { lima = self.master.lima; };
   fuji-transcode = super.callPackage ./fuji-transcode { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
   helios = super.callPackage ./helios { };
@@ -20,7 +21,7 @@ self: super: {
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
-  pi-overnight = super.callPackage ./pi-overnight { };
+  mcloud-pins = super.callPackage ./mcloud-pins { };
   search-mail = super.callPackage ./search-mail { };
   mlx = super.callPackage ./mlx { };
   tmux-status = super.callPackage ./tmux-status { };

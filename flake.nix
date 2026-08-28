@@ -10,6 +10,16 @@
       url = "github:nvmd/nixos-raspberrypi/main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # forge's guest VM. nixos-lima supplies the guest module that makes a NixOS
+    # image driveable by lima at all: lima installs its guest agent by copying a
+    # binary in and writing a unit, which a read-only /nix/store cannot accept.
+    # Only nixosModules.lima is used, not the repo's own lima.nix, whose
+    # stateVersion tracks a nixpkgs release ahead of ours. The image itself comes
+    # from nixpkgs, which absorbed nixos-generators in 25.05.
+    nixos-lima = {
+      url = "github:nixos-lima/nixos-lima";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     home-manager = {
       url = "github:nix-community/home-manager/release-25.11";
       # packages installed via home-manager use my nixpkgs
@@ -92,6 +102,33 @@
         in
         if env != "" then env else null;
 
+      # forge's docker host, as a disk image rather than a distro image plus an
+      # `apt-get install docker.io` at boot: this way the guest's docker is the
+      # version nixpkgs locks. Built for the linux system matching the darwin
+      # host, which on a mac means the local linux-builder, so a change here
+      # costs an image build rather than a substitution.
+      forgeGuestImage =
+        guestSystem:
+        let
+          image =
+            (inputs.nixpkgs.lib.nixosSystem {
+              modules = [
+                { nixpkgs.hostPlatform = guestSystem; }
+                inputs.nixos-lima.nixosModules.lima
+                ./nix/pkgs/forge/guest.nix
+              ];
+            }).config.system.build.images.qemu-efi;
+        in
+        # qemu-efi is qcow2 plus an EFI partition table, which vz boots directly.
+        # passthru.filePath is the variant's own, so the name stays right if the
+        # extension ever changes.
+        "${image}/${image.passthru.filePath}";
+
+      # forge only ever runs on the darwin hosts, but the overlay carrying it
+      # has to evaluate everywhere, so map each host system to the linux one its
+      # guest is built for.
+      guestSystemFor = system: builtins.replaceStrings [ "darwin" ] [ "linux" ] system;
+
       # import all the overlays that extend packages via nix or home-manager.
       #
       # inputs.cogsworth.overlays.default is deliberately absent. It is a
@@ -104,6 +141,12 @@
       overlays = [
         inputs.nur.overlays.default
         (import ./nix/pkgs)
+
+        (final: prev: {
+          forge = prev.forge.override {
+            guestImage = forgeGuestImage (guestSystemFor final.stdenv.hostPlatform.system);
+          };
+        })
 
         (final: _prev: {
           master = import inputs.nixpkgs-master {
@@ -548,6 +591,7 @@
             // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
 
           pi-coding-agent = import ./nix/checks/pi-coding-agent.nix { inherit pkgs; };
+          forge-vm = import ./nix/checks/forge-vm.nix { inherit pkgs; };
         }
       );
 
@@ -686,16 +730,23 @@
         in
         {
           # Expose internal packages for direct building and benchmarking
+          forge = pkgs.forge;
           fuji-transcode = pkgs.fuji-transcode;
           git-worktree-prompt = pkgs.git-worktree-prompt;
           helios = pkgs.helios;
           winnow = pkgs.winnow;
 
-          # Ergodox EZ firmware
-          ergodox-firmware = pkgs.callPackage ./keyboard/ergodox { };
-
           # Two-key push-to-talk pad for domestique rides
           pad-firmware = pkgs.callPackage ./keyboard/domestique-pad { };
+        }
+        // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+          # keyboard/ergodox/default.nix:73 sets meta.platforms =
+          # platforms.linux for the avr toolchain, so nixpkgs refuses to
+          # evaluate this derivation on darwin. Offered only where it builds:
+          # in the darwin `packages` set it took `nix flake check` down before
+          # it reached any other output. pad-firmware carries darwin in its own
+          # meta.platforms and needs no such gate.
+          ergodox-firmware = pkgs.callPackage ./keyboard/ergodox { };
         }
       );
 

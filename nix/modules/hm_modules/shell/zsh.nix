@@ -584,6 +584,95 @@ in
               }
               $EDITOR "$(dirname "$git_dir")/notes.txt"
             }
+
+            _wt_slug() {
+              setopt localoptions extendedglob
+              local s=''${(L)1} full
+              s=''${s//[^a-z0-9]##/-}
+              s=''${s##-}
+              s=''${s%%-}
+              full=$s
+              s=''${s[1,40]}
+              # Truncation landed mid-word, so drop the partial tail.
+              [[ $s != $full ]] && s=''${s%-*}
+              print -r -- ''${s%%-}
+            }
+
+            # git wt-feature-branch bases on origin/<default>. Branch from the
+            # local one instead: main here routinely carries commits that have
+            # not been pushed, and they belong in the new worktree.
+            _wt_base() {
+              local b
+              for b in main master; do
+                if git show-ref --verify --quiet "refs/heads/$b"; then
+                  print -r -- "$b"
+                  return
+                fi
+              done
+              git rev-parse --abbrev-ref HEAD
+            }
+
+            # A function, not a script in my-scripts: only the calling shell
+            # can change its own directory. Same reason fzf_pick_git_worktree
+            # lives here.
+            wt() {
+              # Not `path`: zsh ties that name to $PATH, so declaring it local
+              # empties PATH for the rest of the function.
+              local wt_path wt_ticket wt_title wt_slug
+
+              # A bare ticket takes its name from the issue title.
+              if (( $# == 1 )) && [[ $1 =~ '^[A-Za-z]+-[0-9]+$' ]]; then
+                wt_ticket=''${(U)1}
+                wt_title=$(linear issue title "$wt_ticket" 2>/dev/null) \
+                  && wt_slug=$(_wt_slug "$wt_title")
+                if [[ -n $wt_slug ]]; then
+                  set -- "$wt_ticket" "$wt_slug"
+                else
+                  set -- "$wt_ticket"
+                fi
+              fi
+
+              wt_path="$(git wt-feature-branch --print-path \
+                --base "$(_wt_base)" "$@")" || return
+              # direnv's chpwd hook evaluates .envrc on the cd; an untrusted one
+              # loads nothing, so allow must precede the cd or the flake env never
+              # reaches this shell. Idempotent on an already-trusted path.
+              ${pkgs.direnv}/bin/direnv allow "$wt_path"
+              cd "$wt_path" || return
+            }
+
+            # The agent's commits stay unsigned, so `git log --show-signature`
+            # tells you what it wrote and `git adopt` is what claims it. pi
+            # exports the same keys itself (pi-wrapper/wrapper.sh); this covers
+            # the agents that do not. Scoped to $cmd, so your own commits in
+            # the worktree afterwards sign normally.
+            #
+            # `--` separates wt's arguments from the agent's, and is consumed
+            # here rather than forwarded: pi's sandbox wrapper reads `--` as
+            # its own end-of-flags and would hand --allow-read to the real pi
+            # binary, which rejects it.
+            wtx() {
+              if [[ $# -lt 2 ]]; then
+                echo "usage: wtx <command> <ticket|name> [base] [-- <command args>]" >&2
+                return 1
+              fi
+              local cmd="$1"
+              shift
+              local -a wt_args cmd_args
+              while (( $# )); do
+                [[ $1 == -- ]] && { shift; cmd_args=("$@"); break }
+                wt_args+=("$1")
+                shift
+              done
+              wt "''${wt_args[@]}" || return
+              GIT_CONFIG_COUNT=2 \
+                GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
+                GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false \
+                "$cmd" "''${cmd_args[@]}"
+            }
+
+            wtc() { wtx claude "$@" }
+            wtp() { wtx pi "$@" }
           ''
         ];
       };

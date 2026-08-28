@@ -184,8 +184,7 @@ served_model_ready() {
 }
 
 # mlx-openai-server runs on-demand (RunAtLoad/KeepAlive both false), so warm
-# it up if it's not already serving the right model. Same pattern as
-# pi-overnight (nix/pkgs/pi-overnight/pi-overnight.sh).
+# it up if it's not already serving the right model.
 if ! served_model_ready; then
 	echo "Starting local model server ($LABEL)..." >&2
 	launchctl kickstart -k "gui/$(id -u)/$LABEL"

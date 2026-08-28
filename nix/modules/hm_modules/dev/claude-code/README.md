@@ -59,7 +59,8 @@ instead of the ambient PATH, and shellcheck runs at build time.
 
 - **tmux-indicator.sh** (most lifecycle events): sets a per-pane
   `@claude_state` (RUN, EXE, ASK, IDL, ...); `tmux.nix` renders it in
-  window titles via `tmux-claude-icons.sh`
+  window titles via its own `tmux-agent-icons.sh`, which reports pi's
+  state alongside
 - **notification-bell.sh** (Notification): plays `notification.wav`,
   ducks volume during active Zoom calls (macOS)
 - **enhanced-ntfy-notifier.sh** (Stop, StopFailure): desktop

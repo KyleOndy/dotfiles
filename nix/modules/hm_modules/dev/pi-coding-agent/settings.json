@@ -1,0 +1,8 @@
+{
+  "theme": "gruvbox-dark",
+  "quietStartup": true,
+  "showCacheMissNotices": true,
+  "retry": {
+    "maxRetries": 6
+  }
+}

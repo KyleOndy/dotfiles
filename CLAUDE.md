@@ -39,6 +39,42 @@ Managed with `sops` (`nix/secrets/secrets.yaml`). Never `.env` files, never
 plaintext. The berkeley-mono fonts are git-crypt encrypted, which is why
 `git worktree add` fails on a fresh checkout without the key.
 
+## Pi coding agent
+
+Agents, extensions, themes and `AGENTS.md` live in
+`nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so `/reload`
+sees edits without a rebuild. The sandbox wrapper is `nix/pkgs/pi-wrapper`.
+
+This repo pins no model ids. Every provider the agent reaches is an internal
+or account-billed endpoint, so ids, base URLs, costs and reasoning maps live
+in the private work-config input and arrive as `~/.pi/agent/models.json`.
+Both darwin hosts get work-config's home-manager module; trex builds against
+the no-op stub, so pi has no provider there until one is supplied.
+
+Two seats must not run the session's own model, because self-preference bias
+survives a fresh context: `extensions/advisor.ts` reads `PI_ADVISOR_MODEL`
+and `PI_ADVISOR_BASE_URL` from the wrapper's `sandbox.envVars` and stays
+silent when either is unset. `agents/critic.md` still carries a
+`model:` pin in its frontmatter, because pi resolves a subagent's model only
+from that field and the `agents/` directory is symlinked out of this repo.
+
+`.pi/verify.json` names this repo's verifier, which is what `verify-guard`
+nags about. Deliberately not `nix flake check`, which also evaluates the
+Linux hosts and cannot go green on a mac.
+
+It needs the nix daemon socket, which the sandbox denies by default, so the
+agent can only run it under `pi --allow-nix`. Read that flag's warning before
+reaching for it: on a host where you are in `trusted-users` it is equivalent
+to `--no-sandbox`. Running the verifier yourself is the cheaper option.
+
+A dead model id fails silently at runtime, so check work-config's pins and
+the one in `critic.md` against the endpoint rather than waiting for a seat to
+go quiet:
+
+```bash
+MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins
+```
+
 ## Monitoring
 
 tiger is the server: VictoriaMetrics, Loki, Grafana, Alertmanager, vmalert.

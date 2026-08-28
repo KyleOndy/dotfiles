@@ -120,7 +120,7 @@ let
   # (launchd.agents.mlx-openai-server below) to be stopped -- e.g. DaVinci
   # Resolve, which competes for the same GPU/unified memory. Checked on every
   # poll; the server is not auto-restarted when the watched process quits --
-  # the next search-mail/pi-overnight/`mlx start` invocation starts it on
+  # the next search-mail or `mlx start` invocation starts it on
   # demand. Add another entry to watch more apps. Names must match `pgrep -x`
   # exactly (the process's own binary name, not necessarily its .app bundle
   # name) -- verify with `pgrep -x <name>` while the app is running before
@@ -202,128 +202,27 @@ in
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # Local models for the pi coding agent, mirroring `ask`'s mlx backend
-    # (see nix/pkgs/ask/ask.sh) but served OpenAI-compatible so pi can talk
-    # to them as a regular provider. mlx-openai-server (not bare
-    # mlx_lm.server) because pi lives on tool calls and mlx_lm.server's
-    # OpenAI tool-calling is immature; mlx-openai-server ships first-class
-    # tool-call parsers.
+    # pi registers no model providers here. Every provider this agent can
+    # reach is an internal or account-billed inference endpoint, so the ids,
+    # base URLs, costs and reasoning maps live in the private work-config
+    # input and reach ~/.pi/agent/models.json through it. flake.nix wires
+    # work-config's homeManagerModule into both darwin hosts; trex builds
+    # against the no-op stub, so pi starts here with no provider at all and
+    # needs an explicit --model against a provider you supply.
     #
-    # Five models are registered (see nix/hosts/trex/mlx-models.yaml for the
-    # server-side config and empirical notes). qwen3.6-35b-a3b is the default;
-    # qwen3-14b is the retired baseline, kept as an A/B control after failing
-    # every notmuch call search-mail threw at it.
-    #
-    # Any caller that passes tools must disable thinking. Measured 2026-08-08
-    # against a notmuch-shaped tool: thinking on, both the 35b-a3b MoE and the
-    # dense 27b emit zero tool calls, looping in the reasoning block until EOS;
-    # thinking off, both emit well-formed calls every time. This supersedes the
-    # theory that 3B-active MoEs drop the leading <tool_call> tag
-    # (github.com/QwenLM/Qwen3-Coder/issues/475), which is why the dense
-    # baseline was picked over Qwen3-Coder-30B-A3B. Architecture is not the
-    # variable.
-    #
-    # All five load on demand, so registering more than one costs no resident
-    # RAM until selected with `pi --model local/<id>`.
-    #
-    # The local models stay per-invocation; sandbox.defaultArgs below pins
-    # only the cloud default.
+    # trex's local mlx models are also absent. search-mail
+    # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
+    # only workload that needs mail to stay off the network.
     pi-coding-agent = {
-      sandbox.allowLocalBinding = true; # only lever to reach 127.0.0.1 egress from the sandbox; see nix/pkgs/pi-wrapper/wrapper.sh
+      # Loopback egress for local dev servers and httptest; see
+      # nix/pkgs/pi-wrapper/wrapper.sh.
+      sandbox.allowLocalBinding = true;
 
-      # Empty means no network at all rather than unrestricted, so this list
-      # is what pi can reach (sandbox-runtime 0.0.67 README, Network Isolation).
-      sandbox.allowedDomains = [ "openrouter.ai" ];
-
-      # Runs in the wrapper's parent shell, so the decrypted file is read
-      # outside the sandbox and only the value crosses in.
-      sandbox.envFromCommands.OPENROUTER_API_KEY = "cat ${osConfig.sops.secrets.trex_openrouter_api_key.path}";
-
-      # pi's built-in default is an Anthropic model, which now has neither a
-      # key nor a permitted domain. A repeated --model still wins.
-      sandbox.defaultArgs = [
-        "--model"
-        "openrouter/moonshotai/kimi-k3"
-      ];
-
-      modelsJson.providers.local = {
-        baseUrl = "http://127.0.0.1:8770/v1";
-        api = "openai-completions";
-        apiKey = "local-no-key"; # mlx-openai-server does not check this
-        compat.supportsDeveloperRole = false;
-        models = [
-          {
-            id = "qwen3-14b";
-            name = "Qwen3 14B (local, mlx)";
-            reasoning = true;
-            input = [ "text" ];
-            cost = {
-              input = 0;
-              output = 0;
-              cacheRead = 0;
-              cacheWrite = 0;
-            };
-            contextWindow = 24576; # matches context_length in mlx-models.yaml
-            maxTokens = 8192;
-          }
-          {
-            id = "qwen3.5-9b";
-            name = "Qwen3.5 9B (local, mlx)";
-            reasoning = true;
-            input = [ "text" ];
-            cost = {
-              input = 0;
-              output = 0;
-              cacheRead = 0;
-              cacheWrite = 0;
-            };
-            contextWindow = 24576; # matches context_length in mlx-models.yaml
-            maxTokens = 8192;
-          }
-          {
-            id = "qwen3.5-4b";
-            name = "Qwen3.5 4B (local, mlx)";
-            reasoning = true;
-            input = [ "text" ];
-            cost = {
-              input = 0;
-              output = 0;
-              cacheRead = 0;
-              cacheWrite = 0;
-            };
-            contextWindow = 24576; # matches context_length in mlx-models.yaml
-            maxTokens = 8192;
-          }
-          {
-            id = "qwen3.6-27b";
-            name = "Qwen3.6 27B (local, mlx)";
-            reasoning = true;
-            input = [ "text" ];
-            cost = {
-              input = 0;
-              output = 0;
-              cacheRead = 0;
-              cacheWrite = 0;
-            };
-            contextWindow = 24576; # matches context_length in mlx-models.yaml
-            maxTokens = 8192;
-          }
-          {
-            id = "qwen3.6-35b-a3b";
-            name = "Qwen3.6 35B-A3B (local, mlx)";
-            reasoning = true;
-            input = [ "text" ];
-            cost = {
-              input = 0;
-              output = 0;
-              cacheRead = 0;
-              cacheWrite = 0;
-            };
-            contextWindow = 24576; # matches context_length in mlx-models.yaml
-            maxTokens = 8192;
-          }
-        ];
-      };
+      # Empty means no network at all rather than unrestricted (sandbox-runtime
+      # 0.0.67 README, Network Isolation). Nothing is listed because no model
+      # endpoint is configured on this host; a provider added through
+      # work-config brings its own domain with it.
+      sandbox.allowedDomains = [ ];
     };
   };
 
@@ -334,7 +233,7 @@ in
   # RunAtLoad/KeepAlive both false: on-demand rather than always-resident, to
   # avoid holding a model's RAM footprint when not in use. Start with:
   #   launchctl kickstart -k gui/$(id -u)/org.ondy.mlx-openai-server
-  # (nix/pkgs/pi-overnight does this automatically before an overnight run.)
+  # (nix/pkgs/search-mail does this automatically before it queries.)
   # Flip both to true for an always-on server -- the per-model on_demand
   # settings in mlx-models.yaml still govern which model is actually
   # resident, so this only affects how quickly the process itself answers.
@@ -386,7 +285,7 @@ in
   # (see the `let` block above) and stops mlx-openai-server if one is found
   # running, so it doesn't hold GPU/unified memory against apps that need it
   # (e.g. DaVinci Resolve). `mlx status` and `mlx start` (nix/pkgs/mlx) bring
-  # it back manually; search-mail/pi-overnight bring it back on demand.
+  # it back manually; search-mail brings it back on demand.
   launchd.agents.mlx-auto-stop = {
     enable = true;
     config = {

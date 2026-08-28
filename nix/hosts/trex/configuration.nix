@@ -125,7 +125,7 @@
     photos-promote
     winnow
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
-    pi-overnight # unattended pi runs against the local model, see nix/pkgs/pi-overnight
+    mcloud-pins # check every pinned mcloud model still resolves, see nix/pkgs/mcloud-pins
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
     mpv
@@ -210,12 +210,6 @@
     # Same secret tiger seeds smbd with; read here by smb-tiger-mount, which
     # runs as kyle.
     smb_kyle_password = {
-      owner = "kyle";
-      mode = "0400";
-    };
-    # pi's only model provider here. Read by the pi wrapper's envFromCommands
-    # resolver, which runs as kyle outside the sandbox (see home.nix).
-    trex_openrouter_api_key = {
       owner = "kyle";
       mode = "0400";
     };

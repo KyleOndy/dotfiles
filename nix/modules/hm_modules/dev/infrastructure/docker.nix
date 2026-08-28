@@ -9,6 +9,14 @@ with lib;
 let
   cfg = config.hmFoundry.dev.docker;
 
+  # Shared by the colima-start* aliases so a hand-started VM gets the same
+  # sizing and, more importantly, the same mounts as the service. A manual
+  # `colima start` without these silently restores colima's default $HOME
+  # mount, which is the boundary `mounts = ["none"]` exists to hold.
+  colimaCommonArgs =
+    "--cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk}"
+    + concatMapStrings (m: " --mount ${m}") cfg.service.mounts;
+
   # Wrapper script with proper signal handling for Colima service
   colimaWrapper = pkgs.writeShellScript "colima-wrapper" ''
     set -euo pipefail
@@ -33,6 +41,10 @@ let
     ${optionalString (cfg.service.vmType != null) ''
       ARGS+=("--vm-type" "${cfg.service.vmType}")
     ''}
+
+    ${concatMapStringsSep "\n" (m: ''
+      ARGS+=("--mount" "${m}")
+    '') cfg.service.mounts}
 
     # Start colima if not already running
     echo "Starting colima with arguments: ''${ARGS[@]}"
@@ -106,6 +118,26 @@ in
         example = [ "fs.inotify.max_user_instances=1024" ];
         description = "Kernel sysctl settings to apply inside the Colima VM after startup.";
       };
+
+      mounts = mkOption {
+        type = types.listOf types.str;
+        default = [ ];
+        example = [ "none" ];
+        description = ''
+          Host directories mounted into the VM, one `--mount` argument each,
+          `:w` suffix for writable. The single value `none` mounts nothing.
+          Empty leaves colima's own default, which is $HOME writable.
+
+          What is mounted here is the blast radius of the docker socket:
+          any caller that reaches the daemon can start a privileged
+          container and read or write every mounted path. `none` is what
+          lets an agent sandbox grant the socket (pi's --allow-docker)
+          without also surrendering ~/.ssh and ~/.aws.
+
+          Changing this takes a `colima stop && colima start`; containers
+          and their volumes survive it.
+        '';
+      };
     };
   };
 
@@ -129,9 +161,9 @@ in
     };
 
     programs.zsh.shellAliases = mkIf pkgs.stdenv.isDarwin {
-      colima-start = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --verbose=false 2>/dev/null";
-      colima-start-rosetta = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --vm-type vz --vz-rosetta --verbose=false 2>/dev/null";
-      colima-start-k8s = "colima start --cpu ${toString cfg.service.cpu} --memory ${toString cfg.service.memory} --disk ${toString cfg.service.disk} --kubernetes --verbose=false 2>/dev/null";
+      colima-start = "colima start ${colimaCommonArgs} --verbose=false 2>/dev/null";
+      colima-start-rosetta = "colima start ${colimaCommonArgs} --vm-type vz --vz-rosetta --verbose=false 2>/dev/null";
+      colima-start-k8s = "colima start ${colimaCommonArgs} --kubernetes --verbose=false 2>/dev/null";
     };
 
     # Colima launchd service (macOS only)

@@ -30,13 +30,16 @@ in
             family = "Berkeley Mono";
             style = "Bold";
           };
+          # Berkeley Mono ships its sloped faces as Oblique, so CoreText
+          # reports the family's styles as Regular/Oblique/Bold/Bold Oblique.
+          # Asking for "Italic" matches nothing and drops to a fallback face.
           italic = {
             family = "Berkeley Mono";
-            style = "Italic";
+            style = "Oblique";
           };
           bold_italic = {
             family = "Berkeley Mono";
-            style = "Bold Italic";
+            style = "Bold Oblique";
           };
           size = 13;
         };

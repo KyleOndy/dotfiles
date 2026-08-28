@@ -1,8 +1,8 @@
 # Multi-model config for mlx-openai-server (loaded via nix/hosts/trex/home.nix).
-# Lets search-mail (nix/pkgs/search-mail/search-mail.sh) and interactive
-# `pi --model local/<id>` pick between models per invocation. Each model
-# loads on demand and unloads after its idle timeout -- trex's 32GB unified
-# memory only comfortably holds one of these resident at a time. Schema:
+# Lets search-mail (nix/pkgs/search-mail/search-mail.sh) pick between models
+# per invocation, keeping mail off every network. Each model loads on demand
+# and unloads after its idle timeout -- trex's 32GB unified memory only
+# comfortably holds one of these resident at a time. Schema:
 # https://github.com/cubist38/mlx-openai-server/blob/main/README.md
 server:
   host: "127.0.0.1"
@@ -12,8 +12,7 @@ server:
   # waits on its uvicorn thread in an untimed `while not server.started` loop,
   # so a squatter on 8000 hangs that build forever instead of failing it.
   #
-  # Duplicated as BASE_URL in nix/pkgs/{mlx,search-mail,pi-overnight} and as
-  # modelsJson.providers.local.baseUrl in nix/hosts/trex/home.nix.
+  # Duplicated as BASE_URL in nix/pkgs/{mlx,search-mail}.
   port: 8770
   log_level: INFO
   # mlx-openai-server defaults to a relative log path (logs/app.log).
@@ -32,9 +31,22 @@ server:
 # runs out first when several clients (main agent, advisor, task subagents)
 # share one resident model via continuous batching. Raise them if trex ever
 # gets more RAM.
+# Tool calls, applying to every model below.
+#
+# mlx-openai-server rather than bare mlx_lm.server, whose OpenAI tool-calling
+# is immature; this one ships first-class tool-call parsers, and every caller
+# of these models drives them through tools.
+#
+# Any caller that passes tools must disable thinking. Measured 2026-08-08
+# against a notmuch-shaped tool: thinking on, both the 35b-a3b MoE and the
+# dense 27b emit zero tool calls, looping in the reasoning block until EOS;
+# thinking off, both emit well-formed calls every time. This supersedes the
+# theory that 3B-active MoEs drop the leading <tool_call> tag
+# (github.com/QwenLM/Qwen3-Coder/issues/475), which is why the dense baseline
+# was picked over Qwen3-Coder-30B-A3B. Architecture is not the variable.
 models:
-  # Baseline. Known-good tool-call *formatting* historically (see home.nix
-  # for why dense beat the earlier Qwen3-Coder-30B-A3B MoE), but as of
+  # Baseline. Known-good tool-call *formatting* historically (see the tool-call
+  # notes above for why dense beat the earlier Qwen3-Coder-30B-A3B MoE), but as of
   # 2026-07-24 qwen3-14b has not completed a single successful notmuch call
   # in search-mail -- failing on argument quoting. Kept as the control while
   # the Qwen3.5 models below are evaluated against the same workload.

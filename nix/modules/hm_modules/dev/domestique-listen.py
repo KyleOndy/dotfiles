@@ -202,6 +202,7 @@ def classify(text: str) -> str:
                 CLASSIFY_MODEL,
                 "--system-prompt",
                 prompt,
+                "--",
                 text,
             ],
             stdin=subprocess.DEVNULL,

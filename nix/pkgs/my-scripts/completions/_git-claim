@@ -1,0 +1,22 @@
+#compdef git-claim
+# vi: ft=zsh
+
+# Completion for git-claim
+
+source dots_common.bash
+
+_git_branches() {
+  git --no-pager branch -a --verbose --format='%(refname:short)\:%09[%(objectname:short)] %(subject)%09' | \
+    sed -E 's|"|'"'"'|g' | \
+    sed -E 's|\t|"|g'
+}
+
+main() {
+  _arguments \
+    '(-h --help)'{-h,--help}'[Show help message]' \
+    '(-n --dry-run)'{-n,--dry-run}'[List what would be re-authored and stop]' \
+    '(-y --yes)'{-y,--yes}'[Skip the confirmation prompt]' \
+    "1:base branch:(($(_git_branches)))"
+}
+
+main "$@"

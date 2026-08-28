@@ -1,0 +1,4 @@
+{
+  "command": "make build-mac-dry build-trex-dry && nix build --impure --no-link .#checks.aarch64-darwin.pre-commit-check .#checks.aarch64-darwin.pi-coding-agent",
+  "note": "Not `nix flake check`: that also evaluates the Linux hosts, which needs NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM for ergodox-firmware and SSH credentials for the private cogsworth repo, so it cannot go green on a mac. This covers both darwin configs end to end (home-manager files included), every formatter, shellcheck, and the pi wrapper's decisions, in about half a minute. Inside pi's sandbox it needs --allow-nix for the daemon socket."
+}
