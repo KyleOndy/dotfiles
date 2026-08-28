@@ -45,11 +45,18 @@ Agents, extensions, themes and `AGENTS.md` live in
 `nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so `/reload`
 sees edits without a rebuild. The sandbox wrapper is `nix/pkgs/pi-wrapper`.
 
-This repo pins no model ids. Every provider the agent reaches is an internal
-or account-billed endpoint, so ids, base URLs, costs and reasoning maps live
-in the private work-config input and arrive as `~/.pi/agent/models.json`.
-Both darwin hosts get work-config's home-manager module; trex builds against
-the no-op stub, so pi has no provider there until one is supplied.
+Every provider the agent reaches is an internal or account-billed endpoint.
+work-mac takes its ids, base URLs, costs and reasoning maps from the private
+work-config input, which lands as `~/.pi/agent/models.json`. trex builds
+against the no-op stub and registers mcloud itself in
+`nix/hosts/trex/home.nix`, where context window and cost are pi's defaults
+rather than the real numbers.
+
+No key is stored in nix on either mac. work-config resolves one from the
+Keychain through the wrapper's `envFromCommands`; on trex, `/login` writes it
+to `~/.pi/agent/auth.json`, which no module owns and the sandbox can read
+because the wrapper re-allows `~/.pi`. sops carries `trex_mcloud_api_key` for
+`mcloud-pins`, but nothing on trex decrypts it yet.
 
 Two seats must not run the session's own model, because self-preference bias
 survives a fresh context: `extensions/advisor.ts` reads `PI_ADVISOR_MODEL`

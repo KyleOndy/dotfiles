@@ -202,15 +202,18 @@ in
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # pi registers no model providers here. Every provider this agent can
-    # reach is an internal or account-billed inference endpoint, so the ids,
-    # base URLs, costs and reasoning maps live in the private work-config
-    # input and reach ~/.pi/agent/models.json through it. flake.nix wires
-    # work-config's homeManagerModule into both darwin hosts; trex builds
-    # against the no-op stub, so pi starts here with no provider at all and
-    # needs an explicit --model against a provider you supply.
+    # pi's mcloud key is not managed here. `/login` writes it to
+    # ~/.pi/agent/auth.json, which no nix module owns, and the sandbox can
+    # read it because the wrapper re-allows ~/.pi. Injecting it via
+    # sandbox.envFromCommands from sops (trex_mcloud_api_key, which
+    # mcloud-pins already reads) keeps it out of the sandbox instead, see the
+    # deny-read block in nix/pkgs/pi-wrapper/wrapper.sh.
     #
-    # trex's local mlx models are also absent. search-mail
+    # work-mac gets the same provider from the private work-config input,
+    # with real costs, context windows and reasoning maps. trex builds
+    # against the no-op stub, so the block below is the whole provider here.
+    #
+    # trex's local mlx models are absent. search-mail
     # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
     # only workload that needs mail to stay off the network.
     pi-coding-agent = {
@@ -218,11 +221,36 @@ in
       # nix/pkgs/pi-wrapper/wrapper.sh.
       sandbox.allowLocalBinding = true;
 
-      # Empty means no network at all rather than unrestricted (sandbox-runtime
-      # 0.0.67 README, Network Isolation). Nothing is listed because no model
-      # endpoint is configured on this host; a provider added through
-      # work-config brings its own domain with it.
-      sandbox.allowedDomains = [ ];
+      # The mcloud endpoint, and nothing else. An empty list would mean no
+      # network at all rather than unrestricted (sandbox-runtime 0.0.67
+      # README, Network Isolation).
+      sandbox.allowedDomains = [ "api.modular.com" ];
+
+      sandbox.defaultArgs = [
+        "--model"
+        "mcloud/zai-org/glm-5.3"
+        "--thinking"
+        "xhigh"
+      ];
+
+      # Only `reasoning` is set: pi defaults contextWindow to 128k, maxTokens
+      # to 16k and every cost to 0, and `--thinking` above is inert without
+      # reasoning. kimi is registered because agents/critic.md pins it, and a
+      # model id that resolves to nothing fails silently at runtime.
+      modelsJson.providers.mcloud = {
+        baseUrl = "https://api.modular.com/v1";
+        api = "openai-completions";
+        models = [
+          {
+            id = "zai-org/glm-5.3";
+            reasoning = true;
+          }
+          {
+            id = "moonshotai/kimi-k2.7-code";
+            reasoning = true;
+          }
+        ];
+      };
     };
   };
 
