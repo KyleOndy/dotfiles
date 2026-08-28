@@ -7,6 +7,8 @@
   stdenv,
   writeShellApplication,
   writeText,
+  writeTextFile,
+  symlinkJoin,
   bubblewrap,
   jq,
   llm-agents,
@@ -262,19 +264,61 @@ let
         (lib.escapeShellArg gitAuthorEmail)
       ]
       (builtins.readFile ./wrapper.sh);
+
+  # One `_arguments` line per bundle, since which --allow-<name> flags exist is
+  # a property of this call rather than of the wrapper. Each line carries its
+  # own continuation, so an empty networkBundles leaves the template's list
+  # intact.
+  bundleFlags = lib.concatMapStrings (
+    name:
+    let
+      b = networkBundles.${name};
+    in
+    "  '--allow-${name}[network bundle: ${lib.concatStringsSep " " (b.domains or [ ])}${
+        lib.optionalString (b.trustd or false) ", trustd"
+      }]' \\\n"
+  ) (lib.attrNames networkBundles);
+
+  script = writeShellApplication {
+    name = "pi";
+    runtimeInputs = [
+      llm-agents.sandbox-runtime
+      jq
+    ]
+    ++ lib.optionals stdenv.isLinux [ bubblewrap ];
+    # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
+    # (${p/#\~/$HOME}) rather than by the shell, so the quoted tilde is correct.
+    excludeShellChecks = [
+      "SC2064"
+      "SC2088"
+    ];
+    text = body;
+  };
+
+  # writeShellApplication builds through writeTextFile, whose buildCommand ends
+  # at `eval "$checkPhase"` and never runs postInstall, so the completion has to
+  # be joined in from its own derivation rather than appended to that one.
+  completion = writeTextFile {
+    name = "pi-completion";
+    destination = "/share/zsh/site-functions/_pi";
+    text =
+      builtins.replaceStrings
+        [
+          "@bundleFlags@"
+          "@dockerLimaInstance@"
+        ]
+        [
+          bundleFlags
+          dockerLimaInstance
+        ]
+        (builtins.readFile ./_pi);
+  };
 in
-writeShellApplication {
+symlinkJoin {
   name = "pi";
-  runtimeInputs = [
-    llm-agents.sandbox-runtime
-    jq
-  ]
-  ++ lib.optionals stdenv.isLinux [ bubblewrap ];
-  # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
-  # (${p/#\~/$HOME}) rather than by the shell, so the quoted tilde is correct.
-  excludeShellChecks = [
-    "SC2064"
-    "SC2088"
+  paths = [
+    script
+    completion
   ];
-  text = body;
+  meta.mainProgram = "pi";
 }

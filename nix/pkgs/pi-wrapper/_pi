@@ -1,0 +1,25 @@
+#compdef pi
+# vi: ft=zsh
+#
+# Only the wrapper's own flags, which it consumes before the first non-flag
+# word and never forwards. pi's flags are deliberately absent: they come from
+# the llm-agents flake input, so a copy here would go stale on an input bump
+# with nothing to catch it. `-A "-*"` stops offering these past the first
+# non-flag word, which is where wrapper.sh's parse loop breaks. The trailing
+# `=` on the three value-taking flags is what makes `--allow-read=PATH`
+# complete as well as `--allow-read PATH`; the parse loop takes either.
+_arguments -S -A "-*" \
+  '*--allow=[add a domain to the network allowlist]:domain:' \
+  '*--allow-write=[add a writable path]:path:_files' \
+  '*--allow-read=[add a readable path]:path:_files' \
+  '--allow-loopback[permit bind and listen on loopback]' \
+  '--allow-trustd[verify TLS through trustd, at a wider egress surface]' \
+  '--allow-nix[nix daemon socket, equivalent to --no-sandbox under trusted-users]' \
+  '--allow-docker[docker socket of the @dockerLimaInstance@ VM]' \
+  '--allow-ssh-agent[ssh-agent socket and public ssh files, never the private keys]' \
+  '--allow-forge[forge kubeconfig and loopback, cluster-admin on its clusters]' \
+@bundleFlags@  '(--no-git-write)--allow-git-write[grant git-dir write on any branch, so the agent can commit]' \
+  '(--allow-git-write)--no-git-write[withhold git-dir write on every branch]' \
+  '--web[confine writes to CWD and ~/.pi, leave the network unrestricted]' \
+  '--no-sandbox[run pi outside the sandbox]' \
+  '*:pi args:_files'
