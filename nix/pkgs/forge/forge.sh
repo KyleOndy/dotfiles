@@ -2,13 +2,8 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/forge/default.nix).
 #
-# forge -- Declarative local Kind cluster environment manager
-#
-# Usage:
-#   forge up      Converge to forge.yaml state (idempotent)
-#   forge down    Delete clusters, preserve the VM, mirrors + volumes
-#   forge status  Show current state
-#   forge nuke    Delete the VM, and everything inside it
+# forge -- Declarative local Kind cluster environment manager. `forge --help`
+# is the description of it that has to stay correct.
 
 CONFIG="${FORGE_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/forge/forge.yaml}"
 
@@ -711,19 +706,51 @@ cmd_nuke() {
 
 usage() {
 	cat <<EOF
-forge -- Declarative local Kind cluster environment manager
+forge -- declarative local Kind cluster environment, run inside a lima VM
 
 Usage:
   forge <command>
 
 Commands:
-  up      Create the VM if absent, then converge to forge.yaml (idempotent)
-  down    Delete clusters, preserve the VM, mirrors and cache volumes
-  status  Show current state of the VM, mirrors, clusters, and ArgoCD
-  nuke    Delete the VM, and with it every cluster, mirror, volume and network
+  up      Create the VM if absent, then converge to the config: Docker network,
+          pull-through registry mirrors, Kind clusters, ArgoCD on the
+          management cluster, and registration of every workload cluster with
+          it. Idempotent, so it is also how a config edit gets applied.
+  down    Delete every cluster and its kubeconfig. The VM, the mirrors and
+          their cache volumes survive, so the next 'up' reuses pulled layers.
+  status  Print the VM, the mirrors, and every cluster with its context and
+          API port. Reads state, changes nothing.
+  nuke    Delete the VM, and with it every cluster, mirror, volume and network.
 
 Config: ${CONFIG}
-VM:     ${VM_NAME} (docker at ${VM_SOCKET})
+  Declares the Docker network, the mirrors, the management cluster and its
+  ArgoCD chart version, the workload clusters and their node roles, and
+  kubeconfig_dir. 'forge up' creates what is declared and missing; it never
+  deletes a cluster dropped from the config, so retiring one takes
+  'kind delete cluster --name <name>' or a full 'forge down'.
+
+Environment:
+  FORGE_CONFIG        Config path, overriding the default above.
+  FORGE_ARGOCD_CHART  ArgoCD chart ref, default argo/argo-cd. Point it at a
+                      local or OCI chart when the upstream chart CDN is
+                      unreachable. The version pinned in the config applies
+                      only to the default ref; an override brings its own.
+
+Reaching a cluster:
+  Contexts are kind-<name>, kubeconfigs land in <kubeconfig_dir>/<name>.yaml,
+  and API servers listen on 127.0.0.1 from port ${API_PORT_BASE} upward in
+  config order, ${API_PORT_SPAN} ports wide. 'forge status' prints which
+  cluster got which. Nothing else inside a cluster is reachable from the host,
+  because the VM forwards only that window and the Docker socket, so anything
+  else, ArgoCD's own UI included, needs
+  'kubectl --context kind-<name> port-forward'.
+
+Docker:
+  Every command talks to the daemon in the lima VM '${VM_NAME}', never to
+  whatever DOCKER_HOST names on the host. That socket, which is also the
+  DOCKER_HOST a docker command needs to see forge's containers:
+    unix://${VM_SOCKET}
+  'limactl shell ${VM_NAME}' gets a shell in the VM itself.
 EOF
 }
 
@@ -735,8 +762,14 @@ up | down | status | nuke)
 	check_api_port_window
 	"cmd_$1"
 	;;
-*)
+help | -h | --help)
 	usage
+	;;
+*)
+	if [[ -n ${1:-} ]]; then
+		echo "ERROR: unknown command '$1'" >&2
+	fi
+	usage >&2
 	exit 1
 	;;
 esac
