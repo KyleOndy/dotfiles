@@ -68,9 +68,11 @@ get_network() {
 	yq_get '.network'
 }
 
-get_kubeconfig_dir() {
+# FORGE_KUBECONFIG overrides the config, which is how a caller puts the file
+# somewhere its own sandbox is allowed to read without editing shared config.
+get_kubeconfig() {
 	local raw
-	raw="$(yq_get '.kubeconfig_dir')"
+	raw="${FORGE_KUBECONFIG:-$(yq_get '.kubeconfig')}"
 	echo "${raw/#\~/$HOME}"
 }
 
@@ -300,8 +302,8 @@ create_cluster() {
 	local roles="$2"
 	local network
 	network="$(get_network)"
-	local kubeconfig_dir
-	kubeconfig_dir="$(get_kubeconfig_dir)"
+	local kubeconfig
+	kubeconfig="$(get_kubeconfig)"
 
 	if cluster_exists "${name}"; then
 		ok "Cluster '${name}' already exists"
@@ -316,14 +318,17 @@ create_cluster() {
 	api_port="$(api_port_for "${name}")"
 	build_kind_config "${roles}" "${api_port}" >"${tmpconfig}"
 
+	# --kubeconfig is what keeps kind out of ~/.kube/config, which it creates and
+	# merges into otherwise. Parallel creates share this file safely: kind holds a
+	# lock across the read-modify-write.
+	mkdir -p "$(dirname "${kubeconfig}")"
 	KIND_EXPERIMENTAL_DOCKER_NETWORK="${network}" \
-		kind create cluster --name "${name}" --config "${tmpconfig}"
+		kind create cluster --name "${name}" --config "${tmpconfig}" \
+		--kubeconfig "${kubeconfig}"
 
 	rm -f "${tmpconfig}"
 
-	mkdir -p "${kubeconfig_dir}"
-	kind get kubeconfig --name "${name}" >"${kubeconfig_dir}/${name}.yaml"
-	ok "Exported kubeconfig → ${kubeconfig_dir}/${name}.yaml"
+	ok "Added context kind-${name} → ${kubeconfig}"
 }
 
 create_clusters_parallel() {
@@ -382,14 +387,13 @@ create_clusters_parallel() {
 
 delete_cluster() {
 	local name="$1"
-	local kubeconfig_dir
-	kubeconfig_dir="$(get_kubeconfig_dir)"
+	local kubeconfig
+	kubeconfig="$(get_kubeconfig)"
 
 	if cluster_exists "${name}"; then
-		kind delete cluster --name "${name}"
+		kind delete cluster --name "${name}" --kubeconfig "${kubeconfig}"
 		ok "Deleted cluster '${name}'"
 	fi
-	rm -f "${kubeconfig_dir}/${name}.yaml"
 }
 
 delete_all_clusters() {
@@ -634,6 +638,10 @@ cmd_status() {
 	printf "  %-30s %-10s %s\n" "${VM_NAME}" "${vm_state:-absent}" "${DOCKER_HOST}"
 	echo ""
 
+	echo "Kubeconfig:"
+	printf "  %s\n" "${KUBECONFIG}"
+	echo ""
+
 	echo "Mirrors:"
 	while IFS= read -r name; do
 		local container
@@ -724,8 +732,8 @@ Commands:
 
 Config: ${CONFIG}
   Declares the Docker network, the mirrors, the management cluster and its
-  ArgoCD chart version, the workload clusters and their node roles, and
-  kubeconfig_dir. 'forge up' creates what is declared and missing; it never
+  ArgoCD chart version, the workload clusters and their node roles, and the
+  kubeconfig path. 'forge up' creates what is declared and missing; it never
   deletes a cluster dropped from the config, so retiring one takes
   'kind delete cluster --name <name>' or a full 'forge down'.
 
@@ -735,14 +743,19 @@ Environment:
                       local or OCI chart when the upstream chart CDN is
                       unreachable. The version pinned in the config applies
                       only to the default ref; an override brings its own.
+  FORGE_KUBECONFIG    Kubeconfig path, overriding the config's. Point it
+                      somewhere a sandboxed caller is allowed to read.
 
 Reaching a cluster:
-  Contexts are kind-<name>, kubeconfigs land in <kubeconfig_dir>/<name>.yaml,
-  and API servers listen on 127.0.0.1 from port ${API_PORT_BASE} upward in
-  config order, ${API_PORT_SPAN} ports wide. 'forge status' prints which
-  cluster got which. Nothing else inside a cluster is reachable from the host,
-  because the VM forwards only that window and the Docker socket, so anything
-  else, ArgoCD's own UI included, needs
+  Every cluster shares one kubeconfig, at the path the config names and never
+  under ~/.kube. 'forge status' prints it. Point KUBECONFIG at it and address
+  clusters by context:
+    export KUBECONFIG=<the path 'forge status' prints>
+    kubectl --context kind-<name> get nodes
+  API servers listen on 127.0.0.1 from port ${API_PORT_BASE} upward in config order, ${API_PORT_SPAN}
+  ports wide, one per cluster. Nothing else inside a cluster is reachable from
+  the host, because the VM forwards only that window and the Docker socket, so
+  anything else, ArgoCD's own UI included, needs
   'kubectl --context kind-<name> port-forward'.
 
 Docker:
@@ -760,6 +773,11 @@ case "${1:-}" in
 up | down | status | nuke)
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"
 	check_api_port_window
+	# Every kubectl, helm and kind call below addresses clusters by context, and
+	# resolves them against this file alone. Without it they would fall back to
+	# ~/.kube/config, which forge neither writes nor requires to exist.
+	KUBECONFIG="$(get_kubeconfig)"
+	export KUBECONFIG
 	"cmd_$1"
 	;;
 help | -h | --help)

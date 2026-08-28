@@ -15,7 +15,7 @@ management:
   nodes:
     - role: control-plane
 
-kubeconfig_dir: ~/.kube/configs
+kubeconfig: ~/.local/state/forge/kubeconfig.yaml
 
 clusters:
   - name: forge-1

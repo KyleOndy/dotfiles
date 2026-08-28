@@ -183,15 +183,15 @@ and leaves everything else alone. It does not resize an existing cluster,
 upgrade ArgoCD once it is installed, or change an existing mirror's upstream.
 The first two take `forge down && forge up`, the last `forge nuke`.
 
-`forge down` destroys the clusters `forge.yaml` names (and removes their
-kubeconfigs) but leaves mirrors and their cache volumes intact, allowing
+`forge down` destroys the clusters `forge.yaml` names (and their kubeconfig
+contexts) but leaves mirrors and their cache volumes intact, allowing
 subsequent `forge up` runs to benefit from cached layers. A cluster dropped
 from `forge.yaml` survives both `up` and `down`. `down` needs the VM running.
 
 `forge nuke` deletes the VM, which takes the clusters, mirrors, volumes,
 network and every pulled image with it. It touches nothing on the host, so the
-kubeconfigs survive pointing at dead ports; run `forge down` first to drop
-them.
+kubeconfig contexts survive pointing at dead ports; run `forge down` first to
+drop them.
 
 `forge status` is read-only: the VM, each mirror's state, and each cluster's
 context and API port.
@@ -200,14 +200,24 @@ context and API port.
 
 ## Kubeconfig
 
-Each cluster's kubeconfig is exported to `<kubeconfig_dir>/<cluster-name>.yaml`
-at creation time (`~/.kube/configs` as shipped). Kind also merges the context
-into `$KUBECONFIG`, or `~/.kube/config` when that is unset, and forge's own
-`kubectl` and `helm` calls use that merged copy. Contexts follow the Kind
-convention: `kind-<cluster-name>`.
+Every cluster shares one file, `kubeconfig` in `forge.yaml`, defaulting to
+`~/.local/state/forge/kubeconfig.yaml`. Contexts follow the Kind convention:
+`kind-forge-mgmt`, `kind-forge-1`, `kind-forge-2`.
 
-Example contexts:
+```bash
+export KUBECONFIG=~/.local/state/forge/kubeconfig.yaml
+kubectl --context kind-forge-1 get nodes
+```
 
-- `kind-forge-mgmt`
-- `kind-forge-1`
-- `kind-forge-2`
+`kind create cluster` and `kind delete cluster` are both given `--kubeconfig`,
+so nothing under `~/.kube` is read or written and `~/.kube/config` is never
+created. Two things depend on that. `~/.kube/config` is not forge's file to
+create, and `.kube` is one of the `credentialMasks` entries in
+`nix/pkgs/pi-wrapper/default.nix`, so anything forge left there would be
+unreadable to a sandboxed agent. `wrapper.sh` states the rule this follows:
+the paths a container orchestrator writes belong to whoever configures the
+tool.
+
+The default still sits under `$HOME`, which the sandbox denies wholesale, so an
+agent needs the path added to `sandbox.allowedReadPaths`. `FORGE_KUBECONFIG`
+overrides the config for a caller that would rather place the file itself.
