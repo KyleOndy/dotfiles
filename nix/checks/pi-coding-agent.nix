@@ -131,6 +131,11 @@ let
     defaultAllowDocker = true;
   };
 
+  wrapperWithForgeDefault = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowForge = true;
+  };
+
   wrapperWithWritePaths = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     defaultWritePaths = [ "~/.kube/configs" ];
@@ -848,6 +853,63 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
       || fail "defaultAllowSshAgent=true did not allow the socket. settings=$settings"
+
+    # --allow-forge grants the one kubeconfig forge writes, plus the loopback
+    # egress its API servers need. srt gates that behind allowLocalBinding
+    # rather than the domain allowlist, so the read alone would be a grant that
+    # cannot connect.
+    forge_kubeconfig=$HOME/.local/state/forge/kubeconfig.yaml
+    captured=$(pi --allow-forge -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg k "$forge_kubeconfig" '.filesystem.allowRead | index($k)' >/dev/null \
+      || fail "--allow-forge did not grant the kubeconfig. settings=$settings"
+    echo "$settings" | jq -e '.network.allowLocalBinding == true' >/dev/null \
+      || fail "--allow-forge left loopback egress closed. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: KUBECONFIG=$forge_kubeconfig" \
+      || fail "--allow-forge did not point KUBECONFIG at the grant. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: KUBECACHEDIR=$HOME/.pi/sandbox-cache/kube" \
+      || fail "--allow-forge did not redirect the discovery cache. captured=$captured"
+
+    # ~/.kube holds real cluster credentials and credentialMasks covers it. This
+    # grant is one file outside it, and must not reopen the directory.
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.kube\")" >/dev/null \
+      && fail "--allow-forge re-allowed ~/.kube. settings=$settings"
+
+    # The two grants compose rather than imply. kubectl needs no daemon socket.
+    echo "$settings" | jq -e '.network.allowUnixSockets == []' >/dev/null \
+      || fail "--allow-forge granted the docker socket too. settings=$settings"
+
+    # Not taken from the environment, for the reason DOCKER_HOST is not: it
+    # becomes an allowRead entry, so a checkout's .envrc must not choose it.
+    captured=$(FORGE_KUBECONFIG=/Users/nobody/.ssh/id_ed25519 pi --allow-forge -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/Users/nobody/.ssh/id_ed25519")' >/dev/null \
+      && fail "FORGE_KUBECONFIG chose a granted read path. settings=$settings"
+
+    # Bounded by the same VM as the socket: cluster-admin on a cluster inside it
+    # is a privileged pod away from root in a node container, so a mounted host
+    # path would be reachable that way too.
+    mk_instance '[{"location":"~","writable":true}]' "$deny_pair"
+    if captured=$(pi --allow-forge -- x 2>&1); then
+      fail "--allow-forge granted on a VM mounting \$HOME. captured=$captured"
+    fi
+    echo "$captured" | grep -q -- "--allow-forge: instance" \
+      || fail "refusal did not name the flag. captured=$captured"
+    mk_instance '[]' "$deny_pair"
+
+    # Without the flag, neither the path nor the loopback opening
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg k "$forge_kubeconfig" '.filesystem.allowRead | index($k)' >/dev/null \
+      && fail "kubeconfig granted without the flag. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: KUBECONFIG=" \
+      && fail "KUBECONFIG set without the grant. captured=$captured"
+
+    # defaultAllowForge=true does the same without any CLI flag
+    captured=$(${wrapperWithForgeDefault}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg k "$forge_kubeconfig" '.filesystem.allowRead | index($k)' >/dev/null \
+      || fail "defaultAllowForge=true did not grant the kubeconfig. settings=$settings"
 
     # defaultWritePaths reaches allowWrite, with ~ expanded
     captured=$(${wrapperWithWritePaths}/bin/pi -- x 2>&1)

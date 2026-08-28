@@ -14,6 +14,9 @@
 #                          trusted and warns loudly when it is, since a trusted
 #                          client builds as root outside the sandbox
 #   --allow-docker         the forge VM's docker socket (~/.docker stays masked)
+#   --allow-forge          forge's kubeconfig + loopback to its API servers;
+#                          cluster-admin on those clusters, bounded by the
+#                          same VM --allow-docker is
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
 #                          becoming readable
@@ -92,9 +95,11 @@ let
   piPackage =
     if cfg.sandbox.enable then
       # The knobs a host actually turns; the wrapper's own defaults cover
-      # the rest. trustd stays off, as do --allow-nix and --allow-docker.
+      # the rest. trustd stays off, as do --allow-nix, --allow-docker and
+      # --allow-forge.
       # Widen those at nix/pkgs/pi-wrapper/default.nix, or per-invocation
-      # with the wrapper's --allow-trustd / --allow-nix / --allow-docker.
+      # with the wrapper's --allow-trustd / --allow-nix / --allow-docker /
+      # --allow-forge.
       #
       # sourceDir is always readable: srt checks a symlink's resolved
       # target, and the extension and theme links below resolve into a

@@ -119,6 +119,18 @@
   # that declares no mounts and denies the port forwards it does not name,
   # which is what bounds the grant; colima's default profile mounts $HOME.
   dockerLimaInstance ? "forge",
+  # Default for --allow-forge (the kubeconfig forge writes, plus loopback so
+  # the API servers it names are reachable). Off for the same reason the other
+  # two are: the grant is cluster-admin on every cluster in that VM, which is a
+  # privileged pod away from root in a node container, so it belongs to a
+  # session chosen for it. Bounded by the same VM as --allow-docker, and
+  # asserted the same way.
+  defaultAllowForge ? false,
+  # The kubeconfig --allow-forge grants, matching `kubeconfig` in
+  # nix/pkgs/forge/forge.yaml. Deliberately not read from FORGE_KUBECONFIG or
+  # the forge config: this becomes an allowRead entry, so taking it from the
+  # environment would let a checkout's .envrc pick what the sandbox grants.
+  forgeKubeconfig ? "~/.local/state/forge/kubeconfig.yaml",
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
   # { domains = [str]; trustd = bool; readPaths = [str]; writePaths = [str]; }.
   # domains extend the network allowlist, readPaths and writePaths extend the
@@ -218,6 +230,8 @@ let
         "@defaultAllowDocker@"
         "@defaultAllowSshAgent@"
         "@dockerLimaInstance@"
+        "@defaultAllowForge@"
+        "@forgeKubeconfig@"
         "@gitWriteMode@"
         "@protectedBranches@"
         "@gitAuthorName@"
@@ -240,6 +254,8 @@ let
         (if defaultAllowDocker then "true" else "false")
         (if defaultAllowSshAgent then "true" else "false")
         dockerLimaInstance
+        (if defaultAllowForge then "true" else "false")
+        forgeKubeconfig
         (lib.escapeShellArg gitWriteMode)
         (bashArray protectedBranches)
         (lib.escapeShellArg gitAuthorName)
