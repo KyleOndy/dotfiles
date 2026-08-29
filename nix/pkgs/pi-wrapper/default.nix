@@ -69,6 +69,14 @@
   # widening, but leaving this false still scopes the grant to sessions chosen
   # for it.
   defaultAllowDocker ? false,
+  # Default for --allow-ssh-agent (the ssh-agent socket, plus the ssh config,
+  # known_hosts and public keys ssh needs to use it). Off because it lets the
+  # agent authenticate as the human to anything the network allowlist reaches,
+  # so it belongs to a session chosen for it. Unlike the other two socket
+  # grants this one narrows what a working ssh costs: without it the only way
+  # to sign is re-allowing ~/.ssh, which exposes the private keys and still
+  # fails on a passphrase-protected one.
+  defaultAllowSshAgent ? false,
   # The lima instance whose docker socket --allow-docker grants, under
   # ~/.lima/<name>. forge's VM (nix/pkgs/forge/vm.nix) is the one instance here
   # that declares no mounts and denies the port forwards it does not name,
@@ -161,6 +169,7 @@ let
         "@defaultAllowTrustd@"
         "@defaultAllowNix@"
         "@defaultAllowDocker@"
+        "@defaultAllowSshAgent@"
         "@dockerLimaInstance@"
         "@gitWriteMode@"
         "@protectedBranches@"
@@ -181,6 +190,7 @@ let
         (if defaultAllowTrustd then "true" else "false")
         (if defaultAllowNix then "true" else "false")
         (if defaultAllowDocker then "true" else "false")
+        (if defaultAllowSshAgent then "true" else "false")
         dockerLimaInstance
         (lib.escapeShellArg gitWriteMode)
         (bashArray protectedBranches)

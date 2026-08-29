@@ -28,6 +28,7 @@ allow_loopback=@defaultAllowLoopback@
 allow_trustd=@defaultAllowTrustd@
 allow_nix=@defaultAllowNix@
 allow_docker=@defaultAllowDocker@
+allow_ssh_agent=@defaultAllowSshAgent@
 git_write_mode=@gitWriteMode@
 protected_branches=(@protectedBranches@)
 git_write_granted=false
@@ -69,6 +70,23 @@ docker_socket="$docker_lima_dir/sock/docker.sock"
 # the instance, so it describes the VM that is running rather than what some
 # store path intended.
 docker_vm_config="$docker_lima_dir/lima.yaml"
+
+# The ssh-agent's socket, blocked by the same default-deny on unix sockets.
+# Only added to the policy under --allow-ssh-agent.
+#
+# This is the one grant that makes the policy stricter rather than looser. The
+# alternative is re-allowing ~/.ssh so ssh can read a private key, which hands
+# the agent every key in the directory and still does not authenticate: a
+# passphrase-protected key gets as far as the server accepting the public half
+# and then has no way to prompt. Through the agent the signing happens outside
+# the sandbox and only the public half is ever readable, so the read grants
+# below deliberately name files rather than the directory.
+#
+# Read from the environment because the path is per-login-session (launchd
+# allocates it on darwin), so no static value can name it. That is safe here in
+# a way it is not for the docker socket: this path is only ever granted when
+# the invocation asks for it, and a checkout's .envrc cannot ask.
+ssh_auth_sock="${SSH_AUTH_SOCK:-}"
 
 # Toolchain caches are redirected under here (already inside allowWrite/allowRead
 # via ~/.pi) so default-deny reads/writes don't break compilers without widening
@@ -391,6 +409,11 @@ while [[ $# -gt 0 ]]; do
 		allow_docker=true
 		shift
 		;;
+	--allow-ssh-agent)
+		# Exact-match case: it shadows any network bundle named "ssh-agent".
+		allow_ssh_agent=true
+		shift
+		;;
 	--allow-*)
 		# Bundle lookup. Resolves to a curated set of network hosts and an
 		# optional trustd flip. Unknown bundle names hard-fail so typos
@@ -443,8 +466,22 @@ __pi_assert_docker_vm() {
 	fi
 }
 
+# Nothing to grant without an agent, and continuing would defer the failure to
+# an opaque "Permission denied (publickey)" from ssh much later.
+__pi_assert_ssh_agent() {
+	if [[ -z $ssh_auth_sock ]]; then
+		echo "pi: --allow-ssh-agent: SSH_AUTH_SOCK is unset, there is no agent to grant." >&2
+		echo "pi:          Run from a session that has one. Refusing the grant." >&2
+		exit 1
+	fi
+}
+
 if "$allow_docker"; then
 	__pi_assert_docker_vm
+fi
+
+if "$allow_ssh_agent"; then
+	__pi_assert_ssh_agent
 fi
 
 __pi_set_hardening_env
@@ -483,10 +520,23 @@ if "$allow_docker"; then
 	extra_read_paths+=("$docker_socket")
 fi
 
+# Enough for ssh to run, and no more. config and known_hosts because ssh aborts
+# without them under the $HOME deny; the public keys because `IdentitiesOnly
+# yes` selects which agent key to offer by matching against them. No private
+# key and no directory grant, which is the point of routing through the agent.
+# known_hosts stays read-only: recording a new host key is a decision for the
+# human, and an unknown host fails loudly instead of being trusted silently.
+if "$allow_ssh_agent"; then
+	extra_read_paths+=("$ssh_auth_sock" "$HOME/.ssh/config" "$HOME/.ssh/known_hosts")
+	for pub in "$HOME"/.ssh/*.pub; do
+		[[ -e $pub ]] && extra_read_paths+=("$pub")
+	done
+fi
+
 if [[ ${PI_DEBUG:-} == "plan" ]]; then
-	printf 'PI_PLAN_GIT_DIRS: dir=%s common=%s branch=%s write=%s mode=%s nix=%s docker=%s\n' \
+	printf 'PI_PLAN_GIT_DIRS: dir=%s common=%s branch=%s write=%s mode=%s nix=%s docker=%s ssh_agent=%s\n' \
 		"${git_dir:-none}" "${git_common_dir:-none}" "${git_branch:-none}" \
-		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_docker"
+		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_docker" "$allow_ssh_agent"
 fi
 
 # Prepend the build-time default pi args before any user-supplied args. Pi
@@ -673,6 +723,9 @@ run_strict() {
 	fi
 	if "$allow_docker"; then
 		unix_sockets+=("$docker_socket")
+	fi
+	if "$allow_ssh_agent"; then
+		unix_sockets+=("$ssh_auth_sock")
 	fi
 	if [[ ${#unix_sockets[@]} -gt 0 ]]; then
 		unix_sockets_json=$(printf '%s\n' "${unix_sockets[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')

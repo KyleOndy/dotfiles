@@ -11,6 +11,9 @@
 #   --allow-nix            nix daemon socket + channel search path; equivalent
 #                          to --no-sandbox under trusted-users, and warns so
 #   --allow-docker         docker daemon socket + ~/.docker
+#   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
+#                          so ssh authenticates without the private keys ever
+#                          becoming readable
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.

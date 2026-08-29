@@ -111,6 +111,11 @@ let
     defaultAllowNix = true;
   };
 
+  wrapperWithSshAgentDefault = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultAllowSshAgent = true;
+  };
+
   wrapperWithDockerDefault = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     defaultAllowDocker = true;
@@ -625,6 +630,62 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets | index($s)' >/dev/null \
       || fail "defaultAllowDocker=true did not allow the socket. settings=$settings"
+
+    # --allow-ssh-agent grants the agent socket plus the three ssh files that
+    # make it usable. What it must NOT grant is the private key or the
+    # directory holding it: signing through the agent instead of from disk is
+    # the entire reason this grant exists, so the negative assertions below are
+    # the load-bearing ones.
+    mkdir -p "$HOME/.ssh"
+    touch "$HOME/.ssh/config" "$HOME/.ssh/known_hosts" \
+      "$HOME/.ssh/id_ed25519" "$HOME/.ssh/id_ed25519.pub"
+    ssh_sock=$HOME/.ssh/agent-test.sock
+
+    captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-ssh-agent -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
+      || fail "--allow-ssh-agent did not allow the agent socket. settings=$settings"
+    echo "$settings" | jq -e --arg s "$ssh_sock" '.filesystem.allowRead | index($s)' >/dev/null \
+      || fail "--allow-ssh-agent left the socket path unreadable. settings=$settings"
+    # The public key is not decoration: IdentitiesOnly=yes picks which agent
+    # key to offer by matching against it, so ssh fails without it.
+    for f in config known_hosts id_ed25519.pub; do
+      echo "$settings" | jq -e --arg f "$HOME/.ssh/$f" '.filesystem.allowRead | index($f)' >/dev/null \
+        || fail "--allow-ssh-agent did not grant $f. settings=$settings"
+    done
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.ssh/id_ed25519\")" >/dev/null \
+      && fail "--allow-ssh-agent exposed a private key. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.ssh\")" >/dev/null \
+      && fail "--allow-ssh-agent granted all of ~/.ssh. settings=$settings"
+
+    # No agent is a refusal. Granting nothing and carrying on would surface
+    # much later as an opaque "Permission denied (publickey)" from ssh.
+    if captured=$(unset SSH_AUTH_SOCK; pi --allow-ssh-agent -- x 2>&1); then
+      fail "--allow-ssh-agent granted with no agent. captured=$captured"
+    fi
+    echo "$captured" | grep -q "SSH_AUTH_SOCK is unset" \
+      || fail "refusal did not name the missing agent. captured=$captured"
+
+    # An agent in the environment grants nothing on its own
+    captured=$(SSH_AUTH_SOCK=$ssh_sock pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
+      && fail "agent socket granted without the flag. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.ssh/config\")" >/dev/null \
+      && fail "ssh config granted without the flag. settings=$settings"
+
+    # All three socket grants at once, exercising the list rather than a
+    # single-element shortcut
+    captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-nix --allow-docker --allow-ssh-agent -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets | length == 3' >/dev/null \
+      || fail "three grants did not yield three sockets. settings=$settings"
+
+    # defaultAllowSshAgent=true does the same without any CLI flag
+    captured=$(SSH_AUTH_SOCK=$ssh_sock ${wrapperWithSshAgentDefault}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
+      || fail "defaultAllowSshAgent=true did not allow the socket. settings=$settings"
 
     # defaultWritePaths reaches allowWrite, with ~ expanded
     captured=$(${wrapperWithWritePaths}/bin/pi -- x 2>&1)
