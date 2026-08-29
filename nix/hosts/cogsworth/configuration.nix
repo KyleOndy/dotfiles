@@ -10,9 +10,15 @@ let
   # content-addressed and stable across repo commits. Using ./models directly
   # in a flake resolves to the entire flake source (-source suffix), whose hash
   # rotates on every commit and gets GC'd from the device.
+  #
+  # Three training runs at different sensitivities. All three ship, so
+  # picking one is a COGSWORTH_VOICE_WAKEWORD_NAME edit below rather than a
+  # change here. wyoming-openwakeword names a model by its file stem.
   wakewordModels = pkgs.runCommand "cogsworth-wakeword-models" { } ''
     mkdir -p $out
-    cp ${./models/100/hey_cogs.tflite} $out/hey_cogs.tflite
+    cp ${./models/100/hey_cogs.tflite}   $out/hey_cogs_100.tflite
+    cp ${./models/500/hey_cogs.tflite}   $out/hey_cogs_500.tflite
+    cp ${./models/10000/hey_cogs.tflite} $out/hey_cogs_10000.tflite
   '';
 in
 {
@@ -368,18 +374,26 @@ in
     RebootWatchdogSec = "2min"; # Reboot timeout if normal reboot fails
   };
 
-  # ALSA audio chain for the MAX98357A amplifier.
+  # ALSA audio chain for the MAX98357A amplifier and the ICS-43434 mic.
   # speaker_dmix (dmix) -> hw:0,1 allows multiple processes to share the
   # hardware PCM simultaneously (the amp-keepalive silence stream and any
   # on-demand playback from the backend coexist without "device busy" errors).
   # softvol wraps the dmix and exposes a "SpeakerVol" mixer control (0-100%).
+  #
+  # Both directions are pinned to 48 kHz because the device tree hangs the
+  # amp and the mic off one &i2s controller, which has a single clock. When
+  # the rates disagree the second stream to open drags the first: a capture
+  # at 16 kHz against playback at 44100 stretched playback to 2.76x its
+  # length. 48 kHz also keeps the ICS-43434 in its high performance band
+  # (23-51.6 kHz); at 16 kHz it runs in the low power band (6.25-18.75 kHz).
+  # https://www.adafruit.com/product/6049
   environment.etc."asound.conf".text = ''
     pcm.speaker_dmix {
         type dmix
         ipc_key 1024
         slave {
             pcm "hw:0,1"
-            rate 44100
+            rate 48000
             format S16_LE
             channels 2
         }
@@ -417,6 +431,18 @@ in
     pcm.!default {
         type plug
         slave.pcm "softvol"
+    }
+
+    # Capture. The rate lives here rather than in each caller so that no
+    # application can open the hardware at another rate and drag the
+    # shared clock. plug handles the S24_LE stereo the card presents down
+    # to whatever mono format the caller asks for.
+    pcm.mic {
+        type plug
+        slave {
+            pcm "hw:0,0"
+            rate 48000
+        }
     }
   '';
 
@@ -486,12 +512,19 @@ in
     threshold = 0.5;
     triggerLevel = 1;
     customModelsDirectories = [ wakewordModels ];
+    # Detections are logged at DEBUG only; without this the unit's journal
+    # stays empty and a missed wake word is indistinguishable from a
+    # detection the backend dropped.
+    extraArgs = [ "--debug" ];
   };
 
+  # voice.enabled is deliberately absent: it lives in app_config so the
+  # admin UI's switch is the authority. Environment beats the database in
+  # cogsworth.service.config, so setting it here would pin the switch on.
   systemd.services.cogsworth.environment = {
-    COGSWORTH_VOICE_ENABLED = "true";
     COGSWORTH_VOICE_WYOMING_ADDR = "127.0.0.1:10400";
-    COGSWORTH_VOICE_WAKEWORD_NAME = "hey_cogs";
+    COGSWORTH_VOICE_WAKEWORD_NAME = "hey_cogs_500";
+    COGSWORTH_VOICE_CAPTURE_DEVICE = "mic";
     LOG_LEVEL = "DEBUG";
   };
 
@@ -657,7 +690,7 @@ in
     serviceConfig = {
       User = "cogsworth";
       Group = "cogsworth";
-      ExecStart = "${pkgs.alsa-utils}/bin/aplay -D speaker_dmix -q -t raw -r 44100 -f S16_LE -c 2 /dev/zero";
+      ExecStart = "${pkgs.alsa-utils}/bin/aplay -D speaker_dmix -q -t raw -r 48000 -f S16_LE -c 2 /dev/zero";
       Restart = "always";
       RestartSec = "2s";
     };
