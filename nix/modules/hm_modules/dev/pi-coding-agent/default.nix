@@ -8,8 +8,10 @@
 #   --no-sandbox           bypass sandbox entirely (with warning)
 #   --allow-git-write      grant git-dir write on any branch (agent can commit)
 #   --no-git-write         withhold it on every branch
-#   --allow-nix            nix daemon socket + channel search path; equivalent
-#                          to --no-sandbox under trusted-users, and warns so
+#   --allow-nix            nix daemon socket + channel search path, eval cache
+#                          and profile; asks the daemon whether this client is
+#                          trusted and warns loudly when it is, since a trusted
+#                          client builds as root outside the sandbox
 #   --allow-docker         docker daemon socket + ~/.docker
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever

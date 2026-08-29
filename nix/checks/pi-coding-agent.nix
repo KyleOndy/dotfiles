@@ -514,10 +514,26 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$captured" | grep -q "WARNING: --allow-nix" \
       && fail "warned about a nix grant that was never made. captured=$captured"
 
+    # Determinate Nix on darwin points the well-known path at
+    # /var/run/nix-daemon.socket, and seatbelt matches the target, so a wrapper
+    # that grants only the link leaves nix reporting "Operation not permitted"
+    # with the grant sitting in allowUnixSockets. Resolve it the same way the
+    # wrapper does so the arity assertions below hold on either platform.
+    nix_sock=/nix/var/nix/daemon-socket/socket
+    nix_sock_real=$(readlink -f "$nix_sock" 2>/dev/null || true)
+    nix_sock_count=1
+    if [ -n "$nix_sock_real" ] && [ "$nix_sock_real" != "$nix_sock" ]; then
+      nix_sock_count=2
+    fi
+
     captured=$(pi --allow-nix -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.network.allowUnixSockets | index("/nix/var/nix/daemon-socket/socket")' >/dev/null \
       || fail "--allow-nix did not allow the daemon socket. settings=$settings"
+    if [ "$nix_sock_count" -eq 2 ]; then
+      echo "$settings" | jq -e --arg s "$nix_sock_real" '.network.allowUnixSockets | index($s)' >/dev/null \
+        || fail "--allow-nix did not allow the resolved socket path. settings=$settings"
+    fi
     # The grant is equivalent to --no-sandbox under trusted-users, so it has to
     # say so on the way past rather than only in a comment nobody reads.
     echo "$captured" | grep -q "WARNING: --allow-nix" \
@@ -528,6 +544,36 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--allow-nix missing the channel search path. settings=$settings"
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.local/state/nix\")" >/dev/null \
       || fail "--allow-nix missing the channels symlink target. settings=$settings"
+    # Opening a remote store makes nix stat every $PATH entry looking for ssh,
+    # and eval takes a write lock under ~/.cache/nix before it reaches the
+    # first derivation, so a read-only grant there is not enough.
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.nix-profile\")" >/dev/null \
+      || fail "--allow-nix missing the profile on \$PATH. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.cache/nix\")" >/dev/null \
+      || fail "--allow-nix missing the eval cache. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.cache/nix\")" >/dev/null \
+      || fail "--allow-nix left the fetcher lock dir read-only. settings=$settings"
+
+    # The warning has to match what the daemon reports rather than always
+    # claiming the worst case, or it trains you to ignore it on the hosts
+    # where the escalation is unavailable. Stub `nix` instead of depending on
+    # whatever daemon the builder happens to have.
+    mk_nix_stub() {
+      mkdir -p "$TMPDIR/nixstub"
+      printf '#!/bin/sh\nprintf %s\n' "'{\"trusted\":$1}'" >"$TMPDIR/nixstub/nix"
+      chmod +x "$TMPDIR/nixstub/nix"
+    }
+    mk_nix_stub false
+    captured=$(PATH=$TMPDIR/nixstub:$PATH pi --allow-nix -- x 2>&1)
+    echo "$captured" | grep -q "untrusted" \
+      || fail "--allow-nix did not report the untrusted verdict. captured=$captured"
+    echo "$captured" | grep -q "unsandboxed" \
+      && fail "--allow-nix called an untrusted client unsandboxed. captured=$captured"
+
+    mk_nix_stub true
+    captured=$(PATH=$TMPDIR/nixstub:$PATH pi --allow-nix -- x 2>&1)
+    echo "$captured" | grep -q "unsandboxed" \
+      || fail "--allow-nix did not warn on a trusted client. captured=$captured"
 
     # defaultAllowNix=true does the same without any CLI flag
     captured=$(${wrapperWithNixDefault}/bin/pi -- x 2>&1)
@@ -622,7 +668,8 @@ pkgs.runCommand "pi-coding-agent-check"
     # rather than a single-element shortcut
     captured=$(pi --allow-nix --allow-docker -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
-    echo "$settings" | jq -e '.network.allowUnixSockets | length == 2' >/dev/null \
+    echo "$settings" | jq -e --argjson n "$((nix_sock_count + 1))" \
+      '.network.allowUnixSockets | length == $n' >/dev/null \
       || fail "--allow-nix --allow-docker did not yield both sockets. settings=$settings"
 
     # defaultAllowDocker=true does the same without any CLI flag
@@ -678,7 +725,8 @@ pkgs.runCommand "pi-coding-agent-check"
     # single-element shortcut
     captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-nix --allow-docker --allow-ssh-agent -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
-    echo "$settings" | jq -e '.network.allowUnixSockets | length == 3' >/dev/null \
+    echo "$settings" | jq -e --argjson n "$((nix_sock_count + 2))" \
+      '.network.allowUnixSockets | length == $n' >/dev/null \
       || fail "three grants did not yield three sockets. settings=$settings"
 
     # defaultAllowSshAgent=true does the same without any CLI flag

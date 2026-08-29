@@ -45,11 +45,19 @@ git_write_granted=false
 # is arbitrary code: measured on a darwin host whose human is an admin, a
 # build launched from inside srt reported uid=0 user=root and read a path
 # this policy's denyRead covers, which the same build as _nixbld1 could not.
-# Granting the socket is therefore equivalent to --no-sandbox, and the flag
-# warns as much.
 # Turning nix's own sandbox on does not help, since a trusted client can turn
-# it back off.
+# it back off. Against an untrusted client the daemon refuses those overrides
+# and the builder runs as _nixbld, still outside this policy but not root, so
+# __pi_warn_nix_trust asks the daemon which of the two this is rather than
+# always announcing the worse one.
+#
+# Determinate Nix on darwin ships the well-known path as a symlink to
+# /var/run/nix-daemon.socket, and seatbelt matches the target, so granting the
+# link alone is a silent no-op: nix still fails with "cannot connect to socket
+# ... Operation not permitted" while the grant sits in allowUnixSockets. Both
+# go in, since which one a caller connects through is not ours to pin.
 nix_daemon_socket="/nix/var/nix/daemon-socket/socket"
+nix_daemon_socket_real=$(readlink -f "$nix_daemon_socket" 2>/dev/null || true)
 
 # The docker CLI reaches the daemon over this socket, blocked by the same
 # default-deny on unix sockets. Only added to the policy under --allow-docker.
@@ -476,6 +484,36 @@ __pi_assert_ssh_agent() {
 	fi
 }
 
+# What --allow-nix costs turns on one bit the daemon owns: whether it treats
+# this uid as trusted. Trusted means the build-users-group override above is
+# available and the session is effectively unsandboxed. Untrusted means a
+# builder still escapes this policy, but only as _nixbld. Ask the daemon
+# rather than assume, and read an unanswerable question as the worse case: a
+# missing nix or an older daemon is not reassurance.
+__pi_warn_nix_trust() {
+	local trusted
+	trusted=$(nix store info --json 2>/dev/null |
+		jq -r 'if has("trusted") then (.trusted | tostring) else "unknown" end' 2>/dev/null) ||
+		trusted="unknown"
+	case "$trusted" in
+	false | 0)
+		echo "pi: --allow-nix grants the nix daemon socket. The daemon reports this client" >&2
+		echo "pi:          untrusted, so a build cannot become root. It still runs outside" >&2
+		echo "pi:          this sandbox as _nixbld." >&2
+		;;
+	true | 1)
+		echo "pi: WARNING: --allow-nix grants the nix daemon socket, and the daemon reports" >&2
+		echo "pi:          this client trusted. It can build as root outside this sandbox:" >&2
+		echo "pi:          treat the session as unsandboxed." >&2
+		;;
+	*)
+		echo "pi: WARNING: --allow-nix grants the nix daemon socket, and the daemon did not" >&2
+		echo "pi:          say whether this client is trusted. A trusted one builds as root" >&2
+		echo "pi:          outside this sandbox: treat the session as unsandboxed." >&2
+		;;
+	esac
+}
+
 if "$allow_docker"; then
 	__pi_assert_docker_vm
 fi
@@ -506,8 +544,20 @@ fi
 # ~/.nix-defexpr/channels is a symlink into ~/.local/state/nix, so both the
 # link and its target need re-allowing. The store is outside $HOME and already
 # readable; the flake's own git+file:// input is covered by the git dirs above.
+#
+# ~/.nix-profile because opening a remote store makes nix stat every $PATH
+# entry looking for ssh, and that one sits under the $HOME deny. ~/.cache/nix
+# needs write and not just read: it holds the fetcher locks, and eval aborts
+# on `opening lock file ".../fetcher-locks/<hash>.lock": Operation not
+# permitted` before it reaches the first derivation.
 if "$allow_nix"; then
-	extra_read_paths+=("$HOME/.nix-defexpr" "$HOME/.local/state/nix")
+	extra_read_paths+=(
+		"$HOME/.nix-defexpr"
+		"$HOME/.local/state/nix"
+		"$HOME/.nix-profile"
+		"$HOME/.cache/nix"
+	)
+	extra_write_paths+=("$HOME/.cache/nix")
 fi
 
 # The socket needs a read grant as well as an allowUnixSockets entry: the
@@ -718,8 +768,10 @@ run_strict() {
 	unix_sockets=()
 	if "$allow_nix"; then
 		unix_sockets+=("$nix_daemon_socket")
-		echo "pi: WARNING: --allow-nix grants the nix daemon socket. A trusted-users client can" >&2
-		echo "pi:          build as root outside this sandbox: treat the session as unsandboxed." >&2
+		if [[ -n $nix_daemon_socket_real && $nix_daemon_socket_real != "$nix_daemon_socket" ]]; then
+			unix_sockets+=("$nix_daemon_socket_real")
+		fi
+		__pi_warn_nix_trust
 	fi
 	if "$allow_docker"; then
 		unix_sockets+=("$docker_socket")

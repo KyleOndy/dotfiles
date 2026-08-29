@@ -70,9 +70,13 @@ nags about. Deliberately not `nix flake check`, which also evaluates the
 Linux hosts and cannot go green on a mac.
 
 It needs the nix daemon socket, which the sandbox denies by default, so the
-agent can only run it under `pi --allow-nix`. Read that flag's warning before
-reaching for it: on a host where you are in `trusted-users` it is equivalent
-to `--no-sandbox`. Running the verifier yourself is the cheaper option.
+agent can only run it under `pi --allow-nix`. What that costs depends on the
+daemon: a trusted client can make it build as root, which is equivalent to
+`--no-sandbox`, and an untrusted one gets a builder running as `_nixbld`,
+still outside the sandbox but not root. The flag asks and says which on
+startup. trex answers untrusted (`nix store info --json` reports
+`"trusted":false`, from `trusted-users = root` in `/etc/nix/nix.custom.conf`).
+Running the verifier yourself is still the cheaper option.
 
 A dead model id fails silently at runtime, so check work-config's pins and
 the one in `critic.md` against the endpoint rather than waiting for a seat to
