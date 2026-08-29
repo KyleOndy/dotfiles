@@ -82,11 +82,13 @@
   # that declares no mounts and denies the port forwards it does not name,
   # which is what bounds the grant; colima's default profile mounts $HOME.
   dockerLimaInstance ? "forge",
-  # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each
-  # bundle is { domains = [str]; trustd = bool; }, domains extend the network
-  # allowlist; trustd ORs into the wrapper's allow_trustd. Default empty so
-  # the wrapper itself is self-contained; the hm module ships the standard
-  # set (go/rust/node/python).
+  # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
+  # { domains = [str]; trustd = bool; readPaths = [str]; writePaths = [str]; }.
+  # domains extend the network allowlist, readPaths and writePaths extend the
+  # filesystem grants (leading ~ expanded like the default*Paths lists), and
+  # trustd ORs into the wrapper's allow_trustd. Default empty so the wrapper
+  # itself is self-contained; the hm module ships the standard set
+  # (go/rust/node/python/java/clojure).
   networkBundles ? { },
   # Secrets resolved outside the sandbox and exported as env vars before exec.
   # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
@@ -136,20 +138,27 @@ let
     lib.concatMapStrings (name: "${name}\t${defaultEnvVars.${name}}\n") (lib.attrNames defaultEnvVars)
   );
 
-  # TSV sidecar for network bundles: name<TAB>trustd<TAB>space-joined-domains.
-  # wrapper.sh reads at runtime and splits into two associative arrays
-  # (bundle_domains / bundle_trustd). Empty file when networkBundles == {};
-  # wrapper short-circuits on empty so unknown --allow-<x> fails fast with
-  # "known: " (empty list) in the diagnostic.
+  # TSV sidecar for network bundles:
+  # name<TAB>trustd<TAB>domains<TAB>readPaths<TAB>writePaths, each list
+  # space-joined. wrapper.sh reads at runtime and splits into four associative
+  # arrays. Empty file when networkBundles == {}; wrapper short-circuits on
+  # empty so unknown --allow-<x> fails fast with "known: " (empty list) in the
+  # diagnostic.
   networkBundlesFile = writeText "pi-network-bundles" (
     lib.concatMapStrings (
       name:
       let
         b = networkBundles.${name};
+        join = lib.concatStringsSep " ";
       in
-      "${name}\t${if b.trustd or false then "true" else "false"}\t${
-        lib.concatStringsSep " " (b.domains or [ ])
-      }\n"
+      lib.concatStringsSep "\t" [
+        name
+        (if b.trustd or false then "true" else "false")
+        (join (b.domains or [ ]))
+        (join (b.readPaths or [ ]))
+        (join (b.writePaths or [ ]))
+      ]
+      + "\n"
     ) (lib.attrNames networkBundles)
   );
 

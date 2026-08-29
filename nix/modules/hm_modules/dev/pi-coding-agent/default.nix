@@ -16,6 +16,10 @@
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
 #                          becoming readable
+#   --allow-<toolchain>    go / rust / node / python / java / clojure: that
+#                          toolchain's registries, plus for java and clojure
+#                          the package caches under $HOME (~/.m2, ~/.clojure,
+#                          ~/.gitlibs) that default-deny would otherwise hide
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
@@ -372,8 +376,28 @@ in
                   access (srt's `enableWeakerNetworkIsolation` toggle).
                   Set true for languages whose HTTPS client uses macOS
                   Security framework for cert verification, Go is the
-                  known case. Cargo, npm, pip honor their own CA env
-                  vars and do NOT need this.
+                  known case. Cargo, npm, pip and the JVM honor their own
+                  CA stores and do NOT need this.
+                '';
+              };
+              readPaths = lib.mkOption {
+                type = listOf str;
+                default = [ ];
+                description = ''
+                  Paths re-allowed for reading when this bundle is invoked,
+                  on top of strict mode's default-deny of `$HOME`. A leading
+                  `~` is expanded by the wrapper. For a toolchain's config
+                  and package cache: `~/.m2`, `~/.clojure`.
+                '';
+              };
+              writePaths = lib.mkOption {
+                type = listOf str;
+                default = [ ];
+                description = ''
+                  Paths added to `allowWrite` when this bundle is invoked.
+                  A package cache usually wants both this and `readPaths`,
+                  since resolving a dependency it does not already hold
+                  writes into it.
                 '';
               };
             };
@@ -397,8 +421,12 @@ in
           Unknown `--allow-<name>` at the CLI fails fast with the
           known-bundles list on stderr.
 
-          Network + trustd only for v1. Pair with the wrapper's
-          defaultWritePaths and `sandbox.envVars` for FS / env knobs.
+          A bundle also carries `readPaths` / `writePaths`, so a toolchain
+          whose caches live under the denied `$HOME` is one flag rather than
+          a flag plus two `--allow-read`s. Env stays out: the cache redirects
+          in the wrapper's hardening list are unconditional, since pointing
+          a cache somewhere writable costs nothing in a session that never
+          runs that toolchain.
         '';
       };
 
@@ -507,31 +535,69 @@ in
     # A definition, not the option's default, so a host adding its own bundle
     # merges with these four instead of replacing them. See the option's
     # description for why the distinction matters.
-    hmFoundry.dev.pi-coding-agent.sandbox.networkBundles = {
-      go = {
-        domains = [
-          "proxy.golang.org"
-          "sum.golang.org"
+    hmFoundry.dev.pi-coding-agent.sandbox.networkBundles =
+      let
+        # Maven Central under both names poms are written against.
+        mavenDomains = [
+          "repo1.maven.org"
+          "repo.maven.apache.org"
         ];
-        trustd = true;
+        # Read and write: resolving a dependency the cache does not hold
+        # writes it there, so read-only fails the first cold build.
+        mavenPaths = [ "~/.m2" ];
+      in
+      {
+        go = {
+          domains = [
+            "proxy.golang.org"
+            "sum.golang.org"
+          ];
+          trustd = true;
+        };
+        rust = {
+          domains = [
+            "crates.io"
+            "static.crates.io"
+            "index.crates.io"
+          ];
+        };
+        node = {
+          domains = [ "registry.npmjs.org" ];
+        };
+        python = {
+          domains = [
+            "pypi.org"
+            "files.pythonhosted.org"
+          ];
+        };
+        # No trustd: the JVM verifies TLS against its own cacerts rather than
+        # Security framework.
+        java = {
+          domains = mavenDomains;
+          readPaths = mavenPaths;
+          writePaths = mavenPaths;
+        };
+        # Self-sufficient rather than layered on java, because `clj` resolves
+        # through maven itself and needing two flags to run one test suite is a
+        # papercut that buys no isolation. ~/.clojure holds deps.edn and the
+        # user-level .cpcache; ~/.gitlibs holds :git/sha deps, which cogsworth
+        # has one of. github.com and codeload are what fetches those.
+        clojure = {
+          domains = mavenDomains ++ [
+            "repo.clojars.org"
+            "github.com"
+            "codeload.github.com"
+          ];
+          readPaths = mavenPaths ++ [
+            "~/.clojure"
+            "~/.gitlibs"
+          ];
+          writePaths = mavenPaths ++ [
+            "~/.clojure"
+            "~/.gitlibs"
+          ];
+        };
       };
-      rust = {
-        domains = [
-          "crates.io"
-          "static.crates.io"
-          "index.crates.io"
-        ];
-      };
-      node = {
-        domains = [ "registry.npmjs.org" ];
-      };
-      python = {
-        domains = [
-          "pypi.org"
-          "files.pythonhosted.org"
-        ];
-      };
-    };
 
     # A real writable file, not the usual store symlink: pi writes this file
     # itself (it stamps lastChangelogVersion on first start, and /settings and

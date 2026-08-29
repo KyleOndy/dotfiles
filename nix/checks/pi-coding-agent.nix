@@ -80,6 +80,11 @@ let
         domains = [ "trust.example.com" ];
         trustd = true;
       };
+      pathbundle = {
+        domains = [ "paths.example.com" ];
+        readPaths = [ "~/.toolcache" ];
+        writePaths = [ "~/.toolcache" ];
+      };
     };
   };
 
@@ -358,6 +363,24 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--allow-trustbundle missing trust.example.com. settings=$settings"
     echo "$settings" | jq -e '.enableWeakerNetworkIsolation == true' >/dev/null \
       || fail "--allow-trustbundle did not flip trustd. settings=$settings"
+
+    # A bundle carrying filesystem grants, with the leading ~ expanded the way
+    # defaultReadPaths is. This is what makes a toolchain whose caches live
+    # under the denied $HOME one flag instead of a flag plus two --allow-reads.
+    captured=$(${wrapperWithBundles}/bin/pi --allow-pathbundle -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.toolcache\")" >/dev/null \
+      || fail "--allow-pathbundle did not grant its read path. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.toolcache\")" >/dev/null \
+      || fail "--allow-pathbundle did not grant its write path. settings=$settings"
+
+    # A bundle that declares no paths must leave both lists alone, or the two
+    # new TSV fields word-split an empty string into a bogus grant.
+    captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '[.filesystem.allowRead, .filesystem.allowWrite]
+      | flatten | map(select(. == "")) | length == 0' >/dev/null \
+      || fail "a path-less bundle leaked an empty path. settings=$settings"
 
     # Unknown bundle on a wrapper with bundles errors with the known-list
     if captured=$(${wrapperWithBundles}/bin/pi --allow-nonexistent -- x 2>&1); then
@@ -745,6 +768,21 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(pi -- x 2>&1)
     echo "$captured" | grep -q "PI_PLAN_HARDENING: TMPDIR=$HOME/.pi/sandbox-cache/tmp" \
       || fail "TMPDIR not redirected under the cache root. captured=$captured"
+
+    # HotSpot on darwin reads the Darwin per-user temp dir rather than TMPDIR,
+    # so the line above never reaches java.io.tmpdir and a jar unpacking a
+    # native library (sqlite-jdbc) dies on the lock file it writes there.
+    echo "$captured" \
+      | grep -q "PI_PLAN_HARDENING: JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=$HOME/.pi/sandbox-cache/tmp" \
+      || fail "java.io.tmpdir not redirected under the cache root. captured=$captured"
+    # Without this an AWT init hangs on the window server rather than failing.
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: JAVA_TOOL_OPTIONS=.*-Djava.awt.headless=true" \
+      || fail "AWT not forced headless. captured=$captured"
+    # Loopback binding is IPv4-only while localhost resolves to ::1 first, so
+    # a JVM test server and its client land on different stacks.
+    echo "$captured" \
+      | grep -q "PI_PLAN_HARDENING: JAVA_TOOL_OPTIONS=.*-Djava.net.preferIPv4Stack=true" \
+      || fail "JVM not pinned to IPv4. captured=$captured"
 
     touch $out
   ''

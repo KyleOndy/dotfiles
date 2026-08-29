@@ -267,6 +267,25 @@ __pi_set_hardening_env() {
 		# tool reaching for a temp file gets EPERM unless TMPDIR points
 		# somewhere granted. Programs that hardcode /tmp still fail.
 		"TMPDIR=$pi_cache_root/tmp"
+		# HotSpot on darwin takes java.io.tmpdir from the Darwin per-user temp
+		# dir and ignores TMPDIR, so the line above does not reach it. Left
+		# alone, a jar that unpacks a native library (sqlite-jdbc) fails with
+		# "Operation not permitted" on the .lck file. JAVA_TOOL_OPTIONS rather
+		# than JDK_JAVA_OPTIONS because it also reaches a JVM started through
+		# JNI rather than the java launcher.
+		#
+		# headless because AWT initialisation reaches the window server over
+		# XPC, which no sandbox profile here grants: the call does not fail, it
+		# hangs, so an ImageIO test that would pass sits there until something
+		# kills it. There is no display in a sandboxed session to lose.
+		#
+		# preferIPv4Stack because loopback binding here is IPv4-only, while
+		# `localhost` resolves to ::1 first: a JVM test server and the client
+		# fetching from it end up on different stacks and the fetch fails with
+		# the server sitting right there. Same ::1 trap the ssh ProxyCommand in
+		# nix/profiles/common/ssh-hosts.nix answers with -4. Nothing is lost,
+		# since external egress leaves through an IPv4 proxy either way.
+		"JAVA_TOOL_OPTIONS=-Djava.io.tmpdir=$pi_cache_root/tmp -Djava.awt.headless=true -Djava.net.preferIPv4Stack=true"
 		# The CLI reads config.json from here. Redirected because ~/.docker
 		# holds registry credentials, which is why credentialMasks covers it:
 		# the agent gets a daemon, not the tokens to pull private images with.
@@ -341,19 +360,26 @@ __pi_scrub_node_options() {
 	fi
 }
 
-# Named bundles for the --allow-<name> CLI flags. Each bundle is a pair of
-# (space-joined domains, trustd-needed bool). TSV sidecar comes from
-# default.nix; empty when no bundles are configured. The catch-all
-# --allow-* arg-parser case looks bundles up by name and ORs trustd into
-# the wrapper's allow_trustd flag.
+# Named bundles for the --allow-<name> CLI flags. Each is a trustd bool plus
+# three space-joined lists: network hosts, read paths and write paths. TSV
+# sidecar comes from default.nix; empty when no bundles are configured. The
+# catch-all --allow-* arg-parser case looks bundles up by name, extends the
+# domain and path lists, and ORs trustd into the wrapper's allow_trustd flag.
+#
+# Space-joined means a path containing a space is not representable. No
+# toolchain cache dir has needed one.
 pi_network_bundles_file="@networkBundlesFile@"
 declare -A bundle_domains=()
 declare -A bundle_trustd=()
+declare -A bundle_reads=()
+declare -A bundle_writes=()
 if [[ -s $pi_network_bundles_file ]]; then
-	while IFS=$'\t' read -r __bname __btrustd __bdomains; do
+	while IFS=$'\t' read -r __bname __btrustd __bdomains __breads __bwrites; do
 		[[ -n $__bname ]] || continue
 		bundle_domains[$__bname]="$__bdomains"
 		bundle_trustd[$__bname]="$__btrustd"
+		bundle_reads[$__bname]="$__breads"
+		bundle_writes[$__bname]="$__bwrites"
 	done <"$pi_network_bundles_file"
 fi
 
@@ -431,6 +457,10 @@ while [[ $# -gt 0 ]]; do
 		if [[ -n ${bundle_domains[$bundle_name]+x} ]]; then
 			# shellcheck disable=SC2206  # intentional word-split of host list
 			extra_domains+=(${bundle_domains[$bundle_name]})
+			# shellcheck disable=SC2206  # same, for the two path lists
+			extra_read_paths+=(${bundle_reads[$bundle_name]})
+			# shellcheck disable=SC2206
+			extra_write_paths+=(${bundle_writes[$bundle_name]})
 			if [[ ${bundle_trustd[$bundle_name]} == "true" ]]; then
 				allow_trustd=true
 			fi
