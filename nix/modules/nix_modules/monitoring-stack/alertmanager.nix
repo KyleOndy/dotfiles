@@ -96,6 +96,16 @@ in
               };
               repeat_interval = "24h";
             }
+            {
+              # Every alert in this group reads a nightly oneshot. The
+              # housekeeping and stalled thresholds are days wide and the
+              # bot-block window is 26h, so nothing here can change until the
+              # next run. Hourly mail restates the same night.
+              match = {
+                alertgroup = "ytdl_sub";
+              };
+              repeat_interval = "24h";
+            }
           ];
         };
 
