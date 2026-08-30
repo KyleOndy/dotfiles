@@ -39,7 +39,10 @@ if [ ! -d "$src" ]; then
 fi
 
 echo "Promoting $src -> $dest"
-ssh "$TIGER_HOST" mkdir -p "$TIGER_ARCHIVE/$archive_dest"
-rsync -avh --progress "$src" "$dest"
+# --mkpath: rsync only ever creates the last component of a destination path
+# on its own, so a nested ARCHIVE_DEST needs its parents made. Doing it here
+# rather than over ssh keeps the path out of a remote shell, which would
+# word-split the spaces every archive name carries.
+rsync -avh --mkpath --progress "$src" "$dest"
 
 echo "Promotion complete. $local_src is untouched; delete it yourself once verified."
