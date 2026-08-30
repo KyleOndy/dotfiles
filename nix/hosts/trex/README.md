@@ -172,9 +172,14 @@ trex is the import front door. dino filled that role before it was sold.
 helios import filesystem /Volumes/<CARD>       # -> ~/photos/_provisional/YYYY/YYYY_MM_DD
 winnow ~/photos/_provisional/2026/2026_07_30   # cull
 backup-photos                                  # mirror to tiger, push helios.db
-photos-promote _provisional/2026/2026_07_30 2026/2026_07_30
+photos-promote _provisional/2026/2026_07_30 "2026-07 Germany and Finland"
 rm -rf ~/photos/_provisional/2026/2026_07_30   # free the laptop
 ```
+
+tiger's `archive/` is flat and human-named, so the second argument is where a
+shoot stops being a date and becomes a thing you can find. It defaults to the
+basename of the first, which is what you want only when the local path already
+carries the curated name.
 
 Import is by SD card in a USB-C reader. Connecting the camera over USB-C does
 not work on macOS and is not a configuration problem; see the macOS section of
