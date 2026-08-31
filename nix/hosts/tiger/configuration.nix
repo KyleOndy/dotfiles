@@ -1201,6 +1201,7 @@ in
         audioLanguage = {
           enable = true;
           enforceImports = true;
+          promoteEnglishTrack = true;
         };
 
         # Radarr and Sonarr retry a blocked import every 60s forever, so an

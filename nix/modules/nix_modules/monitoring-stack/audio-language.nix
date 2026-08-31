@@ -47,6 +47,23 @@ in
         correct itself instead of waiting for the sweep to notice.
       '';
     };
+
+    promoteEnglishTrack = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Make the English track the default one on import, where the file has
+        English but plays something else. A multi-language release commonly
+        ships sixteen tracks with the default flag set on none of them, in an
+        order that puts English second, so a player picks the first and the
+        episode comes out in Swedish.
+
+        Matroska only. mkvpropedit rewrites the flag in the header, so the
+        file is not re-encoded and its size does not change; mp4 has no
+        header-level equivalent and would need a full remux, so it is left
+        alone.
+      '';
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -80,12 +97,14 @@ in
 
     # Guarded on the services existing: setting environment on an otherwise
     # undefined unit would generate one with no ExecStart.
-    systemd.services.radarr.environment.AUDIO_LANG_ENFORCE = mkIf (
-      cfg.enforceImports && config.services.radarr.enable
-    ) "1";
-    systemd.services.sonarr.environment.AUDIO_LANG_ENFORCE = mkIf (
-      cfg.enforceImports && config.services.sonarr.enable
-    ) "1";
+    systemd.services.radarr.environment = {
+      AUDIO_LANG_ENFORCE = mkIf (cfg.enforceImports && config.services.radarr.enable) "1";
+      AUDIO_LANG_FIX = mkIf (cfg.promoteEnglishTrack && config.services.radarr.enable) "1";
+    };
+    systemd.services.sonarr.environment = {
+      AUDIO_LANG_ENFORCE = mkIf (cfg.enforceImports && config.services.sonarr.enable) "1";
+      AUDIO_LANG_FIX = mkIf (cfg.promoteEnglishTrack && config.services.sonarr.enable) "1";
+    };
 
     systemd.timers.audio-language-sweep = {
       wantedBy = [ "timers.target" ];
