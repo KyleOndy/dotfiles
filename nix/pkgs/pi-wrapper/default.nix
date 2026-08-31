@@ -13,12 +13,49 @@
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
-  # Paths re-allowed for READING in strict mode, which now defaults to deny-all
-  # of $HOME. $PWD and ~/.pi are always readable; this list adds more, typically
-  # the toolchain config/caches an agent's commands read (e.g. ~/.gitconfig,
-  # ~/.cargo, ~/.rustup, ~/go, ~/.npmrc). Reads outside $HOME (/nix, /etc, system
-  # tools) are unaffected. Runtime --allow-read extends this. Supports ~ expansion.
+  # Paths re-allowed for READING in strict mode, which denies "/" and re-allows
+  # an explicit set. $PWD, ~/.pi and defaultSystemReadPaths are always readable;
+  # this list adds more, typically the toolchain config/caches an agent's
+  # commands read (e.g. ~/.gitconfig, ~/.cargo, ~/.rustup, ~/go, ~/.npmrc).
+  # Runtime --allow-read extends this. Supports ~ expansion.
   defaultReadPaths ? [ ],
+  # System paths re-allowed under that root deny, measured against this
+  # toolchain rather than guessed: git, ripgrep, node, python3, jq, pi itself,
+  # xcrun, sw_vers and TLS through srt's proxy all work with these and nothing
+  # more. The two lists differ in kind. On darwin they are deny carve-outs, and
+  # short because dyld maps the shared cache instead of reading it as a file.
+  # On linux srt binds each entry into a fresh mount namespace, so the list has
+  # to carry what /bin/sh needs to exist at all.
+  #
+  # /var is the symlink node, not /private/var: reaching the zoneinfo database
+  # through /etc/localtime and /usr/share/zoneinfo traverses it, and naming it
+  # does not re-open /private/var/folders. Omit it and the sandbox reports UTC,
+  # with no error to say so.
+  defaultSystemReadPaths ?
+    if stdenv.isDarwin then
+      [
+        "/nix"
+        "/etc"
+        "/private/etc"
+        "/dev"
+        "/private/var/select"
+        "/System"
+        "/usr"
+        "/var"
+        "/private/var/db/timezone"
+      ]
+    else
+      [
+        "/nix"
+        "/etc"
+        "/usr"
+        "/bin"
+        "/proc"
+        "/sys"
+        "/dev"
+        "/run"
+        "/var"
+      ],
   # Args prepended to every `pi` invocation, before user args. Useful for
   # pinning a default model/provider so the user doesn't have to type
   # `--model …` each time. User args still win on duplicates (pi takes the
@@ -170,6 +207,7 @@ let
         "@defaultDomains@"
         "@defaultWritePaths@"
         "@defaultReadPaths@"
+        "@systemReadPaths@"
         "@defaultPiArgs@"
         "@envResolversFile@"
         "@envVarsFile@"
@@ -191,6 +229,7 @@ let
         (bashArray defaultDomains)
         (bashArray defaultWritePaths)
         (bashArray defaultReadPaths)
+        (bashArray defaultSystemReadPaths)
         (lib.escapeShellArgs defaultPiArgs)
         "${envResolversFile}"
         "${envVarsFile}"

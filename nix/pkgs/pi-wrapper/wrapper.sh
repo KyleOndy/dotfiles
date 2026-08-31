@@ -5,6 +5,7 @@
 default_domains=(@defaultDomains@)
 default_write_paths=(@defaultWritePaths@)
 default_read_paths=(@defaultReadPaths@)
+system_read_paths=(@systemReadPaths@)
 credential_masks=(@credentialMasks@)
 default_pi_args=(@defaultPiArgs@)
 real_pi="${PI_REAL_BIN:-@realPiBin@}"
@@ -267,6 +268,14 @@ __pi_set_hardening_env() {
 		# tool reaching for a temp file gets EPERM unless TMPDIR points
 		# somewhere granted. Programs that hardcode /tmp still fail.
 		"TMPDIR=$pi_cache_root/tmp"
+		# srt overwrites TMPDIR in the child whenever a write policy is set,
+		# preferring CLAUDE_CODE_TMPDIR and falling back to /tmp/claude, which
+		# it also force-adds to allowWrite (sandbox-runtime,
+		# dist/sandbox/sandbox-utils.js: generateProxyEnvVars,
+		# getDefaultWritePaths). Setting it is what keeps the line above from
+		# being discarded, and keeps pi's jiti-compiled extensions out of a
+		# 1777 directory it loads them back from.
+		"CLAUDE_CODE_TMPDIR=$pi_cache_root/tmp"
 		# HotSpot on darwin takes java.io.tmpdir from the Darwin per-user temp
 		# dir and ignores TMPDIR, so the line above does not reach it. Left
 		# alone, a jar that unpacks a native library (sqlite-jdbc) fails with
@@ -634,6 +643,37 @@ for p in "${default_read_paths[@]}" "${extra_read_paths[@]}"; do
 	resolved_extra_reads+=("${p/#\~/$HOME}")
 done
 
+# The one read allowlist, shared by strict mode and --web so that widening the
+# network never widens the filesystem. Both deny reads from "/" down and
+# re-allow only these: the workspace, pi's own config dir, git's two global
+# config locations, the per-platform system paths from defaultSystemReadPaths,
+# and whatever the operator or the invocation added.
+#
+# An allowlist because a denylist here is unbounded: denying $HOME alone leaves
+# /private/tmp, the per-user /private/var/folders trees, /Volumes and
+# /Users/Shared readable, and those routinely hold copies of $HOME content
+# (another agent's scratchpad, a tool's spill file, a mounted backup disk).
+# What this toolchain reads is knowable; where macOS puts user data next
+# release is not.
+#
+# git reads its global config on every invocation, including read-only ones,
+# and aborts with "unable to access ... Operation not permitted" when the deny
+# hides it. Both standard locations are listed since git checks XDG first and
+# ~/.gitconfig second (git-config(1), FILES).
+#
+# Caveat: re-allowing ~/.pi also re-allows ~/.pi/agent/auth.json. Keep pi's
+# provider key out of the sandbox via envFromCommands (resolve from Keychain
+# outside the sandbox, reference with "!printenv" in models.json) rather than
+# on disk if that read matters in your threat model.
+read_paths=(
+	"$PWD"
+	"$HOME/.pi"
+	"$HOME/.config/git"
+	"$HOME/.gitconfig"
+	"${system_read_paths[@]}"
+	"${resolved_extra_reads[@]}"
+)
+
 # Either exec the final command or, under PI_DEBUG=plan, print it and exit.
 # The PI_DEBUG path is for the flake check; humans never set it.
 dispatch() {
@@ -702,7 +742,6 @@ run_web_macos() {
 		echo '(allow process-fork process-exec signal process-info*)'
 		echo '(allow mach* ipc* sysctl* system*)'
 		echo '(allow network*)'
-		echo '(allow file-read*)'
 		# file-ioctl is its own SBPL operation, covered by neither
 		# file-read* nor file-write*. Without it the TUI's tcsetattr on
 		# the tty fails: "setRawMode failed with errno: 1".
@@ -711,6 +750,24 @@ run_web_macos() {
 		# O_RDWR, so a plain `pi` subprocess dies with EPERM on posix_spawn
 		# unless the null device is writable.
 		echo '(allow file-write* (literal "/dev/null"))'
+		# Reads are the same allowlist strict mode uses. --web buys the
+		# network, not the filesystem: (deny default) above is the root deny,
+		# and nothing here re-opens it.
+		for p in "${read_paths[@]}"; do
+			echo "(allow file-read* (subpath \"$p\"))"
+		done
+		# The root inode itself, which no subpath above covers and dyld reads
+		# before exec (sandbox-runtime 0.0.73, macos-sandbox-utils.js
+		# generateReadRules, #190). Exposes the dirent names in `ls /` and no
+		# subtree contents.
+		echo '(allow file-read* (literal "/"))'
+		# realpath() lstats every intermediate component, so resolving a
+		# symlink into an allowed path fails without metadata on the denied
+		# directories along the way. Directories only: no readdir, no file
+		# contents.
+		echo '(allow file-read-metadata (vnode-type DIRECTORY))'
+		# Subsumed by the root deny unless $PWD is $HOME itself, which is the
+		# one case where the workspace grant covers them.
 		for sub in "${credential_masks[@]}"; do
 			[[ -e "$HOME/$sub" ]] && echo "(deny file-read* (subpath \"$HOME/$sub\"))"
 		done
@@ -729,7 +786,7 @@ run_web_macos() {
 
 run_strict() {
 	local settings_file all_domains allowed_json write_paths write_json
-	local deny_read_json read_paths allow_read_json deny_write_paths deny_write_json
+	local deny_read_json allow_read_json deny_write_paths deny_write_json
 	local unix_sockets_json unix_sockets b
 	settings_file=$(mktemp /tmp/pi-srt-XXXXXX.json)
 	# shellcheck disable=SC2064 # expand $settings_file now, not at trap time
@@ -781,26 +838,10 @@ run_strict() {
 	fi
 	deny_write_json=$(printf '%s\n' "${deny_write_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")] | unique')
 
-	# Default-deny reads: deny all of $HOME, then re-allow the workspace ($PWD),
-	# pi's own config dir (~/.pi), and any operator-/invocation-supplied read
-	# paths. srt's allowRead takes precedence over denyRead, so the broad $HOME
-	# deny hides every credential store under it (.ssh, .aws, ~/.config/gh,
-	# ~/Library, ~/.pi/agent/auth.json, ...) while the agent keeps read access to
-	# the code it's working on. Reads outside $HOME (/nix, /etc, system
-	# toolchains) stay readable so language tooling still functions. The
-	# credential_masks list is no longer consulted here (it's subsumed by denying
-	# $HOME); it is still used by the looser --web modes.
-	#
-	# Caveat: re-allowing ~/.pi also re-allows ~/.pi/agent/auth.json. Keep pi's
-	# provider key out of the sandbox via envFromCommands (resolve from Keychain
-	# outside the sandbox, reference with "!printenv" in models.json) rather than
-	# on disk if that read matters in your threat model.
-	deny_read_json=$(printf '%s\n' "$HOME" | jq -Rs '[split("\n")[] | select(. != "")]')
-	# git reads its global config on every invocation, including read-only ones,
-	# and aborts with "unable to access ... Operation not permitted" when the
-	# $HOME deny hides it. Both standard locations are listed since git checks
-	# XDG first and ~/.gitconfig second (git-config(1), FILES).
-	read_paths=("$PWD" "$HOME/.pi" "$HOME/.config/git" "$HOME/.gitconfig" "${resolved_extra_reads[@]}")
+	# srt names this shape "denyAllExcept": allowRead takes precedence over
+	# denyRead, so denying "/" hides everything read_paths does not name.
+	# credential_masks is not consulted here, the root deny subsumes it.
+	deny_read_json='["/"]'
 	allow_read_json=$(printf '%s\n' "${read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 
 	unix_sockets=()

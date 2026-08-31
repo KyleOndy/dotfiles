@@ -47,6 +47,11 @@ let
     defaultReadPaths = [ "/opt/toolchain" ];
   };
 
+  wrapperWithSystemReadPaths = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    defaultSystemReadPaths = [ "/opt/sysroot" ];
+  };
+
   # A secret-suffixed env var injected via envVars must survive the scrub
   # (its name is added to the keep-list), unlike a same-suffixed var that
   # merely leaked in from the caller's shell.
@@ -132,6 +137,9 @@ let
   };
 
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
+  # One entry unique to this platform's defaultSystemReadPaths: /bin has to be
+  # bound for /bin/sh to exist under bwrap, /System exists only on darwin.
+  sysPathExpect = if pkgs.stdenv.isLinux then "/bin" else "/System";
 in
 pkgs.runCommand "pi-coding-agent-check"
   {
@@ -163,9 +171,22 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "strict default did not plan srt. captured=$captured"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     [ -n "$settings" ] || fail "strict default missing PI_PLAN_SETTINGS. captured=$captured"
-    # Default-deny reads: all of $HOME denied, CWD + ~/.pi re-allowed
-    echo "$settings" | jq -e ".filesystem.denyRead | index(\"$HOME\")" >/dev/null \
-      || fail "default-deny: denyRead should contain \$HOME. settings=$settings"
+    # Default-deny reads: "/" denied, CWD + ~/.pi + system paths re-allowed
+    echo "$settings" | jq -e '.filesystem.denyRead == ["/"]' >/dev/null \
+      || fail "default-deny: denyRead should be exactly [\"/\"]. settings=$settings"
+    echo "$settings" | jq -e '.filesystem.allowRead | index("${sysPathExpect}")' >/dev/null \
+      || fail "allowRead missing ${sysPathExpect}. settings=$settings"
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/nix")' >/dev/null \
+      || fail "allowRead missing /nix, nothing would run. settings=$settings"
+    # The temp trees and mount points a $HOME-only deny leaves readable. They
+    # hold $HOME content (another agent's scratchpad, a spill file, a backup
+    # disk), so none of them may be named as a carve-out. A carve-out for
+    # something underneath, $PWD under /Users, is the point of the allowlist.
+    for leaky in / /Users /Volumes /tmp /private /private/tmp /private/var \
+                 /private/var/folders "$HOME"; do
+      echo "$settings" | jq -e --arg p "$leaky" '.filesystem.allowRead | index($p) | not' >/dev/null \
+        || fail "allowRead re-opens $leaky. settings=$settings"
+    done
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.pi\")" >/dev/null \
       || fail "allowRead missing ~/.pi. settings=$settings"
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$PWD\")" >/dev/null \
@@ -226,6 +247,32 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(pi --web -- x 2>&1)
     echo "$captured" | grep -q "PI_PLAN_EXEC.*${webExpect}" \
       || fail "--web did not plan ${webExpect}. captured=$captured"
+    ${pkgs.lib.optionalString pkgs.stdenv.isDarwin ''
+      # --web buys the network, not the filesystem. Its macOS profile is
+      # hand-written rather than srt's, because srt's schema refuses the
+      # allowedDomains entry that would mean "any domain":
+      #   network.allowedDomains.0: Invalid domain pattern ... Overly broad
+      #   patterns like "*.com" or "*" are not allowed for security reasons
+      # So the reads have to be denied here as well as in strict mode, and a
+      # bare `(allow file-read*)` is exactly the regression this guards. Linux
+      # needs no equivalent: bwrap binds an allowlist by construction.
+      profile=$(echo "$captured" | sed -n 's/^PI_PLAN_PROFILE: //p')
+      [ -n "$profile" ] || fail "--web emitted no PI_PLAN_PROFILE. captured=$captured"
+      echo "$profile" | grep -q "(allow network\*)" \
+        || fail "--web lost its unrestricted network. profile=$profile"
+      if echo "$profile" | grep -qE '\(allow file-read\*\)'; then
+        fail "--web re-opens every read. profile=$profile"
+      fi
+      echo "$profile" | grep -q '(allow file-read\* (subpath "/System"))' \
+        || fail "--web dropped the system read paths. profile=$profile"
+      echo "$profile" | grep -q '(allow file-read-metadata' \
+        || fail "--web dropped realpath traversal metadata. profile=$profile"
+      for leaky in /Users /Volumes /private/tmp /private/var/folders; do
+        if echo "$profile" | grep -q "(allow file-read\* (subpath \"$leaky\"))"; then
+          fail "--web re-opens $leaky. profile=$profile"
+        fi
+      done
+    ''}
 
     # Default envFromCommands={} emits no PI_PLAN_ENV: lines
     captured=$(pi -- x 2>&1)
@@ -276,6 +323,22 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.filesystem.allowRead | index("/opt/toolchain")' >/dev/null \
       || fail "defaultReadPaths did not extend allowRead. settings=$settings"
+
+    # defaultSystemReadPaths replaces the built-in system carve-outs
+    captured=$(${wrapperWithSystemReadPaths}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/opt/sysroot")' >/dev/null \
+      || fail "defaultSystemReadPaths did not extend allowRead. settings=$settings"
+    echo "$settings" | jq -e '.filesystem.allowRead | index("${sysPathExpect}") | not' >/dev/null \
+      || fail "defaultSystemReadPaths should replace the defaults. settings=$settings"
+
+    # srt prefers CLAUDE_CODE_TMPDIR and otherwise overwrites TMPDIR with
+    # /tmp/claude, so both names have to carry the redirect for it to survive.
+    captured=$(pi -- x 2>&1)
+    for var in TMPDIR CLAUDE_CODE_TMPDIR; do
+      echo "$captured" | grep -q "PI_PLAN_HARDENING: $var=$HOME/.pi/sandbox-cache/tmp" \
+        || fail "$var not redirected into the sandbox cache. captured=$captured"
+    done
 
     # Secret-suffix env scrub (item 5): a leaked *_TOKEN is stripped, a
     # provider key in the keep-list survives.

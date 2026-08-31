@@ -4,7 +4,8 @@
 #   --allow HOST           add domain to network allowlist (repeatable)
 #   --allow-write PATH     add extra FS write path (repeatable)
 #   --allow-read PATH      add extra FS read path (repeatable)
-#   --web                  write+read confined to CWD/~.pi, network unrestricted
+#   --web                  network unrestricted; reads and writes stay on
+#                          the strict-mode allowlist
 #   --no-sandbox           bypass sandbox entirely (with warning)
 #   --allow-git-write      grant git-dir write on any branch (agent can commit)
 #   --no-git-write         withhold it on every branch
@@ -24,9 +25,12 @@
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
 # Both network AND filesystem reads are default-deny: the allowlist starts
-# empty, and reads are denied across all of $HOME except CWD, ~/.pi, and
-# sandbox.allowedReadPaths / --allow-read. System paths (/nix, /etc) stay
-# readable. Add toolchain read paths (~/.gitconfig, ~/.cargo, ...) as needed.
+# empty, and reads are denied from "/" down, leaving CWD, ~/.pi, the per-platform
+# system paths in pi-wrapper's defaultSystemReadPaths, and
+# sandbox.allowedReadPaths / --allow-read. That covers the temp trees a $HOME-only
+# deny leaves open (/private/tmp, /private/var/folders, /Volumes), which carry
+# $HOME content often enough to matter. Add toolchain read paths (~/.gitconfig,
+# ~/.cargo, ...) as needed.
 #
 # Hardening defaults applied in every mode (see wrapper.sh), all overridable
 # via sandbox.envVars:
@@ -385,9 +389,9 @@ in
                 default = [ ];
                 description = ''
                   Paths re-allowed for reading when this bundle is invoked,
-                  on top of strict mode's default-deny of `$HOME`. A leading
-                  `~` is expanded by the wrapper. For a toolchain's config
-                  and package cache: `~/.m2`, `~/.clojure`.
+                  on top of strict mode's default-deny from `/` down. A
+                  leading `~` is expanded by the wrapper. For a toolchain's
+                  config and package cache: `~/.m2`, `~/.clojure`.
                 '';
               };
               writePaths = lib.mkOption {
