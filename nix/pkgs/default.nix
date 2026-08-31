@@ -1,5 +1,6 @@
 self: super: {
   ask = super.callPackage ./ask { };
+  audio-language-check = super.callPackage ./audio-language-check { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
   backup-photos = super.callPackage ./backup-photos { };
   berkeley-mono = super.callPackage ./berkeley-mono { };

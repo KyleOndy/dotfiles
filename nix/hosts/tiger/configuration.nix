@@ -1534,6 +1534,9 @@ in
 
   environment.systemPackages = with pkgs; [
     intel-gpu-tools # intel_gpu_top for monitoring GPU usage during transcodes
+    # Radarr and Sonarr run this from a Custom Script connection on import, so
+    # it has to resolve on their PATH rather than only in a nix expression.
+    audio-language-check
   ];
 
   sops.secrets = {
