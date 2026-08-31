@@ -106,6 +106,15 @@ in
               };
               repeat_interval = "24h";
             }
+            {
+              # The count comes from a daily sweep, so it cannot move between
+              # runs, and replacing a file means finding a release and waiting
+              # on a download. Hourly mail restates the same sweep.
+              match = {
+                alertgroup = "audio_language";
+              };
+              repeat_interval = "24h";
+            }
           ];
         };
 
