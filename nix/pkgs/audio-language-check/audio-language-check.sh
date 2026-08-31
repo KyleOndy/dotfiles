@@ -265,6 +265,9 @@ sweep_library() {
 				fi
 			fi
 			bad[$library]=$((${bad[$library]} + 1))
+			# A gauge can only carry a count. This is what turns that count
+			# back into the list of files somebody has to go and replace.
+			log "sweep: no English audio in $f"
 		done < <(find "$root" -type f \( -name '*.mkv' -o -name '*.mp4' -o -name '*.avi' \) -print0)
 	done
 
