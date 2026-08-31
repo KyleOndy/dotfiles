@@ -1002,36 +1002,36 @@ in
           ];
           Science = [
             "@AlphaPhoenixChannel"
-            # "@BetaPhoenixChannel"
+            "@BetaPhoenixChannel"
             "@miniminuteman773"
           ];
           Maker = [
-            # "@aaedmusa"
-            # "@BennettStirton"
-            # "@dkbuilds"
-            # "@lostartpress"
+            "@aaedmusa"
+            "@BennettStirton"
+            "@dkbuilds"
+            "@lostartpress"
             "@matthiaswandel"
             "@Paul.Sellers"
             "@propdepartment"
-            # "@RexKrueger"
+            "@RexKrueger"
             "@StuffMadeHere"
-            # "@StuffMadeHere2"
+            "@StuffMadeHere2"
             "@tested"
-            # "@theslowmoguys"
+            "@theslowmoguys"
             "@TomStantonEngineering"
             "@WoodByWrightHowTo"
           ];
           Entertainment = [
-            # "@2MuchColinFurze"
-            # "@Ben_Brainard"
-            # "@CaptainDisillusion"
-            # "@CharlieBerens"
-            # "@colinfurze"
-            # "@DudeDad"
-            # "@Gossip.Goblin"
-            # "@GxAce"
-            # "@kaptainkristian"
-            # "@kurzgesagt"
+            "@2MuchColinFurze"
+            "@Ben_Brainard"
+            "@CaptainDisillusion"
+            "@CharlieBerens"
+            "@colinfurze"
+            "@DudeDad"
+            "@Gossip.Goblin"
+            "@GxAce"
+            "@kaptainkristian"
+            "@kurzgesagt"
             "@PracticalEngineeringChannel"
             "@RudyAyoub"
             "@SampsonBoatCo"
@@ -1044,11 +1044,11 @@ in
             "@programmersarealsohuman5909" # Kai Lentit
           ];
           Outdoor = [
-            # "@bronandjacob"
-            # "@ChrisburkardStudio"
+            "@bronandjacob"
+            "@ChrisburkardStudio"
             "@courtneyevewhite"
-            # "@RabEquipment"
-            # "@theaudaciousreport"
+            "@RabEquipment"
+            "@theaudaciousreport"
           ];
         };
       };
