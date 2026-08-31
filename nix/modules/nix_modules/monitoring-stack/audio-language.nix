@@ -32,6 +32,21 @@ in
       default = "daily";
       description = "OnCalendar expression for the sweep";
     };
+
+    enforceImports = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Let the import hook fail a download whose audio carries no English
+        track, instead of only logging the verdict. Radarr and Sonarr run the
+        hook themselves, so the switch reaches it through their own service
+        environment rather than through the sweep unit.
+
+        A failed import is blocklisted, and `autoRedownloadFailed` then sends
+        the *arr after the next release, which is what makes a bad grab
+        correct itself instead of waiting for the sweep to notice.
+      '';
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -62,6 +77,15 @@ in
 
       script = "audio-language-check --sweep";
     };
+
+    # Guarded on the services existing: setting environment on an otherwise
+    # undefined unit would generate one with no ExecStart.
+    systemd.services.radarr.environment.AUDIO_LANG_ENFORCE = mkIf (
+      cfg.enforceImports && config.services.radarr.enable
+    ) "1";
+    systemd.services.sonarr.environment.AUDIO_LANG_ENFORCE = mkIf (
+      cfg.enforceImports && config.services.sonarr.enable
+    ) "1";
 
     systemd.timers.audio-language-sweep = {
       wantedBy = [ "timers.target" ];

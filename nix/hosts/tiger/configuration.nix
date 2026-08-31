@@ -1189,15 +1189,24 @@ in
           };
         };
 
+        # A release can parse clean on its name and still carry audio in
+        # another language; only the container says which. The import hook
+        # catches new grabs, the sweep catches the backlog that predates it.
+        #
+        # Enforcing matters because blocklisting one release does not stop the
+        # group: replacing 53 Chinese-audio files pulled 7 more from the same
+        # group at a different resolution, plus 34 MULTi releases, none of
+        # which the name gave away. Rejecting on the container is the only
+        # check that reads what actually arrived.
+        audioLanguage = {
+          enable = true;
+          enforceImports = true;
+        };
+
         # Radarr and Sonarr retry a blocked import every 60s forever, so an
         # item they refuse to match sits in the queue until someone decides
         # between a manual import and a blocklist. This is the backstop for
         # when nobody does.
-        # A release can parse clean on its name and still carry audio in
-        # another language; only the container says which. The import hook
-        # catches new grabs, this catches the backlog that predates it.
-        audioLanguage.enable = true;
-
         arrQueueJanitor = {
           enable = true;
           sonarr = {
