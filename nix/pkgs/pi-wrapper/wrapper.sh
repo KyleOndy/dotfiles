@@ -699,10 +699,18 @@ run_web_macos() {
 	{
 		echo '(version 1)'
 		echo '(deny default)'
-		echo '(allow process-fork process-exec process-signal process-info*)'
+		echo '(allow process-fork process-exec signal process-info*)'
 		echo '(allow mach* ipc* sysctl* system*)'
 		echo '(allow network*)'
 		echo '(allow file-read*)'
+		# file-ioctl is its own SBPL operation, covered by neither
+		# file-read* nor file-write*. Without it the TUI's tcsetattr on
+		# the tty fails: "setRawMode failed with errno: 1".
+		echo '(allow file-ioctl (subpath "/dev"))'
+		# Bun.spawn wires a child's unused stdio to /dev/null and opens it
+		# O_RDWR, so a plain `pi` subprocess dies with EPERM on posix_spawn
+		# unless the null device is writable.
+		echo '(allow file-write* (literal "/dev/null"))'
 		for sub in "${credential_masks[@]}"; do
 			[[ -e "$HOME/$sub" ]] && echo "(deny file-read* (subpath \"$HOME/$sub\"))"
 		done
