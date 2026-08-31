@@ -9,14 +9,20 @@ set -euo pipefail
 
 readonly WHISPER_MODEL="${WHISPER_MODEL:?WHISPER_MODEL must point at a ggml model}"
 readonly ENFORCE="${AUDIO_LANG_ENFORCE:-0}"
-readonly SAMPLES="${AUDIO_LANG_SAMPLES:-3}"
+# Seven rather than a token few: a rejected import is blocklisted, so a file
+# wrongly called non-English costs a good release, not just a wrong number on
+# a dashboard. Whisper reads 30 seconds per sample regardless, so the only
+# price of sampling wider is wall time on a nice 10 unit.
+readonly SAMPLES="${AUDIO_LANG_SAMPLES:-7}"
 # Whisper reports a probability per sample; below this a vote is discarded
 # rather than counted, because a sample landing on score or action returns a
 # confident-looking guess from nothing.
 readonly MIN_CONFIDENCE="${AUDIO_LANG_MIN_CONFIDENCE:-0.6}"
-# Some releases carry a dozen dub tracks; examining every one costs more than
-# the answer is worth once the first few have not turned up English.
-readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-6}"
+# Sixteen-track dub releases are common in this library, and English sits
+# second in some and much later in others. The walk stops at the first English
+# stream, so a higher ceiling costs nothing on the files that have one and
+# only buys time on the files that do not.
+readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-12}"
 # Promote an English track to default rather than rejecting the file, where
 # the file has one. Matroska only; see promote_english_track.
 readonly FIX="${AUDIO_LANG_FIX:-0}"
@@ -91,7 +97,10 @@ whisper_stream() {
 	work=$(mktemp -d)
 	local -A votes=()
 	for ((i = 0; i < SAMPLES; i++)); do
-		frac=$((25 + i * 50 / (SAMPLES > 1 ? SAMPLES - 1 : 1)))
+		# Spread across 10% to 90% of runtime. The middle half alone misses
+		# openings and closings, which on children's programming is often the
+		# only stretch carrying speech rather than music.
+		frac=$((10 + i * 80 / (SAMPLES > 1 ? SAMPLES - 1 : 1)))
 		ss=$((dur * frac / 100))
 		ffmpeg -nostdin -v error -y -ss "$ss" -t 30 -i "$f" -map "0:a:$stream" -ac 1 -ar 16000 \
 			-c:a pcm_s16le "$work/s.wav" </dev/null 2>/dev/null || continue
