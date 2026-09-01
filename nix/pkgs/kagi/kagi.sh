@@ -4,6 +4,19 @@
 
 readonly api="https://kagi.com/api/v1"
 
+# https://kagi.com/api/pricing: search is $12/1k requests, extract is $4/1k
+# pages. Search bills per request whatever `limit` asks for; extract bills per
+# url whether or not they arrive in one request. Held in mills ($0.001) so the
+# running total stays integer arithmetic.
+readonly search_mills=12
+readonly extract_mills=4
+
+# Read back by extensions/kagi-cost.ts, which folds the amount into pi's
+# session cost. Keep the format in step with the regex there.
+billed() {
+	printf 'kagi: billed $%d.%03d\n' $(($1 / 1000)) $(($1 % 1000)) >&2
+}
+
 usage() {
 	cat >&2 <<-'EOF'
 		usage: kagi search <query> [count]   web search, default 10 results
@@ -54,10 +67,12 @@ search)
 	jq -n --arg q "$2" --argjson n "${3:-10}" '{query: $q, limit: $n}' >"$body"
 	post search "$body" |
 		jq -r '.data.search[]? | "\(.title)\n\(.url)\n\(.snippet // "" | gsub("<[^>]*>"; "") | gsub("\\s+"; " "))\n"'
+	billed "$search_mills"
 	;;
 read)
 	shift
 	[[ $# -gt 0 ]] || usage
+	total=0
 	# The endpoint caps a request at 10 urls but bills each one, so batching
 	# buys round trips rather than money. Chunking beats rejecting the 11th:
 	# the caller would only re-run the command twice for the same price.
@@ -70,7 +85,9 @@ read)
 		# empty page.
 		post extract "$body" |
 			jq -r '.data[] | "## \(.url)\n\n\(.markdown // "EXTRACTION FAILED: \(.error // "unknown")")\n"'
+		total=$((total + extract_mills * ${#batch[@]}))
 	done
+	billed "$total"
 	;;
 *)
 	usage
