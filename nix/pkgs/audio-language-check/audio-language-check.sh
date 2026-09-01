@@ -17,6 +17,9 @@ readonly MIN_CONFIDENCE="${AUDIO_LANG_MIN_CONFIDENCE:-0.6}"
 # Some releases carry a dozen dub tracks; examining every one costs more than
 # the answer is worth once the first few have not turned up English.
 readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-6}"
+# Promote an English track to default rather than rejecting the file, where
+# the file has one. Matroska only; see promote_english_track.
+readonly FIX="${AUDIO_LANG_FIX:-0}"
 
 log() {
 	logger -t audio-language-check -- "$*"
@@ -140,6 +143,80 @@ whisper_language() {
 	printf '%s' "$best"
 }
 
+# Returns the 0-based index of the first English audio stream, by tag where
+# there is one and by whisper where there is not, or nothing if none is.
+english_stream_index() {
+	local f="$1" idx=0 tag lang
+	while IFS= read -r tag; do
+		case "$tag" in
+		eng | en)
+			printf '%s' "$idx"
+			return
+			;;
+		esac
+		idx=$((idx + 1))
+	done < <(ffprobe -v error -select_streams a -show_entries stream_tags=language -of csv=p=0 "$f" 2>/dev/null)
+
+	idx=0
+	while [ "$idx" -lt "$MAX_STREAMS" ]; do
+		ffprobe -v error -select_streams "a:$idx" -show_entries stream=index -of csv=p=0 "$f" >/dev/null 2>&1 || return
+		lang=$(whisper_stream "$f" "$idx")
+		if [ "$lang" = en ]; then
+			printf '%s' "$idx"
+			return
+		fi
+		idx=$((idx + 1))
+	done
+}
+
+# Promotes the English track to default and labels what it found, so the next
+# reader gets an answer from the container instead of paying for whisper again.
+#
+# Matroska keeps track flags in the header, so mkvpropedit rewrites bytes in
+# place in milliseconds and leaves the file the same size. MP4 has no
+# equivalent: changing a disposition there means remuxing the whole container,
+# which is why this declines to touch one.
+promote_english_track() {
+	local f="$1" eng_idx n i lang args=()
+	case "$f" in
+	*.mkv) ;;
+	*)
+		log "FIX-SKIPPED $(basename "$f"): only matroska can be retagged without a remux"
+		return
+		;;
+	esac
+
+	n=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$f" 2>/dev/null | wc -l)
+	if [ "$n" -le 1 ]; then
+		log "FIX-SKIPPED $(basename "$f"): one audio track, nothing to promote"
+		return
+	fi
+
+	eng_idx=$(english_stream_index "$f")
+	if [ -z "$eng_idx" ]; then
+		log "FIX-SKIPPED $(basename "$f"): no English track to promote"
+		return
+	fi
+
+	for ((i = 0; i < n; i++)); do
+		# mkvpropedit numbers tracks of a kind from 1, ffmpeg from 0.
+		args+=(--edit "track:a$((i + 1))")
+		if [ "$i" -eq "$eng_idx" ]; then
+			args+=(--set flag-default=1 --set language=eng)
+		else
+			args+=(--set flag-default=0)
+			lang=$(whisper_stream "$f" "$i")
+			[ "$lang" != unknown ] && [ -n "$lang" ] && args+=(--set "language=$lang")
+		fi
+	done
+
+	if mkvpropedit "$f" "${args[@]}" >/dev/null 2>&1; then
+		log "FIXED $(basename "$f"): audio track $eng_idx set default and tagged eng"
+	else
+		log "FIX-FAILED $(basename "$f"): mkvpropedit rejected the edit"
+	fi
+}
+
 # Blocklists the grab. autoRedownloadFailed then drives the replacement search,
 # so this function deliberately does not trigger one itself.
 reject() {
@@ -161,7 +238,19 @@ reject() {
 }
 
 main() {
-	local service base key_config key_override event title orig_lang download_id
+	case "${1:-}" in
+	--fix)
+		shift
+		[ $# -gt 0 ] || {
+			log "--fix needs at least one file"
+			return 1
+		}
+		for _f in "$@"; do promote_english_track "$_f"; done
+		return
+		;;
+	esac
+
+	local service base key_config key_override event title orig_lang download_id _f
 	local -a files=()
 
 	if [ -n "${radarr_eventtype:-}" ]; then
@@ -240,6 +329,13 @@ main() {
 			log "FAIL $title: untagged [$langs], whisper says ${verdict}"
 		else
 			log "FAIL $title: tagged [$langs], no English track"
+		fi
+
+		# A file with English on a non-default track is mislabelled, not wrong;
+		# promoting it is cheaper and less destructive than a re-download.
+		if [ "$FIX" = 1 ] && [ -n "$(english_stream_index "$f")" ]; then
+			promote_english_track "$f"
+			continue
 		fi
 
 		if [ "$ENFORCE" = 1 ]; then

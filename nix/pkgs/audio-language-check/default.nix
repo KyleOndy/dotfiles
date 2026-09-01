@@ -3,6 +3,7 @@
   fetchurl,
   ffmpeg-headless,
   whisper-cpp,
+  mkvtoolnix-cli,
   curl,
   jq,
   coreutils,
@@ -25,6 +26,8 @@ writeShellApplication {
   runtimeInputs = [
     ffmpeg-headless
     whisper-cpp
+    # mkvpropedit: rewrites matroska track flags in the header, in place.
+    mkvtoolnix-cli
     curl
     jq
     coreutils
