@@ -14,6 +14,9 @@ readonly SAMPLES="${AUDIO_LANG_SAMPLES:-3}"
 # rather than counted, because a sample landing on score or action returns a
 # confident-looking guess from nothing.
 readonly MIN_CONFIDENCE="${AUDIO_LANG_MIN_CONFIDENCE:-0.6}"
+# Some releases carry a dozen dub tracks; examining every one costs more than
+# the answer is worth once the first few have not turned up English.
+readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-6}"
 
 log() {
 	logger -t audio-language-check -- "$*"
@@ -71,11 +74,11 @@ audio_langs() {
 	printf '%s' "$out"
 }
 
-# Majority vote over samples spread across the runtime. One sample is not
-# enough: a multilingual film returns a different answer depending on where it
-# lands, and a music cue returns noise.
-whisper_language() {
-	local f="$1" dur i frac ss out lang conf work
+# Majority vote over samples spread across one audio stream. A single sample
+# is not evidence: a multilingual film answers differently depending where it
+# lands, and a music cue answers from noise.
+whisper_stream() {
+	local f="$1" stream="$2" dur i frac ss out lang conf work best bestn
 	dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" 2>/dev/null | cut -d. -f1)
 	if [ -z "$dur" ] || ! [ "$dur" -ge 60 ] 2>/dev/null; then
 		printf 'unknown'
@@ -83,30 +86,57 @@ whisper_language() {
 	fi
 
 	work=$(mktemp -d)
-
 	local -A votes=()
 	for ((i = 0; i < SAMPLES; i++)); do
 		frac=$((25 + i * 50 / (SAMPLES > 1 ? SAMPLES - 1 : 1)))
 		ss=$((dur * frac / 100))
-		ffmpeg -v error -y -ss "$ss" -t 30 -i "$f" -vn -ac 1 -ar 16000 \
+		ffmpeg -v error -y -ss "$ss" -t 30 -i "$f" -map "0:a:$stream" -ac 1 -ar 16000 \
 			-c:a pcm_s16le "$work/s.wav" 2>/dev/null || continue
 		out=$(whisper-cli -m "$WHISPER_MODEL" -f "$work/s.wav" --detect-language 2>&1 |
 			grep -oP 'auto-detected language: \K.*' || true)
 		lang=${out%% *}
 		conf=$(printf '%s' "$out" | grep -oP 'p = \K[0-9.]+' || echo 0)
 		[ -z "$lang" ] && continue
+		# A sample landing on score or silence still returns a language; the
+		# floor is what keeps that from counting as a vote.
 		awk -v c="$conf" -v m="$MIN_CONFIDENCE" 'BEGIN { exit !(c >= m) }' || continue
 		votes[$lang]=$((${votes[$lang]:-0} + 1))
 	done
+	rm -rf "$work"
 
-	local best="unknown" bestn=0
+	best=unknown
+	bestn=0
 	for lang in "${!votes[@]}"; do
 		if [ "${votes[$lang]}" -gt "$bestn" ]; then
 			best="$lang"
 			bestn=${votes[$lang]}
 		fi
 	done
-	rm -rf "$work"
+	printf '%s' "$best"
+}
+
+# Every stream is examined, not just the one ffmpeg would play by default.
+# Untagged dual-audio releases exist where track 1 is another language and
+# track 2 is English, and judging such a file by its first track alone would
+# condemn one that is perfectly watchable.
+whisper_language() {
+	local f="$1" nstreams stream lang best=unknown
+	nstreams=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$f" 2>/dev/null | wc -l)
+	[ "$nstreams" -gt "$MAX_STREAMS" ] && nstreams="$MAX_STREAMS"
+	if [ "$nstreams" -lt 1 ]; then
+		printf 'unknown'
+		return
+	fi
+
+	for ((stream = 0; stream < nstreams; stream++)); do
+		lang=$(whisper_stream "$f" "$stream")
+		# English anywhere settles it; the remaining streams need no examining.
+		if [ "$lang" = en ]; then
+			printf 'en'
+			return
+		fi
+		[ "$best" = unknown ] && best="$lang"
+	done
 	printf '%s' "$best"
 }
 
