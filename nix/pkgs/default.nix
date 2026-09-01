@@ -10,6 +10,7 @@ self: super: {
   helios = super.callPackage ./helios { };
   histdb-backup = super.callPackage ./histdb-backup { };
   instax-link = super.callPackage ./instax-link { };
+  kagi = super.callPackage ./kagi { };
   linear-cli = super.callPackage ./linear-cli { };
   my-scripts = super.callPackage ./my-scripts { };
   photos-fanout = super.callPackage ./photos-fanout { };

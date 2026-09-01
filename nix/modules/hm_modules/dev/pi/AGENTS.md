@@ -11,6 +11,21 @@ Read before acting. Grep and web search are cheaper than a wrong edit. When a
 question cannot be answered from what you read, say so instead of filling the
 gap.
 
+### Web
+
+`kagi search "query" [count]` returns title, url and snippet per result,
+five by default. `kagi read <url>...` returns up to ten pages as markdown.
+Both need `pi --allow-kagi`; without it the sandbox denies the network and
+the command fails rather than returning nothing.
+
+A search costs $0.012 and a page $0.004, so search first and read only the
+pages the snippets justify. Pages run to tens of kilobytes, so pipe one
+through `grep` or `head -c` when you want one fact from it.
+
+Reading a page goes through Kagi's extractor rather than fetching it
+directly, which is why research needs no `--web`. A URL that must be fetched
+directly still does.
+
 ### Plan
 
 State the change, the files it touches, and the assumptions it rests on. Stop

@@ -21,6 +21,9 @@
 #                          toolchain's registries, plus for java and clojure
 #                          the package caches under $HOME (~/.m2, ~/.clojure,
 #                          ~/.gitlibs) that default-deny would otherwise hide
+#   --allow-kagi           kagi.com, so `kagi search` and `kagi read` work.
+#                          Reading a page goes through Kagi's extractor, so
+#                          this covers research without --web
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
@@ -529,7 +532,14 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [ piPackage ];
+    # pi has no web tool and no MCP, so search and page-reading are a CLI the
+    # bash tool reaches. Both halves are Kagi endpoints, which is what lets
+    # the kagi bundle below grant one domain instead of the wildcard egress
+    # that reading arbitrary pages would otherwise need.
+    home.packages = [
+      piPackage
+      pkgs.kagi
+    ];
 
     home.sessionVariables = {
       PI_TELEMETRY = "0";
@@ -600,6 +610,14 @@ in
             "~/.clojure"
             "~/.gitlibs"
           ];
+        };
+        # Not a toolchain, but the same flag mechanism. Kagi's /extract
+        # returns any page as markdown from kagi.com, so fetching one costs
+        # the same single domain as searching and never needs the wildcard
+        # egress srt refuses to express. Reaching a page directly would, which
+        # is why `pi --web` and not this bundle is what a raw curl needs.
+        kagi = {
+          domains = [ "kagi.com" ];
         };
       };
 

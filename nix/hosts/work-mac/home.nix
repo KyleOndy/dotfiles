@@ -38,6 +38,14 @@
   # Enable development modules
   hmFoundry.dev = {
     java.enable = true;
+
+    # work-config owns this host's models and provider keys; the Kagi token is
+    # not one of them, so it is resolved here from the same Keychain the
+    # wrapper already reads mcloud's from. The entry has to exist on this
+    # machine too: the wrapper hard-fails a resolver rather than starting
+    # without the value.
+    pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
+
     claude-code = {
       enable = true;
       skills = [
