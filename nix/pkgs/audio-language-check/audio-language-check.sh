@@ -31,6 +31,13 @@ readonly FIX="${AUDIO_LANG_FIX:-0}"
 # what keeps a pathological library from turning that into thousands of them.
 readonly MAX_SERIES="${AUDIO_LANG_MAX_SERIES:-50}"
 
+# The hook learns these from the event environment; the sweep has to ask for
+# itself, so both live here rather than inside the event dispatch.
+readonly RADARR_URL="${RADARR_URL:-http://127.0.0.1:7878}"
+readonly SONARR_URL="${SONARR_URL:-http://127.0.0.1:8989}"
+readonly RADARR_CONFIG="${RADARR_CONFIG:-/var/lib/radarr/.config/Radarr/config.xml}"
+readonly SONARR_CONFIG="${SONARR_CONFIG:-/var/lib/sonarr/.config/NzbDrone/config.xml}"
+
 log() {
 	logger -t audio-language-check -- "$*"
 	echo "$*" >&2
@@ -57,6 +64,45 @@ read_api_key() {
 # filename would otherwise split one series into two unparseable lines.
 escape_label() {
 	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n'
+}
+
+LANG_INDEX=""
+
+# Radarr and Sonarr each know the folder a title sits in and the language it
+# was made in, so one call to each answers for every file the sweep flags. The
+# hook asks about a single id it was handed; a sweep walking the filesystem has
+# only paths, which is why this matches on the folder instead.
+build_lang_index() {
+	if [ -n "$LANG_INDEX" ]; then
+		return 0
+	fi
+	LANG_INDEX=$(mktemp)
+	local key
+	if [ -r "$RADARR_CONFIG" ]; then
+		key=$(read_api_key "" "$RADARR_CONFIG")
+		api "$RADARR_URL" "$key" "/api/v3/movie" 2>/dev/null |
+			jq -r '.[] | select(.path != null) | "\(.path)\t\(.originalLanguage.name // "Unknown")"' \
+				>>"$LANG_INDEX" 2>/dev/null || true
+	fi
+	if [ -r "$SONARR_CONFIG" ]; then
+		key=$(read_api_key "" "$SONARR_CONFIG")
+		api "$SONARR_URL" "$key" "/api/v3/series" 2>/dev/null |
+			jq -r '.[] | select(.path != null) | "\(.path)\t\(.originalLanguage.name // "Unknown")"' \
+				>>"$LANG_INDEX" 2>/dev/null || true
+	fi
+}
+
+# Longest matching folder wins, so a title nested under another resolves to
+# itself. An unreachable *arr leaves the index empty and every file reads
+# Unknown, which is checked rather than skipped: failing open would hide real
+# problems behind an API outage.
+title_language() {
+	local f="$1"
+	build_lang_index
+	awk -F'\t' -v f="$f" '
+		index(f, $1 "/") == 1 && length($1) > best { best = length($1); lang = $2 }
+		END { print (lang == "" ? "Unknown" : lang) }
+	' "$LANG_INDEX"
 }
 
 # ISO 639-2/B "eng" and 639-1 "en" both appear in the wild; anything else,
@@ -262,7 +308,7 @@ reject() {
 sweep_library() {
 	local out="${AUDIO_LANG_TEXTFILE:-/var/lib/prometheus-node-exporter-text-files/audio_language.prom}"
 	local roots="${AUDIO_LANG_ROOTS:-/mnt/media/tv /mnt/media/movies}"
-	local f langs library verdict total=0 unverified=0
+	local f langs library verdict total=0 unverified=0 lang
 	local -A bad=()
 	local -a bad_libs=() bad_paths=()
 
@@ -283,6 +329,13 @@ sweep_library() {
 					unverified=$((unverified + 1))
 					continue
 				fi
+			fi
+			# A title made in another language is not a file with the wrong
+			# audio. The hook already skips these using the id it was handed;
+			# without the same check here a Telugu film alerts forever.
+			lang=$(title_language "$f")
+			if [ "$lang" != English ] && [ "$lang" != Unknown ]; then
+				continue
 			fi
 			bad[$library]=$((${bad[$library]} + 1))
 			bad_libs+=("$library")
@@ -324,6 +377,9 @@ sweep_library() {
 	if [ "${#bad_paths[@]}" -gt "$MAX_SERIES" ]; then
 		log "sweep: ${#bad_paths[@]} files with no English audio, only $MAX_SERIES named as series"
 	fi
+	if [ -n "$LANG_INDEX" ]; then
+		rm -f "$LANG_INDEX"
+	fi
 	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified"
 }
 
@@ -339,7 +395,19 @@ main() {
 			log "--fix needs at least one file"
 			return 1
 		}
-		for _f in "$@"; do promote_english_track "$_f"; done
+		local _f _lang
+		for _f in "$@"; do
+			# The hook reaches its fix only after the originalLanguage skip, so it
+			# can never promote a dub over a film's own audio. Invoked by hand over
+			# a list, this is the only thing between a Japanese film and an English
+			# dub set as its default.
+			_lang=$(title_language "$_f")
+			if [ "$_lang" != English ] && [ "$_lang" != Unknown ]; then
+				log "FIX-SKIPPED $(basename "$_f"): originalLanguage=$_lang"
+				continue
+			fi
+			promote_english_track "$_f"
+		done
 		return
 		;;
 	esac
@@ -349,8 +417,8 @@ main() {
 
 	if [ -n "${radarr_eventtype:-}" ]; then
 		service=radarr
-		base="${RADARR_URL:-http://127.0.0.1:7878}"
-		key_config="${RADARR_CONFIG:-/var/lib/radarr/.config/Radarr/config.xml}"
+		base="$RADARR_URL"
+		key_config="$RADARR_CONFIG"
 		key_override="${RADARR_API_KEY_FILE:-}"
 		event="$radarr_eventtype"
 		title="${radarr_movie_title:-unknown}"
@@ -358,8 +426,8 @@ main() {
 		[ -n "${radarr_moviefile_path:-}" ] && files=("$radarr_moviefile_path")
 	elif [ -n "${sonarr_eventtype:-}" ]; then
 		service=sonarr
-		base="${SONARR_URL:-http://127.0.0.1:8989}"
-		key_config="${SONARR_CONFIG:-/var/lib/sonarr/.config/NzbDrone/config.xml}"
+		base="$SONARR_URL"
+		key_config="$SONARR_CONFIG"
 		key_override="${SONARR_API_KEY_FILE:-}"
 		event="$sonarr_eventtype"
 		title="${sonarr_series_title:-unknown} ${sonarr_episodefile_episodenumbers:-}"

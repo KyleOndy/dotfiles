@@ -755,6 +755,8 @@ in
                   A release can parse clean on its name and still carry audio
                   in another language, which is only visible in the container.
                   One alert per file, grouped by alertname into a single mail.
+                  A title whose own originalLanguage is not English is skipped,
+                  so this is a file that should have English and does not.
                   Import-time verdicts:
                   `journalctl -t audio-language-check | grep FAIL` on
                   {{ $labels.host }}, and the sweep logs every path it flags
