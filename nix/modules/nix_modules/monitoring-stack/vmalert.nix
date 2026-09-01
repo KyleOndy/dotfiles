@@ -745,20 +745,22 @@ in
                 description: "The sweep writes every media_audio_* metric, so while it is down MediaAudioNotEnglish below is reading a stale count rather than the library as it stands. Fix this one first: systemctl status audio-language-sweep on {{ $labels.host }}."
 
             - alert: MediaAudioNotEnglish
-              expr: sum(media_audio_no_english_files) > 0
+              expr: media_audio_no_english_file > 0
               for: 1h
               labels:
                 severity: warning
               annotations:
-                summary: "{{ $value }} media files have no English audio track"
+                summary: "No English audio: {{ $labels.path }}"
                 description: >-
                   A release can parse clean on its name and still carry audio
                   in another language, which is only visible in the container.
-                  Import-time verdicts are in the journal:
+                  One alert per file, grouped by alertname into a single mail.
+                  Import-time verdicts:
                   `journalctl -t audio-language-check | grep FAIL` on
-                  {{ $labels.host }}. Per-file detail, including which library
-                  each sits in, comes from
-                  `audio-language-check --sweep` run by hand.
+                  {{ $labels.host }}, and the sweep logs every path it flags
+                  under the audio-language-sweep unit. The sweep names at most
+                  50 files as series and says so in its log when it truncates;
+                  media_audio_no_english_files carries the full count.
 
             - alert: MediaAudioUnverified
               expr: media_audio_unverified_files > 10

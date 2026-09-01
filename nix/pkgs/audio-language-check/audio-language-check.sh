@@ -26,6 +26,10 @@ readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-12}"
 # Promote an English track to default rather than rejecting the file, where
 # the file has one. Matroska only; see promote_english_track.
 readonly FIX="${AUDIO_LANG_FIX:-0}"
+# An alert carrying no path sends you back to the library to find the file
+# yourself. One series per offender puts the paths in the mail, and the cap is
+# what keeps a pathological library from turning that into thousands of them.
+readonly MAX_SERIES="${AUDIO_LANG_MAX_SERIES:-50}"
 
 log() {
 	logger -t audio-language-check -- "$*"
@@ -47,6 +51,12 @@ read_api_key() {
 		return
 	fi
 	grep -o '<ApiKey>[^<]*</ApiKey>' "$config" | sed 's/<[^>]*>//g'
+}
+
+# Prometheus label values escape backslash and double quote; a newline in a
+# filename would otherwise split one series into two unparseable lines.
+escape_label() {
+	printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n'
 }
 
 # ISO 639-2/B "eng" and 639-1 "en" both appear in the wild; anything else,
@@ -254,6 +264,7 @@ sweep_library() {
 	local roots="${AUDIO_LANG_ROOTS:-/mnt/media/tv /mnt/media/movies}"
 	local f langs library verdict total=0 unverified=0
 	local -A bad=()
+	local -a bad_libs=() bad_paths=()
 
 	local root
 	for root in $roots; do
@@ -274,6 +285,8 @@ sweep_library() {
 				fi
 			fi
 			bad[$library]=$((${bad[$library]} + 1))
+			bad_libs+=("$library")
+			bad_paths+=("$f")
 			# A gauge can only carry a count. This is what turns that count
 			# back into the list of files somebody has to go and replace.
 			log "sweep: no English audio in $f"
@@ -285,6 +298,14 @@ sweep_library() {
 		printf '# TYPE media_audio_no_english_files gauge\n'
 		for library in "${!bad[@]}"; do
 			printf 'media_audio_no_english_files{library="%s"} %s\n' "$library" "${bad[$library]}"
+		done
+		printf '# HELP media_audio_no_english_file Video file whose audio has no English track\n'
+		printf '# TYPE media_audio_no_english_file gauge\n'
+		local i=0
+		while [ "$i" -lt "${#bad_paths[@]}" ] && [ "$i" -lt "$MAX_SERIES" ]; do
+			printf 'media_audio_no_english_file{library="%s",path="%s"} 1\n' \
+				"${bad_libs[$i]}" "$(escape_label "${bad_paths[$i]}")"
+			i=$((i + 1))
 		done
 		printf '# HELP media_audio_unverified_files Untagged files whose language whisper could not settle\n'
 		printf '# TYPE media_audio_unverified_files gauge\n'
@@ -299,6 +320,10 @@ sweep_library() {
 	# node_exporter reads whatever it finds; a half-written file parses as
 	# missing metrics rather than as zero.
 	mv "$out.tmp" "$out"
+	# Never let a cap read as "that was all of them".
+	if [ "${#bad_paths[@]}" -gt "$MAX_SERIES" ]; then
+		log "sweep: ${#bad_paths[@]} files with no English audio, only $MAX_SERIES named as series"
+	fi
 	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified"
 }
 
