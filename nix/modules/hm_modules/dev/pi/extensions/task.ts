@@ -28,12 +28,21 @@
  *     parent fanning out to a small local model gets research too weak to act
  *     on, and a local parent fanning out to a cloud model spends real money
  *     N-at-a-time from a session whose whole point was that it cost nothing.
+ *   - The child's NDJSON is read line by line while it runs, so the tool row
+ *     reports what each subagent is doing now rather than only what it
+ *     concluded ten minutes later. Every event also goes to its own file under
+ *     ~/.pi/agent/task-logs. Those are the only durable record a subagent
+ *     leaves: they run --no-session, so their stdout is otherwise discarded
+ *     once the final message has been scraped out of it. The sandbox denies
+ *     reading that directory, so the record is for the human, not for a later
+ *     agent to mine.
  *   - No isolation/schema/typed-output beyond a plain text summary per
  *     task. If that ever stops being enough, revisit -- it hasn't been
  *     needed yet.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
 import {
@@ -51,9 +60,14 @@ import { Text } from "@earendil-works/pi-tui";
 const MAX_CONCURRENCY = 3;
 const SUBAGENT_TOOLS = "read,grep,find,ls";
 // A read-only research task that has not finished inside this is wedged, not
-// slow. pi.exec resolves rather than rejects when it kills the child, so
-// whatever the subagent had already said still comes back.
+// slow. The child is killed rather than rejected, so whatever it had already
+// said still comes back.
 const TASK_TIMEOUT_MS = 10 * 60_000;
+// SIGTERM first so the child can flush, SIGKILL if it will not go.
+const KILL_GRACE_MS = 5_000;
+// The trail is a tail, not a transcript: a subagent that runs a hundred greps
+// must not grow the tool row without bound. The full sequence is in the log.
+const MAX_TRAIL = 12;
 
 interface Agent {
   name: string;
@@ -66,8 +80,24 @@ interface Agent {
 interface TaskResult {
   index: number;
   task: string;
-  ok: boolean;
+  state: "running" | "done" | "failed";
   summary: string;
+  // The tool call in flight right now, absent while the subagent is thinking.
+  activity?: string;
+  trail: string[];
+  tools: number;
+  startedAt: number;
+  elapsedMs: number;
+  tokens: number;
+  cost: number;
+}
+
+interface ChildOutcome {
+  stdout: string;
+  stderr: string;
+  code: number;
+  aborted: boolean;
+  timedOut: boolean;
 }
 
 // A subagent holding `task` can fan out again. Upstream's own example leaves
@@ -158,6 +188,32 @@ async function runWithConcurrency<T, R>(
   return results;
 }
 
+// One file per subagent, in a directory the wrapper names in the sandbox's
+// denyRead (nix/pkgs/pi-wrapper/wrapper.sh). Writing there works; reading,
+// listing, stat and rename do not, so the agent records its own fan-out and
+// can never read one back, its own included. That rules out size-based
+// rotation, hence a file per run: the wrapper makes the directory and prunes
+// it, being the only part of this that runs outside the sandbox.
+function logFileFor(batch: string, index: number, stamp: string): string {
+  const dir = process.env.PI_TASK_LOG_DIR ?? join(getAgentDir(), "task-logs");
+  const safeBatch = batch.replace(/[^A-Za-z0-9_-]/g, "-");
+  return join(dir, `${stamp}_${safeBatch}_${index}.jsonl`);
+}
+
+// A log that cannot be written must never take the tool down with it. With the
+// directory missing (pi started outside the wrapper) that is every call, which
+// is the intended outcome rather than a failure to report.
+function logEvent(file: string, entry: Record<string, unknown>): void {
+  try {
+    appendFileSync(
+      file,
+      `${JSON.stringify({ ts: new Date().toISOString(), ...entry })}\n`,
+    );
+  } catch {
+    // logging must never break a fan-out
+  }
+}
+
 // `provider/id` is the form `pi --model` accepts alongside a bare id or a
 // pattern (docs/usage.md), and the only one that survives an id registered
 // under more than one provider. Undefined before a model is resolved.
@@ -200,6 +256,120 @@ function oneLine(text: string, limit = 80): string {
   return flat.length > limit ? `${flat.slice(0, limit - 3)}...` : flat;
 }
 
+// Tool argument objects have no shape in common, so name the target from the
+// arguments the built-in read-only tools actually use, and fall back to the
+// first string in the object for anything else.
+const TARGET_ARGS = ["path", "pattern", "query", "command", "file", "glob"];
+
+function activityOf(toolName: string, args: unknown): string {
+  const record = (args ?? {}) as Record<string, unknown>;
+  const named = TARGET_ARGS.map((key) => record[key]).find(
+    (value) => typeof value === "string" && value.trim(),
+  );
+  const target =
+    named ??
+    Object.values(record).find(
+      (value) => typeof value === "string" && value.trim(),
+    );
+  return typeof target === "string"
+    ? `${toolName} ${oneLine(target, 48)}`
+    : toolName;
+}
+
+function fmtTokens(n: number): string {
+  return n >= 1000 ? `${Math.round(n / 1000)}k tok` : `${n} tok`;
+}
+
+function fmtElapsed(ms: number): string {
+  const s = Math.round(ms / 1000);
+  return s < 60
+    ? `${s}s`
+    : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
+}
+
+// pi.exec would be the shorter call, but it buffers: it resolves once, after
+// the child has exited, which is exactly the ten minutes of silence this tool
+// used to report nothing during. spawn hands back the NDJSON as it is written.
+function runChild(
+  bin: string,
+  args: string[],
+  signal: AbortSignal | undefined,
+  onEvent: (event: Record<string, unknown>) => void,
+): Promise<ChildOutcome> {
+  return new Promise((resolve) => {
+    const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    let buffer = "";
+    let aborted = false;
+    let timedOut = false;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+
+    const kill = (): void => {
+      proc.kill("SIGTERM");
+      killTimer = setTimeout(() => proc.kill("SIGKILL"), KILL_GRACE_MS);
+    };
+
+    // spawn's own `signal` and `timeout` options are node additions whose
+    // support under pi's bundled bun is unverified, and the two cases report
+    // differently below, so both are handled here.
+    const timer = setTimeout(() => {
+      timedOut = true;
+      kill();
+    }, TASK_TIMEOUT_MS);
+    const onAbort = (): void => {
+      aborted = true;
+      kill();
+    };
+    if (signal?.aborted) onAbort();
+    else signal?.addEventListener("abort", onAbort, { once: true });
+
+    const readLine = (text: string): void => {
+      if (!text.trim()) return;
+      let event: unknown;
+      try {
+        event = JSON.parse(text);
+      } catch {
+        return;
+      }
+      if (event && typeof event === "object")
+        onEvent(event as Record<string, unknown>);
+    };
+
+    proc.stdout.on("data", (chunk) => {
+      const text = String(chunk);
+      stdout += text;
+      buffer += text;
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) readLine(line);
+    });
+    proc.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+
+    const finish = (code: number): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (killTimer) clearTimeout(killTimer);
+      signal?.removeEventListener("abort", onAbort);
+      if (buffer.trim()) readLine(buffer);
+      resolve({ stdout, stderr, code, aborted, timedOut });
+    };
+    // A child killed by a signal reports a null code; reading that as 0 would
+    // let an OOM kill pass for a clean run.
+    proc.on("close", (code, signalName) =>
+      finish(code ?? (signalName ? 1 : 0)),
+    );
+    proc.on("error", (err) => {
+      stderr += `${err.message}\n`;
+      finish(1);
+    });
+  });
+}
+
 export default function (pi: ExtensionAPI) {
   const agents = discoverAgents();
   const roster = agents.map((a) => `${a.name}: ${a.description}`).join("; ");
@@ -239,7 +409,7 @@ export default function (pi: ExtensionAPI) {
           "One self-contained task per subagent. Each becomes a fresh pi run.",
       }),
     }),
-    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
       const realBin = process.env.PI_REAL_BIN;
       if (!realBin) {
         return {
@@ -305,60 +475,145 @@ export default function (pi: ExtensionAPI) {
       // a flag or a filename and the subagent exits 1 before it runs. The
       // preamble is unconditional so the first argv word is never the task's.
       const prefix = params.context ? `${params.context}\n\n` : "Task:\n";
-      let completed = 0;
+      const startedAt = Date.now();
+      // Colons and dots out, matching the shape pi gives its own session files,
+      // so the directory sorts chronologically in a plain ls.
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 
-      const results = await runWithConcurrency<string, TaskResult>(
+      // Seeded before the fan-out so the row is a complete board from the
+      // first render, rather than tasks appearing as their children report.
+      const results: TaskResult[] = params.tasks.map((task, index) => ({
+        index,
+        task,
+        state: "running",
+        summary: "",
+        trail: [],
+        tools: 0,
+        startedAt,
+        elapsedMs: 0,
+        tokens: 0,
+        cost: 0,
+      }));
+
+      const emit = (): void => {
+        for (const r of results)
+          if (r.state === "running") r.elapsedMs = Date.now() - r.startedAt;
+        onUpdate?.({
+          content: [
+            {
+              type: "text",
+              text: results
+                .map(
+                  (r) =>
+                    `[${r.index + 1}] ${r.state}${r.activity ? ` ${r.activity}` : ""}`,
+                )
+                .join("\n"),
+            },
+          ],
+          details: { agent: agent?.name, model, results },
+        });
+      };
+      emit();
+
+      await runWithConcurrency<string, void>(
         params.tasks,
         MAX_CONCURRENCY,
         async (task, index) => {
-          let result: TaskResult;
-          try {
-            const res = await pi.exec(realBin, [...args, prefix + task], {
-              signal,
-              timeout: TASK_TIMEOUT_MS,
-            });
-            // pi reports a bad model id, a missing key and an extension load
-            // failure on stderr and exits with empty stdout, which reads as
-            // "(no output)" and names no cause.
-            const note = res.killed
-              ? signal?.aborted
-                ? "(cancelled; anything above is what it had reached)"
-                : `(no result after ${TASK_TIMEOUT_MS / 60_000}m; anything above is what it had reached)`
-              : res.code === 0
-                ? ""
-                : res.stderr.trim().slice(-500);
-            const text = lastAssistantText(res.stdout);
-            result = {
-              index,
-              task,
-              ok: res.code === 0 && !res.killed,
-              summary: note ? `${text}\n${note}` : text,
-            };
-          } catch (err) {
-            result = {
-              index,
-              task,
-              ok: false,
-              summary: `error: ${err instanceof Error ? err.message : String(err)}`,
-            };
-          }
-          completed++;
-          onUpdate?.({
-            content: [
-              {
-                type: "text",
-                text: `[${completed}/${params.tasks.length}] ${result.ok ? "done" : "FAILED"}: ${task}`,
-              },
-            ],
+          const r = results[index];
+          const logFile = logFileFor(toolCallId, index, stamp);
+          const outcome = await runChild(
+            realBin,
+            [...args, prefix + task],
+            signal,
+            (event) => {
+              const type = event.type;
+              // message_update is one event per token, tool_execution_update
+              // repeats the whole accumulated result on every tick (pi
+              // 0.84.3 docs/rpc.md), and agent_end repeats every message
+              // already logged. All three are bulk, none of them says
+              // anything the rest of the stream has not.
+              if (
+                type === "message_update" ||
+                type === "tool_execution_update" ||
+                type === "agent_end"
+              )
+                return;
+              logEvent(logFile, { batch: toolCallId, task: index, event });
+
+              if (type === "tool_execution_start") {
+                r.tools++;
+                r.activity = activityOf(
+                  String(event.toolName ?? "?"),
+                  event.args,
+                );
+                r.trail.push(r.activity);
+                if (r.trail.length > MAX_TRAIL) r.trail.shift();
+                emit();
+              } else if (type === "tool_execution_end") {
+                r.activity = undefined;
+                emit();
+              } else if (type === "message_end") {
+                const message = event.message as
+                  | {
+                      role?: string;
+                      usage?: {
+                        totalTokens?: number;
+                        cost?: { total?: number };
+                      };
+                    }
+                  | undefined;
+                // One assistant message is one billed request, so these sum
+                // to the batch total across turns.
+                if (message?.role === "assistant") {
+                  r.tokens += message.usage?.totalTokens ?? 0;
+                  r.cost += message.usage?.cost?.total ?? 0;
+                }
+                emit();
+              }
+            },
+          );
+
+          // pi reports a bad model id, a missing key and an extension load
+          // failure on stderr and exits with empty stdout, which reads as
+          // "(no output)" and names no cause.
+          const killed = outcome.aborted || outcome.timedOut;
+          const note = killed
+            ? outcome.aborted
+              ? "(cancelled; anything above is what it had reached)"
+              : `(no result after ${TASK_TIMEOUT_MS / 60_000}m; anything above is what it had reached)`
+            : outcome.code === 0
+              ? ""
+              : outcome.stderr.trim().slice(-500);
+          const text = lastAssistantText(outcome.stdout);
+
+          r.state = outcome.code === 0 && !killed ? "done" : "failed";
+          r.summary = note ? `${text}\n${note}` : text;
+          r.activity = undefined;
+          r.elapsedMs = Date.now() - r.startedAt;
+          // Exit code, stderr and the bill are the parent's knowledge; none of
+          // them appear in the child's own stream.
+          logEvent(logFile, {
+            batch: toolCallId,
+            task: index,
+            outcome: {
+              state: r.state,
+              code: outcome.code,
+              aborted: outcome.aborted,
+              timedOut: outcome.timedOut,
+              tokens: r.tokens,
+              cost: r.cost,
+              elapsedMs: r.elapsedMs,
+              stderr: outcome.stderr.trim().slice(-500),
+            },
           });
-          return result;
+          emit();
         },
       );
 
       const summary = results
         .map(
           (r) =>
-            `[${r.index + 1}] ${r.ok ? "done" : "FAILED"}: ${r.task}\n${r.summary}`,
+            `[${r.index + 1}] ${r.state === "done" ? "done" : "FAILED"}: ${r.task}\n${r.summary}`,
         )
         .join("\n\n---\n\n");
 
@@ -370,10 +625,11 @@ export default function (pi: ExtensionAPI) {
 
     // The default row renders the combined summary, so the outcome of a
     // three-subagent fan-out sits behind several screens of their prose. These
-    // put the batch first: which tasks came back and which failed, with the
-    // summaries behind ctrl+O. `done`/`FAILED` are words rather than glyphs so
-    // the state survives without color, and they match the wire format the
-    // model already receives.
+    // put the batch first: which tasks are running and what they are doing,
+    // which came back and which failed, with the summaries behind ctrl+O.
+    // `run`/`done`/`FAILED` are words rather than glyphs so the state survives
+    // without color, and the latter two match the wire format the model
+    // already receives.
     renderCall(args, theme, _context) {
       const count = Array.isArray(args.tasks) ? args.tasks.length : 0;
       let text =
@@ -387,14 +643,17 @@ export default function (pi: ExtensionAPI) {
       const details = result.details as
         | { agent?: string; model?: string; results?: TaskResult[] }
         | undefined;
-      // Streaming progress from onUpdate, and the early argument errors,
-      // carry no results array. Their own text is the whole message.
+      // The early argument errors carry no results array. Their own text is
+      // the whole message.
       if (!details?.results) {
         const first = result.content[0];
         return new Text(first?.type === "text" ? first.text : "", 0, 0);
       }
 
       const { results, agent, model } = details;
+      const running = results.filter((r) => r.state === "running").length;
+      const tokens = results.reduce((n, r) => n + r.tokens, 0);
+      const cost = results.reduce((n, r) => n + r.cost, 0);
       const head = [
         theme.fg(
           "muted",
@@ -402,19 +661,46 @@ export default function (pi: ExtensionAPI) {
         ),
         agent ? theme.fg("accent", agent) : undefined,
         model ? theme.fg("dim", model) : undefined,
+        running ? theme.fg("warning", `${running} running`) : undefined,
+        tokens ? theme.fg("dim", fmtTokens(tokens)) : undefined,
+        // Providers that do not price a model report zero, and a $0.00 that
+        // only means "unpriced" is worse than no column at all.
+        cost > 0 ? theme.fg("dim", `$${cost.toFixed(2)}`) : undefined,
       ]
         .filter((part): part is string => part !== undefined)
         .join(theme.fg("dim", " · "));
 
       const lines = [head];
       for (const r of results) {
-        const outcome = r.ok
-          ? theme.fg("success", "done")
-          : theme.fg("error", "FAILED");
+        const label =
+          r.state === "running"
+            ? theme.fg("warning", "run   ")
+            : r.state === "done"
+              ? theme.fg("success", "done  ")
+              : theme.fg("error", "FAILED");
+        const subject =
+          r.state === "running"
+            ? theme.fg("muted", r.activity ?? "thinking")
+            : theme.fg("muted", oneLine(r.task));
+        const trailing =
+          r.state === "running"
+            ? theme.fg(
+                "dim",
+                `  ${r.tools} tool${r.tools === 1 ? "" : "s"}  ${fmtElapsed(r.elapsedMs)}`,
+              )
+            : r.elapsedMs
+              ? theme.fg("dim", `  ${fmtElapsed(r.elapsedMs)}`)
+              : "";
         lines.push(
-          `${theme.fg("dim", `[${r.index + 1}]`)} ${outcome} ${theme.fg("muted", oneLine(r.task))}`,
+          `${theme.fg("dim", `[${r.index + 1}]`)} ${label} ${subject}${trailing}`,
         );
-        if (expanded) lines.push(theme.fg("dim", r.summary));
+        if (!expanded) continue;
+        // While it runs the path it took is the only thing to show; once it
+        // finishes, what it concluded matters more.
+        if (r.state === "running")
+          for (const step of r.trail)
+            lines.push(theme.fg("dim", `      ${step}`));
+        else if (r.summary) lines.push(theme.fg("dim", r.summary));
       }
       return new Text(lines.join("\n"), 0, 0);
     },

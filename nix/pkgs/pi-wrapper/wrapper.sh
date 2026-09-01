@@ -102,6 +102,13 @@ ssh_auth_sock="${SSH_AUTH_SOCK:-}"
 # the policy. Tradeoff: cold caches. See __pi_set_hardening_env.
 pi_cache_root="$HOME/.pi/sandbox-cache"
 
+# Subagent transcripts (extensions/task.ts). Inside ~/.pi so it stays writable,
+# but named in denyRead below so the agent can write its own fan-out record and
+# never read one back, its own included. Reading them is a job for the human,
+# outside the sandbox.
+pi_task_log_dir="$HOME/.pi/agent/task-logs"
+pi_task_log_keep_days=30
+
 # Env vars kept through the secret-suffix scrub even though their names look
 # secret-bearing. Anything the wrapper injects via envFromCommands/envVars is
 # added dynamically; this is the base set of provider keys that may legitimately
@@ -310,6 +317,16 @@ __pi_set_hardening_env() {
 		[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_HARDENING: %s\n' "$kv"
 	done
 	[[ ${PI_DEBUG:-} == "plan" ]] || mkdir -p "$pi_cache_root" "$pi_cache_root/tmp" 2>/dev/null || true
+
+	# task.ts appends here and hands the path to itself through this var. The
+	# directory has to be made out here because denyRead blocks the stat that
+	# mkdir -p does inside, and pruned out here because nothing under the deny
+	# can enumerate what it wrote.
+	export PI_TASK_LOG_DIR="$pi_task_log_dir"
+	if [[ ${PI_DEBUG:-} != "plan" ]]; then
+		mkdir -p "$pi_task_log_dir" 2>/dev/null || true
+		find "$pi_task_log_dir" -type f -mtime +"$pi_task_log_keep_days" -delete 2>/dev/null || true
+	fi
 }
 
 # Strip secret-bearing env vars (matched by name suffix) that leaked in from the
@@ -838,10 +855,14 @@ run_strict() {
 	fi
 	deny_write_json=$(printf '%s\n' "${deny_write_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")] | unique')
 
-	# srt names this shape "denyAllExcept": allowRead takes precedence over
-	# denyRead, so denying "/" hides everything read_paths does not name.
+	# srt names this shape "denyAllExcept". Rules resolve by longest matching
+	# prefix, so allowing "$HOME/.pi" re-opens what denying "/" hid, and denying
+	# the transcript dir under it closes that one back up. Verified against
+	# sandbox-runtime 0.0.73: a sibling file under ~/.pi stayed readable while
+	# the denied subdirectory refused open, stat, rename and readdir.
 	# credential_masks is not consulted here, the root deny subsumes it.
-	deny_read_json='["/"]'
+	deny_read_paths=("/" "$pi_task_log_dir")
+	deny_read_json=$(printf '%s\n' "${deny_read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 	allow_read_json=$(printf '%s\n' "${read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 
 	unix_sockets=()

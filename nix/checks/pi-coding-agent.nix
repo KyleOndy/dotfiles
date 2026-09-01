@@ -172,8 +172,16 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     [ -n "$settings" ] || fail "strict default missing PI_PLAN_SETTINGS. captured=$captured"
     # Default-deny reads: "/" denied, CWD + ~/.pi + system paths re-allowed
-    echo "$settings" | jq -e '.filesystem.denyRead == ["/"]' >/dev/null \
-      || fail "default-deny: denyRead should be exactly [\"/\"]. settings=$settings"
+    echo "$settings" | jq -e '.filesystem.denyRead | index("/")' >/dev/null \
+      || fail "default-deny: denyRead must contain \"/\". settings=$settings"
+    # Subagent transcripts are write-only. srt resolves by longest prefix, so
+    # this deny reaches inside the ~/.pi read grant: task.ts records a fan-out
+    # and no later agent can read one back. Denying the write too would leave
+    # nothing able to record them, so assert that it is absent.
+    echo "$settings" | jq -e --arg p "$HOME/.pi/agent/task-logs" '.filesystem.denyRead | index($p)' >/dev/null \
+      || fail "task transcripts readable by the agent. settings=$settings"
+    echo "$settings" | jq -e --arg p "$HOME/.pi/agent/task-logs" '.filesystem.denyWrite | index($p) | not' >/dev/null \
+      || fail "task transcripts denied for write, nothing could record them. settings=$settings"
     echo "$settings" | jq -e '.filesystem.allowRead | index("${sysPathExpect}")' >/dev/null \
       || fail "allowRead missing ${sysPathExpect}. settings=$settings"
     echo "$settings" | jq -e '.filesystem.allowRead | index("/nix")' >/dev/null \
