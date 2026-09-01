@@ -237,8 +237,65 @@ reject() {
 	log "REJECTED $title: blocklisted historyId=$hid, replacement search will follow"
 }
 
+# Walks the library and reports what it finds as node_exporter textfile
+# metrics. The import hook only ever sees new grabs, so a periodic pass is
+# what surfaces a backlog that predates it, and what an alert can read.
+sweep_library() {
+	local out="${AUDIO_LANG_TEXTFILE:-/var/lib/prometheus-node-exporter-text-files/audio_language.prom}"
+	local roots="${AUDIO_LANG_ROOTS:-/mnt/media/tv /mnt/media/movies}"
+	local f langs library verdict total=0 unverified=0
+	local -A bad=()
+
+	local root
+	for root in $roots; do
+		library=$(basename "$root")
+		bad[$library]=${bad[$library]:-0}
+		while IFS= read -r -d '' f; do
+			total=$((total + 1))
+			langs=$(audio_langs "$f")
+			has_english_tag "$langs" && continue
+			if tags_are_unknown "$langs"; then
+				verdict=$(whisper_language "$f")
+				[ "$verdict" = en ] && continue
+				# An indecisive vote is not evidence of a wrong language, so it
+				# is counted apart from the files that are positively not English.
+				if [ "$verdict" = unknown ]; then
+					unverified=$((unverified + 1))
+					continue
+				fi
+			fi
+			bad[$library]=$((${bad[$library]} + 1))
+		done < <(find "$root" -type f \( -name '*.mkv' -o -name '*.mp4' -o -name '*.avi' \) -print0)
+	done
+
+	{
+		printf '# HELP media_audio_no_english_files Video files whose audio has no English track\n'
+		printf '# TYPE media_audio_no_english_files gauge\n'
+		for library in "${!bad[@]}"; do
+			printf 'media_audio_no_english_files{library="%s"} %s\n' "$library" "${bad[$library]}"
+		done
+		printf '# HELP media_audio_unverified_files Untagged files whose language whisper could not settle\n'
+		printf '# TYPE media_audio_unverified_files gauge\n'
+		printf 'media_audio_unverified_files %s\n' "$unverified"
+		printf '# HELP media_audio_files_total Video files examined by the last sweep\n'
+		printf '# TYPE media_audio_files_total gauge\n'
+		printf 'media_audio_files_total %s\n' "$total"
+		printf '# HELP media_audio_sweep_timestamp_seconds Unix time the last sweep finished\n'
+		printf '# TYPE media_audio_sweep_timestamp_seconds gauge\n'
+		printf 'media_audio_sweep_timestamp_seconds %s\n' "$(date +%s)"
+	} >"$out.tmp"
+	# node_exporter reads whatever it finds; a half-written file parses as
+	# missing metrics rather than as zero.
+	mv "$out.tmp" "$out"
+	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified"
+}
+
 main() {
 	case "${1:-}" in
+	--sweep)
+		sweep_library
+		return
+		;;
 	--fix)
 		shift
 		[ $# -gt 0 ] || {

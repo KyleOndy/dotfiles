@@ -13,6 +13,7 @@ with lib;
     ./zfs_exporter.nix
     ./exportarr.nix
     ./arr-queue-janitor.nix
+    ./audio-language.nix
     ./jellyfin-exporter.nix
     ./unpoller.nix
   ];

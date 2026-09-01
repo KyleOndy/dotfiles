@@ -1193,6 +1193,11 @@ in
         # item they refuse to match sits in the queue until someone decides
         # between a manual import and a blocklist. This is the backstop for
         # when nobody does.
+        # A release can parse clean on its name and still carry audio in
+        # another language; only the container says which. The import hook
+        # catches new grabs, this catches the backlog that predates it.
+        audioLanguage.enable = true;
+
         arrQueueJanitor = {
           enable = true;
           sonarr = {

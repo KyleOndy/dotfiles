@@ -732,6 +732,49 @@ in
         # nothing, and a sweeper that dies and freezes the gauge the first rule
         # reads. Ordering matters, so the sweeper rule fires first at 48h and
         # answers "is the metric even live" before the stall rule speaks.
+        - name: audio_language
+          interval: 60s
+          rules:
+            - alert: AudioLanguageSweepStale
+              expr: time() - media_audio_sweep_timestamp_seconds > 172800
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Audio language sweep has not run in 48h on {{ $labels.host }}"
+                description: "The sweep writes every media_audio_* metric, so while it is down MediaAudioNotEnglish below is reading a stale count rather than the library as it stands. Fix this one first: systemctl status audio-language-sweep on {{ $labels.host }}."
+
+            - alert: MediaAudioNotEnglish
+              expr: sum(media_audio_no_english_files) > 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $value }} media files have no English audio track"
+                description: >-
+                  A release can parse clean on its name and still carry audio
+                  in another language, which is only visible in the container.
+                  Import-time verdicts are in the journal:
+                  `journalctl -t audio-language-check | grep FAIL` on
+                  {{ $labels.host }}. Per-file detail, including which library
+                  each sits in, comes from
+                  `audio-language-check --sweep` run by hand.
+
+            - alert: MediaAudioUnverified
+              expr: media_audio_unverified_files > 10
+              for: 6h
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $value }} files carry no language tag whisper could settle"
+                description: >-
+                  These are neither confirmed English nor confirmed wrong: the
+                  sample vote came back split or silent, which is what a file
+                  with no dialogue in the sampled windows looks like. Harmless
+                  in small numbers; a jump means either a new source is
+                  stripping language tags or the whisper model is missing and
+                  every detection is failing open.
+
         - name: ytdl_sub
           interval: 60s
           rules:
