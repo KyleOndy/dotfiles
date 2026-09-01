@@ -90,9 +90,9 @@ whisper_stream() {
 	for ((i = 0; i < SAMPLES; i++)); do
 		frac=$((25 + i * 50 / (SAMPLES > 1 ? SAMPLES - 1 : 1)))
 		ss=$((dur * frac / 100))
-		ffmpeg -v error -y -ss "$ss" -t 30 -i "$f" -map "0:a:$stream" -ac 1 -ar 16000 \
-			-c:a pcm_s16le "$work/s.wav" 2>/dev/null || continue
-		out=$(whisper-cli -m "$WHISPER_MODEL" -f "$work/s.wav" --detect-language 2>&1 |
+		ffmpeg -nostdin -v error -y -ss "$ss" -t 30 -i "$f" -map "0:a:$stream" -ac 1 -ar 16000 \
+			-c:a pcm_s16le "$work/s.wav" </dev/null 2>/dev/null || continue
+		out=$(whisper-cli -m "$WHISPER_MODEL" -f "$work/s.wav" --detect-language </dev/null 2>&1 |
 			grep -oP 'auto-detected language: \K.*' || true)
 		lang=${out%% *}
 		conf=$(printf '%s' "$out" | grep -oP 'p = \K[0-9.]+' || echo 0)
