@@ -192,6 +192,12 @@ in
               allow_auto_generated_subtitles = true;
             };
 
+            # Roku advertises Opus as decodable in Matroska and then plays it
+            # as silence, and Jellyfin copies the track through untouched
+            # rather than transcoding it. itag 140 (AAC) is offered on every
+            # video; the fallback covers a video where it is not.
+            format = "bv*+ba[acodec^=mp4a]/bv*+ba/b";
+
             # No player_client, no cookiefile, no PO token provider. Pinning
             # player_client to "web" is what produced format-18-only downloads
             # through spring 2026: YouTube serves that client SABR-only, yt-dlp
