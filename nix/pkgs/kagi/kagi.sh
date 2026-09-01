@@ -6,8 +6,8 @@ readonly api="https://kagi.com/api/v1"
 
 usage() {
 	cat >&2 <<-'EOF'
-		usage: kagi search <query> [count]   web search, default 5 results
-		       kagi read <url>...            up to 10 pages, as markdown
+		usage: kagi search <query> [count]   web search, default 10 results
+		       kagi read <url>...            pages as markdown, 10 per request
 	EOF
 	exit 64
 }
@@ -48,19 +48,29 @@ trap 'rm -f "$body"' EXIT
 case ${1:-} in
 search)
 	[[ -n ${2:-} ]] || usage
-	jq -n --arg q "$2" --argjson n "${3:-5}" '{query: $q, limit: $n}' >"$body"
+	# One request returns whatever a single upstream pass found, ~40 results,
+	# and `limit` only truncates that. A second search to see more of the same
+	# ranking costs another request; a larger count costs nothing.
+	jq -n --arg q "$2" --argjson n "${3:-10}" '{query: $q, limit: $n}' >"$body"
 	post search "$body" |
 		jq -r '.data.search[]? | "\(.title)\n\(.url)\n\(.snippet // "" | gsub("<[^>]*>"; "") | gsub("\\s+"; " "))\n"'
 	;;
 read)
 	shift
-	[[ $# -gt 0 && $# -le 10 ]] || usage
-	printf '%s\n' "$@" | jq -R '{url: .}' | jq -s '{pages: .}' >"$body"
-	# A page the crawler could not reach comes back with markdown null and a
-	# per-page error string, which has to read as a failure rather than as an
-	# empty page.
-	post extract "$body" |
-		jq -r '.data[] | "## \(.url)\n\n\(.markdown // "EXTRACTION FAILED: \(.error // "unknown")")\n"'
+	[[ $# -gt 0 ]] || usage
+	# The endpoint caps a request at 10 urls but bills each one, so batching
+	# buys round trips rather than money. Chunking beats rejecting the 11th:
+	# the caller would only re-run the command twice for the same price.
+	while (($#)); do
+		batch=("${@:1:10}")
+		shift $(($# < 10 ? $# : 10))
+		printf '%s\n' "${batch[@]}" | jq -R '{url: .}' | jq -s '{pages: .}' >"$body"
+		# A page the crawler could not reach comes back with markdown null and a
+		# per-page error string, which has to read as a failure rather than as an
+		# empty page.
+		post extract "$body" |
+			jq -r '.data[] | "## \(.url)\n\n\(.markdown // "EXTRACTION FAILED: \(.error // "unknown")")\n"'
+	done
 	;;
 *)
 	usage
