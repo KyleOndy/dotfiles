@@ -234,11 +234,17 @@ in
         target = "tank/backups";
         recvOptions = "o readonly=on";
       };
-      # Working video projects. This one has no matching s3-archive-push unit
-      # below, and that omission is the whole offsite policy for it: the
-      # push units are declared per dataset, so a dataset nobody declares is
-      # a dataset that never leaves the house. Do not "fix" this by adding a
-      # third pushUnit line.
+      # Working video projects. This one has no matching s3-archive-push
+      # unit below, and that omission is deliberate: the push units are
+      # declared per dataset, so a dataset nobody declares never enters the
+      # archive tier. Do not "fix" it by adding a third pushUnit line.
+      #
+      # It does have an offsite copy, from a different source to a different
+      # bucket. trex pushes ~/resolve straight to the video scratch bucket
+      # with `backup-resolve-projects --s3`, on a lifecycle built to be
+      # emptied when a project ships. Routing that through here instead
+      # would put a delete-capable credential on the host that also holds
+      # the photos. See tf/video-scratch.tf.
       "storage/projects" = {
         source = "${tigerSyncoid}:storage/projects";
         target = "tank/projects";

@@ -6,16 +6,40 @@
 # delete, and a bucket boundary is much harder to get wrong than a
 # prefix-scoped policy when the thing being deleted is irreversible.
 #
-# Standard-IA rather than Deep Archive. This data is read back mid-project at
-# millisecond latency, and it lives for weeks rather than years, so Deep
-# Archive's 180-day minimum would bill long after the footage is gone.
-# Standard-IA's minimum is 30 days:
+# Two storage classes, split by what each half of a project is for.
+#
+# project/ is the edit: shot lists, stringouts, exports and the Resolve
+# project library. Tens of MB, rewritten every session, and the half you
+# would want back in a hurry. Standard-IA, 30-day minimum.
+#
+# footage/ is the camera negative. Hundreds of GB, written once when a card
+# is dumped and never touched again. Deep Archive. It exists for "the house
+# is gone" and nothing else, so a 12 to 48 hour restore is not a cost worth
+# paying to avoid. At $0.00099/GB-month against Standard-IA's $0.0125, the
+# whole 180-day minimum still costs less than a single month of IA: 222G is
+# $1.32 committed either way, against $2.78 for one month of IA.
+# https://aws.amazon.com/s3/pricing/
+#
+# Per-class minimum durations, which the lifecycle rules below are matched to:
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/storage-class-intro.html#sc-compare
 #
 # The storage class is set on the PUT, not by a transition rule, for the same
 # reason as the archive bucket.
 locals {
   video_scratch_bucket_name = "ondy-video-scratch"
+
+  # prefix -> noncurrent retention, in days. Each value is its prefix's
+  # storage class minimum billing duration, which is the longest window that
+  # is still free. Expiring sooner charges a prorated early-deletion fee and
+  # buys nothing, the same trade archive-backup.tf records for its own 180.
+  #
+  # Set these from the storage class the pusher passes on the PUT
+  # (nix/pkgs/backup-resolve-projects). Changing one without the other is how
+  # this starts quietly costing money.
+  video_scratch_windows = {
+    "project/" = 30  # STANDARD_IA
+    "footage/" = 180 # DEEP_ARCHIVE
+  }
 }
 
 resource "random_pet" "video_scratch_suffix" {
@@ -60,24 +84,29 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "video_scratch" {
 resource "aws_s3_bucket_lifecycle_configuration" "video_scratch" {
   bucket = aws_s3_bucket.video_scratch.id
 
-  rule {
-    id     = "expire-noncurrent"
-    status = "Enabled"
+  dynamic "rule" {
+    for_each = local.video_scratch_windows
+    content {
+      id     = "expire-noncurrent-${replace(rule.key, "/", "")}"
+      status = "Enabled"
 
-    filter {}
+      filter {
+        prefix = rule.key
+      }
 
-    noncurrent_version_expiration {
-      noncurrent_days = 30
-    }
+      noncurrent_version_expiration {
+        noncurrent_days = rule.value
+      }
 
-    expiration {
-      expired_object_delete_marker = true
-    }
+      expiration {
+        expired_object_delete_marker = true
+      }
 
-    # Raw video multiparts are large enough that an abandoned upload is worth
-    # real money, unlike the archive bucket's stills.
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 3
+      # Raw video multiparts are large enough that an abandoned upload is
+      # worth real money, unlike the archive bucket's stills.
+      abort_incomplete_multipart_upload {
+        days_after_initiation = 3
+      }
     }
   }
 }

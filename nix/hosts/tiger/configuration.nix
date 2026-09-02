@@ -258,11 +258,12 @@ in
     # Working video projects: the Resolve trees under ~/resolve on trex plus
     # the Resolve project library, pushed by backup-resolve-projects.
     #
-    # Tier 1 and 2 only. pika replicates it, S3 never sees it: a few hundred
-    # GB of re-shootable-in-principle camera footage is not what a $54 restore
-    # is for, and the uplink would spend days on it. That makes this the first
-    # dataset in the fleet with a deliberate hole in tier 3, which is why
-    # docs/backup-strategy.md now has three scope classes instead of two.
+    # pika replicates this; the archive bucket never sees it. Tier 3 is built
+    # to hold family photos forever on a credential that cannot delete, and
+    # video wants a holding pen you empty when a project ships. Those are
+    # different jobs, so the offsite copy goes to its own bucket, pushed from
+    # trex rather than from the replica. See tf/video-scratch.tf and the
+    # backup doc's "The archive tier is not universal".
     #
     # Create the dataset once on the host:
     #   zfs create -o mountpoint=legacy storage/projects

@@ -20,7 +20,8 @@ In scope, and the only things in scope:
   `videos`, `apps`.
 - `storage/projects`, working video projects. The Resolve trees under
   `~/resolve` on trex plus the Resolve project library, pushed by
-  `backup-resolve-projects`. Tier 1 and tier 2 only.
+  `backup-resolve-projects`. Tiers 1 and 2 here; its offsite copy comes from
+  a different bucket by a different route, below.
 
 That is ~1.12 TB on pika once tiger's snapshot history comes along, and
 637 GB of current files across 157,301 objects for the S3 tier.
@@ -29,27 +30,40 @@ That is ~1.12 TB on pika once tiger's snapshot history comes along, and
 and 749G now, which is most of why the pool moved from 80% to 85% in a month
 and is the number to watch before adding anything else here.
 
-### Tier 3 is not universal
+### The archive tier is not universal
 
-`storage/projects` stops at pika. It is the first dataset here with a
-deliberate hole in the offsite copy, so the reason is recorded rather than
-left to be re-derived:
+`storage/projects` never reaches the archive bucket. It gets an offsite copy
+anyway, from a different source, to a different bucket, on a different
+lifecycle. Worth being precise about, because "backed up offsite" is true of
+it and "tier 3" is not.
 
-- It is hundreds of GB of camera footage against a 24.6 Mbps uplink capped
-  at 2 MB/s. The 222G project that opened this dataset is a 31-hour push on
-  its own, and it would recur every time a card is dumped.
-- Restore economics invert. Egress dominates the ~$54 figure below, and
-  video is the one thing here that is bulky enough to make that a real bill
-  rather than a rounding error.
-- The loss is bounded and known. Losing tiger and pika together loses the
-  footage. Photos and documents are irreplaceable; a trip's rushes are
-  painful, and that is a different word.
+Tier 3 is built to keep family photos and documents forever, on a credential
+that cannot delete, with permanent removal reserved to a lifecycle rule.
+Video wants the opposite: a holding pen you empty on purpose when a project
+ships. Putting the two in one bucket would mean a delete verb on the
+credential that also reaches the photos, and `tf/video-scratch.tf` says why
+that boundary is a bucket rather than a prefix:
 
-The mechanism is the absence of an `s3-archive-push` unit, not a filter. The
-push units are declared per dataset in `pika/configuration.nix`, so a
-dataset nobody declares is a dataset that never leaves the house. There is
-no exclusion list to keep in sync, which is the same property the dataset
-boundary buys everywhere else in this document.
+> a bucket boundary is much harder to get wrong than a prefix-scoped policy
+> when the thing being deleted is irreversible.
+
+So the shape is:
+
+```
+trex ~/resolve --sync--> ondy-video-scratch     project/  Standard-IA
+                                                footage/  Deep Archive
+```
+
+Pushed from trex by `backup-resolve-projects --s3`, not from pika. The
+replica is not the source: pika holds a copy for restoring after a mistake,
+and the laptop holds the working tree the offsite copy is taken from. Two
+paths from one project, which is a real difference from photos, where every
+offsite byte comes off the replica.
+
+The mechanism is still absence, not a filter. `s3-archive-push` units are
+declared per dataset in `pika/configuration.nix`, so a dataset nobody
+declares never enters the archive tier, and there is no exclusion list to
+keep in sync.
 
 Out of scope, deliberately:
 
@@ -122,9 +136,21 @@ still looks like a backup. The footage tree is plain files and syncs either
 way, so a run with Resolve open is a partial success reported as a failure,
 never a silent one.
 
+`--s3` pushes the same two trees to the video scratch bucket instead, split
+by storage class: `01_Footage` to `footage/` in Deep Archive, everything else
+plus the library to `project/` in Standard-IA. The two modes are independent.
+tiger is the copy you restore from after a mistake; the bucket answers "the
+house is gone" and nothing else.
+
+The first footage push is roughly 31 hours against a 24.6 Mbps uplink and
+uncapped, since awscli only exposes `max_bandwidth` as a config file key and
+setting it would throttle every other use of the profile. Run it when nobody
+needs the line. Afterwards it is a directory walk, because camera footage
+stops changing the day the trip ends.
+
 Being run by hand makes it the second writer here whose absence is not
-measurable from the inside. It has no freshness alert yet, for the reason
-in [What is left](#what-is-left).
+measurable from the inside, in both modes. It has no freshness alert yet, for
+the reason in [What is left](#what-is-left).
 
 ## Architecture
 
@@ -133,7 +159,9 @@ tiger (DMZ)                  pika (LAN)                  AWS
 -----------                  ----------                  ---
 storage/photos    --send-->  tank/photos     --sync-->   Deep Archive
 storage/backups   --send-->  tank/backups    --sync-->   Deep Archive
-storage/projects  --send-->  tank/projects        x       (stays in house)
+storage/projects  --send-->  tank/projects        x       (see below)
+
+trex ~/resolve ------------------------------- --sync-->   video scratch
 
 raidz1, 3x 4TB SMR           mirror, 2x 6TB SATA         versioned
 sanoid, snapshots            sanoid, prune only          put-only IAM
@@ -696,6 +724,13 @@ against the mtime of the newest file in `~/resolve`, alerting only when the
 laptop holds work the backup does not. That measures the thing that matters
 instead of the clock. Recorded rather than built, and worth doing before the
 next trip.
+
+The `--s3` mode has the same hole and one more: nothing reconciles the video
+scratch bucket against the source the way `s3-archive-reconcile` does for the
+archive prefixes. `S3ArchiveObjectsMissing` is the rule that earns tier 3,
+and the video bucket has no equivalent. A push that believes it is current
+while the bucket is not would go unnoticed, which is the exact failure the
+old fanout arrangement hid for a year.
 
 **The `zfs-storage` Grafana dashboard.** `DASHBOARD_CONVENTIONS.md:160`
 lists it. It was never built.

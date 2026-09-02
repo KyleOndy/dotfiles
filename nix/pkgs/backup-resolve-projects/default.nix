@@ -3,6 +3,8 @@
   rsync,
   openssh,
   findutils,
+  awscli2,
+  terraform,
 }:
 
 writeShellApplication {
@@ -11,6 +13,8 @@ writeShellApplication {
     rsync
     openssh
     findutils
+    awscli2
+    terraform
   ];
   text = builtins.readFile ./backup-resolve-projects.sh;
 }

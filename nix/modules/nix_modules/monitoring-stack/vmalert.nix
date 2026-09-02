@@ -576,11 +576,15 @@ in
         # never runs publishes nothing to be stale about.
         #
         # Two prefixes, not three. tank/projects is replicated but never
-        # pushed, by design, so it has no s3-archive-push unit and therefore
-        # no prefix label to match on. Every rule here is keyed on a series
-        # the push units emit, so its absence is silent rather than a
-        # permanently firing alert. Adding a projects prefix here without
+        # pushed to the archive bucket, so it has no s3-archive-push unit and
+        # therefore no prefix label to match on. Every rule here is keyed on
+        # a series the push units emit, so its absence is silent rather than
+        # a permanently firing alert. Adding a projects prefix here without
         # first adding the push unit on pika would invert that.
+        #
+        # The project offsite copy goes to a different bucket, pushed by hand
+        # from trex, and is not watched here at all. Nothing off-fleet is.
+        # See the backup doc's What is left.
         #
         # These rules go quiet during an initial seed, which legitimately runs
         # for days before recording a first success. S3ArchivePushStale also
