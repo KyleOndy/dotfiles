@@ -162,8 +162,9 @@ in
   # does then tiger dropping an old snapshot cascades into the backup and the
   # second copy quietly becomes a mirror of the first.
   #
-  #   tiger storage/backups: hourly 4,  daily 31, monthly 24, yearly 10
-  #   tiger storage/photos:            daily  8, monthly 12
+  #   tiger storage/backups:  hourly 4,  daily 31, monthly 24, yearly 10
+  #   tiger storage/photos:             daily  8, monthly 12, yearly 10
+  #   tiger storage/projects: hourly 24, daily 30, monthly  2, yearly  0
   services.sanoid = {
     enable = true;
     extraArgs = [ "--verbose" ];
@@ -183,6 +184,14 @@ in
         daily = 30;
         monthly = 24;
         yearly = 10;
+      };
+      "tank/projects" = {
+        autosnap = false;
+        autoprune = true;
+        hourly = 24;
+        daily = 60;
+        monthly = 3;
+        yearly = 0;
       };
     };
   };
@@ -223,6 +232,16 @@ in
       "storage/backups" = {
         source = "${tigerSyncoid}:storage/backups";
         target = "tank/backups";
+        recvOptions = "o readonly=on";
+      };
+      # Working video projects. This one has no matching s3-archive-push unit
+      # below, and that omission is the whole offsite policy for it: the
+      # push units are declared per dataset, so a dataset nobody declares is
+      # a dataset that never leaves the house. Do not "fix" this by adding a
+      # third pushUnit line.
+      "storage/projects" = {
+        source = "${tigerSyncoid}:storage/projects";
+        target = "tank/projects";
         recvOptions = "o readonly=on";
       };
     };

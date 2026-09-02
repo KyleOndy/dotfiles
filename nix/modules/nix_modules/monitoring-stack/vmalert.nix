@@ -525,7 +525,7 @@ in
             # a staleness rule with nothing to subtract from matches
             # nothing at all rather than firing.
             - alert: BackupReplicaDatasetMissing
-              expr: absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/photos"}) or absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/backups"})
+              expr: absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/photos"}) or absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/backups"}) or absent(zfs_dataset_snapshot_count{host="pika",dataset="tank/projects"})
               for: 1h
               labels:
                 severity: critical
@@ -534,7 +534,7 @@ in
                 description: "{{ $labels.dataset }} reports no snapshot metrics at all on pika. Either the dataset was destroyed, or zfs-snapshot-exporter is not writing. Both leave every other rule in this group matching nothing. Check `zfs list -r tank` and `systemctl status zfs-snapshot-exporter` on pika."
 
             - alert: BackupReplicaEmpty
-              expr: zfs_dataset_snapshot_count{host="pika",dataset=~"tank/(photos|backups)"} == 0
+              expr: zfs_dataset_snapshot_count{host="pika",dataset=~"tank/(photos|backups|projects)"} == 0
               for: 2h
               labels:
                 severity: critical
@@ -543,7 +543,7 @@ in
                 description: "{{ $labels.dataset }} exists on pika but holds zero snapshots, so the second copy of this data does not exist. sanoid on pika prunes and never creates, so it cannot refill this on its own. Check syncoid and pika's retention against tiger's."
 
             - alert: BackupReplicaStale
-              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups)"} > 36 * 3600
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups|projects)"} > 36 * 3600
               for: 1h
               labels:
                 severity: warning
@@ -552,7 +552,7 @@ in
                 description: "The newest snapshot in {{ $labels.dataset }} on pika is more than 36 hours old, against a daily syncoid timer. If the matching storage dataset on tiger is fresh, replication is the broken end: check `systemctl status syncoid-storage-*` on pika."
 
             - alert: BackupReplicaCriticallyStale
-              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups)"} > 72 * 3600
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="pika",dataset=~"tank/(photos|backups|projects)"} > 72 * 3600
               for: 1h
               labels:
                 severity: critical
@@ -563,7 +563,7 @@ in
             # tiger's own snapshots, because pika can only be as fresh as
             # what it is pulling from.
             - alert: BackupSourceSnapshotsStale
-              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="tiger",dataset=~"storage/(photos|backups)"} > 36 * 3600
+              expr: time() - zfs_dataset_latest_snapshot_timestamp_seconds{host="tiger",dataset=~"storage/(photos|backups|projects)"} > 36 * 3600
               for: 1h
               labels:
                 severity: warning
@@ -574,6 +574,13 @@ in
         # The offsite tier, tier 3 of docs/backup-strategy.md. Same ordering
         # as backup_replication above: absence first, because a push that
         # never runs publishes nothing to be stale about.
+        #
+        # Two prefixes, not three. tank/projects is replicated but never
+        # pushed, by design, so it has no s3-archive-push unit and therefore
+        # no prefix label to match on. Every rule here is keyed on a series
+        # the push units emit, so its absence is silent rather than a
+        # permanently firing alert. Adding a projects prefix here without
+        # first adding the push unit on pika would invert that.
         #
         # These rules go quiet during an initial seed, which legitimately runs
         # for days before recording a first success. S3ArchivePushStale also

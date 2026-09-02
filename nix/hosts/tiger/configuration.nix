@@ -128,6 +128,26 @@ in
           monthly = 12;
           yearly = 10;
         };
+        "storage/projects" = {
+          autosnap = true;
+          autoprune = true;
+
+          # Video projects: hundreds of GB of write-once camera footage
+          # sitting next to a few hundred KB of edit decisions that change
+          # every session. Hourly exists for the second of those and is
+          # nearly free for the first, since unchanged footage is shared
+          # between snapshots rather than copied into each one.
+          #
+          # No yearly tier, unlike the two above, and that asymmetry is the
+          # point. A project is finite: it ships, the footage gets deleted,
+          # and a yearly snapshot would pin those blocks for a year on a pool
+          # already at 85%. Retention here is sized to survive an accident,
+          # not to archive.
+          hourly = 24;
+          daily = 30;
+          monthly = 2;
+          yearly = 0;
+        };
       };
     };
     nix-serve = {
@@ -198,7 +218,7 @@ in
       # per-dataset, so granting the right set below does not revoke a wider
       # one above; this has to be explicit.
       zfs unallow -u svc.syncoid storage
-      for ds in storage/photos storage/backups; do
+      for ds in storage/photos storage/backups storage/projects; do
         zfs allow -u svc.syncoid send,hold,release "$ds"
       done
     '';
@@ -232,6 +252,22 @@ in
     };
     "/mnt/photos" = {
       device = "storage/photos";
+      fsType = "zfs";
+      neededForBoot = false;
+    };
+    # Working video projects: the Resolve trees under ~/resolve on trex plus
+    # the Resolve project library, pushed by backup-resolve-projects.
+    #
+    # Tier 1 and 2 only. pika replicates it, S3 never sees it: a few hundred
+    # GB of re-shootable-in-principle camera footage is not what a $54 restore
+    # is for, and the uplink would spend days on it. That makes this the first
+    # dataset in the fleet with a deliberate hole in tier 3, which is why
+    # docs/backup-strategy.md now has three scope classes instead of two.
+    #
+    # Create the dataset once on the host:
+    #   zfs create -o mountpoint=legacy storage/projects
+    "/mnt/projects" = {
+      device = "storage/projects";
       fsType = "zfs";
       neededForBoot = false;
     };
@@ -325,6 +361,9 @@ in
     # rrsync refuses to start if its restricted directory is absent, so this
     # cannot be left to whichever histdb-backup run happens to land first.
     "d /mnt/backups/kyle/histdb 0755 kyle kyle -"
+    # A freshly created dataset mounts as root:root, and backup-resolve-projects
+    # comes in over ssh as kyle.
+    "d /mnt/projects 0755 kyle kyle -"
     # svc.deploy owns so it can set timestamps via rsync; caddy group for serving.
     "d /var/www/kyleondy.com 0775 svc.deploy caddy -"
     "d /var/www/cogsworth.ondy.org 0775 svc.deploy caddy -"

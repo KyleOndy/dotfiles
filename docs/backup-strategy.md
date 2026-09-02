@@ -7,7 +7,8 @@ one.
 This document is the design, the reasoning, and what is actually running.
 Anything not yet built is under [What is left](#what-is-left).
 
-State as measured 2026-08-04. The numbers go stale; the shape does not.
+State as measured 2026-08-04, with pool capacity and `storage/photos`
+re-measured 2026-09-01. The numbers go stale; the shape does not.
 
 ## Scope
 
@@ -17,9 +18,38 @@ In scope, and the only things in scope:
   plus `_provisional`.
 - `storage/backups`, 650G used, 319G referenced. `kristen`, `kyle`,
   `videos`, `apps`.
+- `storage/projects`, working video projects. The Resolve trees under
+  `~/resolve` on trex plus the Resolve project library. Tier 1 and tier 2
+  only.
 
 That is ~1.12 TB on pika once tiger's snapshot history comes along, and
 637 GB of current files across 157,301 objects for the S3 tier.
+
+`storage/photos` was 513G used and 327G referenced on 2026-08-04. It is 963G
+and 749G now, which is most of why the pool moved from 80% to 85% in a month
+and is the number to watch before adding anything else here.
+
+### Tier 3 is not universal
+
+`storage/projects` stops at pika. It is the first dataset here with a
+deliberate hole in the offsite copy, so the reason is recorded rather than
+left to be re-derived:
+
+- It is hundreds of GB of camera footage against a 24.6 Mbps uplink capped
+  at 2 MB/s. The 222G project that opened this dataset is a 31-hour push on
+  its own, and it would recur every time a card is dumped.
+- Restore economics invert. Egress dominates the ~$54 figure below, and
+  video is the one thing here that is bulky enough to make that a real bill
+  rather than a rounding error.
+- The loss is bounded and known. Losing tiger and pika together loses the
+  footage. Photos and documents are irreplaceable; a trip's rushes are
+  painful, and that is a different word.
+
+The mechanism is the absence of an `s3-archive-push` unit, not a filter. The
+push units are declared per dataset in `pika/configuration.nix`, so a
+dataset nobody declares is a dataset that never leaves the house. There is
+no exclusion list to keep in sync, which is the same property the dataset
+boundary buys everywhere else in this document.
 
 Out of scope, deliberately:
 
@@ -38,13 +68,18 @@ Out of scope, deliberately:
 ### The one rule that makes this work
 
 The backup boundary is the dataset. Nothing gets backed up because it is
-important. It gets backed up because it lives in `storage/photos` or
-`storage/backups`.
+important. It gets backed up because it lives in `storage/photos`,
+`storage/backups` or `storage/projects`.
 
-Anything new that matters has to be made to land in one of those two
+Anything new that matters has to be made to land in one of those three
 datasets. That is a deliberate constraint, not a limitation. It means the
 question "is this backed up?" has a one-word answer you can check with
 `zfs list`, instead of an audit.
+
+The dataset now answers a second question the same way. It sets not just
+whether a thing is backed up but how far it travels, because the tier 3
+push is declared per dataset. "How many copies does this have?" is still
+`zfs list` plus one glance at the push units, never a per-directory audit.
 
 ### Writers into storage/backups
 
@@ -65,10 +100,11 @@ tiger (DMZ)                  pika (LAN)                  AWS
 -----------                  ----------                  ---
 storage/photos    --send-->  tank/photos     --sync-->   Deep Archive
 storage/backups   --send-->  tank/backups    --sync-->   Deep Archive
+storage/projects  --send-->  tank/projects        x       (stays in house)
 
 raidz1, 3x 4TB SMR           mirror, 2x 6TB SATA         versioned
 sanoid, snapshots            sanoid, prune only          put-only IAM
-80% full                     NVMe root, on UPS           no --delete
+85% full                     NVMe root, on UPS           no --delete
 ```
 
 Read the arrows as trust, not just data. Every arrow is initiated by the
@@ -87,9 +123,17 @@ tiger does not get restructured. You do not rebuild the only writable copy
 of the data.
 
 Sanoid runs at `tiger/configuration.nix:98`, covering `storage/backups`
-(hourly 4, daily 31, monthly 24, yearly 10) and `storage/photos` (daily 8,
-monthly 12, yearly 10). `autoScrub` is on at `:95`, `autoSnapshot` off at
-`:96`.
+(hourly 4, daily 31, monthly 24, yearly 10), `storage/photos` (daily 8,
+monthly 12, yearly 10) and `storage/projects` (hourly 24, daily 30, monthly
+2, no yearly). `autoScrub` is on at `:95`, `autoSnapshot` off at `:96`.
+
+`storage/projects` is the only one without a yearly tier, and the asymmetry
+is deliberate. A video project is finite: it ships, the footage gets
+deleted, and a yearly snapshot would pin those blocks for a year on a pool
+already at 85%. Its retention is sized to survive an accident, not to
+archive. Hourly is there for the few hundred KB of edit decisions that
+change every session, and costs almost nothing for the footage beside them,
+since unchanged blocks are shared between snapshots rather than copied.
 
 `storage/photos` carries `yearly = 10` so that pika's own `yearly = 10` has
 something to hold. sanoid on pika prunes and never creates, so a retention
@@ -105,8 +149,8 @@ input was removed in `e94efb4e`, so this stays manual, and any new dataset
 needs the same treatment.
 
 What is recorded is partial: the `zfs create` for `storage/immich` at
-`tiger/configuration.nix:240`, and the `acltype=posixacl` that
-`storage/photos` needs at `:326-328`. The `zpool create` that made
+`tiger/configuration.nix:276`, and the `acltype=posixacl` that
+`storage/photos` needs at `:400-401`. The `zpool create` that made
 `storage` itself is written down nowhere. Rebuilding tiger means
 reconstructing it from `zpool history` on a pool that, in the scenario
 where you need this, no longer exists. Worth fixing before it is needed.
@@ -118,9 +162,10 @@ Pull needs no write permission on tiger at all:
 ```bash
 zfs allow -u svc.syncoid send,hold,release storage/photos
 zfs allow -u svc.syncoid send,hold,release storage/backups
+zfs allow -u svc.syncoid send,hold,release storage/projects
 ```
 
-That runs as a systemd unit at `tiger/configuration.nix:188` rather than by
+That runs as a systemd unit at `tiger/configuration.nix:207` rather than by
 hand, because `zfs allow` lives in dataset properties and a recreated
 dataset would silently drop it. It is idempotent, so it reapplies on every
 activation.
@@ -147,7 +192,7 @@ Recorded rather than solved.
 
 Provisioning is not in Nix. The full sequence, from the nixos-anywhere
 kexec through partitioning to `zpool create`, is recorded in the comment at
-the foot of `pika/configuration.nix:324`.
+the foot of `pika/configuration.nix:400`.
 
 ### Isolation comes from the router
 
@@ -162,7 +207,7 @@ metrics and logs to tiger, and the S3 sync goes straight out.
 pika also takes nothing from tiger as a binary substituter.
 `deployment_target.nix:102` hands every NixOS node
 `trusted-substituters = [ "ssh://svc.deploy@tiger.dmz.1ella.com" ]`, and
-`pika/configuration.nix:118` forces that list empty. pika is the host that
+`pika/configuration.nix:141` forces that list empty. pika is the host that
 insures against tiger, so it accepts no store paths from it.
 
 ### Two flags that would undo all of it
@@ -199,12 +244,17 @@ config.
 The invariant: pika retention >= tiger retention, always.
 
 ```
-             tiger                        pika
-tank/backups hourly 4, daily 31,          hourly 4, daily 60,
-             monthly 24, yearly 10        monthly 36, yearly 15
-tank/photos  daily 8, monthly 12,         daily 30, monthly 24,
-             yearly 10                    yearly 10
+              tiger                       pika
+tank/backups  hourly 4, daily 31,         hourly 4, daily 60,
+              monthly 24, yearly 10       monthly 36, yearly 15
+tank/photos   daily 8, monthly 12,        daily 30, monthly 24,
+              yearly 10                   yearly 10
+tank/projects hourly 24, daily 30,        hourly 24, daily 60,
+              monthly 2, no yearly        monthly 3, no yearly
 ```
+
+`tank/projects` holds no yearly tier because tiger creates none, and a tier
+tiger does not produce is a tier pika cannot keep.
 
 sanoid on pika has `autosnap = false`. It prunes and never creates. If it
 ever prunes faster than tiger does, tiger dropping an old snapshot cascades
@@ -512,7 +562,17 @@ repo. Write it before we need it, not during.
 in `storage` are `WDC_WD40EFAX`. The EFAX code at 2-6TB is WD Red DM-SMR. A
 resilver is sustained-write, which is precisely the workload where DM-SMR
 throughput collapses, and raidz1 carries zero redundancy for the whole
-window. The pool is also at 80%, where ZFS allocation starts to suffer.
+window. The pool is at 85% as of 2026-09-01, past the 80% where ZFS
+allocation starts to suffer, with 967G free.
+
+`storage/projects` was added on top of that, knowingly. 222G of it is one
+trip, which takes the pool to roughly 87%. The dataset carries no yearly
+tier and a two-month monthly tier specifically so that deleting a finished
+project returns the space on the timescale of weeks rather than years, but
+that is mitigation, not a fix. Video is now competing with the photo library
+for the last terabyte of a pool that should not be resilvered, and the CMR
+replacements below stop being a long-term item at the point where the next
+trip does not fit.
 
 That inverts the obvious reading of this architecture. pika is not a
 nice-to-have second tier. It is insurance against a primary that is more
@@ -567,7 +627,7 @@ the only finished offsite copy, so it stays until the new bucket completes
 one clean push of both prefixes.
 
 **Remove `photos-fanout` from tiger.** The unit at
-`tiger/configuration.nix:258` still runs nightly against the old bucket,
+`tiger/configuration.nix:294` still runs nightly against the old bucket,
 and `photos_backup_aws_credentials` at `:1201` is the last AWS credential
 on the host that faces the internet. Removing both is the point of moving
 the push to pika. Blocked on the item above.
