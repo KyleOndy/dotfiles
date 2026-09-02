@@ -3,6 +3,7 @@ self: super: {
   audio-language-check = super.callPackage ./audio-language-check { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
   backup-photos = super.callPackage ./backup-photos { };
+  backup-resolve-projects = super.callPackage ./backup-resolve-projects { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
   forge = super.callPackage ./forge { lima = self.master.lima; };
   fuji-transcode = super.callPackage ./fuji-transcode { };

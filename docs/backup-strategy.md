@@ -19,8 +19,8 @@ In scope, and the only things in scope:
 - `storage/backups`, 650G used, 319G referenced. `kristen`, `kyle`,
   `videos`, `apps`.
 - `storage/projects`, working video projects. The Resolve trees under
-  `~/resolve` on trex plus the Resolve project library. Tier 1 and tier 2
-  only.
+  `~/resolve` on trex plus the Resolve project library, pushed by
+  `backup-resolve-projects`. Tier 1 and tier 2 only.
 
 That is ~1.12 TB on pika once tiger's snapshot history comes along, and
 637 GB of current files across 157,301 objects for the S3 tier.
@@ -92,6 +92,39 @@ other tier here is driven by a systemd timer on a host we control, so
 absence is measurable from the inside. The Windows push is not, so the
 client writes a heartbeat file on success and tiger alerts on its age. Any
 future writer that lives off-fleet needs the same treatment.
+
+### Writers into storage/projects
+
+One, `backup-resolve-projects` on trex, run by hand. It mirrors two trees:
+`~/resolve` to `/mnt/projects/resolve`, and Resolve's project library to
+`/mnt/projects/resolve-project-library`.
+
+Both, together, or neither is worth having. `~/resolve` holds the footage
+and the shot lists; the library holds the timelines, grades and bin
+structure that reference them, and Resolve keeps it under Application
+Support rather than in the project folder. Backing up the project folder
+alone loses every edit decision ever made, and nothing about the on-disk
+layout hints at that. Hence one command rather than two rsync invocations
+someone has to remember to pair.
+
+It mirrors with `--delete`, so cleaning up a finished project locally
+removes it from tiger on the next run, after which it ages out on the
+retention above: recoverable for about a month, then gone. That is the
+intended lifecycle for a dataset on a pool at 85%, and it is why the script
+refuses to run against a missing or empty source. `--delete` from an empty
+tree is a one-command wipe of the copy that exists to survive exactly that
+class of mistake.
+
+It also skips the library, loudly and with a non-zero exit, while Resolve is
+running. The library is a live SQLite database, and a copy taken with it
+open restores as a corrupt project, which is worse than no copy because it
+still looks like a backup. The footage tree is plain files and syncs either
+way, so a run with Resolve open is a partial success reported as a failure,
+never a silent one.
+
+Being run by hand makes it the second writer here whose absence is not
+measurable from the inside. It has no freshness alert yet, for the reason
+in [What is left](#what-is-left).
 
 ## Architecture
 
@@ -636,6 +669,26 @@ the push to pika. Blocked on the item above.
 
 **Run the first drill.** Both kinds. Until then this document describes a
 design, not a demonstrated capability.
+
+**Freshness for `backup-resolve-projects`.** It is run by hand, so its
+absence is not measurable from the inside, which is the same hole the
+Windows push has. The Windows fix does not port directly: that push is
+nightly, so a heartbeat older than a day is unambiguously a fault. This one
+legitimately does not run for weeks between projects, so a naive staleness
+alert would fire through every gap and get silenced, which is worse than no
+alert.
+
+The existing replication rules do not cover it either. sanoid keeps
+snapshotting `storage/projects` whether or not anything new lands in it, so
+`BackupReplicaStale` stays quiet while the laptop copy drifts arbitrarily
+far ahead. Nothing currently reports "you have been editing for a week and
+never pushed."
+
+The shape that probably works is a heartbeat on the trex side, compared
+against the mtime of the newest file in `~/resolve`, alerting only when the
+laptop holds work the backup does not. That measures the thing that matters
+instead of the clock. Recorded rather than built, and worth doing before the
+next trip.
 
 **The `zfs-storage` Grafana dashboard.** `DASHBOARD_CONVENTIONS.md:160`
 lists it. It was never built.

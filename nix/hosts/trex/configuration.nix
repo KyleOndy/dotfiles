@@ -121,6 +121,10 @@
   home-manager.users.kyle.home.packages = with pkgs; [
     helios
     backup-photos
+    # Mirrors ~/resolve and the Resolve project library to tiger's
+    # storage/projects, the one backed-up dataset that never goes offsite.
+    # See nix/pkgs/backup-resolve-projects.
+    backup-resolve-projects
     photos-recall
     photos-promote
     winnow
