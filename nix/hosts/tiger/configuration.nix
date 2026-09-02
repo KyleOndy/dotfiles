@@ -363,6 +363,20 @@ in
     "d /mnt/backups/kyle/histdb 0755 kyle kyle -"
     # A freshly created dataset mounts as root:root, and backup-resolve-projects
     # comes in over ssh as kyle.
+    #
+    # This rule loses a race on the one activation that introduces the mount.
+    # systemd-tmpfiles-setup runs before mnt-projects.mount there, so it
+    # chowns the directory that the mount then covers, and the dataset root
+    # underneath stays root:root:
+    #
+    #   rsync: [Receiver] mkdir "/mnt/projects/resolve" failed:
+    #   Permission denied (13)
+    #
+    # Boot orders these correctly through local-fs.target, so this bites once
+    # per new dataset and never again. Settle it in place rather than
+    # rebooting for it:
+    #
+    #   systemd-tmpfiles --create --prefix=/mnt/projects
     "d /mnt/projects 0755 kyle kyle -"
     # svc.deploy owns so it can set timestamps via rsync; caddy group for serving.
     "d /var/www/kyleondy.com 0775 svc.deploy caddy -"

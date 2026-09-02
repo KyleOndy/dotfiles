@@ -181,6 +181,13 @@ The pools were created by hand and are not declared in Nix. The `disko`
 input was removed in `e94efb4e`, so this stays manual, and any new dataset
 needs the same treatment.
 
+A new dataset also needs its root chowned once. The `systemd.tmpfiles` rule
+that owns the mountpoint runs before the mount on the activation that first
+introduces it, so it lands on the directory the mount then covers and the
+dataset root stays `root:root`. Boot orders it correctly, so it happens once
+per dataset. `systemd-tmpfiles --create --prefix=<mountpoint>` settles it
+without a reboot.
+
 What is recorded is partial: the `zfs create` for `storage/immich` at
 `tiger/configuration.nix:276`, and the `acltype=posixacl` that
 `storage/photos` needs at `:400-401`. The `zpool create` that made
