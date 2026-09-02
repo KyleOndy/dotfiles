@@ -171,6 +171,11 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "strict default did not plan srt. captured=$captured"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     [ -n "$settings" ] || fail "strict default missing PI_PLAN_SETTINGS. captured=$captured"
+    # Nothing granted, so no grants record: PI_GRANTS is what
+    # extensions/grants.ts keys its prompt sections off.
+    if echo "$captured" | grep -q "PI_PLAN_GRANTS"; then
+      fail "no grants passed, but PI_PLAN_GRANTS printed. captured=$captured"
+    fi
     # Default-deny reads: "/" denied, CWD + ~/.pi + system paths re-allowed
     echo "$settings" | jq -e '.filesystem.denyRead | index("/")' >/dev/null \
       || fail "default-deny: denyRead must contain \"/\". settings=$settings"
@@ -426,6 +431,9 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--allow-netbundle missing alt.example.com. settings=$settings"
     echo "$settings" | jq -e '.enableWeakerNetworkIsolation == false' >/dev/null \
       || fail "--allow-netbundle should not flip trustd. settings=$settings"
+    # Bundle names reach PI_GRANTS too, not just the exact-match flags.
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: netbundle" \
+      || fail "--allow-netbundle missing PI_PLAN_GRANTS. captured=$captured"
 
     # Trustd-requiring bundle: extends domains AND flips trustd
     captured=$(${wrapperWithBundles}/bin/pi --allow-trustbundle -- x 2>&1)
@@ -628,6 +636,10 @@ pkgs.runCommand "pi-coding-agent-check"
       echo "$settings" | jq -e --arg s "$nix_sock_real" '.network.allowUnixSockets | index($s)' >/dev/null \
         || fail "--allow-nix did not allow the resolved socket path. settings=$settings"
     fi
+    # The grant lands in PI_GRANTS alongside the socket, which is how the
+    # prompt learns what the socket costs.
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: nix" \
+      || fail "--allow-nix missing PI_PLAN_GRANTS. captured=$captured"
     # The grant is equivalent to --no-sandbox under trusted-users, so it has to
     # say so on the way past rather than only in a comment nobody reads.
     echo "$captured" | grep -q "WARNING: --allow-nix" \
@@ -784,6 +796,14 @@ pkgs.runCommand "pi-coding-agent-check"
 
     captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-ssh-agent -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: ssh-agent" \
+      || fail "--allow-ssh-agent missing PI_PLAN_GRANTS. captured=$captured"
+    # Composed grants comma-join in argument order; that string is what
+    # extensions/grants.ts splits. Not reusing $captured, whose ssh-agent
+    # value $settings below still depends on.
+    composed=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-nix --allow-ssh-agent -- x 2>&1)
+    echo "$composed" | grep -q "PI_PLAN_GRANTS: nix,ssh-agent" \
+      || fail "composed grants not recorded as 'nix,ssh-agent'. captured=$composed"
     echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
       || fail "--allow-ssh-agent did not allow the agent socket. settings=$settings"
     echo "$settings" | jq -e --arg s "$ssh_sock" '.filesystem.allowRead | index($s)' >/dev/null \

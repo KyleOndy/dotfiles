@@ -24,6 +24,15 @@
 #   --allow-kagi           kagi.com, so `kagi search` and `kagi read` work.
 #                          Reading a page goes through Kagi's extractor, so
 #                          this covers research without --web
+#   --allow-flake          github.com, codeload.github.com, gitlab.com and
+#                          flakehub: the hosts flake inputs fetch from.
+#                          Pairs with --allow-nix, since input fetching
+#                          happens in the client, behind the proxy
+#
+# Every --allow-* grant is also recorded in the exported PI_GRANTS var, which
+# extensions/grants.ts turns into per-grant system prompt sections from
+# sourceDir/grants/<name>.md, so the agent learns what a grant costs at the
+# moment it gains it.
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
@@ -619,6 +628,22 @@ in
         kagi = {
           domains = [ "kagi.com" ];
         };
+        # Inputs fetch in the nix client, before anything reaches the daemon,
+        # so --allow-nix alone still dies at the proxy on the first cold
+        # input: gitlab.com carries NUR's rycee firefox-addons, github and
+        # flakehub the rest of flake.lock. Substitution is daemon-side, which
+        # --allow-nix already covers, so these five are everything eval
+        # fetches. Not named "nix" because the wrapper's --allow-nix
+        # exact-match case shadows a bundle by that name.
+        flake = {
+          domains = [
+            "github.com"
+            "codeload.github.com"
+            "gitlab.com"
+            "api.flakehub.com"
+            "flakehub.com"
+          ];
+        };
       };
 
     # A real writable file, not the usual store symlink: pi writes this file
@@ -648,6 +673,10 @@ in
       # its roster from this directory.
       ".pi/agent/agents".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/agents";
       ".pi/agent/themes".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/themes";
+      # Per-grant prompt guidance, read by extensions/grants.ts off
+      # PI_GRANTS the wrapper exports. Out-of-store like the extensions so
+      # grant prose is hot-reloadable rather than baked into a store path.
+      ".pi/agent/grants".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/grants";
 
       # Out-of-store because pi does write this file: startup's
       # migrateKeybindingsConfigFile() rewrites it whenever an action id it

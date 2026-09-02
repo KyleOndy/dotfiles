@@ -13,26 +13,12 @@ gap.
 
 ### Web
 
-`kagi search "query" [count]` returns title, url and snippet per result, ten
-by default. `kagi read <url>...` returns pages as markdown, ten urls per
-request. Both need `pi --allow-kagi`; without it the sandbox denies the
-network and the command fails rather than returning nothing.
-
-A search costs $0.012 per request whatever `count` asks for, and a page costs
-$0.004 whether or not it shared a request with nine others. So widen a search
-instead of repeating it: `kagi search "query" 40` bills the same as the
-default, while a rephrased follow-up query bills again. What limits `count`
-is context, not the invoice. Batching urls into one `kagi read` buys round
-trips rather than money, so still read only the pages the snippets justify.
-Pages run to tens of kilobytes, so pipe one through `grep` or `head -c` when
-you want one fact from it.
-
-Every call reports what it spent and that lands in the session cost in the
-footer.
-
-Reading a page goes through Kagi's extractor rather than fetching it
-directly, which is why research needs no `--web`. A URL that must be fetched
-directly still does.
+`kagi search` and `kagi read` are the research tools, and `pi --allow-kagi`
+is what lets them reach the network; without it the sandbox denies the
+network and the commands fail rather than returning nothing. Under that flag
+their cost model and usage habits arrive in the system prompt with the grant
+itself (extensions/grants.ts reading grants/kagi.md), so they are not
+repeated here.
 
 ### Plan
 

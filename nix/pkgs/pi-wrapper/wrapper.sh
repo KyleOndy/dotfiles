@@ -23,6 +23,7 @@ export PI_REAL_BIN="$real_pi"
 extra_domains=()
 extra_write_paths=()
 extra_read_paths=()
+grants=()
 web_mode=false
 no_sandbox=false
 allow_loopback=@defaultAllowLoopback@
@@ -462,16 +463,19 @@ while [[ $# -gt 0 ]]; do
 	--allow-nix)
 		# Exact-match case: it shadows any network bundle named "nix".
 		allow_nix=true
+		grants+=("nix")
 		shift
 		;;
 	--allow-docker)
 		# Exact-match case: it shadows any network bundle named "docker".
 		allow_docker=true
+		grants+=("docker")
 		shift
 		;;
 	--allow-ssh-agent)
 		# Exact-match case: it shadows any network bundle named "ssh-agent".
 		allow_ssh_agent=true
+		grants+=("ssh-agent")
 		shift
 		;;
 	--allow-*)
@@ -490,6 +494,7 @@ while [[ $# -gt 0 ]]; do
 			if [[ ${bundle_trustd[$bundle_name]} == "true" ]]; then
 				allow_trustd=true
 			fi
+			grants+=("$bundle_name")
 			shift
 		else
 			known=$(printf '%s ' "${!bundle_domains[@]}")
@@ -504,6 +509,23 @@ while [[ $# -gt 0 ]]; do
 	*) break ;;
 	esac
 done
+
+# Record which grants this invocation carries, so the prompt can match the
+# policy. extensions/grants.ts reads PI_GRANTS and appends each granted
+# name's guidance from ~/.pi/agent/grants/<name>.md to the system prompt,
+# which is the only place the agent learns what a grant costs (a nix build
+# runs outside this sandbox; ssh-agent authenticates as the human). Exported
+# rather than written into the prompt here, so the prose stays in the
+# reloadable tree and subagents, which task.ts spawns as $PI_REAL_BIN
+# children, inherit the same record through the environment.
+if [[ ${#grants[@]} -gt 0 ]]; then
+	PI_GRANTS=$(
+		IFS=,
+		printf '%s' "${grants[*]}"
+	)
+	export PI_GRANTS
+	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_GRANTS: %s\n' "$PI_GRANTS"
+fi
 
 # The VM is the boundary for everything reachable through the docker socket, so
 # refuse the grant unless the instance still declares what bounds it: no host
