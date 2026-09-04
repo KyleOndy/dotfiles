@@ -110,20 +110,35 @@ let
       wg_ip=$(echo "$region" | jq -r '.servers.wg[0].ip')
       wg_hostname=$(echo "$region" | jq -r '.servers.wg[0].cn')
 
-      token=$(curl -fsS --location --request POST \
+      # --fail-with-body rather than -f: PIA explains a rejection in the
+      # response body, and -f discards it, leaving an unattended unit unable
+      # to tell a wrong password from a server that stopped answering.
+      token_json=$(curl -sS --fail-with-body --location --request POST \
         'https://www.privateinternetaccess.com/api/client/v2/token' \
         --form "username=$PIA_USER" \
-        --form "password=$PIA_PASS" | jq -r '.token')
+        --form "password=$PIA_PASS") || {
+        echo "pia-wg-connect: token request rejected: $token_json" >&2
+        exit 1
+      }
+
+      token=$(echo "$token_json" | jq -r '.token')
+      if [ -z "$token" ] || [ "$token" = "null" ]; then
+        echo "pia-wg-connect: token response carried no token field" >&2
+        exit 1
+      fi
 
       priv_key=$(wg genkey)
       pub_key=$(echo "$priv_key" | wg pubkey)
 
-      wg_json=$(curl -fsS -G \
+      wg_json=$(curl -sS --fail-with-body -G \
         --connect-to "$wg_hostname::$wg_ip:" \
         --cacert "${piaCaCert}" \
         --data-urlencode "pt=$token" \
         --data-urlencode "pubkey=$pub_key" \
-        "https://$wg_hostname:1337/addKey")
+        "https://$wg_hostname:1337/addKey") || {
+        echo "pia-wg-connect: addKey rejected by $wg_hostname ($wg_ip): $wg_json" >&2
+        exit 1
+      }
 
       if [ "$(echo "$wg_json" | jq -r '.status')" != "OK" ]; then
         echo "pia-wg-connect: addKey did not return OK: $wg_json" >&2
@@ -139,6 +154,14 @@ let
       # wg-quick conf and running wg-quick -- wg-quick manages the DEFAULT
       # namespace's DNS/routes, and everything here needs to land in
       # "${cfg.namespace}" instead.
+      #
+      # The healthcheck heals a stale tunnel by restarting this unit, so a run
+      # has to tolerate wg0 already existing. It can be stranded in either
+      # namespace: a run that dies between the add and the move leaves it
+      # behind in this one. Nothing else on the host owns the name.
+      ip netns exec "${cfg.namespace}" ip link del wg0 2>/dev/null || true
+      ip link del wg0 2>/dev/null || true
+
       ip link add wg0 type wireguard
       ip link set wg0 netns "${cfg.namespace}"
 
@@ -164,14 +187,22 @@ let
       # for the port's ~2 month life; only bindPort needs repeating (every
       # <15min, see the refresh timer), and only a fresh getSignature call
       # produces a new port to hand to qBittorrent.
-      pf=$(curl -fsS -m 5 -G \
-        --connect-to "$wg_hostname::$wg_ip:" \
-        --cacert "${piaCaCert}" \
-        --data-urlencode "token=$token" \
-        "https://$wg_hostname:19999/getSignature")
+      # Unlike token and addKey, the port-forwarding endpoints authorize only
+      # callers arriving through the tunnel, answering "Unauthorized client"
+      # from the host namespace. wg handshakes lazily on first traffic, so
+      # early attempts time out while the tunnel is still coming up.
+      pf=""
+      for _ in $(seq 6); do
+        pf=$(ip netns exec "${cfg.namespace}" curl -sS --fail-with-body -m 5 -G \
+          --connect-to "$wg_hostname::$wg_ip:" \
+          --cacert "${piaCaCert}" \
+          --data-urlencode "token=$token" \
+          "https://$wg_hostname:19999/getSignature") && break
+        sleep 5
+      done
 
       if [ "$(echo "$pf" | jq -r '.status')" != "OK" ]; then
-        echo "pia-wg-connect: getSignature did not return OK: $pf" >&2
+        echo "pia-wg-connect: getSignature never returned OK via $wg_hostname ($wg_ip): $pf" >&2
         exit 1
       fi
 
@@ -191,6 +222,7 @@ let
       pkgs.curl
       pkgs.jq
       pkgs.coreutils
+      pkgs.iproute2
     ];
     text = ''
       state="${runtimePath}/port_forward.json"
@@ -204,7 +236,9 @@ let
       hostname=$(jq -r '.hostname' "$state")
       gateway=$(jq -r '.gateway' "$state")
 
-      resp=$(curl -Gs -m 5 \
+      # In the namespace for the same reason getSignature is: bindPort only
+      # authorizes callers arriving through the tunnel.
+      resp=$(ip netns exec "${cfg.namespace}" curl -Gs -m 5 \
         --connect-to "$hostname::$gateway:" \
         --cacert "${piaCaCert}" \
         --data-urlencode "payload=$payload" \
