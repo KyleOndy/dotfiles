@@ -38,10 +38,19 @@ let
       base="http://${netnsCfg.vethNamespaceAddress}:8080"
       jar="''${RUNTIME_DIRECTORY:-/tmp}/cookies"
 
-      curl -fsS -c "$jar" \
+      # A rejected login is HTTP 200 with the body "Fails.", so the body is the
+      # only thing that says whether it worked:
+      # https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#login
+      # It stays rejected until the password is bootstrapped through the UI and
+      # copied into sops. Skipping keeps this unit out of a failed state, which
+      # deploy-rs reads as grounds to roll the whole host back.
+      if [ "$(curl -fsS -c "$jar" \
         --data-urlencode "username=$QBITTORRENT_USER" \
         --data-urlencode "password=$QBITTORRENT_PASS" \
-        "$base/api/v2/auth/login" >/dev/null
+        "$base/api/v2/auth/login")" != "Ok." ]; then
+        echo "qbittorrent-set-port: WebUI login failed, leaving listen_port at $port unset" >&2
+        exit 0
+      fi
 
       curl -fsS -b "$jar" \
         --data-urlencode "json={\"listen_port\": $port}" \
