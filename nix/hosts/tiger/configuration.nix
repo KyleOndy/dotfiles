@@ -393,6 +393,15 @@ in
     "d /mnt/scratch-big/downloads/complete/tv 0775 root ${mediaGroup} -"
     "d /mnt/scratch-big/downloads/complete/music 0775 root ${mediaGroup} -"
     "d /mnt/scratch-big/downloads/complete/books 0775 root ${mediaGroup} -"
+    # Torrent download tree, kept separate from SABnzbd's above: torrent
+    # completions need to stay in place for seeding, usenet completions don't.
+    "d /mnt/scratch-big/torrents 0755 root ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/incomplete 0775 qbittorrent ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/complete 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/complete/movies 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/complete/tv 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/complete/music 0775 root ${mediaGroup} -"
+    "d /mnt/scratch-big/torrents/complete/books 0775 root ${mediaGroup} -"
 
     # Guarantee immich can READ the photo archive. This ACL grants read, it
     # does not deny write, so it is not what makes the archive read-only:
@@ -1153,6 +1162,23 @@ in
         group = mediaGroup;
         domainName = "sabnzbd.tiger.infra.ondy.org";
       };
+
+      # Torrent fallback for sonarr/radarr, for what usenet doesn't have.
+      # Isolated behind a PIA WireGuard tunnel with no other route out --
+      # see pia-wireguard-netns.nix for why. No US PIA region supports port
+      # forwarding, so this connects to Canada instead.
+      piaWireguardNetns = {
+        enable = true;
+        region = "ca_toronto";
+        credentialsFile = config.sops.secrets.pia_credentials.path;
+      };
+      qbittorrent = {
+        enable = true;
+        group = mediaGroup;
+        domainName = "qbittorrent.tiger.infra.ondy.org";
+        webuiCredentialsFile = config.sops.secrets.qbittorrent_webui_credentials.path;
+      };
+
       jellyseerr = {
         enable = true;
         domainName = "jellyseerr.tiger.infra.ondy.org";
@@ -1649,6 +1675,15 @@ in
       mode = "0440";
       group = "exportarr";
     };
+    # PIA account credentials (EnvironmentFile: PIA_USER / PIA_PASS), read by
+    # pia-wg-connect.service as root to authenticate the WireGuard + port
+    # forwarding API calls.
+    pia_credentials.mode = "0400";
+    # qBittorrent's WebUI login, generated through its own UI on first boot
+    # like the other *arr apps' API keys above, then copied in here so
+    # qbittorrent-set-port.service can push the PIA-forwarded port into it.
+    # EnvironmentFile: QBITTORRENT_USER / QBITTORRENT_PASS.
+    qbittorrent_webui_credentials.mode = "0400";
     # Consumed by the jellyfin backup service (runs as root, unaffected) and
     # the jellyfin-exporter (DynamicUser, granted via supplementary group).
     #
