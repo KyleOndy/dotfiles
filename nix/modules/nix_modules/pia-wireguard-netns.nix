@@ -56,6 +56,15 @@ let
       ip netns exec "${cfg.namespace}" ip link set vethpia1 up
       ip netns exec "${cfg.namespace}" ip link set lo up
 
+      # qbittorrent.service bind-mounts this file in at spawn time (see
+      # qbittorrent.nix) and only depends on this unit, not pia-wg-connect,
+      # to avoid a startup cycle -- so the source has to exist the moment
+      # this unit is done, before pia-wg-connect has necessarily run.
+      # pia-wg-connect overwrites it in place once connected; a bind mount
+      # follows the same inode, so that update is visible immediately.
+      mkdir -p "/etc/netns/${cfg.namespace}"
+      touch "/etc/netns/${cfg.namespace}/resolv.conf"
+
       # PIA has no IPv6 support (https://github.com/pia-foss/manual-connections,
       # connect_to_wireguard_with_token.sh). Nothing routes it, but disable it
       # outright so a v6-capable client can't find a way around the kill switch.
@@ -220,7 +229,10 @@ let
     ];
     text = ''
       now=$(date +%s)
-      handshake=$(ip netns exec "${cfg.namespace}" wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}')
+      # wg0 may not exist yet (pia-wg-connect hasn't run or is mid-retry);
+      # pipefail would otherwise turn that into a hard failure of this
+      # script instead of the "no handshake yet, restart" case below.
+      handshake=$(ip netns exec "${cfg.namespace}" wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}') || true
 
       if [ -z "''${handshake:-}" ] || [ "$handshake" = "0" ] || [ $((now - handshake)) -gt 300 ]; then
         echo "pia-wg-healthcheck: no recent wg0 handshake, restarting pia-wg-connect.service"
