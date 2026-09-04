@@ -39,6 +39,9 @@ Managed with `sops` (`nix/secrets/secrets.yaml`). Never `.env` files, never
 plaintext. The berkeley-mono fonts are git-crypt encrypted, which is why
 `git worktree add` fails on a fresh checkout without the key.
 
+`docs/onshape-api.md` records a case where this isn't followed yet:
+Onshape API keys, currently handled ad hoc rather than through sops.
+
 ## Pi coding agent
 
 Agents, extensions, themes and `AGENTS.md` live in
