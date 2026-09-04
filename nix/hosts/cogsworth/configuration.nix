@@ -55,6 +55,13 @@ in
     owner = "cogsworth";
   };
 
+  # UniFi Protect local account, shared with unpoller on tiger. Cogsworth
+  # uses it to ring the Smart Chimes alongside the local alarm speaker, so
+  # a departure alarm reaches rooms the Pi's own speaker does not.
+  sops.secrets.unpoller_password = {
+    owner = "cogsworth";
+  };
+
   # Location for weather widget (Open-Meteo API, no API key required)
   sops.secrets.weather_lat = {
     owner = "cogsworth";
@@ -525,6 +532,9 @@ in
     COGSWORTH_VOICE_WYOMING_ADDR = "127.0.0.1:10400";
     COGSWORTH_VOICE_WAKEWORD_NAME = "hey_cogs_500";
     COGSWORTH_VOICE_CAPTURE_DEVICE = "mic";
+    # A path, not the password. The backend reads the file at call time, so
+    # the credential never lands in the process environment.
+    COGSWORTH_UNIFI_PASSWORD_FILE = config.sops.secrets.unpoller_password.path;
     LOG_LEVEL = "DEBUG";
   };
 
