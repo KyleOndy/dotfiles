@@ -236,7 +236,12 @@ let
 
       if [ -z "''${handshake:-}" ] || [ "$handshake" = "0" ] || [ $((now - handshake)) -gt 300 ]; then
         echo "pia-wg-healthcheck: no recent wg0 handshake, restarting pia-wg-connect.service"
-        systemctl restart pia-wg-connect.service
+        # A failed restart means pia-wg-connect.service is itself broken
+        # (bad credentials, PIA outage), which it already reports as its
+        # own failed unit -- this check shouldn't also fail just because
+        # the thing it's trying to heal didn't heal, or deploy-rs's
+        # any-failed-unit rollback check gets tripped twice over.
+        systemctl restart pia-wg-connect.service || true
       fi
     '';
   };
