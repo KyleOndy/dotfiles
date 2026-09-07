@@ -20,6 +20,17 @@ in
       exiftool
       diff-pdf
       master.yt-dlp
+
+      # Postcard style fonts for video
+      (google-fonts.override {
+        fonts = [
+          "Alfa Slab One"
+          "Ultra"
+          "Bungee"
+          "Bowlby One"
+          "Rye"
+        ];
+      })
     ];
   };
 }
