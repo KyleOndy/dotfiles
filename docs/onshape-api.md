@@ -291,6 +291,212 @@ were created with. To make one recompute against new code, update or
 recreate the instance with a fresh namespace (new Version, current
 microversion).
 
+## Building features through the REST features API
+
+Everything below came from building a part studio (variables, sketches,
+extrudes, a construction plane and a fillet) entirely over
+`POST .../features`, with no UI. The failures are all silent: the call
+returns 200, the feature reports `OK`, and the model is still wrong.
+
+### Read `featurespecs` before writing any feature JSON
+
+```
+GET /api/v9/partstudios/d/{d}/w/{w}/e/{e}/featurespecs
+```
+
+Every feature type the part studio accepts, with each parameter's
+`parameterId`, `btType`, enum name and legal values. Guessing any of it costs
+more time than reading it.
+
+Guessing the feature type itself at least fails loudly:
+
+```
+{"message": "Feature has invalid type", "status": 400}
+```
+
+The variable feature is `assignVariable`, not `variable`. The construction
+plane is `cPlane`.
+
+### Parameters get dropped without an error
+
+A parameter Onshape doesn't want in that position is discarded on the way in.
+The POST returns 200 and the feature reports `OK`.
+
+A sketch `DIAMETER` constraint given its value under `length` reads back as:
+
+```
+[{"localFirst": "h1"}, {"direction": "MINIMUM"}, {"length": 0.0}, ...]
+```
+
+The expression is gone and the value is 0. `RADIUS` accepts `length` in
+exactly that shape, which is what makes this easy to miss. Read every
+dimension constraint back and confirm `expression` survived.
+
+`assignVariable` has the same problem in reverse. A LENGTH variable stores its
+number in `lengthValue`; writing it under `value` alone puts the feature in
+`ERROR`. The tree label, though, comes from the spec's name template,
+`###name = #value`, which reads the generic `value`. Write both `lengthValue`
+and `value` with the same expression.
+
+### Leave `BTMFeature.name` empty
+
+Onshape treats a `#token` in a stored feature name as a variable reference and
+substitutes it at render time. Name a variable feature `#length = 130 mm` and
+the tree shows:
+
+```
+(x) ? = 130 mm
+```
+
+The `?` is the substitution failing, because at that row `length` is the
+variable being defined and does not exist yet. The `130 mm` is dead literal
+text. Edit the value in the UI and the row keeps saying `130 mm` while the
+model quietly rebuilds at the new number, which is a worse failure than an
+error.
+
+Send `name: ""` and Onshape renders `featureNameTemplate` live instead. It
+does not backfill the field, so an empty name stays empty on read. Check
+`featureNameTemplate` and `tooltipTemplate` in `featurespecs` to see which
+parameters a feature's label actually reads.
+
+### A full circle is `BTMSketchCurve-4`, not a 2\*PI curve segment
+
+A circle written as `BTMSketchCurveSegment-155` with `startParam` 0 and
+`endParam` 2\*PI looks right and is not. Its seam endpoints stay free, so the
+sketch reports `UNDERDEFINED` however many constraints you add, and the curve
+never closes into a region, so any extrude selecting it fails with a bare
+`ERROR` and no message.
+
+`BTMSketchCurve-4` takes the same `BTCurveGeometryCircle-115` geometry plus a
+`centerId`, with no start or end point ids. Arcs and lines stay
+`BTMSketchCurveSegment-155`.
+
+### `sketchSolveStatus` is the only honest answer
+
+`featureStates` reporting `OK` says nothing about whether a sketch is fully
+constrained. This does:
+
+```
+GET /api/v9/partstudios/d/{d}/w/{w}/e/{e}/sketches?includeGeometry=false
+```
+
+Each entry carries `sketchSolveStatus`: `WELL_DEFINED`, `UNDERDEFINED` or
+`OVERDEFINED`. Check it after every sketch. An underdefined sketch builds
+correct geometry today and moves under you the first time a variable changes.
+
+### `Fix` on a line segment does not pin its endpoints
+
+It pins the line. The endpoints still slide along it, so the segment's length
+and its position along that line are both free. A chord `Fix`ed across a face
+sits where you drew it, reports `UNDERDEFINED`, and is holding its dimension
+by luck.
+
+Anchor to the origin instead. It is available as an external reference under
+the deterministic id `IB`:
+
+```json
+{
+  "btType": "BTMParameterQueryList-148",
+  "parameterId": "externalSecond",
+  "queries": [
+    { "btType": "BTMIndividualQuery-138", "deterministicIds": ["IB"] }
+  ]
+}
+```
+
+### Plain FeatureScript query strings work
+
+Deterministic ids are fine for the origin, which never moves, but they are a
+poor way to name anything a rebuild can renumber. A query parameter also takes
+a literal FeatureScript string:
+
+```json
+{
+  "queryString": "query=qCreatedBy(makeId(\"Front\"), EntityType.FACE);",
+  "deterministicIds": []
+}
+```
+
+`Origin`, `Top`, `Front` and `Right` are the default feature ids; any id from
+`GET .../features` works the same way. `context` is in scope, so
+`getVariable` makes a selection parametric:
+
+```
+query=(function(){ var L = getVariable(context, "length");
+  return qContainsPoint(edges, vector(-L/2, ...)); })();
+```
+
+That is how you select a fillet edge that survives a dimension change.
+
+### `qEverything(EntityType.EDGE)` includes sketch geometry
+
+Sketch curves are edges too, lying exactly on top of the model edges they
+generated. `qContainsPoint` against `qEverything` returns three or five hits
+where you expect one. Scope it:
+
+```
+qOwnedByBody(qBodyType(qEverything(EntityType.BODY), BodyType.SOLID), EntityType.EDGE)
+```
+
+### There is no way to insert or reorder a feature
+
+Features append to the end of the list. `rollbackIndex` in the
+`POST .../features` body is accepted and ignored, and `/features/updates` and
+`/features/reorder` are both 404.
+
+Editing one in place does work, over
+`POST .../features/featureid/{featureId}` with the whole feature in the body.
+Round-trip it from `GET .../features` rather than writing it fresh, and carry
+`serializationVersion` and `sourceMicroversion` from that same read. Every
+write moves the microversion, so re-read between writes when updating several.
+
+This matters because a variable must sit above every feature that uses it.
+Adding one to an existing part studio means deleting and rebuilding every
+feature from its first consumer down. Decide the variable order before writing
+any geometry, and keep the whole tree in a build script, because you will run
+it more than once.
+
+Variable Studios do not get you out of this. Their
+`variableStudioAssignVariable` features append to the end like everything
+else.
+
+### Variable Studios
+
+Creation is not under the path you would guess:
+
+```
+POST     /api/v9/variables/d/{did}/w/{wid}/variablestudio
+GET|POST /api/v9/variables/d/{did}/w/{wid}/e/{eid}/variables
+```
+
+`/variablestudios/...` is 404. Contents are a list of blocks, each with a
+`variableStudioReference` and a `variables` list. Set them with `expression`;
+under `value` they store as null.
+
+Deleting the element over the API returns 403, so an unwanted studio has to go
+through the UI. Onshape will warn that deleting it breaks every Part Studio
+and Assembly in the document. That comes from the studio's "insert into all
+Part Studios and Assemblies" default, not from real references. Check
+`variableStudioReference` on the consumer: if it is null everywhere, nothing
+is using it. Emptying the variable list first makes the question moot.
+
+### Volume agreement does not prove placement
+
+A part built on a wrong axis assumption can still have exactly the right
+volume. Check the bounding box separately:
+
+```
+GET /api/v9/parts/d/{d}/w/{w}/e/{e}/partid/{pid}/boundingboxes
+```
+
+And for a dimension the model is meant to hold, measure it rather than trust
+the arithmetic that produced it. `evDistance` between two faces picked with
+`qContainsPoint` is the direct check:
+
+```
+evDistance(context, {"side0": backFace, "side1": scoopFace}).distance
+```
+
 ## Practical workflow
 
 1. Build the signed HTTP client once, stdlib only, reuse it everywhere.
@@ -305,6 +511,18 @@ microversion).
 6. Verify the resulting real parts with `GET .../parts` and
    `GET .../parts/.../boundingboxes` before trusting the geometry.
 
+Building the model over `POST .../features` instead, which is the shorter path
+when the geometry needs no custom feature:
+
+1. Pull `featurespecs` and take the `parameterId` and enum names from it.
+2. Fix the variable order first. Reordering later means a full rebuild.
+3. Keep the whole tree in one build script that deletes and recreates. You
+   will run it repeatedly.
+4. After each sketch, check `sketchSolveStatus` is `WELL_DEFINED`, and read
+   back any dimension constraint to confirm its `expression` survived.
+5. Verify with hand-calculated volume, the bounding box, and `evDistance` on
+   whatever dimension the model is supposed to hold.
+
 ## Known gaps
 
 Onshape API keys aren't in sops yet. Today's session used a key dropped in
@@ -313,3 +531,6 @@ one-off, not a pattern to repeat. Follow-up: add `onshape_api_key` /
 `onshape_api_secret` to `nix/secrets/secrets.yaml`, the same way every
 other credential in this repo is handled. Not done here; flagging it so it
 doesn't get forgotten.
+
+Still not done as of the second session, which used a world-readable key in
+`/tmp` and shredded it afterwards. Twice now is a habit, not a one-off.
