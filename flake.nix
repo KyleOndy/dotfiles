@@ -79,7 +79,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Work-specific configuration. Default is a no-op stub.
-    # Override on work machines: --override-input work-config path:/Users/kondy/work
+    # Override on work machines with the work flake's directory, which is that
+    # repo's nix/ subdirectory rather than its root:
+    #   --override-input work-config path:/Users/kondy/work/nix
     work-config.url = "path:./nix/work-config-stub";
   };
   outputs =

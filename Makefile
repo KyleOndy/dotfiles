@@ -28,10 +28,11 @@ ifneq ($(GIT_SSH_COMMAND),)
   export GIT_SSH_COMMAND
 endif
 
-# Work config override. Set to the work repo path on work machines to inject
-# work-specific configuration. Example:
-#   make build-mac WORK_CONFIG=/Users/kondy/work
-#   export WORK_CONFIG=/Users/kondy/work && make deploy
+# Work config override. Set to the work config flake directory on work machines
+# to inject work-specific configuration. That flake sits in the work repo's nix/
+# subdirectory, not at its root. Example:
+#   make build-mac WORK_CONFIG=/Users/kondy/work/nix
+#   export WORK_CONFIG=/Users/kondy/work/nix && make deploy
 WORK_CONFIG ?=
 ifdef WORK_CONFIG
   WORK_INPUT_FLAG = --override-input work-config path:$(WORK_CONFIG)

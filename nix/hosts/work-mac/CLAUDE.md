@@ -17,12 +17,13 @@ items that leak internal company details.
 
 ## Building and deploying
 
-All `make` targets accept `WORK_CONFIG=` to activate work config:
+All `make` targets accept `WORK_CONFIG=` to activate work config. The value is
+the work config flake directory, which is the work repo's `nix/` subdirectory:
 
 ```bash
-make build-mac-dry WORK_CONFIG=/Users/kondy/work   # dry run
-make deploy HOSTNAME=work-mac WORK_CONFIG=/Users/kondy/work
-make deploy-mac WORK_CONFIG=/Users/kondy/work       # same thing
+make build-mac-dry WORK_CONFIG=/Users/kondy/work/nix   # dry run
+make deploy HOSTNAME=work-mac WORK_CONFIG=/Users/kondy/work/nix
+make deploy-mac WORK_CONFIG=/Users/kondy/work/nix       # same thing
 ```
 
 Without `WORK_CONFIG`, builds use the stub and produce a personal/CI-safe

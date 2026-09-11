@@ -56,7 +56,7 @@ real thing to build with it, and nothing work-specific ever lands in this
 repo:
 
 ```bash
-make build-mac WORK_CONFIG=/Users/kondy/work
+make build-mac WORK_CONFIG=/Users/kondy/work/nix
 ```
 
 The Makefile turns that into `--override-input work-config path:$WORK_CONFIG`.
