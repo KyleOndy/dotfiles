@@ -7,11 +7,17 @@
 with lib;
 let
   cfg = config.hmFoundry.desktop.browsers.firefox;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
 
+  # On darwin Firefox is Mozilla's signed build from the homebrew cask, not
+  # nixpkgs. macOS 27 attributes ~/Library/Application Support/Firefox to
+  # Team ID 43AQ936H96 (a rule baked into /usr/libexec/sandboxd) and denies
+  # every other app, and nixpkgs' wrapper leaves the bundle ad-hoc signed
+  # under org.nixos.firefox, so it cannot even lock its own profile.
+  # home-manager still writes profiles.ini, user.js and the extensions.
   firefoxBin =
-    if pkgs.stdenv.hostPlatform.isDarwin then
-      # The darwin build ships an .app bundle and no bin/ directory.
-      "${config.programs.firefox.finalPackage}/Applications/Firefox.app/Contents/MacOS/firefox"
+    if isDarwin then
+      "/Applications/Firefox.app/Contents/MacOS/firefox"
     else
       getExe config.programs.firefox.finalPackage;
 
@@ -79,6 +85,7 @@ in
     programs = {
       firefox = {
         enable = true;
+        package = mkIf isDarwin null;
         profiles.default = {
           extensions.packages = with pkgs.nur.repos.rycee.firefox-addons; [
             umatrix

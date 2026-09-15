@@ -147,7 +147,7 @@
     persistent-apps = lib.mkDefault [
       "/System/Library/CoreServices/Finder.app"
       "/Users/kyle/Applications/Home Manager Apps/Alacritty.app"
-      "/Users/kyle/Applications/Home Manager Apps/Firefox.app"
+      "/Applications/Firefox.app"
       "/System/Applications/Messages.app"
     ];
   };
@@ -180,6 +180,7 @@
   homebrew = {
     casks = lib.mkDefault [
       "alt-tab" # app switcher; macOS only draws its own on a held Cmd+Tab
+      "firefox" # Mozilla's signed build, see hmFoundry.desktop.browsers.firefox
       "karabiner-elements" # applies the Kensington trackball remapping, see home.nix
       "shottr" # screenshot tool the trackball buttons trigger
     ];

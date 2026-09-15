@@ -24,6 +24,7 @@
     casks = lib.mkDefault [
       "alt-tab"
       "cursor"
+      "firefox" # Mozilla's signed build, see hmFoundry.desktop.browsers.firefox
       "karabiner-elements"
       "linear"
       "pocket-casts"
@@ -64,7 +65,7 @@
         # Minimal dock - only essentials
         persistent-apps = lib.mkDefault [
           "/System/Library/CoreServices/Finder.app"
-          "/Users/kondy/Applications/Home Manager Apps/Firefox.app"
+          "/Applications/Firefox.app"
           "/Users/kondy/Applications/Home Manager Apps/Alacritty.app"
           "/Applications/Linear.app"
           "/Applications/Notion.app"
