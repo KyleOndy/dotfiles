@@ -22,6 +22,9 @@ in
   # coordinates are secrets. Keys left out take upstream defaults.
   sops.templates."birdnet-go-config" = {
     owner = "birdnet";
+    # The unit references the rendered file by its stable path, so a change
+    # to it alone would not restart anything.
+    restartUnits = [ "birdnet-go.service" ];
     content = ''
       main:
         name: Cogsworth birds
