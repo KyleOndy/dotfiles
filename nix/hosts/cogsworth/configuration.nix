@@ -22,7 +22,7 @@ let
   '';
 in
 {
-  imports = [ ];
+  imports = [ ./birdnet-go.nix ];
 
   # Sops configuration - use pre-baked SSH host key for decryption
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
