@@ -25,10 +25,11 @@ in
           # berkeley-mono-nerd-font (nix/pkgs/berkeley-mono-nerd-font) patches
           # in the glyphs nvim-web-devicons and friends render; plain
           # Berkeley Mono has none of them, so file/git icons fall back to
-          # tofu boxes. The patcher splits the oblique faces into a second
-          # family (suffixed "Obl") to work around the legacy 4-style-per-
-          # family limit, and CoreText reports "Italic"/"Bold Italic" for
-          # them rather than "Oblique"/"Bold Oblique".
+          # tofu boxes. The patcher files the obliques under a legacy family
+          # suffixed "Obl" in nameID 1/2, which is what otfinfo prints, but
+          # CoreText matches on the preferred names (nameID 16/17), where all
+          # four faces share one family and the slanted styles are "Oblique"
+          # and "Bold Oblique".
           normal = {
             family = "Berkeley Mono Nerd Font Mono";
             style = "Regular";
@@ -38,12 +39,12 @@ in
             style = "Bold";
           };
           italic = {
-            family = "Berkeley Mono Nerd Font Mono Obl";
-            style = "Italic";
+            family = "Berkeley Mono Nerd Font Mono";
+            style = "Oblique";
           };
           bold_italic = {
-            family = "Berkeley Mono Nerd Font Mono Obl";
-            style = "Bold Italic";
+            family = "Berkeley Mono Nerd Font Mono";
+            style = "Bold Oblique";
           };
           size = 13;
         };

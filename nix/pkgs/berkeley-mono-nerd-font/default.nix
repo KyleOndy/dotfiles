@@ -30,9 +30,10 @@ stdenvNoCC.mkDerivation {
     # nerd-font-patcher doesn't read; it falls back to "Regular" for
     # every face and every style ends up overwriting the same output
     # file. Forcing --name per face keeps Regular/Bold/Oblique/Bold
-    # Oblique as distinct, selectable styles. The patcher itself splits
-    # the oblique faces into a second family (suffixed "Obl") to work
-    # around the legacy 4-style-per-family limit.
+    # Oblique as distinct, selectable styles. The legacy name records
+    # (nameID 1/2) file the obliques under a second family suffixed
+    # "Obl"; the preferred records (nameID 16/17), which CoreText uses,
+    # keep all four faces in one family.
     patch_style () {
       nerd-font-patcher --complete --mono --quiet --name "$2" -out patched "src/$1"
     }
