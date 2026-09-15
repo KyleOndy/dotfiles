@@ -56,6 +56,11 @@ in
               type: rtsp
               transport: tcp
               models: [birdnet]
+        privacyfilter:
+          enabled: true
+          # The "Human non-vocal" class scores 0.1 to 0.35 on doors, cars and
+          # wind with the yard empty; speech at either mic scores well above.
+          confidence: 0.5
         birdweather:
           enabled: false
       webserver:
