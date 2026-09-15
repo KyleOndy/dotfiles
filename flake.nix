@@ -55,10 +55,6 @@
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
     };
-    mac-app-util = {
-      url = "github:hraban/mac-app-util";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     claude-skills-jeffallan = {
       url = "github:jeffallan/claude-skills";
       flake = false;
@@ -377,7 +373,6 @@
             ++ [
               ./nix/hosts/${hostname}/configuration.nix
               inputs.home-manager.darwinModules.home-manager
-              inputs.mac-app-util.darwinModules.default
               inputs.work-config.darwinModule
               inputs.sops-nix.darwinModules.sops
             ]
@@ -401,9 +396,17 @@
                     sharedModules =
                       hmCoreModules
                       ++ [ nixCatsHomeModule ]
-                      ++ [ inputs.mac-app-util.homeManagerModules.default ]
                       ++ [ inputs.work-config.homeManagerModule ]
-                      ++ hmDesktopModules;
+                      ++ hmDesktopModules
+                      ++ [
+                        # Spotlight does not index symlinks into the store,
+                        # which is what linkApps (the default below
+                        # stateVersion 25.11) leaves in ~/Applications.
+                        {
+                          targets.darwin.copyApps.enable = true;
+                          targets.darwin.linkApps.enable = false;
+                        }
+                      ];
                     users.${username} =
                       let
                         baseProfile = {
