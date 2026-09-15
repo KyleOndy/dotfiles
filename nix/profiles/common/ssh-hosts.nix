@@ -13,6 +13,14 @@ with lib;
         extraOptions = {
           IdentitiesOnly = "yes";
           SendEnv = "LANG LC_*";
+          # Apple's ssh resolves through getaddrinfo, and so honours
+          # /etc/resolver/1ella.com, only when a timeout or retry count is
+          # set (openssh/ssh.c, __APPLE_NW_CONNECTION__). Otherwise the bare
+          # hostname goes to Network.framework, which under iCloud Private
+          # Relay cannot place split-horizon LAN names and fails every
+          # connect with "Undefined error: 0". Covers nix copy and deploy-rs,
+          # which spawn ssh with no timeout of their own.
+          ConnectTimeout = "10";
         };
       };
       "*.amazonaws.com" = {
