@@ -22,24 +22,28 @@ in
           decorations = "Buttonless"; # Remove window buttons but keep draggable title bar
         };
         font = {
+          # berkeley-mono-nerd-font (nix/pkgs/berkeley-mono-nerd-font) patches
+          # in the glyphs nvim-web-devicons and friends render; plain
+          # Berkeley Mono has none of them, so file/git icons fall back to
+          # tofu boxes. The patcher splits the oblique faces into a second
+          # family (suffixed "Obl") to work around the legacy 4-style-per-
+          # family limit, and CoreText reports "Italic"/"Bold Italic" for
+          # them rather than "Oblique"/"Bold Oblique".
           normal = {
-            family = "Berkeley Mono";
+            family = "Berkeley Mono Nerd Font Mono";
             style = "Regular";
           };
           bold = {
-            family = "Berkeley Mono";
+            family = "Berkeley Mono Nerd Font Mono";
             style = "Bold";
           };
-          # Berkeley Mono ships its sloped faces as Oblique, so CoreText
-          # reports the family's styles as Regular/Oblique/Bold/Bold Oblique.
-          # Asking for "Italic" matches nothing and drops to a fallback face.
           italic = {
-            family = "Berkeley Mono";
-            style = "Oblique";
+            family = "Berkeley Mono Nerd Font Mono Obl";
+            style = "Italic";
           };
           bold_italic = {
-            family = "Berkeley Mono";
-            style = "Bold Oblique";
+            family = "Berkeley Mono Nerd Font Mono Obl";
+            style = "Bold Italic";
           };
           size = 13;
         };

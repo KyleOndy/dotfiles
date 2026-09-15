@@ -19,6 +19,7 @@ in
 
         # Fonts
         berkeley-mono
+        berkeley-mono-nerd-font
         pragmata-pro
 
         # Terminal tools

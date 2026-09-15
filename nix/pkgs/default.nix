@@ -5,6 +5,7 @@ self: super: {
   backup-photos = super.callPackage ./backup-photos { };
   backup-resolve-projects = super.callPackage ./backup-resolve-projects { };
   berkeley-mono = super.callPackage ./berkeley-mono { };
+  berkeley-mono-nerd-font = super.callPackage ./berkeley-mono-nerd-font { };
   forge = super.callPackage ./forge { lima = self.master.lima; };
   fuji-transcode = super.callPackage ./fuji-transcode { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
