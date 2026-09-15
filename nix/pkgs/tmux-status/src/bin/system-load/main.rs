@@ -22,7 +22,7 @@ unsafe extern "C" {
     fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
 }
 
-use tmux_status::{colors_enabled, HOT, NORMAL, WARM};
+use tmux_status::{colors_enabled, HOT, NORMAL, SEP, WARM};
 
 /// A bare load figure means nothing without knowing the core count: 4.0 is
 /// idle on trex and on fire on a two core VM. Thresholds are per core.
@@ -73,13 +73,13 @@ fn color_for(load: f64, cores: f64) -> &'static str {
 fn format_load(load: f64, cores: f64, color: bool) -> String {
     if color {
         format!(
-            "#[fg={}][ {:.2} ]#[fg={}]",
+            "#[fg={}][ {:.2} ]#[fg={}]{SEP}",
             color_for(load, cores),
             load,
             NORMAL
         )
     } else {
-        format!("[ {load:.2} ]")
+        format!("[ {load:.2} ]{SEP}")
     }
 }
 
@@ -89,9 +89,9 @@ mod tests {
 
     #[test]
     fn renders_two_decimals_inside_the_brackets() {
-        assert_eq!(format_load(2.951, 10.0, false), "[ 2.95 ]");
-        assert_eq!(format_load(0.0, 10.0, false), "[ 0.00 ]");
-        assert_eq!(format_load(12.5, 10.0, false), "[ 12.50 ]");
+        assert_eq!(format_load(2.951, 10.0, false), format!("[ 2.95 ]{SEP}"));
+        assert_eq!(format_load(0.0, 10.0, false), format!("[ 0.00 ]{SEP}"));
+        assert_eq!(format_load(12.5, 10.0, false), format!("[ 12.50 ]{SEP}"));
     }
 
     /// The whole point of scaling by core count: the same figure is fine on a
@@ -115,9 +115,9 @@ mod tests {
     fn colored_output_restores_the_surrounding_style() {
         assert_eq!(
             format_load(30.0, 10.0, true),
-            "#[fg=colour167][ 30.00 ]#[fg=colour246]"
+            format!("#[fg=colour167][ 30.00 ]#[fg=colour246]{SEP}")
         );
-        assert!(format_load(1.0, 10.0, true).ends_with("#[fg=colour246]"));
+        assert!(format_load(1.0, 10.0, true).ends_with(&format!("#[fg=colour246]{SEP}")));
     }
 
     #[test]
