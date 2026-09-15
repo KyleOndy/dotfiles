@@ -1,14 +1,19 @@
 # BirdNET-Go listens to the outdoor Protect cameras' RTSP audio and
-# classifies bird song into its own SQLite database. Nothing reads it yet;
-# its web UI is the proof, reached with `ssh -L 8090:127.0.0.1:8090
-# cogsworth`. The pi's own I2S mic is not a source: it is indoors and the
-# voice listener owns it.
+# classifies bird song into its own SQLite database. Cogsworth copies the
+# detections out over the loopback API; the BirdNET-Go web UI is for
+# review, reached with `ssh -L 8090:127.0.0.1:8090 cogsworth`. The pi's
+# own I2S mic is not a source: it is indoors and the voice listener owns
+# it.
 { config, pkgs, ... }:
 let
   stateDir = "/var/lib/birdnet-go";
   configFile = "${stateDir}/config.yaml";
+  port = 8090;
 in
 {
+  systemd.services.cogsworth.environment.COGSWORTH_BIRDS_API_URL =
+    "http://127.0.0.1:${toString port}";
+
   # Full rtsps:// URL of each camera channel to listen to. The path segment
   # is the stream credential, so the whole URL is the secret.
   sops.secrets.birdnet_rtsp_url_porch = {
@@ -68,7 +73,7 @@ in
           enabled: false
       webserver:
         enabled: true
-        port: "8090"
+        port: "${toString port}"
       output:
         sqlite:
           enabled: true
