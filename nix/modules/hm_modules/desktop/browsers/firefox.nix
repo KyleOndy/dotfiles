@@ -82,6 +82,31 @@ in
       ff-scratch
     ];
 
+    # Mozilla's build runs without the MOZ_LEGACY_PROFILES=1 that nixpkgs'
+    # wrapper exports, so it keys the default profile on a hash of its install
+    # path, finds no such entry in home-manager's profiles.ini, and creates a
+    # fresh profile. Persisting that rewrites profiles.ini, a read-only store
+    # symlink, and the failure surfaces as "Profile Missing". Firefox honours
+    # the LegacyProfiles policy on Windows only
+    # (nsToolkitProfileService::UseLegacyProfiles), so the variable goes into
+    # the gui launchd domain, which is what the Dock launches from. A user
+    # agent runs inside that domain; launchctl setenv from a shell or from
+    # nix-darwin's activation lands in user/<uid> instead, and both last one
+    # boot.
+    launchd.agents.firefox-legacy-profiles = mkIf isDarwin {
+      enable = true;
+      config = {
+        Label = "org.ondy.firefox-legacy-profiles";
+        ProgramArguments = [
+          "/bin/launchctl"
+          "setenv"
+          "MOZ_LEGACY_PROFILES"
+          "1"
+        ];
+        RunAtLoad = true;
+      };
+    };
+
     programs = {
       firefox = {
         enable = true;
