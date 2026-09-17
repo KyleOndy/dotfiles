@@ -8,7 +8,6 @@ skills, rules, slash commands, notification hooks, and a statusline.
 ```nix
 hmFoundry.dev.claude-code = {
   enable = true;
-  enableNotifications = true; # desktop notifications (Linux)
 };
 ```
 
@@ -20,9 +19,6 @@ NixOS/darwin module; standalone `home-manager switch` is not used here).
 - **enable**: turn the module on
 - **skills** (default `[]`): extra skills as `{ name, source, isFile }`;
   work-mac uses this for vendored third-party skills
-- **enableNotifications** (default `false`): install `libnotify` so the
-  notifier hook can send desktop notifications (Linux only; the hook
-  no-ops without `notify-send`)
 
 Hooks, commands, skills and the user memory file are not switchable. Every
 host that enables the module wants all of them, so the toggles were dead
@@ -63,10 +59,12 @@ instead of the ambient PATH, and shellcheck runs at build time.
   state alongside
 - **notification-bell.sh** (Notification): plays `notification.wav`,
   ducks volume during active Zoom calls (macOS)
-- **enhanced-ntfy-notifier.sh** (Stop, StopFailure): desktop
-  notification with project, branch, and a tool-use summary. Despite the
-  name it does not push to ntfy yet; it needs `notify-send`, so set
-  `enableNotifications`
+
+Task-completion alerts come from the built-in `preferredNotifChannel`
+setting, not a hook. Claude Code sends a desktop notification unprompted
+only under Ghostty, Kitty and iTerm2, so alacritty needs the explicit
+`terminal_bell` value. tmux swallows the escape sequence without
+`allow-passthrough on`, which `tmux.nix` already sets.
 
 ## Slash commands
 
@@ -82,7 +80,7 @@ into the module.
 - Run a hook manually with a JSON payload on stdin:
 
   ```bash
-  echo '{"hook_event_name":"Stop","cwd":"'$PWD'"}' | ~/.claude/hooks/enhanced-ntfy-notifier.sh
+  echo '{"hook_event_name":"Notification","cwd":"'$PWD'"}' | ~/.claude/hooks/notification-bell.sh
   ```
 
 - Harness-level logs: `claude --debug-file /tmp/claude-debug.log`

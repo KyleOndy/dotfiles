@@ -11,6 +11,7 @@
   },
   "cleanupPeriodDays": 30,
   "tui": "fullscreen",
+  "preferredNotifChannel": "terminal_bell",
   "voice": {
     "enabled": true
   },
@@ -76,11 +77,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
             "timeout": 5
           }
@@ -90,11 +86,6 @@
     "StopFailure": [
       {
         "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/enhanced-ntfy-notifier.sh",
-            "timeout": 5
-          },
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",

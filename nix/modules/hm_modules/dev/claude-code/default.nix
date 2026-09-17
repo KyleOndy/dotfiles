@@ -39,12 +39,6 @@ let
   notificationBell = mkScript "notification-bell" ./hooks/notification-bell.sh [
     pkgs.ffmpeg # ffplay
   ];
-  # libnotify is intentionally not a runtime input: the script no-ops without
-  # notify-send, and installing libnotify is what enableNotifications does.
-  ntfyNotifier = mkScript "enhanced-ntfy-notifier" ./hooks/enhanced-ntfy-notifier.sh [
-    pkgs.jq
-    pkgs.git
-  ];
   # GNU grep and sed: the script relies on -E alternation and \b, which BSD
   # userland on darwin handles differently.
   commentLint = mkScript "comment-lint" ./hooks/comment-lint.sh [
@@ -82,25 +76,14 @@ in
       description = "Claude Code skills to install";
     };
 
-    enableNotifications = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Install libnotify so the notifier hook can send desktop notifications (Linux only; the hook no-ops without notify-send)";
-    };
-
   };
 
   config = mkIf cfg.enable {
     # Ensure Claude Code and required tools are installed
-    home.packages =
-      with pkgs;
-      [
-        claude-code
-        gitFull # for git operations (matches git.nix module)
-      ]
-      ++ optionals cfg.enableNotifications [
-        libnotify # for notify-send desktop notifications
-      ];
+    home.packages = with pkgs; [
+      claude-code
+      gitFull # for git operations (matches git.nix module)
+    ];
 
     # settings.json is copied as a real writable file instead of the usual
     # nix-store symlink: Claude Code persists permission grants and /config
@@ -118,7 +101,6 @@ in
       ".claude/statusline.sh".source = statusline;
 
       ".claude/hooks/comment-lint.sh".source = commentLint;
-      ".claude/hooks/enhanced-ntfy-notifier.sh".source = ntfyNotifier;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
       ".claude/assets/notification.wav".source = ./assets/notification.wav;
