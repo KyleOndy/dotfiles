@@ -117,6 +117,11 @@ in
         recursive = true;
       };
 
+      ".claude/output-styles" = {
+        source = ./output-styles;
+        recursive = true;
+      };
+
       ".claude/skills/code-comments/SKILL.md".source = ./skills/code-comments.md;
       ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
       ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;

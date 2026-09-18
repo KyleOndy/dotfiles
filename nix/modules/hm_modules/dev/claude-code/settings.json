@@ -4,6 +4,7 @@
     "pr": ""
   },
   "model": "opus[1m]",
+  "outputStyle": "Direct",
   "effortLevel": "xhigh",
   "alwaysThinkingEnabled": true,
   "env": {
