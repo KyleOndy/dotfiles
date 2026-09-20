@@ -107,6 +107,25 @@ in
       };
     };
 
+    # The mac remote client hands a running instance argv without a working
+    # directory (it reads getcwd and never sends it, and the server inits
+    # nsCommandLine with a null one), so a relative path cannot resolve and
+    # is dropped without a word. An absolute path opens.
+    # https://github.com/mozilla-firefox/firefox/blob/FIREFOX_156_0_RELEASE/toolkit/components/remote/nsMacRemoteClient.mm#L34-L35
+    # https://github.com/mozilla-firefox/firefox/blob/FIREFOX_156_0_RELEASE/toolkit/components/remote/nsMacRemoteServer.mm#L57
+    # A function, because /opt/homebrew/bin precedes the nix profile on PATH.
+    programs.zsh.initContent = mkIf isDarwin ''
+      firefox() {
+        local -a args
+        local a
+        for a in "$@"; do
+          [[ -e $a ]] && a=''${a:a}
+          args+=("$a")
+        done
+        "${firefoxBin}" "''${args[@]}"
+      }
+    '';
+
     programs = {
       firefox = {
         enable = true;
