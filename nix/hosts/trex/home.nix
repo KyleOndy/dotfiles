@@ -202,16 +202,12 @@ in
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # pi's mcloud key is not managed here. `/login` writes it to
+    # pi's z.ai key is not managed here. `/login zai` writes it to
     # ~/.pi/agent/auth.json, which no nix module owns, and the sandbox can
-    # read it because the wrapper re-allows ~/.pi. Injecting it via
-    # sandbox.envFromCommands from sops (trex_mcloud_api_key, which
-    # mcloud-pins already reads) keeps it out of the sandbox instead, see the
-    # deny-read block in nix/pkgs/pi-wrapper/wrapper.sh.
-    #
-    # work-mac gets the same provider from the private work-config input,
-    # with real costs, context windows and reasoning maps. trex builds
-    # against the no-op stub, so the block below is the whole provider here.
+    # read it because the wrapper re-allows ~/.pi. The provider itself is
+    # built into pi (GLM Coding Plan), so unlike mcloud there is no
+    # modelsJson block and the catalog, costs and reasoning maps are pi's
+    # real entries rather than the no-op stub's.
     #
     # trex's local mlx models are absent. search-mail
     # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
@@ -221,10 +217,13 @@ in
       # nix/pkgs/pi-wrapper/wrapper.sh.
       sandbox.allowLocalBinding = true;
 
-      # The mcloud endpoint, and nothing else. An empty list would mean no
-      # network at all rather than unrestricted (sandbox-runtime 0.0.67
-      # README, Network Isolation).
-      sandbox.allowedDomains = [ "api.modular.com" ];
+      # The z.ai Coding Plan endpoint, and nothing else. An empty list would
+      # mean no network at all rather than unrestricted (sandbox-runtime
+      # 0.0.67 README, Network Isolation). agents/critic.md pins zai/glm-5.3-flash
+      # for the review seat, so the one domain covers both seats. The plan
+      # serves only 5.3 and 5.3-flash directly; older ids like glm-5.2 are
+      # silently rerouted to glm-5.3, which would break the two-seat rule.
+      sandbox.allowedDomains = [ "api.z.ai" ];
 
       # Resolvers run in the wrapper before it execs srt
       # (pi-wrapper/wrapper.sh:582 against :920), so this reaches the Keychain
@@ -233,31 +232,19 @@ in
       # here rather than as a 401 from Kagi mid-session.
       sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
 
+      # zai is a built-in provider, so no modelsJson entry; the key comes
+      # from /login zai into ~/.pi/agent/auth.json, which no module owns and
+      # the sandbox already reads. Its glm-5.3 supports low/high/max only, so
+      # xhigh would be inert (null in thinkingLevelMap).
       sandbox.defaultArgs = [
         "--model"
-        "mcloud/zai-org/glm-5.3"
+        "zai/glm-5.3"
         "--thinking"
-        "xhigh"
+        "high"
       ];
 
-      # Only `reasoning` is set: pi defaults contextWindow to 128k, maxTokens
-      # to 16k and every cost to 0, and `--thinking` above is inert without
-      # reasoning. kimi is registered because agents/critic.md pins it, and a
-      # model id that resolves to nothing fails silently at runtime.
-      modelsJson.providers.mcloud = {
-        baseUrl = "https://api.modular.com/v1";
-        api = "openai-completions";
-        models = [
-          {
-            id = "zai-org/glm-5.3";
-            reasoning = true;
-          }
-          {
-            id = "moonshotai/kimi-k2.7-code";
-            reasoning = true;
-          }
-        ];
-      };
+      # No modelsJson: zai is built-in and carries real catalog entries, so
+      # unlike the mcloud provider there is nothing to register.
     };
   };
 

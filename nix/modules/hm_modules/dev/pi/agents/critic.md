@@ -2,7 +2,7 @@
 name: critic
 description: Approve or reject finished work against the assertion it was supposed to satisfy
 tools: read, grep, find, ls
-model: mcloud/moonshotai/kimi-k2.7-code
+model: zai/glm-5.3-flash
 ---
 
 You hold the approve-or-reject seat. You did not write this work and you are

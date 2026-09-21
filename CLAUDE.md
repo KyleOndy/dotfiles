@@ -50,16 +50,16 @@ sees edits without a rebuild. The sandbox wrapper is `nix/pkgs/pi-wrapper`.
 
 Every provider the agent reaches is an internal or account-billed endpoint.
 work-mac takes its ids, base URLs, costs and reasoning maps from the private
-work-config input, which lands as `~/.pi/agent/models.json`. trex builds
-against the no-op stub and registers mcloud itself in
-`nix/hosts/trex/home.nix`, where context window and cost are pi's defaults
-rather than the real numbers.
+work-config input, which lands as `~/.pi/agent/models.json`. trex uses pi's
+built-in `zai` provider (GLM Coding Plan subscription), so it registers no
+modelsJson of its own and gets the real catalog: costs, context windows and
+reasoning maps come from pi.
 
 No key is stored in nix on either mac. work-config resolves one from the
-Keychain through the wrapper's `envFromCommands`; on trex, `/login` writes it
-to `~/.pi/agent/auth.json`, which no module owns and the sandbox can read
-because the wrapper re-allows `~/.pi`. sops carries `trex_mcloud_api_key` for
-`mcloud-pins`, but nothing on trex decrypts it yet.
+Keychain through the wrapper's `envFromCommands`; on trex, `/login zai`
+writes it to `~/.pi/agent/auth.json`, which no module owns and the sandbox
+can read because the wrapper re-allows `~/.pi`. sops still carries the
+now-orphaned `trex_mcloud_api_key` from the retired mcloud setup.
 
 Two seats must not run the session's own model, because self-preference bias
 survives a fresh context: `extensions/advisor.ts` reads `PI_ADVISOR_MODEL`
@@ -81,12 +81,17 @@ startup. trex answers untrusted (`nix store info --json` reports
 `"trusted":false`, from `trusted-users = root` in `/etc/nix/nix.custom.conf`).
 Running the verifier yourself is still the cheaper option.
 
-A dead model id fails silently at runtime, so check work-config's pins and
-the one in `critic.md` against the endpoint rather than waiting for a seat to
-go quiet:
+A dead model id fails silently at runtime, so check the pins against their
+endpoints rather than waiting for a seat to go quiet. `mcloud-pins` covers
+work-config's ids (mcloud, work-mac only); the `critic.md` pin is
+`zai/glm-5.3-flash`, checked by listing the zai catalog. The Coding Plan
+serves only glm-5.3 and glm-5.3-flash directly, older ids are silently
+rerouted to glm-5.3, so a pin that looks different can still be the session
+model in disguise:
 
 ```bash
-MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins
+MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins  # work-mac only
+pi --list-models | grep zai                                                            # trex
 ```
 
 ## Monitoring
