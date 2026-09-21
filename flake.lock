@@ -815,6 +815,22 @@
         "type": "github"
       }
     },
+    "pi-usage": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788849917,
+        "narHash": "sha256-S4fq+V9eItkYLIqh+BMzUhY3S+T4i2mNANwgWYW+2X4=",
+        "owner": "imdlan",
+        "repo": "pi-usage",
+        "rev": "39e90ca4d3977826b3d452a83bf2ec5fd8a0e720",
+        "type": "github"
+      },
+      "original": {
+        "owner": "imdlan",
+        "repo": "pi-usage",
+        "type": "github"
+      }
+    },
     "pre-commit-hooks": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -879,6 +895,7 @@
         "nixpkgs": "nixpkgs_5",
         "nixpkgs-master": "nixpkgs-master",
         "nur": "nur",
+        "pi-usage": "pi-usage",
         "pre-commit-hooks": "pre-commit-hooks_2",
         "sops-nix": "sops-nix",
         "work-config": "work-config"

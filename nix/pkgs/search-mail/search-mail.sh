@@ -237,10 +237,10 @@ fi
 # Pins pi's changelog cursor past any real version, so its "What's New"
 # banner (which can be several screens of release notes) never prints for
 # this scripted invocation -- it should read like a plain CLI tool, not an
-# interactive coding session. ~/.pi/agent/settings.json isn't nix-managed
-# (nix/modules/hm_modules/dev/pi-coding-agent/default.nix only writes it when
-# settingsJson is configured, which it isn't on trex), so mutating it here is
-# safe. This is shared with interactive `pi` sessions, so it also means Kyle
+# interactive coding session. ~/.pi/agent/settings.json is reinstalled from
+# the repo copy by home-manager activation (dev/pi-coding-agent/default.nix),
+# so this runtime mutation only survives until the next switch; it preserves
+# every other key, including the packages list. This is shared with interactive `pi` sessions, so it also means Kyle
 # won't see the same changelog a second time interactively after search-mail
 # has already pinned past it -- an acceptable tradeoff against dumping
 # release notes into what should look like a plain search tool. Best effort:

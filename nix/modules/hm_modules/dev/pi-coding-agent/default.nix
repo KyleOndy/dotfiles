@@ -697,6 +697,14 @@ in
       ".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
         text = builtins.toJSON cfg.modelsJson;
       };
+
+      # Third-party pi package (usage/quota in the footer), the one pi
+      # resource not sourced from sourceDir: store-sourced like the ponytail
+      # skills above and pinned by flake.lock, updated via
+      # `make update/pi-usage`. The repo settings.json registers it as
+      # "./packages/pi-usage", which pi resolves against the settings file,
+      # so every host running this module gets symlink and entry in step.
+      ".pi/agent/packages/pi-usage".source = "${inputs.pi-usage}";
     }
     // repoSkills
     // flakeSkills

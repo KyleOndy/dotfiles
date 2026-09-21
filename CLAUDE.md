@@ -47,6 +47,10 @@ Onshape API keys, currently handled ad hoc rather than through sops.
 Agents, extensions, themes and `AGENTS.md` live in
 `nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so `/reload`
 sees edits without a rebuild. The sandbox wrapper is `nix/pkgs/pi-wrapper`.
+The `pi-usage` extension (Z.ai quota in the footer, `/usage` command) is the
+one pi resource not from there: a third-party pi package from the `pi-usage`
+flake input, symlinked to `~/.pi/agent/packages/pi-usage` and registered in
+the module's `settings.json`; `make update/pi-usage` moves the pin.
 
 Every provider the agent reaches is an internal or account-billed endpoint.
 work-mac takes its ids, base URLs, costs and reasoning maps from the private

@@ -147,6 +147,10 @@ update/claude-code: ## Update just claude-code source
 update/pi-coding-agent: ## Update pi.dev coding agent (via numtide/llm-agents.nix)
 	nix flake update llm-agents
 
+.PHONY: update/pi-usage
+update/pi-usage: ## Update pi-usage footer extension (github:imdlan/pi-usage)
+	nix flake update pi-usage
+
 .PHONY: check
 check: ## Run nix checks
 	nix flake check $(IMPURE)

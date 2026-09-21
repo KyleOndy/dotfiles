@@ -74,6 +74,13 @@
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
     };
+    # pi footer extension showing provider usage/quota (Z.ai Coding Plan
+    # on trex; inert on hosts without a supported provider). Loaded as a pi
+    # package via the symlink in dev/pi-coding-agent/default.nix.
+    pi-usage = {
+      url = "github:imdlan/pi-usage";
+      flake = false;
+    };
     cogsworth = {
       url = "git+ssh://git@github.com/KyleOndy/cogsworth?ref=v3";
       inputs.nixpkgs.follows = "nixpkgs";

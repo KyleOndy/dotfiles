@@ -4,5 +4,6 @@
   "showCacheMissNotices": true,
   "retry": {
     "maxRetries": 6
-  }
+  },
+  "packages": ["./packages/pi-usage"]
 }
