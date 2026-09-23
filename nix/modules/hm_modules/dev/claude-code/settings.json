@@ -9,9 +9,6 @@
   "alwaysThinkingEnabled": true,
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
-  "env": {
-    "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "1"
-  },
   "cleanupPeriodDays": 30,
   "tui": "fullscreen",
   "preferredNotifChannel": "terminal_bell",
