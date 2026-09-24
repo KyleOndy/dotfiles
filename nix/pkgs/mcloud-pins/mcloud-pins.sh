@@ -48,7 +48,6 @@ if [ -z "${MCLOUD_API_KEY:-}" ]; then
 		mcloud-pins: MCLOUD_API_KEY is unset.
 
 		  work-mac: MCLOUD_API_KEY=\$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins
-		  trex:     MCLOUD_API_KEY=\$(cat /run/secrets/trex_mcloud_api_key) mcloud-pins
 	EOF
 	exit 2
 fi

@@ -129,7 +129,6 @@
     photos-promote
     winnow
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
-    mcloud-pins # check every pinned mcloud model still resolves, see nix/pkgs/mcloud-pins
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
     mpv
