@@ -331,6 +331,15 @@ create_cluster() {
 	ok "Added context kind-${name} → ${kubeconfig}"
 }
 
+# kind writes a context only when it creates a cluster, so one that predates
+# the kubeconfig, or outlived a deleted copy of it, gets its context back here.
+export_kubeconfig() {
+	local kubeconfig
+	kubeconfig="$(get_kubeconfig)"
+	mkdir -p "$(dirname "${kubeconfig}")"
+	kind export kubeconfig --name "$1" --kubeconfig "${kubeconfig}"
+}
+
 create_clusters_parallel() {
 	local pids=()
 	local names=()
@@ -352,6 +361,7 @@ create_clusters_parallel() {
 		logs+=("${errlog}")
 	else
 		ok "Management cluster '${mgmt}' already exists"
+		export_kubeconfig "${mgmt}"
 	fi
 
 	# Workload clusters
@@ -368,6 +378,7 @@ create_clusters_parallel() {
 			logs+=("${errlog}")
 		else
 			ok "Workload cluster '${cname}' already exists"
+			export_kubeconfig "${cname}"
 		fi
 	done < <(get_cluster_names)
 

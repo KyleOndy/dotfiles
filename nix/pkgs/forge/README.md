@@ -218,6 +218,9 @@ unreadable to a sandboxed agent. `wrapper.sh` states the rule this follows:
 the paths a container orchestrator writes belong to whoever configures the
 tool.
 
+`forge up` also re-exports the context of every cluster that already exists, so
+deleting the file loses nothing the next `up` cannot restore.
+
 The default still sits under `$HOME`, which the sandbox denies wholesale, so an
 agent needs the path added to `sandbox.allowedReadPaths`. `FORGE_KUBECONFIG`
 overrides the config for a caller that would rather place the file itself.
