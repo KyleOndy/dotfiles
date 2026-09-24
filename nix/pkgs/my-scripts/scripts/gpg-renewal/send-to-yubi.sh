@@ -9,6 +9,9 @@ KEYID="kyle@ondy.org"
 REAL_GNUPGHOME=$GNUPGHOME
 GNUPGHOME=$(mktemp -d)
 export GNUPGHOME
+# The primary secret key stays in this keyring after keytocard, and mktemp
+# puts it on disk.
+trap 'gpgconf --kill gpg-agent; rm -rf "$GNUPGHOME"' EXIT
 cp "$REAL_GNUPGHOME/gpg-agent.conf" "$GNUPGHOME/"
 
 gpg --import "$1/secret.key"
