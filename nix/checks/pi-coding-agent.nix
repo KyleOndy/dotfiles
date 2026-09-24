@@ -169,6 +169,10 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--no-sandbox missing warning. captured=$captured"
     echo "$captured" | grep -q "PI_PLAN_EXEC.*pi.*foo" \
       || fail "--no-sandbox did not plan to exec stub pi. captured=$captured"
+    # No sandbox, so no grant is missing: listing the catalog would have the
+    # agent ask for a restart over a refusal that cannot happen.
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS" \
+      && fail "--no-sandbox exported the grant catalog. captured=$captured"
 
     # Strict default: srt invoked, settings JSON has expected shape
     captured=$(pi -- hello 2>&1)
