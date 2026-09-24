@@ -383,18 +383,20 @@ create_clusters_parallel() {
 		fi
 	done < <(get_cluster_names)
 
-	# Wait for all parallel creates, surfacing each failure's stderr
+	# Every create is waited on before dying, so none is left running and every
+	# failure's stderr is shown.
 	local i=0
+	local failed=()
 	for pid in "${pids[@]}"; do
 		if ! wait "${pid}"; then
 			echo "    --- stderr from ${names[$i]} ---" >&2
 			sed 's/^/    /' "${logs[$i]}" >&2
-			rm -f "${logs[$i]}"
-			die "Failed to create cluster '${names[$i]}'"
+			failed+=("${names[$i]}")
 		fi
 		rm -f "${logs[$i]}"
 		i=$((i + 1))
 	done
+	[[ ${#failed[@]} -eq 0 ]] || die "Failed to create cluster(s): ${failed[*]}"
 }
 
 delete_cluster() {
