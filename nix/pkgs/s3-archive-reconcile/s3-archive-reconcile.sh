@@ -10,9 +10,9 @@
 #
 # One script rather than two so the set difference that reports and the set
 # difference that deletes cannot drift apart. The two callers differ only in
-# which AWS credential they carry: the reporting unit holds a key with no
-# delete verb at all, so --prune there fails at the API rather than doing
-# something surprising.
+# the --prune flag. Both carry the archive-prune credential
+# (reconcileUnit in pika/configuration.nix), so nothing at the API stops a
+# report-only unit from deleting if --prune reaches it.
 #
 # Deletion here writes delete markers. No principal in the fleet holds
 # s3:DeleteObjectVersion, so nothing this script does destroys a byte; the
