@@ -1,6 +1,6 @@
 # Flake check that drives pi-broker (nix/pkgs/pi-broker) through a coordinator
-# session: spawns, refusals, a child quitting with and without a result,
-# teardown and a failed `forge up`.
+# session: spawns, refusals, a child booting its VM, a child quitting with and
+# without a result, teardown and a failed `forge init`.
 #
 # forge and tmux are stubs, since neither a VM nor a tmux server exists in the
 # build sandbox; git, the worktree script and the request protocol are real.
@@ -31,14 +31,15 @@ pkgs.runCommand "pi-broker-check"
     echo 'network: large' >"$HOME/.config/forge/forge.yaml"
     echo 'network: small' >"$HOME/.config/forge/forge-small.yaml"
 
-    # Records every call; `up` makes the VM directory the broker looks for
-    # and fails on demand.
+    # Records every call; `init` makes the VM directory the broker looks for,
+    # and `init` and `start` fail on demand.
     cat >"$T/stubs/forge" <<EOF
     #!${pkgs.runtimeShell}
     echo "forge \$* FORGE_INSTANCE=\''${FORGE_INSTANCE:-} FORGE_CONFIG=\''${FORGE_CONFIG:-}" >>"$T/calls"
     case "\$1" in
     vm-config) exec ${realForge} "\$@" ;;
-    up) [ -f "$T/fail-up" ] && exit 1; mkdir -p "\$LIMA_HOME/forge-\$FORGE_INSTANCE" ;;
+    init) [ -f "$T/fail-init" ] && exit 1; mkdir -p "\$LIMA_HOME/forge-\$FORGE_INSTANCE" ;;
+    start) [ ! -f "$T/fail-start" ] || exit 1 ;;
     nuke) rm -rf "\$LIMA_HOME/forge-\$FORGE_INSTANCE" ;;
     esac
     EOF
@@ -110,10 +111,12 @@ pkgs.runCommand "pi-broker-check"
     [ "$(git -C "$T/repo/alpha" symbolic-ref --short HEAD)" = alpha ] \
       || fail "alpha's worktree is not on branch alpha"
     [ "$(cat "$COORD/agents/alpha/task.md")" = "do alpha" ] || fail "task.md does not hold the brief"
-    grep -q "forge up --size small FORGE_INSTANCE=1 FORGE_CONFIG=$HOME/.config/forge/forge-small.yaml" "$T/calls" \
-      || fail "small did not come up from forge-small.yaml"
-    grep -q "forge up --size large FORGE_INSTANCE=2 FORGE_CONFIG=$HOME/.config/forge/forge.yaml" "$T/calls" \
-      || fail "large did not come up from forge.yaml"
+    grep -q "forge init --size small FORGE_INSTANCE=1 FORGE_CONFIG=$HOME/.config/forge/forge-small.yaml" "$T/calls" \
+      || fail "small was not defined from forge-small.yaml"
+    grep -q "forge init --size large FORGE_INSTANCE=2 FORGE_CONFIG=$HOME/.config/forge/forge.yaml" "$T/calls" \
+      || fail "large was not defined from forge.yaml"
+    grep -q "forge start\|forge up" "$T/calls" && fail "a spawn booted a VM nobody asked for"
+    [ "$(st alpha vm)" = stopped ] || fail "alpha's VM is $(st alpha vm), not stopped"
     grep -qF -- "-c $T/repo/alpha -- /fake/pi --allow-forge=1 --coord-child=c1/alpha --name alpha @$COORD/agents/alpha/task.md" "$T/calls" \
       || fail "alpha's window does not run the wrapper for its own instance. calls: $(grep new-window "$T/calls")"
     [ "$(grep -c 'new-session' "$T/calls")" = 1 ] || fail "made more than one tmux session"
@@ -138,6 +141,28 @@ pkgs.runCommand "pi-broker-check"
     req r10 '{"op":"spawn","agent":"eps","task":"x","size":"large"}' true "instance 3"
     req r11 '{"op":"spawn","agent":"zeta","task":"x","size":"large"}' true "instance 4"
     req r12 '{"op":"spawn","agent":"eta","task":"x","size":"large"}' false "28 of 32GiB"
+
+    # A child asks for its VM by touching boot.request, and the broker boots
+    # the instance from its own state, not from anything the child wrote.
+    # boot.json is planted as a symlink first: the unsandboxed broker must
+    # replace it, not write through it.
+    ln -s "$T/secret" "$COORD/agents/beta/boot.json"
+    touch "$COORD/agents/beta/boot.request"
+    for _ in $(seq 100); do [ -f "$COORD/agents/beta/boot.json" ] && [ ! -L "$COORD/agents/beta/boot.json" ] && break; sleep 0.1; done
+    jq -e '.ok == true and (.message | contains("instance 2"))' "$COORD/agents/beta/boot.json" >/dev/null \
+      || fail "beta's boot reply: $(cat "$COORD/agents/beta/boot.json")"
+    grep -q leaked-field "$T/secret" || fail "the boot reply was written through a symlink"
+    grep -q "forge start FORGE_INSTANCE=2" "$T/calls" || fail "beta's boot did not start instance 2"
+    grep -q "forge cache up" "$T/calls" || fail "beta's boot did not bring the cache up"
+    [ "$(st beta vm)" = running ] || fail "beta's VM is $(st beta vm) after booting"
+    [ -e "$COORD/agents/beta/boot.request" ] && fail "the boot request was not consumed"
+
+    touch "$T/fail-start"
+    touch "$COORD/agents/eps/boot.request"
+    for _ in $(seq 100); do [ -f "$COORD/agents/eps/boot.json" ] && break; sleep 0.1; done
+    jq -e '.ok == false' "$COORD/agents/eps/boot.json" >/dev/null || fail "a failed boot replied ok"
+    [ "$(st eps vm)" = boot-failed ] || fail "eps's VM is $(st eps vm) after a failed boot"
+    rm "$T/fail-start"
 
     # A child that quits without reporting, and one that reports first.
     close_window alpha
@@ -165,14 +190,14 @@ pkgs.runCommand "pi-broker-check"
     [ -d "$T/repo/beta" ] || fail "remove_worktree deleted a worktree with changes"
     st beta error | grep -q "worktree kept" || fail "beta's error does not say the worktree was kept"
 
-    # A failed forge up gives back its VM and slot.
-    touch "$T/fail-up"
+    # A failed forge init gives back its VM and slot.
+    touch "$T/fail-init"
     req r16 '{"op":"spawn","agent":"theta","task":"x"}' true "instance 1"
     wait_state theta failed
     [ -d "$SLOTS/1" ] && fail "a failed spawn kept its slot"
 
     # A coordinator on a ticket branch files its agents under that ticket.
-    rm "$T/fail-up"
+    rm "$T/fail-init"
     git -C "$T/repo/main" switch -q -c DEV-7-coordinate
     req r17 '{"op":"spawn","agent":"iota","task":"x"}' true "instance 1"
     wait_state iota running

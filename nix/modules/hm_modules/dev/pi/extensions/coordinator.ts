@@ -7,7 +7,8 @@
  * request, and pi-broker (nix/pkgs/pi-broker), which the wrapper starts
  * outside the sandbox for `pi --coordinator`, does the work and records state
  * this reads back. A child started by the broker gets report_result, which is
- * the only thing it can write that the coordinator reads.
+ * the only thing it can write that the coordinator reads, and forge_boot,
+ * which asks the broker to boot the child's own VM.
  *
  * Silent unless the wrapper exported PI_COORD_ROLE and PI_COORD_DIR, which it
  * does only for --coordinator and --coord-child.
@@ -19,6 +20,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -29,6 +31,8 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const RESPONSE_TIMEOUT_MS = 20_000;
 const WAIT_POLL_MS = 5_000;
 const MAX_WAIT_MINUTES = 120;
+// forge's own VM_TIMEOUT is 10m, and the cache may need booting first.
+const BOOT_TIMEOUT_MS = 15 * 60_000;
 // States after which an agent will not change again without a new request.
 const SETTLED = new Set(["failed", "exited", "done", "torn-down"]);
 
@@ -41,6 +45,7 @@ interface AgentState {
   branch?: string;
   worktree?: string;
   window?: string;
+  vm?: string;
   error?: string;
   updated?: string;
   result: boolean;
@@ -86,7 +91,8 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
   const describe = (s: AgentState): string =>
     [
       `${s.agent}: ${s.state}${s.result ? ", result reported" : ""}`,
-      s.instance && `  forge instance ${s.instance} (${s.size})`,
+      s.instance &&
+        `  forge instance ${s.instance} (${s.size})${s.vm ? `, VM ${s.vm}` : ""}`,
       s.worktree && `  worktree ${s.worktree}, branch ${s.branch}`,
       s.error && `  error: ${s.error}`,
     ]
@@ -126,13 +132,14 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
     name: "spawn_agent",
     label: "Spawn agent",
     description:
-      "Start an agent in its own git worktree and branch, with its own forge VM (kind clusters plus ArgoCD), in a new tmux window. Returns once the request is accepted; the worktree and VM take several minutes after that.",
+      "Start an agent in its own git worktree and branch, with its own forge VM, in a new tmux window. The VM starts stopped: the agent boots it with forge_boot only if its task needs kind clusters, then runs 'forge up' itself. Returns once the request is accepted.",
     promptSnippet: "Spawn an agent with its own worktree, branch and forge VM",
     promptGuidelines: [
       "The agent name becomes the branch and worktree name, prefixed with the ticket id when your own branch starts with one (DEV-123-), so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
       "The task is the agent's whole brief. It sees none of this conversation, so say what to do, what done looks like, and what to leave alone.",
       "Use size large only when the task needs two workload clusters or heavy workloads; small is the default and leaves room for more agents.",
       "After spawning, use agent_wait rather than polling agent_status in a loop.",
+      "You hold no forge VM yourself. Work that needs kind clusters goes to a spawned agent, and its brief should say so, since the agent decides whether to boot its VM.",
     ],
     parameters: Type.Object({
       agent: Type.String({
@@ -283,6 +290,36 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
 }
 
 function childTools(pi: ExtensionAPI, dir: string) {
+  pi.registerTool({
+    name: "forge_boot",
+    label: "Boot forge VM",
+    description:
+      "Boot your own forge VM, which starts stopped. The sandbox cannot boot it, so the broker does. Returns once it is running or has failed; takes a few minutes.",
+    promptSnippet: "Boot your forge VM, then run 'forge up' for clusters",
+    promptGuidelines: [
+      "Call forge_boot only when the task needs kind clusters or the forge docker daemon; a task that does not leaves the VM stopped.",
+      "forge_boot starts the VM and nothing else. Run 'forge up' afterwards to build the clusters; forge down, status and up all work from inside the sandbox.",
+    ],
+    parameters: Type.Object({}),
+    async execute(_toolCallId, _params, signal) {
+      const reply = join(dir, "boot.json");
+      rmSync(reply, { force: true });
+      writeFileSync(join(dir, "boot.request"), "");
+      const deadline = Date.now() + BOOT_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        if (existsSync(reply)) {
+          const r = JSON.parse(readFileSync(reply, "utf8"));
+          if (!r.ok) throw new Error(r.message);
+          return text(r.message);
+        }
+        await sleep(WAIT_POLL_MS, signal);
+      }
+      throw new Error(
+        `No answer from the broker after ${BOOT_TIMEOUT_MS / 60_000}m. Report it with report_result; the coordinator's agent_status shows the VM state.`,
+      );
+    },
+  });
+
   pi.registerTool({
     name: "report_result",
     label: "Report result",

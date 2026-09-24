@@ -13,7 +13,8 @@
 # writes requests and this does all three. Each agent gets:
 #   - a worktree and branch named after it, based on the coordinator's HEAD,
 #     under the coordinator branch's ticket when it has one (DEV-123-*)
-#   - forge instance <n>, its own VM
+#   - forge instance <n>, its own VM, defined but stopped until the agent
+#     asks for it with forge_boot
 #   - a tmux window running `pi --allow-forge=<n> --coord-child=<id>/<agent>`
 #
 # <coord-dir> layout, which extensions/coordinator.ts reads and writes:
@@ -21,11 +22,13 @@
 #   responses/<uuid>.json  accepted or rejected, and why
 #   state/<agent>.json     the agent's state, instance, worktree and window
 #   logs/<agent>.*.log     this script's and forge's output for the agent
-#   agents/<agent>/        task.md for the child, result.md from it
+#   agents/<agent>/        task.md for the child, result.md from it,
+#                          boot.request from it and boot.json back
 #
 # agents/<agent>/ is the one place the child can write, so nothing here reads
 # a decision back out of it: an instance number taken from there would let a
-# child aim `forge nuke` at a sibling's VM.
+# child aim `forge nuke` at a sibling's VM. boot.request is read for its
+# presence alone.
 
 readonly COORD_DIR="$1"
 readonly WATCH_PID="$2"
@@ -72,6 +75,17 @@ respond() {
 }
 
 agent_dir() { echo "${COORD_DIR}/agents/$1"; }
+
+# The child can plant a symlink at any name in its own directory, so the reply
+# is written in state/ and renamed in: rename replaces a symlink rather than
+# following it, and -T refuses to move into a directory planted there.
+reply_to_child() {
+	local agent="$1" name="$2" tmp
+	shift 2
+	tmp="$(mktemp "${COORD_DIR}/state/.reply-XXXXXX")"
+	jq -n "$@" >"${tmp}"
+	mv -T "${tmp}" "$(agent_dir "${agent}")/${name}" || rm -f "${tmp}"
+}
 state_file() { echo "${COORD_DIR}/state/$1.json"; }
 log_file() { echo "${COORD_DIR}/logs/$1.$2.log"; }
 
@@ -237,11 +251,13 @@ run_spawn() {
 	fi
 	set_status "${agent}" state starting-forge worktree "${worktree}"
 
+	# init also saves the config into the instance's directory, which is what
+	# the agent's own `forge up` reads.
 	if ! FORGE_INSTANCE="${instance}" FORGE_CONFIG="$(forge_config_for "${size}")" \
-		forge up --size "${size}" >>"${flog}" 2>&1; then
+		forge init --size "${size}" >>"${flog}" 2>&1; then
 		FORGE_INSTANCE="${instance}" forge nuke >>"${flog}" 2>&1 || true
 		release_slot "${instance}" "${agent}"
-		set_status "${agent}" state failed error "forge up failed, see ${flog}"
+		set_status "${agent}" state failed error "forge init failed, see ${flog}"
 		return
 	fi
 
@@ -252,7 +268,7 @@ run_spawn() {
 		set_status "${agent}" state failed error "tmux new-window failed, see ${blog}"
 		return
 	fi
-	set_status "${agent}" state running window "${window}"
+	set_status "${agent}" state running window "${window}" vm stopped
 }
 
 handle_spawn() {
@@ -313,6 +329,41 @@ handle_spawn() {
 	target="$(tmux_target)"
 	respond "${id}" true "agent ${agent} on forge instance ${instance} (${size}), based on ${base}"
 	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" &
+}
+
+# ─── Boot ─────────────────────────────────────────────────────────────────────
+
+# Booting needs ~/.lima, which the child's sandbox denies. Clusters do not:
+# the child runs `forge up` itself once the socket answers.
+run_boot() {
+	local agent="$1" instance flog
+	instance="$(get_status "${agent}" instance)"
+	flog="$(log_file "${agent}" forge)"
+	if forge cache up >>"${flog}" 2>&1 && FORGE_INSTANCE="${instance}" forge start >>"${flog}" 2>&1; then
+		set_status "${agent}" vm running
+		reply_to_child "${agent}" boot.json --arg m "forge instance ${instance} is running; 'forge up' builds its clusters" \
+			'{ok: true, message: $m}'
+	else
+		set_status "${agent}" vm boot-failed error "forge start failed, see ${flog}"
+		reply_to_child "${agent}" boot.json \
+			--arg m "forge instance ${instance} did not boot; the coordinator's agent_status has the log path" \
+			'{ok: false, message: $m}'
+	fi
+}
+
+boot_requested() {
+	local status agent request
+	for status in "${COORD_DIR}"/state/*.json; do
+		[[ -f ${status} ]] || continue
+		[[ "$(jq -r .state "${status}")" == running ]] || continue
+		agent="$(basename "${status}" .json)"
+		request="$(agent_dir "${agent}")/boot.request"
+		[[ -e ${request} || -L ${request} ]] || continue
+		rm -rf "${request}"
+		[[ "$(get_status "${agent}" vm)" != booting ]] || continue
+		set_status "${agent}" vm booting
+		run_boot "${agent}" &
+	done
 }
 
 # ─── Teardown ─────────────────────────────────────────────────────────────────
@@ -420,6 +471,7 @@ while kill -0 "${WATCH_PID}" 2>/dev/null; do
 		handle_request "${request}"
 	done
 	reap_exited
+	boot_requested
 	sleep "${POLL_SECONDS}"
 done
 rm -f "${COORD_DIR}/broker.pid"
