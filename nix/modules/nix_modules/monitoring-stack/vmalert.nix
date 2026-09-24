@@ -457,8 +457,9 @@ in
         # reliable signal is the absence of a recent success.
         #
         # Metric names matter here. zfs_zpool_* was renamed zfs_pool_* and
-        # the poolname label became pool (DASHBOARD_CONVENTIONS.md:413), so a
-        # rule written from memory matches nothing, forever, silently.
+        # the poolname label became pool (DASHBOARD_CONVENTIONS.md, "Exporter
+        # Metric Naming Mismatches"), so a rule written from memory matches
+        # nothing, forever, silently.
         - name: zfs_storage
           interval: 60s
           rules:
