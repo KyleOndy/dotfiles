@@ -562,6 +562,11 @@ register_cluster_with_argocd() {
 	# Get the internal Docker-network API server address for this cluster
 	local api_server="https://${cluster_name}-control-plane:6443"
 
+	# A binding's roleRef cannot be changed, so an existing one naming another
+	# role would fail the apply. Recreate it instead.
+	kubectl --context "${work_context}" delete --ignore-not-found \
+		clusterrolebinding argocd-manager-role-binding
+
 	# Create a service account in the workload cluster for ArgoCD
 	kubectl --context "${work_context}" apply -f - <<EOF
 apiVersion: v1
