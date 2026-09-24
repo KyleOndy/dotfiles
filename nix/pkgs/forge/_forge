@@ -7,6 +7,7 @@ _arguments -s \
   '(- 1)'{-h,--help}'[show the manual]' \
   '1:command:((
     init\:"create the VM if absent, without starting it"
+    start\:"create the VM if absent, and boot it if stopped"
     up\:"create the VM if absent, then converge to the config"
     down\:"delete every cluster, keeping the VM and its mirror caches"
     status\:"print the VM, mirrors and clusters, changing nothing"

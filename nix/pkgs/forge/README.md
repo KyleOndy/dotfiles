@@ -217,6 +217,7 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | Command            | VM      | Clusters | Network | Cache  |
 | ------------------ | ------- | -------- | ------- | ------ |
 | `forge init`       | define  | -        | -       | -      |
+| `forge start`      | boot    | -        | -       | -      |
 | `forge up`         | create  | create   | create  | create |
 | `forge down`       | -       | delete   | -       | -      |
 | `forge nuke`       | delete  | delete   | delete  | -      |

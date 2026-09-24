@@ -88,7 +88,8 @@ else
 fi
 readonly API_PORT_LAST=$((API_PORT_BASE + API_PORT_SPAN - 1))
 
-# A named instance keeps a copy of the config it was last brought up with, and
+# A named instance keeps a copy of the config it was last defined or brought
+# up with, and
 # reads that when FORGE_CONFIG is unset. An agent granted only the instance's
 # directory can then rebuild its clusters without ~/.config.
 readonly INSTANCE_CONFIG="${INSTANCE_DIR:+${INSTANCE_DIR}/forge.yaml}"
@@ -985,6 +986,12 @@ cmd_init() {
 	ok "Created '${VM_NAME}' at size ${size}, stopped until 'forge up'"
 }
 
+# Boots the VM without touching clusters, for a caller that cannot reach
+# ~/.lima but can run `forge up` through the socket afterwards.
+cmd_start() {
+	ensure_vm "$1"
+}
+
 cmd_up() {
 	ensure_vm "$1"
 	check_prerequisites
@@ -1120,6 +1127,8 @@ Commands:
                  Create the VM if absent, without starting it. Enough for pi's
                  --allow-forge, which checks the VM's definition; 'forge up'
                  boots it later.
+  start          Create the VM if absent, and boot it if stopped. Clusters
+                 are left alone.
   up [--size S]  Create the VM if absent, then converge to the config: Docker
                  network, the shared pull-through cache, Kind clusters, ArgoCD
                  on the management cluster, and registration of every workload
@@ -1226,15 +1235,11 @@ nuke)
 		exit
 	fi
 	;&
-init)
-	parse_size_flag "${@:2}"
-	cmd_init "${SIZE}"
-	;;
-up | down | status)
-	[[ ${1} != up ]] || parse_size_flag "${@:2}"
+init | start | up | down | status)
+	[[ ${1} != init && ${1} != up ]] || parse_size_flag "${@:2}"
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"
 	check_api_port_window
-	if [[ ${1} == up && -n ${INSTANCE_CONFIG} && ! ${CONFIG} -ef ${INSTANCE_CONFIG} ]]; then
+	if [[ (${1} == init || ${1} == up) && -n ${INSTANCE_CONFIG} && ! ${CONFIG} -ef ${INSTANCE_CONFIG} ]]; then
 		install -D -m 0644 "${CONFIG}" "${INSTANCE_CONFIG}"
 	fi
 	# Every kubectl, helm and kind call below addresses clusters by context, and
