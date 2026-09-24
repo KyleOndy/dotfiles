@@ -210,6 +210,12 @@ else
 	die "Invalid arguments. Use -h for help."
 fi
 
+# git worktree add and git checkout report tracking on stdout, so under
+# --print-path everything goes to stderr and fd 3 carries only the path.
+if [[ $print_path == true ]]; then
+	exec 3>&1 1>&2
+fi
+
 # Create worktree
 if [[ $fetch == true ]]; then
 	log_info "Fetching latest from remote..."
@@ -234,8 +240,6 @@ fi
 
 checkout_worktree "$feature_path" "$branch_name"
 
-# Spacers go to stderr with the log lines they separate, so --print-path can
-# leave stdout carrying nothing but the path.
 echo "" >&2
 log_info "Created worktree: ${feature_path}"
 log_info "Branch: ${branch_name}"
@@ -246,7 +250,7 @@ else
 fi
 
 if [[ $print_path == true ]]; then
-	echo "$feature_path"
+	echo "$feature_path" >&3
 else
 	echo ""
 	echo "To start working:"
