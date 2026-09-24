@@ -19,5 +19,6 @@ _arguments -s \
 
 case $words[1] in
   up) _arguments '--size=[VM size for a new VM]:size:(small large)' ;;
+  nuke) _arguments '--all[every named instance, never the unnamed one]' ;;
   resize | vm-config) _arguments '1:size:(small large)' ;;
 esac

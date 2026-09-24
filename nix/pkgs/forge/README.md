@@ -227,6 +227,10 @@ nothing on the host, so the kubeconfig contexts survive pointing at dead
 ports; run `forge down` first to drop them. A named instance's
 `~/.local/state/forge/<n>` goes with its VM.
 
+`forge nuke --all` runs `nuke` on every named instance, one after another,
+and leaves the unnamed one. It refuses while any forge command is running
+against one of them.
+
 `forge status` is read-only: the VM, each mirror's state, and each cluster's
 context and API port.
 

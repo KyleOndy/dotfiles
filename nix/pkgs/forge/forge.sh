@@ -844,6 +844,7 @@ ls_row() {
 forge_busy() {
 	local pid cmd inst
 	while read -r pid cmd; do
+		[[ ${pid} != "$$" ]] || continue
 		inst="$(ps eww -o command= -p "${pid}" 2>/dev/null | grep -o 'FORGE_INSTANCE=[0-9]*' | cut -d= -f2)" || true
 		printf '%s\t%s\n' "${inst:--}" "${cmd}"
 	done < <(ps -Ao pid=,command= | sed -nE 's#^ *([0-9]+) .*/bin/forge (up|down|nuke|resize)( .*)?$#\1 \2#p')
@@ -951,6 +952,26 @@ cmd_nuke() {
 	log "Everything removed."
 }
 
+# Every named instance, one `forge nuke` each. The unnamed instance is the
+# human's, with the mirror caches worth keeping, so it takes a plain `nuke`.
+# Refuses while any forge command runs against one, since an `up` whose VM
+# vanishes under it fails or creates it again.
+cmd_nuke_all() {
+	local -A busy=()
+	local inst cmd
+	while IFS=$'\t' read -r inst cmd; do
+		[[ ${inst} == - ]] || busy[${inst}]="${cmd}"
+	done < <(forge_busy)
+	((${#busy[@]} == 0)) || die "forge is running against instance ${!busy[*]}; stop it first"
+
+	local vm found=false
+	while read -r vm; do
+		found=true
+		FORGE_INSTANCE="${vm#forge-}" "$0" nuke </dev/null
+	done < <(limactl list --format '{{.Name}}' 2>/dev/null | grep -E '^forge-[0-9]+$')
+	"${found}" || log "No named instances to remove."
+}
+
 cmd_resize() {
 	resize_vm "$1"
 }
@@ -986,8 +1007,10 @@ Commands:
                  running of those declared, the guest's load, memory and
                  disk, and the pi agent holding it. Reads state, changes
                  nothing, and needs ~/.lima, so run it outside pi's sandbox.
-  nuke           Delete the VM, and with it every cluster, mirror, volume and
-                 network.
+  nuke [--all]   Delete the VM, and with it every cluster, mirror, volume and
+                 network. --all does that to every named instance, never the
+                 unnamed one, and refuses while forge runs against any of
+                 them.
   resize S       Stop the VM, change its CPUs and memory, start it again.
   vm-config [S]  Print the lima config this instance's VM is created from.
 
@@ -1051,7 +1074,20 @@ parse_size_flag() {
 # rather than there: without them a missing config surfaces as a raw yq error.
 SIZE=""
 case "${1:-}" in
-up | down | status | nuke)
+nuke)
+	# An unknown argument dies rather than falling through, since the fall
+	# through nukes the unnamed instance.
+	case "${2:-}" in
+	"") ;;
+	--all)
+		[[ -z ${3:-} ]] || die "usage: forge nuke [--all]"
+		cmd_nuke_all
+		exit
+		;;
+	*) die "usage: forge nuke [--all]" ;;
+	esac
+	;&
+up | down | status)
 	[[ ${1} != up ]] || parse_size_flag "${@:2}"
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"
 	check_api_port_window
