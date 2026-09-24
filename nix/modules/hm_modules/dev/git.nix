@@ -26,7 +26,7 @@ in
         # signed commits don't _really_ help, because no one will ever verify
         # them, but they give a fancy 'verified' badge in gitlab and github.
         key = "DB0E3C33491F91C9"; # pragma: allowlist secret
-        signByDefault = true;
+        signByDefault = false;
       };
       settings = {
         alias = {
