@@ -501,10 +501,10 @@ in
         "fruit:wipe_intentionally_left_blank_rfork" = "yes";
         "fruit:delete_empty_adfiles" = "yes";
       };
-      # Share names are tiger-prefixed because macOS names the mount after
-      # the share: these land at /Volumes/tiger-data and /Volumes/tiger-photos
-      # rather than a context-free /Volumes/data. Renaming a share is the only
-      # lever for that name -- NetFS gives the client no say in it.
+      # Share names are tiger-prefixed because the mountpoint is named after
+      # the share: trex mounts these at ~/mounts/tiger-data and
+      # ~/mounts/tiger-photos (smbMountRoot in trex/home.nix) rather than a
+      # context-free ~/mounts/data.
       tiger-data = {
         path = "/mnt/data";
         "valid users" = "kyle";
