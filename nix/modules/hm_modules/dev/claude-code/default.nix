@@ -124,6 +124,7 @@ in
       ".claude/skills/code-comments/SKILL.md".source = ./skills/code-comments.md;
       ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
       ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
+      ".claude/skills/forge-debug/SKILL.md".source = ./skills/forge-debug.md;
       ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
       ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
       ".claude/skills/ponytail/SKILL.md".source =

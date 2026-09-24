@@ -208,6 +208,7 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge down`   | -       | delete   | -       | -       | -       |
 | `forge nuke`   | delete  | delete   | delete  | delete  | delete  |
 | `forge status` | -       | -        | -       | -       | -       |
+| `forge ls`     | -       | -        | -       | -       | -       |
 | `forge resize` | restart | -        | -       | -       | -       |
 
 `forge up` creates what is declared and missing, starts a stopped VM or mirror,
@@ -228,6 +229,13 @@ ports; run `forge down` first to drop them. A named instance's
 
 `forge status` is read-only: the VM, each mirror's state, and each cluster's
 context and API port.
+
+`forge ls` is read-only too, and covers every instance on the host at once:
+VM state and size, the forge command running against it if any, clusters
+running of those declared, the guest's load, memory and disk, and the pi
+agent holding it. It reads `~/.lima`, so it works only outside pi's sandbox.
+The procedure for an instance that looks broken is the `forge-debug` Claude
+skill (`nix/modules/hm_modules/dev/claude-code/skills/forge-debug.md`).
 
 ---
 
