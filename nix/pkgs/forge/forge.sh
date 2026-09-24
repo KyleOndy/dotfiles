@@ -970,6 +970,21 @@ cmd_ls() {
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
+# Defines the VM without booting it. pi's --allow-forge checks the instance's
+# lima.yaml, not whether it runs, and ensure_vm starts a Stopped instance.
+cmd_init() {
+	if [[ -f ${VM_LIVE_CONFIG} ]]; then
+		ok "VM '${VM_NAME}' already exists"
+		return
+	fi
+	local size="${1:-${DEFAULT_SIZE}}" config
+	config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
+	render_instance_config "$(size_cpus "${size}")" "$(size_memory "${size}")" >"${config}"
+	limactl create --name="${VM_NAME}" --tty=false "${config}"
+	rm -f "${config}"
+	ok "Created '${VM_NAME}' at size ${size}, stopped until 'forge up'"
+}
+
 cmd_up() {
 	ensure_vm "$1"
 	check_prerequisites
@@ -1101,6 +1116,10 @@ Usage:
   [FORGE_INSTANCE=<n>] forge <command>
 
 Commands:
+  init [--size S]
+                 Create the VM if absent, without starting it. Enough for pi's
+                 --allow-forge, which checks the VM's definition; 'forge up'
+                 boots it later.
   up [--size S]  Create the VM if absent, then converge to the config: Docker
                  network, the shared pull-through cache, Kind clusters, ArgoCD
                  on the management cluster, and registration of every workload
@@ -1175,7 +1194,7 @@ Docker:
 EOF
 }
 
-# --size S or --size=S, the one flag `up` takes.
+# --size S or --size=S, the one flag `init` and `up` take.
 parse_size_flag() {
 	case "${1:-}" in
 	"") ;;
@@ -1207,6 +1226,10 @@ nuke)
 		exit
 	fi
 	;&
+init)
+	parse_size_flag "${@:2}"
+	cmd_init "${SIZE}"
+	;;
 up | down | status)
 	[[ ${1} != up ]] || parse_size_flag "${@:2}"
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"

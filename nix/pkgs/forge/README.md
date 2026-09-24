@@ -216,6 +216,7 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 
 | Command            | VM      | Clusters | Network | Cache  |
 | ------------------ | ------- | -------- | ------- | ------ |
+| `forge init`       | define  | -        | -       | -      |
 | `forge up`         | create  | create   | create  | create |
 | `forge down`       | -       | delete   | -       | -      |
 | `forge nuke`       | delete  | delete   | delete  | -      |
@@ -223,6 +224,10 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge status`     | -       | -        | -       | -      |
 | `forge ls`         | -       | -        | -       | -      |
 | `forge resize`     | restart | -        | -       | -      |
+
+`forge init` writes the VM's lima definition and leaves it stopped, which is
+all pi's `--allow-forge` checks for, so a session can hold the grant before
+the first `forge up`.
 
 `forge up` creates what is declared and missing, starts a stopped VM, and
 leaves everything else alone. It does not resize an existing cluster or

@@ -6,6 +6,7 @@
 _arguments -s \
   '(- 1)'{-h,--help}'[show the manual]' \
   '1:command:((
+    init\:"create the VM if absent, without starting it"
     up\:"create the VM if absent, then converge to the config"
     down\:"delete every cluster, keeping the VM and its mirror caches"
     status\:"print the VM, mirrors and clusters, changing nothing"
@@ -18,7 +19,7 @@ _arguments -s \
   '*::arg:->args'
 
 case $words[1] in
-  up) _arguments '--size=[VM size for a new VM]:size:(small large)' ;;
+  init | up) _arguments '--size=[VM size for a new VM]:size:(small large)' ;;
   nuke) _arguments '--all[every named instance, never the unnamed one]' '--force[stop forge runs on them first]' ;;
   resize | vm-config) _arguments '1:size:(small large)' ;;
 esac
