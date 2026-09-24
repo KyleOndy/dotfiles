@@ -35,7 +35,9 @@
 # Every --allow-* grant is also recorded in the exported PI_GRANTS var, which
 # extensions/grants.ts turns into per-grant system prompt sections from
 # sourceDir/grants/<name>.md, so the agent learns what a grant costs at the
-# moment it gains it.
+# moment it gains it. PI_AVAILABLE_GRANTS carries the wrapper's full catalog
+# (built-ins plus bundles); grants.ts lists the ones not carried, so a session
+# the sandbox blocks asks for a restart flag rather than working around it.
 #
 # Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
 # bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.

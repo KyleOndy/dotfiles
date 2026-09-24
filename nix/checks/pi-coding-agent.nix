@@ -440,6 +440,22 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$captured" | grep -q "PI_PLAN_GRANTS: netbundle" \
       || fail "--allow-netbundle missing PI_PLAN_GRANTS. captured=$captured"
 
+    # PI_AVAILABLE_GRANTS is the full catalog this wrapper can carry,
+    # exported unconditionally so a session carrying nothing still learns
+    # what it could ask a restart for. extensions/grants.ts subtracts
+    # PI_GRANTS from it for the prompt.
+    captured=$(pi -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: docker,forge,nix,ssh-agent" \
+      || fail "available grants missing or unsorted. captured=$captured"
+    captured=$(${wrapperWithBundles}/bin/pi -- x 2>&1)
+    echo "$captured" | grep -q \
+      "PI_PLAN_AVAILABLE_GRANTS: docker,forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
+      || fail "bundles missing from available grants. captured=$captured"
+    # Carrying a grant shrinks the missing list, never the catalog.
+    captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: .*netbundle" \
+      || fail "carried bundle vanished from available grants. captured=$captured"
+
     # Trustd-requiring bundle: extends domains AND flips trustd
     captured=$(${wrapperWithBundles}/bin/pi --allow-trustbundle -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')

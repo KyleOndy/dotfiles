@@ -58,7 +58,12 @@ Onshape API keys, currently handled ad hoc rather than through sops.
 Agents, extensions, grants, themes, `keybindings.json` and `AGENTS.md` live
 in `nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so
 `/reload` sees edits without a rebuild. `settings.json` is the exception: it
-is copied from `dev/pi-coding-agent/` on each switch. The sandbox wrapper is `nix/pkgs/pi-wrapper`.
+is copied from `dev/pi-coding-agent/` on each switch. The sandbox wrapper is `nix/pkgs/pi-wrapper`,
+which records every carried `--allow-*` grant in `PI_GRANTS` and the full
+catalog in `PI_AVAILABLE_GRANTS`; `extensions/grants.ts` turns the carried
+ones into system-prompt sections from `grants/<name>.md` and lists the rest,
+so a session the sandbox blocks knows which flag to ask the human to restart
+with.
 The `pi-usage` extension (Z.ai quota in the footer, `/usage` command) is the
 one pi resource not from there: a third-party pi package from the `pi-usage`
 flake input, symlinked to `~/.pi/agent/packages/pi-usage` and registered in

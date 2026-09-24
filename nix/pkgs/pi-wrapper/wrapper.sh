@@ -552,6 +552,19 @@ if [[ ${#grants[@]} -gt 0 ]]; then
 	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_GRANTS: %s\n' "$PI_GRANTS"
 fi
 
+# The full grant catalog this wrapper can carry: the four built-in flags
+# plus every configured network bundle. Exported unconditionally, so a
+# session that carries nothing still learns what it could ask for;
+# extensions/grants.ts subtracts PI_GRANTS from it and lists the rest in
+# the prompt, each as a --allow-<name> flag the human can restart with.
+available_grants=(nix docker ssh-agent forge)
+if [[ ${#bundle_domains[@]} -gt 0 ]]; then
+	available_grants+=("${!bundle_domains[@]}")
+fi
+PI_AVAILABLE_GRANTS=$(printf '%s\n' "${available_grants[@]}" | LC_ALL=C sort -u | paste -sd, -)
+export PI_AVAILABLE_GRANTS
+[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_AVAILABLE_GRANTS: %s\n' "$PI_AVAILABLE_GRANTS"
+
 # The VM is the boundary for everything reachable through the docker socket, so
 # refuse the grant unless the instance still declares what bounds it: no host
 # path mounted, and a port-forward list whose tail denies (lima appends its own
