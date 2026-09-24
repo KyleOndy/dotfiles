@@ -78,8 +78,8 @@ const DEFAULT_CONFIG: SecretGuardConfig = {
     // session, so an unguarded basename here is an off switch the agent can
     // reach for itself.
     "secret-guard.json",
-    // verify-guard.ts reads <cwd>/.pi/verify.json the same way and honours
-    // `enabled: false` in it, so it needs the same protection.
+    // verify-guard.ts reads .pi/verify.json between cwd and the git root and
+    // honours `enabled: false` in it, so it needs the same protection.
     "verify.json",
   ],
   // Committed, non-secret templates that .env.* would otherwise catch.

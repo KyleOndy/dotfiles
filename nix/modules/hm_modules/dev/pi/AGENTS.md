@@ -45,8 +45,8 @@ Work the plan in small steps.
 Run the command from the Assert step and report its real output, failures
 included. "Should work" is not a result. A claim of done that names no
 verifier run is not a claim of done. Where `.pi/verify.json` or
-`~/.pi/agent/verify.json` names a verifier, verify-guard nags until it has
-run.
+`~/.pi/agent/verify.json` names a verifier, run it with the `verify` tool;
+verify-guard nags until a `verify` call passes on the current tree.
 
 ## Fresh eyes
 

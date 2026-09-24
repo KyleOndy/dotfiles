@@ -16,35 +16,33 @@
  * signal; this makes sure it is not skipped.
  *
  * Config (merged: global <- project), the project file winning:
- *   ~/.pi/agent/verify.json   and   <cwd>/.pi/verify.json
+ *   ~/.pi/agent/verify.json   and the nearest .pi/verify.json between the
+ *   session's cwd and its git root, inclusive
  *   { "enabled": true, "command": "make check" }
  * With no command configured the guard is inert rather than inventing one, so
  * a repo that has no verifier is not nagged about a command that cannot run.
+ * The command runs from the directory holding the .pi/ it came from, or the
+ * git root for a global one.
  *
- * Scope and limits (deliberately honest):
- *   - A run that exits non-zero does not clear the counter, and does not
- *     re-arm the nag either: the agent has already reported, so repeating the
- *     steer only burns turns. The footer holds `failed` until something goes
- *     green, which is the state a human needs to see.
- *   - It does not distinguish a verifier that failed from one that could not
- *     run here (the sandbox denies the nix daemon socket without
- *     --allow-nix). Both mean look at it yourself, so one state covers them.
- *   - Matching is a normalized substring of the bash command, so a configured
- *     `make check` does not recognize `nix flake check --impure` as the same
- *     thing, and `echo make check` satisfies it (it exits zero too). This
- *     nags; it does not gate.
- *   - Edits are counted from the edit/write tools plus a short list of obvious
- *     bash mutations. An obfuscated write (python, a heredoc into a variable
- *     path) leaves the counter untouched.
+ * The agent runs the verifier through the `verify` tool, never through bash,
+ * so the exit code is the command's own. Scraping bash calls could not tell
+ * `make check | tail; echo $?` (tail's status) from a real pass, and missed
+ * a verifier split across two calls.
+ *
+ * "Unverified" means the worktree differs from the state the last green run
+ * saw, or from the session's starting state before any run. The fingerprint
+ * is HEAD plus the diff against it plus every untracked file's blob hash, so
+ * a commit, a heredoc write and a python write all count, a write into $TMPDIR
+ * does not, and reverting an edit clears it. Outside a git repo there is no
+ * fingerprint and the guard is inert.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
-import type {
-  ExtensionAPI,
-  ToolCallEvent,
-} from "@earendil-works/pi-coding-agent";
+import { dirname, join } from "node:path";
+import { Type } from "typebox";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
 
 interface VerifyGuardConfig {
@@ -54,94 +52,37 @@ interface VerifyGuardConfig {
 
 const DEFAULT_CONFIG: VerifyGuardConfig = { enabled: true, command: null };
 
-// Bash forms that write without going through the edit/write tools. Not a
-// parser: each is a shape common enough that missing it would make the edit
-// counter read zero through a whole session of heredoc writes.
-const BASH_MUTATORS = [
-  // Redirection into a path, heredocs included. The lookbehind drops fd-dups
-  // (`2>&1`) and the lookahead drops the null sink, because a diagnostic
-  // command silencing its own stderr writes nothing: counting those made the
-  // counter climb through a session that only ever read.
-  /(?<![0-9&])>>?\s*(?!&|\/dev\/(?:null|stdout|stderr))\S/,
-  /\bsed\s+(-\S*\s+)*-\S*i/, // sed -i, in any flag order
-  /\btee\b/,
-  /\b(mv|rm|cp|install|truncate)\b/,
-  /\bgit\s+(apply|checkout|restore|rm|mv)\b/,
-  /\bpatch\b/,
-];
+// Lines of verifier output returned to the model. The head of a nix or make
+// run is progress noise; the failure is at the tail.
+const OUTPUT_TAIL_LINES = 60;
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
 }
 
-// Fold case and whitespace so `make  check` and `MAKE CHECK` share one key.
-function normalize(command: string): string {
-  return command.toLowerCase().replace(/\s+/g, " ").trim();
+function readConfig(path: string): Partial<VerifyGuardConfig> | null {
+  if (!existsSync(path)) return null;
+  try {
+    return JSON.parse(
+      readFileSync(path, "utf-8"),
+    ) as Partial<VerifyGuardConfig>;
+  } catch (e) {
+    console.error(`verify-guard: could not parse ${path}: ${e}`);
+    return null;
+  }
 }
 
-function loadConfig(cwd: string): VerifyGuardConfig {
-  const merge = (base: VerifyGuardConfig, path: string): VerifyGuardConfig => {
-    if (!existsSync(path)) return base;
-    try {
-      const o = JSON.parse(
-        readFileSync(path, "utf-8"),
-      ) as Partial<VerifyGuardConfig>;
-      return {
-        enabled: o.enabled ?? base.enabled,
-        command: o.command ?? base.command,
-      };
-    } catch (e) {
-      console.error(`verify-guard: could not parse ${path}: ${e}`);
-      return base;
-    }
-  };
-  let cfg = DEFAULT_CONFIG;
-  cfg = merge(cfg, join(agentDir(), "verify.json"));
-  cfg = merge(cfg, join(cwd, ".pi", "verify.json"));
-  return cfg;
-}
-
-function isMutation(event: ToolCallEvent): boolean {
-  if (event.toolName === "edit" || event.toolName === "write") return true;
-  if (event.toolName !== "bash") return false;
-  const command = (event.input as Record<string, unknown>).command;
-  if (typeof command !== "string") return false;
-  return BASH_MUTATORS.some((re) => re.test(command));
-}
-
-// Structural rather than the exported result-event type: this reads only the
-// tool name, the input command, and the result text.
-interface ToolOutcome {
-  toolName: string;
-  input: unknown;
-  content?: unknown;
-  isError?: boolean;
-}
-
-function isVerifyRun(
-  event: { toolName: string; input: unknown },
-  command: string,
-): boolean {
-  if (event.toolName !== "bash") return false;
-  const c = (event.input as Record<string, unknown>).command;
-  return typeof c === "string" && normalize(c).includes(normalize(command));
-}
-
-// Pi's bash tool carries the exit code in the result text, not in its
-// details: pi's own renderer scrapes /exit code: (\d+)/ and treats the
-// line's absence as success (examples/extensions/built-in-tool-renderer.ts,
-// renderResult). Reading it the same way keeps this in step with what the
-// TUI shows the human sitting in front of it.
-function failed(event: ToolOutcome): boolean {
-  if (event.isError === true) return true;
-  const parts = Array.isArray(event.content) ? event.content : [];
-  const text = parts
-    .map((c) => c as { type?: string; text?: string })
-    .filter((c) => c.type === "text")
-    .map((c) => c.text ?? "")
-    .join("\n");
-  const m = text.match(/exit code: (\d+)/);
-  return m !== null && m[1] !== "0";
+// Nearest .pi/verify.json from cwd up to root, inclusive. Returns the
+// directory holding .pi/, which is where the command runs.
+function findProjectConfig(
+  cwd: string,
+  root: string,
+): { dir: string; config: Partial<VerifyGuardConfig> } | null {
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    const config = readConfig(join(dir, ".pi", "verify.json"));
+    if (config) return { dir, config };
+    if (dir === root || dir === dirname(dir)) return null;
+  }
 }
 
 export default function (pi: ExtensionAPI) {
@@ -153,23 +94,50 @@ export default function (pi: ExtensionAPI) {
 
   let cfg = DEFAULT_CONFIG;
   let active = false;
-  let editsSinceVerify = 0;
-  let verifiedThisTurn = false;
-  let failedThisTurn = false;
+  let gitRoot = "";
+  let runDir = "";
+  let toolRegistered = false;
+  // Fingerprint of the last state the verifier passed on, or of the session's
+  // starting state before any green run.
+  let verifiedFingerprint = "";
+  let stale = false;
   let verifyFailing = false;
   let verifyRuns = 0;
   let steeredThisEpisode = false;
 
+  const git = async (args: string[]): Promise<string | null> => {
+    const r = await pi.exec("git", args, { cwd: gitRoot });
+    return r.code === 0 ? r.stdout : null;
+  };
+
+  // --no-textconv and --no-ext-diff keep the diff independent of git-crypt
+  // and user diff drivers. null means git failed, which leaves state alone.
+  const fingerprint = async (): Promise<string | null> => {
+    const head = (await git(["rev-parse", "--verify", "-q", "HEAD"])) ?? "";
+    const diff = await git([
+      "diff",
+      "HEAD",
+      "--binary",
+      "--no-textconv",
+      "--no-ext-diff",
+    ]);
+    const untracked = await git(["ls-files", "-o", "--exclude-standard", "-z"]);
+    if (diff === null || untracked === null) return null;
+    const files = untracked.split("\0").filter((f) => f !== "");
+    const blobs = files.length
+      ? await git(["hash-object", "--", ...files])
+      : "";
+    if (blobs === null) return null;
+    return createHash("sha256")
+      .update([head, diff, files.join("\0"), blobs].join("\0\0"))
+      .digest("hex");
+  };
+
   const state = (): string => {
     if (!active) return "off";
-    if (verifyFailing) {
-      return editsSinceVerify > 0
-        ? `failed (${editsSinceVerify} edits)`
-        : "failed";
-    }
-    if (verifyRuns === 0 && editsSinceVerify === 0) return "not run";
-    if (editsSinceVerify > 0) return `stale (${editsSinceVerify} edits)`;
-    return "current";
+    if (verifyFailing) return stale ? "failed (changed since)" : "failed";
+    if (stale) return "unverified changes";
+    return verifyRuns === 0 ? "not run" : "current";
   };
 
   // Stale and failed are the states worth interrupting for, so each takes a
@@ -189,20 +157,17 @@ export default function (pi: ExtensionAPI) {
         ) => { render: (width: number) => string[]; invalidate: () => void },
         options?: { placement: "aboveEditor" | "belowEditor" },
       ) => void;
-      theme: { fg: (c: string, s: string) => string };
     };
 
-    if (editsSinceVerify === 0 && !verifyFailing) {
+    if (!stale && !verifyFailing) {
       ui.setWidget("verify-guard", undefined);
       ui.setStatus("verify-guard", `verify: ${state()}`);
       return;
     }
 
     ui.setStatus("verify-guard", undefined);
-    // render() reads the live counter rather than a value captured when the
-    // widget was built, so a mid-turn edit does not leave a stale count on
-    // screen. Width is only knowable here, and the configured command runs
-    // long enough to wrap onto a second row without the truncation.
+    // Width is only knowable here, and the configured command runs long
+    // enough to wrap onto a second row without the truncation.
     ui.setWidget(
       "verify-guard",
       (_tui, theme) => ({
@@ -211,10 +176,8 @@ export default function (pi: ExtensionAPI) {
           truncateToWidth(
             (verifyFailing
               ? theme.fg("error", "verify: last run failed")
-              : theme.fg(
-                  "warning",
-                  `verify: ${editsSinceVerify} edit(s) unverified`,
-                )) + theme.fg("dim", `  ${cfg.command}`),
+              : theme.fg("warning", "verify: unverified changes")) +
+              theme.fg("dim", `  ${cfg.command}`),
             width,
             theme.fg("dim", "..."),
           ),
@@ -224,56 +187,113 @@ export default function (pi: ExtensionAPI) {
     );
   };
 
-  pi.on("session_start", (_event, ctx) => {
+  const registerVerifyTool = (): void => {
+    if (toolRegistered) return;
+    toolRegistered = true;
+    pi.registerTool({
+      name: "verify",
+      label: "Verify",
+      description:
+        "Run the project's configured verifier and return its exit code and the tail of its output.",
+      promptSnippet:
+        "Run the project's verifier (from .pi/verify.json) and report whether it passed",
+      promptGuidelines: [
+        "Use verify to run the project's verifier before calling work done. Do not run the verifier's command through bash: only a verify call clears verify-guard, and a bash pipeline can hide the real exit code.",
+      ],
+      parameters: Type.Object({}),
+      async execute(_toolCallId, _params, signal, onUpdate) {
+        if (!active || cfg.command === null) {
+          throw new Error("verify: no verifier is configured for this repo.");
+        }
+        const before = await fingerprint();
+        const started = Date.now();
+        const elapsed = (): string =>
+          `${Math.round((Date.now() - started) / 1000)}s`;
+        const tick = setInterval(
+          () =>
+            onUpdate?.({
+              content: [
+                { type: "text", text: `running ${elapsed()}: ${cfg.command}` },
+              ],
+              details: undefined,
+            }),
+          1000,
+        );
+        let result: Awaited<ReturnType<typeof pi.exec>>;
+        try {
+          // exec 2>&1 before the command, not after it, so every stage of an
+          // `a && b` chain lands in one ordered stream.
+          result = await pi.exec("bash", ["-c", `exec 2>&1\n${cfg.command}`], {
+            cwd: runDir,
+            signal,
+          });
+        } finally {
+          clearInterval(tick);
+        }
+
+        const lines = result.stdout.trimEnd().split("\n");
+        const tail = lines.slice(-OUTPUT_TAIL_LINES).join("\n");
+        const cut =
+          lines.length > OUTPUT_TAIL_LINES
+            ? `(last ${OUTPUT_TAIL_LINES} of ${lines.length} lines)\n`
+            : "";
+        const text = `exit ${result.code} after ${elapsed()} in ${runDir}\n${cut}${tail}`;
+
+        verifyRuns++;
+        if (result.code === 0 && !result.killed) {
+          verifyFailing = false;
+          steeredThisEpisode = false;
+          // The state the command saw is the one it vouches for. A tree that
+          // moved during the run stays stale.
+          if (before !== null) verifiedFingerprint = before;
+          const now = await fingerprint();
+          if (now !== null) stale = now !== verifiedFingerprint;
+          return { content: [{ type: "text", text }], details: undefined };
+        }
+
+        // A failing run withholds the steer: the agent has the output now,
+        // and asking again produces the same report. The widget carries
+        // `failed` until a run comes back green.
+        verifyFailing = true;
+        steeredThisEpisode = true;
+        throw new Error(text);
+      },
+    });
+  };
+
+  pi.on("session_start", async (_event, ctx) => {
+    active = false;
     if (pi.getFlag("no-verify-guard") === true) return;
-    cfg = loadConfig(ctx.cwd);
+    const top = await pi.exec("git", ["rev-parse", "--show-toplevel"], {
+      cwd: ctx.cwd,
+    });
+    if (top.code !== 0) return;
+    gitRoot = top.stdout.trim();
+
+    const global = readConfig(join(agentDir(), "verify.json")) ?? {};
+    const project = findProjectConfig(ctx.cwd, gitRoot);
+    const merged = { ...global, ...project?.config };
+    cfg = {
+      enabled: merged.enabled ?? DEFAULT_CONFIG.enabled,
+      command: merged.command ?? DEFAULT_CONFIG.command,
+    };
+    runDir = project?.dir ?? gitRoot;
     active = cfg.enabled && cfg.command !== null;
+    if (!active) return;
+
+    verifiedFingerprint = (await fingerprint()) ?? "";
+    stale = false;
+    verifyFailing = false;
+    verifyRuns = 0;
+    steeredThisEpisode = false;
+    registerVerifyTool();
     showStatus(ctx);
   });
 
-  // The verifier's own invocation must not count as an edit, which is why
-  // this returns before isMutation. Whether it passed is not knowable here,
-  // so the outcome is read in tool_result.
-  pi.on("tool_call", (event) => {
-    if (!active || cfg.command === null) return;
-    if (isVerifyRun(event, cfg.command)) return;
-    if (isMutation(event)) editsSinceVerify++;
-  });
-
-  pi.on("tool_result", (event) => {
-    if (!active || cfg.command === null) return;
-    const outcome = event as unknown as ToolOutcome;
-    if (!isVerifyRun(outcome, cfg.command)) return;
-    if (failed(outcome)) failedThisTurn = true;
-    else verifiedThisTurn = true;
-  });
-
-  pi.on("turn_end", (event, ctx) => {
-    if (!active || cfg.command === null) return;
-
-    if (verifiedThisTurn) {
-      verifiedThisTurn = false;
-      failedThisTurn = false;
-      verifyRuns++;
-      editsSinceVerify = 0;
-      verifyFailing = false;
-      steeredThisEpisode = false;
-      showStatus(ctx);
-      return;
-    }
-
-    // A failing run leaves the counter alone: nothing was verified. It also
-    // withholds the steer, because the agent has just run the command and
-    // reported its output, and asking again produces the same report. The
-    // widget carries `failed` until a run comes back green, which is the
-    // state a human needs to see. This is the loop that used to burn turns
-    // when the verifier could not run in the sandbox at all.
-    if (failedThisTurn) {
-      failedThisTurn = false;
-      verifyRuns++;
-      verifyFailing = true;
-      steeredThisEpisode = true;
-    }
+  pi.on("turn_end", async (event, ctx) => {
+    if (!active) return;
+    const now = await fingerprint();
+    if (now !== null) stale = now !== verifiedFingerprint;
     showStatus(ctx);
 
     // Tool results in a turn_end mean the agent has another turn coming to act
@@ -282,15 +302,15 @@ export default function (pi: ExtensionAPI) {
     // signal to it being finished.
     const stillWorking =
       Array.isArray(event.toolResults) && event.toolResults.length > 0;
-    if (stillWorking || editsSinceVerify === 0 || steeredThisEpisode) return;
+    if (stillWorking || !stale || steeredThisEpisode) return;
 
     steeredThisEpisode = true;
     pi.sendMessage(
       {
         customType: "verify-guard-steer",
         content:
-          `[verify-guard] ${editsSinceVerify} edit(s) stand unverified. Run \`${cfg.command}\` ` +
-          `and report its real output before calling this done. If it cannot run here, say so and say why.`,
+          "[verify-guard] The worktree has changes the verifier has not passed on. Call the `verify` tool " +
+          "and report its real output before calling this done. If it cannot run here, say so and say why.",
         display: true,
       },
       { deliverAs: "steer" },
@@ -302,8 +322,9 @@ export default function (pi: ExtensionAPI) {
     handler: (_args, ctx) => {
       ctx.ui.notify(
         [
-          `verify-guard: ${active ? "active" : "inert (no command configured)"}`,
+          `verify-guard: ${active ? "active" : "inert (no command configured, or not a git repo)"}`,
           `command: ${cfg.command ?? "(none)"}`,
+          `runs in: ${runDir || "(none)"}`,
           `state: ${state()}`,
           `runs this session: ${verifyRuns}`,
         ].join("\n"),
