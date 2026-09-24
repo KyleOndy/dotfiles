@@ -497,8 +497,7 @@ install_argocd() {
 
 	# FORGE_ARGOCD_CHART installs from a local/OCI chart ref and skips the
 	# upstream repo add + pinned --version. Needed where the chart tgz CDN
-	# (release-assets.githubusercontent.com) is unreachable; default path
-	# is unchanged.
+	# (release-assets.githubusercontent.com) is unreachable.
 	if [[ ${chart_ref} == "argo/argo-cd" ]]; then
 		if ! helm repo list 2>/dev/null | grep -q '^argo\s'; then
 			helm repo add argo https://argoproj.github.io/argo-helm
@@ -741,8 +740,9 @@ Commands:
           pull-through registry mirrors, Kind clusters, ArgoCD on the
           management cluster, and registration of every workload cluster with
           it. Idempotent, so it is also how a config edit gets applied.
-  down    Delete every cluster and its kubeconfig. The VM, the mirrors and
-          their cache volumes survive, so the next 'up' reuses pulled layers.
+  down    Delete every cluster and its kubeconfig context. The VM, the mirrors
+          and their cache volumes survive, so the next 'up' reuses pulled
+          layers.
   status  Print the VM, the mirrors, and every cluster with its context and
           API port. Reads state, changes nothing.
   nuke    Delete the VM, and with it every cluster, mirror, volume and network.

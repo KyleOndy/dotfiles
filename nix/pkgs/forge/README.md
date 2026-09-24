@@ -119,13 +119,13 @@ required in a local environment.
 
 **Workload cluster registration** uses the service-account token approach:
 an `argocd-manager` service account is created in `kube-system` of each
-workload cluster and bound to `argocd-manager-role`, a ClusterRole allowing
-every verb on every resource. The resulting bearer token and CA certificate are
-stored as an ArgoCD cluster secret named `argocd-cluster-<cluster-name>` (label
+workload cluster and bound to the built-in `cluster-admin` ClusterRole. The
+resulting bearer token and CA certificate are stored as an ArgoCD cluster
+secret named `argocd-cluster-<cluster-name>` (label
 `argocd.argoproj.io/secret-type: cluster`) in the `argocd` namespace of the
-management cluster. `forge up` skips any cluster whose secret already exists,
-so a workload cluster recreated under a running management cluster keeps its
-old, dead token until the management cluster is recreated too.
+management cluster. `forge up` skips a cluster only when both the secret and
+the service account exist, so a workload cluster recreated under a running
+management cluster is registered again with a fresh token.
 
 The API server address used in each cluster secret is the internal Docker
 network address (`https://<cluster-name>-control-plane:6443`), which is
@@ -221,6 +221,7 @@ tool.
 `forge up` also re-exports the context of every cluster that already exists, so
 deleting the file loses nothing the next `up` cannot restore.
 
-The default still sits under `$HOME`, which the sandbox denies wholesale, so an
-agent needs the path added to `sandbox.allowedReadPaths`. `FORGE_KUBECONFIG`
-overrides the config for a caller that would rather place the file itself.
+The default still sits under `$HOME`, which the sandbox denies wholesale. pi's
+`--allow-forge` grants that one path, plus the loopback egress its API servers
+need. `FORGE_KUBECONFIG` overrides the config for a caller that would rather
+place the file itself, but `--allow-forge` grants only the default path.
