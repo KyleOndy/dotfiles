@@ -85,18 +85,23 @@ QMK firmware configuration for Ergodox EZ, managed via Nix.
 
 **Function keys:**
 
-- F1-F12 across top row
+- F1-F11 across the top row, F12 below F11
 - QK_BOOT in corner for flashing firmware
 
 ## Building
 
-Build firmware using Nix from the repository root:
+Build firmware using Nix from the repository root, on a Linux host:
 
 ```bash
 nix build .#ergodox-firmware
 ```
 
 The compiled firmware will be at `./result/ergodox_ez_base_kyleondy.hex`.
+
+The flake exposes `ergodox-firmware` on Linux only. `default.nix` sets
+`meta.platforms` to Linux for the AVR toolchain, so nixpkgs refuses to
+evaluate it on darwin. Every flash method below builds it first, so none of
+them work on the macs either.
 
 ## Flashing
 
@@ -114,17 +119,13 @@ This will:
 
 ### Method 2: Using Make
 
-```bash
-# From the keyboard directory
-cd keyboard
-nix develop --command make flash
-```
-
-Or from the repository root:
+From the repository root:
 
 ```bash
-nix develop --command make -C keyboard flash
+make flash-ergodox
 ```
+
+This runs the same flake app as Method 1.
 
 ### Method 3: Manual Flashing
 
@@ -173,7 +174,8 @@ If home row mods feel too sensitive or trigger accidentally:
 #define TAPPING_TERM 250  // Default: 200ms
 ```
 
-**Disable per-key hold behavior**:
+**Disable hold on other key press** (a global setting, see
+[QMK 0.27.3 tap_hold.md][qmk-hold]):
 Remove or comment out `#define HOLD_ON_OTHER_KEY_PRESS`
 
 ## Helpful Links
@@ -182,3 +184,5 @@ Remove or comment out `#define HOLD_ON_OTHER_KEY_PRESS`
 - [QMK Keycodes Reference](https://docs.qmk.fm/keycodes)
 - [Home Row Mods Guide](https://precondition.github.io/home-row-mods)
 - [Ergodox EZ Official Docs](https://ergodox-ez.com/)
+
+[qmk-hold]: https://github.com/qmk/qmk_firmware/blob/0.27.3/docs/tap_hold.md

@@ -19,8 +19,10 @@ carrying those keys is attached. F13 and F16 through F20 are the free ones.
 The chord is resolved in firmware with a QMK combo rather than in Karabiner.
 Karabiner's `simultaneous` has a detection window that lets a sloppy press open
 channel 1 _and_ channel 2; a combo emits a third keycode and suppresses both
-singles, so Karabiner sees three unambiguous keys. `COMBO_MUST_HOLD` guards the
-chord because an out-of-band utterance can end the pi session.
+singles, so Karabiner sees three unambiguous keys. The chord is a hold rather
+than a press, because an out-of-band utterance can end the pi session:
+`COMBO_MUST_HOLD_PER_COMBO` is on, `get_combo_must_hold()` returns true, and
+`COMBO_HOLD_TERM` is 200 ms.
 
 The cost is `COMBO_TERM`: QMK cannot emit either single key until it knows the
 other is not coming, so both are delayed by that much on key-down. Invisible for
@@ -55,8 +57,9 @@ Entering the bootloader:
 - **First flash ever**, or after any firmware that will not boot: hold the
   board's **BOOT** button while plugging in, or double-tap **RESET**. The pad
   ships with CircuitPython, so BOOTMAGIC is not there yet.
-- **Every flash after that**: hold **key 1** while plugging in. That is
-  `BOOTMAGIC_LITE` on matrix position `[0,0]`.
+- **Every flash after that**: hold **key 1** while plugging in. That is QMK
+  Bootmagic (`features.bootmagic` in `keyboard.json`) on its default matrix
+  position `[0,0]` ([QMK 0.27.3 bootmagic.md][qmk-bootmagic]).
 
 Because BOOTMAGIC shares a switch with push-to-talk, plugging the pad in with a
 finger resting on key 1 mounts it as a drive instead of a keyboard. No cue rings;
@@ -70,3 +73,5 @@ and `0xD065`, but what the rules must carry is what macOS actually enumerates.
 Open Karabiner-EventViewer, press each key, and confirm both the identifiers and
 that F13/F16/F17 arrive. A mismatch fails silently: the keys do nothing and
 nothing says why.
+
+[qmk-bootmagic]: https://github.com/qmk/qmk_firmware/blob/0.27.3/docs/features/bootmagic.md
