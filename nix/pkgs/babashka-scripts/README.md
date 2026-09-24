@@ -17,11 +17,17 @@ babashka-scripts/
 
 ## Available Scripts
 
+### retry
+
+Rerun a command until it succeeds, with backoff and jitter.
+
+```bash
+retry --max-attempts 3 --backoff-strategy fibonacci -- curl -fsS https://example.com
+```
+
 ### roku-check
 
 Check if video files are compatible with Roku devices.
-
-**Usage:**
 
 ```bash
 roku-check --detailed video.mp4
@@ -29,25 +35,23 @@ roku-check --detailed video.mp4
 
 ### roku-transcode
 
-Transcode videos to Roku-compatible format using babashka.
-
-**Usage:**
+Transcode a video to a Roku-compatible MP4 (H.264/AAC), written beside the
+input with a `_roku` suffix. `--quality` takes `high` (default), `medium` or
+`low`; `--gpu`, `--cpu` and `--encoder` pick the encoder.
 
 ```bash
-roku-transcode -i input.mkv -o output.mp4 --quality high
+roku-transcode --quality medium input.mkv   # writes input_roku.mp4
 ```
-
-## Shared Utilities
-
-Scripts can use `common.process` from `shared/src/common/`, which is put
-on the classpath automatically.
 
 ## Building
 
-This package uses a custom Nix builder that:
+`babashka-builder.nix` decides what a script is by its directory:
 
-- Auto-detects simple vs structured scripts
-- Properly handles `bb.edn` dependencies
-- Creates wrapper scripts with correct classpaths
+- **`simple/<name>.bb`**: copied to `bin/<name>` as is.
+- **`projects/<name>/`**: copied to `share/<name>`, with a `bin/<name>` wrapper
+  that puts the project's `src/` and `shared/src/` on the classpath and loads
+  `<name>.bb`, else `main.bb`, else the first `.bb` in the project root.
 
-The builder is used by importing `./babashka-builder.nix` in the package definition.
+Only projects get the classpath, so `common.process` (`shared/src/common/`) is
+out of reach for `simple/` scripts. `bb.edn` files are copied but never read, so
+a script can use only the libraries babashka ships with.
