@@ -133,8 +133,10 @@ pi_keep_env=(
 #     otherwise run with the agent's privileges the moment it commits/checks out).
 #   core.fsmonitor = false                → no fsmonitor daemon spawned.
 #   core.sshCommand = false               → neuters a repo-config sshCommand
-#     injection (arbitrary code at fetch/push time); harmless here since strict
-#     mode denies ssh egress anyway.
+#     injection (arbitrary code at fetch/push time). It also stops git over ssh
+#     under --web and --no-sandbox; in strict mode srt's own GIT_SSH_COMMAND
+#     takes precedence and fails at the SOCKS handshake instead, so git over
+#     ssh works in no mode, --allow-ssh-agent included.
 # Override any of these per-host via sandbox.envVars if a workflow needs them.
 export GIT_AUTHOR_NAME=@gitAuthorName@
 export GIT_AUTHOR_EMAIL=@gitAuthorEmail@

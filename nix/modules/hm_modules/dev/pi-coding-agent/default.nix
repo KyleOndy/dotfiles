@@ -13,7 +13,7 @@
 #                          and profile; asks the daemon whether this client is
 #                          trusted and warns loudly when it is, since a trusted
 #                          client builds as root outside the sandbox
-#   --allow-docker         docker daemon socket + ~/.docker
+#   --allow-docker         the forge VM's docker socket (~/.docker stays masked)
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
 #                          becoming readable

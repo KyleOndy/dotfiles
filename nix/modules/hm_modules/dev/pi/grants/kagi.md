@@ -13,7 +13,7 @@ rather than money, so still read only the pages the snippets justify. Pages
 run to tens of kilobytes, so pipe one through `grep` or `head -c` when you
 want one fact from it.
 
-Every call reports what it spent, and that lands in the session cost in the
+Every successful call reports what it spent, and that lands in the session cost in the
 footer. Reading a page goes through Kagi's extractor rather than fetching it
 directly, which is why research needs no `--web`. A URL that must be fetched
-directly still does.
+directly still needs `--allow <host>` or `--web`.

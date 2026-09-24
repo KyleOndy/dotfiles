@@ -225,8 +225,8 @@ in
       # silently rerouted to glm-5.3, which would break the two-seat rule.
       sandbox.allowedDomains = [ "api.z.ai" ];
 
-      # Resolvers run in the wrapper before it execs srt
-      # (pi-wrapper/wrapper.sh:582 against :920), so this reaches the Keychain
+      # Resolvers run in the wrapper before it execs srt (`__pi_resolve_all`
+      # ahead of `run_strict`'s dispatch), so this reaches the Keychain
       # from outside the sandbox and only the resolved value crosses in. The
       # wrapper hard-fails on a resolver error, so a missing entry surfaces
       # here rather than as a 401 from Kagi mid-session.

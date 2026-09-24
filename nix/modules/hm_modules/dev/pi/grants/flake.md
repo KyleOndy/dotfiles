@@ -8,7 +8,11 @@ daemon-side and needs no domain here.
 
 What comes back is code, and the daemon builds it outside this sandbox, so
 the trust question in nix.md applies to every input, not just to
-derivations written here. Two things this grant still cannot fetch: a host
-outside the list (an unknown-host download error means the list needs it,
-not that the grant failed), and git+ssh inputs like cogsworth, which need
-ssh egress the sandbox withholds.
+derivations written here. Two things this grant still cannot fetch:
+
+- **A host outside the list**: an unknown-host download error means the
+  list needs it, not that the grant failed. install.determinate.systems
+  (the determinate-nixd inputs) is one, so a `determinate` bump fails here.
+- **git+ssh inputs** like cogsworth: they fail even under
+  `--allow-ssh-agent`, because srt's own `GIT_SSH_COMMAND` cannot
+  authenticate to its proxy.
