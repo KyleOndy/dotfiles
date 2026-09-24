@@ -216,6 +216,18 @@ if [[ $print_path == true ]]; then
 	exec 3>&1 1>&2
 fi
 
+# A rerun for a worktree that already holds this branch reuses it, so `tw`
+# can switch back to a ticket instead of failing on the existing branch.
+if [[ $(git -C "$feature_path" symbolic-ref --short HEAD 2>/dev/null) == "$branch_name" ]]; then
+	log_info "Worktree exists: ${feature_path}"
+	if [[ $print_path == true ]]; then
+		echo "$feature_path" >&3
+	else
+		echo "  cd ${feature_path}"
+	fi
+	exit 0
+fi
+
 # Create worktree
 if [[ $fetch == true ]]; then
 	log_info "Fetching latest from remote..."
