@@ -72,7 +72,8 @@ get_network() {
 # somewhere its own sandbox is allowed to read without editing shared config.
 get_kubeconfig() {
 	local raw
-	raw="${FORGE_KUBECONFIG:-$(yq_get '.kubeconfig')}"
+	raw="${FORGE_KUBECONFIG:-$(yq_get '.kubeconfig // ""')}"
+	[[ -n ${raw} ]] || die "no 'kubeconfig' in ${CONFIG} (override with FORGE_KUBECONFIG)"
 	echo "${raw/#\~/$HOME}"
 }
 
