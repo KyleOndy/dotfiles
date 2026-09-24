@@ -289,14 +289,22 @@ in
         # tmux-fzf
         # -----------------------
 
-        # make it way easier to get to this functionality
-        TMUX_FZF_LAUNCH_KEY="j"
+        # session.sh takes the action as its first argument, which skips the
+        # category and action picks the full menu (prefix+J) asks for
+        bind-key j run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/scripts/session.sh switch"
       '';
       keyMode = "vi";
       shortcut = "space"; # <ctrl> + <space> for leader
       plugins = with pkgs; [
         { plugin = tmuxPlugins.fzf-tmux-url; }
-        { plugin = tmuxPlugins.tmux-fzf; }
+        {
+          plugin = tmuxPlugins.tmux-fzf;
+          # main.tmux reads this when it runs, so it has to precede the
+          # plugin's run-shell rather than sit in the top-level extraConfig
+          extraConfig = ''
+            TMUX_FZF_LAUNCH_KEY="J"
+          '';
+        }
       ];
     };
   };
