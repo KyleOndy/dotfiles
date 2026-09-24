@@ -30,6 +30,24 @@ let
     ];
     text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./tmux-sessionizer.sh);
   };
+  # tmux-fzf's session list is in tmux's own order, which it has no knob to
+  # change. session_last_attached, not session_activity, because a pi agent
+  # printing in a background session would otherwise float it to the top.
+  sessionSwitcher = pkgs.writeShellApplication {
+    name = "tmux-session-switcher";
+    runtimeInputs = with pkgs; [
+      tmux
+      fzf
+    ];
+    text = ''
+      current="$(tmux display-message -p '#S')"
+      # Escape in fzf is a choice not to switch, not an error.
+      session="$(tmux list-sessions -F '#{session_last_attached} #S' |
+        sort -rn | cut -d' ' -f2- | grep -vxF "$current" |
+        fzf --reverse --prompt 'session> ')" || exit 0
+      tmux switch-client -t "=$session"
+    '';
+  };
   # git-wt-feature-branch comes from my-scripts on PATH, as git finds it.
   ticketWorktree = pkgs.writeShellApplication {
     name = "tw";
@@ -164,6 +182,7 @@ in
         # fuzzy switch to a session or a worktree under ~/src, replacing
         # find-window, which tmux-fzf covers
         bind-key f display-popup -E -w 80% -h 60% ${getExe sessionizer}
+        bind-key j display-popup -E -w 60% -h 50% ${getExe sessionSwitcher}
 
         # ----------------------
         # Window/Pane Reorganization
@@ -284,14 +303,6 @@ in
 
         set-window-option -g window-status-current-format "${currentWindowFmt}"
         set-window-option -g window-status-format "${windowFmt}"
-
-        # ----------------------
-        # tmux-fzf
-        # -----------------------
-
-        # session.sh takes the action as its first argument, which skips the
-        # category and action picks the full menu (prefix+J) asks for
-        bind-key j run-shell -b "${pkgs.tmuxPlugins.tmux-fzf}/share/tmux-plugins/tmux-fzf/scripts/session.sh switch"
       '';
       keyMode = "vi";
       shortcut = "space"; # <ctrl> + <space> for leader
