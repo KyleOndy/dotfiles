@@ -27,6 +27,30 @@
 
   programs.zsh.shellAliases.src = lib.mkForce "cd ${config.home.homeDirectory}/src/modularml";
 
+  # `pic CLIN-1008`, or `pic` from a worktree under a ticket directory, also
+  # grants write on that ticket's notes dir. The coordinator's $PWD has to be
+  # the repo the broker cuts worktrees from, so the notes dir never gets the
+  # wrapper's implicit $PWD write grant.
+  programs.zsh.initContent = ''
+    pic() {
+      # No --allow-forge: agents get their own instance from spawn_agent.
+      local -a grants=(--allow-read ~/work --allow-linear --allow-kagi)
+      local ticket
+      if [[ $1 =~ '^[A-Z]+-[0-9]+$' ]]; then
+        ticket=$1
+        shift
+      # {repo}/DEV-123/<name>, the layout git wt-feature-branch's work mode makes
+      elif [[ $PWD:h:t =~ '^[A-Z]+-[0-9]+$' ]]; then
+        ticket=$PWD:h:t
+      fi
+      if [[ -n $ticket ]]; then
+        mkdir -p ~/work/tickets/$ticket
+        grants+=(--allow-write ~/work/tickets/$ticket)
+      fi
+      pi --coordinator $grants "$@"
+    }
+  '';
+
   # Create modularml source directory
   home.activation.createModularmlDir = lib.hm.dag.entryBefore [ "linkGeneration" ] ''
     mkdir -p $HOME/src/modularml
