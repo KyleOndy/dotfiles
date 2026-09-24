@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
-if [[ $# -ne 1 ]]; then
-	echo "usage: $0 <gpg dir>"
+# Exports GNUPGHOME into the caller, so it only works sourced; `return` rather
+# than `exit` below, which would close the caller's shell.
+if ! (return 0 2>/dev/null); then
+	echo "usage: . new-env.sh <gpg dir>" >&2
 	exit 1
+fi
+if [[ $# -ne 1 ]]; then
+	echo "usage: . new-env.sh <gpg dir>" >&2
+	return 1
 fi
 
 GNUPGHOME=$(mktemp -d)
