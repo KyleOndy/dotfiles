@@ -129,14 +129,15 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
       "Start an agent in its own git worktree and branch, with its own forge VM (kind clusters plus ArgoCD), in a new tmux window. Returns once the request is accepted; the worktree and VM take several minutes after that.",
     promptSnippet: "Spawn an agent with its own worktree, branch and forge VM",
     promptGuidelines: [
-      "The agent name becomes the branch and worktree name, so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
+      "The agent name becomes the branch and worktree name, prefixed with the ticket id when your own branch starts with one (DEV-123-), so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
       "The task is the agent's whole brief. It sees none of this conversation, so say what to do, what done looks like, and what to leave alone.",
       "Use size large only when the task needs two workload clusters or heavy workloads; small is the default and leaves room for more agents.",
       "After spawning, use agent_wait rather than polling agent_status in a loop.",
     ],
     parameters: Type.Object({
       agent: Type.String({
-        description: "Agent name, which is also its branch and worktree name.",
+        description:
+          "Agent name, which is also its branch and worktree name, after any ticket prefix.",
       }),
       task: Type.String({
         description: "The agent's full brief, sent as its first message.",

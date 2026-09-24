@@ -11,7 +11,8 @@
 # exits when <watch-pid> does. A sandboxed coordinator cannot make a worktree
 # beside its own, start a VM or open a sandbox wider than its own, so it
 # writes requests and this does all three. Each agent gets:
-#   - a worktree and branch named after it, based on the coordinator's HEAD
+#   - a worktree and branch named after it, based on the coordinator's HEAD,
+#     under the coordinator branch's ticket when it has one (DEV-123-*)
 #   - forge instance <n>, its own VM
 #   - a tmux window running `pi --allow-forge=<n> --coord-child=<id>/<agent>`
 #
@@ -223,13 +224,13 @@ forge_config_for() {
 # worktree for the coordinator to inspect or tear down, and gives back the VM
 # and slot before it reports failed, so failed means there is room again.
 run_spawn() {
-	local agent="$1" instance="$2" size="$3" base="$4" target="$5" dir worktree window blog flog
+	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" dir worktree window blog flog
 	dir="$(agent_dir "${agent}")"
 	blog="$(log_file "${agent}" broker)"
 	flog="$(log_file "${agent}" forge)"
 
 	if ! worktree="$(git -C "${REPO_DIR}" wt-feature-branch --no-fetch --print-path \
-		--base "${base}" "${agent}" 2>>"${blog}")"; then
+		--base "${base}" ${ticket:+"${ticket}"} "${agent}" 2>>"${blog}")"; then
 		release_slot "${instance}" "${agent}"
 		set_status "${agent}" state failed error "worktree creation failed, see ${blog}"
 		return
@@ -255,7 +256,7 @@ run_spawn() {
 }
 
 handle_spawn() {
-	local id="$1" file="$2" agent task size base instance reason dir target
+	local id="$1" file="$2" agent task size base instance reason dir target ticket="" branch
 	agent="$(jq -r '.agent // ""' "${file}")"
 	task="$(jq -r '.task // ""' "${file}")"
 	size="$(jq -r '.size // "small"' "${file}")"
@@ -285,6 +286,13 @@ handle_spawn() {
 		return
 	fi
 
+	# git-wt-feature-branch's work mode, so the agent's branch carries the
+	# ticket id Linear links pull requests by.
+	if [[ "$(git -C "${REPO_DIR}" symbolic-ref --short -q HEAD)" =~ ^([A-Z]+-[0-9]+)- ]]; then
+		ticket="${BASH_REMATCH[1]}"
+	fi
+	branch="${ticket:+${ticket}-}${agent}"
+
 	lock_slots
 	if ! instance="$(claim_slot "${agent}" "${size}" 2>"${COORD_DIR}/.claim-error")"; then
 		unlock_slots
@@ -299,12 +307,12 @@ handle_spawn() {
 	printf '%s\n' "${task}" >"${dir}/task.md"
 	write_json "$(state_file "${agent}")" \
 		--arg agent "${agent}" --arg instance "${instance}" --arg size "${size}" \
-		--arg base "${base}" --arg updated "$(date -u +%FT%TZ)" \
+		--arg base "${base}" --arg branch "${branch}" --arg updated "$(date -u +%FT%TZ)" \
 		'{agent: $agent, state: "creating", instance: $instance, size: $size,
-		  base: $base, branch: $agent, updated: $updated}'
+		  base: $base, branch: $branch, updated: $updated}'
 	target="$(tmux_target)"
 	respond "${id}" true "agent ${agent} on forge instance ${instance} (${size}), based on ${base}"
-	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" &
+	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" &
 }
 
 # ─── Teardown ─────────────────────────────────────────────────────────────────

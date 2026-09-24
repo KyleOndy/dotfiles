@@ -171,6 +171,15 @@ pkgs.runCommand "pi-broker-check"
     wait_state theta failed
     [ -d "$SLOTS/1" ] && fail "a failed spawn kept its slot"
 
+    # A coordinator on a ticket branch files its agents under that ticket.
+    rm "$T/fail-up"
+    git -C "$T/repo/main" switch -q -c DEV-7-coordinate
+    req r17 '{"op":"spawn","agent":"iota","task":"x"}' true "instance 1"
+    wait_state iota running
+    [ "$(git -C "$T/repo/DEV-7/iota" symbolic-ref --short HEAD)" = DEV-7-iota ] \
+      || fail "iota's worktree is not DEV-7/iota on branch DEV-7-iota"
+    [ "$(st iota branch)" = DEV-7-iota ] || fail "iota's state names branch $(st iota branch)"
+
     kill $WATCH
     wait $BROKER || true
     [ -e "$COORD/broker.pid" ] && fail "broker.pid outlived the broker"
