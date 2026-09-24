@@ -11,6 +11,8 @@
   yq-go,
   coreutils,
   gnugrep,
+  gnused,
+  gawk,
   # nixpkgs 25.11 ships lima 1.2.2, and vm.nix asks for 2.0.0 as its
   # minimumLimaVersion, so nix/pkgs/default.nix passes master.lima. Every
   # port-forwarding rule in vm.nix was measured against 2.2.0.
@@ -61,6 +63,8 @@ let
       yq-go
       coreutils
       gnugrep
+      gnused
+      gawk
     ];
     text = body;
   };

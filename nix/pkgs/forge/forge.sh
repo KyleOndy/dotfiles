@@ -5,7 +5,8 @@
 # forge -- Declarative local Kind cluster environment manager. `forge --help`
 # is the description of it that has to stay correct.
 
-CONFIG="${FORGE_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/forge/forge.yaml}"
+readonly UNNAMED_CONFIG="${FORGE_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/forge/forge.yaml}"
+CONFIG="${UNNAMED_CONFIG}"
 
 # Window of host ports the unnamed instance's VM forwards to kind API servers,
 # substituted from nix/pkgs/forge/default.nix so this and the VM's portForwards
@@ -829,6 +830,90 @@ cmd_status() {
 	echo ""
 }
 
+# pi-broker's record of which agent holds each instance
+# (nix/pkgs/pi-broker/pi-broker.sh): slots/<n>/owner names the agent's state
+# file, <coordinator>/state/<agent>.json.
+readonly PI_SLOTS_DIR="${HOME}/.local/state/pi-coord/slots"
+
+ls_row() {
+	printf '%-4s %-8s %-8s %-4s %-5s %-10s %-8s %-5s %-10s %-10s %s\n' "$@"
+}
+
+# The instance a running forge was started for, from its environment, since
+# the argv of two concurrent `forge up`s is identical. "-" is the unnamed one.
+forge_busy() {
+	local pid cmd inst
+	while read -r pid cmd; do
+		inst="$(ps eww -o command= -p "${pid}" 2>/dev/null | grep -o 'FORGE_INSTANCE=[0-9]*' | cut -d= -f2)" || true
+		printf '%s\t%s\n' "${inst:--}" "${cmd}"
+	done < <(ps -Ao pid=,command= | sed -nE 's#^ *([0-9]+) .*/bin/forge (up|down|nuke|resize)( .*)?$#\1 \2#p')
+}
+
+# Every forge VM on this host, whatever FORGE_INSTANCE names. The phase is
+# inferred, never recorded: a forge command running for that instance, else
+# how many of the clusters its config declares have every node running.
+# LOAD, MEM and DISK are the guest's, not the host's.
+cmd_ls() {
+	local -A busy=()
+	local inst cmd
+	while IFS=$'\t' read -r inst cmd; do busy[${inst}]="${cmd}"; done < <(forge_busy)
+
+	ls_row INST VM STATE CPUS MEM PHASE CLUSTERS LOAD MEM_USED DISK_USED OWNER
+	local name status cpus memory
+	while IFS=$'\t' read -r name status cpus memory; do
+		inst="${name#forge}"
+		inst="${inst#-}"
+		inst="${inst:--}"
+
+		local config="${UNNAMED_CONFIG}" declared="?" running="-" phase load="-" mem="-" disk="-" owner="-"
+		[[ ${inst} == - ]] || config="${HOME}/.local/state/forge/${inst}/forge.yaml"
+		[[ -f ${config} ]] && declared="$(yq '.clusters | length + 1' "${config}")"
+
+		if [[ ${status} == Running ]]; then
+			running="$(DOCKER_HOST="unix://${LIMA_HOME:-${HOME}/.lima}/${name}/sock/docker.sock" \
+				docker ps -a --filter label=io.x-k8s.kind.cluster \
+				--format '{{.Label "io.x-k8s.kind.cluster"}}\t{{.State}}' 2>/dev/null |
+				awk -F'\t' '{ all[$1] } $2 != "running" { bad[$1] }
+					END { n = 0; for (c in all) if (!(c in bad)) n++; print n }')"
+			local probe
+			probe="$(limactl shell --workdir / "${name}" -- sh -c \
+				"cut -d' ' -f1 /proc/loadavg; free -b | awk '/^Mem:/ { print \$3, \$2 }'; df -B1 --output=used,size / | tail -1" </dev/null 2>/dev/null)" || true
+			if [[ -n ${probe} ]]; then
+				local used total
+				load="$(sed -n 1p <<<"${probe}")"
+				read -r used total < <(sed -n 2p <<<"${probe}")
+				mem="$(numfmt --to=iec "${used}")/$(numfmt --to=iec "${total}")"
+				read -r used total < <(sed -n 3p <<<"${probe}")
+				disk="$(numfmt --to=iec "${used}")/$(numfmt --to=iec "${total}")"
+			fi
+		fi
+
+		if [[ -n ${busy[${inst}]:-} ]]; then
+			phase="${busy[${inst}]}"
+		elif [[ ${status} != Running ]]; then
+			phase="-"
+		elif [[ ${running} == "${declared}" ]]; then
+			phase=ready
+		elif [[ ${running} == 0 ]]; then
+			phase=empty
+		else
+			phase=partial
+		fi
+
+		local owner_file="${PI_SLOTS_DIR}/${inst}/owner"
+		if [[ ${inst} != - && -f ${owner_file} ]]; then
+			owner="$(<"${owner_file}")"
+			owner="${owner%.json}"
+			owner="${owner%/state/*}/${owner##*/}"
+			owner="${owner##*/pi-coord/}"
+		fi
+
+		ls_row "${inst}" "${name}" "${status}" "${cpus}" "$(numfmt --to=iec "${memory}")" \
+			"${phase}" "${running}/${declared}" "${load}" "${mem}" "${disk}" "${owner}"
+	done < <(limactl list --format $'{{.Name}}\t{{.Status}}\t{{.CPUs}}\t{{.Memory}}' 2>/dev/null |
+		grep -E $'^forge(-[0-9]+)?\t')
+}
+
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
 cmd_up() {
@@ -895,6 +980,12 @@ Commands:
                  reuses pulled layers.
   status         Print the VM, the mirrors, and every cluster with its context
                  and API port. Reads state, changes nothing.
+  ls             One line per instance on this host: VM state and size, the
+                 forge command in progress (up, down, nuke, resize) or
+                 else ready, partial or empty, clusters
+                 running of those declared, the guest's load, memory and
+                 disk, and the pi agent holding it. Reads state, changes
+                 nothing, and needs ~/.lima, so run it outside pi's sandbox.
   nuke           Delete the VM, and with it every cluster, mirror, volume and
                  network.
   resize S       Stop the VM, change its CPUs and memory, start it again.
@@ -973,6 +1064,9 @@ up | down | status | nuke)
 	KUBECONFIG="$(get_kubeconfig)"
 	export KUBECONFIG
 	"cmd_$1" "${SIZE}"
+	;;
+ls)
+	cmd_ls
 	;;
 resize)
 	[[ -n ${2:-} ]] || die "usage: forge resize small|large"
