@@ -188,7 +188,7 @@ setup_gnupghome() {
 	chmod 700 "$GNUPGHOME"
 	export GNUPGHOME
 
-	log_info "GNUPGHOME: $GNUPGHOME (tmpfs, will auto-cleanup)"
+	log_info "GNUPGHOME: $GNUPGHOME (removed on exit)"
 
 	# Configure gpg-agent for loopback pinentry (no GUI prompts)
 	cat >"$GNUPGHOME/gpg-agent.conf" <<EOF
@@ -349,7 +349,7 @@ upload_to_keyservers() {
 		log_info "Uploading to $server..."
 		if gpg --keyserver "$server" --send-keys "$FINGERPRINT" 2>&1 | tee /dev/stderr; then
 			log_info "Successfully uploaded to $server"
-			((uploaded++))
+			uploaded=$((uploaded + 1))
 		else
 			log_warn "Failed to upload to $server (continuing...)"
 		fi
@@ -379,7 +379,7 @@ GPG Renewal Complete
 
 Key ID:        $KEYID
 Fingerprint:   $FINGERPRINT
-Expiration:    Extended by $EXPIRY
+Expiration:    $EXPIRY from today
 
 Source backup: $LATEST_BACKUP_DIR
 New backup:    $EXPORT_DIR
