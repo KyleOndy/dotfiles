@@ -31,6 +31,8 @@ host that enables it (all but pika and cogsworth).
 | `trex`      | aarch64-darwin | personal mac            | `make deploy-trex`                                      |
 | `work-mac`  | aarch64-darwin | work mac (user `kondy`) | `make deploy-mac`                                       |
 
+`make deploy-rs HOSTNAME=<host>` lets deploy-rs run its own `nix flake check`
+first, which fetches the private cogsworth input, so it needs that ssh key.
 `make deploy-rs-all-dry` runs `nix flake check`, then dry-activates tiger,
 pika and cogsworth. `make help` lists only the targets marked `##`, which
 leaves out the `deploy-rs*` ones.
@@ -135,8 +137,9 @@ deliberately does not.
 ### Label naming: `host`, not `instance`
 
 `instance` renders as `127.0.0.1:9100`; `host` renders as `tiger`. Every
-scrape config must set a `host` label, and every dashboard query must filter
-on it. Full rules and the migration one-liners for imported dashboards are in
+scrape config must set a `host` label, and every dashboard query that can span
+hosts must filter on it (single-source panels like UniFi and the monitoring
+stack's own metrics do not). Full rules and the migration one-liners for imported dashboards are in
 `DASHBOARD_CONVENTIONS.md`.
 
 ### Authentication
