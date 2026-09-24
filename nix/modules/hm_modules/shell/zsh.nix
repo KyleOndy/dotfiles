@@ -57,7 +57,7 @@ in
           j = "bat --language=json $@";
           k = "kubectl";
           l = "bat --style=plain --paging=never --language=log $@";
-          llr = "ll --color=auto -t | head";
+          llr = "ls -l --color=auto -t | head";
           lsd = "ls -l $@ | grep '^d'";
           serve = "miniserve . --dirs-first --upload-files";
           src = "cd ${config.home.homeDirectory}/src";
@@ -478,7 +478,7 @@ in
               # from 'danstewart_' via https://news.ycombinator.com/item?id=32165027
               local code="$1"
               if [[ -z $code ]]; then
-                echo "Usage: man-http <status code>"
+                echo "Usage: man_http <status code>"
                 return 0
               fi
 
