@@ -30,7 +30,6 @@ let
   statusline = mkScript "claude-statusline" ./statusline.sh [
     pkgs.jq
     pkgs.git
-    pkgs.coreutils # GNU date; BSD date on darwin lacks -d
   ];
   tmuxIndicator = mkScript "tmux-indicator" ./hooks/tmux-indicator.sh [
     pkgs.jq
