@@ -212,7 +212,7 @@ test-mac-home: ## Test work-mac home-manager configuration
 
 .PHONY: deploy-mac
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	darwin-rebuild $(IMPURE) $(WORK_INPUT_FLAG) --flake .#work-mac switch
+	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch
 
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
