@@ -14,9 +14,9 @@ usage: git claim [options] [base]
 Rewrite the author of commits somebody else made on this branch to you.
 
 Agents commit under their own identity: the pi wrapper exports
-GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL as an `ai-daemon@` address, and forge
-does the same, so `git log` shows which commits came out of an agent. Claiming
-them says you are answering for the work as its author.
+GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL as an `ai-daemon@` address, so `git log`
+shows which commits came out of an agent. Claiming them says you are answering
+for the work as its author.
 
   git claim
     → base: merge-base of HEAD and the local default branch

@@ -14,7 +14,7 @@ usage: git adopt [options] [base]
 Sign every commit on this branch that is not on the base branch.
 
 Agents commit unsigned: the pi wrapper exports commit.gpgsign=false and an
-`ai-daemon@` author, and `wtx` does the same for the agents it launches, so
+`ai-daemon@` author, and `wtx` turns signing off for the agents it launches, so
 `git log --show-signature` tells you which commits nobody has vouched for.
 Adopting them is the review gate: once you have read the work, your signature
 says so.
