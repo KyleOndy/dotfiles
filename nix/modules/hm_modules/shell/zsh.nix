@@ -316,7 +316,11 @@ in
 
             fzf_pick_k8s_cluster() {
               local config_dir="${config.home.homeDirectory}/.kube/configs"
+              # forge's kubeconfigs (nix/pkgs/forge/README.md#kubeconfig):
+              # the unnamed VM's here, forge-<n>'s in <n>/ beneath it.
+              local forge_state="${config.home.homeDirectory}/.local/state/forge"
               local kubeconfig k8s_clusters prompt_prefix
+              local -a forge_clusters
 
               # Try to get from cache
               if k8s_clusters=$(_cache_get "k8s_clusters"); then
@@ -328,14 +332,30 @@ in
                 prompt_prefix=""
               fi
 
-              kubeconfig=$(echo "$k8s_clusters" | _fzf --prompt="''${prompt_prefix}K8s Cluster: " --preview "${pkgs.bat}/bin/bat --color=always -l=yaml "$config_dir/{}"")
+              # Running forge VMs, never cached: they come and go within a
+              # session. limactl is only on PATH where forge is installed.
+              if (( $+commands[limactl] )); then
+                forge_clusters=(''${(f)"$(limactl list --format '{{.Name}} {{.Status}}' 2>/dev/null |
+                  ${pkgs.gawk}/bin/awk '$2 == "Running" && $1 ~ /^forge(-[0-9]+)?$/ { print $1 }')"})
+              fi
+
+              # fzf runs the preview in a fresh shell, which has none of this
+              # function's locals, so the paths are spelled out in it.
+              kubeconfig=$(printf '%s\n' $forge_clusters $k8s_clusters | _fzf --prompt="''${prompt_prefix}K8s Cluster: " \
+                --preview "n={}; case \$n in forge) f=$forge_state/kubeconfig.yaml ;; forge-*) f=$forge_state/\''${n#forge-}/kubeconfig.yaml ;; *) f=$config_dir/\$n ;; esac; ${pkgs.bat}/bin/bat --color=always -l=yaml \"\$f\"")
 
               if [[ -z "$kubeconfig" ]]; then
                 unset KUBECONFIG
                 unset AWS_PROFILE
                 unset AWS_REGION
               else
-                export KUBECONFIG="$config_dir/$kubeconfig"
+                if [[ $kubeconfig == forge ]] && (( ''${forge_clusters[(Ie)forge]} )); then
+                  export KUBECONFIG="$forge_state/kubeconfig.yaml"
+                elif (( ''${forge_clusters[(Ie)$kubeconfig]} )); then
+                  export KUBECONFIG="$forge_state/''${kubeconfig#forge-}/kubeconfig.yaml"
+                else
+                  export KUBECONFIG="$config_dir/$kubeconfig"
+                fi
                 AWS_PROFILE=$(${pkgs.yq-go}/bin/yq '.users[].user.exec.env[] | select(.name == "AWS_PROFILE") | .value' "$KUBECONFIG")
                 AWS_REGION=$(${pkgs.yq-go}/bin/yq '.users[].user.exec.args' "$KUBECONFIG" | ${pkgs.ripgrep}/bin/rg -F -e '--region' -A1 | ${pkgs.coreutils}/bin/tail -n1 | ${pkgs.coreutils}/bin/cut -d' ' -f2)
 
