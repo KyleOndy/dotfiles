@@ -60,9 +60,10 @@ pkgs.runCommand "forge-vm-check"
     [ -n "$base" ] && [ -n "$span" ] \
       || fail "could not read the API port window out of the forge script"
 
-    # $1 is a lima config, $2 the first port of the window it must forward.
+    # $1 is a lima config, $2 the first port of the window it must forward and
+    # $3 its width, the API window's unless given.
     assert_boundary() {
-      local config=$1 first=$2 want
+      local config=$1 first=$2 width=''${3:-$span} want
       [ "$(jq -r '.mounts // [] | length' "$config")" = "0" ] \
         || fail "$config declares mounts: $(jq -c '.mounts' "$config")"
 
@@ -84,7 +85,7 @@ pkgs.runCommand "forge-vm-check"
       # give every cluster past the overlap an unreachable API server, and the
       # window needs the same pairing as the deny: whichever family docker
       # publishes the port on has to match a rule before the deny catches it.
-      want="[$first,$((first + span - 1))]"
+      want="[$first,$((first + width - 1))]"
       jq -e --argjson want "$want" '
         [.portForwards[] | select(.guestPortRange)] as $w
         | ($w | length) == 2
@@ -118,6 +119,19 @@ pkgs.runCommand "forge-vm-check"
     done
     [ "$(jq -c '[.cpus, .memory]' "$TMPDIR/instance-small.json")" = '[2,"4GiB"]' ] \
       || fail "small is not 2 CPUs and 4GiB: $(jq -c '[.cpus, .memory]' "$TMPDIR/instance-small.json")"
+
+    # The cache is the same template with its own window, so it keeps the
+    # boundary too.
+    cache_base=$(grep -oE '^readonly CACHE_PORT_BASE=[0-9]+' ${pkgs.forge}/bin/forge | cut -d= -f2)
+    cache_span=$(grep -oE '^readonly CACHE_PORT_SPAN=[0-9]+' ${pkgs.forge}/bin/forge | cut -d= -f2)
+    [ -n "$cache_base" ] && [ -n "$cache_span" ] \
+      || fail "could not read the cache port window out of the forge script"
+    ${pkgs.forge}/bin/forge cache vm-config >"$TMPDIR/cache.json"
+    limactl validate "$TMPDIR/cache.json" \
+      || fail "limactl rejected the cache's config"
+    assert_boundary "$TMPDIR/cache.json" "$cache_base" "$cache_span"
+    (( cache_base + cache_span <= base )) \
+      || fail "the cache window $cache_base+$cache_span overlaps the API windows from $base"
 
     want="[$base,$((base + span - 1))]"
     echo "forge-vm-check: ok (api ports $want on both address families)" > $out

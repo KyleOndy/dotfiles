@@ -8,7 +8,7 @@ overrides the path.
 
 Forge provisions and manages a local multi-cluster Kubernetes environment for
 testing ArgoCD-based GitOps workflows. It handles **layer 1** infrastructure:
-Docker networking, pull-through registry mirrors, Kind clusters, ArgoCD
+Docker networking, a shared pull-through registry cache, Kind clusters, ArgoCD
 installation, and cross-cluster registration.
 
 It does **not** manage **layer 2** concerns: application deployments, ArgoCD
@@ -23,10 +23,6 @@ responsibility of the GitOps layer running on top.
 lima VM: forge (NixOS, no host mounts)
 └── dockerd
     └── network: forge
-        │
-        ├── forge-mirror-dockerio   (registry:2 → registry-1.docker.io)
-        ├── forge-mirror-ghcrio     (registry:2 → ghcr.io)
-        ├── forge-mirror-quayio     (registry:2 → quay.io)
         │
         ├── forge-mgmt              (Kind, management cluster)
         │   ├── forge-mgmt-control-plane
@@ -104,35 +100,51 @@ since lima's instance directory is not granted.
 
 ---
 
-## Pull-Through Mirrors
+## Pull-Through Cache
 
-Three `registry:2` containers act as caching pull-through proxies:
+Every instance pulls through one more lima VM, `forge-cache`, so an image
+comes from the internet once per host rather than once per VM, and outlives
+`forge nuke --all`. It is the same template as the instances (no mounts, a
+deny-all tail), at 2 CPUs, 2GiB and a sparse 100GiB disk, and runs one
+`registry:2` pull-through mirror per upstream:
 
-| Container               | Upstream                       | Fronts      |
-| ----------------------- | ------------------------------ | ----------- |
-| `forge-mirror-dockerio` | `https://registry-1.docker.io` | `docker.io` |
-| `forge-mirror-ghcrio`   | `https://ghcr.io`              | `ghcr.io`   |
-| `forge-mirror-quayio`   | `https://quay.io`              | `quay.io`   |
+| Container          | Upstream                       | Port   |
+| ------------------ | ------------------------------ | ------ |
+| `mirror-docker.io` | `https://registry-1.docker.io` | `6420` |
+| `mirror-ghcr.io`   | `https://ghcr.io`              | `6421` |
+| `mirror-quay.io`   | `https://quay.io`              | `6422` |
 
-Each mirror stores its cache in a named Docker volume (`forge-mirror-<name>-data`),
-which persists across `forge down` cycles. Mirrors are reachable by all cluster
-nodes at `http://forge-mirror-<name>:5000`.
+Its config forwards `6420-6435` to the host's 127.0.0.1, and the instances
+reach that through the host: `host.lima.internal` from a guest,
+`host.docker.internal` from a container in one. `ports.nix` holds both that
+window and the API one, for the script, the lima configs and the guest image.
+No agent workload runs in the cache VM, and a pull-through mirror refuses
+pushes, so an agent can read from it but not put an image in it for the
+others.
 
-### Containerd configuration
+`forge up` runs `forge cache up` first, which checks the three ports answer
+and otherwise creates or starts the VM and its mirrors, under a lock in
+`~/.local/state/forge/cache.lock` because pi-broker starts several `up`s at
+once. A sandboxed agent's `up` gets as far as that check, which is enough
+once the cache is running, since `--allow-forge` grants loopback egress.
+`forge cache nuke` deletes it and everything it cached.
 
-Each Kind node is configured to use the mirrors via containerd's
-`/etc/containerd/certs.d/<registry>/hosts.toml` mechanism. The `config_path`
-directive in the containerd config points to `/etc/containerd/certs.d`, and a
-`hosts.toml` is written into the appropriate subdirectory for each registry:
+Two pulls go through it:
 
-```
-/etc/containerd/certs.d/docker.io/hosts.toml
-/etc/containerd/certs.d/ghcr.io/hosts.toml
-/etc/containerd/certs.d/quay.io/hosts.toml
-```
+- **kindest/node**, which each instance's dockerd pulls, not a node's
+  containerd. `guest.nix` gives dockerd `registry-mirrors` pointing at the
+  docker.io mirror. dockerd applies that to Docker Hub only, and falls back to
+  Docker Hub when the mirror does not answer.
+- **Everything a cluster pulls**, through a
+  `/etc/containerd/certs.d/<registry>/hosts.toml` forge writes into every
+  node, on every `forge up`, before ArgoCD is installed. Each names the cache
+  as its `[host]` and the registry itself as `server`, so containerd falls
+  back to a direct pull when the cache is down.
 
-Each `hosts.toml` redirects pulls for that registry to the corresponding mirror
-container over plain HTTP on port 5000.
+An instance created before `guest.nix` carried the dockerd mirror reports
+drift on `forge up`, and pulls kindest/node directly until
+`forge nuke && forge up` rebuilds it. Its nodes' `hosts.toml` point at the
+cache either way.
 
 ---
 
@@ -186,7 +198,7 @@ All infrastructure runs on a single Docker bridge network named `forge`.
 Container DNS resolution means any container can reach any other by name:
 
 - Cluster API servers: `<cluster-name>-control-plane:6443`
-- Registry mirrors: `forge-mirror-<name>:5000`
+- The cache: `host.docker.internal:6420-6422`
 
 There are no Kubernetes `NodePort` or `LoadBalancer` services involved in
 cluster-to-cluster communication. ArgoCD accesses workload clusters via the
@@ -202,27 +214,26 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 
 ## Lifecycle
 
-| Command        | VM      | Clusters | Mirrors | Volumes | Network |
-| -------------- | ------- | -------- | ------- | ------- | ------- |
-| `forge up`     | create  | create   | create  | create  | create  |
-| `forge down`   | -       | delete   | -       | -       | -       |
-| `forge nuke`   | delete  | delete   | delete  | delete  | delete  |
-| `forge status` | -       | -        | -       | -       | -       |
-| `forge ls`     | -       | -        | -       | -       | -       |
-| `forge resize` | restart | -        | -       | -       | -       |
+| Command            | VM      | Clusters | Network | Cache  |
+| ------------------ | ------- | -------- | ------- | ------ |
+| `forge up`         | create  | create   | create  | create |
+| `forge down`       | -       | delete   | -       | -      |
+| `forge nuke`       | delete  | delete   | delete  | -      |
+| `forge cache nuke` | -       | -        | -       | delete |
+| `forge status`     | -       | -        | -       | -      |
+| `forge ls`         | -       | -        | -       | -      |
+| `forge resize`     | restart | -        | -       | -      |
 
-`forge up` creates what is declared and missing, starts a stopped VM or mirror,
-and leaves everything else alone. It does not resize an existing cluster,
-upgrade ArgoCD once it is installed, or change an existing mirror's upstream.
-The first two take `forge down && forge up`, the last `forge nuke`.
+`forge up` creates what is declared and missing, starts a stopped VM, and
+leaves everything else alone. It does not resize an existing cluster or
+upgrade ArgoCD once it is installed; both take `forge down && forge up`.
 
 `forge down` destroys the clusters `forge.yaml` names (and their kubeconfig
-contexts) but leaves mirrors and their cache volumes intact, allowing
-subsequent `forge up` runs to benefit from cached layers. A cluster dropped
-from `forge.yaml` survives both `up` and `down`. `down` needs the VM running.
+contexts) but leaves the VM and the images it pulled. A cluster dropped from
+`forge.yaml` survives both `up` and `down`. `down` needs the VM running.
 
-`forge nuke` deletes the VM, which takes the clusters, mirrors, volumes,
-network and every pulled image with it. For the unnamed instance it touches
+`forge nuke` deletes the VM, which takes the clusters, network and every
+image it pulled with it. The cache keeps its own copy. For the unnamed instance it touches
 nothing on the host, so the kubeconfig contexts survive pointing at dead
 ports; run `forge down` first to drop them. A named instance's
 `~/.local/state/forge/<n>` goes with its VM.
@@ -232,10 +243,11 @@ and leaves the unnamed one. It refuses while any forge command is running
 against one of them; `--force` stops those first, along with the kind, helm
 and docker processes under them.
 
-`forge status` is read-only: the VM, each mirror's state, and each cluster's
-context and API port.
+`forge status` is read-only: the VM, whether the cache answers, and each
+cluster's context and API port.
 
-`forge ls` is read-only too, and covers every instance on the host at once:
+`forge ls` is read-only too, and covers every VM on the host at once, the
+cache included:
 VM state and size, the forge command running against it if any, clusters
 running of those declared, the guest's load, memory and disk, and the pi
 agent holding it. It reads `~/.lima`, so it works only outside pi's sandbox.

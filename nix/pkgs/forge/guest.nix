@@ -8,7 +8,12 @@
 #
 # The boundary itself is not here. It is `mounts` and `portForwards` in vm.nix,
 # enforced by lima's hostagent on the host side.
-{ lib, pkgs, ... }:
+{
+  lib,
+  pkgs,
+  forgePorts,
+  ...
+}:
 {
   # From the nixos-lima flake. lima installs its guest agent by copying a binary
   # into the guest and writing a unit for it, which a read-only /nix/store
@@ -33,6 +38,21 @@
   # major forge's own runtimeInputs pin, so the CLI on the host and the daemon in
   # the guest stay in step.
   virtualisation.docker.package = pkgs.docker_29;
+
+  # kind pulls its node image through this daemon, not through a node's
+  # containerd, so the hosts.toml forge writes into nodes never sees that pull.
+  # The docker.io mirror in the forge-cache VM, reached through the host
+  # (host.lima.internal is lima's name for it), serves it once per host
+  # instead of once per VM. dockerd applies registry-mirrors to Docker Hub
+  # only, and falls back to it when the mirror does not answer.
+  virtualisation.docker.daemon.settings =
+    let
+      mirror = "host.lima.internal:${toString forgePorts.cachePortBase}";
+    in
+    {
+      registry-mirrors = [ "http://${mirror}" ];
+      insecure-registries = [ mirror ];
+    };
 
   # Consequence of that imperative user: it lands in `wheel` and `users`, and no
   # declarative `users.groups.docker.members` can name it, so the socket lima

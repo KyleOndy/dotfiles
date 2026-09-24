@@ -120,6 +120,7 @@
               modules = [
                 { nixpkgs.hostPlatform = guestSystem; }
                 inputs.nixos-lima.nixosModules.lima
+                { _module.args.forgePorts = import ./nix/pkgs/forge/ports.nix; }
                 ./nix/pkgs/forge/guest.nix
               ];
             }).config.system.build.images.qemu-efi;

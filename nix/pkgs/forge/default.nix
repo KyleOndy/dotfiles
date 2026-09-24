@@ -13,15 +13,12 @@
   gnugrep,
   gnused,
   gawk,
+  curl,
+  flock,
   # nixpkgs 25.11 ships lima 1.2.2, and vm.nix asks for 2.0.0 as its
   # minimumLimaVersion, so nix/pkgs/default.nix passes master.lima. Every
   # port-forwarding rule in vm.nix was measured against 2.2.0.
   lima,
-  # One source of truth for the API port window: substituted into forge.sh and
-  # baked into the VM's portForwards, so the range forge assigns from is the
-  # range the VM actually forwards. See vm.nix.
-  apiPortBase ? 6440,
-  apiPortSpan ? 16,
   # The guest disk image, injected by the overlay in flake.nix because
   # nix/pkgs/default.nix cannot reach the flake's nixos-lima and
   # nixos-generators inputs. Defaulted to a throw rather than left required so
@@ -31,6 +28,15 @@
 }:
 
 let
+  # Substituted into forge.sh and baked into the VM's portForwards, so the
+  # ranges forge assigns from are the ranges the VM actually forwards.
+  inherit (import ./ports.nix)
+    apiPortBase
+    apiPortSpan
+    cachePortBase
+    cachePortSpan
+    ;
+
   vmConfig = callPackage ./vm.nix {
     inherit apiPortBase apiPortSpan guestImage;
     guestArch = if stdenv.hostPlatform.isAarch64 then "aarch64" else "x86_64";
@@ -41,11 +47,15 @@ let
       [
         "@apiPortBase@"
         "@apiPortSpan@"
+        "@cachePortBase@"
+        "@cachePortSpan@"
         "@vmConfig@"
       ]
       [
         (toString apiPortBase)
         (toString apiPortSpan)
+        (toString cachePortBase)
+        (toString cachePortSpan)
         "${vmConfig}"
       ]
       (builtins.readFile ./forge.sh);
@@ -65,6 +75,8 @@ let
       gnugrep
       gnused
       gawk
+      curl
+      flock
     ];
     text = body;
   };

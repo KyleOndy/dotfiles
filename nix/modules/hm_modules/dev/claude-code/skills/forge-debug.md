@@ -1,6 +1,6 @@
 ---
 name: forge-debug
-description: Introspect a forge instance that looks broken, stuck or slow (lima VM, kind clusters, registry mirrors, ArgoCD), including ones a pi coordinator agent owns. Use when forge up hangs or fails, an agent sits in starting-forge, a cluster is missing, or someone asks what a forge instance is doing.
+description: Introspect a forge instance that looks broken, stuck or slow (lima VM, kind clusters, the shared pull-through cache, ArgoCD), including ones a pi coordinator agent owns. Use when forge up hangs or fails, an agent sits in starting-forge, a cluster is missing, or someone asks what a forge instance is doing.
 ---
 
 # Debugging a forge instance
@@ -17,10 +17,12 @@ denies.
 forge ls
 ```
 
-One row per VM: `-` is the unnamed `forge`, `<n>` is `forge-<n>`.
+One row per VM: `-` is the unnamed `forge`, `<n>` is `forge-<n>`, `cache` is
+`forge-cache`.
 
 - PHASE `up`, `down`, `nuke`, `resize`: that forge command is running now.
-- `ready`: every declared cluster has all its nodes running.
+- `ready`: every declared cluster has all its nodes running, or for the
+  cache, all three mirrors answer.
 - `partial` or `empty`: VM up, some or no clusters. Nothing is converging it.
 - STATE `Broken` or a VM missing from the list entirely: see step 5.
 - OWNER `<coordinator>/<agent>`: pi-broker holds the instance for that agent.
@@ -54,13 +56,21 @@ n=<n>; vm=forge-$n                         # vm=forge for the unnamed one
 export DOCKER_HOST=unix://$HOME/.lima/$vm/sock/docker.sock
 export KUBECONFIG=$HOME/.local/state/forge/$n/kubeconfig.yaml
 
-docker ps -a                               # kind nodes and mirrors, with state
+docker ps -a                               # kind nodes, with state
 docker images                              # has kindest/node landed yet
-docker logs --tail 50 forge-mirror-quayio  # a mirror's upstream errors
 kubectl config get-contexts
 kubectl --context kind-forge-mgmt get pods,jobs -A
 kubectl --context kind-forge-mgmt -n argocd describe pod <pod>
 limactl shell --workdir / $vm -- sh -c 'uptime; free -m; df -h /'
+```
+
+The cache is its own VM, `forge-cache`, one `registry:2` per upstream:
+
+```bash
+forge ls | grep cache                      # PHASE ready: all three answer
+export DOCKER_HOST=unix://$HOME/.lima/forge-cache/sock/docker.sock
+docker logs --tail 50 mirror-quay.io       # a mirror's upstream errors
+curl -s http://127.0.0.1:6420/v2/_catalog  # what docker.io has cached
 ```
 
 The unnamed instance's kubeconfig is the `kubeconfig` in
@@ -68,16 +78,16 @@ The unnamed instance's kubeconfig is the `kubeconfig` in
 
 ## 4. Match the stuck step
 
-| Last `>>>` line or error                                                            | Usual cause and check                                                                                                                                                          |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `Ensuring VM`, then nothing                                                         | Boot, or the docker probe never passing. `limactl list`, then `~/.lima/$vm/ha.stderr.log` and `serialv.log`. forge gives up at 10m.                                            |
-| `Creating management cluster` / `workload cluster`                                  | First pull of `kindest/node`, several minutes per VM because each VM pulls it alone. `docker images` shows when it lands.                                                      |
-| `Installing ArgoCD`, then `failed pre-install: timed out waiting for the condition` | A chart hook Job did not finish inside helm's 5m. `get pods,jobs -n argocd` names it; `describe pod` shows ImagePullBackOff or Pending. Check the mirror's logs and `free -m`. |
-| `Installing ArgoCD`, chart fetch error                                              | `argoproj.github.io` or `release-assets.githubusercontent.com` unreachable. `FORGE_ARGOCD_CHART` points at a local chart instead.                                              |
-| `ERROR: no docker daemon at ...`                                                    | VM stopped or its socket gone. `limactl list`.                                                                                                                                 |
-| `[warn] VM '<vm>' is not running ...`                                               | Drift from `vm.nix`. Harmless until the change matters; `forge nuke && forge up` rolls it forward.                                                                             |
+| Last `>>>` line or error                                                            | Usual cause and check                                                                                                                                                                |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Ensuring VM`, then nothing                                                         | Boot, or the docker probe never passing. `limactl list`, then `~/.lima/$vm/ha.stderr.log` and `serialv.log`. forge gives up at 10m.                                                  |
+| `Creating management cluster` / `workload cluster`                                  | Pull of `kindest/node`, slow only when the cache has not seen it. `docker images` shows when it lands; a VM older than the dockerd mirror pulls it directly (drift warning).         |
+| `Installing ArgoCD`, then `failed pre-install: timed out waiting for the condition` | A chart hook Job did not finish inside helm's 5m. `get pods,jobs -n argocd` names it; `describe pod` shows ImagePullBackOff or Pending. Check the cache mirror's logs and `free -m`. |
+| `Installing ArgoCD`, chart fetch error                                              | `argoproj.github.io` or `release-assets.githubusercontent.com` unreachable. `FORGE_ARGOCD_CHART` points at a local chart instead.                                                    |
+| `ERROR: no docker daemon at ...`                                                    | VM stopped or its socket gone. `limactl list`.                                                                                                                                       |
+| `[warn] VM '<vm>' is not running ...`                                               | Drift from `vm.nix`. Harmless until the change matters; `forge nuke && forge up` rolls it forward.                                                                                   |
 
-Memory: a small VM has 4GiB for two kind nodes, three mirrors and ArgoCD.
+Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
 `free -m` showing under ~300MB available points at size, not a bug.
 
 ## 5. VM missing or Broken

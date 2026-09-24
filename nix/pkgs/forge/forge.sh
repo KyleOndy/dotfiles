@@ -25,6 +25,27 @@ readonly VM_TEMPLATE=@vmConfig@
 # resizes the guest image before booting it.
 readonly VM_TIMEOUT=10m
 
+# One VM of registry mirrors every instance pulls through, so an image comes
+# from the internet once per host rather than once per VM, and survives a nuke
+# of every instance. The forge VMs reach it through the host: its config
+# forwards CACHE_PORT_BASE upward to the host's loopback, which a guest sees as
+# host.lima.internal and a container in one as host.docker.internal.
+readonly CACHE_VM=forge-cache
+readonly CACHE_PORT_BASE=@cachePortBase@
+readonly CACHE_PORT_SPAN=@cachePortSpan@
+readonly CACHE_SOCKET="${LIMA_HOME:-${HOME}/.lima}/${CACHE_VM}/sock/docker.sock"
+readonly CACHE_CPUS=2
+readonly CACHE_MEMORY=2GiB
+# A ceiling rather than an allocation: vz disks are sparse.
+readonly CACHE_DISK=100GiB
+# "<registry> <upstream>", mirror i on CACHE_PORT_BASE + i. docker.io is first
+# because guest.nix points each VM's dockerd at that port.
+readonly MIRRORS=(
+	"docker.io https://registry-1.docker.io"
+	"ghcr.io https://ghcr.io"
+	"quay.io https://quay.io"
+)
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 log() { echo ">>> $*"; }
@@ -106,20 +127,25 @@ size_memory() {
 	esac
 }
 
-# The instance's lima config: the template with this instance's port window
-# and the given CPUs and memory. Nothing else differs between instances, so
-# the no-mounts and deny-tail properties nix/checks/forge-vm.nix asserts on the
-# template hold for every instance, and that check asserts them on this output
-# too.
+# A lima config: the template with the given CPUs and memory, the forwarded
+# window first..last (inclusive), and a disk size when $5 names one. Nothing
+# else differs between VMs, so the no-mounts and deny-tail properties
+# nix/checks/forge-vm.nix asserts on the template hold for every instance and
+# the cache, and that check asserts them on this output too.
 render_vm_config() {
-	local cpus="$1" memory="$2"
+	local cpus="$1" memory="$2" first="$3" last="$4" disk="${5:-}"
 	yq -o=json -P "
 		.cpus = ${cpus}
 		| .memory = \"${memory}\"
 		| (.portForwards[] | select(has(\"guestPortRange\"))) |= (
-			.guestPortRange = [${API_PORT_BASE}, ${API_PORT_LAST}]
-			| .hostPortRange = [${API_PORT_BASE}, ${API_PORT_LAST}])
+			.guestPortRange = [${first}, ${last}]
+			| .hostPortRange = [${first}, ${last}])
+		${disk:+| .disk = \"${disk}\"}
 	" "${VM_TEMPLATE}"
+}
+
+render_instance_config() {
+	render_vm_config "$1" "$2" "${API_PORT_BASE}" "${API_PORT_LAST}"
 }
 
 # ─── Prerequisites ─────────────────────────────────────────────────────────────
@@ -148,15 +174,6 @@ get_kubeconfig() {
 	raw="${FORGE_KUBECONFIG:-$(yq_get '.kubeconfig // ""')}"
 	[[ -n ${raw} ]] || die "no 'kubeconfig' in ${CONFIG} (override with FORGE_KUBECONFIG)"
 	echo "${raw/#\~/$HOME}"
-}
-
-get_mirror_names() {
-	yq_get '.mirrors[].name'
-}
-
-get_mirror_upstream() {
-	local name="$1"
-	yq_get ".mirrors[] | select(.name == \"${name}\") | .upstream"
 }
 
 get_mgmt_name() {
@@ -228,60 +245,106 @@ ensure_network() {
 	fi
 }
 
-# ─── Pull-through mirrors ──────────────────────────────────────────────────────
+# ─── Pull-through cache ───────────────────────────────────────────────────────
 
-mirror_container_name() {
-	echo "forge-mirror-$1"
+cache_docker() {
+	DOCKER_HOST="unix://${CACHE_SOCKET}" docker "$@"
 }
 
-mirror_volume_name() {
-	echo "forge-mirror-$1-data"
+mirror_port() {
+	echo $((CACHE_PORT_BASE + $1))
 }
 
-ensure_mirror() {
-	local name="$1"
-	local upstream
-	upstream="$(get_mirror_upstream "${name}")"
-	local container
-	container="$(mirror_container_name "${name}")"
-	local volume
-	volume="$(mirror_volume_name "${name}")"
-	local network
-	network="$(get_network)"
+# Every mirror answering on the host's loopback, the path the forge VMs take
+# too. A sandboxed caller can run this: --allow-forge grants loopback egress.
+cache_healthy() {
+	local i
+	for i in "${!MIRRORS[@]}"; do
+		curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:$(mirror_port "${i}")/v2/" || return 1
+	done
+}
 
-	local state
-	state="$(docker inspect --format '{{.State.Status}}' "${container}" 2>/dev/null || echo "absent")"
+cache_vm_status() {
+	limactl list "${CACHE_VM}" --format '{{.Status}}' 2>/dev/null || true
+}
+
+render_cache_config() {
+	render_vm_config "${CACHE_CPUS}" "${CACHE_MEMORY}" \
+		"${CACHE_PORT_BASE}" $((CACHE_PORT_BASE + CACHE_PORT_SPAN - 1)) "${CACHE_DISK}"
+}
+
+ensure_cache_mirror() {
+	local registry upstream container port state
+	read -r registry upstream <<<"${MIRRORS[$1]}"
+	container="mirror-${registry}"
+	port="$(mirror_port "$1")"
+	state="$(cache_docker inspect --format '{{.State.Status}}' "${container}" 2>/dev/null || echo absent)"
 	state="${state//$'\n'/}"
-
 	case "${state}" in
 	running)
 		ok "Mirror '${container}' already running"
 		;;
-	exited | created | paused)
-		docker start "${container}"
-		ok "Started mirror '${container}'"
-		;;
 	absent)
-		docker run -d \
-			--name "${container}" \
-			--network "${network}" \
-			--restart=always \
-			-v "${volume}:/var/lib/registry" \
-			-e "REGISTRY_PROXY_REMOTEURL=${upstream}" \
-			registry:2
-		ok "Created mirror '${container}' → ${upstream}"
+		cache_docker run -d --name "${container}" --restart=always \
+			-p "${port}:5000" -v "${container}:/var/lib/registry" \
+			-e "REGISTRY_PROXY_REMOTEURL=${upstream}" registry:2 >/dev/null
+		ok "Created mirror '${container}' → ${upstream} on port ${port}"
 		;;
 	*)
-		die "Unknown container state '${state}' for ${container}"
+		cache_docker start "${container}" >/dev/null
+		ok "Started mirror '${container}'"
 		;;
 	esac
 }
 
-ensure_mirrors() {
-	log "Ensuring pull-through mirrors"
-	while IFS= read -r name; do
-		ensure_mirror "${name}"
-	done < <(get_mirror_names)
+# Every `forge up` passes through here, several at once when pi-broker spawns
+# agents, so bringing the cache up is serialized: the rest wait on the lock and
+# then find it answering. A sandboxed caller gets no further than
+# cache_healthy, since starting a VM needs ~/.lima.
+#
+# limactl start daemonizes lima's host agent, which would inherit the lock's
+# fd and hold the lock for the life of the VM, so it starts with fd 9 closed.
+ensure_cache() {
+	log "Ensuring pull-through cache '${CACHE_VM}'"
+	if cache_healthy; then
+		ok "Answering from port ${CACHE_PORT_BASE}"
+		return
+	fi
+	local lock="${HOME}/.local/state/forge/cache.lock"
+	{ mkdir -p "${lock%/*}" && touch "${lock}"; } 2>/dev/null ||
+		die "the cache is not answering on port ${CACHE_PORT_BASE}, and starting it needs 'forge cache up' outside pi's sandbox"
+	exec 9>"${lock}"
+	flock -w 900 9 || die "waited 15m for another forge to bring the cache up"
+
+	if ! cache_healthy; then
+		local status config
+		status="$(cache_vm_status)"
+		case "${status}" in
+		Running) ;;
+		"")
+			config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
+			render_cache_config >"${config}"
+			info "Creating VM '${CACHE_VM}' (${CACHE_CPUS} CPUs, ${CACHE_MEMORY}, ports from ${CACHE_PORT_BASE})"
+			limactl start --name="${CACHE_VM}" --tty=false --timeout="${VM_TIMEOUT}" "${config}" 9>&-
+			rm -f "${config}"
+			;;
+		*)
+			info "VM '${CACHE_VM}' is ${status}, starting it"
+			limactl start --tty=false --timeout="${VM_TIMEOUT}" "${CACHE_VM}" 9>&-
+			;;
+		esac
+		local i
+		for i in "${!MIRRORS[@]}"; do
+			ensure_cache_mirror "${i}"
+		done
+		for i in {1..30}; do
+			cache_healthy && break
+			sleep 2
+		done
+		cache_healthy || die "the cache's mirrors never answered on port ${CACHE_PORT_BASE}"
+	fi
+	exec 9>&-
+	ok "Answering from port ${CACHE_PORT_BASE}"
 }
 
 # ─── forge VM ─────────────────────────────────────────────────────────────────
@@ -333,7 +396,7 @@ check_vm_generation() {
 	local cpus memory
 	cpus="$(yq '.cpus' "${VM_LIVE_CONFIG}")"
 	memory="$(yq '.memory' "${VM_LIVE_CONFIG}")"
-	[[ "$(render_vm_config "${cpus}" "${memory}" | canonical_config)" == "$(yq -o=json "${VM_LIVE_CONFIG}" | canonical_config)" ]] && return
+	[[ "$(render_instance_config "${cpus}" "${memory}" | canonical_config)" == "$(yq -o=json "${VM_LIVE_CONFIG}" | canonical_config)" ]] && return
 	warn "VM '${VM_NAME}' is not running ${VM_TEMPLATE}."
 	warn "'forge nuke && forge up' rebuilds it from the current definition."
 }
@@ -357,7 +420,7 @@ ensure_vm() {
 		# --tmpdir rather than a literal /tmp, for the same reason as
 		# create_cluster's.
 		config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
-		render_vm_config "$(size_cpus "${size}")" "$(size_memory "${size}")" >"${config}"
+		render_instance_config "$(size_cpus "${size}")" "$(size_memory "${size}")" >"${config}"
 		info "Creating at size ${size}, API ports ${API_PORT_BASE}-${API_PORT_LAST}"
 		limactl start --name="${VM_NAME}" --tty=false --timeout="${VM_TIMEOUT}" "${config}"
 		rm -f "${config}"
@@ -555,43 +618,29 @@ delete_all_clusters() {
 
 # ─── Configure containerd mirrors on nodes ────────────────────────────────────
 
+# containerd tries each [host] in order and then `server`, so a cache that
+# does not answer costs a direct pull rather than a failed one.
 hosts_toml_for() {
-	local mirror_url="$1"
+	local upstream="$1" port="$2"
 	cat <<EOF
-server = "${mirror_url}"
+server = "${upstream}"
 
-[host."${mirror_url}"]
+[host."http://host.docker.internal:${port}"]
   capabilities = ["pull", "resolve"]
 EOF
 }
 
 configure_mirrors_on_node() {
-	local node="$1"
-
-	while IFS= read -r mirror_name; do
-		local container
-		container="$(mirror_container_name "${mirror_name}")"
-		local mirror_url="http://${container}:5000"
-
-		# Determine the registry hostname this mirror fronts
-		local upstream
-		upstream="$(get_mirror_upstream "${mirror_name}")"
-		# Strip https:// prefix and trailing /
-		local registry_host
-		registry_host="${upstream#https://}"
-		registry_host="${registry_host#http://}"
-		registry_host="${registry_host%%/*}"
-		# docker.io upstream is registry-1.docker.io but kind needs docker.io
-		if [[ ${registry_host} == "registry-1.docker.io" ]]; then
-			registry_host="docker.io"
-		fi
-
-		local dir="/etc/containerd/certs.d/${registry_host}"
+	local node="$1" i registry upstream port dir
+	for i in "${!MIRRORS[@]}"; do
+		read -r registry upstream <<<"${MIRRORS[$i]}"
+		port="$(mirror_port "${i}")"
+		dir="/etc/containerd/certs.d/${registry}"
 		docker exec "${node}" mkdir -p "${dir}"
-		hosts_toml_for "${mirror_url}" |
+		hosts_toml_for "${upstream}" "${port}" |
 			docker exec -i "${node}" tee "${dir}/hosts.toml" >/dev/null
-		ok "  ${node}: configured mirror for ${registry_host} → ${mirror_url}"
-	done < <(get_mirror_names)
+		ok "  ${node}: ${registry} through host.docker.internal:${port}"
+	done
 }
 
 configure_mirrors_on_cluster() {
@@ -792,16 +841,11 @@ cmd_status() {
 	printf "  %s\n" "${KUBECONFIG}"
 	echo ""
 
-	echo "Mirrors:"
-	while IFS= read -r name; do
-		local container
-		container="$(mirror_container_name "${name}")"
-		local state
-		state="$(docker inspect --format '{{.State.Status}}' "${container}" 2>/dev/null || echo "absent")"
-		state="${state//$'\n'/}"
-		printf "  %-30s %s\n" "${container}" "${state}"
-	done < <(get_mirror_names)
-
+	echo "Cache:"
+	local cache_state=down
+	! cache_healthy || cache_state=answering
+	printf "  %-30s %-10s 127.0.0.1:%s-%s\n" "${CACHE_VM}" "${cache_state}" \
+		"${CACHE_PORT_BASE}" $((CACHE_PORT_BASE + ${#MIRRORS[@]} - 1))
 	echo ""
 	echo "Management:"
 	local mgmt_state
@@ -836,7 +880,7 @@ cmd_status() {
 readonly PI_SLOTS_DIR="${HOME}/.local/state/pi-coord/slots"
 
 ls_row() {
-	printf '%-4s %-8s %-8s %-4s %-5s %-10s %-8s %-5s %-10s %-10s %s\n' "$@"
+	printf '%-5s %-11s %-8s %-4s %-5s %-10s %-8s %-5s %-10s %-10s %s\n' "$@"
 }
 
 # The instance a running forge was started for, from its environment, since
@@ -867,15 +911,21 @@ cmd_ls() {
 		inst="${inst:--}"
 
 		local config="${UNNAMED_CONFIG}" declared="?" running="-" phase load="-" mem="-" disk="-" owner="-"
-		[[ ${inst} == - ]] || config="${HOME}/.local/state/forge/${inst}/forge.yaml"
+		case "${inst}" in
+		-) ;;
+		cache) config="" declared="" ;;
+		*) config="${HOME}/.local/state/forge/${inst}/forge.yaml" ;;
+		esac
 		[[ -f ${config} ]] && declared="$(yq '.clusters | length + 1' "${config}")"
 
-		if [[ ${status} == Running ]]; then
+		if [[ ${status} == Running && ${inst} != cache ]]; then
 			running="$(DOCKER_HOST="unix://${LIMA_HOME:-${HOME}/.lima}/${name}/sock/docker.sock" \
 				docker ps -a --filter label=io.x-k8s.kind.cluster \
 				--format '{{.Label "io.x-k8s.kind.cluster"}}\t{{.State}}' 2>/dev/null |
 				awk -F'\t' '{ all[$1] } $2 != "running" { bad[$1] }
 					END { n = 0; for (c in all) if (!(c in bad)) n++; print n }')"
+		fi
+		if [[ ${status} == Running ]]; then
 			local probe
 			probe="$(limactl shell --workdir / "${name}" -- sh -c \
 				"cut -d' ' -f1 /proc/loadavg; free -b | awk '/^Mem:/ { print \$3, \$2 }'; df -B1 --output=used,size / | tail -1" </dev/null 2>/dev/null)" || true
@@ -893,6 +943,9 @@ cmd_ls() {
 			phase="${busy[${inst}]}"
 		elif [[ ${status} != Running ]]; then
 			phase="-"
+		elif [[ ${inst} == cache ]]; then
+			phase=down
+			! cache_healthy || phase=ready
 		elif [[ ${running} == "${declared}" ]]; then
 			phase=ready
 		elif [[ ${running} == 0 ]]; then
@@ -902,7 +955,7 @@ cmd_ls() {
 		fi
 
 		local owner_file="${PI_SLOTS_DIR}/${inst}/owner"
-		if [[ ${inst} != - && -f ${owner_file} ]]; then
+		if [[ ${inst} =~ ^[0-9]+$ && -f ${owner_file} ]]; then
 			owner="$(<"${owner_file}")"
 			owner="${owner%.json}"
 			owner="${owner%/state/*}/${owner##*/}"
@@ -910,9 +963,9 @@ cmd_ls() {
 		fi
 
 		ls_row "${inst}" "${name}" "${status}" "${cpus}" "$(numfmt --to=iec "${memory}")" \
-			"${phase}" "${running}/${declared}" "${load}" "${mem}" "${disk}" "${owner}"
+			"${phase}" "${running}${declared:+/${declared}}" "${load}" "${mem}" "${disk}" "${owner}"
 	done < <(limactl list --format $'{{.Name}}\t{{.Status}}\t{{.CPUs}}\t{{.Memory}}' 2>/dev/null |
-		grep -E $'^forge(-[0-9]+)?\t')
+		grep -E $'^forge(-[0-9]+|-cache)?\t')
 }
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
@@ -921,7 +974,7 @@ cmd_up() {
 	ensure_vm "$1"
 	check_prerequisites
 	ensure_network
-	ensure_mirrors
+	ensure_cache
 	log "Creating clusters"
 	create_clusters_parallel
 	configure_all_mirrors
@@ -930,16 +983,16 @@ cmd_up() {
 	log "Done. Run 'forge status' for details."
 }
 
-# Leaves the VM running: it holds the mirrors and their pulled layers, and a
-# stopped instance costs a full boot to get them back.
+# Leaves the VM running: it holds the images kind pulled, and a stopped
+# instance costs a full boot to get them back.
 cmd_down() {
 	check_prerequisites
 	delete_all_clusters
-	log "Mirrors, volumes and the VM preserved. Run 'forge nuke' to remove everything."
+	log "The VM and its pulled images preserved. Run 'forge nuke' to remove everything."
 }
 
-# Deleting the VM is the whole teardown: the clusters, mirrors, cache volumes,
-# network and every image kind and the mirrors pulled all live inside it.
+# Deleting the VM is the whole teardown: the clusters, network and every image
+# kind pulled all live inside it. The cache is its own VM and stays.
 #
 # A named instance's directory goes too: it holds nothing but this VM's
 # kubeconfig and config, and whoever takes the number next starts clean.
@@ -1013,13 +1066,29 @@ cmd_nuke_all() {
 	((${#failed[@]} == 0)) || die "could not remove ${failed[*]}; 'forge ls' shows what is left"
 }
 
+cmd_cache() {
+	case "${1:-}" in
+	up) ensure_cache ;;
+	nuke)
+		if [[ -z "$(cache_vm_status)" ]]; then
+			ok "No VM '${CACHE_VM}' to remove"
+			return
+		fi
+		limactl delete --force "${CACHE_VM}"
+		ok "Deleted '${CACHE_VM}' and every image it cached"
+		;;
+	vm-config) render_cache_config ;;
+	*) die "usage: forge cache up|nuke|vm-config" ;;
+	esac
+}
+
 cmd_resize() {
 	resize_vm "$1"
 }
 
 cmd_vm_config() {
 	local size="${1:-${DEFAULT_SIZE}}"
-	render_vm_config "$(size_cpus "${size}")" "$(size_memory "${size}")"
+	render_instance_config "$(size_cpus "${size}")" "$(size_memory "${size}")"
 }
 
 # ─── Entrypoint ───────────────────────────────────────────────────────────────
@@ -1033,27 +1102,31 @@ Usage:
 
 Commands:
   up [--size S]  Create the VM if absent, then converge to the config: Docker
-                 network, pull-through registry mirrors, Kind clusters, ArgoCD
+                 network, the shared pull-through cache, Kind clusters, ArgoCD
                  on the management cluster, and registration of every workload
                  cluster with it. Idempotent, so it is also how a config edit
                  gets applied.
-  down           Delete every cluster and its kubeconfig context. The VM, the
-                 mirrors and their cache volumes survive, so the next 'up'
-                 reuses pulled layers.
-  status         Print the VM, the mirrors, and every cluster with its context
+  down           Delete every cluster and its kubeconfig context. The VM and
+                 the images it pulled survive.
+  status         Print the VM, the cache, and every cluster with its context
                  and API port. Reads state, changes nothing.
-  ls             One line per instance on this host: VM state and size, the
-                 forge command in progress (up, down, nuke, resize) or
-                 else ready, partial or empty, clusters
-                 running of those declared, the guest's load, memory and
-                 disk, and the pi agent holding it. Reads state, changes
-                 nothing, and needs ~/.lima, so run it outside pi's sandbox.
+  ls             One line per VM on this host, the cache included: state and
+                 size, the forge command in progress (up, down, nuke, resize)
+                 or else ready, partial or empty, clusters running of those
+                 declared, the guest's load, memory and disk, and the pi
+                 agent holding it. Reads state, changes nothing, and needs
+                 ~/.lima, so run it outside pi's sandbox.
   nuke [--all [--force]]
-                 Delete the VM, and with it every cluster, mirror, volume and
-                 network. --all does that to every named instance, never the
-                 unnamed one, and refuses while forge runs against any of
-                 them. --force stops those runs first (TERM, then KILL after
-                 10s).
+                 Delete the VM, and with it every cluster and network. --all
+                 does that to every named instance, never the unnamed one,
+                 and refuses while forge runs against any of them. --force
+                 stops those runs first (TERM, then KILL after 10s). Neither
+                 touches the cache.
+  cache up|nuke|vm-config
+                 The '${CACHE_VM}' VM every instance pulls through: a
+                 pull-through mirror each for docker.io, ghcr.io and quay.io,
+                 on 127.0.0.1 from port ${CACHE_PORT_BASE}. 'up' is what every
+                 'forge up' runs first; 'nuke' deletes it and all it cached.
   resize S       Stop the VM, change its CPUs and memory, start it again.
   vm-config [S]  Print the lima config this instance's VM is created from.
 
@@ -1061,7 +1134,7 @@ Sizes: small (2 CPUs, 4GiB), large (4 CPUs, 8GiB). A new VM defaults to
 ${DEFAULT_SIZE}: large unnamed, small named.
 
 Config: ${CONFIG}
-  Declares the Docker network, the mirrors, the management cluster and its
+  Declares the Docker network, the management cluster and its
   ArgoCD chart version, the workload clusters and their node roles, and the
   kubeconfig path. 'forge up' creates what is declared and missing; it never
   deletes a cluster dropped from the config, so retiring one takes
@@ -1150,6 +1223,10 @@ up | down | status)
 	;;
 ls)
 	cmd_ls
+	;;
+cache)
+	[[ -z ${3:-} ]] || die "usage: forge cache up|nuke|vm-config"
+	cmd_cache "${2:-}"
 	;;
 resize)
 	[[ -n ${2:-} ]] || die "usage: forge resize small|large"
