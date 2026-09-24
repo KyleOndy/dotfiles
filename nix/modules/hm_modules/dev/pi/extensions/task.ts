@@ -157,12 +157,17 @@ function discoverAgents(): Agent[] {
     )
       continue;
 
+    // The agents directory is one symlink shared by every host, so a host
+    // whose providers differ repins through the wrapper's sandbox.envVars.
+    const modelOverride =
+      process.env[`PI_AGENT_MODEL_${frontmatter.name.toUpperCase()}`];
     agents.push({
       name: frontmatter.name,
       description: frontmatter.description,
       tools: parseTools(frontmatter.tools),
       model:
-        typeof frontmatter.model === "string" ? frontmatter.model : undefined,
+        modelOverride ||
+        (typeof frontmatter.model === "string" ? frontmatter.model : undefined),
       systemPrompt: body.trim(),
     });
   }

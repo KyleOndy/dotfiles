@@ -84,7 +84,9 @@ unless pi starts with `--advisor`, and stays silent when either var or
 `MCLOUD_API_KEY` is missing, which on trex is always. `agents/critic.md`
 carries a `model:` pin in its frontmatter, because `extensions/task.ts` takes
 a named agent's model only from that field and otherwise reuses the
-session's.
+session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
+per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's kimi-k2.7-code
+so the critic stays off the personal Z.ai plan.
 
 `.pi/verify.json` names this repo's verifier, which is what `verify-guard`
 nags about. Deliberately not `nix flake check`, which also evaluates the
