@@ -1,8 +1,19 @@
 # git-worktree-prompt
 
 Starship prompt module that shows the git branch, and the worktree it belongs
-to when there is one. Pure Rust, stdlib only, around 1.9ms per invocation
-because it runs on every prompt.
+to in a `.bare`-layout repo. Pure Rust, stdlib only, around 1.9ms per
+invocation because it runs on every prompt.
+
+- **Plain repo**, including a `git worktree add` checkout:
+  `<branch-icon> <branch>`.
+- **`.bare` layout**, with `.bare` at most 4 levels up:
+  `<tree-icon> <worktree> → <branch-icon> <branch>`. Just
+  `<tree-icon> <worktree>` when the worktree path with `/` turned into `-`
+  equals the branch, and `<tree-icon> [bare]` at the root beside `.bare`.
+- **Detached HEAD**: the 7-character hash in place of the branch.
+
+The icons default to a tree and U+2387; `GIT_WORKTREE_PROMPT_WORKTREE_ICON`
+and `GIT_WORKTREE_PROMPT_BRANCH_ICON` override them.
 
 ## Wiring
 
