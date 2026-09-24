@@ -17,6 +17,15 @@ in
     programs.alacritty = {
       enable = true;
       settings = {
+        # Interactive login zsh, so the tmux server inherits the environment
+        # a shell prompt would have, zshrc exports included.
+        terminal.shell = mkIf config.hmFoundry.terminal.tmux.enable {
+          program = "zsh";
+          args = [
+            "-lic"
+            "exec ${getExe config.programs.tmux.package} new-session -A -s scratch"
+          ];
+        };
         window = {
           option_as_alt = "OnlyLeft"; # Left Option = Meta, right Option = normal (matches iTerm2)
           decorations = "Buttonless"; # Remove window buttons but keep draggable title bar

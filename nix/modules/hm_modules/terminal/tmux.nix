@@ -21,6 +21,29 @@ let
     # writeShellApplication provides its own shebang and set -euo pipefail
     text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./tmux-agent-icons.sh);
   };
+  sessionizer = pkgs.writeShellApplication {
+    name = "tmux-sessionizer";
+    runtimeInputs = with pkgs; [
+      tmux
+      fzf
+      fd
+    ];
+    text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./tmux-sessionizer.sh);
+  };
+  # git-wt-feature-branch comes from my-scripts on PATH, as git finds it.
+  ticketWorktree = pkgs.writeShellApplication {
+    name = "tw";
+    runtimeInputs = [ sessionizer ];
+    text = ''
+      if [[ $# -eq 0 || $1 == -h || $1 == --help ]]; then
+        echo "usage: tw <ticket> <name> [base] | tw <name> [base]" >&2
+        echo "Makes the worktree with git wt-feature-branch, then switches to its tmux session." >&2
+        exit 64
+      fi
+      path="$(git wt-feature-branch --print-path "$@")"
+      exec tmux-sessionizer "$path"
+    '';
+  };
   agentIconSuffix = optionalString (
     claudeCfg.enable || piCfg.enable
   ) "#(${getExe agentIcons} '#{window_id}')";
@@ -45,6 +68,11 @@ in
   };
 
   config = mkIf cfg.enable {
+    home.packages = [
+      sessionizer
+      ticketWorktree
+    ];
+
     programs.tmux = {
       enable = true;
       clock24 = true; # use 24 hour clock
@@ -132,6 +160,10 @@ in
         # prefix + 0-9 for window switching is built-in
         # prefix + n/p for next/previous is built-in
         bind-key Tab last-window
+
+        # fuzzy switch to a session or a worktree under ~/src, replacing
+        # find-window, which tmux-fzf covers
+        bind-key f display-popup -E -w 80% -h 60% ${getExe sessionizer}
 
         # ----------------------
         # Window/Pane Reorganization
