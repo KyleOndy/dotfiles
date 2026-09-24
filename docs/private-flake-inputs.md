@@ -1,10 +1,14 @@
 # Private flake inputs over SSH
 
-The flake pulls some inputs over `git+ssh://` (e.g. `cogsworth`). On
-hosts where the default SSH identity isn't the personal GitHub
-account, typical for work machines where the agent holds the work
-key, Nix will auth with the wrong identity and GitHub returns
-`Repository not found` for private repos.
+One flake input comes over `git+ssh://`: `cogsworth`, a private repo. Only
+cogsworth's own configuration reads it, so building or deploying a Mac never
+fetches it; `make check`, `make deploy-rs-all(-dry)` and
+`make sdcard-cogsworth` do.
+
+On hosts where the default SSH identity isn't the personal GitHub account,
+typical for work machines where the agent holds the work key, Nix will auth
+with the wrong identity and GitHub returns `Repository not found` for private
+repos.
 
 The `Makefile` lifts this repo's `core.sshCommand` into
 `GIT_SSH_COMMAND` and preserves it through `sudo`, so the same key
@@ -22,8 +26,8 @@ git config core.sshCommand "ssh -i ~/.ssh/personal -o IdentitiesOnly=yes"
 After this:
 
 - `git fetch` / `git push` in this repo use `~/.ssh/personal`, agent ignored.
-- `make deploy` lifts the same command into `GIT_SSH_COMMAND`, Nix's
-  fetcher uses it, agent ignored.
+- Every `make` target exports the same command as `GIT_SSH_COMMAND`, so
+  Nix's fetcher uses it too, agent ignored.
 
 ## Skipping the passphrase prompt
 
