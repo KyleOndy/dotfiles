@@ -75,11 +75,15 @@ Resolve.
 fuji-transcode --lut Eterna.cube /path/to/clips
 ```
 
-Produces `/path/to/clips/transcoded/` with one `.mov` per source clip:
-F-Log2 clips get the LUT baked in via ffmpeg's `lut3d` filter, normal clips
-are transcoded with no LUT. Default codec is DNxHR LB (intra-frame, edits
-smoothly even on weak GPUs); see `--help` for the full flag list, including
-`--codec prores|h264|h265`, `--flog2-only`, `--copy-normal`, and `--force`.
+Reads the `.mov` and `.mp4` clips directly in the directory (not
+subdirectories) and produces `/path/to/clips/transcoded/` with one `.mov` per
+transcoded clip: F-Log2 clips get the LUT baked in via ffmpeg's `lut3d`
+filter, normal clips are transcoded with no LUT. Legacy F-Log (v1) clips need
+their own `--flog-lut`, or they are skipped with a warning. Default codec is
+DNxHR LB (intra-frame, edits smoothly even on weak GPUs); see `--help` for the
+full flag list, including `--codec prores|h264|h265`, `--out-name`,
+`--flog2-only`, `--copy-normal` (copies normal clips as-is, under their own
+name), and `--force`.
 
 ### Baking the LUT vs. keeping the log curve
 
@@ -105,6 +109,6 @@ run.
   range mismatch - fix it in the filter chain rather than in this script's
   defaults.
 - Source footage from the X-T5 in 8-bit H.264 mode stays 8-bit through this
-  pipeline; requesting a 10-bit output codec (`--codec prores` or `--codec
-h265`) does not recover precision that was never captured. DNxHR LB
+  pipeline; requesting a 10-bit output codec (`--codec prores` or
+  `--codec h265`) does not recover precision that was never captured. DNxHR LB
   (8-bit) is the correct default for 8-bit sources.
