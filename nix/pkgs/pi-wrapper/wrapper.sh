@@ -703,10 +703,11 @@ __pi_resolve_coord() {
 __pi_start_broker() {
 	if [[ ${PI_DEBUG:-} == "plan" ]]; then
 		printf 'PI_PLAN_BROKER: %s %s %s %s %s\n' "$coord_broker" "$coord_dir" "$$" "$PWD" "$0"
+		printf 'PI_PLAN_BROKER_TMUX: %s\n' "$pi_caller_tmux"
 		return
 	fi
 	mkdir -p "$coord_dir/requests" "$coord_dir/agents"
-	nohup "$coord_broker" "$coord_dir" "$$" "$PWD" "$0" >>"$coord_dir/broker.log" 2>&1 </dev/null &
+	TMUX=$pi_caller_tmux nohup "$coord_broker" "$coord_dir" "$$" "$PWD" "$0" >>"$coord_dir/broker.log" 2>&1 </dev/null &
 	echo "pi: coordinator $coord_id, broker log at $coord_dir/broker.log" >&2
 }
 
@@ -765,6 +766,11 @@ fi
 
 __pi_set_hardening_env
 __pi_resolve_all
+# The broker opens agent windows in the caller's tmux session, and a host may
+# blank TMUX in envVars to keep pi's own tmux probe from running under srt
+# (nix/profiles/common/development.nix), so the broker gets the value from
+# before envVars.
+pi_caller_tmux=${TMUX:-}
 __pi_apply_env_vars
 __pi_scrub_secret_env
 __pi_scrub_node_options

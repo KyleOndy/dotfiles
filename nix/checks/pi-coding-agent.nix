@@ -137,6 +137,9 @@ let
   wrapperWithBroker = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     coordinatorBroker = "${stubBroker}/bin/pi-broker";
+    defaultEnvVars = {
+      TMUX = "";
+    };
   };
 
   wrapperWithWritePaths = pkgs.pi-wrapper.override {
@@ -901,6 +904,12 @@ pkgs.runCommand "pi-coding-agent-check"
     cdir=$coord_root/test-1
     echo "$captured" | grep -q "PI_PLAN_BROKER: ${stubBroker}/bin/pi-broker $cdir " \
       || fail "--coordinator did not plan the broker for $cdir. captured=$captured"
+    # envVars blanks TMUX for pi, and the broker still joins the caller's session.
+    captured=$(TMUX=/tmp/tmux-test/default,1,0 ${wrapperWithBroker}/bin/pi --coordinator=test-1 -- x 2>&1)
+    echo "$captured" | grep -qx "PI_PLAN_BROKER_TMUX: /tmp/tmux-test/default,1,0" \
+      || fail "broker did not get the caller's TMUX. captured=$captured"
+    echo "$captured" | grep -qx "PI_PLAN_EXPORTED: TMUX=" \
+      || fail "pi did not get the envVars TMUX. captured=$captured"
     echo "$captured" | grep -q "PI_PLAN_GRANTS: coordinator" \
       || fail "--coordinator missing PI_PLAN_GRANTS. captured=$captured"
     echo "$captured" | grep -q "PI_PLAN_HARDENING: PI_COORD_DIR=$cdir" \
