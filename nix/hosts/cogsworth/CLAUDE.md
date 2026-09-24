@@ -7,7 +7,12 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 - `cogsworth.service`: JVM backend (`cogsworth.jar` on openjdk 21) on `:8080`, `Restart = "always"` after 2s
 - `cogsworth-kiosk.service`: Sway + Chromium kiosk display, `Restart = "on-failure"` after 5s
 - `cogsworth-watchdog.service` / `.timer`: health checks (runs every 30s, first run 2min after boot)
-- `cogsworth-db-restore` / `cogsworth-db-snapshot`: move the SQLite DB between tmpfs and the SD card
+- `cogsworth-db-restore` / `cogsworth-db-snapshot` / `cogsworth-db-shutdown-snapshot`: move the SQLite DB between tmpfs and the SD card
+- `cogsworth-amp-keepalive.service`: holds the MAX98357A amp's I2S stream open with silence so it never powers back on with a pop, `Restart = "always"` after 2s
+- `cogsworth-brightness-init.service`: sets the display digipot to minimum brightness before the backend starts
+- `wyoming-openwakeword.service`: wake word detection on `127.0.0.1:10400`
+- `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`)
+- `caddy.service`: LAN HTTP on `:80`, proxied to the backend on `127.0.0.1:8080`
 
 ## Viewing Logs
 
@@ -78,21 +83,27 @@ ssh cogsworth systemctl show cogsworth.service -p NRestarts
 ## SD Card Wear
 
 `systemFoundry.sdCardOptimization.enable = true` puts `/tmp` (512M) and
-`/var/log` (256M) on tmpfs, makes the journal volatile (50M, 1h), sets
-`noatime`, enables zstd zram swap at 25% of RAM, and raises the vm.dirty
-ratios so writes batch. It has no other options; the sizes live in
-`nix/modules/nix_modules/sd-card-optimization.nix`.
+`/var/log` (256M) on tmpfs, makes the journal volatile (50M, 1h), enables
+zstd zram swap at 25% of RAM, and raises the vm.dirty ratios so writes batch.
+It has no other options; the sizes live in
+`nix/modules/nix_modules/sd-card-optimization.nix`. `noatime` on `/` and
+`/boot/firmware` comes from `configuration.nix`, not from the module.
 
 `/var/lib/cogsworth/db` is separately a 16M tmpfs. `cogsworth-db-restore`
-copies the DB (plus `-wal` and `-shm`) up from
-`/var/lib/cogsworth/persistent` before the backend starts, and
-`cogsworth-db-snapshot` copies it back every 5 minutes. A hard power cut
-therefore loses up to 5 minutes of DB writes and every log line not yet
-shipped to Loki.
+copies the DB (plus `-wal` and `-shm` when present) up from
+`/var/lib/cogsworth/persistent` before the backend starts.
+`cogsworth-db-snapshot` copies `cogsworth.db` back every 5 minutes, and
+`cogsworth-db-shutdown-snapshot` copies it once more on a clean shutdown.
+Neither copies `-wal` or `-shm`.
+
+A hard power cut therefore loses up to 5 minutes of DB writes and every log
+line not yet shipped to Loki. If the app runs SQLite in WAL mode, that bound
+does not hold: writes not yet checkpointed into `cogsworth.db` are in none of
+the copies.
 
 ## Interactive DevTools
 
-For live debugging, `make devtools` from the repo root opens an SSH tunnel to Chromium's remote debugging port (`localhost:9222`). See `/Users/kyle/src/cogsworth/v3/CLAUDE.md` for details.
+For live debugging, `make devtools` from the cogsworth repo root (it is not a target in this repo) opens an SSH tunnel to Chromium's remote debugging port (`localhost:9222`). See `/Users/kyle/src/cogsworth/v3/CLAUDE.md` for details.
 
 ## 60fps / Rendering
 
@@ -100,7 +111,7 @@ Target is steady 60fps. Hardware is Pi 5 + Mesa V3D at 1080p60 rotated portrait 
 
 **Verify on-device:**
 
-- `make devtools` → DevTools → Rendering → Frame Rendering Stats for frame timing detail.
+- `make devtools` (cogsworth repo) → DevTools → Rendering → Frame Rendering Stats for frame timing detail.
 - DevTools → Performance → Record 10s of swipe to see what's eating frame budget.
 
 **System-level knobs** (`nix/hosts/cogsworth/configuration.nix`):
@@ -117,7 +128,7 @@ Target is steady 60fps. Hardware is Pi 5 + Mesa V3D at 1080p60 rotated portrait 
 - `mask-image` forces offscreen compositing per element; `backdrop-filter` and large `filter: blur()` are expensive.
 - `box-shadow` transitions trigger full repaints (not composited).
 
-Frontend rendering optimizations (body noise → WebP, external SVG dividers, pre-baked washi masks, clock store split, hour-slot gradient) landed in commits `d5b29cb7` and `03c70fbc`.
+Frontend rendering optimizations (body noise → WebP, external SVG dividers, pre-baked washi masks, clock store split, hour-slot gradient) landed in the cogsworth repo in commits `d5b29cb7` and `03c70fbc`.
 
 ## Deployment
 
