@@ -496,7 +496,8 @@ in
   # Also prevent logind from auto-spawning gettys on other VTs.
   services.logind.settings.Login.NAutoVTs = 0;
 
-  # Cogsworth service (user/group/systemd service defined in nix/modules/nix_modules/cogsworth.nix)
+  # Cogsworth service (user/group/systemd service defined by the cogsworth
+  # flake input's nixosModules.default)
   services.cogsworth = {
     enable = true;
     port = 8080;
@@ -674,19 +675,28 @@ in
     };
   };
 
-  # Final DB snapshot on clean shutdown
+  # Final DB snapshot on clean shutdown. Units stop in the reverse of their
+  # start order (systemd.unit(5), Before=), so starting before the backend is
+  # what makes this ExecStop run after the backend has stopped and closed the
+  # DB, and after the tmpfs mount is what keeps the mount there until it has.
   systemd.services.cogsworth-db-shutdown-snapshot = {
     description = "Final Cogsworth DB snapshot before shutdown";
     wantedBy = [ "multi-user.target" ];
-    after = [ "cogsworth.service" ];
-    before = [ "shutdown.target" ];
+    after = [ "var-lib-cogsworth-db.mount" ];
+    requires = [ "var-lib-cogsworth-db.mount" ];
+    before = [
+      "cogsworth.service"
+      "shutdown.target"
+    ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       User = "cogsworth";
       Group = "cogsworth";
-      ExecStop = "${pkgs.bash}/bin/bash -c 'cp /var/lib/cogsworth/db/cogsworth.db /var/lib/cogsworth/persistent/cogsworth.db 2>/dev/null || true'";
+      # Through a temp file and a rename, like the periodic snapshot, so a
+      # power cut mid-copy leaves the previous snapshot intact.
+      ExecStop = "${pkgs.bash}/bin/bash -c 'cp /var/lib/cogsworth/db/cogsworth.db /var/lib/cogsworth/persistent/cogsworth.db.tmp && mv /var/lib/cogsworth/persistent/cogsworth.db.tmp /var/lib/cogsworth/persistent/cogsworth.db || true'";
     };
   };
 
