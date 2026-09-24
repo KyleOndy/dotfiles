@@ -93,6 +93,14 @@ session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
 per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's kimi-k2.7-code
 so the critic stays off the personal Z.ai plan.
 
+`pi --coordinator` (work-mac, `coordinator.enable`) gives the session
+`spawn_agent` and friends (`extensions/coordinator.ts`). Each agent gets its
+own worktree, branch, forge instance and tmux window from `nix/pkgs/pi-broker`,
+which the wrapper starts outside the sandbox and which exits with the
+coordinator; the agents keep running and `pi --coordinator=<id>` reattaches.
+State is under `~/.local/state/pi-coord/`, outside `~/.pi` so a child cannot
+write the coordinator's requests.
+
 `.pi/verify.json` names this repo's verifier, which is what `verify-guard`
 nags about. Deliberately not `nix flake check`, which also evaluates the
 Linux hosts and cannot go green on a mac.

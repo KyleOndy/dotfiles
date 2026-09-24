@@ -29,9 +29,14 @@ no_sandbox=false
 allow_loopback=@defaultAllowLoopback@
 allow_trustd=@defaultAllowTrustd@
 allow_nix=@defaultAllowNix@
-allow_docker=@defaultAllowDocker@
-allow_ssh_agent=@defaultAllowSshAgent@
 allow_forge=@defaultAllowForge@
+forge_instance=""
+forge_domains=(@forgeDomains@)
+coord_broker="@coordinatorBroker@"
+coord_role=""
+coord_id=""
+coord_agent=""
+allow_ssh_agent=@defaultAllowSshAgent@
 git_write_mode=@gitWriteMode@
 protected_branches=(@protectedBranches@)
 git_write_granted=false
@@ -62,34 +67,42 @@ git_write_granted=false
 nix_daemon_socket="/nix/var/nix/daemon-socket/socket"
 nix_daemon_socket_real=$(readlink -f "$nix_daemon_socket" 2>/dev/null || true)
 
-# The docker CLI reaches the daemon over this socket, blocked by the same
-# default-deny on unix sockets. Only added to the policy under --allow-docker.
+# The docker CLI reaches forge's daemon over its VM's socket, blocked by the
+# same default-deny on unix sockets. Only added to the policy under
+# --allow-forge.
 #
 # Anything that can reach this socket can run a privileged container, so the
 # grant is bounded by what the daemon's VM can see and not by this policy: a
 # container on a VM with $HOME mounted reads and writes all of it, which is
-# what denyRead exists to prevent. So the socket is one named instance's, and
-# __pi_assert_docker_vm checks that instance still declares the properties
+# what denyRead exists to prevent. So the socket is one forge instance's, and
+# __pi_assert_forge_vm checks that instance still declares the properties
 # that bound the grant.
 #
-# Read from neither DOCKER_HOST nor LIMA_HOME: this path becomes both a
-# filesystem.allowRead entry and an allowUnixSockets entry, so taking it from
-# the environment would let a checkout's .envrc choose what the sandbox grants.
-# forge writes every cluster's context into this one file (nix/pkgs/forge,
-# `kubeconfig` in forge.yaml), and it holds admin credentials for them. Only
-# added to the policy under --allow-forge. Read from neither FORGE_KUBECONFIG
-# nor the forge config, for the reason the socket below is not read from
-# DOCKER_HOST: it becomes an allowRead entry, so the environment must not get
-# to choose it.
-forge_kubeconfig="@forgeKubeconfig@"
-forge_kubeconfig="${forge_kubeconfig/#\~/$HOME}"
+# Read from neither DOCKER_HOST, LIMA_HOME, FORGE_KUBECONFIG nor the forge
+# config: these paths become filesystem.allowRead and allowUnixSockets
+# entries, so taking them from the environment would let a checkout's .envrc
+# choose what the sandbox grants. The names follow forge's Instance section
+# (nix/pkgs/forge/forge.sh). The kubeconfig holds admin credentials for every
+# cluster in the instance.
+forge_lima_dir=""
+forge_socket=""
+forge_vm_config=""
+forge_kubeconfig=""
+# Set for a named instance only: the directory forge keeps its kubeconfig and
+# config copy in, granted read-write so `forge up` inside the session can
+# write both.
+forge_instance_dir=""
 
-docker_lima_dir="$HOME/.lima/@dockerLimaInstance@"
-docker_socket="$docker_lima_dir/sock/docker.sock"
-# lima copies the config here at creation and reads this copy for the life of
-# the instance, so it describes the VM that is running rather than what some
-# store path intended.
-docker_vm_config="$docker_lima_dir/lima.yaml"
+# The unnamed instance's kubeconfig, matching `kubeconfig` in
+# nix/pkgs/forge/forge.yaml.
+forge_default_kubeconfig="@forgeKubeconfig@"
+forge_default_kubeconfig="${forge_default_kubeconfig/#\~/$HOME}"
+
+# Outside ~/.pi because every sandboxed session can write ~/.pi, and srt
+# resolves a write deny over any allow, so nothing under it could be granted
+# to one session and withheld from another.
+coord_root="$HOME/.local/state/pi-coord"
+coord_dir=""
 
 # The ssh-agent's socket, blocked by the same default-deny on unix sockets.
 # Only added to the policy under --allow-ssh-agent.
@@ -322,15 +335,21 @@ __pi_set_hardening_env() {
 	)
 	# Whatever DOCKER_HOST the caller had names a daemon this policy does not
 	# grant, so point the CLI at the one it does.
-	if "$allow_docker"; then
-		hardening+=("DOCKER_HOST=unix://$docker_socket")
-	fi
+	#
 	# kubectl resolves --context against KUBECONFIG, and caches discovery under
 	# $HOME/.kube/cache, which the $HOME deny makes unwritable. Redirected rather
 	# than granted: ~/.kube is a credentialMasks entry holding real cluster
 	# credentials, and forge's clusters are not in it.
 	if "$allow_forge"; then
-		hardening+=("KUBECONFIG=$forge_kubeconfig" "KUBECACHEDIR=$pi_cache_root/kube")
+		hardening+=(
+			"DOCKER_HOST=unix://$forge_socket"
+			"KUBECONFIG=$forge_kubeconfig"
+			"KUBECACHEDIR=$pi_cache_root/kube"
+		)
+		[[ -z $forge_instance ]] || hardening+=("FORGE_INSTANCE=$forge_instance")
+	fi
+	if [[ -n $coord_role ]]; then
+		hardening+=("PI_COORD_ROLE=$coord_role" "PI_COORD_DIR=$coord_dir")
 	fi
 	for kv in "${hardening[@]}"; do
 		export "${kv%%=*}=${kv#*=}"
@@ -484,19 +503,36 @@ while [[ $# -gt 0 ]]; do
 		allow_nix=true
 		shift
 		;;
-	--allow-docker)
-		# Exact-match case: it shadows any network bundle named "docker".
-		allow_docker=true
-		shift
-		;;
 	--allow-ssh-agent)
 		# Exact-match case: it shadows any network bundle named "ssh-agent".
 		allow_ssh_agent=true
 		shift
 		;;
-	--allow-forge)
+	--allow-forge | --allow-forge=*)
 		# Exact-match case: it shadows any network bundle named "forge".
 		allow_forge=true
+		if [[ $1 == --allow-forge=* ]]; then
+			forge_instance=${1#--allow-forge=}
+			if [[ ! $forge_instance =~ ^[1-9][0-9]?$ ]] || ((forge_instance > 15)); then
+				echo "pi: --allow-forge=<n> takes a forge instance 1-15, got '$forge_instance'" >&2
+				exit 1
+			fi
+		fi
+		shift
+		;;
+	--coordinator | --coordinator=*)
+		coord_role=coordinator
+		coord_id=""
+		[[ $1 == --coordinator=* ]] && coord_id=${1#--coordinator=}
+		grants+=("coordinator")
+		shift
+		;;
+	--coord-child=*)
+		coord_role=child
+		coord_id=${1#--coord-child=}
+		coord_agent=${coord_id#*/}
+		coord_id=${coord_id%%/*}
+		grants+=("coord-child")
 		shift
 		;;
 	--allow-*)
@@ -534,7 +570,7 @@ done
 # From the final values rather than the case arms, so a grant a host turns
 # on through defaultAllow* is recorded like one given on the command line.
 flag_grants=()
-for grant in nix docker ssh-agent forge; do
+for grant in nix ssh-agent forge; do
 	allowed="allow_${grant//-/_}"
 	if "${!allowed}"; then
 		flag_grants+=("$grant")
@@ -567,7 +603,7 @@ fi
 # Not under --no-sandbox, where no flag is missing and no refusal is the
 # sandbox's.
 if ! "$no_sandbox"; then
-	available_grants=(nix docker ssh-agent forge)
+	available_grants=(nix ssh-agent forge)
 	if [[ ${#bundle_domains[@]} -gt 0 ]]; then
 		available_grants+=("${!bundle_domains[@]}")
 	fi
@@ -576,34 +612,102 @@ if ! "$no_sandbox"; then
 	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_AVAILABLE_GRANTS: %s\n' "$PI_AVAILABLE_GRANTS"
 fi
 
+__pi_resolve_forge() {
+	if [[ -n $forge_instance ]]; then
+		forge_lima_dir="$HOME/.lima/forge-$forge_instance"
+		forge_instance_dir="$HOME/.local/state/forge/$forge_instance"
+		forge_kubeconfig="$forge_instance_dir/kubeconfig.yaml"
+	else
+		forge_lima_dir="$HOME/.lima/forge"
+		forge_kubeconfig="$forge_default_kubeconfig"
+	fi
+	forge_socket="$forge_lima_dir/sock/docker.sock"
+	# lima copies the config here at creation and reads this copy for the life
+	# of the instance, so it describes the VM that is running rather than what
+	# some store path intended.
+	forge_vm_config="$forge_lima_dir/lima.yaml"
+}
+
 # The VM is the boundary for everything reachable through the docker socket, so
 # refuse the grant unless the instance still declares what bounds it: no host
 # path mounted, and a port-forward list whose tail denies (lima appends its own
 # forward-everything fallback after the last rule, so omitting is not denying).
 # nix/pkgs/forge/vm.nix declares both, and nix/checks/forge-vm.nix asserts them
 # on the config in the store; this asserts them on the instance that exists.
-#
-# --allow-forge is bounded by the same VM: cluster-admin on a cluster inside it
+# The kubeconfig is bounded by the same VM: cluster-admin on a cluster inside it
 # is a privileged pod away from root in a node container, so a host path the VM
 # mounted would be reachable that way too.
-__pi_assert_vm_bounds() {
-	local flag="$1"
-	if [[ ! -f $docker_vm_config ]]; then
-		echo "pi: $flag: no lima instance at $docker_lima_dir" >&2
-		echo "pi:          'forge up' creates it. Refusing the grant." >&2
+#
+# yq reads lima.yaml whether lima persisted it as JSON (as forge creates it) or
+# as YAML (as `limactl edit`, which `forge resize` runs, may rewrite it).
+__pi_assert_forge_vm() {
+	local flag="--allow-forge${forge_instance:+=$forge_instance}"
+	if [[ ! -f $forge_vm_config ]]; then
+		echo "pi: $flag: no lima instance at $forge_lima_dir" >&2
+		echo "pi:          '${forge_instance:+FORGE_INSTANCE=$forge_instance }forge up' creates it. Refusing the grant." >&2
 		exit 1
 	fi
-	if ! jq -e '(.mounts // []) == []' "$docker_vm_config" >/dev/null 2>&1; then
-		echo "pi: $flag: instance $docker_lima_dir mounts a host path," >&2
+	if ! yq -e '(.mounts // []) | length == 0' "$forge_vm_config" >/dev/null 2>&1; then
+		echo "pi: $flag: instance $forge_lima_dir mounts a host path," >&2
 		echo "pi:          so a privileged container would reach it. Refusing the grant." >&2
 		exit 1
 	fi
-	if ! jq -e '[.portForwards[]? | select(.ignore == true and .proto == "any")] | length >= 2' \
-		"$docker_vm_config" >/dev/null 2>&1; then
-		echo "pi: $flag: instance $docker_lima_dir does not deny the port" >&2
+	if ! yq -e '[.portForwards[] | select(.ignore == true and .proto == "any")] | length >= 2' \
+		"$forge_vm_config" >/dev/null 2>&1; then
+		echo "pi: $flag: instance $forge_lima_dir does not deny the port" >&2
 		echo "pi:          forwards it leaves unnamed. Refusing the grant." >&2
 		exit 1
 	fi
+}
+
+# The id and agent name become path components of grants, so they are held to
+# a shape that cannot climb out of coord_root.
+__pi_resolve_coord() {
+	local id_re='^[a-z0-9][a-z0-9-]{0,39}$' agent_re='^[a-z0-9][a-z0-9._-]{0,63}$'
+	if [[ $coord_role == coordinator && -z $coord_id ]]; then
+		coord_id="$(date +%m%d-%H%M)-$(od -An -N2 -tx1 /dev/urandom | tr -d ' \n')"
+	fi
+	if [[ ! $coord_id =~ $id_re ]]; then
+		echo "pi: coordinator id must match $id_re, got '$coord_id'" >&2
+		exit 1
+	fi
+	coord_dir="$coord_root/$coord_id"
+	if [[ $coord_role == child ]]; then
+		if [[ ! $coord_agent =~ $agent_re ]]; then
+			echo "pi: --coord-child=<id>/<agent>: agent must match $agent_re, got '$coord_agent'" >&2
+			exit 1
+		fi
+		coord_dir="$coord_dir/agents/$coord_agent"
+		if [[ ! -d $coord_dir && ${PI_DEBUG:-} != "plan" ]]; then
+			echo "pi: --coord-child: no agent directory at $coord_dir; pi-broker makes it." >&2
+			exit 1
+		fi
+		return
+	fi
+	if [[ -z $coord_broker ]]; then
+		echo "pi: --coordinator: this build has no pi-broker to spawn agents with." >&2
+		exit 1
+	fi
+	# pid is the broker's, written by the broker itself.
+	local pid
+	pid=$(cat "$coord_dir/broker.pid" 2>/dev/null || true)
+	if [[ -n $pid ]] && kill -0 "$pid" 2>/dev/null; then
+		echo "pi: coordinator $coord_id already has a broker (pid $pid)." >&2
+		exit 1
+	fi
+}
+
+# The broker watches this pid, which srt keeps by exec, and exits once it is
+# gone. $0 is how it starts children, so they get this same build of the
+# policy.
+__pi_start_broker() {
+	if [[ ${PI_DEBUG:-} == "plan" ]]; then
+		printf 'PI_PLAN_BROKER: %s %s %s %s %s\n' "$coord_broker" "$coord_dir" "$$" "$PWD" "$0"
+		return
+	fi
+	mkdir -p "$coord_dir/requests" "$coord_dir/agents"
+	nohup "$coord_broker" "$coord_dir" "$$" "$PWD" "$0" >>"$coord_dir/broker.log" 2>&1 </dev/null &
+	echo "pi: coordinator $coord_id, broker log at $coord_dir/broker.log" >&2
 }
 
 # Nothing to grant without an agent, and continuing would defer the failure to
@@ -646,11 +750,13 @@ __pi_warn_nix_trust() {
 	esac
 }
 
-if "$allow_docker"; then
-	__pi_assert_vm_bounds --allow-docker
-fi
 if "$allow_forge"; then
-	__pi_assert_vm_bounds --allow-forge
+	__pi_resolve_forge
+	__pi_assert_forge_vm
+fi
+
+if [[ -n $coord_role ]]; then
+	__pi_resolve_coord
 fi
 
 if "$allow_ssh_agent"; then
@@ -699,11 +805,44 @@ fi
 # $HOME deny covers the path it lives at, and srt gates connect() at the VFS
 # layer. ~/.docker is not granted with it, so the credential mask over it
 # holds and DOCKER_CONFIG points the CLI at a sandbox-local config instead.
-# Paths a container orchestrator writes (kubeconfigs, helm state) are
-# deliberately not here, they belong to whoever configures the tool.
-if "$allow_docker"; then
-	extra_read_paths+=("$docker_socket")
+# The domains are where `forge up` fetches the argo-cd chart. Images need
+# none: the daemon pulls them inside the VM, where srt's proxy never sees them.
+#
+# The kubeconfig names API servers on 127.0.0.1, and srt gates loopback egress
+# behind allowLocalBinding, not the domain allowlist. Measured against srt
+# 0.0.73: with the file readable and the flag off, curl to the API port returns
+# 000, and 200 with it on, while adding 127.0.0.1 to allowedDomains changes
+# nothing. Granting the file alone would ship a flag that reads a context it
+# cannot reach.
+#
+# The unnamed instance's kubeconfig is the human's and stays read-only. A named
+# instance's directory holds only that instance's kubeconfig and config, so it
+# is read-write and `forge up` works inside the session.
+if "$allow_forge"; then
+	extra_read_paths+=("$forge_socket" "$forge_kubeconfig")
+	extra_domains+=("${forge_domains[@]}")
+	allow_loopback=true
+	if [[ -n $forge_instance_dir ]]; then
+		extra_read_paths+=("$forge_instance_dir")
+		extra_write_paths+=("$forge_instance_dir")
+		[[ ${PI_DEBUG:-} == "plan" ]] || mkdir -p "$forge_instance_dir"
+	fi
 fi
+
+# The coordinator writes only requests, which the broker reads, and reads
+# everything its children write. A child reads and writes only its own
+# directory, so it can neither queue a spawn nor read a sibling.
+case "$coord_role" in
+coordinator)
+	extra_read_paths+=("$coord_dir")
+	extra_write_paths+=("$coord_dir/requests")
+	__pi_start_broker
+	;;
+child)
+	extra_read_paths+=("$coord_dir")
+	extra_write_paths+=("$coord_dir")
+	;;
+esac
 
 # Enough for ssh to run, and no more. config and known_hosts because ssh aborts
 # without them under the $HOME deny; the public keys because `IdentitiesOnly
@@ -718,21 +857,10 @@ if "$allow_ssh_agent"; then
 	done
 fi
 
-# The kubeconfig names API servers on 127.0.0.1, and srt gates loopback egress
-# behind allowLocalBinding, not the domain allowlist. Measured against srt
-# 0.0.73: with the file readable and the flag off, curl to the API port returns
-# 000, and 200 with it on, while adding 127.0.0.1 to allowedDomains changes
-# nothing. Granting the file alone would ship a flag that reads a context it
-# cannot reach.
-if "$allow_forge"; then
-	extra_read_paths+=("$forge_kubeconfig")
-	allow_loopback=true
-fi
-
 if [[ ${PI_DEBUG:-} == "plan" ]]; then
-	printf 'PI_PLAN_GIT_DIRS: dir=%s common=%s branch=%s write=%s mode=%s nix=%s docker=%s ssh_agent=%s forge=%s\n' \
+	printf 'PI_PLAN_GIT_DIRS: dir=%s common=%s branch=%s write=%s mode=%s nix=%s ssh_agent=%s forge=%s\n' \
 		"${git_dir:-none}" "${git_common_dir:-none}" "${git_branch:-none}" \
-		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_docker" "$allow_ssh_agent" "$allow_forge"
+		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_ssh_agent" "$allow_forge"
 fi
 
 # Prepend the build-time default pi args before any user-supplied args. Pi
@@ -963,8 +1091,8 @@ run_strict() {
 		fi
 		__pi_warn_nix_trust
 	fi
-	if "$allow_docker"; then
-		unix_sockets+=("$docker_socket")
+	if "$allow_forge"; then
+		unix_sockets+=("$forge_socket")
 	fi
 	if "$allow_ssh_agent"; then
 		unix_sockets+=("$ssh_auth_sock")

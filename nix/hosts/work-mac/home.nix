@@ -47,6 +47,8 @@
     pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
     # critic.md pins zai/glm-5.3-flash, which bills the personal Z.ai plan.
     pi-coding-agent.sandbox.envVars.PI_AGENT_MODEL_CRITIC = "mcloud/moonshotai/kimi-k2.7-code";
+    # The one host with forge, which every agent's VM comes from.
+    pi-coding-agent.coordinator.enable = true;
 
     claude-code = {
       enable = true;
@@ -98,7 +100,7 @@
       # VM mounts, so this is the only place the question gets decided. The
       # cost is bind mounts in unrelated `docker run` invocations.
       #
-      # pi's --allow-docker does not rest on this setting: it grants forge's VM
+      # pi's --allow-forge does not rest on this setting: it grants forge's VM
       # (nix/pkgs/forge/vm.nix) and refuses unless that instance declares the
       # same property, which is checked against the instance at grant time.
       mounts = [ "none" ];
@@ -121,6 +123,8 @@
   # past the end of it, and guest.nix sizes the guest's inotify limits for this
   # many kind nodes.
   xdg.configFile."forge/forge.yaml".source = ../../pkgs/forge/forge.yaml;
+  # pi-broker brings a small instance up with this one instead.
+  xdg.configFile."forge/forge-small.yaml".source = ../../pkgs/forge/forge-small.yaml;
 
   # Coder remote development SSH config
   programs.ssh.matchBlocks = {

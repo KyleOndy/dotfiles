@@ -11,6 +11,7 @@
   symlinkJoin,
   bubblewrap,
   jq,
+  yq-go,
   llm-agents,
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
@@ -100,14 +101,6 @@
   # so the escape is scoped to a session you chose it for rather than every
   # session on the host, including ones spent reading someone else's code.
   defaultAllowNix ? false,
-  # Default for --allow-docker (one lima instance's daemon socket). Off because
-  # a caller that reaches the socket can start a privileged container, so the
-  # real boundary becomes whatever the daemon's VM mounts rather than this
-  # policy. The wrapper refuses the grant unless that instance declares no
-  # mounts, which keeps the failure mode a refusal rather than a silent
-  # widening, but leaving this false still scopes the grant to sessions chosen
-  # for it.
-  defaultAllowDocker ? false,
   # Default for --allow-ssh-agent (the ssh-agent socket, plus the ssh config,
   # known_hosts and public keys ssh needs to use it). Off because it lets the
   # agent authenticate as the human to anything the network allowlist reaches,
@@ -116,23 +109,32 @@
   # to sign is re-allowing ~/.ssh, which exposes the private keys and still
   # fails on a passphrase-protected one.
   defaultAllowSshAgent ? false,
-  # The lima instance whose docker socket --allow-docker grants, under
-  # ~/.lima/<name>. forge's VM (nix/pkgs/forge/vm.nix) is the one instance here
-  # that declares no mounts and denies the port forwards it does not name,
-  # which is what bounds the grant; colima's default profile mounts $HOME.
-  dockerLimaInstance ? "forge",
-  # Default for --allow-forge (the kubeconfig forge writes, plus loopback so
-  # the API servers it names are reachable). Off for the same reason the other
-  # two are: the grant is cluster-admin on every cluster in that VM, which is a
-  # privileged pod away from root in a node container, so it belongs to a
-  # session chosen for it. Bounded by the same VM as --allow-docker, and
-  # asserted the same way.
+  # Default for --allow-forge (the unnamed forge instance's docker socket and
+  # kubeconfig, plus loopback so the API servers it names are reachable). Off
+  # because a caller that reaches the socket can start a privileged container,
+  # and the kubeconfig is cluster-admin on every cluster in the VM, a
+  # privileged pod away from the same thing, so the real boundary becomes
+  # whatever the VM mounts rather than this policy. forge's VM
+  # (nix/pkgs/forge/vm.nix) declares no mounts and denies the port forwards it
+  # does not name, and the wrapper refuses the grant unless the instance still
+  # does, which keeps the failure mode a refusal rather than a silent widening;
+  # leaving this false still scopes the grant to sessions chosen for it.
   defaultAllowForge ? false,
-  # The kubeconfig --allow-forge grants, matching `kubeconfig` in
+  # The unnamed instance's kubeconfig, matching `kubeconfig` in
   # nix/pkgs/forge/forge.yaml. Deliberately not read from FORGE_KUBECONFIG or
   # the forge config: this becomes an allowRead entry, so taking it from the
   # environment would let a checkout's .envrc pick what the sandbox grants.
   forgeKubeconfig ? "~/.local/state/forge/kubeconfig.yaml",
+  # Where `forge up` fetches the argo-cd chart: the index from the chart repo,
+  # the tarball from a GitHub release, which redirects to release-assets
+  # (measured on argo-cd-9.4.7).
+  forgeDomains ? [
+    "argoproj.github.io"
+    "github.com"
+    "release-assets.githubusercontent.com"
+  ],
+  # The pi-broker executable --coordinator starts. Empty refuses --coordinator.
+  coordinatorBroker ? "",
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
   # { domains = [str]; trustd = bool; readPaths = [str]; writePaths = [str]; }.
   # domains extend the network allowlist, readPaths and writePaths extend the
@@ -229,11 +231,11 @@ let
         "@defaultAllowLoopback@"
         "@defaultAllowTrustd@"
         "@defaultAllowNix@"
-        "@defaultAllowDocker@"
-        "@defaultAllowSshAgent@"
-        "@dockerLimaInstance@"
         "@defaultAllowForge@"
+        "@defaultAllowSshAgent@"
         "@forgeKubeconfig@"
+        "@forgeDomains@"
+        "@coordinatorBroker@"
         "@gitWriteMode@"
         "@protectedBranches@"
         "@gitAuthorName@"
@@ -253,11 +255,11 @@ let
         (if defaultAllowLoopback then "true" else "false")
         (if defaultAllowTrustd then "true" else "false")
         (if defaultAllowNix then "true" else "false")
-        (if defaultAllowDocker then "true" else "false")
-        (if defaultAllowSshAgent then "true" else "false")
-        dockerLimaInstance
         (if defaultAllowForge then "true" else "false")
+        (if defaultAllowSshAgent then "true" else "false")
         forgeKubeconfig
+        (bashArray forgeDomains)
+        coordinatorBroker
         (lib.escapeShellArg gitWriteMode)
         (bashArray protectedBranches)
         (lib.escapeShellArg gitAuthorName)
@@ -284,6 +286,7 @@ let
     runtimeInputs = [
       llm-agents.sandbox-runtime
       jq
+      yq-go
     ]
     ++ lib.optionals stdenv.isLinux [ bubblewrap ];
     # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
@@ -301,17 +304,7 @@ let
   completion = writeTextFile {
     name = "pi-completion";
     destination = "/share/zsh/site-functions/_pi";
-    text =
-      builtins.replaceStrings
-        [
-          "@bundleFlags@"
-          "@dockerLimaInstance@"
-        ]
-        [
-          bundleFlags
-          dockerLimaInstance
-        ]
-        (builtins.readFile ./_pi);
+    text = builtins.replaceStrings [ "@bundleFlags@" ] [ bundleFlags ] (builtins.readFile ./_pi);
   };
 in
 symlinkJoin {

@@ -604,6 +604,7 @@
 
           pi-coding-agent = import ./nix/checks/pi-coding-agent.nix { inherit pkgs; };
           forge-vm = import ./nix/checks/forge-vm.nix { inherit pkgs; };
+          pi-broker = import ./nix/checks/pi-broker.nix { inherit pkgs; };
         }
       );
 

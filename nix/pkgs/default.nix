@@ -26,6 +26,7 @@ self: super: {
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
   pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
+  pi-broker = super.callPackage ./pi-broker { inherit (self) forge my-scripts; };
   mcloud-pins = super.callPackage ./mcloud-pins { };
   search-mail = super.callPackage ./search-mail { };
   mlx = super.callPackage ./mlx { };

@@ -130,9 +130,8 @@ in
 
           What is mounted here is the blast radius of the docker socket:
           any caller that reaches the daemon can start a privileged
-          container and read or write every mounted path. `none` is what
-          lets an agent sandbox grant the socket (pi's --allow-docker)
-          without also surrendering ~/.ssh and ~/.aws.
+          container and read or write every mounted path. `none` keeps
+          ~/.ssh and ~/.aws out of that radius.
 
           Changing this takes a `colima stop && colima start`; containers
           and their volumes survive it.

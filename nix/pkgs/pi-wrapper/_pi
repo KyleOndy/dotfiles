@@ -15,9 +15,9 @@ _arguments -S -A "-*" \
   '--allow-loopback[permit bind and listen on loopback]' \
   '--allow-trustd[verify TLS through trustd, at a wider egress surface]' \
   '--allow-nix[nix daemon socket, equivalent to --no-sandbox under trusted-users]' \
-  '--allow-docker[docker socket of the @dockerLimaInstance@ VM]' \
   '--allow-ssh-agent[ssh-agent socket and public ssh files, never the private keys]' \
-  '--allow-forge[forge kubeconfig and loopback, cluster-admin on its clusters]' \
+  '--allow-forge=-[forge VM socket, kubeconfig and loopback; =N for named instance N]::instance:({1..15})' \
+  '--coordinator=-[spawn agents with their own worktree and forge; =ID reattaches]::id:' \
 @bundleFlags@  '(--no-git-write)--allow-git-write[grant git-dir write on any branch, so the agent can commit]' \
   '(--allow-git-write)--no-git-write[withhold git-dir write on every branch]' \
   '--web[confine writes to CWD and ~/.pi, leave the network unrestricted]' \

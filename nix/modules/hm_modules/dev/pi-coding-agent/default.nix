@@ -13,10 +13,14 @@
 #                          and profile; asks the daemon whether this client is
 #                          trusted and warns loudly when it is, since a trusted
 #                          client builds as root outside the sandbox
-#   --allow-docker         the forge VM's docker socket (~/.docker stays masked)
-#   --allow-forge          forge's kubeconfig + loopback to its API servers;
-#                          cluster-admin on those clusters, bounded by the
-#                          same VM --allow-docker is
+#   --allow-forge[=N]      forge instance N's docker socket and kubeconfig
+#                          (the unnamed instance without =N), loopback to its
+#                          API servers, and the hosts `forge up` fetches the
+#                          argo-cd chart from; cluster-admin on its clusters,
+#                          bounded by the VM; ~/.docker stays masked
+#   --coordinator[=ID]     spawn agents, each with its own worktree, forge
+#                          instance and tmux window (coordinator.enable);
+#                          =ID reattaches to an earlier coordinator's agents
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
 #                          becoming readable
@@ -97,11 +101,9 @@ let
   piPackage =
     if cfg.sandbox.enable then
       # The knobs a host actually turns; the wrapper's own defaults cover
-      # the rest. trustd stays off, as do --allow-nix, --allow-docker and
-      # --allow-forge.
+      # the rest. trustd stays off, as do --allow-nix and --allow-forge.
       # Widen those at nix/pkgs/pi-wrapper/default.nix, or per-invocation
-      # with the wrapper's --allow-trustd / --allow-nix / --allow-docker /
-      # --allow-forge.
+      # with the wrapper's --allow-trustd / --allow-nix / --allow-forge.
       #
       # sourceDir is always readable: srt checks a symlink's resolved
       # target, and the extension and theme links below resolve into a
@@ -119,6 +121,13 @@ let
         envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
+        coordinatorBroker = lib.optionalString cfg.coordinator.enable (
+          lib.getExe (
+            pkgs.pi-broker.override {
+              inherit (cfg.coordinator) maxAgents memoryBudgetGib;
+            }
+          )
+        );
       }
     else
       pkgs.llm-agents.pi;
@@ -494,6 +503,28 @@ in
 
     };
 
+    coordinator = {
+      enable = lib.mkEnableOption ''
+        `pi --coordinator`, whose agents each get a worktree, a forge
+        instance and a tmux window from pi-broker (nix/pkgs/pi-broker).
+        Needs forge and tmux, and the sandbox, since the broker starts
+        children through the wrapper
+      '';
+      maxAgents = lib.mkOption {
+        type = lib.types.ints.between 1 15;
+        default = 8;
+        description = "Agents running at once across every coordinator on the host.";
+      };
+      memoryBudgetGib = lib.mkOption {
+        type = lib.types.ints.positive;
+        default = 32;
+        description = ''
+          GiB of forge VM memory all agents may hold at once. A small VM is
+          4GiB and a large one 8GiB; a spawn past the budget is refused.
+        '';
+      };
+    };
+
     modelsJson = lib.mkOption {
       type = lib.types.attrsOf lib.types.anything;
       default = { };
@@ -548,6 +579,13 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    assertions = [
+      {
+        assertion = cfg.coordinator.enable -> cfg.sandbox.enable;
+        message = "hmFoundry.dev.pi-coding-agent.coordinator needs sandbox.enable: the broker spawns children through the sandbox wrapper.";
+      }
+    ];
+
     # pi has no web tool and no MCP, so search and page-reading are a CLI the
     # bash tool reaches. Both halves are Kagi endpoints, which is what lets
     # the kagi bundle below grant one domain instead of the wildcard egress

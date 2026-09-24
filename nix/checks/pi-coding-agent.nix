@@ -126,14 +126,17 @@ let
     defaultAllowSshAgent = true;
   };
 
-  wrapperWithDockerDefault = pkgs.pi-wrapper.override {
-    realPiBin = "${stubPi}/bin/pi";
-    defaultAllowDocker = true;
-  };
-
   wrapperWithForgeDefault = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     defaultAllowForge = true;
+  };
+
+  # Never run: the check plans the broker's start rather than making one.
+  stubBroker = pkgs.writeShellScriptBin "pi-broker" "exit 1";
+
+  wrapperWithBroker = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    coordinatorBroker = "${stubBroker}/bin/pi-broker";
   };
 
   wrapperWithWritePaths = pkgs.pi-wrapper.override {
@@ -449,11 +452,11 @@ pkgs.runCommand "pi-coding-agent-check"
     # what it could ask a restart for. extensions/grants.ts subtracts
     # PI_GRANTS from it for the prompt.
     captured=$(pi -- x 2>&1)
-    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: docker,forge,nix,ssh-agent" \
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: forge,nix,ssh-agent" \
       || fail "available grants missing or unsorted. captured=$captured"
     captured=$(${wrapperWithBundles}/bin/pi -- x 2>&1)
     echo "$captured" | grep -q \
-      "PI_PLAN_AVAILABLE_GRANTS: docker,forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
+      "PI_PLAN_AVAILABLE_GRANTS: forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
       || fail "bundles missing from available grants. captured=$captured"
     # Carrying a grant shrinks the missing list, never the catalog.
     captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
@@ -712,7 +715,7 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e '.network.allowUnixSockets | index("/nix/var/nix/daemon-socket/socket")' >/dev/null \
       || fail "defaultAllowNix=true did not allow the daemon socket. settings=$settings"
 
-    # --allow-docker grants one lima instance's socket, and the instance has to
+    # --allow-forge grants one forge instance's socket, and the instance has to
     # declare what bounds the grant, so the fixture is that instance's config.
     # Written the way lima persists it: verbatim JSON of what it was created
     # from (nix/pkgs/forge/vm.nix), including the deny pair its portForwards end
@@ -720,50 +723,68 @@ pkgs.runCommand "pi-coding-agent-check"
     forge_dir=$HOME/.lima/forge
     forge_socket=$forge_dir/sock/docker.sock
     mk_instance() {
-      mkdir -p "$forge_dir"
+      local dir=''${3:-$forge_dir}
+      mkdir -p "$dir"
       jq -n --argjson mounts "$1" --argjson deny "$2" \
         '{mounts: $mounts, portForwards: ([{guestSocket: "/var/run/docker.sock"}] + $deny)}' \
-        >"$forge_dir/lima.yaml"
+        >"$dir/lima.yaml"
     }
     deny_pair='[{"guestIP":"127.0.0.1","proto":"any","ignore":true},
                 {"guestIP":"0.0.0.0","proto":"any","ignore":true}]'
 
     mk_instance '[]' "$deny_pair"
-    captured=$(pi --allow-docker -- x 2>&1)
+    captured=$(pi --allow-forge -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets | index($s)' >/dev/null \
-      || fail "--allow-docker did not allow the instance socket. settings=$settings"
+      || fail "--allow-forge did not allow the instance socket. settings=$settings"
     echo "$settings" | jq -e --arg s "$forge_socket" '.filesystem.allowRead | index($s)' >/dev/null \
-      || fail "--allow-docker left the socket path unreadable. settings=$settings"
+      || fail "--allow-forge left the socket path unreadable. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: forge" \
+      || fail "--allow-forge missing PI_PLAN_GRANTS. captured=$captured"
+    # `forge up` fetches the argo-cd chart itself, so the hosts come with the
+    # grant rather than from a separate bundle.
+    echo "$settings" | jq -e '.network.allowedDomains | index("argoproj.github.io")' >/dev/null \
+      || fail "--allow-forge did not allow the chart repo. settings=$settings"
+    # The unnamed instance's kubeconfig is the human's, so it is read-only.
+    echo "$settings" | jq -e --arg p "$HOME/.local/state/forge/kubeconfig.yaml" \
+      '(.filesystem.allowRead | index($p)) and (.filesystem.allowWrite | index($p) | not)' >/dev/null \
+      || fail "--allow-forge did not grant the unnamed kubeconfig read-only. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: FORGE_INSTANCE=" \
+      && fail "the unnamed instance set FORGE_INSTANCE. captured=$captured"
 
     # ~/.docker holds registry credentials and credentialMasks covers it, so the
     # grant must not re-allow it. DOCKER_CONFIG is what keeps the CLI working.
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.docker\")" >/dev/null \
-      && fail "--allow-docker re-allowed ~/.docker. settings=$settings"
+      && fail "--allow-forge re-allowed ~/.docker. settings=$settings"
     echo "$captured" | grep -q "PI_PLAN_HARDENING: DOCKER_CONFIG=$HOME/.pi/sandbox-cache/docker" \
-      || fail "--allow-docker did not redirect DOCKER_CONFIG. captured=$captured"
+      || fail "--allow-forge did not redirect DOCKER_CONFIG. captured=$captured"
     echo "$captured" | grep -q "PI_PLAN_HARDENING: DOCKER_HOST=unix://$forge_socket" \
-      || fail "--allow-docker did not point DOCKER_HOST at the granted socket. captured=$captured"
+      || fail "--allow-forge did not point DOCKER_HOST at the granted socket. captured=$captured"
 
     # The socket path is not taken from the environment. It was, and since it
     # becomes an allowRead entry, a .envrc in the checkout could pick any path
     # for the sandbox to grant.
-    captured=$(DOCKER_HOST=unix:///Users/nobody/.ssh/agent.sock pi --allow-docker -- x 2>&1)
+    captured=$(DOCKER_HOST=unix:///Users/nobody/.ssh/agent.sock pi --allow-forge -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.filesystem.allowRead | index("/Users/nobody/.ssh/agent.sock")' >/dev/null \
       && fail "DOCKER_HOST chose a granted read path. settings=$settings"
     echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
       || fail "DOCKER_HOST changed the granted socket. settings=$settings"
-    captured=$(LIMA_HOME=/Users/nobody/evil pi --allow-docker -- x 2>&1)
+    captured=$(LIMA_HOME=/Users/nobody/evil pi --allow-forge -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
       || fail "LIMA_HOME changed the granted socket. settings=$settings"
+    # Same for the instance: FORGE_INSTANCE in the environment selects nothing.
+    captured=$(FORGE_INSTANCE=3 pi --allow-forge -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
+      || fail "FORGE_INSTANCE changed the granted socket. settings=$settings"
 
     # A mount is the case that matters: anything reaching the socket can start a
     # privileged container, which reads every path the VM has.
     mk_instance '[{"location":"~","writable":true}]' "$deny_pair"
-    if captured=$(pi --allow-docker -- x 2>&1); then
-      fail "--allow-docker granted a socket on a VM mounting \$HOME. captured=$captured"
+    if captured=$(pi --allow-forge -- x 2>&1); then
+      fail "--allow-forge granted a socket on a VM mounting \$HOME. captured=$captured"
     fi
     echo "$captured" | grep -q "mounts a host path" \
       || fail "refusal did not name the mount. captured=$captured"
@@ -771,21 +792,68 @@ pkgs.runCommand "pi-coding-agent-check"
     # lima appends its own forward-everything fallback after the last rule, so a
     # list that merely omits ports does not deny them.
     mk_instance '[]' '[]'
-    if captured=$(pi --allow-docker -- x 2>&1); then
-      fail "--allow-docker granted a socket on a VM with no deny tail. captured=$captured"
+    if captured=$(pi --allow-forge -- x 2>&1); then
+      fail "--allow-forge granted a socket on a VM with no deny tail. captured=$captured"
     fi
     echo "$captured" | grep -q "does not deny the port" \
       || fail "refusal did not name the port forwards. captured=$captured"
 
+    # `limactl edit`, which `forge resize` runs, may persist the config as YAML,
+    # and a resized instance must not lose its grant for that.
+    printf '%s\n' 'mounts: []' 'portForwards:' \
+      '  - guestSocket: /var/run/docker.sock' \
+      '  - {guestIP: 127.0.0.1, proto: any, ignore: true}' \
+      '  - {guestIP: 0.0.0.0, proto: any, ignore: true}' >"$forge_dir/lima.yaml"
+    captured=$(pi --allow-forge -- x 2>&1) \
+      || fail "--allow-forge refused an instance whose config lima wrote as YAML. captured=$captured"
+    printf '%s\n' 'mounts: [{location: "~", writable: true}]' 'portForwards: []' >"$forge_dir/lima.yaml"
+    if captured=$(pi --allow-forge -- x 2>&1); then
+      fail "--allow-forge granted a YAML-configured VM mounting \$HOME. captured=$captured"
+    fi
+
     # No instance at all is a refusal too, not a grant of a path that does not
     # exist yet and could be created later.
     rm -rf "$forge_dir"
-    if captured=$(pi --allow-docker -- x 2>&1); then
-      fail "--allow-docker granted a socket with no instance. captured=$captured"
+    if captured=$(pi --allow-forge -- x 2>&1); then
+      fail "--allow-forge granted a socket with no instance. captured=$captured"
     fi
     echo "$captured" | grep -q "no lima instance" \
       || fail "refusal did not name the missing instance. captured=$captured"
     mk_instance '[]' "$deny_pair"
+
+    # A named instance is its own VM, socket and kubeconfig dir, and the grant
+    # reaches none of the unnamed instance's. This is what keeps one agent's
+    # session off another's clusters.
+    forge3_dir=$HOME/.lima/forge-3
+    forge3_socket=$forge3_dir/sock/docker.sock
+    if captured=$(pi --allow-forge=3 -- x 2>&1); then
+      fail "--allow-forge=3 granted with only the unnamed instance present. captured=$captured"
+    fi
+    echo "$captured" | grep -q "no lima instance at $forge3_dir" \
+      || fail "refusal did not name instance 3. captured=$captured"
+    mk_instance '[]' "$deny_pair" "$forge3_dir"
+    captured=$(pi --allow-forge=3 -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg s "$forge3_socket" '.network.allowUnixSockets == [$s]' >/dev/null \
+      || fail "--allow-forge=3 did not grant exactly instance 3's socket. settings=$settings"
+    echo "$settings" | jq -e --arg p "$HOME/.local/state/forge/3" \
+      '(.filesystem.allowRead | index($p)) and (.filesystem.allowWrite | index($p))' >/dev/null \
+      || fail "--allow-forge=3 did not grant its instance dir. settings=$settings"
+    echo "$settings" | jq -e --arg p "$HOME/.local/state/forge/kubeconfig.yaml" \
+      '[.filesystem.allowRead, .filesystem.allowWrite] | flatten | index($p) | not' >/dev/null \
+      || fail "--allow-forge=3 granted the unnamed instance's kubeconfig. settings=$settings"
+    for kv in "FORGE_INSTANCE=3" "KUBECONFIG=$HOME/.local/state/forge/3/kubeconfig.yaml" "DOCKER_HOST=unix://$forge3_socket"; do
+      echo "$captured" | grep -q "PI_PLAN_HARDENING: $kv" \
+        || fail "--allow-forge=3 did not export $kv. captured=$captured"
+    done
+    # The value becomes a path component, so anything but 1-15 is refused.
+    for bad in 0 16 03 abc "3/../../x" ""; do
+      if captured=$(pi --allow-forge="$bad" -- x 2>&1); then
+        fail "--allow-forge=$bad was accepted. captured=$captured"
+      fi
+      echo "$captured" | grep -q "takes a forge instance 1-15" \
+        || fail "--allow-forge=$bad refusal missing diagnostic. captured=$captured"
+    done
 
     # Without the flag nothing is granted, and the CLI is not pointed anywhere
     captured=$(pi -- x 2>&1)
@@ -797,17 +865,75 @@ pkgs.runCommand "pi-coding-agent-check"
 
     # Both flags together, which is the case that exercises the socket list
     # rather than a single-element shortcut
-    captured=$(pi --allow-nix --allow-docker -- x 2>&1)
+    captured=$(pi --allow-nix --allow-forge -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --argjson n "$((nix_sock_count + 1))" \
       '.network.allowUnixSockets | length == $n' >/dev/null \
-      || fail "--allow-nix --allow-docker did not yield both sockets. settings=$settings"
+      || fail "--allow-nix --allow-forge did not yield both sockets. settings=$settings"
 
-    # defaultAllowDocker=true does the same without any CLI flag
-    captured=$(${wrapperWithDockerDefault}/bin/pi -- x 2>&1)
+    # defaultAllowForge=true does the same without any CLI flag
+    captured=$(${wrapperWithForgeDefault}/bin/pi -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg s "$forge_socket" '.network.allowUnixSockets | index($s)' >/dev/null \
-      || fail "defaultAllowDocker=true did not allow the socket. settings=$settings"
+      || fail "defaultAllowForge=true did not allow the socket. settings=$settings"
+
+    # Coordinator state lives outside ~/.pi, so no session reaches any of it
+    # unless its role grants a piece.
+    coord_root=$HOME/.local/state/pi-coord
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e --arg p "$coord_root" \
+      '[.filesystem.allowRead, .filesystem.allowWrite] | flatten | map(select(startswith($p))) | length == 0' >/dev/null \
+      || fail "a plain session reaches coordinator state. settings=$settings"
+
+    # A build with no broker cannot spawn anything, so it refuses rather than
+    # starting a coordinator whose every spawn_agent would hang.
+    if captured=$(pi --coordinator -- x 2>&1); then
+      fail "--coordinator ran without a broker. captured=$captured"
+    fi
+    echo "$captured" | grep -q "no pi-broker" \
+      || fail "--coordinator refusal missing diagnostic. captured=$captured"
+
+    # The coordinator writes requests and nothing else there, and reads what
+    # its broker and children record.
+    captured=$(${wrapperWithBroker}/bin/pi --coordinator=test-1 -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    cdir=$coord_root/test-1
+    echo "$captured" | grep -q "PI_PLAN_BROKER: ${stubBroker}/bin/pi-broker $cdir " \
+      || fail "--coordinator did not plan the broker for $cdir. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: coordinator" \
+      || fail "--coordinator missing PI_PLAN_GRANTS. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_HARDENING: PI_COORD_DIR=$cdir" \
+      || fail "--coordinator did not export PI_COORD_DIR. captured=$captured"
+    echo "$settings" | jq -e --arg p "$cdir" '.filesystem.allowRead | index($p)' >/dev/null \
+      || fail "coordinator cannot read its own state. settings=$settings"
+    echo "$settings" | jq -e --arg p "$coord_root" --arg r "$cdir/requests" \
+      '.filesystem.allowWrite | map(select(startswith($p))) == [$r]' >/dev/null \
+      || fail "coordinator writes more than its requests dir. settings=$settings"
+    # A generated id satisfies the same pattern a given one must.
+    captured=$(${wrapperWithBroker}/bin/pi --coordinator -- x 2>&1)
+    echo "$captured" | grep -qE "PI_PLAN_BROKER: [^ ]+ $coord_root/[0-9]{4}-[0-9]{4}-[0-9a-f]{4} " \
+      || fail "--coordinator did not generate a well-formed id. captured=$captured"
+    if captured=$(${wrapperWithBroker}/bin/pi --coordinator=../escape -- x 2>&1); then
+      fail "--coordinator accepted an id that climbs out of its root. captured=$captured"
+    fi
+
+    # A child writes only its own agent dir: not requests, so it cannot spawn,
+    # and not a sibling's result or the broker's state.
+    captured=$(pi --coord-child=test-1/agent-a -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    adir=$cdir/agents/agent-a
+    echo "$settings" | jq -e --arg p "$coord_root" --arg a "$adir" \
+      '(.filesystem.allowWrite | map(select(startswith($p))) == [$a])
+       and (.filesystem.allowRead | map(select(startswith($p))) == [$a])' >/dev/null \
+      || fail "child reaches more of the coordinator than its agent dir. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: coord-child" \
+      || fail "--coord-child missing PI_PLAN_GRANTS. captured=$captured"
+    for bad in "test-1/../../x" "test-1/" "../x/agent-a" "test-1/Agent"; do
+      if captured=$(pi --coord-child="$bad" -- x 2>&1); then
+        fail "--coord-child=$bad was accepted. captured=$captured"
+      fi
+    done
 
     # --allow-ssh-agent grants the agent socket plus the three ssh files that
     # make it usable. What it must NOT grant is the private key or the
@@ -862,7 +988,7 @@ pkgs.runCommand "pi-coding-agent-check"
 
     # All three socket grants at once, exercising the list rather than a
     # single-element shortcut
-    captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-nix --allow-docker --allow-ssh-agent -- x 2>&1)
+    captured=$(SSH_AUTH_SOCK=$ssh_sock pi --allow-nix --allow-forge --allow-ssh-agent -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --argjson n "$((nix_sock_count + 2))" \
       '.network.allowUnixSockets | length == $n' >/dev/null \
@@ -874,7 +1000,7 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e --arg s "$ssh_sock" '.network.allowUnixSockets | index($s)' >/dev/null \
       || fail "defaultAllowSshAgent=true did not allow the socket. settings=$settings"
 
-    # --allow-forge grants the one kubeconfig forge writes, plus the loopback
+    # --allow-forge grants the kubeconfig forge writes, plus the loopback
     # egress its API servers need. srt gates that behind allowLocalBinding
     # rather than the domain allowlist, so the read alone would be a grant that
     # cannot connect.
@@ -894,10 +1020,6 @@ pkgs.runCommand "pi-coding-agent-check"
     # grant is one file outside it, and must not reopen the directory.
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/.kube\")" >/dev/null \
       && fail "--allow-forge re-allowed ~/.kube. settings=$settings"
-
-    # The two grants compose rather than imply. kubectl needs no daemon socket.
-    echo "$settings" | jq -e '.network.allowUnixSockets == []' >/dev/null \
-      || fail "--allow-forge granted the docker socket too. settings=$settings"
 
     # Not taken from the environment, for the reason DOCKER_HOST is not: it
     # becomes an allowRead entry, so a checkout's .envrc must not choose it.
