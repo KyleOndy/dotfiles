@@ -1070,8 +1070,8 @@ def inspect(
     """Parse a settings backup file and show its per-slot custom settings.
 
     Offline: reads a .bak/.DAT, no camera needed. Decodes what we have reverse
-    engineered of the blob (see FUJI_BLOB_FORMAT.md), currently the per-slot
-    auto-ISO banks; the rest of each record is shown by name only.
+    engineered of the blob (see FUJI_BLOB_FORMAT.md): each slot's image look,
+    preamble, menu settings and auto-ISO banks, via fuji_backup.decode_slot.
     """
     try:
         header, records = fuji_backup.open_backup(file, force=force)

@@ -311,7 +311,8 @@ def decode_recipe_fields(record):
     """Decode the per-slot image-quality look from the packed +0x4C..0x6A struct.
 
     Returns a dict of the fields reverse engineered so far; anything not yet
-    located (white balance, WB shift, clarity, high-ISO NR) is simply absent.
+    located is simply absent. White balance lives in the preamble, see
+    decode_slot_preamble.
     Verified against the recipe view on the X-T5; see FUJI_BLOB_FORMAT.md.
     """
     if len(record) <= REL_GRAIN_SIZE:
@@ -753,9 +754,9 @@ def correlate(records, truth):
 # on an X-T5: set exactly one custom-bank setting in one of C1-C7, re-backup, and
 # whole-file diff (see FUJI_BLOB_FORMAT.md, "Per-slot AF/drive/shooting fields").
 # Many pair a value byte in the record body with an on/off bit in the trailer
-# flags block at +0x3AE..+0x3D3. These are single data points: the byte locations
-# are solid, but multi-value encodings (enums, durations) are not fully swept, so
-# no decoders yet. Image Quality also has a preamble byte (PRE_IMAGE_QUALITY);
+# flags block at +0x3AE..+0x3D3. The byte locations are solid and
+# decode_slot_fields decodes each one; six toggles whose encodings are not
+# confirmed still show raw bytes. Image Quality also has a preamble byte (PRE_IMAGE_QUALITY);
 # RAW-only greys and zeroes the JPEG sliders and locks image size. Note the camera
 # stores several menu items GLOBALLY, not per bank (see the NOT-per-slot list in
 # FUJI_BLOB_FORMAT.md): color space, AF illuminator, wrap focus point, MF assist,
@@ -1502,7 +1503,7 @@ def describe_offset(records, off):
             return "save counter +0x584"
         return "whole-file checksum +0xE8"
     if 0xE4 <= off < 0xE6:
-        return "checksum/CRC +0xE4 (re-stamped each save)"
+        return "constant 0x0243 +0xE4"
     if off == DRIVE_MODE_OFF:
         return "drive mode (global +0x700)"
     if LENS_STATE_BLOCK[0] <= off < LENS_STATE_BLOCK[1]:
