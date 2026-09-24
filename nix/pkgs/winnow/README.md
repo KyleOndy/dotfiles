@@ -13,10 +13,14 @@ winnow /path/to/photos
 State is entirely in-memory and ephemeral: no config files, no thumbnail
 cache, nothing persisted between runs. Deletion is two-phase: mark in-app
 (undoable), confirm and delete on quit, so a stray keystroke can't lose a
-whole cull pass.
+whole cull pass. Deleting a JPEG also deletes its `.RAF` sibling (same stem,
+either case), and the quit dialog counts those.
 
-Linux and macOS, JPEG only. A few hundred photos per directory is the sweet
-spot; comparisons top out around 5 photos before things degrade.
+Linux and macOS, JPEG only (`.jpg`/`.jpeg` in the top level of the directory,
+not subdirectories). A few hundred photos per directory is the sweet spot;
+comparisons top out around 5 photos before things degrade.
+`--max-memory MB` caps the full-resolution image cache (default 40% of
+physical RAM).
 
 ## Keys
 
@@ -35,6 +39,7 @@ the current context; press `?` in the app for the full map.
 | Esc               | leave comparison for the focused photo                                                     |
 | gg / G            | first / last photo                                                                         |
 | tu / tk / td      | toggle unmarked / keepers / deletes in the strip                                           |
+| ts                | sort the strip softest-focus-first (toggle)                                                |
 | - / = / 0 / f     | zoom out / in / 100% / fit                                                                 |
 | Shift+h/j/k/l     | pan the view                                                                               |
 | Ctrl+h/j/k/l      | nudge the focused tile to align a mismatched shot                                          |
@@ -55,10 +60,13 @@ printing. This is a culling tool, not a DAM.
 
 ## Structure
 
-`src/winnow/core/` is the headless logic (scanner, session state,
-thumbnailer, LRU image cache, undo stack), no Qt imports, unit-tested on
-its own. `src/winnow/ui/` is the Qt/PySide6 layer (main window, thumbnail
-strip, viewing area, image widget, keyboard controller) that drives it.
+`src/winnow/core/` is the logic below the widgets (scanner, session state,
+thumbnailer, LRU image cache, undo stack, focus scoring), unit-tested on its
+own. Only the scanner and focus scoring are free of Qt; the session,
+thumbnailer and image cache use PySide6's QtCore and QtGui (pixmaps, worker
+threads) but no widgets, and the undo stack imports the session. `src/winnow/ui/` is the Qt/PySide6 layer (main
+window, thumbnail strip, viewing area, image widget, keyboard controller)
+that drives it.
 
 Thumbnailing and full-resolution decode both run on `QThreadPool` worker
 threads, off the UI thread, to keep navigation responsive.
