@@ -63,8 +63,12 @@ This document outlines the conventions and best practices for creating and maint
 
 - `job` - Type of metrics (node, caddy, zfs, etc.)
 - `pool` - ZFS pool name (storage, scratch, etc.)
-- `service` - Systemd service name
-- `name` - UniFi device name on `unpoller_*`, dataset name on `zfs_dataset_*`
+- `service` - alert label set by the vmalert and Grafana rules; no series
+  carries it
+- `name` - systemd unit on `node_systemd_*`, UniFi device on `unpoller_*`,
+  dataset on `zfs_dataset_used_bytes`
+- `dataset` - dataset on `zfs_dataset_snapshot_count` and
+  `zfs_dataset_latest_snapshot_timestamp_seconds`
 - `task` - cogsworth scheduler task, relabelled off the app's own `job`
 - `vhost` - the site a Caddy access log line was served for
 
@@ -104,9 +108,11 @@ darwin-unified-log
 systemd-journal
 ```
 
-`caddy-access` is the exception, and the only one: it tails files rather than
-the journal, one per site, and carries a `vhost` label taken from
-`request.host` in the line.
+`darwin-unified-log` tails a file instead of the journal, but it is still one
+stream for the whole host. `caddy-access` is the exception, and the only one:
+it carries a `vhost` label taken from `request.host` in the line. Caddy writes
+one access log per vhost block, so every `*.tiger.infra.ondy.org` site shares
+one file and only `vhost` tells them apart.
 
 A selector like `{host="tiger",job="jellyfin"}` therefore matches
 nothing and the panel sits empty forever. Name the systemd unit
@@ -183,17 +189,14 @@ is dropping in a file; there is nothing to register.
 
 Three folders exist:
 
-- `system/` - host-level metrics (node exporter, systemd services)
-- `network/` - Caddy
-- `applications/` - per-service dashboards (\*arr, jellyfin, cogsworth, media)
+- `system/` - Hosts, Storage and Data Safety, Monitoring Stack Health
+- `network/` - Caddy Reverse Proxy, UniFi Network
+- `applications/` - Cogsworth, Media (the \*arr stack, jellyfin, ytdl-sub)
 
 ### Naming Conventions
 
-Dashboard titles should follow this pattern:
-
-```text
-[Specific Component] - [Detail or Host (if applicable)]
-```
+A dashboard title is a short plain name for the subsystem it covers, with no
+host or detail suffix.
 
 Examples, from dashboards that exist:
 
@@ -229,9 +232,9 @@ Every dashboard JSON must include:
 ```
 
 `id: null` is what provisioning requires; the rest is how we find things
-later. Everything else Grafana fills in. The shipped dashboards run
-schemaVersion 26 through 38 and refresh anywhere from unset to 1m, so do
-not copy those values from another file expecting them to mean something.
+later. Everything else Grafana fills in. The shipped dashboards all run
+schemaVersion 39 and refresh every 1m, except Storage and Data Safety at 5m.
+Do not copy those values from another file expecting them to mean something.
 
 ### UID Conventions
 
@@ -266,7 +269,9 @@ Use consistent tags for easier filtering:
 
 ### Time Series Panels
 
-Default configuration for time series panels:
+A starting point for a new time series panel. Most shipped panels deviate
+from it: 7 of the 47 match it exactly, 18 put a `list` legend at the bottom,
+and fill, line width and draw style vary with what the panel shows.
 
 ```json
 {
@@ -339,14 +344,22 @@ Set meaningful thresholds for alerting visualization:
 
 ### Standard Variables
 
-Most dashboards should include a `host` variable:
+A dashboard that spans hosts carries a `host` variable. Only Hosts does
+today. This is its definition in `system/hosts.json`:
 
 ```json
 {
   "name": "host",
   "type": "query",
-  "datasource": "VictoriaMetrics",
-  "query": "label_values(up, host)",
+  "datasource": {
+    "type": "prometheus",
+    "uid": "victoriametrics"
+  },
+  "definition": "label_values(node_uname_info, host)",
+  "query": {
+    "query": "label_values(node_uname_info, host)",
+    "refId": "StandardVariableQuery"
+  },
   "multi": true,
   "includeAll": true,
   "allValue": ".*",
@@ -365,10 +378,11 @@ Most dashboards should include a `host` variable:
 
 ### Step 1: Create Dashboard File
 
-Place the JSON file in `nix/modules/nix_modules/monitoring-stack/dashboards/`:
+Place the JSON file in one of the folders under
+`nix/modules/nix_modules/monitoring-stack/dashboards/` (see Folder Structure):
 
 ```bash
-cd nix/modules/nix_modules/monitoring-stack/dashboards/
+cd nix/modules/nix_modules/monitoring-stack/dashboards/<folder>/
 # Create or download dashboard
 ```
 
@@ -378,10 +392,10 @@ Update the dashboard to use `host` instead of `instance`:
 
 ```bash
 # Fix template variables
-sed -i 's/label_values(\([^,]*\),instance)/label_values(\1,host)/g' my-dashboard.json
+sed -i 's/label_values(\([^)]*\),\s*instance)/label_values(\1, host)/g' my-dashboard.json
 
-# Fix query filters
-sed -i 's/instance=~"\$\([^"]*\)"/host=~"$\1"/g' my-dashboard.json
+# Fix query filters (JSON stores the quotes escaped)
+sed -i 's/instance=~\\"\$\([^\\]*\)\\"/host=~\\"$\1\\"/g' my-dashboard.json
 
 # Fix legend format
 sed -i 's/{{instance}}/{{host}}/g' my-dashboard.json
@@ -405,8 +419,8 @@ Ensure the dashboard has:
 # Dry run to check
 make deploy-rs-all-dry
 
-# Deploy
-deploy --skip-checks -- .
+# Deploy tiger, the only host that serves dashboards
+make deploy-rs HOSTNAME=tiger
 ```
 
 Grafana auto-reloads dashboards every 10 seconds.
@@ -503,7 +517,7 @@ When importing dashboards from grafana.com or updating exporters, metric names m
 
    ```bash
    # Extract metric names from dashboard JSON
-   jq '.panels[].targets[].expr' dashboard.json | grep -o 'metric_name[a-z_]*'
+   jq -r '.. | .expr? // empty' dashboard.json | grep -o 'metric_name[a-z_]*'
    ```
 
 3. **Check VictoriaMetrics for available metrics**:
@@ -560,8 +574,8 @@ node_systemd_unit_state{name=~".*.service"}
 **How to fix in dashboard JSON:**
 
 ```bash
-# Replace escaped dots with unescaped dots
-sed -i 's/\\\\\\.service/.service/g' dashboard.json
+# Replace escaped dots with unescaped dots (JSON doubles each backslash)
+sed -i 's/\\\\\\\\\.service/.service/g' dashboard.json
 ```
 
 ### State-Based Metrics (node_systemd_unit_state)
