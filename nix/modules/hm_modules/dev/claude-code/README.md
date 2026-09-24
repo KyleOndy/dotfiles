@@ -1,7 +1,8 @@
 # Claude Code Home Manager Module
 
 Manages Claude Code configuration declaratively: settings, user memory,
-skills, rules, slash commands, notification hooks, and a statusline.
+skills, rules, slash commands, an output style, lifecycle and lint hooks, and
+a statusline.
 
 ## Usage
 
@@ -11,8 +12,10 @@ hmFoundry.dev.claude-code = {
 };
 ```
 
-Rebuild with `make deploy` (this repo embeds home-manager as a
-NixOS/darwin module; standalone `home-manager switch` is not used here).
+Rebuild with `make deploy-trex` or `make deploy-mac` (this repo embeds
+home-manager as a NixOS/darwin module; standalone `home-manager switch` is
+not used here). Plain `make deploy` builds `.#$(hostname -s)`, which only
+works on a mac whose hostname matches its flake config.
 
 ## Options
 
@@ -38,18 +41,20 @@ weight.
   in the personal-prose skill)
 - `~/.claude/rules/clojure.md`: path-scoped rules, loaded natively by
   Claude Code when matching files are touched
-- `~/.claude/statusline.sh`: git branch, model, context usage, rate
-  limits, cost, duration
+- `~/.claude/statusline.sh`: git branch, model and effort, context, rate
+  limits, cost, duration, lines changed
 - `~/.claude/hooks/`: hook scripts (below)
-- `~/.claude/skills/`: commit-guidelines, flake-update-review, grill-me,
-  personal-prose, and the ponytail family (those last five from the
-  `claude-skills-ponytail` flake input, not this directory), plus
-  anything from `cfg.skills`
-- `~/.claude/commands/`: the task family and git commands (below)
+- `~/.claude/output-styles/`: the Direct output style
+- `~/.claude/skills/`: code-comments, commit-guidelines,
+  flake-update-review, grill-me, personal-prose, and the five ponytail
+  skills (from the `claude-skills-ponytail` flake input, not this
+  directory), plus anything from `cfg.skills`
+- `~/.claude/commands/`: the git and code commands (below)
 
 Hook and statusline scripts are packaged with `writeShellApplication`,
-so `jq`, `ffplay`, `tmux`, and GNU `date` come from the module closure
-instead of the ambient PATH, and shellcheck runs at build time.
+so `jq`, `git`, `ffplay`, `tmux`, and GNU `grep` and `sed` come from the
+module closure instead of the ambient PATH, and shellcheck runs at build
+time.
 
 ## Hooks
 
@@ -59,6 +64,10 @@ instead of the ambient PATH, and shellcheck runs at build time.
   state alongside
 - **notification-bell.sh** (Notification): plays `notification.wav`,
   ducks volume during active Zoom calls (macOS)
+- **comment-lint.sh** (PostToolUse on Edit, Write, MultiEdit and
+  NotebookEdit): flags comments that narrate the edit instead of
+  describing the code. It runs after the write lands, so it cannot block;
+  exit 2 hands the finding back to the model
 
 Task-completion alerts come from the built-in `preferredNotifChannel`
 setting, not a hook. Claude Code sends a desktop notification unprompted
@@ -69,11 +78,20 @@ only under Ghostty, Kitty and iTerm2, so alacritty needs the explicit
 ## Slash commands
 
 - `/git:history-clean`: rebase and tidy unpushed commits
+- `/code:comments`: strip narration and redundancy from comments in the
+  working diff
 
 The command directories are real directories with per-file symlinks
 (`recursive = true`), so a command under test can be dropped straight
 into `~/.claude/commands/<category>/`. Once it earns its keep, move it
 into the module.
+
+## Commits
+
+Claude Code commits as the human: nothing sets an agent identity, and
+`settings.json` blanks the commit and PR attribution. Launched through
+`wtc`, it commits unsigned, and `git adopt` signs the range once it has
+been read.
 
 ## Troubleshooting
 
@@ -87,12 +105,14 @@ into the module.
 - Inspect what the module would install:
 
   ```bash
-  nix build .#darwinConfigurations.trex.config.home-manager.users.kyle.home.activationPackage
+  DOTFILES_WORKTREE=$(git rev-parse --show-toplevel) nix build --impure \
+    .#darwinConfigurations.trex.config.home-manager.users.kyle.home.activationPackage
   ls -la result/home-files/.claude/
   ```
 
-  Only trex and work-mac enable this module, so building tiger shows
-  nothing.
+  The pi module reads `DOTFILES_WORKTREE` and throws without it, which is
+  why the Makefile targets export it and pass `--impure`. Only trex and
+  work-mac enable this module, so building tiger shows nothing.
 
 For general Claude Code support, see the
 [official documentation](https://code.claude.com/docs).
