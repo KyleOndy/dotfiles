@@ -63,7 +63,8 @@ Everything else is denied, which is why a cluster's ingress is not reachable
 from the host.
 
 `forge up` warns when the instance's own copy of its config
-(`~/.lima/forge/lima.yaml`) differs from what `vm.nix` builds. Any edit to
+(`~/.lima/forge/lima.yaml`) differs from what `vm.nix` builds, at whatever
+CPUs and memory the instance holds. Any edit to
 `vm.nix` or `guest.nix` does that, and so does a hand edit of the instance.
 Rolling it forward means `forge nuke && forge up`, since a VM cannot be
 reconfigured without deleting the clusters inside it.
@@ -71,7 +72,35 @@ reconfigured without deleting the clusters inside it.
 The flake check `forge-vm` (`nix/checks/forge-vm.nix`) holds that boundary: no
 mounts, a docker socket forward, the API window on both address families, a
 deny-all pair at the end of `portForwards`, and a script that creates its VM
-from the same config.
+from the same config. It asserts the same on a named instance's rendered
+config.
+
+## Instances and sizes
+
+`FORGE_INSTANCE=<n>` (1-15) selects one of several VMs that run side by side,
+which is how pi's coordinator gives each agent its own
+(`nix/pkgs/pi-broker`). Unset is the instance described above.
+
+|               | unset                              | `FORGE_INSTANCE=n`                                                           |
+| ------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| VM            | `forge`                            | `forge-<n>`                                                                  |
+| API ports     | `6440-6455`                        | `6440+16n` to `6455+16n`                                                     |
+| kubeconfig    | `FORGE_KUBECONFIG` or `kubeconfig` | `~/.local/state/forge/<n>/kubeconfig.yaml`                                   |
+| config        | `FORGE_CONFIG` or `forge.yaml`     | `FORGE_CONFIG`, else the copy `up` last saved in `~/.local/state/forge/<n>/` |
+| new VM's size | large                              | small                                                                        |
+
+Each instance's lima config is `vm.nix`'s with its own port window, CPUs and
+memory, rendered at creation (`forge vm-config` prints it). Two sizes:
+small is 2 CPUs and 4GiB, large 4 CPUs and 8GiB. `forge up --size S` picks one
+for a new VM and refuses a mismatch on an existing one; `forge resize S` stops
+the VM, edits its CPUs and memory, and starts it again. `forge-small.yaml`
+declares the management cluster and one single-node workload cluster, which is
+what pi-broker brings a small instance up with.
+
+A named instance's directory is the only path pi's `--allow-forge=<n>`
+grants besides the socket. From inside that sandbox `forge down` and
+`forge up` work against the instance; creating or deleting the VM does not,
+since lima's instance directory is not granted.
 
 ---
 
@@ -112,10 +141,12 @@ container over plain HTTP on port 5000.
 A single-node Kind cluster (`forge-mgmt`) runs ArgoCD and serves as the
 control plane for all workload clusters.
 
-**ArgoCD** is installed via the official `argo/argo-cd` Helm chart at the chart
+**ArgoCD** is installed via the official `argo-cd` Helm chart at the chart
 version pinned in `forge.yaml` (`management.argocd.version`) in the `argocd`
-namespace. The server runs in insecure mode (HTTP) since TLS termination is not
-required in a local environment.
+namespace, fetched with `--repo` rather than a `helm repo add`, since the repo
+list is one file every instance would share. `forge-small.yaml` pins it too.
+`FORGE_ARGOCD_CHART` swaps in a local or OCI chart and drops the pin. The
+server runs in insecure mode (HTTP) since TLS termination is not required in a local environment.
 
 **Workload cluster registration** uses the service-account token approach:
 an `argocd-manager` service account is created in `kube-system` of each
@@ -171,12 +202,13 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 
 ## Lifecycle
 
-| Command        | VM     | Clusters | Mirrors | Volumes | Network |
-| -------------- | ------ | -------- | ------- | ------- | ------- |
-| `forge up`     | create | create   | create  | create  | create  |
-| `forge down`   | -      | delete   | -       | -       | -       |
-| `forge nuke`   | delete | delete   | delete  | delete  | delete  |
-| `forge status` | -      | -        | -       | -       | -       |
+| Command        | VM      | Clusters | Mirrors | Volumes | Network |
+| -------------- | ------- | -------- | ------- | ------- | ------- |
+| `forge up`     | create  | create   | create  | create  | create  |
+| `forge down`   | -       | delete   | -       | -       | -       |
+| `forge nuke`   | delete  | delete   | delete  | delete  | delete  |
+| `forge status` | -       | -        | -       | -       | -       |
+| `forge resize` | restart | -        | -       | -       | -       |
 
 `forge up` creates what is declared and missing, starts a stopped VM or mirror,
 and leaves everything else alone. It does not resize an existing cluster,
@@ -189,9 +221,10 @@ subsequent `forge up` runs to benefit from cached layers. A cluster dropped
 from `forge.yaml` survives both `up` and `down`. `down` needs the VM running.
 
 `forge nuke` deletes the VM, which takes the clusters, mirrors, volumes,
-network and every pulled image with it. It touches nothing on the host, so the
-kubeconfig contexts survive pointing at dead ports; run `forge down` first to
-drop them.
+network and every pulled image with it. For the unnamed instance it touches
+nothing on the host, so the kubeconfig contexts survive pointing at dead
+ports; run `forge down` first to drop them. A named instance's
+`~/.local/state/forge/<n>` goes with its VM.
 
 `forge status` is read-only: the VM, each mirror's state, and each cluster's
 context and API port.

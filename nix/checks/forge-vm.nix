@@ -36,10 +36,6 @@ pkgs.runCommand "forge-vm-check"
     jq -e . ${vmConfig} >/dev/null \
       || fail "config is not JSON, so a provision script can be folded and mangled"
 
-    # No host path reaches any container in this VM.
-    [ "$(jq -r '.mounts // [] | length' ${vmConfig})" = "0" ] \
-      || fail "vm.nix declares mounts: $(jq -c '.mounts' ${vmConfig})"
-
     jq -e '.portForwards[] | select(.guestSocket == "/var/run/docker.sock")' ${vmConfig} >/dev/null \
       || fail "no docker socket forward, the VM would expose no daemon"
 
@@ -59,42 +55,70 @@ pkgs.runCommand "forge-vm-check"
     [ -f "$image" ] \
       || fail "guest image location is not a file: $image"
 
-    # lima stops at the first matching rule and appends its own
-    # forward-everything fallback after the last, so the tail must deny. It takes
-    # a pair: guestIP selects one address family, 127.0.0.1 matching a loopback
-    # bind and 0.0.0.0 a wildcard one, and a port bound on the family neither
-    # names falls through to the fallback and reaches the host. proto defaults to
-    # tcp, and a port field would stop the rule being the catch-all.
-    jq -e '.portForwards[-2:]
-           | (map(.ignore == true
-                  and .proto == "any"
-                  and (has("guestPortRange") or has("guestPort")) == false) | all)
-             and (map(.guestIP) | sort) == ["0.0.0.0", "127.0.0.1"]' ${vmConfig} >/dev/null \
-      || fail "the last two rules are not a deny-all pair: $(jq -c '.portForwards[-2:]' ${vmConfig})"
-
-    # A forwarded range that disagrees with the one forge assigns from would give
-    # every cluster past the overlap an unreachable API server, and the window
-    # needs the same pairing as the deny: whichever family docker publishes the
-    # port on has to match a rule before the deny catches it.
-    base=$(grep -oE '^readonly API_PORT_BASE=[0-9]+' ${pkgs.forge}/bin/forge | cut -d= -f2)
+    base=$(grep -oE '^readonly API_PORT_BASE_DEFAULT=[0-9]+' ${pkgs.forge}/bin/forge | cut -d= -f2)
     span=$(grep -oE '^readonly API_PORT_SPAN=[0-9]+' ${pkgs.forge}/bin/forge | cut -d= -f2)
     [ -n "$base" ] && [ -n "$span" ] \
       || fail "could not read the API port window out of the forge script"
 
-    want="[$base,$((base + span - 1))]"
-    jq -e --argjson want "$want" '
-      [.portForwards[] | select(.guestPortRange)] as $w
-      | ($w | length) == 2
-        and (($w | map(.guestIP) | sort) == ["0.0.0.0", "127.0.0.1"])
-        and (($w | map(.guestPortRange) | unique) == [$want])
-        and (($w | map(.hostPortRange) | unique) == [$want])' ${vmConfig} >/dev/null \
-      || fail "API window is not $want on both families: $(jq -c '[.portForwards[] | select(.guestPortRange)]' ${vmConfig})"
+    # $1 is a lima config, $2 the first port of the window it must forward.
+    assert_boundary() {
+      local config=$1 first=$2 want
+      [ "$(jq -r '.mounts // [] | length' "$config")" = "0" ] \
+        || fail "$config declares mounts: $(jq -c '.mounts' "$config")"
+
+      # lima stops at the first matching rule and appends its own
+      # forward-everything fallback after the last, so the tail must deny. It
+      # takes a pair: guestIP selects one address family, 127.0.0.1 matching a
+      # loopback bind and 0.0.0.0 a wildcard one, and a port bound on the family
+      # neither names falls through to the fallback and reaches the host. proto
+      # defaults to tcp, and a port field would stop the rule being the
+      # catch-all.
+      jq -e '.portForwards[-2:]
+             | (map(.ignore == true
+                    and .proto == "any"
+                    and (has("guestPortRange") or has("guestPort")) == false) | all)
+               and (map(.guestIP) | sort) == ["0.0.0.0", "127.0.0.1"]' "$config" >/dev/null \
+        || fail "$config: the last two rules are not a deny-all pair: $(jq -c '.portForwards[-2:]' "$config")"
+
+      # A forwarded range that disagrees with the one forge assigns from would
+      # give every cluster past the overlap an unreachable API server, and the
+      # window needs the same pairing as the deny: whichever family docker
+      # publishes the port on has to match a rule before the deny catches it.
+      want="[$first,$((first + span - 1))]"
+      jq -e --argjson want "$want" '
+        [.portForwards[] | select(.guestPortRange)] as $w
+        | ($w | length) == 2
+          and (($w | map(.guestIP) | sort) == ["0.0.0.0", "127.0.0.1"])
+          and (($w | map(.guestPortRange) | unique) == [$want])
+          and (($w | map(.hostPortRange) | unique) == [$want])' "$config" >/dev/null \
+        || fail "$config: API window is not $want on both families: $(jq -c '[.portForwards[] | select(.guestPortRange)]' "$config")"
+    }
+
+    assert_boundary ${vmConfig} "$base"
 
     # Everything above validates one config in the store. This is what ties it to
-    # the script: forge creates its VM from the path baked into VM_CONFIG, so
+    # the script: forge derives every VM from the path baked into VM_TEMPLATE, so
     # without this the check could be passing a config forge never uses.
-    grep -qxF "readonly VM_CONFIG=${vmConfig}" ${pkgs.forge}/bin/forge \
-      || fail "forge creates its VM from $(grep -m1 '^readonly VM_CONFIG=' ${pkgs.forge}/bin/forge), not ${vmConfig}"
+    grep -qxF "readonly VM_TEMPLATE=${vmConfig}" ${pkgs.forge}/bin/forge \
+      || fail "forge derives its VMs from $(grep -m1 '^readonly VM_TEMPLATE=' ${pkgs.forge}/bin/forge), not ${vmConfig}"
 
+    # The unnamed instance at its default size is the template itself, so the
+    # VM that existed before named instances did is not reported as drifted.
+    [ "$(${pkgs.forge}/bin/forge vm-config | jq -S -c .)" = "$(jq -S -c . ${vmConfig})" ] \
+      || fail "the unnamed instance's config differs from ${vmConfig}"
+
+    # A named instance is the template with another window and size, rendered
+    # at runtime, so the boundary is asserted on what forge actually emits. 15
+    # is the highest instance, whose window sits furthest from the template's.
+    for size in small large; do
+      FORGE_INSTANCE=15 ${pkgs.forge}/bin/forge vm-config $size >"$TMPDIR/instance-$size.json"
+      limactl validate "$TMPDIR/instance-$size.json" \
+        || fail "limactl rejected instance 15's $size config"
+      assert_boundary "$TMPDIR/instance-$size.json" "$((base + 15 * span))"
+    done
+    [ "$(jq -c '[.cpus, .memory]' "$TMPDIR/instance-small.json")" = '[2,"4GiB"]' ] \
+      || fail "small is not 2 CPUs and 4GiB: $(jq -c '[.cpus, .memory]' "$TMPDIR/instance-small.json")"
+
+    want="[$base,$((base + span - 1))]"
     echo "forge-vm-check: ok (api ports $want on both address families)" > $out
   ''

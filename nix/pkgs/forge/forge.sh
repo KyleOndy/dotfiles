@@ -7,29 +7,16 @@
 
 CONFIG="${FORGE_CONFIG:-${XDG_CONFIG_HOME:-${HOME}/.config}/forge/forge.yaml}"
 
-# Window of host ports the forge VM forwards to kind API servers, substituted
-# from nix/pkgs/forge/default.nix so this and the VM's portForwards cannot
-# drift apart.
-readonly API_PORT_BASE=@apiPortBase@
+# Window of host ports the unnamed instance's VM forwards to kind API servers,
+# substituted from nix/pkgs/forge/default.nix so this and the VM's portForwards
+# cannot drift apart. Instance n takes the window n spans above it.
+readonly API_PORT_BASE_DEFAULT=@apiPortBase@
 readonly API_PORT_SPAN=@apiPortSpan@
+readonly MAX_INSTANCE=15
 
-# The lima instance forge's docker daemon runs in, and the store path of the
-# config it gets created from, substituted from nix/pkgs/forge/default.nix.
-readonly VM_NAME=forge
-readonly VM_CONFIG=@vmConfig@
-
-# Where lima forwards that instance's docker socket: vm.nix asks for
-# {{.Dir}}/sock, and .Dir is $LIMA_HOME/<name>. Every command below talks to
-# this daemon and never to whatever DOCKER_HOST names, because a kind node is a
-# privileged container, so the daemon forge uses is the one whose mounts and
-# port forwards decide what a cluster can reach on this mac.
-readonly VM_SOCKET="${LIMA_HOME:-${HOME}/.lima}/${VM_NAME}/sock/docker.sock"
-export DOCKER_HOST="unix://${VM_SOCKET}"
-
-# lima copies the config into the instance directory at creation and reads that
-# copy for the life of the instance, so this is the definition the VM is
-# actually running.
-readonly VM_LIVE_CONFIG="${LIMA_HOME:-${HOME}/.lima}/${VM_NAME}/lima.yaml"
+# The config every instance's VM is derived from, substituted from
+# nix/pkgs/forge/default.nix. It is the unnamed instance at size large.
+readonly VM_TEMPLATE=@vmConfig@
 
 # A failing lima probe (vm.nix declares one) makes lima retry rather than give
 # up, so without a timeout a guest that never gets dockerd up hangs forge
@@ -53,6 +40,87 @@ yq_get() {
 	yq e "$1" "${CONFIG}"
 }
 
+# ─── Instance ─────────────────────────────────────────────────────────────────
+
+# Unset is the one instance forge has always managed: VM "forge", the base
+# port window, and the kubeconfig the config names. A named instance is VM
+# "forge-<n>" with its own window, and keeps its kubeconfig and a copy of its
+# config under ~/.local/state/forge/<n>. The pi wrapper grants exactly that
+# directory (nix/pkgs/pi-wrapper/wrapper.sh), so the path is fixed rather than
+# configurable, and neither the config's kubeconfig nor FORGE_KUBECONFIG moves
+# it.
+INSTANCE="${FORGE_INSTANCE:-}"
+if [[ -n ${INSTANCE} ]]; then
+	if [[ ! ${INSTANCE} =~ ^[1-9][0-9]*$ ]] || ((INSTANCE > MAX_INSTANCE)); then
+		die "FORGE_INSTANCE must be 1-${MAX_INSTANCE}, got '${INSTANCE}'"
+	fi
+	readonly VM_NAME="forge-${INSTANCE}"
+	readonly API_PORT_BASE=$((API_PORT_BASE_DEFAULT + INSTANCE * API_PORT_SPAN))
+	readonly INSTANCE_DIR="${HOME}/.local/state/forge/${INSTANCE}"
+	readonly DEFAULT_SIZE=small
+else
+	readonly VM_NAME=forge
+	readonly API_PORT_BASE=${API_PORT_BASE_DEFAULT}
+	readonly INSTANCE_DIR=""
+	readonly DEFAULT_SIZE=large
+fi
+readonly API_PORT_LAST=$((API_PORT_BASE + API_PORT_SPAN - 1))
+
+# A named instance keeps a copy of the config it was last brought up with, and
+# reads that when FORGE_CONFIG is unset. An agent granted only the instance's
+# directory can then rebuild its clusters without ~/.config.
+readonly INSTANCE_CONFIG="${INSTANCE_DIR:+${INSTANCE_DIR}/forge.yaml}"
+if [[ -n ${INSTANCE_CONFIG} && -z ${FORGE_CONFIG:-} && -f ${INSTANCE_CONFIG} ]]; then
+	CONFIG="${INSTANCE_CONFIG}"
+fi
+
+# Where lima forwards that instance's docker socket: vm.nix asks for
+# {{.Dir}}/sock, and .Dir is $LIMA_HOME/<name>. Every command below talks to
+# this daemon and never to whatever DOCKER_HOST names, because a kind node is a
+# privileged container, so the daemon forge uses is the one whose mounts and
+# port forwards decide what a cluster can reach on this mac.
+readonly VM_SOCKET="${LIMA_HOME:-${HOME}/.lima}/${VM_NAME}/sock/docker.sock"
+export DOCKER_HOST="unix://${VM_SOCKET}"
+
+# lima copies the config into the instance directory at creation and reads that
+# copy for the life of the instance, so this is the definition the VM is
+# actually running.
+readonly VM_LIVE_CONFIG="${LIMA_HOME:-${HOME}/.lima}/${VM_NAME}/lima.yaml"
+
+# Two sizes rather than free-form numbers, so an agent asking for a bigger VM
+# cannot ask for the whole host. large is what vm.nix declares.
+size_cpus() {
+	case "$1" in
+	small) echo 2 ;;
+	large) echo 4 ;;
+	*) die "unknown size '$1' (want small or large)" ;;
+	esac
+}
+
+size_memory() {
+	case "$1" in
+	small) echo 4GiB ;;
+	large) echo 8GiB ;;
+	*) die "unknown size '$1' (want small or large)" ;;
+	esac
+}
+
+# The instance's lima config: the template with this instance's port window
+# and the given CPUs and memory. Nothing else differs between instances, so
+# the no-mounts and deny-tail properties nix/checks/forge-vm.nix asserts on the
+# template hold for every instance, and that check asserts them on this output
+# too.
+render_vm_config() {
+	local cpus="$1" memory="$2"
+	yq -o=json -P "
+		.cpus = ${cpus}
+		| .memory = \"${memory}\"
+		| (.portForwards[] | select(has(\"guestPortRange\"))) |= (
+			.guestPortRange = [${API_PORT_BASE}, ${API_PORT_LAST}]
+			| .hostPortRange = [${API_PORT_BASE}, ${API_PORT_LAST}])
+	" "${VM_TEMPLATE}"
+}
+
 # ─── Prerequisites ─────────────────────────────────────────────────────────────
 
 check_prerequisites() {
@@ -71,6 +139,10 @@ get_network() {
 # FORGE_KUBECONFIG overrides the config, which is how a caller puts the file
 # somewhere its own sandbox is allowed to read without editing shared config.
 get_kubeconfig() {
+	if [[ -n ${INSTANCE_DIR} ]]; then
+		echo "${INSTANCE_DIR}/kubeconfig.yaml"
+		return
+	fi
 	local raw
 	raw="${FORGE_KUBECONFIG:-$(yq_get '.kubeconfig // ""')}"
 	[[ -n ${raw} ]] || die "no 'kubeconfig' in ${CONFIG} (override with FORGE_KUBECONFIG)"
@@ -215,8 +287,31 @@ ensure_mirrors() {
 
 # Empty for an instance that does not exist: limactl exits 1 and logs
 # "unmatched instances" for a name it does not know.
+#
+# Under pi's --allow-forge the socket is granted and the instance directory is
+# not, so limactl sees nothing there; a daemon that answers is a running VM.
 vm_status() {
+	if docker info &>/dev/null; then
+		echo Running
+		return
+	fi
 	limactl list "${VM_NAME}" --format '{{.Status}}' 2>/dev/null || true
+}
+
+# The size an existing instance was created or resized to, read back from its
+# own config. Empty when the instance does not exist.
+live_size() {
+	[[ -f ${VM_LIVE_CONFIG} ]] || return 0
+	local cpus memory size
+	cpus="$(yq '.cpus' "${VM_LIVE_CONFIG}")"
+	memory="$(yq '.memory' "${VM_LIVE_CONFIG}")"
+	for size in small large; do
+		if [[ ${cpus} == "$(size_cpus "${size}")" && ${memory} == "$(size_memory "${size}")" ]]; then
+			echo "${size}"
+			return
+		fi
+	done
+	echo "custom (${cpus} CPUs, ${memory})"
 }
 
 # An instance that exists keeps the definition it was created with, so a new
@@ -226,29 +321,45 @@ vm_status() {
 # rather than a note forge writes at creation time also catches a config edited
 # underneath it, a mount added by hand being the case that matters. Compared as
 # sorted JSON because lima is free to reformat what it persists (it does not
-# today: on 2.2.0 the copy is byte-identical).
+# today: on 2.2.0 the copy is byte-identical). CPUs and memory are compared at
+# whatever the instance holds, since `forge resize` is how those change.
 canonical_config() {
-	yq -o=json -I=0 'sort_keys(..)' "$1" 2>/dev/null
+	yq -p=json -o=json -I=0 'sort_keys(..)' 2>/dev/null
 }
 
 check_vm_generation() {
-	[[ "$(canonical_config "${VM_CONFIG}")" == "$(canonical_config "${VM_LIVE_CONFIG}")" ]] && return
-	warn "VM '${VM_NAME}' is not running ${VM_CONFIG}."
+	[[ -r ${VM_LIVE_CONFIG} ]] || return 0
+	local cpus memory
+	cpus="$(yq '.cpus' "${VM_LIVE_CONFIG}")"
+	memory="$(yq '.memory' "${VM_LIVE_CONFIG}")"
+	[[ "$(render_vm_config "${cpus}" "${memory}" | canonical_config)" == "$(yq -o=json "${VM_LIVE_CONFIG}" | canonical_config)" ]] && return
+	warn "VM '${VM_NAME}' is not running ${VM_TEMPLATE}."
 	warn "'forge nuke && forge up' rebuilds it from the current definition."
 }
 
+# $1 is the size asked for on the command line, empty when none was.
 ensure_vm() {
+	local want="$1"
 	log "Ensuring VM '${VM_NAME}'"
-	local status
+	local status live
 	status="$(vm_status)"
+	live="$(live_size)"
+	if [[ -n ${status} && -n ${want} && -n ${live} && ${live} != "${want}" ]]; then
+		die "VM '${VM_NAME}' is ${live}, not ${want}. 'forge resize ${want}' changes it."
+	fi
 	case "${status}" in
 	Running)
 		ok "Already running"
 		;;
 	"")
-		info "Creating from ${VM_CONFIG}"
-		limactl start --name="${VM_NAME}" --tty=false --timeout="${VM_TIMEOUT}" \
-			"${VM_CONFIG}"
+		local size="${want:-${DEFAULT_SIZE}}" config
+		# --tmpdir rather than a literal /tmp, for the same reason as
+		# create_cluster's.
+		config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
+		render_vm_config "$(size_cpus "${size}")" "$(size_memory "${size}")" >"${config}"
+		info "Creating at size ${size}, API ports ${API_PORT_BASE}-${API_PORT_LAST}"
+		limactl start --name="${VM_NAME}" --tty=false --timeout="${VM_TIMEOUT}" "${config}"
+		rm -f "${config}"
 		ok "Created, and its docker socket is at ${VM_SOCKET}"
 		;;
 	*)
@@ -258,6 +369,26 @@ ensure_vm() {
 		;;
 	esac
 	check_vm_generation
+}
+
+# lima applies CPUs and memory only at boot, and `limactl edit` refuses a
+# running instance, so a resize is a stop and a start. The clusters inside come
+# back the way they do from any stopped VM.
+resize_vm() {
+	local size="$1" cpus memory status
+	cpus="$(size_cpus "${size}")"
+	memory="$(size_memory "${size}")"
+	status="$(vm_status)"
+	[[ -n ${status} ]] || die "no VM '${VM_NAME}' to resize ('forge up --size ${size}' creates one)"
+	if [[ "$(live_size)" == "${size}" ]]; then
+		ok "VM '${VM_NAME}' is already ${size}"
+		return
+	fi
+	log "Resizing VM '${VM_NAME}' to ${size} (${cpus} CPUs, ${memory})"
+	[[ ${status} == Stopped ]] || limactl stop "${VM_NAME}"
+	limactl edit --tty=false --set ".cpus = ${cpus} | .memory = \"${memory}\"" "${VM_NAME}"
+	limactl start --tty=false --timeout="${VM_TIMEOUT}" "${VM_NAME}"
+	ok "Resized and started"
 }
 
 remove_vm() {
@@ -491,21 +622,9 @@ install_argocd() {
 	local version
 	version="$(get_argocd_version)"
 	local context="kind-${mgmt}"
-	local chart_ref="${FORGE_ARGOCD_CHART:-argo/argo-cd}"
+	local chart_ref="${FORGE_ARGOCD_CHART:-}"
 
 	log "Installing ArgoCD ${version} on ${mgmt}"
-
-	# FORGE_ARGOCD_CHART installs from a local/OCI chart ref and skips the
-	# upstream repo add + pinned --version. Needed where the chart tgz CDN
-	# (release-assets.githubusercontent.com) is unreachable.
-	if [[ ${chart_ref} == "argo/argo-cd" ]]; then
-		if ! helm repo list 2>/dev/null | grep -q '^argo\s'; then
-			helm repo add argo https://argoproj.github.io/argo-helm
-			helm repo update argo
-		fi
-	else
-		log "Using chart override: ${chart_ref}"
-	fi
 
 	# Check if already installed
 	if helm --kube-context "${context}" -n argocd status argocd &>/dev/null; then
@@ -513,16 +632,24 @@ install_argocd() {
 		return
 	fi
 
-	local version_flags=()
-	if [[ ${chart_ref} == "argo/argo-cd" ]]; then
-		version_flags=(--version "${version}")
+	# FORGE_ARGOCD_CHART installs from a local/OCI chart ref and skips the
+	# upstream repo and pinned --version. Needed where the chart tgz CDN
+	# (release-assets.githubusercontent.com) is unreachable. --repo rather than
+	# `helm repo add`: the repo list is one file shared by every instance, and
+	# instances come up in parallel.
+	local chart_flags=()
+	if [[ -z ${chart_ref} ]]; then
+		chart_ref=argo-cd
+		chart_flags=(--repo https://argoproj.github.io/argo-helm --version "${version}")
+	else
+		log "Using chart override: ${chart_ref}"
 	fi
 
 	helm install argocd "${chart_ref}" \
 		--kube-context "${context}" \
 		--namespace argocd \
 		--create-namespace \
-		"${version_flags[@]}" \
+		"${chart_flags[@]}" \
 		--set configs.params."server\.insecure"=true \
 		--wait
 
@@ -657,6 +784,7 @@ cmd_status() {
 	vm_state="$(vm_status)"
 	echo "VM:"
 	printf "  %-30s %-10s %s\n" "${VM_NAME}" "${vm_state:-absent}" "${DOCKER_HOST}"
+	[[ -z ${vm_state} ]] || printf "  %-30s %s\n" "size" "$(live_size)"
 	echo ""
 
 	echo "Kubeconfig:"
@@ -704,7 +832,7 @@ cmd_status() {
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
 cmd_up() {
-	ensure_vm
+	ensure_vm "$1"
 	check_prerequisites
 	ensure_network
 	ensure_mirrors
@@ -726,9 +854,25 @@ cmd_down() {
 
 # Deleting the VM is the whole teardown: the clusters, mirrors, cache volumes,
 # network and every image kind and the mirrors pulled all live inside it.
+#
+# A named instance's directory goes too: it holds nothing but this VM's
+# kubeconfig and config, and whoever takes the number next starts clean.
 cmd_nuke() {
 	remove_vm
+	if [[ -n ${INSTANCE_DIR} ]]; then
+		rm -rf "${INSTANCE_DIR}"
+		ok "Removed ${INSTANCE_DIR}"
+	fi
 	log "Everything removed."
+}
+
+cmd_resize() {
+	resize_vm "$1"
+}
+
+cmd_vm_config() {
+	local size="${1:-${DEFAULT_SIZE}}"
+	render_vm_config "$(size_cpus "${size}")" "$(size_memory "${size}")"
 }
 
 # ─── Entrypoint ───────────────────────────────────────────────────────────────
@@ -738,19 +882,26 @@ usage() {
 forge -- declarative local Kind cluster environment, run inside a lima VM
 
 Usage:
-  forge <command>
+  [FORGE_INSTANCE=<n>] forge <command>
 
 Commands:
-  up      Create the VM if absent, then converge to the config: Docker network,
-          pull-through registry mirrors, Kind clusters, ArgoCD on the
-          management cluster, and registration of every workload cluster with
-          it. Idempotent, so it is also how a config edit gets applied.
-  down    Delete every cluster and its kubeconfig context. The VM, the mirrors
-          and their cache volumes survive, so the next 'up' reuses pulled
-          layers.
-  status  Print the VM, the mirrors, and every cluster with its context and
-          API port. Reads state, changes nothing.
-  nuke    Delete the VM, and with it every cluster, mirror, volume and network.
+  up [--size S]  Create the VM if absent, then converge to the config: Docker
+                 network, pull-through registry mirrors, Kind clusters, ArgoCD
+                 on the management cluster, and registration of every workload
+                 cluster with it. Idempotent, so it is also how a config edit
+                 gets applied.
+  down           Delete every cluster and its kubeconfig context. The VM, the
+                 mirrors and their cache volumes survive, so the next 'up'
+                 reuses pulled layers.
+  status         Print the VM, the mirrors, and every cluster with its context
+                 and API port. Reads state, changes nothing.
+  nuke           Delete the VM, and with it every cluster, mirror, volume and
+                 network.
+  resize S       Stop the VM, change its CPUs and memory, start it again.
+  vm-config [S]  Print the lima config this instance's VM is created from.
+
+Sizes: small (2 CPUs, 4GiB), large (4 CPUs, 8GiB). A new VM defaults to
+${DEFAULT_SIZE}: large unnamed, small named.
 
 Config: ${CONFIG}
   Declares the Docker network, the mirrors, the management cluster and its
@@ -761,21 +912,26 @@ Config: ${CONFIG}
 
 Environment:
   FORGE_CONFIG        Config path, overriding the default above.
+  FORGE_INSTANCE      1-${MAX_INSTANCE}, a VM that runs beside the others with its own
+                      API ports. Its kubeconfig and a copy of its config live
+                      in ~/.local/state/forge/<n>, and a later run reads that
+                      copy when FORGE_CONFIG is unset.
   FORGE_ARGOCD_CHART  ArgoCD chart ref, default argo/argo-cd. Point it at a
                       local or OCI chart when the upstream chart CDN is
                       unreachable. The version pinned in the config applies
                       only to the default ref; an override brings its own.
   FORGE_KUBECONFIG    Kubeconfig path, overriding the config's. Point it
-                      somewhere a sandboxed caller is allowed to read.
+                      somewhere a sandboxed caller is allowed to read. Ignored
+                      for a named instance.
 
 Reaching a cluster:
-  Every cluster shares one kubeconfig, at the path the config names and never
-  under ~/.kube. 'forge status' prints it. Point KUBECONFIG at it and address
+  Every cluster shares one kubeconfig, at the path the config names (or the
+  instance's, above) and never under ~/.kube. 'forge status' prints it. Point KUBECONFIG at it and address
   clusters by context:
     export KUBECONFIG=<the path 'forge status' prints>
     kubectl --context kind-<name> get nodes
   API servers listen on 127.0.0.1 from port ${API_PORT_BASE} upward in config order, ${API_PORT_SPAN}
-  ports wide, one per cluster. Nothing else inside a cluster is reachable from
+  ports wide (to ${API_PORT_LAST}), one per cluster. Nothing else inside a cluster is reachable from
   the host, because the VM forwards only that window and the Docker socket, so
   anything else, ArgoCD's own UI included, needs
   'kubectl --context kind-<name> port-forward'.
@@ -789,18 +945,43 @@ Docker:
 EOF
 }
 
+# --size S or --size=S, the one flag `up` takes.
+parse_size_flag() {
+	case "${1:-}" in
+	"") ;;
+	--size) SIZE="${2:-}" ;;
+	--size=*) SIZE="${1#--size=}" ;;
+	*) usage >&2 && exit 1 ;;
+	esac
+	[[ -z ${SIZE} ]] || size_cpus "${SIZE}" >/dev/null
+}
+
 # cmd_status does not run check_prerequisites, so the config guards belong here
 # rather than there: without them a missing config surfaces as a raw yq error.
+SIZE=""
 case "${1:-}" in
 up | down | status | nuke)
+	[[ ${1} != up ]] || parse_size_flag "${@:2}"
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"
 	check_api_port_window
+	if [[ ${1} == up && -n ${INSTANCE_CONFIG} && ! ${CONFIG} -ef ${INSTANCE_CONFIG} ]]; then
+		install -D -m 0644 "${CONFIG}" "${INSTANCE_CONFIG}"
+	fi
 	# Every kubectl, helm and kind call below addresses clusters by context, and
 	# resolves them against this file alone. Without it they would fall back to
 	# ~/.kube/config, which forge neither writes nor requires to exist.
 	KUBECONFIG="$(get_kubeconfig)"
 	export KUBECONFIG
-	"cmd_$1"
+	"cmd_$1" "${SIZE}"
+	;;
+resize)
+	[[ -n ${2:-} ]] || die "usage: forge resize small|large"
+	size_cpus "$2" >/dev/null
+	cmd_resize "$2"
+	;;
+vm-config)
+	[[ -z ${2:-} ]] || size_cpus "$2" >/dev/null
+	cmd_vm_config "${2:-}"
 	;;
 help | -h | --help)
 	usage

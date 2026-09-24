@@ -1,0 +1,26 @@
+# What pi-broker brings a small forge instance up with: a 4GiB VM holds the
+# management cluster and one single-node workload cluster, not the five nodes
+# forge.yaml declares.
+network: forge
+
+mirrors:
+  - name: dockerio
+    upstream: https://registry-1.docker.io
+  - name: ghcrio
+    upstream: https://ghcr.io
+  - name: quayio
+    upstream: https://quay.io
+
+management:
+  name: forge-mgmt
+  argocd:
+    version: "9.4.7"
+  nodes:
+    - role: control-plane
+
+kubeconfig: ~/.local/state/forge/kubeconfig.yaml
+
+clusters:
+  - name: forge-1
+    nodes:
+      - role: control-plane

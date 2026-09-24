@@ -1,9 +1,8 @@
 #compdef forge
 # vi: ft=zsh
 
-# forge takes one command word and no flags, so there is nothing to complete
-# past position 1. -h and --help are spelled out because they are accepted
-# where the command word goes rather than alongside one.
+# -h and --help are spelled out because they are accepted where the command
+# word goes rather than alongside one.
 _arguments -s \
   '(- 1)'{-h,--help}'[show the manual]' \
   '1:command:((
@@ -11,5 +10,13 @@ _arguments -s \
     down\:"delete every cluster, keeping the VM and its mirror caches"
     status\:"print the VM, mirrors and clusters, changing nothing"
     nuke\:"delete the VM and every cluster, mirror, volume and network"
+    resize\:"change the VM'"'"'s CPUs and memory"
+    vm-config\:"print the lima config the VM is created from"
     help\:"show the manual"
-  ))'
+  ))' \
+  '*::arg:->args'
+
+case $words[1] in
+  up) _arguments '--size=[VM size for a new VM]:size:(small large)' ;;
+  resize | vm-config) _arguments '1:size:(small large)' ;;
+esac
