@@ -106,16 +106,4 @@
   systemFoundry.finderSidebar.folders = [
     "/Users/kondy/screenshots"
   ];
-
-  # DNS resolution for forge dev cluster. Names must match the clusters in
-  # nix/pkgs/forge/forge.yaml.
-  # More-specific entries take priority; catch-all handles *.forge.test
-  services.dnsmasq = {
-    enable = true;
-    addresses = {
-      "forge-1.forge.test" = "172.20.201.1";
-      "forge-2.forge.test" = "172.20.202.1";
-      "forge.test" = "172.20.200.1";
-    };
-  };
 }
