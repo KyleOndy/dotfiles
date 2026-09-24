@@ -78,24 +78,33 @@ Path output (--print-path):
       path=$(git wt-feature-branch --print-path "$@") || return
       cd "$path"
 
+No fetch (--no-fetch):
+  git wt-feature-branch --no-fetch --base main add-starship
+    → skips the `git fetch`, for a base that is a local ref
+
 Notes:
   - Default branch is auto-detected (tries: git symbolic-ref, origin/main, origin/master)
   - Work mode requires valid ticket format (PROJ-123)
   - Existing mode accepts any prefix (Linear tickets, TRIVIAL, CHORE, etc.)
   - The script auto-detects mode based on flags and argument count
-  - --print-path and --base may appear anywhere in the arguments
+  - --print-path, --base and --no-fetch may appear anywhere in the arguments
 EOF
 	exit 0
 }
 
 # Pull the flags out before mode detection, which keys off $# and $1.
 print_path=false
+fetch=true
 base_override=""
 positional=()
 while [[ $# -gt 0 ]]; do
 	case $1 in
 	--print-path)
 		print_path=true
+		shift
+		;;
+	--no-fetch)
+		fetch=false
 		shift
 		;;
 	--base)
@@ -202,8 +211,10 @@ else
 fi
 
 # Create worktree
-log_info "Fetching latest from remote..."
-git fetch
+if [[ $fetch == true ]]; then
+	log_info "Fetching latest from remote..."
+	git fetch
+fi
 
 log_info "Creating worktree..."
 if [[ $checkout_existing == true ]]; then
