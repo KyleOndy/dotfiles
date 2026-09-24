@@ -462,7 +462,7 @@ remove_vm() {
 	fi
 	log "Deleting VM '${VM_NAME}'"
 	limactl delete --force "${VM_NAME}"
-	ok "Deleted the VM, and with it every cluster, mirror, volume and network"
+	ok "Deleted the VM, and with it every cluster, network and pulled image"
 }
 
 # ─── Kind cluster creation ────────────────────────────────────────────────────
