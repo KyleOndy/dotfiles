@@ -132,8 +132,9 @@ one of two things:
 - tiger does not answer: `umount -f` whatever is still mounted, and do not
   attempt a mount at all.
 
-It logs to `~/Library/Logs/smb-tiger.log` and says nothing unless it mounted or
-unmounted something.
+It logs to `~/Library/Logs/smb-tiger.log` only when it mounts, unmounts, or
+fails to. It refuses to mount at all, with a log line, when the sops password
+would need percent-encoding in the mount URL.
 
 Three things about it are less obvious than they look:
 
@@ -159,8 +160,8 @@ name Finder shows.
 
 tiger is addressed as `tiger.dmz.1ella.com`, not `tiger.local`. trex sits on
 10.24.89.0/24 and tiger on 10.25.89.0/24, and mDNS does not cross subnets.
-Away from home nothing resolves that name until `wg-home` is up
-(`wireguard.nix`).
+Away from home nothing resolves that name until `wg-home` or `wg-all` is up
+(`vpn home` or `vpn all`, `wireguard.nix`).
 
 If a Favorite opens an empty folder, nothing is mounted; check the log.
 
