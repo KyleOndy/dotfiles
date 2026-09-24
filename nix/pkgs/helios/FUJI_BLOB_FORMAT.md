@@ -32,7 +32,7 @@ exists:
   object handle 0, format `0x5000`, a `uint32` length prefix, and a
   "too big" guard at 100000 bytes. It does not parse the contents. This is the
   authoritative reference for the transfer, and matches `fuji_settings.py`.
-  <https://github.com/petabyt/libfuji/blob/master/lib/fuji_usb.c>
+  <https://github.com/petabyt/libfuji/blob/782f9c657ece16890f67343fb5560294d802f94f/lib/fuji_usb.c>
 - **petabyt/fp** parses the X RAW Studio profile (`FP1/2/3`, the `0xD185`
   625-byte structure) - a _different_ format, unrelated to this blob.
 - Closed-source hobbyist viewers exist (a Java `.jar` for the X-T2 by "Macro";
@@ -129,14 +129,17 @@ remain the other, already-mapped view of the same look.
 
 ## Per-slot preamble (verified)
 
-Three fields are not in the 0x400 record body. They sit in a small block just
+Five fields are not in the 0x400 record body. They sit in a small block just
 _before_ each record start, at fixed distances back. Offsets below are measured
-back from the record start; for slot 1 the block precedes the first record. All
-three were located by an X-T5 multi-slot sweep and round trip byte-for-byte.
+back from the record start; for slot 1 the block precedes the first record. WB
+mode, color temp and long-exposure NR were located by an X-T5 multi-slot sweep
+and round trip byte-for-byte. AF+MF (round 11) and the image-quality byte
+(round 7) came from later controlled rounds.
 
 | Offset from start | Len | Field             | Encoding                                       |
 | ----------------- | --- | ----------------- | ---------------------------------------------- |
 | `-0x74`           | 2   | color temperature | u16 LE kelvin, used only when WB is Color Temp |
+| `-0x4C`           | 1   | image quality     | RAW-mode companion to body `+0x29` (see below) |
 | `-0x48`           | 1   | long-exposure NR  | `1` = off, `0` = on (inverted from PTP)        |
 | `-0x41`           | 1   | AF+MF             | `1` = on, `0` = off (X-T5 round 11)            |
 | `-0x18`           | 1   | white balance     | mode code table (Auto=`0`, ..., Custom=`0x0B`) |
@@ -183,13 +186,14 @@ slot (125 / 6400 / AUTO on all banks) and a test slot (160/400 1/500,
 
 ## Per-slot AF/drive/shooting fields (X-T5 controlled diffs)
 
-A custom bank stores far more than the image-quality look. Setting one custom-bank
-menu item on the camera, re-backing up, and running `helios fuji-settings diff
---whole-file` against the prior backup isolates each setting to its byte(s). The
-whole EDIT/CHECK menu was walked this way (change one item per slot, one backup
-per round). These are **single data points**: the locations are solid, but the
-multi-value encodings (enums, durations) are not fully swept, so helios names the
-bytes but does not decode them yet.
+A custom bank stores far more than the image-quality look. Setting one
+custom-bank menu item on the camera, re-backing up, and running
+`helios fuji-settings diff --whole-file` against the prior backup isolates each
+setting to its byte(s). The whole EDIT/CHECK menu was walked this way (change
+one item per slot, one backup per round), then the multi-value fields were
+swept (rounds 6-12). `decode_slot_fields` decodes every mapped field and
+`fuji-settings inspect` prints it. Only the six unconfirmed toggles below are
+still **single data points**; they show as raw bytes.
 
 Body value bytes (offset relative to record start):
 
@@ -273,10 +277,13 @@ Unconfirmed toggles (single diff, direction unknown, so they take the raw byte
 
 A field pairing a body byte with a trailer flag writes both; the trailer block is
 absent from the truncated last slot (C7 ends near `+0x37C`), so a trailer-flagged
-field there raises rather than writing past the record. The `detection` cluster is
-all body bytes (`<= +0x10C`), so it writes on every slot including C7. **Still
-unmapped:** the two unidentified per-slot trailer flags `+0x3AE` and `+0x3BD`, and
-the min-shutter ladder's slow tail past 1s (indices 21-25).
+field there raises rather than writing past the record. helios pairs the flags
+at `+0x3B5`, `+0x3B7`, `+0x3B9` and `+0x3D3`. It writes no flag for
+`detection`, or for `pre_af` (only its body byte moved in round 11), so
+`+0x3B2`, `+0x3B3` and `+0x3BF` keep whatever the backup held. The `detection`
+cluster is all body bytes (`<= +0x10C`), so it writes on every slot including
+C7. **Still unmapped:** the two unidentified per-slot trailer flags `+0x3AE` and
+`+0x3BD`, and the min-shutter ladder's slow tail past 1s (indices 21-25).
 
 ## The whole-file checksum (solved, confirmed on hardware)
 
@@ -309,16 +316,17 @@ only the low u16 and leaves the counter as the camera set it.
 applied on the camera: the new name read back over USB and showed in the camera
 menu. Only the global checksum needed recomputing.
 
-**There is no per-record integrity/generation token.** `fuji-settings
-commit-probe` settled this on 2026-07-16: editing one slot, restoring, power
-cycling, and three-way diffing the re-saved record showed the camera re-stamped
-**nothing inside the record**, only a global lens/state block (`0x7aac..0x7b24`)
-it accepts stale on restore. So the whole-file `0xE8` checksum is the only
-integrity gate, which is why every slot's look commits in a single restore (see
-FUJI_WRITE_SURFACE.md, "Restoring many slots at once"). The record trailer
-`+0x37C..0x3FF` holds settings, not a check; some of the bytes there that "move
-with content" (`0x3B8`, `0x3E8`) fall exactly on the **next slot's preamble**
-offsets (long-exp NR `-0x48`, WB mode `-0x18`), which helios already writes.
+**There is no per-record integrity/generation token.**
+`fuji-settings commit-probe` settled this on 2026-07-16: editing one slot,
+restoring, power cycling, and three-way diffing the re-saved record showed the
+camera re-stamped **nothing inside the record**, only a global lens/state block
+(`0x7aac..0x7b24`) it accepts stale on restore. So the whole-file `0xE8`
+checksum is the only integrity gate, which is why every slot's look commits in a
+single restore (see FUJI_WRITE_SURFACE.md, "Restoring many slots at once"). The
+record trailer `+0x37C..0x3FF` holds settings, not a check; some of the bytes
+there that "move with content" (`0x3B8`, `0x3E8`) fall exactly on the **next
+slot's preamble** offsets (long-exp NR `-0x48`, WB mode `-0x18`), which helios
+already writes.
 
 **One camera-managed field to know about.** On each save the camera bumps a small
 counter at file offset `+0x584` (u16, values 2 and 3 across our captures). Because
@@ -419,6 +427,6 @@ recipe names. Redact the serial if a test fixture is wanted.
   Acquire (Windows v1.29.0), `XGFXAPI.dll` (`XSDK_GetBackupSettings` /
   `XSDK_SetBackupSettings`, class `CCameraCommandBackupSettings`) and `FTLPTP.dll`
   (the PTP vendor-op transport), statically analyzed. Checksum cross-checked
-  against four controlled X-T5 captures.
+  against five controlled X-T5 captures.
 - Whole-file checksum breadcrumb (pointed near `0xE4/0xE5` on a GFX100s, a
   different body): DPReview GFX100s decode thread (above).

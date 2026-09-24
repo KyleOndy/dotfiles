@@ -120,16 +120,17 @@ save the slot, or the change will not show up in the backup.
 ## The workflow
 
 ```
-fuji-settings backup                        # pristine .bak, keep it
-fuji-settings edit BACKUP --slot 7 --recipe c7.yaml
-fuji-settings edit BACKUP --recipe-dir DIR  # builds a full seven-slot file
-fuji-settings diff BACKUP BACKUP-edited     # sanity: only intended bytes moved
-fuji-settings restore BACKUP-edited         # clean state; power-cycle after
+fuji-settings backup                      # pristine .bak, keep it
+fuji-settings edit B.bak --slot 7 --recipe c7.yaml  # one slot, or
+fuji-settings edit B.bak --recipe-dir DIR # a full seven-slot file
+fuji-settings diff B.bak B-edited.bak     # sanity: only intended bytes moved
+fuji-settings restore B-edited.bak        # clean state; power-cycle after
 ```
 
 `edit` reports a per-field before/after for each slot, plus any fields it could
-not write, and recomputes the checksum. It writes a new file and refuses to
-overwrite the input.
+not write, and recomputes the checksum. It writes `<input>-edited<ext>` (or
+`--output`) and refuses to overwrite the input or an existing file, so the two
+`edit` lines above are alternatives.
 
 `edit --recipe-dir` builds a valid seven-slot file, and `restore` writes every
 slot's **look** in one pass. Restore from a clean state as the first operation. The
@@ -139,9 +140,9 @@ or set the odd one from the camera menu (see "Restoring many slots at once" abov
 
 ## The catalog
 
-Offsets are relative to the start of a slot record, except the three preamble
-fields, which sit at fixed distances _before_ the record start (see the preamble
-note below). "Blob write" is whether `fuji-settings edit` can set the field.
+Offsets are relative to the start of a slot record, except the preamble fields,
+which sit at fixed distances _before_ the record start (see the preamble note
+below). "Blob write" is whether `fuji-settings edit` can set the field.
 
 ### Image-quality look
 
@@ -164,7 +165,7 @@ note below). "Blob write" is whether `fuji-settings edit` can set the field.
 | mono_mg                 | +0x58          | `raw - 18`, integer -9..+9                               | yes        | yes                           | sweep-confirmed (mono sims)   |
 | white_balance           | preamble -0x18 | mode code table (12 codes mapped)                        | yes        | partial (no White Pri/Custom) | sweep-confirmed               |
 | wb_color_temp           | preamble -0x74 | u16 LE kelvin                                            | yes        | yes                           | sweep-confirmed               |
-| long_exposure_nr        | preamble -0x48 | off = 1, on = 0                                          | yes        | no (PTP hardcodes on)         | sweep-confirmed               |
+| long_exposure_nr        | preamble -0x48 | off = 1, on = 0                                          | yes        | via `passthrough.d1a3` only   | sweep-confirmed               |
 
 ### Auto-ISO (blob only, no PTP property at all)
 
@@ -179,6 +180,19 @@ note below). "Blob write" is whether `fuji-settings edit` can set the field.
 | Field     | Blob offset | Encoding                       | Blob write | Status             |
 | --------- | ----------- | ------------------------------ | ---------- | ------------------ |
 | slot name | +0x1CF      | NUL-terminated ASCII, 25 chars | yes        | hardware-confirmed |
+
+### Per-slot menu settings (blob only)
+
+`edit` also writes the custom-bank EDIT/CHECK menu settings: `af_mf` (preamble
+`-0x41`), `image_quality` (body `+0x29` plus preamble `-0x4C`), `detection`,
+and every key in `BLOB_SLOT_FIELDS` in `fuji_backup.py` (`af_mode`,
+`shutter_type`, `self_timer`, `d_range_priority`, `afc_custom`, `image_size`,
+`aspect_ratio`, `raw_recording`, `num_focus_points`, `instant_af`, the
+confirmed toggles, and the six unconfirmed ones under "Known gaps").
+`fuji-recipes restore` warns and skips these keys; the PTP path only round
+trips raw image size and quality through `passthrough`. Their bytes, codes and
+confirmation status are in `FUJI_BLOB_FORMAT.md`,
+"Per-slot AF/drive/shooting fields".
 
 ## The per-slot preamble
 

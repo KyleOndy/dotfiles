@@ -61,7 +61,7 @@ these and are unreliable):
 - libgphoto2 `camlibs/ptp2/ptp.h` (standard PTP response codes + `PTP_DPC_FUJI_*`):
   <https://github.com/gphoto/libgphoto2/blob/master/camlibs/ptp2/ptp.h>
 - libfuji `lib/fujiptp.h` (mirrors the `PTP_DPC_FUJI_*` names):
-  <https://github.com/petabyt/libfuji/blob/master/lib/fujiptp.h>
+  <https://github.com/petabyt/libfuji/blob/782f9c657ece16890f67343fb5560294d802f94f/lib/fujiptp.h>
 - Real-camera dumps: e.g. `camlibs/ptp2/cameras/fuji-xt2.txt`.
 
 Names elsewhere list ISO `0xD02A ExposureIndex`, an auto-ISO triplet
@@ -92,11 +92,11 @@ anywhere; clarity exists only as preset prop `0xD1A2` or field [27] of the
   X-T5 manual, IMAGE QUALITY SETTING:
   <https://fujifilm-dsc.com/en/manual/x-t5/menu_shooting/image_quality_setting/>
 - No primary source documents a PTP clarity rejection specifically; our X-T5
-  observation is the data point. Deferred fix paths: capture X RAW Studio
-  writing clarity to an X-T5 over USB and replicate; or set it via a blob
-  restore (both the checksum and the restore transport are now solved, so this
-  path is open if clarity turns out to live in the blob). Current behavior: warn
-  and skip.
+  observation is the data point. The deferred PTP fix: capture X RAW Studio
+  writing clarity to an X-T5 over USB and replicate. The blob path already
+  carries it: clarity lives at record `+0x25`, and `fuji-settings edit` writes
+  it for `fuji-settings restore` to send. `fuji-recipes restore` still warns
+  and skips it.
 
 ## Custom-setting scope: manual vs. observation
 
@@ -160,7 +160,7 @@ space directly. On an X-T5 in USB RAW CONV./BACKUP RESTORE mode:
   earlier write in the batch), not a hard limit - a lead worth chasing.
 
 Source for the property names: libfuji `lib/fujiptp.h`
-<https://github.com/petabyt/libfuji/blob/master/lib/fujiptp.h>.
+<https://github.com/petabyt/libfuji/blob/782f9c657ece16890f67343fb5560294d802f94f/lib/fujiptp.h>.
 
 ## The whole-camera backup blob
 
@@ -182,7 +182,7 @@ A GitHub code search for the `FUJIFILMX-BACKUP` magic returns **zero** results
 - **libfuji** transports the blob only (PTP object handle 0, format `0x5000`,
   `uint32` length prefix, "too big" guard at 100000 bytes), no content parsing.
   Authoritative for the transfer path, and matches `fuji_settings.py`:
-  <https://github.com/petabyt/libfuji/blob/master/lib/fuji_usb.c>
+  <https://github.com/petabyt/libfuji/blob/782f9c657ece16890f67343fb5560294d802f94f/lib/fuji_usb.c>
 - **petabyt/fp** parses the X RAW Studio profile (`FP1/2/3`, the `0xD185`
   structure), a different format unrelated to the backup blob:
   <https://github.com/petabyt/fp>
@@ -232,8 +232,9 @@ see `FUJI_BLOB_FORMAT.md`.
 ## Open questions / deferred
 
 The goal these feed is **writing a complete custom-settings slot from a source
-file.** The image-quality look is writable over PTP today (`fuji-recipes
-restore`), but auto-ISO - and anything else that lives only in the blob - is not
+file.** The image-quality look is writable over PTP today
+(`fuji-recipes restore`), but auto-ISO - and anything else that lives only in
+the blob - is not
 (the sweep proved auto-ISO has no PTP property). So a complete file-driven write
 needs the blob-edit path, and that path now works end to end: `edit`/`--recipe-dir`
 rewrites slots and `restore` commits every slot's look at once on the X-T5 (image-quality

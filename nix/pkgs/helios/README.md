@@ -19,11 +19,15 @@ helios fuji-settings test-writable # empirically test which PTP properties accep
 helios fuji-recipes             # film recipe management, see below
 ```
 
+Global options go before the subcommand. `--db-path`, `--photo-dir` and
+`--recipe-dir` take precedence over `HELIOS_DB_PATH`, `HELIOS_LIBRARY_PATH`
+and `HELIOS_RECIPE_DIR`; `--log-level` sets verbosity (default `INFO`).
+
 ## Import
 
 `import camera` and `import filesystem` both process files in passes, in
-this order: JPEGs, then HEIFs (`.HIF`), then videos (`.MOV`), then raws
-(`.RAF`). Same content dedup (by md5) applies to all of them. If a camera
+this order: JPEGs, then HEIFs (`.HIF`, `.HEIC`), then videos (`.MOV`), then
+raws (`.RAF`). Same content dedup (by md5) applies to all of them. If a camera
 connection drops mid-import, the earlier, more important passes are already
 downloaded and imported rather than stranded.
 
@@ -35,23 +39,27 @@ purpose: `backup-photos` scopes its `--delete` per shoot and finds shoots by
 that fixed depth, so a directory one level shallower would put the delete
 scope over an entire year.
 
-Timestamps and star ratings come from one batched `exiftool` call per run,
-except JPEGs, whose timestamps come from Pillow's EXIF reader (no
-subprocess needed). The nix package puts `exiftool` on `PATH` for the
-wrapped binary, so nothing extra to install.
+Timestamps and star ratings come from one batched `exiftool` call per pass
+(`import camera` makes one per file type), except JPEGs, whose timestamps
+come from Pillow's EXIF reader (no subprocess needed). The nix package puts
+`exiftool` on `PATH` for the wrapped binary, so nothing extra to install.
 
 Imports are atomic and durable: each file streams to a hidden `.part` temp
 in its destination directory (hashed during the same read), gets fsynced,
-and is renamed into place before the database records it. The library
-never contains a partial file, and the db never claims a photo the disk
-does not durably hold. helios never deletes source files; clean cards up
-out of band once the end-of-run summary looks right.
+and is renamed into place before the database records it. A `--move` within
+one filesystem skips the temp: the source is hashed in place, fsynced, and
+renamed. The library never contains a partial file, and the db never claims
+a photo the disk does not durably hold. helios never deletes anything on the
+camera, and `import filesystem` leaves its sources in place unless you pass
+`--move`. Clean cards up out of band once the end-of-run summary looks right.
 
 Re-imports are fast: a file whose (name, size, mtime) was recorded on a
 previous import, and whose content demonstrably reached the library, is
-skipped without being read at all. A re-run over an already-imported card
-takes seconds instead of re-hashing every byte. `--force-hash` bypasses
-the shortcut and verifies by content again; the theoretical false-skip (a
+skipped without being read at all. `import camera` adds the camera serial to
+that key and skips the USB transfer itself. A re-run over an already-imported
+card takes seconds instead of re-hashing every byte. `--force-hash` (on
+`import filesystem`) and `--force-download` (on `import camera`) bypass the
+shortcut and verify by content again; the theoretical false-skip (a
 name/size/mtime collision across card formats) leaves the file untouched
 on the card, so nothing is ever lost to it.
 
@@ -65,11 +73,12 @@ it doesn't lose photos, but it does mean the next import re-hashes and
 re-considers everything; content already in the library is detected and
 recorded again without creating duplicates.
 
-Raws are a local edit cache, not archival: `backup-photos` mirrors the
-whole library to tiger, but excludes `.RAF` from the S3 disaster-recovery
-copy on purpose (see `tf/photos-backup.tf`). Culling a JPEG from
-`_provisional/` should take its RAF sibling with it; that's a cull-tool
-concern, not something helios does automatically.
+`backup-photos` mirrors each shoot under `_provisional/` and `archive/` to
+tiger, plus `helios.db`; it does not copy `settings/`. Its opportunistic
+`--s3` push of `_provisional/` leaves `.RAF` out, while tiger's
+`photos-fanout` sends `archive/` to S3 with raws included. Culling a JPEG
+should take its RAF sibling with it: winnow does that when it deletes, and
+helios does not.
 
 ### On macOS, import from a card reader
 
@@ -197,6 +206,7 @@ always put it back.
 # see what is on the camera
 helios fuji-recipes list
 helios fuji-recipes list --dump-raw   # raw property values, for debugging
+helios fuji-recipes dump-props        # which vendor properties vary per slot
 
 # camera slots -> files (c1-<name>.yaml .. c7-<name>.yaml)
 helios fuji-recipes backup                # into <library>/settings/recipes
@@ -222,21 +232,25 @@ take a second to show the new values in its menus; power cycling never hurts.
 comment, or unrecognized. Unrecognized lines mean you should check the output
 file by hand.
 
-Imported recipes land in the library without a slot prefix. Directory restore
-only pushes `c1-` to `c7-` prefixed files and skips the rest, so rename a
+Imported recipes land in the recipe dir without a slot prefix. Directory
+restore only pushes `c1-` to `c7-` prefixed files (plus a bare `c1.yaml`,
+which `backup` writes for an unnamed slot) and skips the rest, so rename a
 recipe to `c3-kodachrome-64.yaml` (or restore it by file with `--slot 3`) to
 assign it a slot.
 
 ### Recipe files
 
-One YAML file per recipe. Everything is hand-editable. The version-controlled copy
-lives in this repo at `fuji-recipes/`. `HELIOS_RECIPE_DIR` points every command's
-recipe-dir default there instead of `<library>/settings/recipes` (set it in your
-host's home-manager config), so `helios fuji-recipes backup` writes straight
-into the repo and `git diff fuji-recipes/` shows what changed on the camera since the
-last commit. Only the recipe dir moves; `HELIOS_LIBRARY_PATH` still governs
-whole-camera backups and the dedup db. `--dir` / `--recipe-dir` / `--output` override
-it per command, same as any other helios path.
+One YAML file per recipe. Everything is hand-editable. The version-controlled
+copy lives in this repo at `fuji-recipes/`. `HELIOS_RECIPE_DIR` points the
+recipe-dir default there instead of `<library>/settings/recipes`, so
+`helios fuji-recipes backup` writes straight into the repo and
+`git diff fuji-recipes/` shows what changed on the camera since the last
+commit. No host sets it yet; export it, or set it in the host's home-manager
+config. Only the recipe dir moves: `HELIOS_LIBRARY_PATH` still governs
+whole-camera backups, and the dedup db follows `HELIOS_DB_PATH`. `--dir` (on
+`fuji-recipes backup` and `restore`), `--output` (on `fuji-recipes import`)
+and `--recipes` (on `fuji-settings correlate`) override it per command, and
+`helios --recipe-dir DIR` sets it for one run.
 
 ```yaml
 name: Kodachrome 64
@@ -278,6 +292,14 @@ Field notes:
 - **high_iso_nr**: -4 to 4.
 - **mono_wc, mono_mg**: monochromatic color toning, -9 to 9, monochrome
   simulations only.
+- **auto_iso**: the slot's three auto-ISO banks, a list of exactly three
+  mappings (AUTO1, AUTO2, AUTO3). Each takes `default` (a 1/3-stop ISO,
+  125-12800), `max` (a full-stop ISO, 100-12800) and `min_shutter` (a mapped
+  menu speed such as `1/125`, `1s` or `AUTO`). Only the blob path writes it;
+  `fuji-recipes restore` warns and skips it.
+- **long_exposure_nr**: on or off, written to the slot preamble by the blob
+  path. `fuji-recipes restore` ignores this key without a warning; the PTP
+  path writes long exposure NR from `passthrough.d1a3` instead.
 - **passthrough**: raw values we round trip verbatim (image size, image
   quality, color space, long exposure NR, two unknowns). Leave it alone
   unless you know the encoding. Files without it get sane defaults.
@@ -313,33 +335,35 @@ Field notes:
 
 ### Limitations
 
-- **Two write paths, different reach.** The live PTP path (`fuji-recipes
-restore`) writes the image-quality look through the property view
-  (`0xD18E-0xD1A5`): film sim, WB, tone, grain, clarity, and so on. ISO and
+- **Two write paths, different reach.** The live PTP path
+  (`fuji-recipes restore`) writes the image-quality look through the property
+  view (`0xD18E-0xD1A5`): film sim, WB, tone, grain, clarity, and so on. ISO and
   exposure compensation are not among those properties, so `import` keeps those
   lines as comments. A custom slot stores more than the PTP view exposes: its own
   **auto-ISO** configuration (three AUTO1/2/3 banks) and a set of **per-slot menu
   settings** (image quality, AF mode, shutter type, and more), both of which live
-  in the whole-camera backup. The blob write path reaches them: `helios
-fuji-settings edit` (and `--recipe-dir`) rewrites slots from recipe files,
-  recomputes the whole-file checksum, and `helios fuji-settings restore` applies
-  it on the X-T5, committing every slot in one pass, confirmed on the camera. The
-  look and auto-ISO round trips are confirmed; the menu-field encodings come from
-  single controlled diffs, so validate a restore against a fresh backup. Slot
+  in the whole-camera backup. The blob write path reaches them:
+  `helios fuji-settings edit` (and `--recipe-dir`) rewrites slots from recipe
+  files, recomputes the whole-file checksum, and
+  `helios fuji-settings restore` applies it on the X-T5, committing every slot
+  in one pass, confirmed on the camera. The look and auto-ISO round trips are
+  confirmed; the menu-field encodings come from single controlled diffs, so
+  validate a restore against a fresh backup. Slot
   **names** are the one restriction: the camera caps
   the total length of all seven names (mid-90s of characters), so a set of long
   recipe names may not all fit in one restore (see FUJI_WRITE_SURFACE.md,
   "Restoring many slots at once").
-- **Clarity is not written over USB.** Writes to the clarity property
+- **Clarity is not written over PTP.** Writes to the clarity property
   (`0xD1A2`) on the X-T5 come back `PTP 0x201C`, which is the standard PTP
   `InvalidDevicePropValue`: the property is supported (reads work) but the value
   is rejected in the camera's current state. This is not a hard protocol limit:
   filmkit writes clarity fine on the X100VI, so it is an X-T5 state/firmware
   condition we have not yet pinned down (a USB capture of X RAW Studio writing
-  clarity to an X-T5 would settle it). `restore` warns and leaves clarity
-  untouched, so set it by hand in IMAGE QUALITY SETTING > CLARITY and resave the
-  slot (needs JPEG; HEIF greys the menu out). Recipe files keep the value for
-  reference.
+  clarity to an X-T5 would settle it). `fuji-recipes restore` warns and leaves
+  clarity untouched. The blob path does carry it: `fuji-settings edit` writes
+  clarity at record `+0x25` for `fuji-settings restore` to send, and the camera
+  only applies it to a JPEG slot. Otherwise set it by hand in IMAGE QUALITY
+  SETTING > CLARITY and resave the slot (needs JPEG; HEIF greys the menu out).
 - **Stills slots only.** The X-T5 has a separate C1-C7 bank for movie mode,
   but the protocol for it is unmapped. Video settings are still covered by
   the whole-blob backup.
