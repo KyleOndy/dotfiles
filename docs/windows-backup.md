@@ -145,7 +145,7 @@ Task Scheduler, new task:
 
 - **Trigger** - daily, and tick "Run task as soon as possible after a
   scheduled start is missed". The PC will be off sometimes. This is the
-  Windows version of the `Persistent = true` on every timer in this repo.
+  Windows version of `Persistent = true` on a systemd timer.
 - **Security** - "Run whether user is logged on or not", as the same account
   that ran `cmdkey`. Do not map a drive letter: a non-interactive session has
   none, which is why the script uses the UNC path.
@@ -153,9 +153,11 @@ Task Scheduler, new task:
 
 ## Checking it worked
 
+The directory is `0750 kristen:kristen`, so reading it takes `sudo`.
+
 ```bash
 # the file landed
-ssh tiger 'ls /mnt/backups/kristen-data'
+ssh tiger 'sudo ls /mnt/backups/kristen-data'
 
 # tiger sees the heartbeat
 ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=windows_backup_last_success_timestamp_seconds" | jq .'
@@ -164,7 +166,7 @@ ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=windows_backup_last
 ssh tiger 'ls /mnt/backups/.zfs/snapshot/ | tail -1'
 
 # pika has the second copy, after its daily syncoid
-ssh pika 'ls /tank/backups/kristen-data'
+ssh pika 'sudo ls /tank/backups/kristen-data'
 
 # and the offsite one, after pika's 06:00 push
 aws s3 ls s3://ondy-archive-resolved-pug/backups/kristen-data/ --recursive | head
@@ -193,12 +195,15 @@ with no `_heartbeat` in it. Either step 5 never happened, or every run has
 failed before the last line of the script.
 
 **A cull on the PC deleted something wanted.** Recover from
-`/mnt/backups/.zfs/snapshot/` on tiger, which keeps 31 dailies. pika keeps the
-same data readonly for far longer, at daily 60, monthly 36, yearly 15.
+`/mnt/backups/.zfs/snapshot/` on tiger, which keeps 31 dailies, reading it
+with `sudo`. pika keeps the same data readonly for far longer, at daily 60,
+monthly 36, yearly 15.
 
 ## Adding a second machine
 
 Add an entry to `windowsBackupDirs`, a share and a POSIX account beside the
-existing ones, and an `smb_<user>_password` secret. The tmpfiles rules, the
-heartbeat, the metric label and every alert follow from the list entry. Then
-repeat the client steps with the new share name.
+existing ones, and an `smb_<user>_password` secret. The secret needs two
+lines of its own in `tiger/configuration.nix`: an entry in `sops.secrets`,
+and a `seed` call in `samba-smbpasswd-seed`. The tmpfiles rules, the
+heartbeat, the metric label and every alert follow from the list entry.
+Then repeat the client steps with the new share name.

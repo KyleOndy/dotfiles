@@ -16,8 +16,8 @@ In scope, and the only things in scope:
 
 - `storage/photos`, 513G used, 327G referenced. The curated photo library
   plus `_provisional`.
-- `storage/backups`, 650G used, 319G referenced. `kristen`, `kyle`,
-  `videos`, `apps`.
+- `storage/backups`, 650G used, 319G referenced. `kristen`,
+  `kristen-data`, `kyle`, `videos`, `apps`.
 - `storage/projects`, working video projects. The Resolve trees under
   `~/resolve` on trex plus the Resolve project library, pushed by
   `backup-resolve-projects`. Tiers 1 and 2 here; its offsite copy comes from
@@ -50,7 +50,7 @@ that boundary is a bucket rather than a prefix:
 So the shape is:
 
 ```
-trex ~/resolve --sync--> ondy-video-scratch     project/  Standard-IA
+trex ~/resolve --sync--> ondy-video-scratch-*   project/  Standard-IA
                                                 footage/  Deep Archive
 ```
 
@@ -123,7 +123,8 @@ someone has to remember to pair.
 
 It mirrors with `--delete`, so cleaning up a finished project locally
 removes it from tiger on the next run, after which it ages out on the
-retention above: recoverable for about a month, then gone. That is the
+retention under [Tier 1](#tier-1-tiger): recoverable for 30 days to two
+months on tiger and 60 days to three months on pika, then gone. That is the
 intended lifecycle for a dataset on a pool at 85%, and it is why the script
 refuses to run against a missing or empty source. `--delete` from an empty
 tree is a one-command wipe of the copy that exists to survive exactly that
@@ -168,12 +169,13 @@ sanoid, snapshots            sanoid, prune only          put-only IAM
 85% full                     NVMe root, on UPS           no --delete
 ```
 
-Read the arrows as trust, not just data. Every arrow is initiated by the
-host on its right.
+Read the arrows as trust, not just data. tiger starts none of them. pika
+pulls from tiger and pushes to S3, and trex pushes its own.
 
-tiger holds no credential for pika and no credential for AWS. pika pulls
-from tiger and pushes to S3. If tiger is compromised, the blast radius is
-tiger.
+tiger holds no credential for pika and none for the archive bucket. If
+tiger is compromised, the blast radius is tiger. It does still hold AWS
+keys: the old bucket's, until `photos-fanout` goes (see
+[What is left](#what-is-left)), and Route53 keys for DDNS and ACME.
 
 That property is the reason the topology is worth the second host at all,
 and it is the thing to check first when changing anything here.
@@ -216,18 +218,20 @@ dataset root stays `root:root`. Boot orders it correctly, so it happens once
 per dataset. `systemd-tmpfiles --create --prefix=<mountpoint>` settles it
 without a reboot.
 
-What is recorded is partial: the `zfs create` for `storage/immich` at
-`tiger/configuration.nix:276`, and the `acltype=posixacl` that
-`storage/photos` needs at `:400-401`. The `zpool create` that made
-`storage` itself is written down nowhere. Rebuilding tiger means
-reconstructing it from `zpool history` on a pool that, in the scenario
-where you need this, no longer exists. Worth fixing before it is needed.
+What is recorded is partial: the `zfs create` for `storage/projects` and
+`storage/immich` at `tiger/configuration.nix:269` and `:277`, and the
+`acltype=posixacl` that `storage/photos` needs at `:424`. The
+`zpool create` that made `storage` itself is written down nowhere.
+Rebuilding tiger means reconstructing it from `zpool history` on a pool
+that, in the scenario where you need this, no longer exists. Worth fixing
+before it is needed.
 
 ### Delegating send to pika
 
 Pull needs no write permission on tiger at all:
 
 ```bash
+zfs unallow -u svc.syncoid storage
 zfs allow -u svc.syncoid send,hold,release storage/photos
 zfs allow -u svc.syncoid send,hold,release storage/backups
 zfs allow -u svc.syncoid send,hold,release storage/projects
@@ -237,6 +241,10 @@ That runs as a systemd unit at `tiger/configuration.nix:207` rather than by
 hand, because `zfs allow` lives in dataset properties and a recreated
 dataset would silently drop it. It is idempotent, so it reapplies on every
 activation.
+
+The `unallow` comes first because an older grant on the pool carried
+`destroy`, `mount` and `snapshot` down to every dataset. A narrower grant
+on a child does not revoke a wider one above it.
 
 Snapshot creation stays with sanoid on tiger, so syncoid runs with
 `--no-sync-snap` and never needs the `snapshot` verb.
@@ -260,7 +268,7 @@ Recorded rather than solved.
 
 Provisioning is not in Nix. The full sequence, from the nixos-anywhere
 kexec through partitioning to `zpool create`, is recorded in the comment at
-the foot of `pika/configuration.nix:400`.
+the foot of `pika/configuration.nix:406`.
 
 ### Isolation comes from the router
 
@@ -270,7 +278,8 @@ connections to the LAN.
 That is a stronger guarantee than an SSH forced-command, because it is
 enforced by a device that is not the one we are defending against. pika
 opens every connection: syncoid pulls from tiger, vmagent and promtail push
-metrics and logs to tiger, and the S3 sync goes straight out.
+metrics and logs to tiger, `histdb-backup` rsyncs shell history into one
+write-only directory on tiger, and the S3 sync goes straight out.
 
 pika also takes nothing from tiger as a binary substituter.
 `deployment_target.nix:102` hands every NixOS node
@@ -292,9 +301,9 @@ The NixOS syncoid module defaults to neither, and nothing in
 
 ### Received datasets are readonly
 
-`recvOptions = "o readonly=on"` on both legs, set on receive rather than by
-hand afterwards, so it is true from the first stream rather than from
-whenever someone remembered.
+`recvOptions = "o readonly=on"` on all three legs, set on receive rather
+than by hand afterwards, so it is true from the first stream rather than
+from whenever someone remembered.
 
 This one has a trap worth recording. A property named in `recvOptions` must
 also appear in `localTargetAllow`, or `zfs recv` logs a permission error per
@@ -304,8 +313,8 @@ to `create,mount,readonly,receive,rollback`: the module default also grants
 `change-key`, `compression` and `mountpoint`, and nothing here sends raw
 encrypted or raw compressed streams.
 
-Verify with `zfs get readonly tank/photos tank/backups`, not by reading the
-config.
+Verify with `zfs get readonly tank/photos tank/backups tank/projects`, not
+by reading the config.
 
 ### Retention must be longer on pika than on tiger
 
@@ -384,10 +393,14 @@ Permanent removal requires DELETE with a `versionId`, gated by
 
 So no host in the fleet holds `s3:DeleteObjectVersion`.
 
-| Credential          | Verbs                            | Used by                    |
-| ------------------- | -------------------------------- | -------------------------- |
-| `svc.archive-push`  | ListBucket, GetObject, PutObject | daily push, restore drills |
-| `svc.archive-prune` | ListBucket, DeleteObject         | weekly prune               |
+| Credential          | Verbs                                              | Used by                        |
+| ------------------- | -------------------------------------------------- | ------------------------------ |
+| `svc.archive-push`  | ListBucket, GetObject, GetObjectVersion, PutObject | daily push                     |
+| `svc.archive-prune` | ListBucket, DeleteObject                           | weekly prune, manual reconcile |
+
+Neither holds `s3:RestoreObject`, and nothing else in `tf/` does either, so
+no service credential can bring a Deep Archive object back. See
+[tiger and pika are both gone](#tiger-and-pika-are-both-gone).
 
 A fully compromised pika can write 157,301 delete markers and destroy zero
 bytes. Permanent removal is exclusively the lifecycle rule, running as S3
@@ -412,8 +425,9 @@ Expiring at 90 costs exactly the same and buys half the undelete window.
 
 The push never passes `--delete`. Orphan removal is a separate weekly job,
 `s3-archive-reconcile --prune`, with the prune credential and a safety
-threshold: if orphans exceed 5% of the objects in the bucket it refuses,
-sets `s3_reconcile_prune_blocked`, and exits non-zero so the unit fails.
+threshold: if orphans exceed 5% of the objects under that prefix it
+refuses, sets `s3_reconcile_prune_blocked`, and exits non-zero so the unit
+fails.
 
 A large orphan set almost never means you deleted a lot. It means the
 source listing is wrong, and acting on it would propagate that to the one
@@ -446,12 +460,16 @@ Steady-state daily deltas are minutes.
 | `syncoid-storage-*`        | daily, 00:00   |
 | `s3-archive-push-photos`   | daily, 04:00   |
 | `s3-archive-push-backups`  | daily, 06:00   |
-| `s3-archive-prune-photos`  | Sundays, 05:00 |
-| `s3-archive-prune-backups` | Mondays, 05:00 |
+| `s3-archive-prune-photos`  | Sundays, 12:00 |
+| `s3-archive-prune-backups` | Mondays, 14:00 |
 
 Fixed offsets rather than `After=` ordering on syncoid. A stuck pull should
 delay the push, not cancel it. Two hours between the pushes so the two
 directory walks do not contend for the uplink.
+
+Each prune lands hours after its prefix's push, because a file still
+uploading reads as missing. If the push is still running anyway, the
+reconcile skips that run rather than score it.
 
 ### Cost
 
@@ -481,7 +499,8 @@ At $0.67/month, cost is not what constrains this tier. Recoverability is.
 
 ## Verification
 
-Four layers, all in `monitoring-stack/vmalert.nix`.
+Four layers. The first three are alert groups in
+`monitoring-stack/vmalert.nix`; the fourth is the drills.
 
 ### Why none of it watches an exit code
 
@@ -523,7 +542,7 @@ That last one is the absence check on the absence check: a host reporting
 `zfs_pool_health` but no `zfs_pool_scrub_end_timestamp_seconds` has lost
 `ZpoolScrubStale` without anyone noticing.
 
-Note the metric rename recorded in `DASHBOARD_CONVENTIONS.md:429`:
+Note the metric rename recorded in `DASHBOARD_CONVENTIONS.md:531`:
 `zfs_zpool_*` became `zfs_pool_*`, and the `poolname` label became `pool`.
 Easy to write a rule that silently matches nothing.
 
@@ -537,6 +556,7 @@ Easy to write a rule that silently matches nothing.
 | `S3ArchiveObjectsMissing`      | source files with no object in the bucket, 6h |
 | `S3ArchivePruneBlocked`        | orphan threshold refused a prune              |
 | `S3ReconcileStale`             | no comparison in 14 days                      |
+| `S3ReconcileNeverRan`          | a prefix has no comparison at all, 8d         |
 
 `S3ArchiveObjectsMissing` is the one that earns the tier. It is the failure
 where the sync believes it is current and the offsite copy is not, which is
@@ -552,7 +572,9 @@ against tiger. Record that it happened.
 
 **Annually:** `aws s3api restore-object` with the bulk tier on about five
 random objects, then verify checksums. Costs pennies. The point is to learn
-that the archive tier works before the day it has to.
+that the archive tier works before the day it has to. It needs the
+terraform admin key, for the reason under
+[tiger and pika are both gone](#tiger-and-pika-are-both-gone).
 
 Bulk retrieval is 48 hours. That is a bad thing to discover mid-disaster.
 
@@ -561,10 +583,14 @@ hypothesis.
 
 ## Restore runbook
 
+None of these procedures has been run end to end. They are read off the
+config, so treat each one as a plan until a drill has exercised it.
+
 ### A file or directory got deleted
 
-Recover from a tiger snapshot. `storage/backups` keeps hourly 4, daily 31,
-monthly 24, yearly 10.
+Recover from a tiger snapshot. `storage/photos` keeps daily 8, monthly 12,
+yearly 10. `storage/backups` keeps hourly 4, daily 31, monthly 24, yearly
+10, and `storage/projects` hourly 24, daily 30, monthly 2.
 
 ```bash
 ls /mnt/photos/.zfs/snapshot/
@@ -572,9 +598,10 @@ cp -a /mnt/photos/.zfs/snapshot/autosnap_2026-07-24_00:00:03_daily/personal/phot
       /mnt/photos/personal/photos/archive/
 ```
 
-Older than tiger's retention, pika holds it: daily 60, monthly 36, yearly
-15 for `tank/backups`, against tiger's 31, 24 and 10. Browse it the same
-way under `/tank/backups/.zfs/snapshot/`.
+Older than tiger's retention, pika holds it: daily 30, monthly 24, yearly
+10 for `tank/photos`, against tiger's 8, 12 and 10. Browse it the same way
+under `/tank/photos/.zfs/snapshot/`. The other two datasets are in the
+table under [Tier 2](#retention-must-be-longer-on-pika-than-on-tiger).
 
 Older than pika's retention, only S3 has it, and only if the file survived
 long enough to be pushed at all. The offsite tier keeps deleted objects for
@@ -583,9 +610,31 @@ snapshot policy.
 
 ### A dataset got corrupted on tiger
 
-Reverse the syncoid direction. Pull from pika back to tiger, into a new
-dataset name, verify, then swap mountpoints. Do not receive over the live
-dataset.
+Send from pika back to tiger, into a new dataset name, verify, then swap.
+Do not receive over the live dataset.
+
+pika has to start the connection, because tiger cannot reach the LAN. And
+`svc.syncoid` on tiger can only send, so it needs a temporary grant to
+receive. As root on tiger:
+
+```bash
+zfs allow -u svc.syncoid create,mount,receive storage
+```
+
+Then as root on pika. This carries the newest snapshot, not the history:
+
+```bash
+DS=photos
+SNAP=$(zfs list -H -o name -t snapshot -S creation -d 1 "tank/$DS" | head -1)
+zfs send "$SNAP" | ssh -p 2332 -i /run/secrets/pika_syncoid_ssh_key \
+  svc.syncoid@tiger.dmz.1ella.com zfs receive -u "storage/$DS-restore"
+```
+
+Verify it on tiger, then swap the names with `zfs rename`. tiger mounts
+these by dataset name (`tiger/configuration.nix:227-283`), so the restored
+one needs `mountpoint=legacy` before it takes the old name. Finish with
+`systemctl start zfs-delegate-syncoid`: it revokes the grant above and
+gives the new dataset its send rights.
 
 `readonly=on` on pika does not get in the way: it blocks writes to the
 filesystem, not `zfs send`. What it does mean is that pika can never be
@@ -594,9 +643,20 @@ tiger, never a promotion of pika.
 
 ### tiger is gone
 
-Rebuild tiger from the flake, create the pool by hand, then syncoid from
-pika to tiger. The `zpool create` is not recorded anywhere; see tier 1
-above for what that costs you here.
+Rebuild tiger from the flake with a host key prepared first, create the
+pool by hand, then send from pika the same way as above, into
+`storage/$DS` rather than a `-restore` name. The `zpool create` is not
+recorded anywhere; see tier 1 above for what that costs you here.
+
+The host key comes first because two things are keyed to the old one. sops
+on tiger decrypts with the age key derived from it, the `&tiger` recipient
+at `.sops.yaml:9`, so a new key decrypts no secret. pika pins it at
+`pika/configuration.nix:287-292`, so pika will not connect to a new one.
+The root disk is out of scope, so the old key is gone with it. Do what
+pika's install did (`.sops.yaml:13-20`): generate the host key on trex,
+enroll its age key and re-key the secrets, update pika's pin and deploy
+pika, then install tiger with the key through nixos-anywhere
+`--extra-files`.
 
 ~1.12 TB over GbE. The seed in the other direction sustained 103 MB/s, so
 budget around three hours. The network is the constraint, not the drives.
@@ -605,21 +665,48 @@ budget around three hours. The network is the constraint, not the drives.
 
 Deep Archive. Restore requests first, then wait, then download.
 
-```bash
-aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "photos/" \
-  --query 'Contents[].Key' --output text | tr '\t' '\n' > keys.txt
+No service credential can make the requests. Neither `svc.archive-push`
+nor `svc.archive-prune` holds `s3:RestoreObject`
+([RestoreObject](https://docs.aws.amazon.com/AmazonS3/latest/API/API_RestoreObject.html)),
+so use the terraform admin key, read from `pass` the way `tf/Makefile:2-3`
+does. Set this up in every shell below:
 
-while read -r k; do
+```bash
+BUCKET=ondy-archive-resolved-pug
+export AWS_DEFAULT_REGION=us-east-1
+admin=$(pass show aws.amazon.com/ondy-org/iam_users/admin)
+export AWS_ACCESS_KEY_ID=$(echo "$admin" | grep AWS_ACCESS_KEY_ID | cut -d= -f2)
+export AWS_SECRET_ACCESS_KEY=$(echo "$admin" | grep AWS_SECRET_ACCESS_KEY | cut -d= -f2)
+```
+
+Request both prefixes:
+
+```bash
+for prefix in photos backups; do
+  aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$prefix/" \
+    --query 'Contents[].Key' --output json | jq -r '.[]?'
+done > keys.txt
+
+while IFS= read -r k; do
   aws s3api restore-object --bucket "$BUCKET" --key "$k" \
     --restore-request '{"Days":14,"GlacierJobParameters":{"Tier":"Bulk"}}'
 done < keys.txt
 ```
 
-48 hours for bulk. Then `aws s3 sync` normally; restored objects read like
-any other. Budget ~$54 for the full 637 GB.
+48 hours for bulk. Then download:
 
-The `svc.archive-push` credential can do this: it holds `GetObject` and
-`GetObjectVersion` for exactly this reason.
+```bash
+for prefix in photos backups; do
+  aws s3 sync "s3://$BUCKET/$prefix/" "$prefix/" --force-glacier-transfer
+done
+```
+
+`--force-glacier-transfer` is not optional. A restored object keeps its
+Deep Archive storage class, and awscli skips every object in that class
+with a warning unless the flag is set. That is awscli behaviour, not S3's
+([s3 sync](https://awscli.amazonaws.com/v2/documentation/api/latest/reference/s3/sync.html)).
+
+Budget ~$54 for the full 637 GB.
 
 This is still a shell snippet in a document rather than a script in the
 repo. Write it before we need it, not during.
@@ -692,15 +779,24 @@ not on the timescale of the `rm`.
 
 **Retire the old bucket.** `my-photo-backup-archive-holy-mink` still holds
 the only finished offsite copy, so it stays until the new bucket completes
-one clean push of both prefixes.
+one clean push of both prefixes. Two things still write to it:
+`photos-fanout` on tiger, below, and `backup-photos --s3` on trex. Both go
+with it.
 
 **Remove `photos-fanout` from tiger.** The unit at
-`tiger/configuration.nix:294` still runs nightly against the old bucket,
-and `photos_backup_aws_credentials` at `:1201` is the last AWS credential
-on the host that faces the internet. Removing both is the point of moving
-the push to pika. Blocked on the item above.
+`tiger/configuration.nix:295` still runs nightly against the old bucket,
+and `photos_backup_aws_credentials` at `:1721` is the last S3 credential on
+the host that faces the internet. Removing both is the point of moving the
+push to pika. Blocked on the item above.
 
 **Write the S3 restore script.** The runbook section above is a snippet.
+
+**Restore rights.** Two restores in the runbook need authority nothing
+holds today. `svc.syncoid` on tiger can only send, so a send back into
+tiger needs the temporary `zfs allow` described there. No service
+credential holds `s3:RestoreObject`, so a Deep Archive restore needs the
+terraform admin key. A rebuilt tiger also needs a new host key enrolled in
+`.sops.yaml` and pinned on pika before pika can send to it.
 
 **Run the first drill.** Both kinds. Until then this document describes a
 design, not a demonstrated capability.
@@ -731,9 +827,6 @@ archive prefixes. `S3ArchiveObjectsMissing` is the rule that earns tier 3,
 and the video bucket has no equivalent. A push that believes it is current
 while the bucket is not would go unnoticed, which is the exact failure the
 old fanout arrangement hid for a year.
-
-**The `zfs-storage` Grafana dashboard.** `DASHBOARD_CONVENTIONS.md:160`
-lists it. It was never built.
 
 **A rotating offline drive.** A mirror covers a drive dying. It does not
 cover the board's PSU, a mistyped `zfs destroy`, or a fire. The answer is a
