@@ -926,6 +926,9 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e --arg k "$forge_kubeconfig" '.filesystem.allowRead | index($k)' >/dev/null \
       || fail "defaultAllowForge=true did not grant the kubeconfig. settings=$settings"
+    # and records it, or grants.ts would list forge as missing
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: forge" \
+      || fail "defaultAllowForge=true missing from PI_PLAN_GRANTS. captured=$captured"
 
     # defaultWritePaths reaches allowWrite, with ~ expanded
     captured=$(${wrapperWithWritePaths}/bin/pi -- x 2>&1)

@@ -482,25 +482,21 @@ while [[ $# -gt 0 ]]; do
 	--allow-nix)
 		# Exact-match case: it shadows any network bundle named "nix".
 		allow_nix=true
-		grants+=("nix")
 		shift
 		;;
 	--allow-docker)
 		# Exact-match case: it shadows any network bundle named "docker".
 		allow_docker=true
-		grants+=("docker")
 		shift
 		;;
 	--allow-ssh-agent)
 		# Exact-match case: it shadows any network bundle named "ssh-agent".
 		allow_ssh_agent=true
-		grants+=("ssh-agent")
 		shift
 		;;
 	--allow-forge)
 		# Exact-match case: it shadows any network bundle named "forge".
 		allow_forge=true
-		grants+=("forge")
 		shift
 		;;
 	--allow-*)
@@ -534,6 +530,17 @@ while [[ $# -gt 0 ]]; do
 	*) break ;;
 	esac
 done
+
+# From the final values rather than the case arms, so a grant a host turns
+# on through defaultAllow* is recorded like one given on the command line.
+flag_grants=()
+for grant in nix docker ssh-agent forge; do
+	allowed="allow_${grant//-/_}"
+	if "${!allowed}"; then
+		flag_grants+=("$grant")
+	fi
+done
+grants=("${flag_grants[@]}" "${grants[@]}")
 
 # Record which grants this invocation carries, so the prompt can match the
 # policy. extensions/grants.ts reads PI_GRANTS and appends each granted
