@@ -82,7 +82,9 @@ version pin the custom-feature namespace needs, below.
 ## FeatureScript custom features: the real gotchas
 
 Everything in this section was hit and fixed in one live debugging session
-against Onshape's actual compiler, not inferred from docs.
+against Onshape's actual compiler, not inferred from docs. The one exception
+is the `targetsAndToolsNeedGrouping` flag, which comes from the forum and is
+marked unverified where it appears.
 
 ### `newSketch` needs an existing planar face, not a constructed plane
 
@@ -528,9 +530,9 @@ when the geometry needs no custom feature:
 Onshape API keys aren't in sops yet. Today's session used a key dropped in
 a permission-restricted scratch file and shredded after use — fine for a
 one-off, not a pattern to repeat. Follow-up: add `onshape_api_key` /
-`onshape_api_secret` to `nix/secrets/secrets.yaml`, the same way every
-other credential in this repo is handled. Not done here; flagging it so it
-doesn't get forgotten.
+`onshape_api_secret` to `nix/secrets/secrets.yaml`, alongside the repo's
+other sops-managed secrets. Not done here; flagging it so it doesn't get
+forgotten.
 
 Still not done as of the second session, which used a world-readable key in
 `/tmp` and shredded it afterwards. Twice now is a habit, not a one-off.
