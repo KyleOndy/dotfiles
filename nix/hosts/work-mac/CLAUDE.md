@@ -8,17 +8,21 @@ items that leak internal company details.
 
 - **This repo (public)**: all packages, tools, env vars, aliases, shell config,
   non-sensitive skills and commands. Anything that isn't company-confidential
-  belongs here, in `nix/hosts/work-mac/`.
+  belongs in this repo; settings only work-mac wants go in `nix/hosts/work-mac/`.
+  work-mac is the only host that installs `forge` (`nix/pkgs/forge/README.md`).
 - **Work repo (private)**: only sensitive items: git work email, internal
-  CLAUDE.md (cluster names, AWS profiles), cluster-health skill (internal cluster
-  names), and work-specific linear commands (internal workflow details).
+  CLAUDE.md (cluster names, AWS profiles) and pi `AGENTS.md`, pi's
+  `models.json` with its Keychain key resolvers and advisor env, and the
+  linear, helm, gh and forge-phase commands (internal workflow details).
 - **`nix/work-config-stub/flake.nix`**: no-op default; documents the required
   flake interface (`darwinModule`, `homeManagerModule`).
 
 ## Building and deploying
 
-All `make` targets accept `WORK_CONFIG=` to activate work config. The value is
-the work config flake directory, which is the work repo's `nix/` subdirectory:
+`deploy`, `boot`, `apply` and the `*-mac` targets accept `WORK_CONFIG=` to
+activate work config; `build`, `check` and the trex targets ignore it. The
+value is the work config flake directory, which is the work repo's `nix/`
+subdirectory:
 
 ```bash
 make build-mac-dry WORK_CONFIG=/Users/kondy/work/nix   # dry run
