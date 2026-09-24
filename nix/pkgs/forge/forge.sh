@@ -846,7 +846,7 @@ forge_busy() {
 	while read -r pid cmd; do
 		[[ ${pid} != "$$" ]] || continue
 		inst="$(ps eww -o command= -p "${pid}" 2>/dev/null | grep -o 'FORGE_INSTANCE=[0-9]*' | cut -d= -f2)" || true
-		printf '%s\t%s\n' "${inst:--}" "${cmd}"
+		printf '%s\t%s\t%s\n' "${inst:--}" "${cmd}" "${pid}"
 	done < <(ps -Ao pid=,command= | sed -nE 's#^ *([0-9]+) .*/bin/forge (up|down|nuke|resize)( .*)?$#\1 \2#p')
 }
 
@@ -857,7 +857,7 @@ forge_busy() {
 cmd_ls() {
 	local -A busy=()
 	local inst cmd
-	while IFS=$'\t' read -r inst cmd; do busy[${inst}]="${cmd}"; done < <(forge_busy)
+	while IFS=$'\t' read -r inst cmd _; do busy[${inst}]="${cmd}"; done < <(forge_busy)
 
 	ls_row INST VM STATE CPUS MEM PHASE CLUSTERS LOAD MEM_USED DISK_USED OWNER
 	local name status cpus memory
@@ -952,24 +952,65 @@ cmd_nuke() {
 	log "Everything removed."
 }
 
+descendants() {
+	local child
+	for child in $(pgrep -P "$1" || true); do
+		echo "${child}"
+		descendants "${child}"
+	done
+}
+
+# The whole tree is collected before any of it is signalled: a bash killed
+# while it waits leaves its children running, re-parented to init and out of
+# reach of a walk from it. kind, helm and docker are in that tree; lima's host
+# agent is not, since `limactl start` daemonizes it, and `limactl delete
+# --force` stops it.
+stop_forge() {
+	local pid child all=()
+	for pid in "$@"; do
+		all+=("${pid}")
+		while read -r child; do all+=("${child}"); done < <(descendants "${pid}")
+	done
+	kill -TERM "${all[@]}" 2>/dev/null || true
+	local _
+	for _ in {1..10}; do
+		kill -0 "${all[@]}" 2>/dev/null || return 0
+		sleep 1
+	done
+	kill -KILL "${all[@]}" 2>/dev/null || true
+}
+
 # Every named instance, one `forge nuke` each. The unnamed instance is the
 # human's, with the mirror caches worth keeping, so it takes a plain `nuke`.
 # Refuses while any forge command runs against one, since an `up` whose VM
-# vanishes under it fails or creates it again.
+# vanishes under it fails or creates it again, unless $1 is true, which stops
+# those commands first.
+#
+# A stopped `up` that pi-broker started makes the broker nuke that VM itself,
+# so a VM can vanish while this loop runs; a nuke that fails is reported and
+# the rest still go.
 cmd_nuke_all() {
+	local force="$1"
 	local -A busy=()
-	local inst cmd
-	while IFS=$'\t' read -r inst cmd; do
-		[[ ${inst} == - ]] || busy[${inst}]="${cmd}"
+	local inst cmd pid pids=()
+	while IFS=$'\t' read -r inst cmd pid; do
+		[[ ${inst} == - ]] && continue
+		busy[${inst}]="${cmd}"
+		pids+=("${pid}")
 	done < <(forge_busy)
-	((${#busy[@]} == 0)) || die "forge is running against instance ${!busy[*]}; stop it first"
+	if ((${#busy[@]} > 0)); then
+		"${force}" || die "forge is running against instance ${!busy[*]}; --force stops it first"
+		log "Stopping forge on instance ${!busy[*]}"
+		stop_forge "${pids[@]}"
+	fi
 
-	local vm found=false
+	local vm found=false failed=()
 	while read -r vm; do
 		found=true
-		FORGE_INSTANCE="${vm#forge-}" "$0" nuke </dev/null
+		FORGE_INSTANCE="${vm#forge-}" "$0" nuke </dev/null || failed+=("${vm}")
 	done < <(limactl list --format '{{.Name}}' 2>/dev/null | grep -E '^forge-[0-9]+$')
 	"${found}" || log "No named instances to remove."
+	((${#failed[@]} == 0)) || die "could not remove ${failed[*]}; 'forge ls' shows what is left"
 }
 
 cmd_resize() {
@@ -1007,10 +1048,12 @@ Commands:
                  running of those declared, the guest's load, memory and
                  disk, and the pi agent holding it. Reads state, changes
                  nothing, and needs ~/.lima, so run it outside pi's sandbox.
-  nuke [--all]   Delete the VM, and with it every cluster, mirror, volume and
+  nuke [--all [--force]]
+                 Delete the VM, and with it every cluster, mirror, volume and
                  network. --all does that to every named instance, never the
                  unnamed one, and refuses while forge runs against any of
-                 them.
+                 them. --force stops those runs first (TERM, then KILL after
+                 10s).
   resize S       Stop the VM, change its CPUs and memory, start it again.
   vm-config [S]  Print the lima config this instance's VM is created from.
 
@@ -1077,15 +1120,19 @@ case "${1:-}" in
 nuke)
 	# An unknown argument dies rather than falling through, since the fall
 	# through nukes the unnamed instance.
-	case "${2:-}" in
-	"") ;;
-	--all)
-		[[ -z ${3:-} ]] || die "usage: forge nuke [--all]"
-		cmd_nuke_all
+	if (($# > 1)); then
+		nuke_all=false nuke_force=false
+		for arg in "${@:2}"; do
+			case "${arg}" in
+			--all) nuke_all=true ;;
+			--force) nuke_force=true ;;
+			*) die "usage: forge nuke [--all [--force]]" ;;
+			esac
+		done
+		"${nuke_all}" || die "--force goes with --all: forge nuke --all --force"
+		cmd_nuke_all "${nuke_force}"
 		exit
-		;;
-	*) die "usage: forge nuke [--all]" ;;
-	esac
+	fi
 	;&
 up | down | status)
 	[[ ${1} != up ]] || parse_size_flag "${@:2}"

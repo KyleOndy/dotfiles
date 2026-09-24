@@ -229,7 +229,8 @@ ports; run `forge down` first to drop them. A named instance's
 
 `forge nuke --all` runs `nuke` on every named instance, one after another,
 and leaves the unnamed one. It refuses while any forge command is running
-against one of them.
+against one of them; `--force` stops those first, along with the kind, helm
+and docker processes under them.
 
 `forge status` is read-only: the VM, each mirror's state, and each cluster's
 context and API port.
