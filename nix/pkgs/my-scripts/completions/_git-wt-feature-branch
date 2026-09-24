@@ -1,4 +1,4 @@
-#compdef git-wt-feature-branch
+#compdef git-wt-feature-branch tw
 # vi: ft=zsh
 
 # Completion for git-wt-feature-branch dual-mode operation
