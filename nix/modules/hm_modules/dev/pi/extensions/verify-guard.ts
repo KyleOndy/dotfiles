@@ -31,7 +31,7 @@
  *
  * "Unverified" means the worktree differs from the state the last green run
  * saw, or from the session's starting state before any run. The fingerprint
- * is HEAD plus the diff against it plus every untracked file's blob hash, so
+ * is HEAD plus the diff against it plus every untracked file's contents, so
  * a commit, a heredoc write and a python write all count, a write into $TMPDIR
  * does not, and reverting an edit clears it. Outside a git repo there is no
  * fingerprint and the guard is inert.
@@ -39,6 +39,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { lstat, readFile, readlink } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { Type } from "typebox";
@@ -123,14 +124,19 @@ export default function (pi: ExtensionAPI) {
     ]);
     const untracked = await git(["ls-files", "-o", "--exclude-standard", "-z"]);
     if (diff === null || untracked === null) return null;
-    const files = untracked.split("\0").filter((f) => f !== "");
-    const blobs = files.length
-      ? await git(["hash-object", "--", ...files])
-      : "";
-    if (blobs === null) return null;
-    return createHash("sha256")
-      .update([head, diff, files.join("\0"), blobs].join("\0\0"))
-      .digest("hex");
+    const hash = createHash("sha256").update([head, diff].join("\0\0"));
+    for (const file of untracked.split("\0").filter((f) => f !== "")) {
+      const path = join(gitRoot, file);
+      // A symlink counts by its target, as git would store it, so a dangling
+      // one or one to a directory hashes like any other file. A path that
+      // cannot be read (gone since ls-files, a nested repo's directory)
+      // counts by name alone.
+      const content = await lstat(path)
+        .then((st) => (st.isSymbolicLink() ? readlink(path) : readFile(path)))
+        .catch(() => "");
+      hash.update(`\0\0${file}\0`).update(content);
+    }
+    return hash.digest("hex");
   };
 
   const state = (): string => {
