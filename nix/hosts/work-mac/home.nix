@@ -151,23 +151,19 @@
   xdg.configFile."forge/forge-small.yaml".source = ../../pkgs/forge/forge-small.yaml;
 
   # Coder remote development SSH config
-  programs.ssh.matchBlocks = {
+  programs.ssh.settings = {
     "coder.*" = {
-      extraOptions = {
-        ConnectTimeout = "0";
-        StrictHostKeyChecking = "no";
-        UserKnownHostsFile = "/dev/null";
-        LogLevel = "ERROR";
-      };
-      proxyCommand = ''coder --global-config "$HOME/Library/Application Support/coderv2" ssh --stdio --ssh-host-prefix coder. %h'';
+      ConnectTimeout = 0;
+      StrictHostKeyChecking = false;
+      UserKnownHostsFile = "/dev/null";
+      LogLevel = "ERROR";
+      ProxyCommand = ''coder --global-config "$HOME/Library/Application Support/coderv2" ssh --stdio --ssh-host-prefix coder. %h'';
     };
     "*.coder" = {
-      extraOptions = {
-        ConnectTimeout = "0";
-        StrictHostKeyChecking = "no";
-        UserKnownHostsFile = "/dev/null";
-        LogLevel = "ERROR";
-      };
+      ConnectTimeout = 0;
+      StrictHostKeyChecking = false;
+      UserKnownHostsFile = "/dev/null";
+      LogLevel = "ERROR";
     };
   };
 
