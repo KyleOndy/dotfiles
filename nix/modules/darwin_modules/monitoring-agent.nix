@@ -1,6 +1,6 @@
 # Darwin-native equivalent of systemFoundry.monitoringStack (nix/modules/nix_modules/monitoring-stack/),
 # which is NixOS-only (systemd.tmpfiles/services, DynamicUser) and cannot be
-# imported under nix-darwin. Runs vmagent + node_exporter + promtail as
+# imported under nix-darwin. Runs vmagent + node_exporter + alloy as
 # launchd daemons instead of systemd services, reporting to the same tiger
 # endpoints NixOS hosts use.
 {
@@ -33,50 +33,43 @@ let
     }
   );
 
-  promtailConfig = pkgs.writeText "promtail-config.yaml" (
-    builtins.toJSON {
-      server = {
-        http_listen_port = 9080;
-        grpc_listen_port = 0;
-      };
-      positions.filename = "/var/lib/promtail/positions.yaml";
-      clients = [
-        (
-          {
-            url = cfg.lokiUrl;
-          }
-          // optionalAttrs (cfg.basicAuth != null) {
-            basic_auth = {
-              username = cfg.basicAuth.username;
-              password_file = toString cfg.basicAuth.passwordFile;
-            };
-          }
-        )
-      ];
-      scrape_configs = [
-        {
-          # macOS has no journald; this tails a continuously-running `log
-          # stream` capture (see the log-capture daemon below) instead of
-          # promtail scraping the log source directly.
-          job_name = "darwin-unified-log";
-          static_configs = [
-            {
-              targets = [ "localhost" ];
-              labels = {
-                job = "darwin-unified-log";
-                host = cfg.hostLabel;
-                __path__ = "${logDir}/unified.log";
-              };
-            }
-          ];
-        }
-      ];
+  # Interpolating a multi-line string into an indented one does not re-indent
+  # it, so this block lands flush left in the generated file.
+  basicAuthBlock = optionalString (cfg.basicAuth != null) ''
+
+    basic_auth {
+      username      = "${cfg.basicAuth.username}"
+      password_file = "${toString cfg.basicAuth.passwordFile}"
+    }'';
+
+  alloyConfig = pkgs.writeText "config.alloy" ''
+    loki.write "default" {
+      endpoint {
+        url = "${cfg.lokiUrl}"${basicAuthBlock}
+      }
+      external_labels = { host = "${cfg.hostLabel}" }
     }
-  );
+
+    // macOS has no journald; this tails a continuously-running `log stream`
+    // capture (see the log-capture daemon below) rather than reading the log
+    // source directly.
+    loki.source.file "darwin_unified_log" {
+      targets = [{
+        __path__ = "${logDir}/unified.log",
+        job      = "darwin-unified-log",
+      }]
+      forward_to = [loki.write.default.receiver]
+
+      // The capture file is whatever `log stream` has written since the daemon
+      // last started, so a first start with no stored position would replay it
+      // from the top.
+      tail_from_end = true
+    }
+  '';
 in
 {
   options.systemFoundry.monitoringAgent = {
-    enable = mkEnableOption "darwin-native vmagent/node_exporter/promtail reporting to tiger";
+    enable = mkEnableOption "darwin-native vmagent/node_exporter/alloy reporting to tiger";
 
     hostLabel = mkOption {
       type = types.str;
@@ -103,14 +96,14 @@ in
         }
       );
       default = null;
-      description = "Basic auth credentials shared by vmagent remote-write and promtail push";
+      description = "Basic auth credentials shared by vmagent remote-write and the Loki push";
     };
 
   };
 
   config = mkIf cfg.enable {
     system.activationScripts.postActivation.text = ''
-      mkdir -p ${logDir} /var/lib/vmagent /var/lib/promtail
+      mkdir -p ${logDir} /var/lib/vmagent /var/lib/alloy
     '';
 
     launchd.daemons.node-exporter = {
@@ -156,8 +149,8 @@ in
       };
     };
 
-    # Continuously captures the macOS unified log to a plain file so
-    # promtail has something file-based to tail (there's no journald on
+    # Continuously captures the macOS unified log to a plain file so alloy
+    # has something file-based to tail (there's no journald on
     # darwin). `--level default` drops debug/info noise to keep growth
     # bounded; nothing here rotates the file yet, so /var/log/monitoring-agent
     # disk usage is worth checking after trex has been running a while.
@@ -179,17 +172,26 @@ in
       };
     };
 
-    launchd.daemons.promtail = {
+    launchd.daemons.alloy = {
       serviceConfig = {
-        Label = "org.ondy.promtail";
+        Label = "org.ondy.alloy";
         ProgramArguments = [
-          "${pkgs.promtail}/bin/promtail"
-          "-config.file=${promtailConfig}"
+          "${pkgs.grafana-alloy}/bin/alloy"
+          "run"
+          # Alloy phones home a component inventory to Grafana on startup
+          # unless told not to.
+          # https://grafana.com/docs/alloy/latest/data-collection/
+          "--disable-reporting"
+          "--storage.path=/var/lib/alloy"
+          "${alloyConfig}"
         ];
         RunAtLoad = true;
         KeepAlive = true;
-        StandardOutPath = "${logDir}/promtail.log";
-        StandardErrorPath = "${logDir}/promtail.log";
+        StandardOutPath = "${logDir}/alloy.log";
+        StandardErrorPath = "${logDir}/alloy.log";
+        EnvironmentVariables = {
+          SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+        };
       };
     };
   };

@@ -277,7 +277,7 @@ connections to the LAN.
 
 That is a stronger guarantee than an SSH forced-command, because it is
 enforced by a device that is not the one we are defending against. pika
-opens every connection: syncoid pulls from tiger, vmagent and promtail push
+opens every connection: syncoid pulls from tiger, vmagent and alloy push
 metrics and logs to tiger, `histdb-backup` rsyncs shell history into one
 write-only directory on tiger, and the S3 sync goes straight out.
 

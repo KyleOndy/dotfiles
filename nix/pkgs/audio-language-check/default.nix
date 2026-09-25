@@ -31,7 +31,7 @@ writeShellApplication {
     curl
     jq
     coreutils
-    # logger, so verdicts land in the journal promtail already ships to Loki.
+    # logger, so verdicts land in the journal alloy already ships to Loki.
     util-linux
     gnugrep
     gawk

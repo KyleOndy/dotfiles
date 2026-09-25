@@ -206,7 +206,7 @@
       mode = "0400";
     };
     monitoring_password = {
-      # vmagent and promtail run as root here (no DynamicUser on darwin),
+      # vmagent and alloy run as root here (no DynamicUser on darwin),
       # but keep the same permissive mode used on the other NixOS hosts
       # for consistency.
       mode = "0444";

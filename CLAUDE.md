@@ -136,10 +136,10 @@ tiger is the server: VictoriaMetrics, Loki, Grafana, Alertmanager, vmalert.
 Retention is 400 days for both metrics and logs
 (`nix/hosts/tiger/configuration.nix`).
 
-Agents run on tiger, pika, cogsworth and trex: vmagent, promtail,
+Agents run on tiger, pika, cogsworth and trex: vmagent, alloy,
 node_exporter. tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus
 sabnzbd) and unpoller exporters, and scrapes its own stack (VictoriaMetrics,
-vmagent, vmalert, Alertmanager, Loki, promtail, Grafana). cogsworth exposes the
+vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). cogsworth exposes the
 kiosk app at `/api/metrics`. pika runs zfs_exporter, and exports smartctl
 health, ZFS scrub and snapshot age, and the S3 archive counters through the
 textfile collector.

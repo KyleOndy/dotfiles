@@ -1518,10 +1518,10 @@ in
               ];
             }
             {
-              job_name = "promtail";
+              job_name = "alloy";
               static_configs = [
                 {
-                  targets = [ "127.0.0.1:9080" ];
+                  targets = [ "127.0.0.1:12345" ];
                   labels = {
                     host = "tiger";
                   };
@@ -1543,7 +1543,7 @@ in
         };
 
         # Ship logs to the now-local Loki instance.
-        promtail = {
+        alloy = {
           enable = true;
           lokiUrl = "http://127.0.0.1:3100/loki/api/v1/push";
           extraLabels = {
@@ -1553,55 +1553,54 @@ in
           # per-site view of the reverse proxy: caddy_http_requests_total
           # carries no vhost label unless `per_host` is set, and that mints a
           # permanent series for every Host header a public :443 is sent.
-          extraScrapeConfigs = [
-            {
-              job_name = "caddy-access";
-              static_configs = [
-                {
-                  targets = [ "localhost" ];
-                  labels = {
-                    job = "caddy-access";
-                    host = "tiger";
-                    __path__ = "/var/log/caddy/access-*.log";
-                  };
-                }
-              ];
-              # A Loki stream is one combination of label values, so only the
-              # site becomes a label. status, method, uri and client_ip stay in
-              # the line and come back out with `| json` at query time.
-              pipeline_stages = [
-                {
-                  json = {
-                    expressions = {
-                      vhost = "request.host";
-                    };
-                  };
-                }
-                # request.host is the raw Host header, so a client that sends
-                # the default port explicitly splits the site in two. Ports
-                # other than 80 and 443 are a different listener and stay.
-                {
-                  regex = {
-                    source = "vhost";
-                    expression = "^(?P<vhost>[^:]+)(?::(?:80|443))?$";
-                  };
-                }
-                {
-                  labels = {
-                    vhost = "vhost";
-                  };
-                }
-                # Caddy stamps `ts` as fractional unix seconds. Without this the
-                # backlog already on disk would land in one spike at ingest time.
-                {
-                  timestamp = {
-                    source = "ts";
-                    format = "Unix";
-                  };
-                }
-              ];
+          #
+          # A Loki stream is one combination of label values, so only the site
+          # becomes a label. status, method, uri and client_ip stay in the line
+          # and come back out with `| json` at query time.
+          extraConfig = ''
+            loki.source.file "caddy_access" {
+              targets = [{
+                __path__ = "/var/log/caddy/access-*.log",
+                job      = "caddy-access",
+              }]
+              forward_to = [loki.process.caddy_access.receiver]
+
+              file_match {
+                enabled = true
+              }
+
+              // Caddy rolls these at 100MiB and keeps ten, so a first start
+              // with no stored position would replay the whole backlog.
+              tail_from_end = true
             }
-          ];
+
+            loki.process "caddy_access" {
+              forward_to = [loki.write.default.receiver]
+
+              stage.json {
+                expressions = { vhost = "request.host" }
+              }
+
+              // request.host is the raw Host header, so a client that sends
+              // the default port explicitly splits the site in two. Ports
+              // other than 80 and 443 are a different listener and stay.
+              stage.regex {
+                source     = "vhost"
+                expression = "^(?P<vhost>[^:]+)(?::(?:80|443))?$"
+              }
+
+              stage.labels {
+                values = { vhost = "vhost" }
+              }
+
+              // Caddy stamps `ts` as fractional unix seconds. Without this the
+              // backlog already on disk would land in one spike at ingest time.
+              stage.timestamp {
+                source = "ts"
+                format = "Unix"
+              }
+            }
+          '';
         };
       };
     };

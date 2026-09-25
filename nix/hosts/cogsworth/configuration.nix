@@ -30,14 +30,14 @@ in
   # WiFi credentials from sops
   sops.secrets.home_wifi_ssid = { };
   sops.secrets.home_wifi_password = { };
-  # vmagent (DynamicUser) and promtail (static user) both need to read this;
-  # group-scoped via "monitoring-secrets" instead of world-readable (0444).
+  # vmagent and alloy both run DynamicUser, so neither can be named as the
+  # owner; group-scoped via "monitoring-secrets" instead of world-readable (0444).
   sops.secrets.monitoring_password = {
     mode = "0440";
     group = "monitoring-secrets";
   };
   users.groups.monitoring-secrets = { };
-  users.users.promtail.extraGroups = [ "monitoring-secrets" ];
+  systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
   systemd.services.vmagent.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
 
   # Deepgram API key for speech-to-text
@@ -1171,7 +1171,7 @@ in
       ];
     };
 
-    promtail = {
+    alloy = {
       enable = true;
       lokiUrl = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
       basicAuth = {
@@ -1185,7 +1185,7 @@ in
   };
 
   # SD card wear reduction - minimize writes to extend card lifespan
-  # Logs stored in RAM (acceptable since promtail forwards to Loki)
+  # Logs stored in RAM (acceptable since alloy forwards to Loki)
   # /tmp and /var/log in RAM, journal capped, zram swap. Sizes live in the
   # module; cogsworth is its only consumer.
   systemFoundry.sdCardOptimization.enable = true;

@@ -4,7 +4,7 @@
 # tiger and holds them longer than tiger does. Tier 2 of docs/backup-strategy.md.
 #
 # The direction of every arrow here is deliberate. pika opens every
-# connection: syncoid pulls from tiger, vmagent and promtail push to tiger,
+# connection: syncoid pulls from tiger, vmagent and alloy push to tiger,
 # the S3 sync goes straight out. tiger holds no credential for pika and
 # cannot initiate anything toward it, because tiger is in the DMZ and pika is
 # on the LAN. That boundary is enforced by the router, not by anything in
@@ -292,8 +292,8 @@ in
   };
 
   sops.secrets = {
-    # vmagent runs DynamicUser and promtail is a static user; both need to
-    # read this, so it is group-scoped rather than world-readable.
+    # vmagent and alloy both run DynamicUser, so neither can be named as the
+    # owner; group-scoped rather than world-readable.
     monitoring_password = {
       mode = "0440";
       group = "monitoring-secrets";
@@ -347,7 +347,7 @@ in
   };
 
   users.groups.monitoring-secrets = { };
-  users.users.promtail.extraGroups = [ "monitoring-secrets" ];
+  systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
   systemd.services.vmagent.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
 
   # Agent mode. Everything pushes outward, which is what works across the DMZ
@@ -392,7 +392,7 @@ in
       ];
     };
 
-    promtail = {
+    alloy = {
       enable = true;
       lokiUrl = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
       basicAuth = {

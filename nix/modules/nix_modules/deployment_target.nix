@@ -36,7 +36,7 @@ in
 
     # Preemptive SMART monitoring on all managed nodes. Autodetects all drives,
     # runs short daily self-tests and long weekly tests. Logs problems to
-    # syslog/journald (promtail picks them up and forwards to Loki).
+    # syslog/journald (alloy picks them up and forwards to Loki).
     services.smartd = {
       enable = lib.mkDefault true; # hosts with no SMART drives (e.g. SD-card Pi) should set this false
       autodetect = true;

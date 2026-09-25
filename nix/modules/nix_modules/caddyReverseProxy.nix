@@ -41,7 +41,7 @@ let
   safeName = s: replaceStrings [ "-" "." "*" "/" ":" ] [ "_" "_" "star" "_" "_" ] s;
 
   # Same path the NixOS caddy module derives, with a group-readable mode so
-  # promtail can ship these. Caddy's file writer defaults to 0600, which no
+  # alloy can ship these. Caddy's file writer defaults to 0600, which no
   # amount of group membership can get around.
   # Caddy redacts Cookie and Authorization on its own, but nothing else. The
   # *arr APIs and immich authenticate with X-Api-Key and with an apikey query

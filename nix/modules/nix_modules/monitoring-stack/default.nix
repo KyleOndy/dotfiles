@@ -8,7 +8,7 @@ with lib;
     ./alertmanager.nix
     ./vmalert.nix
     ./vmagent.nix
-    ./promtail.nix
+    ./alloy.nix
     ./node_exporter.nix
     ./zfs_exporter.nix
     ./exportarr.nix

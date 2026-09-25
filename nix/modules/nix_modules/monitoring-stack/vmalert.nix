@@ -1044,15 +1044,15 @@ in
                 severity: warning
               annotations:
                 summary: "Loki is rejecting log pushes with 5xx"
-                description: "Promtail cannot deliver logs. Every Loki-backed panel and the two Grafana jellyfin alerts go blind while this lasts."
+                description: "Alloy cannot deliver logs. Every Loki-backed panel and the two Grafana jellyfin alerts go blind while this lasts."
 
-            - alert: PromtailDroppingEntries
-              expr: sum by (reason) (rate(promtail_dropped_entries_total[15m])) > 0
+            - alert: AlloyDroppingEntries
+              expr: sum by (reason) (rate(loki_write_dropped_entries_total[15m])) > 0
               for: 15m
               labels:
                 severity: warning
               annotations:
-                summary: "promtail is dropping log entries ({{ $labels.reason }})"
+                summary: "alloy is dropping log entries ({{ $labels.reason }})"
                 description: "Log lines are being discarded before they reach Loki. `rate_limited` means Loki's ingestion limit; `line_too_long` means a single entry exceeded the max; `ingester_error` means Loki refused them. Entries dropped here are gone."
     '';
 

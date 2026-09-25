@@ -2,7 +2,7 @@
   "id": null,
   "uid": "monitoring-stack",
   "title": "Monitoring Stack Health",
-  "description": "The stack watching itself: scrape coverage, VictoriaMetrics ingest, vmagent delivery, Loki pushes and promtail drops. Investigation surface for the monitoring_stack alert group.",
+  "description": "The stack watching itself: scrape coverage, VictoriaMetrics ingest, vmagent delivery, Loki pushes and alloy drops. Investigation surface for the monitoring_stack alert group.",
   "tags": ["system", "monitoring", "victoriametrics", "loki"],
   "timezone": "",
   "schemaVersion": 39,
@@ -421,7 +421,7 @@
     },
     {
       "type": "row",
-      "title": "Loki and promtail",
+      "title": "Loki and alloy",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
       "collapsed": false,
       "panels": []
@@ -515,19 +515,19 @@
     },
     {
       "type": "timeseries",
-      "title": "promtail Sent vs Dropped",
+      "title": "alloy Sent vs Dropped",
       "description": "Anything dropped here never reaches Loki and cannot be recovered.",
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 30 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(promtail_sent_entries_total[5m]))",
+          "expr": "sum(rate(loki_write_sent_entries_total[5m]))",
           "legendFormat": "Sent/s"
         },
         {
           "refId": "B",
-          "expr": "sum by (reason) (rate(promtail_dropped_entries_total[5m]))",
+          "expr": "sum by (reason) (rate(loki_write_dropped_entries_total[5m]))",
           "legendFormat": "Dropped {{reason}}"
         }
       ],

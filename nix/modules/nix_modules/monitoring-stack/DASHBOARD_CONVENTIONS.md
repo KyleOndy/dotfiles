@@ -83,8 +83,8 @@ Two live cases:
 
 - cogsworth labels each scheduler task `job`, which is also the scrape's own
   label. `nix/hosts/cogsworth/configuration.nix` relabels it to `task`.
-- promtail labels its client series `host` with the Loki address. Nothing
-  renames it, so it reads `exported_host`, and `host` stays `tiger`.
+- alloy labels its `loki_write_*` series `host` with the Loki address.
+  Nothing renames it, so it reads `exported_host`, and `host` stays `tiger`.
 
 Before writing a rule against a label, check what the label is actually
 called once the sample has landed:
@@ -98,7 +98,7 @@ ssh tiger 'curl -sG --data-urlencode "query=<metric>" \
 
 ### In Loki, select on `unit`, not `job`
 
-The metrics rule above does not carry over to LogQL. promtail ships a
+The metrics rule above does not carry over to LogQL. alloy ships a
 whole journal under one job, so there is no per-service job to select on:
 
 ```bash

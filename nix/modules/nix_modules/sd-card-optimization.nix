@@ -29,7 +29,7 @@ in
     };
 
     # Mount /var/log in RAM
-    # All logs kept in memory - acceptable since promtail sends to Loki
+    # All logs kept in memory - acceptable since alloy sends to Loki
     fileSystems."/var/log" = {
       device = "tmpfs";
       fsType = "tmpfs";
