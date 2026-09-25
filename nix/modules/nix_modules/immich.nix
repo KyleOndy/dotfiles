@@ -2,6 +2,7 @@
   lib,
   pkgs,
   config,
+  inputs,
   ...
 }:
 with lib;
@@ -9,6 +10,17 @@ let
   cfg = config.systemFoundry.immich;
 in
 {
+  # nixpkgs 26.05 carries immich 2.7.5, which is end of life and marked
+  # insecure (CVE-2026-59258, CVE-2026-82272). 3.x lands in 26.11, so both the
+  # package and the module that drives it come from nixpkgs-master until then.
+  # The two modules differ by one option (database.package) and a mkIf; the
+  # 26.05 one cannot start a 3.x server.
+  #
+  # Immich 3.x migrates the database on first start and does not migrate back.
+  # Snapshot storage/immich before the deploy that lands this.
+  disabledModules = [ "services/web-apps/immich.nix" ];
+  imports = [ "${inputs.nixpkgs-master}/nixos/modules/services/web-apps/immich.nix" ];
+
   options.systemFoundry.immich = {
     enable = mkEnableOption "Batteries included wrapper for Immich (self-hosted photo management)";
 
@@ -54,6 +66,7 @@ in
   config = mkIf cfg.enable {
     services.immich = {
       enable = true;
+      package = pkgs.master.immich;
       host = "127.0.0.1";
       port = cfg.port;
       mediaLocation = cfg.mediaLocation;
@@ -78,16 +91,6 @@ in
       database = {
         enable = true;
         createDB = true;
-
-        # Pin the vector backend explicitly rather than relying on stateVersion
-        # defaults. On hosts with stateVersion < 25.11 (e.g. tiger at 21.11) the
-        # module defaults enableVectors (pgvecto.rs) to true, which trips an
-        # assertion against PostgreSQL 17+ and installs a `vectors` schema that
-        # VectorChord-era dumps don't use. Immich uses VectorChord going forward.
-        # NOTE: nixpkgs master removed both options (mkRemovedOptionModule); drop
-        # these lines when bumping to a nixpkgs that no longer defines them.
-        enableVectors = false;
-        enableVectorChord = true;
       };
 
       redis.enable = true;
