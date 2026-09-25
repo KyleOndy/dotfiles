@@ -291,8 +291,18 @@ in
       group = "grafana";
     };
 
-    services.grafana.settings.security.admin_password =
-      "$__file{${config.sops.secrets.grafana_admin_password.path}}";
+    # Grafana encrypts datasource and alerting secrets in its database with
+    # this. nixpkgs shipped a default until 26.05 and now refuses to guess one,
+    # because everyone who took the default shared it.
+    sops.secrets.grafana_secret_key = {
+      owner = "grafana";
+      group = "grafana";
+    };
+
+    services.grafana.settings.security = {
+      admin_password = "$__file{${config.sops.secrets.grafana_admin_password.path}}";
+      secret_key = "$__file{${config.sops.secrets.grafana_secret_key.path}}";
+    };
 
     # Every file under dashboards/ is provisioned at the path it already has in
     # the tree, which is what foldersFromFilesStructure turns into Grafana

@@ -34,10 +34,7 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
       bashInteractive
-
-      # Node packages do not appear when running `nix search`. Use
-      # `nix-env -qaPA nixos.nodePackages` to view them.`
-      nodePackages.bash-language-server
+      bash-language-server
     ];
     # BASH_ENV is read by non-interactive bash only, so it is what gives
     # scripts the PS4 above (.bashrc handles the interactive case). It lives

@@ -513,9 +513,14 @@ in
     ];
   };
 
-  # Voice: wyoming-openwakeword for wake word detection (loopback only)
+  # Voice: wyoming-openwakeword for wake word detection (loopback only).
+  #
+  # Off since nixpkgs 26.05: wyoming-openwakeword 2.x needs pyopen-wakeword,
+  # which nixpkgs marks broken on aarch64-linux because it segfaults calling
+  # into libtensorflowlite. Nothing below has changed, so this is one line to
+  # flip back once upstream unbreaks it.
   services.wyoming.openwakeword = {
-    enable = true;
+    enable = false;
     uri = "tcp://127.0.0.1:10400";
     threshold = 0.5;
     triggerLevel = 1;

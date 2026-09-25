@@ -80,7 +80,10 @@ in
         enable = true;
         settings = {
           PermitRootLogin = "no";
-          AcceptEnv = "LANG LC_*";
+          AcceptEnv = [
+            "LANG"
+            "LC_*"
+          ];
         };
       };
       # TODO: do I still need RuntimeDirectorySize?

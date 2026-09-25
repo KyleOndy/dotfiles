@@ -132,7 +132,8 @@ let
           # Create files 664 so the other *arr services and jellyfin can read
           # what this one writes. Group membership is the host's job: tiger
           # sets `group = mediaGroup`, which is already the process GID.
-          systemd.services.${name}.serviceConfig.UMask = "0002";
+          # mkForce because the servarr modules set UMask = "0022" outright.
+          systemd.services.${name}.serviceConfig.UMask = mkForce "0002";
         })
 
         (spec.extraConfig or { })
