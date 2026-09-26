@@ -122,7 +122,6 @@ in
         interactive = {
           # when in --patch mode, take your input without having to hit enter. Greatly
           # speeds up the workflow.
-          # NOTE: this requires that perl module `Term:ReadKey` is available.
           singleKey = "true";
         };
         commit = {
@@ -146,10 +145,6 @@ in
           # show the number of stashes at the bottom of the status message.
           showStash = "true";
         };
-        color = {
-          # let git decide when to be colorful.
-          ui = "auto";
-        };
         diff = {
           # use "nvimdiff", defined later at neovim
           tool = "nvimdiff";
@@ -161,14 +156,11 @@ in
           algorithm = "patience";
         };
         difftool = {
-          # use "nvimdiff", defined later
-          tool = "nvimdiff";
           # prompting before opening difftools is just one more key press getting in
           # the way of the groove.
           prompt = "false";
         };
         "difftool \"pdfdiff\"" = {
-          prompt = "false";
           cmd = "diff-pdf --view \"$LOCAL\" \"$REMOTE\"";
         };
         mergetool = {
