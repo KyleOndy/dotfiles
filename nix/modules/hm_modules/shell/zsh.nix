@@ -638,7 +638,7 @@ in
             wt() {
               # Not `path`: zsh ties that name to $PATH, so declaring it local
               # empties PATH for the rest of the function.
-              local wt_path wt_ticket wt_title wt_slug
+              local wt_path wt_base wt_ticket wt_title wt_slug
 
               # A bare ticket takes its name from the issue title.
               if (( $# == 1 )) && [[ $1 =~ '^[A-Za-z]+-[0-9]+$' ]]; then
@@ -652,12 +652,18 @@ in
                 fi
               fi
 
+              wt_base=$(_wt_base)
               wt_path="$(git wt-feature-branch --print-path \
-                --base "$(_wt_base)" "$@")" || return
+                --base "$wt_base" "$@")" || return
               # direnv's chpwd hook evaluates .envrc on the cd; an untrusted one
               # loads nothing, so allow must precede the cd or the flake env never
-              # reaches this shell. Idempotent on an already-trusted path.
-              ${pkgs.direnv}/bin/direnv allow "$wt_path"
+              # reaches this shell. Only a worktree identical to its base gets
+              # allowed: a reused one, or one on an existing branch, can carry an
+              # agent's flake.nix, and trusting that is `git adopt`'s job.
+              if [[ $(git -C "$wt_path" rev-parse HEAD) == $(git rev-parse "$wt_base") ]] \
+                && git -C "$wt_path" diff --quiet HEAD; then
+                ${pkgs.direnv}/bin/direnv allow "$wt_path"
+              fi
               cd "$wt_path" || return
             }
 
@@ -685,6 +691,13 @@ in
                 shift
               done
               wt "''${wt_args[@]}" || return
+              # The agent can write flake.nix, whose shellHook direnv would run
+              # unsandboxed in any shell here once it reloads. deny leaves this
+              # shell's already-loaded env for the agent and blocks every reload
+              # until `git adopt` allows the worktree again.
+              if [[ -e .envrc ]]; then
+                ${pkgs.direnv}/bin/direnv deny "$PWD" || return
+              fi
               GIT_CONFIG_COUNT=2 \
                 GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
                 GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false \

@@ -19,6 +19,13 @@ Agents commit unsigned: the pi wrapper exports commit.gpgsign=false and an
 Adopting them is the review gate: once you have read the work, your signature
 says so.
 
+Adopting also trusts the worktree again. `wtx` runs `direnv deny` on it before
+the agent starts, because a reload would run the agent's flake.nix shellHook
+unsandboxed in your shell. Every run that ends with the range signed, including
+the ones with nothing to do, runs `direnv allow` on the worktree. The listing
+first shows changes to the files that run on entry or steer the next agent:
+.envrc, flake.nix, flake.lock, .claude/, .pi/, AGENTS.md and CLAUDE.md.
+
   git adopt
     → base: merge-base of HEAD and the local default branch
     → signs each commit in base..HEAD, rewriting it
@@ -76,12 +83,29 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+# Pathspecs for what runs when you enter the worktree or instructs the next
+# agent in it.
+readonly trust_paths=(
+	.envrc flake.nix flake.lock .claude .pi
+	':(glob)**/AGENTS.md' ':(glob)**/CLAUDE.md'
+)
+
+allow_direnv() {
+	local top
+	[[ $dry_run != true ]] || return 0
+	top=$(git rev-parse --show-toplevel)
+	[[ -e "${top}/.envrc" ]] && command_exists direnv || return 0
+	direnv allow "$top"
+	log_info "direnv allowed ${top}"
+}
+
 base=$(require_rewritable_range "$base_arg")
 branch=$(git rev-parse --abbrev-ref HEAD)
 
 total=$(git rev-list --count "${base}..HEAD")
 if [[ $total -eq 0 ]]; then
 	log_info "Nothing to adopt: ${branch} adds no commits over its base"
+	allow_direnv
 	exit 0
 fi
 
@@ -91,6 +115,7 @@ fi
 unsigned=$(git log --format='%G?' "${base}..HEAD" | grep -c '^N$' || true)
 if [[ $unsigned -eq 0 ]]; then
 	log_info "Already adopted: all ${total} commit(s) carry a signature"
+	allow_direnv
 	exit 0
 fi
 
@@ -99,13 +124,20 @@ echo "" >&2
 git log --format='  %h %G? %<(24,trunc)%an %s' "${base}..HEAD" >&2
 echo "" >&2
 
+trust_stat=$(git diff --stat "${base}..HEAD" -- "${trust_paths[@]}")
+if [[ -n $trust_stat ]]; then
+	log_warn "Changes to files that run on entry or steer the next agent:"
+	echo "$trust_stat" >&2
+	echo "" >&2
+fi
+
 if [[ $dry_run == true ]]; then
 	log_info "Dry run: nothing was rewritten"
 	exit 0
 fi
 
 if [[ $assume_yes != true ]]; then
-	read -r -p "Sign ${total} commit(s), ${unsigned} of them unsigned, as $(git config user.name)? [y/N] " -n 1
+	read -r -p "Sign ${total} commit(s), ${unsigned} of them unsigned, as $(git config user.name), and trust this worktree? [y/N] " -n 1
 	echo "" >&2
 	[[ $REPLY =~ ^[Yy]$ ]] || die "Cancelled"
 fi
@@ -118,3 +150,4 @@ git rebase --force-rebase --gpg-sign "$base"
 echo "" >&2
 log_info "Adopted:"
 git log --format='  %h %G? %<(24,trunc)%an %s' "${base}..HEAD" >&2
+allow_direnv
