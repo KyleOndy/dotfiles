@@ -114,9 +114,10 @@ in
           # updates to any <ref> are logged in $GIT_DIR/logs/<refs>. This information
           # can be used to determine the state of a repository at a point in history.
           logAllRefUpdates = "always";
-          # automatically pick a comment character that doesn't conflict with
-          # lines starting with '#' in commit messages.
-          commentChar = "auto";
+          # not '#', so markdown headings in a commit message are not stripped
+          # as comments. The message.txt template below must use the same
+          # character.
+          commentChar = ";";
         };
         interactive = {
           # when in --patch mode, take your input without having to hit enter. Greatly
@@ -270,44 +271,44 @@ in
     xdg = {
       # todo: move this into home-manager configuration
       configFile."git/message.txt".text = ''
-        # <type>: (If applied, this commit will...) <subject> (Max 50 char)
-        # |<----  Using a Maximum Of 50 Characters  ---->|
+        ; <type>: (If applied, this commit will...) <subject> (Max 50 char)
+        ; |<----  Using a Maximum Of 50 Characters  ---->|
 
 
-        # Explain why this change is being made
-        # |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->|
+        ; Explain why this change is being made
+        ; |<----   Try To Limit Each Line to a Maximum Of 72 Characters   ---->|
 
-        # Provide links or keys to any relevant tickets, articles or other resources
-        # Example: Github issue #23
+        ; Provide links or keys to any relevant tickets, articles or other resources
+        ; Example: Github issue #23
 
-        # --- COMMIT END ---
-        # Type can be
-        #    build    (Changes that affect the build system or external dependencies)
-        #    chore    (Other changes that don't modify src or test files)
-        #    ci       (Changes to our CI configuration files and scripts)
-        #    config   (A change to configuration values)
-        #    docs     (Documentation only changes)
-        #    feat     (A new feature)
-        #    fix      (A bug fix)
-        #    perf     (A code change that improves performance)
-        #    refactor (A code change that neither fixes a bug nor adds a feature)
-        #    revert   (Reverts a previous commit)
-        #    style    (Changes that do not affect the meaning of the code (white-space, etc)
-        #    test     (Adding missing tests or correcting existing tests)
-        # --------------------
-        # Remember to
-        #    Capitalize the subject line
-        #    Use the imperative mood in the subject line
-        #    Do not end the subject line with a period
-        #    Separate subject from body with a blank line
-        #    Use the body to explain what and why vs. how
-        #    Can use multiple lines with "-" for bullet points in body
-        # --------------------
-        # For more information about this template, check out
-        # https://gist.github.com/adeekshith/cd4c95a064977cdc6c50
-        # --------------------
-        # For more information about commit types, check out
-        # https://www.conventionalcommits.org/en/v1.0.0/
+        ; --- COMMIT END ---
+        ; Type can be
+        ;    build    (Changes that affect the build system or external dependencies)
+        ;    chore    (Other changes that don't modify src or test files)
+        ;    ci       (Changes to our CI configuration files and scripts)
+        ;    config   (A change to configuration values)
+        ;    docs     (Documentation only changes)
+        ;    feat     (A new feature)
+        ;    fix      (A bug fix)
+        ;    perf     (A code change that improves performance)
+        ;    refactor (A code change that neither fixes a bug nor adds a feature)
+        ;    revert   (Reverts a previous commit)
+        ;    style    (Changes that do not affect the meaning of the code (white-space, etc)
+        ;    test     (Adding missing tests or correcting existing tests)
+        ; --------------------
+        ; Remember to
+        ;    Capitalize the subject line
+        ;    Use the imperative mood in the subject line
+        ;    Do not end the subject line with a period
+        ;    Separate subject from body with a blank line
+        ;    Use the body to explain what and why vs. how
+        ;    Can use multiple lines with "-" for bullet points in body
+        ; --------------------
+        ; For more information about this template, check out
+        ; https://gist.github.com/adeekshith/cd4c95a064977cdc6c50
+        ; --------------------
+        ; For more information about commit types, check out
+        ; https://www.conventionalcommits.org/en/v1.0.0/
       '';
     };
 
