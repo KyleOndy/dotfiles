@@ -135,9 +135,6 @@ in
           verbose = "true";
         };
         init = {
-          # there is nothing of value in the template yet, but having the template
-          # wired up lowers the friction when I'd like to add something.
-          templatedir = "~/.config/git/template";
           # trying to do my part in using appropaite termonogly
           defaultBranch = "main";
         };
