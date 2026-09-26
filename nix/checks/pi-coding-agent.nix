@@ -235,6 +235,8 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(pi -- hello 2>&1)
     echo "$captured" | grep -q "PI_PLAN_GIT:.*sign=false hooksPath=/dev/null" \
       || fail "git hardening (hooksPath) missing. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_GIT:.* editor=true" \
+      || fail "GIT_EDITOR=true missing. captured=$captured"
 
     # Supply-chain + cache hardening env (items 1 + 4)
     echo "$captured" | grep -q "PI_PLAN_HARDENING: npm_config_ignore_scripts=true" \

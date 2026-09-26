@@ -160,6 +160,10 @@ pi_keep_env=(
 #     under --web and --no-sandbox; in strict mode srt's own GIT_SSH_COMMAND
 #     takes precedence and fails at the SOCKS handshake instead, so git over
 #     ssh works in no mode, --allow-ssh-agent included.
+# GIT_EDITOR=true accepts the prepared message wherever git would open an
+# editor: commit without -m, rebase --continue after a conflict, rebase -i. The
+# agent has no terminal to drive one. A commit without -m aborts with "empty
+# commit message", since the prepared message is only commit.template comments.
 # Override any of these per-host via sandbox.envVars if a workflow needs them.
 export GIT_AUTHOR_NAME=@gitAuthorName@
 export GIT_AUTHOR_EMAIL=@gitAuthorEmail@
@@ -176,9 +180,10 @@ export GIT_CONFIG_KEY_3=core.fsmonitor
 export GIT_CONFIG_VALUE_3=false
 export GIT_CONFIG_KEY_4=core.sshCommand
 export GIT_CONFIG_VALUE_4=false
+export GIT_EDITOR=true
 if [[ ${PI_DEBUG:-} == "plan" ]]; then
-	printf 'PI_PLAN_GIT: author=%s <%s> sign=false hooksPath=/dev/null\n' \
-		"$GIT_AUTHOR_NAME" "$GIT_AUTHOR_EMAIL"
+	printf 'PI_PLAN_GIT: author=%s <%s> sign=false hooksPath=/dev/null editor=%s\n' \
+		"$GIT_AUTHOR_NAME" "$GIT_AUTHOR_EMAIL" "$GIT_EDITOR"
 fi
 
 # Resolve the repo's real git directories. $PWD/.git is a pointer file in a
