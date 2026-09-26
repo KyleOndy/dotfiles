@@ -178,8 +178,8 @@ iso-pika: ## Build pika's headless install and rescue ISO
 
 .PHONY: cleanup
 cleanup: ## Cleanup and reduce diskspace of current system
-	nix-collect-garbage --delete-older-than 7d
 	sudo nix-collect-garbage --delete-older-than 7d
+	nix-collect-garbage --delete-older-than 7d
 	sudo nix store optimise
 
 # https://kgolding.co.uk/snippets/makefile-check-git-status/
