@@ -233,9 +233,6 @@ in
           # prune tags additionally when fetching.
           pruneTags = "true";
         };
-        credential = {
-          helper = "store";
-        };
         advice = {
           skippedCherryPicks = "false";
         };
