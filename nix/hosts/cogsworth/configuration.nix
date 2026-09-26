@@ -133,9 +133,13 @@ in
   };
 
   # wpa_supplicant secrets file template
-  sops.templates."wpa-secrets".content = ''
-    home_psk=${config.sops.placeholder.home_wifi_password}
-  '';
+  sops.templates."wpa-secrets" = {
+    content = ''
+      home_psk=${config.sops.placeholder.home_wifi_password}
+    '';
+    # networking.wireless.enableHardening runs wpa_supplicant as this user.
+    owner = "wpa_supplicant";
+  };
 
   networking = {
     hostName = "cogsworth";
