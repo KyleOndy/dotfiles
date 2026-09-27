@@ -110,13 +110,14 @@ export DOCKER_HOST="unix://${VM_SOCKET}"
 # actually running.
 readonly VM_LIVE_CONFIG="${LIMA_HOME:-${HOME}/.lima}/${VM_NAME}/lima.yaml"
 
-# Two sizes rather than free-form numbers, so an agent asking for a bigger VM
+# Fixed sizes rather than free-form numbers, so an agent asking for a bigger VM
 # cannot ask for the whole host. large is what vm.nix declares.
 size_cpus() {
 	case "$1" in
 	small) echo 2 ;;
 	large) echo 4 ;;
-	*) die "unknown size '$1' (want small or large)" ;;
+	xlarge) echo 8 ;;
+	*) die "unknown size '$1' (want small, large or xlarge)" ;;
 	esac
 }
 
@@ -124,7 +125,8 @@ size_memory() {
 	case "$1" in
 	small) echo 4GiB ;;
 	large) echo 8GiB ;;
-	*) die "unknown size '$1' (want small or large)" ;;
+	xlarge) echo 16GiB ;;
+	*) die "unknown size '$1' (want small, large or xlarge)" ;;
 	esac
 }
 
@@ -370,7 +372,7 @@ live_size() {
 	local cpus memory size
 	cpus="$(yq '.cpus' "${VM_LIVE_CONFIG}")"
 	memory="$(yq '.memory' "${VM_LIVE_CONFIG}")"
-	for size in small large; do
+	for size in small large xlarge; do
 		if [[ ${cpus} == "$(size_cpus "${size}")" && ${memory} == "$(size_memory "${size}")" ]]; then
 			echo "${size}"
 			return
@@ -1158,8 +1160,8 @@ Commands:
   resize S       Stop the VM, change its CPUs and memory, start it again.
   vm-config [S]  Print the lima config this instance's VM is created from.
 
-Sizes: small (2 CPUs, 4GiB), large (4 CPUs, 8GiB). A new VM defaults to
-${DEFAULT_SIZE}: large unnamed, small named.
+Sizes: small (2 CPUs, 4GiB), large (4 CPUs, 8GiB), xlarge (8 CPUs, 16GiB).
+A new VM defaults to ${DEFAULT_SIZE}: large unnamed, small named.
 
 Config: ${CONFIG}
   Declares the Docker network, the management cluster and its
@@ -1257,7 +1259,7 @@ cache)
 	cmd_cache "${2:-}"
 	;;
 resize)
-	[[ -n ${2:-} ]] || die "usage: forge resize small|large"
+	[[ -n ${2:-} ]] || die "usage: forge resize small|large|xlarge"
 	size_cpus "$2" >/dev/null
 	cmd_resize "$2"
 	;;

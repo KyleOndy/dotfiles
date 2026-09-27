@@ -86,9 +86,10 @@ which is how pi's coordinator gives each agent its own
 | new VM's size | large                              | small                                                                        |
 
 Each instance's lima config is `vm.nix`'s with its own port window, CPUs and
-memory, rendered at creation (`forge vm-config` prints it). Two sizes:
-small is 2 CPUs and 4GiB, large 4 CPUs and 8GiB. `forge up --size S` picks one
-for a new VM and refuses a mismatch on an existing one; `forge resize S` stops
+memory, rendered at creation (`forge vm-config` prints it). Three sizes:
+small is 2 CPUs and 4GiB, large 4 CPUs and 8GiB, xlarge 8 CPUs and 16GiB.
+`forge up --size S` picks one for a new VM and refuses a mismatch on an
+existing one; `forge resize S` stops
 the VM, edits its CPUs and memory, and starts it again. `forge-small.yaml`
 declares the management cluster and one single-node workload cluster, which is
 what pi-broker brings a small instance up with.
