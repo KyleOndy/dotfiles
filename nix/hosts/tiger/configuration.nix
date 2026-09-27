@@ -625,16 +625,21 @@ in
     };
   };
 
+  services.sabnzbd.settings.misc = {
+    bandwidth_max = "30M";
+    bandwidth_perc = 100;
+    cache_limit = "1G";
+  };
+
   # SABnzbd unpacks rar, zip and 7z and nothing else: SEVENZIP_RE in
   # sabnzbd/filesystem.py is `\.(zip|7z)$` and there is no tar unpacker behind
   # it. A release that ships as one .tar therefore lands in the completed tree
   # still archived, and lidarr parks the job on "Found archive file, might need
   # to be extracted" and retries it forever.
   #
-  # A post-processing script is SABnzbd's own hook for this, but it is
-  # configured in sabnzbd.ini, which SABnzbd rewrites to persist queue state
-  # and nix therefore cannot own. A sweep needs no cooperation from SABnzbd at
-  # all, and it clears the jobs that piled up before it existed.
+  # A post-processing script is SABnzbd's own hook for this, but a sweep needs
+  # no cooperation from SABnzbd at all, and it clears the jobs that piled up
+  # before it existed.
   systemd.services.untar-downloads = {
     description = "Extract .tar releases SABnzbd cannot unpack";
     serviceConfig = {
