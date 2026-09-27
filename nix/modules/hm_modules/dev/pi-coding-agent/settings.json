@@ -1,6 +1,7 @@
 {
   "theme": "gruvbox-dark",
   "quietStartup": true,
+  "defaultThinkingLevel": "max",
   "showCacheMissNotices": true,
   "retry": {
     "maxRetries": 6
