@@ -64,10 +64,9 @@ catalog in `PI_AVAILABLE_GRANTS`; `extensions/grants.ts` turns the carried
 ones into system-prompt sections from `grants/<name>.md` and lists the rest,
 so a session the sandbox blocks knows which flag to ask the human to restart
 with.
-The `pi-usage` extension (Z.ai quota in the footer, `/usage` command) is the
-one pi resource not from there: a third-party pi package from the `pi-usage`
-flake input, symlinked to `~/.pi/agent/packages/pi-usage` and registered in
-the module's `settings.json`; `make update/pi-usage` moves the pin.
+`extensions/zai-quota.ts` puts the Z.ai Coding Plan's 5h and 7d credit
+windows in the footer, styled like `dev/claude-code/statusline.sh`, and stays
+blank on hosts without a `zai` key.
 
 Every provider the agent reaches is an internal or account-billed endpoint.
 work-mac takes its ids, base URLs, costs and reasoning maps from the private
