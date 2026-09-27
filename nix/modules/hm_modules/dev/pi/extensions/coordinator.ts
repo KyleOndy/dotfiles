@@ -137,7 +137,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
     promptGuidelines: [
       "The agent name becomes the branch and worktree name, prefixed with the ticket id when your own branch starts with one (DEV-123-), so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
       "The task is the agent's whole brief. It sees none of this conversation, so say what to do, what done looks like, and what to leave alone.",
-      "Use size large only when the task needs two workload clusters or heavy workloads; small is the default and leaves room for more agents.",
+      "Use size large only when the task needs two workload clusters or heavy workloads, and xlarge only for three or more clusters each running a full stack; small is the default and leaves room for more agents.",
       "After spawning, use agent_wait rather than polling agent_status in a loop.",
       "You hold no forge VM yourself. Work that needs kind clusters goes to a spawned agent, and its brief should say so, since the agent decides whether to boot its VM.",
     ],
@@ -150,10 +150,17 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
         description: "The agent's full brief, sent as its first message.",
       }),
       size: Type.Optional(
-        Type.Union([Type.Literal("small"), Type.Literal("large")], {
-          description:
-            "small: 2 CPUs, 4GiB, one workload cluster. large: 4 CPUs, 8GiB, two workload clusters.",
-        }),
+        Type.Union(
+          [
+            Type.Literal("small"),
+            Type.Literal("large"),
+            Type.Literal("xlarge"),
+          ],
+          {
+            description:
+              "small: 2 CPUs, 4GiB, one workload cluster. large: 4 CPUs, 8GiB, two workload clusters. xlarge: 8 CPUs, 16GiB, three or more workload clusters.",
+          },
+        ),
       ),
       base: Type.Optional(
         Type.String({

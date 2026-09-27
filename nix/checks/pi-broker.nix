@@ -141,6 +141,7 @@ pkgs.runCommand "pi-broker-check"
     req r10 '{"op":"spawn","agent":"eps","task":"x","size":"large"}' true "instance 3"
     req r11 '{"op":"spawn","agent":"zeta","task":"x","size":"large"}' true "instance 4"
     req r12 '{"op":"spawn","agent":"eta","task":"x","size":"large"}' false "28 of 32GiB"
+    req r12x '{"op":"spawn","agent":"theta","task":"x","size":"xlarge"}' false "28 of 32GiB"
 
     # A child asks for its VM by touching boot.request, and the broker boots
     # the instance from its own state, not from anything the child wrote.

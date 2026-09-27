@@ -290,8 +290,8 @@ handle_spawn() {
 		respond "${id}" false "task must be 1-${MAX_TASK_CHARS} characters"
 		return
 	fi
-	if [[ ${size} != small && ${size} != large ]]; then
-		respond "${id}" false "size must be small or large"
+	if [[ ${size} != small && ${size} != large && ${size} != xlarge ]]; then
+		respond "${id}" false "size must be small, large or xlarge"
 		return
 	fi
 	# A leading dash would read as an option to git, and the coordinator's own
