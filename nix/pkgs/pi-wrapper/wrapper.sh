@@ -37,6 +37,7 @@ coord_role=""
 coord_id=""
 coord_agent=""
 allow_ssh_agent=@defaultAllowSshAgent@
+allow_clipboard=false
 git_write_mode=@gitWriteMode@
 protected_branches=(@protectedBranches@)
 git_write_granted=false
@@ -513,6 +514,11 @@ while [[ $# -gt 0 ]]; do
 		allow_ssh_agent=true
 		shift
 		;;
+	--allow-clipboard)
+		# Exact-match case: it shadows any network bundle named "clipboard".
+		allow_clipboard=true
+		shift
+		;;
 	--allow-forge | --allow-forge=*)
 		# Exact-match case: it shadows any network bundle named "forge".
 		allow_forge=true
@@ -575,7 +581,7 @@ done
 # From the final values rather than the case arms, so a grant a host turns
 # on through defaultAllow* is recorded like one given on the command line.
 flag_grants=()
-for grant in nix ssh-agent forge; do
+for grant in nix ssh-agent forge clipboard; do
 	allowed="allow_${grant//-/_}"
 	if "${!allowed}"; then
 		flag_grants+=("$grant")
@@ -608,7 +614,7 @@ fi
 # Not under --no-sandbox, where no flag is missing and no refusal is the
 # sandbox's.
 if ! "$no_sandbox"; then
-	available_grants=(nix ssh-agent forge)
+	available_grants=(nix ssh-agent forge clipboard)
 	if [[ ${#bundle_domains[@]} -gt 0 ]]; then
 		available_grants+=("${!bundle_domains[@]}")
 	fi
@@ -1114,6 +1120,15 @@ run_strict() {
 		unix_sockets_json='[]'
 	fi
 
+	# NSPasteboard's server, which pi's ctrl+v image paste and pbcopy/pbpaste
+	# reach. srt's macOS profile allows only a fixed set of mach services
+	# (macos-sandbox-utils.js, generateSandboxProfile), so without it both
+	# fail silently. Linux's bwrap ignores the key and has no pasteboard.
+	mach_lookup_json='[]'
+	if "$allow_clipboard"; then
+		mach_lookup_json='["com.apple.pasteboard.1"]'
+	fi
+
 	# allowPty=true is macOS-only (lets `pi`'s interactive TUI call setRawMode
 	# through sandbox-exec). Linux's bwrap ignores unknown keys.
 	# allowLocalBinding=true tells srt to emit (allow network-bind (local ip "*:*"))
@@ -1131,12 +1146,14 @@ run_strict() {
 		--argjson allowLoopback "$allow_loopback" \
 		--argjson allowTrustd "$allow_trustd" \
 		--argjson unixSockets "$unix_sockets_json" \
+		--argjson machLookup "$mach_lookup_json" \
 		'{
             "network": {
               "allowedDomains": $allowed,
               "deniedDomains": [],
               "allowLocalBinding": $allowLoopback,
-              "allowUnixSockets": $unixSockets
+              "allowUnixSockets": $unixSockets,
+              "allowMachLookup": $machLookup
             },
             "filesystem": {"allowRead": $allowRead, "allowWrite": $write, "denyRead": $denyRead, "denyWrite": $denyWrite},
             "allowPty": true,

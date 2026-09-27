@@ -457,11 +457,11 @@ pkgs.runCommand "pi-coding-agent-check"
     # what it could ask a restart for. extensions/grants.ts subtracts
     # PI_GRANTS from it for the prompt.
     captured=$(pi -- x 2>&1)
-    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: forge,nix,ssh-agent" \
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,nix,ssh-agent" \
       || fail "available grants missing or unsorted. captured=$captured"
     captured=$(${wrapperWithBundles}/bin/pi -- x 2>&1)
     echo "$captured" | grep -q \
-      "PI_PLAN_AVAILABLE_GRANTS: forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
+      "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
       || fail "bundles missing from available grants. captured=$captured"
     # Carrying a grant shrinks the missing list, never the catalog.
     captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
@@ -648,6 +648,16 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "allowUnixSockets should be empty by default. settings=$settings"
     echo "$captured" | grep -q "WARNING: --allow-nix" \
       && fail "warned about a nix grant that was never made. captured=$captured"
+
+    # The pasteboard is a mach service, closed unless --allow-clipboard.
+    echo "$settings" | jq -e '.network.allowMachLookup == []' >/dev/null \
+      || fail "allowMachLookup should be empty by default. settings=$settings"
+    captured=$(pi --allow-clipboard -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowMachLookup == ["com.apple.pasteboard.1"]' >/dev/null \
+      || fail "--allow-clipboard did not allow the pasteboard. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: clipboard" \
+      || fail "--allow-clipboard missing PI_PLAN_GRANTS. captured=$captured"
 
     # Determinate Nix on darwin points the well-known path at
     # /var/run/nix-daemon.socket, and seatbelt matches the target, so a wrapper

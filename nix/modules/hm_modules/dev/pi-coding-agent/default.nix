@@ -24,6 +24,9 @@
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
 #                          becoming readable
+#   --allow-clipboard      macOS pasteboard, so ctrl+v pastes images and
+#                          pbcopy/pbpaste work; the agent can read whatever
+#                          is on the clipboard, copied passwords included
 #   --allow-<toolchain>    go / rust / node / python / java / clojure: that
 #                          toolchain's registries, plus for java and clojure
 #                          the package caches under $HOME (~/.m2, ~/.clojure,
