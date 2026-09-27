@@ -1,19 +1,9 @@
--- TreeSitter configuration
-require("nvim-treesitter.install").compilers = { "clang++" }
-require("nvim-treesitter.configs").setup({
-  highlight = {
-    enable = true,
-  },
-  indent = {
-    enable = true,
-  },
-  incremental_selection = {
-    enable = true,
-    keymaps = {
-      init_selection = "gnn",
-      node_incremental = "grn",
-      scope_incremental = "grc",
-      node_decremental = "grm",
-    },
-  },
+-- Incremental selection is built in: `an` / `in` in visual mode.
+vim.api.nvim_create_autocmd("FileType", {
+  callback = function(args)
+    -- Fails for filetypes with no installed parser.
+    if pcall(vim.treesitter.start, args.buf) then
+      vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+    end
+  end,
 })
