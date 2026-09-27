@@ -35,6 +35,8 @@
   # through /etc/localtime and /usr/share/zoneinfo traverses it, and naming it
   # does not re-open /private/var/folders. Omit it and the sandbox reports UTC,
   # with no error to say so.
+  #
+  # /bin because macOS's default $SHELL is /bin/zsh, and $EDITOR spawns it.
   defaultSystemReadPaths ?
     if stdenv.isDarwin then
       [
@@ -44,6 +46,7 @@
         "/dev"
         "/private/var/select"
         "/System"
+        "/bin"
         "/usr"
         "/var"
         "/private/var/db/timezone"

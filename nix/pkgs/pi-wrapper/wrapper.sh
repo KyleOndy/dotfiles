@@ -303,6 +303,10 @@ __pi_set_hardening_env() {
 		"PIP_CACHE_DIR=$pi_cache_root/pip"
 		"UV_CACHE_DIR=$pi_cache_root/uv"
 		"XDG_CACHE_HOME=$pi_cache_root/xdg"
+		# Keeps $EDITOR (pi's ctrl+g) off the human's own editor state, which
+		# holds shada history and registers; nvim-nio throws at require time
+		# when it cannot open its log there.
+		"XDG_STATE_HOME=$pi_cache_root/state"
 		# Neither /tmp nor macOS's per-user $TMPDIR is in allowWrite, so a
 		# tool reaching for a temp file gets EPERM unless TMPDIR points
 		# somewhere granted. Programs that hardcode /tmp still fail.
@@ -803,16 +807,13 @@ fi
 # link and its target need re-allowing. The store is outside $HOME and already
 # readable; the flake's own git+file:// input is covered by the git dirs above.
 #
-# ~/.nix-profile because opening a remote store makes nix stat every $PATH
-# entry looking for ssh, and that one sits under the $HOME deny. ~/.cache/nix
-# needs write and not just read: it holds the fetcher locks, and eval aborts
-# on `opening lock file ".../fetcher-locks/<hash>.lock": Operation not
-# permitted` before it reaches the first derivation.
+# ~/.cache/nix needs write and not just read: it holds the fetcher locks, and
+# eval aborts on `opening lock file ".../fetcher-locks/<hash>.lock": Operation
+# not permitted` before it reaches the first derivation.
 if "$allow_nix"; then
 	extra_read_paths+=(
 		"$HOME/.nix-defexpr"
 		"$HOME/.local/state/nix"
-		"$HOME/.nix-profile"
 		"$HOME/.cache/nix"
 	)
 	extra_write_paths+=("$HOME/.cache/nix")
@@ -917,11 +918,18 @@ done
 # provider key out of the sandbox via envFromCommands (resolve from Keychain
 # outside the sandbox, reference with "!printenv" in models.json) rather than
 # on disk if that read matters in your threat model.
+#
+# ~/.nix-profile is on $PATH and resolves through ~/.local/state/nix/profiles.
+# libuv's PATH search stops at the first EPERM rather than moving on as it
+# does for ENOENT, so while the link is denied, a spawn by bare name of
+# anything later on $PATH fails (nvim's vim.system running git).
 read_paths=(
 	"$PWD"
 	"$HOME/.pi"
 	"$HOME/.config/git"
 	"$HOME/.gitconfig"
+	"$HOME/.nix-profile"
+	"$HOME/.local/state/nix/profiles"
 	"${system_read_paths[@]}"
 	"${resolved_extra_reads[@]}"
 )
