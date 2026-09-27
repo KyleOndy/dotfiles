@@ -116,6 +116,7 @@ in
     # box wants memory, so the metadata for a ~1.18TB pool fits outright,
     # which is what keeps scrubs and syncoid deltas quick.
     zfs.extraPools = [ "tank" ];
+    zfs.forceImportRoot = false;
   };
 
   networking = {

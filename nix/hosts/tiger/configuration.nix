@@ -68,6 +68,7 @@ in
     supportedFilesystems = [
       "zfs"
     ];
+    zfs.forceImportRoot = false;
     binfmt.emulatedSystems = [
       "aarch64-linux"
       "armv7l-linux"
