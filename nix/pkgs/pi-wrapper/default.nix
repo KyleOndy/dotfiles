@@ -11,6 +11,7 @@
   symlinkJoin,
   bubblewrap,
   jq,
+  vips,
   yq-go,
   llm-agents,
   realPiBin ? lib.getExe llm-agents.pi,
@@ -287,6 +288,10 @@ let
       llm-agents.sandbox-runtime
       jq
       yq-go
+      # extensions/vision-paste.ts converts HEIC/AVIF/TIFF with it. macOS sips
+      # cannot run here: it writes scratch files to /var/folders regardless
+      # of TMPDIR, and the sandbox denies writes there.
+      vips
     ]
     ++ lib.optionals stdenv.isLinux [ bubblewrap ];
     # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
