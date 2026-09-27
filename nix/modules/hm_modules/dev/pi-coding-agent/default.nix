@@ -706,10 +706,18 @@ in
     # budget is 126s and the longest single sleep is 64s. The default 3 gives up
     # after 14s, which mcloud outranks on a routine overload; past 6 the
     # doubling buys minutes of silent sleep that reads as a hang, with nothing
-    # on screen to say the session is only waiting.
-    home.activation.piSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run install -D -m 0644 ${./settings.json} "$HOME/.pi/agent/settings.json"
-    '';
+    # on screen to say the session is only waiting. shellPath replaces macOS's
+    # /bin/bash 3.2, which cannot parse `"$(cat <<'EOF'` with an apostrophe
+    # in the heredoc body, the usual commit-message shape.
+    home.activation.piSettings =
+      let
+        settings = pkgs.writeText "pi-settings.json" (
+          builtins.toJSON (lib.importJSON ./settings.json // { shellPath = lib.getExe pkgs.bashInteractive; })
+        );
+      in
+      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+        run install -D -m 0644 ${settings} "$HOME/.pi/agent/settings.json"
+      '';
 
     # pi reads bare .md files at the root of ~/.pi/agent/skills/ as individual
     # skills, so claude-code's flat sources need no restructuring. Store
