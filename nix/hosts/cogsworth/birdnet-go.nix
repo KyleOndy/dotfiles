@@ -46,10 +46,14 @@ in
             path: clips/
             type: wav
             # Clips are outdoor audio of whoever is in the yard, kept only
-            # long enough to review what a detection actually was.
+            # long enough to review what a detection actually was. Past
+            # that a species' newest 30 stay, so the kiosk has a choice of
+            # recording for a bird heard weeks ago; cogsworth's
+            # service/birds.clj assumes both numbers.
             retention:
               policy: age
               maxage: 7d
+              minclips: 30
         rtsp:
           streams:
             - name: Porch
