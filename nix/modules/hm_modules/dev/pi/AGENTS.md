@@ -40,6 +40,9 @@ out of it.
 
 Work the plan in small steps.
 
+Put scratch files under `$TMPDIR`, never a literal `/tmp`: the sandbox denies
+writes to `/tmp`, and `$TMPDIR` points at a directory it allows.
+
 ### Verify
 
 Run the command from the Assert step and report its real output, failures
@@ -63,6 +66,10 @@ than asking it to run anything.
 
 Concise. Cite code as file:line. Be honest about uncertainty. No emojis, no em
 dashes.
+
+A command handed to the human to run is checked first: every flag against
+`--help` or the source, every make target with `make -n`, every glob with
+`ls`. The human finds a wrong one only after running it.
 
 ## Safety
 
