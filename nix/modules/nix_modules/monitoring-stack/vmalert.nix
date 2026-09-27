@@ -172,7 +172,7 @@ in
                 description: "SABnzbd has been unavailable for 5 minutes"
 
             - alert: JellyseerrDown
-              expr: node_systemd_unit_state{host="tiger",name="jellyseerr.service",state="active"} != 1
+              expr: node_systemd_unit_state{host="tiger",name="seerr.service",state="active"} != 1
               for: 5m
               labels:
                 severity: critical

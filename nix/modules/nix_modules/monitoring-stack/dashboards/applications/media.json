@@ -19,7 +19,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|jellyseerr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|seerr.service\",state=\"active\"}",
           "legendFormat": "{{name}}",
           "instant": true
         }
@@ -526,7 +526,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "{host=\"tiger\",unit=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|jellyseerr.service\"} |~ \"(?i)(error|fatal|failed)\"",
+          "expr": "{host=\"tiger\",unit=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|seerr.service\"} |~ \"(?i)(error|fatal|failed)\"",
           "queryType": "range"
         }
       ],

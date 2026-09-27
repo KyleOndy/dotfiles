@@ -23,11 +23,10 @@ in
 
   config = mkIf cfg.enable {
     services = {
-      # jellyseerr service
-      jellyseerr = {
+      seerr = {
         # currently all config is done via the web.
         enable = true;
-        package = pkgs.jellyseerr;
+        package = pkgs.seerr;
       };
     };
 
