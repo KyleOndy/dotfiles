@@ -542,7 +542,7 @@
                   name = "skill-frontmatter";
                   entry = "${skillFrontmatter}/bin/skill-frontmatter";
                   language = "system";
-                  files = "^nix/modules/hm_modules/dev/claude-code/skills/.*\\.md$";
+                  files = "^nix/(modules/hm_modules/dev/claude-code|hosts/[^/]+)/skills/.*\\.md$";
                 };
               };
             }
