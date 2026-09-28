@@ -5,7 +5,19 @@
   ...
 }:
 {
-  nix.linux-builder.enable = true;
+  # trex replaces this with its own builder (nix/hosts/trex/configuration.nix)
+  # and sizes it the same way.
+  nix.linux-builder = {
+    enable = true;
+    # The stock 20 GiB disk with GC between 1 and 3 GiB free cannot fit
+    # forge's disk image build. The qcow2 only grows toward diskSize and is
+    # sized once, when missing, so a new diskSize needs it deleted.
+    config.virtualisation.darwin-builder = {
+      diskSize = 40 * 1024;
+      min-free = 8 * 1024 * 1024 * 1024;
+      max-free = 20 * 1024 * 1024 * 1024;
+    };
+  };
 
   nix = {
     package = pkgs.nixVersions.latest;
