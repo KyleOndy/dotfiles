@@ -20,8 +20,8 @@ works on a mac whose hostname matches its flake config.
 ## Options
 
 - **enable**: turn the module on
-- **skills** (default `[]`): extra skills as `{ name, source, isFile }`;
-  work-mac uses this for vendored third-party skills
+- **skills** (default `[]`): extra skills as `{ name, source, isFile }`,
+  for skills only one host needs. pi on that host installs them too
 
 Hooks, commands, skills and the user memory file are not switchable. Every
 host that enables the module wants all of them, so the toggles were dead
@@ -49,7 +49,7 @@ weight.
   flake-update-review, grill-me, personal-prose, and ponytail and
   ponytail-audit (from the `claude-skills-ponytail` flake input, not this
   directory), plus anything from `cfg.skills`
-- `~/.claude/commands/`: the git and code commands (below)
+- `~/.claude/commands/`: the git commands (below)
 
 Hook and statusline scripts are packaged with `writeShellApplication`,
 so `jq`, `git`, `ffplay`, `tmux`, and GNU `grep` and `sed` come from the
@@ -78,8 +78,6 @@ only under Ghostty, Kitty and iTerm2, so alacritty needs the explicit
 ## Slash commands
 
 - `/git:history-clean`: rebase and tidy unpushed commits
-- `/code:comments`: strip narration and redundancy from comments in the
-  working diff
 
 The command directories are real directories with per-file symlinks
 (`recursive = true`), so a command under test can be dropped straight

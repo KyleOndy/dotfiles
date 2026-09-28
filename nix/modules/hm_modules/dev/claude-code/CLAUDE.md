@@ -34,7 +34,7 @@ information the code cannot:
   nil means, who owns the resource, the invariant.
 - Never delete a `why` comment while refactoring the code it explains.
 
-Full ruleset: the code-comments skill. `/code:comments` cleans up a diff.
+Full ruleset: the code-comments skill.
 
 ## Writing on My Behalf
 

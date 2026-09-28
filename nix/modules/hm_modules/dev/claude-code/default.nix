@@ -111,10 +111,6 @@ in
         source = ./commands/git;
         recursive = true;
       };
-      ".claude/commands/code" = lib.mkDefault {
-        source = ./commands/code;
-        recursive = true;
-      };
 
       ".claude/output-styles" = {
         source = ./output-styles;
