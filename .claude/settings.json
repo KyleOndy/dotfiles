@@ -42,6 +42,5 @@
       "Bash(deploy:*)",
       "WebSearch"
     ]
-  },
-  "enableAllProjectMcpServers": true
+  }
 }

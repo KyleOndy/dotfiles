@@ -39,10 +39,6 @@
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    mcp-servers-nix = {
-      url = "github:natsukium/mcp-servers-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
     nur = {
       url = "github:nix-community/NUR";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -599,43 +595,9 @@
               ];
             };
         in
-        let
-          mcpConfig = inputs.mcp-servers-nix.lib.mkConfig pkgs {
-            programs = {
-              playwright = {
-                enable = true;
-                executable =
-                  if pkgs.stdenv.isDarwin then
-                    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-                  else
-                    "${pkgs.chromium}/bin/chromium";
-                args = [
-                  "--viewport-size"
-                  "1080x1920"
-                  "--sandbox"
-                ];
-              };
-            };
-            settings.servers = {
-              chrome-devtools = {
-                type = "stdio";
-                command = "npx";
-                args = [
-                  "-y"
-                  "chrome-devtools-mcp@latest"
-                  "--browserUrl"
-                  "http://127.0.0.1:9222"
-                ];
-              };
-            };
-          };
-        in
         {
           default = pkgs.mkShell {
             shellHook = self.checks.${system}.pre-commit-check.shellHook + ''
-              if [ -L ".mcp.json" ]; then unlink .mcp.json; fi
-              ln -sf ${mcpConfig} .mcp.json
-
               # pkgs.qmk is a Python application, so the Python setup hook puts
               # its whole dependency closure on PYTHONPATH: 33 site-packages
               # directories belonging to one specific interpreter. Those shadow
