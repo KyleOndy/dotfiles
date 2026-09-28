@@ -78,6 +78,11 @@
       enable = true;
       skills = [
         {
+          name = "forge-debug";
+          source = ./skills/forge-debug.md;
+          isFile = true;
+        }
+        {
           name = "golang-pro";
           source = "${inputs.claude-skills-jeffallan}/skills/golang-pro";
         }

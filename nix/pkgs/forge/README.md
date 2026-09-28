@@ -259,7 +259,7 @@ VM state and size, the forge command running against it if any, clusters
 running of those declared, the guest's load, memory and disk, and the pi
 agent holding it. It reads `~/.lima`, so it works only outside pi's sandbox.
 The procedure for an instance that looks broken is the `forge-debug` Claude
-skill (`nix/modules/hm_modules/dev/claude-code/skills/forge-debug.md`).
+skill (`nix/hosts/work-mac/skills/forge-debug.md`).
 
 ---
 
