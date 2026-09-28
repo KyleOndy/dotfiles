@@ -75,8 +75,11 @@
     pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
     # critic.md pins zai/glm-5.3-flash, which bills the personal Z.ai plan.
     pi-coding-agent.sandbox.envVars.PI_AGENT_MODEL_CRITIC = "mcloud/moonshotai/kimi-k2.7-code";
-    # The one host with forge, which every agent's VM comes from.
-    pi-coding-agent.coordinator.enable = true;
+    pi-coding-agent.coordinator = {
+      enable = true;
+      # The one host with forge.
+      forge.enable = true;
+    };
 
     claude-code = {
       enable = true;

@@ -1,12 +1,14 @@
 # Flake check that drives pi-broker (nix/pkgs/pi-broker) through a coordinator
-# session: spawns, refusals, a child booting its VM, a child quitting with and
-# without a result, teardown and a failed `forge init`.
+# session: spawns with and without a VM, refusals, a child booting its VM, a
+# child quitting with and without a result, teardown, a failed `forge init`,
+# and a second coordinator on a broker built without forge.
 #
 # forge and tmux are stubs, since neither a VM nor a tmux server exists in the
 # build sandbox; git, the worktree script and the request protocol are real.
 { pkgs }:
 let
   realForge = "${pkgs.forge}/bin/forge";
+  noForgeBroker = pkgs.pi-broker.override { withForge = false; };
 in
 pkgs.runCommand "pi-broker-check"
   {
@@ -58,7 +60,8 @@ pkgs.runCommand "pi-broker-check"
 
     # The broker's own PATH export puts the real forge and tmux first.
     sed "s|^export PATH=\"|export PATH=\"$T/stubs:|" ${pkgs.pi-broker}/bin/pi-broker >"$T/broker"
-    chmod +x "$T/broker"
+    sed "s|^export PATH=\"|export PATH=\"$T/stubs:|" ${noForgeBroker}/bin/pi-broker >"$T/broker-no-forge"
+    chmod +x "$T/broker" "$T/broker-no-forge"
 
     git init -q -b main "$T/seed"
     git -C "$T/seed" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
@@ -101,7 +104,7 @@ pkgs.runCommand "pi-broker-check"
       mv "$T/w2" "$T/windows"
     }
 
-    req r1 '{"op":"spawn","agent":"alpha","task":"do alpha"}' true "forge instance 1 (small)"
+    req r1 '{"op":"spawn","agent":"alpha","task":"do alpha","size":"small"}' true "forge instance 1 (small)"
     req r2 '{"op":"spawn","agent":"beta","task":"do beta","size":"large"}' true "forge instance 2 (large)"
     wait_state alpha running
     wait_state beta running
@@ -120,6 +123,23 @@ pkgs.runCommand "pi-broker-check"
     grep -qF -- "-c $T/repo/alpha -- /fake/pi --allow-forge=1 --coord-child=c1/alpha --name alpha @$COORD/agents/alpha/task.md" "$T/calls" \
       || fail "alpha's window does not run the wrapper for its own instance. calls: $(grep new-window "$T/calls")"
     [ "$(grep -c 'new-session' "$T/calls")" = 1 ] || fail "made more than one tmux session"
+
+    # No size, no VM: no forge call, no slot, and a window without the grant.
+    forge_calls=$(grep -c '^forge ' "$T/calls")
+    req r1n '{"op":"spawn","agent":"nu","task":"do nu"}' true "agent nu on no VM"
+    wait_state nu running
+    [ "$(grep -c '^forge ' "$T/calls")" = "$forge_calls" ] || fail "a spawn without a size called forge"
+    [ -z "$(st nu instance)" ] || fail "nu holds instance $(st nu instance)"
+    [ "$(ls "$SLOTS")" = "$(printf '1\n2')" ] || fail "nu took a slot: $(ls "$SLOTS")"
+    grep -qF -- "-c $T/repo/nu -- /fake/pi --coord-child=c1/nu --name nu" "$T/calls" \
+      || fail "nu's window does not run the wrapper without a VM. calls: $(grep new-window "$T/calls")"
+    # Its child can still touch boot.request, which must not boot the
+    # unnamed instance.
+    touch "$COORD/agents/nu/boot.request"
+    for _ in $(seq 100); do [ -f "$COORD/agents/nu/boot.json" ] && break; sleep 0.1; done
+    jq -e '.ok == false and (.message | contains("without a forge VM"))' "$COORD/agents/nu/boot.json" >/dev/null \
+      || fail "nu's boot reply: $(cat "$COORD/agents/nu/boot.json" 2>/dev/null)"
+    grep -q '^forge start' "$T/calls" && fail "a boot request from an agent without a VM started one"
 
     # Refusals, each before anything is created.
     req r3 '{"op":"spawn","agent":"Bad/Name","task":"x"}' false "agent name must match"
@@ -193,14 +213,14 @@ pkgs.runCommand "pi-broker-check"
 
     # A failed forge init gives back its VM and slot.
     touch "$T/fail-init"
-    req r16 '{"op":"spawn","agent":"theta","task":"x"}' true "instance 1"
+    req r16 '{"op":"spawn","agent":"theta","task":"x","size":"small"}' true "instance 1"
     wait_state theta failed
     [ -d "$SLOTS/1" ] && fail "a failed spawn kept its slot"
 
     # A coordinator on a ticket branch files its agents under that ticket.
     rm "$T/fail-init"
     git -C "$T/repo/main" switch -q -c DEV-7-coordinate
-    req r17 '{"op":"spawn","agent":"iota","task":"x"}' true "instance 1"
+    req r17 '{"op":"spawn","agent":"iota","task":"x","size":"small"}' true "instance 1"
     wait_state iota running
     [ "$(git -C "$T/repo/DEV-7/iota" symbolic-ref --short HEAD)" = DEV-7-iota ] \
       || fail "iota's worktree is not DEV-7/iota on branch DEV-7-iota"
@@ -209,5 +229,25 @@ pkgs.runCommand "pi-broker-check"
     kill $WATCH
     wait $BROKER || true
     [ -e "$COORD/broker.pid" ] && fail "broker.pid outlived the broker"
+
+    # A second coordinator, on a broker without forge. nu, eps, zeta and iota
+    # still run under c1, so four more fill the host's cap of 8.
+    COORD=$HOME/.local/state/pi-coord/c2
+    mkdir -p "$COORD/requests"
+    sleep 600 &
+    WATCH=$!
+    "$T/broker-no-forge" "$COORD" "$WATCH" "$T/repo/main" /fake/pi >"$T/broker2.log" 2>&1 &
+    BROKER=$!
+    trap 'kill $WATCH $BROKER 2>/dev/null || true' EXIT
+    forge_calls=$(grep -c '^forge ' "$T/calls")
+    req s1 '{"op":"spawn","agent":"pi1","task":"x","size":"small"}' false "no forge VM"
+    for n in 2 3 4 5; do
+      req s$n "{\"op\":\"spawn\",\"agent\":\"pi$n\",\"task\":\"x\"}" true "no VM"
+      wait_state pi$n running
+    done
+    req s6 '{"op":"spawn","agent":"pi6","task":"x"}' false "all 8 agents are running"
+    [ "$(grep -c '^forge ' "$T/calls")" = "$forge_calls" ] || fail "the broker without forge called forge"
+    kill $WATCH
+    wait $BROKER || true
     touch $out
   ''

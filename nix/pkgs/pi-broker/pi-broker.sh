@@ -13,9 +13,10 @@
 # writes requests and this does all three. Each agent gets:
 #   - a worktree and branch named after it, based on the coordinator's HEAD,
 #     under the coordinator branch's ticket when it has one (DEV-123-*)
+#   - a tmux window running `pi --coord-child=<id>/<agent>`
+# and, when the spawn names a size and this build has forge:
 #   - forge instance <n>, its own VM, defined but stopped until the agent
-#     asks for it with forge_boot
-#   - a tmux window running `pi --allow-forge=<n> --coord-child=<id>/<agent>`
+#     asks for it with forge_boot, and `--allow-forge=<n>` on its pi
 #
 # <coord-dir> layout, which extensions/coordinator.ts reads and writes:
 #   requests/<uuid>.json   written by the coordinator, consumed here
@@ -37,12 +38,14 @@ readonly PI_BIN="$4"
 readonly COORD_ID="${COORD_DIR##*/}"
 
 readonly MAX_AGENTS=@maxAgents@
+readonly WITH_FORGE=@withForge@
 readonly MEMORY_BUDGET_GIB=@memoryBudgetGib@
 # forge's own ceiling on FORGE_INSTANCE (nix/pkgs/forge/forge.sh).
 readonly MAX_INSTANCE=15
 # Shared by every coordinator on this host, so two of them never hand out the
-# same instance or overrun the budget between them.
-readonly SLOTS_DIR="${COORD_DIR%/*}/slots"
+# same instance or overrun the cap or budget between them.
+readonly COORD_ROOT="${COORD_DIR%/*}"
+readonly SLOTS_DIR="${COORD_ROOT}/slots"
 readonly FORGE_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/forge"
 # The wrapper's pattern for the agent path component (nix/pkgs/pi-wrapper).
 readonly AGENT_RE='^[a-z0-9][a-z0-9._-]{0,63}$'
@@ -144,10 +147,25 @@ slot_is_stale() {
 	[[ ${state} != creating && ${state} != starting-forge ]]
 }
 
+# Agents of every coordinator on the host that are starting, running or
+# tearing down. A running agent whose window is gone counts only until its own
+# broker reaps it, and not at all once that broker has exited.
+live_agents() {
+	local status count=0
+	for status in "${COORD_ROOT}"/*/state/*.json; do
+		[[ -f ${status} ]] || continue
+		case "$(jq -r .state "${status}")" in
+		creating | starting-forge | tearing-down) count=$((count + 1)) ;;
+		running) window_alive "$(jq -r '.window // empty' "${status}")" && count=$((count + 1)) ;;
+		esac
+	done
+	echo "${count}"
+}
+
 # Prints the claimed instance, or a reason on stderr and fails. Caller holds
 # the slot lock.
 claim_slot() {
-	local agent="$1" size="$2" want used=0 count=0 n free=""
+	local agent="$1" size="$2" want used=0 n free=""
 	want="$(size_memory_gib "${size}")"
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
 		[[ -d "${SLOTS_DIR}/${n}" ]] || continue
@@ -156,13 +174,8 @@ claim_slot() {
 			rm -rf "${SLOTS_DIR:?}/${n}"
 			continue
 		fi
-		count=$((count + 1))
 		used=$((used + $(size_memory_gib "$(cat "${SLOTS_DIR}/${n}/size")")))
 	done
-	if ((count >= MAX_AGENTS)); then
-		echo "all ${MAX_AGENTS} agent slots are in use" >&2
-		return 1
-	fi
 	if ((used + want > MEMORY_BUDGET_GIB)); then
 		echo "a ${size} VM needs ${want}GiB and ${used} of ${MEMORY_BUDGET_GIB}GiB is in use" >&2
 		return 1
@@ -234,11 +247,13 @@ forge_config_for() {
 	fi
 }
 
-# Runs in the background: worktree, then VM, then window. A failure leaves the
-# worktree for the coordinator to inspect or tear down, and gives back the VM
-# and slot before it reports failed, so failed means there is room again.
+# Runs in the background: worktree, then any VM, then window. A failure leaves
+# the worktree for the coordinator to inspect or tear down, and gives back the
+# VM and slot before it reports failed, so failed means there is room again.
+# An empty instance is an agent without a VM.
 run_spawn() {
 	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" dir worktree window blog flog
+	local -a forge_args=()
 	dir="$(agent_dir "${agent}")"
 	blog="$(log_file "${agent}" broker)"
 	flog="$(log_file "${agent}" forge)"
@@ -249,33 +264,39 @@ run_spawn() {
 		set_status "${agent}" state failed error "worktree creation failed, see ${blog}"
 		return
 	fi
-	set_status "${agent}" state starting-forge worktree "${worktree}"
 
-	# init also saves the config into the instance's directory, which is what
-	# the agent's own `forge up` reads.
-	if ! FORGE_INSTANCE="${instance}" FORGE_CONFIG="$(forge_config_for "${size}")" \
-		forge init --size "${size}" >>"${flog}" 2>&1; then
-		FORGE_INSTANCE="${instance}" forge nuke >>"${flog}" 2>&1 || true
-		release_slot "${instance}" "${agent}"
-		set_status "${agent}" state failed error "forge init failed, see ${flog}"
-		return
+	if [[ -n ${instance} ]]; then
+		set_status "${agent}" state starting-forge worktree "${worktree}"
+		# init also saves the config into the instance's directory, which is
+		# what the agent's own `forge up` reads.
+		if ! FORGE_INSTANCE="${instance}" FORGE_CONFIG="$(forge_config_for "${size}")" \
+			forge init --size "${size}" >>"${flog}" 2>&1; then
+			FORGE_INSTANCE="${instance}" forge nuke >>"${flog}" 2>&1 || true
+			release_slot "${instance}" "${agent}"
+			set_status "${agent}" state failed error "forge init failed, see ${flog}"
+			return
+		fi
+		forge_args=(--allow-forge="${instance}")
+	else
+		set_status "${agent}" worktree "${worktree}"
 	fi
 
 	if ! window="$(tmux new-window -d -P -F '#{window_id}' -t "${target}:" \
 		-n "${agent}" -c "${worktree}" -- \
-		"${PI_BIN}" --allow-forge="${instance}" --coord-child="${COORD_ID}/${agent}" \
+		"${PI_BIN}" "${forge_args[@]}" --coord-child="${COORD_ID}/${agent}" \
 		--name "${agent}" "@${dir}/task.md" 2>>"${blog}")"; then
 		set_status "${agent}" state failed error "tmux new-window failed, see ${blog}"
 		return
 	fi
-	set_status "${agent}" state running window "${window}" vm stopped
+	set_status "${agent}" state running window "${window}"
+	[[ -z ${instance} ]] || set_status "${agent}" vm stopped
 }
 
 handle_spawn() {
-	local id="$1" file="$2" agent task size base instance reason dir target ticket="" branch
+	local id="$1" file="$2" agent task size base instance="" reason dir target ticket="" branch vm
 	agent="$(jq -r '.agent // ""' "${file}")"
 	task="$(jq -r '.task // ""' "${file}")"
-	size="$(jq -r '.size // "small"' "${file}")"
+	size="$(jq -r '.size // ""' "${file}")"
 	base="$(jq -r '.base // ""' "${file}")"
 
 	if [[ ! ${agent} =~ ${AGENT_RE} ]] || ! git check-ref-format --branch "${agent}" >/dev/null 2>&1; then
@@ -290,7 +311,11 @@ handle_spawn() {
 		respond "${id}" false "task must be 1-${MAX_TASK_CHARS} characters"
 		return
 	fi
-	if [[ ${size} != small && ${size} != large && ${size} != xlarge ]]; then
+	if [[ -n ${size} && ${WITH_FORGE} != true ]]; then
+		respond "${id}" false "this host gives agents no forge VM; spawn without a size"
+		return
+	fi
+	if [[ -n ${size} && ${size} != small && ${size} != large && ${size} != xlarge ]]; then
 		respond "${id}" false "size must be small, large or xlarge"
 		return
 	fi
@@ -309,8 +334,15 @@ handle_spawn() {
 	fi
 	branch="${ticket:+${ticket}-}${agent}"
 
+	# The state file is written under the lock, since it is what the next
+	# spawn's live_agents counts.
 	lock_slots
-	if ! instance="$(claim_slot "${agent}" "${size}" 2>"${COORD_DIR}/.claim-error")"; then
+	if (($(live_agents) >= MAX_AGENTS)); then
+		unlock_slots
+		respond "${id}" false "no room: all ${MAX_AGENTS} agents are running"
+		return
+	fi
+	if [[ -n ${size} ]] && ! instance="$(claim_slot "${agent}" "${size}" 2>"${COORD_DIR}/.claim-error")"; then
 		unlock_slots
 		reason="$(cat "${COORD_DIR}/.claim-error")"
 		respond "${id}" false "no room: ${reason}"
@@ -318,16 +350,18 @@ handle_spawn() {
 	fi
 	dir="$(agent_dir "${agent}")"
 	mkdir -p "${dir}"
-	unlock_slots
-
-	printf '%s\n' "${task}" >"${dir}/task.md"
 	write_json "$(state_file "${agent}")" \
 		--arg agent "${agent}" --arg instance "${instance}" --arg size "${size}" \
 		--arg base "${base}" --arg branch "${branch}" --arg updated "$(date -u +%FT%TZ)" \
-		'{agent: $agent, state: "creating", instance: $instance, size: $size,
-		  base: $base, branch: $branch, updated: $updated}'
+		'{agent: $agent, state: "creating", base: $base, branch: $branch, updated: $updated}
+		 + if $instance == "" then {} else {instance: $instance, size: $size} end'
+	unlock_slots
+
+	printf '%s\n' "${task}" >"${dir}/task.md"
 	target="$(tmux_target)"
-	respond "${id}" true "agent ${agent} on forge instance ${instance} (${size}), based on ${base}"
+	vm="no VM"
+	[[ -z ${instance} ]] || vm="forge instance ${instance} (${size})"
+	respond "${id}" true "agent ${agent} on ${vm}, based on ${base}"
 	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" &
 }
 
@@ -360,6 +394,11 @@ boot_requested() {
 		request="$(agent_dir "${agent}")/boot.request"
 		[[ -e ${request} || -L ${request} ]] || continue
 		rm -rf "${request}"
+		if [[ -z "$(get_status "${agent}" instance)" ]]; then
+			reply_to_child "${agent}" boot.json --arg m "agent ${agent} was spawned without a forge VM" \
+				'{ok: false, message: $m}'
+			continue
+		fi
 		[[ "$(get_status "${agent}" vm)" != booting ]] || continue
 		set_status "${agent}" vm booting
 		run_boot "${agent}" &

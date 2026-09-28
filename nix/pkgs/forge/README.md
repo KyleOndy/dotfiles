@@ -74,7 +74,7 @@ config.
 ## Instances and sizes
 
 `FORGE_INSTANCE=<n>` (1-15) selects one of several VMs that run side by side,
-which is how pi's coordinator gives each agent its own
+which is how pi's coordinator gives each agent that asks for one its own
 (`nix/pkgs/pi-broker`). Unset is the instance described above.
 
 |               | unset                              | `FORGE_INSTANCE=n`                                                           |

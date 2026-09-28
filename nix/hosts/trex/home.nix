@@ -255,19 +255,12 @@ in
       # No modelsJson: zai is built-in and carries real catalog entries, so
       # unlike the mcloud provider there is nothing to register.
 
-      # trex has 32GiB, shared with colima's 8GiB and whatever mlx model is
-      # resident, so the default 32GiB budget would swap the host.
       coordinator = {
         enable = true;
         maxAgents = 3;
-        memoryBudgetGib = 12;
       };
     };
   };
-
-  # pi-broker defines every agent's forge VM from these.
-  xdg.configFile."forge/forge.yaml".source = ../../pkgs/forge/forge.yaml;
-  xdg.configFile."forge/forge-small.yaml".source = ../../pkgs/forge/forge-small.yaml;
 
   # mlx-openai-server, uv-installed like mlx-lm (see ask's sessionPath note
   # above) -- Metal wheels don't package cleanly through nixpkgs on darwin.

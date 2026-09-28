@@ -1,17 +1,18 @@
 /**
  * coordinator: spawn, watch and tear down agents that each get their own
- * worktree and forge VM.
+ * worktree, and a forge VM when the spawn names a size.
  *
  * The sandbox cannot make a worktree beside its own, start a VM or start a pi
  * wider than itself, so none of that happens here. The coordinator writes a
  * request, and pi-broker (nix/pkgs/pi-broker), which the wrapper starts
  * outside the sandbox for `pi --coordinator`, does the work and records state
  * this reads back. A child started by the broker gets report_result, which is
- * the only thing it can write that the coordinator reads, and forge_boot,
- * which asks the broker to boot the child's own VM.
+ * the only thing it can write that the coordinator reads, and, when it holds
+ * a VM, forge_boot, which asks the broker to boot it.
  *
  * Silent unless the wrapper exported PI_COORD_ROLE and PI_COORD_DIR, which it
- * does only for --coordinator and --coord-child.
+ * does only for --coordinator and --coord-child. PI_COORD_FORGE is set when
+ * the broker can give out VMs, and FORGE_INSTANCE when this child holds one.
  */
 
 import { randomUUID } from "node:crypto";
@@ -70,7 +71,7 @@ function text(value: string) {
   return { content: [{ type: "text" as const, text: value }], details: {} };
 }
 
-function coordinatorTools(pi: ExtensionAPI, dir: string) {
+function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   const readState = (agent: string): AgentState | undefined => {
     const file = join(dir, "state", `${agent}.json`);
     if (!existsSync(file)) return undefined;
@@ -128,18 +129,33 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
     );
   };
 
+  const size = Type.Optional(
+    Type.Union(
+      [Type.Literal("small"), Type.Literal("large"), Type.Literal("xlarge")],
+      {
+        description:
+          "The agent's forge VM; none when omitted. small: 2 CPUs, 4GiB, one workload cluster. large: 4 CPUs, 8GiB, two workload clusters. xlarge: 8 CPUs, 16GiB, three or more workload clusters.",
+      },
+    ),
+  );
+
   pi.registerTool({
     name: "spawn_agent",
     label: "Spawn agent",
-    description:
-      "Start an agent in its own git worktree and branch, with its own forge VM, in a new tmux window. The VM starts stopped: the agent boots it with forge_boot only if its task needs kind clusters, then runs 'forge up' itself. Returns once the request is accepted.",
-    promptSnippet: "Spawn an agent with its own worktree, branch and forge VM",
+    description: forge
+      ? "Start an agent in its own git worktree and branch, in a new tmux window, with its own forge VM when given a size. The VM starts stopped: the agent boots it with forge_boot, then runs 'forge up' itself. Returns once the request is accepted."
+      : "Start an agent in its own git worktree and branch, in a new tmux window. Returns once the request is accepted.",
+    promptSnippet: "Spawn an agent with its own worktree and branch",
     promptGuidelines: [
       "The agent name becomes the branch and worktree name, prefixed with the ticket id when your own branch starts with one (DEV-123-), so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
       "The task is the agent's whole brief. It sees none of this conversation, so say what to do, what done looks like, and what to leave alone.",
-      "Use size large only when the task needs two workload clusters or heavy workloads, and xlarge only for three or more clusters each running a full stack; small is the default and leaves room for more agents.",
       "After spawning, use agent_wait rather than polling agent_status in a loop.",
-      "You hold no forge VM yourself. Work that needs kind clusters goes to a spawned agent, and its brief should say so, since the agent decides whether to boot its VM.",
+      ...(forge
+        ? [
+            "Give a size only when the task needs kind clusters or the forge docker daemon: an agent spawned without one can never get a VM. small covers one workload cluster, large two or heavy workloads, xlarge three or more each running a full stack.",
+            "You hold no forge VM yourself, so work that needs kind clusters goes to an agent spawned with a size.",
+          ]
+        : []),
     ],
     parameters: Type.Object({
       agent: Type.String({
@@ -149,19 +165,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
       task: Type.String({
         description: "The agent's full brief, sent as its first message.",
       }),
-      size: Type.Optional(
-        Type.Union(
-          [
-            Type.Literal("small"),
-            Type.Literal("large"),
-            Type.Literal("xlarge"),
-          ],
-          {
-            description:
-              "small: 2 CPUs, 4GiB, one workload cluster. large: 4 CPUs, 8GiB, two workload clusters. xlarge: 8 CPUs, 16GiB, three or more workload clusters.",
-          },
-        ),
-      ),
+      ...(forge ? { size } : {}),
       base: Type.Optional(
         Type.String({
           description:
@@ -180,7 +184,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
     name: "agent_status",
     label: "Agent status",
     description:
-      "Show each spawned agent's state, forge instance, worktree, and whether it has reported a result.",
+      "Show each spawned agent's state, worktree, any forge instance, and whether it has reported a result.",
     parameters: Type.Object({
       agent: Type.Optional(
         Type.String({ description: "One agent; all of them when omitted." }),
@@ -279,9 +283,9 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
     name: "agent_teardown",
     label: "Tear down agent",
     description:
-      "Close an agent's tmux window and delete its forge VM. Keeps its branch, and keeps its worktree unless remove_worktree is set.",
+      "Close an agent's tmux window and delete any forge VM it holds. Keeps its branch, and keeps its worktree unless remove_worktree is set.",
     promptGuidelines: [
-      "Tear an agent down only once its result has been read and acted on, or when the user asks: the VM is gone for good.",
+      "Tear an agent down only once its result has been read and acted on, or when the user asks: its window, and any VM, is gone for good.",
       "remove_worktree fails safe: git refuses to remove a worktree with uncommitted changes, and the branch is always kept.",
     ],
     parameters: Type.Object({
@@ -296,7 +300,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string) {
   });
 }
 
-function childTools(pi: ExtensionAPI, dir: string) {
+function forgeBoot(pi: ExtensionAPI, dir: string) {
   pi.registerTool({
     name: "forge_boot",
     label: "Boot forge VM",
@@ -326,6 +330,10 @@ function childTools(pi: ExtensionAPI, dir: string) {
       );
     },
   });
+}
+
+function childTools(pi: ExtensionAPI, dir: string, forge: boolean) {
+  if (forge) forgeBoot(pi, dir);
 
   pi.registerTool({
     name: "report_result",
@@ -355,6 +363,8 @@ export default function (pi: ExtensionAPI) {
   const role = process.env.PI_COORD_ROLE;
   const dir = process.env.PI_COORD_DIR;
   if (!dir) return;
-  if (role === "coordinator") coordinatorTools(pi, dir);
-  else if (role === "child") childTools(pi, dir);
+  if (role === "coordinator")
+    coordinatorTools(pi, dir, process.env.PI_COORD_FORGE === "1");
+  else if (role === "child")
+    childTools(pi, dir, Boolean(process.env.FORGE_INSTANCE));
 }

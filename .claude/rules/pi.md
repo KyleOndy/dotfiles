@@ -42,11 +42,13 @@ session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
 per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's kimi-k2.7-code
 so the critic stays off the personal Z.ai plan.
 
-`pi --coordinator` (work-mac, `coordinator.enable`) gives the session
-`spawn_agent` and friends (`extensions/coordinator.ts`). Each agent gets its
-own worktree, branch, forge instance and tmux window from `nix/pkgs/pi-broker`,
-which the wrapper starts outside the sandbox and which exits with the
-coordinator; the agents keep running and `pi --coordinator=<id>` reattaches.
+`pi --coordinator` (work-mac and trex, `coordinator.enable`) gives the
+session `spawn_agent` and friends (`extensions/coordinator.ts`). Each agent
+gets its own worktree, branch and tmux window from `nix/pkgs/pi-broker`, and
+a forge instance when the spawn names a size, which only work-mac allows
+(`coordinator.forge.enable`). The wrapper starts the broker outside the
+sandbox and it exits with the coordinator; the agents keep running and
+`pi --coordinator=<id>` reattaches.
 State is under `~/.local/state/pi-coord/`, outside `~/.pi` so a child cannot
 write the coordinator's requests.
 

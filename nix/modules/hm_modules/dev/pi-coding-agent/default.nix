@@ -19,8 +19,9 @@
 #                          API servers, and the hosts `forge up` fetches the
 #                          argo-cd chart from; cluster-admin on its clusters,
 #                          bounded by the VM; ~/.docker stays masked
-#   --coordinator[=ID]     spawn agents, each with its own worktree, forge
-#                          instance and tmux window (coordinator.enable);
+#   --coordinator[=ID]     spawn agents, each with its own worktree and tmux
+#                          window (coordinator.enable), and a forge instance
+#                          when asked for (coordinator.forge.enable);
 #                          =ID reattaches to an earlier coordinator's agents
 #   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
 #                          so ssh authenticates without the private keys ever
@@ -114,7 +115,12 @@ let
       # worktree that the blanket $HOME deny would otherwise hide.
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
-        defaultEnvVars = cfg.sandbox.envVars;
+        # extensions/coordinator.ts offers spawn_agent's size only with this.
+        defaultEnvVars =
+          cfg.sandbox.envVars
+          // lib.optionalAttrs (cfg.coordinator.enable && cfg.coordinator.forge.enable) {
+            PI_COORD_FORGE = "1";
+          };
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
         defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
@@ -128,7 +134,9 @@ let
         coordinatorBroker = lib.optionalString cfg.coordinator.enable (
           lib.getExe (
             pkgs.pi-broker.override {
-              inherit (cfg.coordinator) maxAgents memoryBudgetGib;
+              inherit (cfg.coordinator) maxAgents;
+              withForge = cfg.coordinator.forge.enable;
+              inherit (cfg.coordinator.forge) memoryBudgetGib;
             }
           )
         );
@@ -504,23 +512,30 @@ in
 
     coordinator = {
       enable = lib.mkEnableOption ''
-        `pi --coordinator`, whose agents each get a worktree, a forge
-        instance and a tmux window from pi-broker (nix/pkgs/pi-broker).
-        Needs forge and tmux, and the sandbox, since the broker starts
-        children through the wrapper
+        `pi --coordinator`, whose agents each get a worktree and a tmux
+        window from pi-broker (nix/pkgs/pi-broker). Needs tmux, and the
+        sandbox, since the broker starts children through the wrapper
       '';
       maxAgents = lib.mkOption {
         type = lib.types.ints.between 1 15;
         default = 8;
         description = "Agents running at once across every coordinator on the host.";
       };
-      memoryBudgetGib = lib.mkOption {
-        type = lib.types.ints.positive;
-        default = 32;
-        description = ''
-          GiB of forge VM memory all agents may hold at once. A small VM is
-          4GiB and a large one 8GiB; a spawn past the budget is refused.
+      forge = {
+        enable = lib.mkEnableOption ''
+          a forge VM for each spawned agent whose spawn names a size, held
+          until the agent is torn down. Needs forge's configs in
+          ~/.config/forge
         '';
+        memoryBudgetGib = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 32;
+          description = ''
+            GiB of forge VM memory all agents may hold at once. small is
+            4GiB, large 8GiB and xlarge 16GiB; a spawn past the budget is
+            refused.
+          '';
+        };
       };
     };
 
