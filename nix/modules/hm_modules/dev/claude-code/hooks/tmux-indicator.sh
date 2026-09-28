@@ -8,14 +8,15 @@ fi
 
 command -v tmux >/dev/null 2>&1 || exit 0
 
-INPUT=$(cat)
 HOOK_EVENT=""
 NOTIFICATION_TYPE=""
 PERMISSION_MODE=""
 if command -v jq >/dev/null 2>&1; then
-	HOOK_EVENT=$(echo "$INPUT" | jq -r '.hook_event_name // ""')
-	NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.notification_type // ""')
-	PERMISSION_MODE=$(echo "$INPUT" | jq -r '.permission_mode // ""')
+	# Unit separator, not tab: read collapses runs of whitespace IFS, which
+	# would shift fields whenever one is empty.
+	IFS=$'\x1f' read -r HOOK_EVENT NOTIFICATION_TYPE PERMISSION_MODE < <(
+		jq -r '[.hook_event_name, .notification_type, .permission_mode] | map(. // "") | join("\u001f")'
+	) || true
 fi
 
 set_state() {
