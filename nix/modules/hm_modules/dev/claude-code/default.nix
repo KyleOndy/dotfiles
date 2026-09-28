@@ -130,12 +130,6 @@ in
         "${inputs.claude-skills-ponytail}/skills/ponytail/SKILL.md";
       ".claude/skills/ponytail-audit/SKILL.md".source =
         "${inputs.claude-skills-ponytail}/skills/ponytail-audit/SKILL.md";
-      ".claude/skills/ponytail-debt/SKILL.md".source =
-        "${inputs.claude-skills-ponytail}/skills/ponytail-debt/SKILL.md";
-      ".claude/skills/ponytail-gain/SKILL.md".source =
-        "${inputs.claude-skills-ponytail}/skills/ponytail-gain/SKILL.md";
-      ".claude/skills/ponytail-review/SKILL.md".source =
-        "${inputs.claude-skills-ponytail}/skills/ponytail-review/SKILL.md";
     }
     # Extra skills contributed per-host, e.g. by work-config.
     // listToAttrs (

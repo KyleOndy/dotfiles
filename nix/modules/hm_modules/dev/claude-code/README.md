@@ -46,8 +46,8 @@ weight.
 - `~/.claude/hooks/`: hook scripts (below)
 - `~/.claude/output-styles/`: the Direct output style
 - `~/.claude/skills/`: code-comments, commit-guidelines,
-  flake-update-review, grill-me, personal-prose, and the five ponytail
-  skills (from the `claude-skills-ponytail` flake input, not this
+  flake-update-review, grill-me, personal-prose, and ponytail and
+  ponytail-audit (from the `claude-skills-ponytail` flake input, not this
   directory), plus anything from `cfg.skills`
 - `~/.claude/commands/`: the git and code commands (below)
 

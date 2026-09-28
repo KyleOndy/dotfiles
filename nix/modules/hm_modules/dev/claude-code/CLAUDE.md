@@ -18,7 +18,7 @@ Delete old code completely rather than commenting it out. When uncertain
 about an architecture decision, ask before committing to it.
 
 Full ruleset: the ponytail skill. `/ponytail lite|full|ultra` sets
-intensity, `/ponytail-review` hunts over-engineering in a diff.
+intensity.
 
 ## Code Comments (code-comments, always-on)
 
