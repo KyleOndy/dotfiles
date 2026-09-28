@@ -10,6 +10,11 @@
 {
   imports = [ ];
 
+  nix.gc = {
+    automatic = true;
+    options = "--delete-older-than 7d";
+  };
+
   # Enable Karabiner for trackball button remapping
   hmFoundry.desktop.input.karabiner.enable = true;
   hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;

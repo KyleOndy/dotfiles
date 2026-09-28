@@ -9,6 +9,13 @@
 {
   imports = [ ];
 
+  # Covers the system profile only. home-manager generations live in
+  # ~/.local/state/nix/profiles, which home.nix collects on its own.
+  nix.gc = {
+    automatic = true;
+    options = "--delete-older-than 7d";
+  };
+
   # Night Shift CLI tool
   environment.systemPackages = [
     pkgs.nightlight
