@@ -88,22 +88,6 @@
         "type": "github"
       }
     },
-    "claude-skills-jeffallan": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1791042562,
-        "narHash": "sha256-QZpFGh/2TX+ECBLpk/80EzajmmuK7kK+bIX1Vg92deU=",
-        "owner": "jeffallan",
-        "repo": "claude-skills",
-        "rev": "1be15d8064f88fc25216442406d40add8fd23b53",
-        "type": "github"
-      },
-      "original": {
-        "owner": "jeffallan",
-        "repo": "claude-skills",
-        "type": "github"
-      }
-    },
     "claude-skills-ponytail": {
       "flake": false,
       "locked": {
@@ -117,38 +101,6 @@
       "original": {
         "owner": "DietrichGebert",
         "repo": "ponytail",
-        "type": "github"
-      }
-    },
-    "claude-skills-rohitg00": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1778570313,
-        "narHash": "sha256-yOmcuTA3SsLxuVEfVrJWvD278bPQBl/jtem5DWYL0+U=",
-        "owner": "rohitg00",
-        "repo": "awesome-claude-code-toolkit",
-        "rev": "ebdf1d596d2cde5c5cceb32177e8d1cf4829e7d9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "rohitg00",
-        "repo": "awesome-claude-code-toolkit",
-        "type": "github"
-      }
-    },
-    "claude-skills-voltagent": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1789979067,
-        "narHash": "sha256-OPy2toCmhPbDnqUcM7B+Ufm6BA8xIpNc6U8Gemc/1jk=",
-        "owner": "VoltAgent",
-        "repo": "awesome-claude-code-subagents",
-        "rev": "82b73821baa7a911d5b14cfb6da238b7f0db6b42",
-        "type": "github"
-      },
-      "original": {
-        "owner": "VoltAgent",
-        "repo": "awesome-claude-code-subagents",
         "type": "github"
       }
     },
@@ -880,10 +832,7 @@
     "root": {
       "inputs": {
         "claude-code-nix": "claude-code-nix",
-        "claude-skills-jeffallan": "claude-skills-jeffallan",
         "claude-skills-ponytail": "claude-skills-ponytail",
-        "claude-skills-rohitg00": "claude-skills-rohitg00",
-        "claude-skills-voltagent": "claude-skills-voltagent",
         "cogsworth": "cogsworth",
         "deploy-rs": "deploy-rs",
         "determinate": "determinate",
