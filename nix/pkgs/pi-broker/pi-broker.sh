@@ -180,9 +180,11 @@ claim_slot() {
 		echo "a ${size} VM needs ${want}GiB and ${used} of ${MEMORY_BUDGET_GIB}GiB is in use" >&2
 		return 1
 	fi
-	# A VM nobody holds a slot for is someone's hand-made instance: skip it.
+	# A VM nobody holds a slot for is someone's hand-made instance, and a
+	# labelled number is one `forge claim` handed out: skip both.
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
-		if [[ ! -d "${SLOTS_DIR}/${n}" && ! -d "${LIMA_HOME:-${HOME}/.lima}/forge-${n}" ]]; then
+		if [[ ! -d "${SLOTS_DIR}/${n}" && ! -d "${LIMA_HOME:-${HOME}/.lima}/forge-${n}" &&
+			! -e "${HOME}/.local/state/forge/${n}/label" ]]; then
 			free="${n}"
 			break
 		fi

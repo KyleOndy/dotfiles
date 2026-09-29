@@ -6,7 +6,9 @@ description: Introspect a forge instance that looks broken, stuck or slow (lima 
 # Debugging a forge instance
 
 Read-only first. `forge down`, `forge nuke` and `forge resize` destroy the
-state you are trying to read, so ask before running any of them.
+state you are trying to read. On an instance someone else owns, ask before
+running any of them. On your own `forge claim` instance, read first, then act
+on what you find, and report what you ran.
 
 Work outside pi's sandbox: `forge ls` and `limactl` need `~/.lima`, which it
 denies.
@@ -26,6 +28,8 @@ One row per VM: `-` is the unnamed `forge`, `<n>` is `forge-<n>`, `cache` is
 - `partial` or `empty`: VM up, some or no clusters. Nothing is converging it.
 - STATE `Broken` or a VM missing from the list entirely: see step 5.
 - OWNER `<coordinator>/<agent>`: pi-broker holds the instance for that agent.
+- OWNER without a `/`: a `forge claim` label, usually a Claude `forge`
+  subagent's task.
 
 Then, for the one instance:
 
@@ -103,5 +107,6 @@ Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
 ## Reporting back
 
 State the instance, the phase, the last `>>>` step, the error line verbatim,
-and which of the checks above you ran and what they showed. Propose the fix;
-do not rebuild or nuke without asking.
+and which of the checks above you ran and what they showed. On another
+owner's instance, propose the fix; do not rebuild or nuke without asking. On
+your own, say what you rebuilt or nuked and why.

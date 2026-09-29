@@ -12,6 +12,7 @@ _arguments -s \
     down\:"delete every cluster, keeping the VM and its mirror caches"
     status\:"print the VM, mirrors and clusters, changing nothing"
     ls\:"list every instance on this host with its phase and usage"
+    claim\:"reserve a free named instance under a label"
     nuke\:"delete the VM and every cluster, mirror, volume and network"
     resize\:"change the VM'"'"'s CPUs and memory"
     vm-config\:"print the lima config the VM is created from"

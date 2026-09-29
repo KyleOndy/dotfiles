@@ -882,6 +882,46 @@ cmd_status() {
 # file, <coordinator>/state/<agent>.json.
 readonly PI_SLOTS_DIR="${HOME}/.local/state/pi-coord/slots"
 
+# FORGE_INSTANCE takes only a number, so a caller that wants a name claims one:
+# the label is recorded in the instance's directory, where `forge ls` shows it
+# and `forge nuke` removes it. Claiming holds pi-broker's slot lock and skips
+# its slots, and pi-broker skips a labelled number, so neither hands out a
+# number the other holds. Claiming a label again prints the same number.
+readonly LABEL_RE='^[a-z0-9][a-z0-9._-]{0,63}$'
+
+# pi-broker's lock protocol (lock_slots in nix/pkgs/pi-broker/pi-broker.sh),
+# down to breaking a lock held past 30s.
+lock_pi_slots() {
+	local tries=0
+	mkdir -p "${PI_SLOTS_DIR}"
+	until mkdir "${PI_SLOTS_DIR}/.lock" 2>/dev/null; do
+		((++tries < 300)) || rm -rf "${PI_SLOTS_DIR}/.lock"
+		sleep 0.1
+	done
+	trap 'rm -rf "${PI_SLOTS_DIR}/.lock"' EXIT
+}
+
+cmd_claim() {
+	local label="$1" n dir
+	[[ ${label} =~ ${LABEL_RE} ]] || die "label must match ${LABEL_RE}, got '${label}'"
+	lock_pi_slots
+	for ((n = 1; n <= MAX_INSTANCE; n++)); do
+		if [[ "$(cat "${HOME}/.local/state/forge/${n}/label" 2>/dev/null)" == "${label}" ]]; then
+			echo "${n}"
+			return
+		fi
+	done
+	for ((n = 1; n <= MAX_INSTANCE; n++)); do
+		dir="${HOME}/.local/state/forge/${n}"
+		[[ -e ${dir}/label || -d ${PI_SLOTS_DIR}/${n} || -d ${LIMA_HOME:-${HOME}/.lima}/forge-${n} ]] && continue
+		mkdir -p "${dir}"
+		echo "${label}" >"${dir}/label"
+		echo "${n}"
+		return
+	done
+	die "no forge instance 1-${MAX_INSTANCE} is free"
+}
+
 ls_row() {
 	printf '%-5s %-11s %-8s %-4s %-5s %-10s %-8s %-5s %-10s %-10s %s\n' "$@"
 }
@@ -958,7 +998,9 @@ cmd_ls() {
 		fi
 
 		local owner_file="${PI_SLOTS_DIR}/${inst}/owner"
-		if [[ ${inst} =~ ^[0-9]+$ && -f ${owner_file} ]]; then
+		if [[ ${inst} =~ ^[0-9]+$ && -f ${HOME}/.local/state/forge/${inst}/label ]]; then
+			owner="$(<"${HOME}/.local/state/forge/${inst}/label")"
+		elif [[ ${inst} =~ ^[0-9]+$ && -f ${owner_file} ]]; then
 			owner="$(<"${owner_file}")"
 			owner="${owner%.json}"
 			owner="${owner%/state/*}/${owner##*/}"
@@ -1146,6 +1188,10 @@ Commands:
                  declared, the guest's load, memory and disk, and the pi
                  agent holding it. Reads state, changes nothing, and needs
                  ~/.lima, so run it outside pi's sandbox.
+  claim <label>  Print the number of a free named instance and record <label>
+                 for it, or the number already holding <label>. Use it as
+                 FORGE_INSTANCE. 'forge ls' shows the label as OWNER, and
+                 'forge nuke' on that instance releases it.
   nuke [--all [--force]]
                  Delete the VM, and with it every cluster and network. --all
                  does that to every named instance, never the unnamed one,
@@ -1253,6 +1299,10 @@ init | start | up | down | status)
 	;;
 ls)
 	cmd_ls
+	;;
+claim)
+	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: forge claim <label>"
+	cmd_claim "$2"
 	;;
 cache)
 	[[ -z ${3:-} ]] || die "usage: forge cache up|nuke|vm-config"

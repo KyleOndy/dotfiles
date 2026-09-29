@@ -77,6 +77,14 @@ config.
 which is how pi's coordinator gives each agent that asks for one its own
 (`nix/pkgs/pi-broker`). Unset is the instance described above.
 
+`forge claim <label>` hands out a number for everyone else: it prints the first
+one with no VM, no pi-broker slot and no label, and records `<label>` in
+`~/.local/state/forge/<n>/label`, or prints the number already holding that
+label. It takes pi-broker's slot lock and pi-broker skips a labelled number,
+so the two never hand out the same one. `forge ls` shows the label as OWNER,
+and `forge nuke` on the instance removes it with the rest of the directory.
+The Claude `forge` subagent claims one per task this way.
+
 |               | unset                              | `FORGE_INSTANCE=n`                                                           |
 | ------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
 | VM            | `forge`                            | `forge-<n>`                                                                  |
@@ -225,6 +233,7 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge cache nuke` | -       | -        | -       | delete |
 | `forge status`     | -       | -        | -       | -      |
 | `forge ls`         | -       | -        | -       | -      |
+| `forge claim`      | -       | -        | -       | -      |
 | `forge resize`     | restart | -        | -       | -      |
 
 `forge init` writes the VM's lima definition and leaves it stopped, which is
