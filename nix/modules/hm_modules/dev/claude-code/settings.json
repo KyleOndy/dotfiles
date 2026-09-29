@@ -213,5 +213,12 @@
         ]
       }
     ]
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Forge test infrastructure is disposable local state on this machine: the lima VMs forge-<n>, the kind clusters inside them, and ~/.local/state/forge/<n>/. An agent that claimed instance <n> with `forge claim <label>` (its label shows as OWNER in `forge ls`) may run `forge up`, `down`, `nuke` and `resize` on it, `kind delete cluster` in it, and delete or recreate anything in its clusters, even when an earlier session created them under the same label. This does not cover `forge nuke --all`, `forge cache nuke`, the forge-cache VM, or an instance whose OWNER is a different label or a pi coordinator.",
+      "~/work/tickets/ and ~/work/fixtures/ are the user's own scratch workspace, a git repo. The main session commits paths under them as work lands, without asking; pushing needs the user's ask. Creating, moving, overwriting and deleting files under them is routine, from any working directory. This does not cover ~/work/nix/, which is deployed configuration."
+    ]
   }
 }
