@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# Log in to every cloud CLI whose credentials are not valid.
+set -euo pipefail
+
+aws_login() {
+	# Profiles sharing an sso_session share one cached token, so the first login
+	# makes the later profiles' checks pass without another browser round trip.
+	local profiles profile
+	mapfile -t profiles < <(aws configure list-profiles | sort -R)
+	for profile in "${profiles[@]}"; do
+		if ! aws configure get sso_session --profile "$profile" >/dev/null &&
+			! aws configure get sso_start_url --profile "$profile" >/dev/null; then
+			echo "aws skip:  $profile (not SSO)"
+			continue
+		fi
+
+		if aws sts get-caller-identity --profile "$profile" >/dev/null 2>&1; then
+			echo "aws ok:    $profile"
+		else
+			echo "aws login: $profile"
+			aws sso login --profile "$profile"
+		fi
+	done
+}
+
+# pup auth status exits 0 with "status": "expired", so only the field is
+# trustworthy.
+pup_valid() {
+	[[ "$(pup auth status 2>/dev/null | jq -r .status)" == valid ]]
+}
+
+pup_login() {
+	if pup_valid; then
+		echo "pup ok"
+	elif pup auth refresh >/dev/null 2>&1 && pup_valid; then
+		echo "pup refreshed"
+	else
+		echo "pup login"
+		pup auth login
+	fi
+}
+
+if command -v aws >/dev/null; then aws_login; fi
+if command -v pup >/dev/null; then pup_login; fi
