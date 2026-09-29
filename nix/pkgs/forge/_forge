@@ -12,6 +12,8 @@ _arguments -s \
     down\:"delete every cluster, keeping the VM and its mirror caches"
     status\:"print the VM, mirrors and clusters, changing nothing"
     ls\:"list every instance on this host with its phase and usage"
+    pods\:"list every pod on every cluster of every running instance"
+    events\:"list and follow events on every cluster of every running instance"
     claim\:"reserve a free named instance under a label"
     nuke\:"delete the VM and every cluster, mirror, volume and network"
     resize\:"change the VM'"'"'s CPUs and memory"
@@ -23,5 +25,7 @@ _arguments -s \
 case $words[1] in
   init | up) _arguments '--size=[VM size for a new VM]:size:(small large xlarge)' ;;
   nuke) _arguments '--all[every named instance, never the unnamed one]' '--force[stop forge runs on them first]' ;;
+  pods) _arguments '-r[newest first]' ;;
+  events) _arguments '-f[keep printing new events]' '1:count:' ;;
   resize | vm-config) _arguments '1:size:(small large xlarge)' ;;
 esac

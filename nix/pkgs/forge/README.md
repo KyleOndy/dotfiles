@@ -233,6 +233,8 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge cache nuke` | -       | -        | -       | delete |
 | `forge status`     | -       | -        | -       | -      |
 | `forge ls`         | -       | -        | -       | -      |
+| `forge pods`       | -       | -        | -       | -      |
+| `forge events`     | -       | -        | -       | -      |
 | `forge claim`      | -       | -        | -       | -      |
 | `forge resize`     | restart | -        | -       | -      |
 
@@ -267,6 +269,17 @@ cache included:
 VM state and size, the forge command running against it if any, clusters
 running of those declared, the guest's load, memory and disk, and the pi
 agent holding it. It reads `~/.lima`, so it works only outside pi's sandbox.
+
+`forge pods` lists every pod in every namespace of every cluster on every
+running VM in one table, oldest first (`-r` for newest first), with a `<vm>/kind-<cluster>` context
+column. Its STATUS approximates kubectl's rather than reproducing it.
+
+`forge events [-f] [count]` prints the last `count` (default 20) events of
+the same clusters, merged into one table sorted by time, with `kube-system`
+and `local-path-storage` left out. `-f` then follows every cluster at once,
+aligned with that table. With `FORGE_INSTANCE` set, `pods` and
+`events` cover only that instance. Like `ls`, both read `~/.lima`.
+
 The procedure for an instance that looks broken is the `forge-debug` Claude
 skill (`nix/hosts/work-mac/skills/forge-debug.md`).
 

@@ -9,6 +9,8 @@
   kubectl,
   kubernetes-helm,
   yq-go,
+  jq,
+  util-linux,
   coreutils,
   gnugrep,
   gnused,
@@ -71,6 +73,8 @@ let
       kubectl
       kubernetes-helm
       yq-go
+      jq
+      util-linux
       coreutils
       gnugrep
       gnused

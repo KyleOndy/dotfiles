@@ -1013,6 +1013,154 @@ cmd_ls() {
 		grep -E $'^forge(-[0-9]+|-cache)?\t')
 }
 
+# "<vm>\t<kubeconfig>\t<cluster>" for every cluster of every running VM, or of
+# only FORGE_INSTANCE's when it is set.
+forge_clusters() {
+	local name inst config kubeconfig
+	while read -r name; do
+		[[ -z ${INSTANCE} || ${name} == "${VM_NAME}" ]] || continue
+		inst="${name#forge}"
+		inst="${inst#-}"
+		if [[ -z ${inst} ]]; then
+			config="${UNNAMED_CONFIG}"
+			kubeconfig="${FORGE_KUBECONFIG:-$(yq '.kubeconfig // ""' "${config}" 2>/dev/null)}"
+			kubeconfig="${kubeconfig/#\~/$HOME}"
+		else
+			config="${HOME}/.local/state/forge/${inst}/forge.yaml"
+			kubeconfig="${HOME}/.local/state/forge/${inst}/kubeconfig.yaml"
+		fi
+		if [[ ! -f ${config} || ! -f ${kubeconfig} ]]; then
+			warn "${name}: no config or kubeconfig, skipped"
+			continue
+		fi
+		yq '.clusters[].name, .management.name' "${config}" |
+			awk -v vm="${name}" -v kc="${kubeconfig}" '{ print vm "\t" kc "\t" $0 }'
+	done < <(limactl list --format $'{{.Name}}\t{{.Status}}' 2>/dev/null |
+		awk -F'\t' '$1 ~ /^forge(-[0-9]+)?$/ && $2 == "Running" { print $1 }' |
+		sort -t- -k2,2n)
+}
+
+# STATUS approximates kubectl's: Terminating once deletion starts, else the
+# first container's waiting or terminated reason, else the pod's phase. AGE
+# adds the next unit down, unless it is zero, below 10m, for every hour count,
+# and below 10d, and is padded to 6, the width of the longest, 23h59m, so the
+# column holds still as ages grow. The first field is the raw creation time, to
+# sort on before it is cut.
+# shellcheck disable=SC2016  # $ctx is jq's, not the shell's
+readonly PODS_JQ='
+	def age:
+		([now - fromdate, 0] | max | floor) as $s
+		| [[86400, "d"], [3600, "h"], [60, "m"], [1, "s"]] as $u
+		| ([range(3) | select($s >= $u[.][0])] | first // 3) as $i
+		| ($s / $u[$i][0] | floor) as $n
+		| "\($n)\($u[$i][1])"
+			+ (if $i == 1 or ($i != 3 and $n < 10)
+				then ($s % $u[$i][0] / $u[$i + 1][0] | floor) else 0 end
+				| if . > 0 then "\(.)\($u[$i + 1][1])" else "" end)
+		| (. + "      ")[:6];
+	.items[]
+	| [ .metadata.creationTimestamp, (.metadata.creationTimestamp | age), $ctx, .metadata.namespace, .metadata.name,
+		"\([.status.containerStatuses[]? | select(.ready)] | length)/\(.spec.containers | length)",
+		(if .metadata.deletionTimestamp then "Terminating"
+			else ([.status.containerStatuses[]?.state | (.waiting // .terminated)?.reason // empty] | first)
+				// .status.phase end),
+		([.status.containerStatuses[]?.restartCount] | add // 0) ]
+	| @tsv'
+
+# Every pod of every cluster forge_clusters names in one table, oldest first,
+# or newest first with -r. A cluster that does not answer is warned about and
+# skipped.
+cmd_pods() {
+	local reverse=""
+	case "${1:-}" in
+	"") ;;
+	-r) reverse=-r ;;
+	*) die "usage: forge pods [-r]" ;;
+	esac
+	[[ -z ${2:-} ]] || die "usage: forge pods [-r]"
+
+	local name kubeconfig cluster
+	{
+		printf 'AGE\tCONTEXT\tNAMESPACE\tNAME\tREADY\tSTATUS\tRESTARTS\n'
+		while IFS=$'\t' read -r name kubeconfig cluster; do
+			kubectl --kubeconfig "${kubeconfig}" --context "kind-${cluster}" --request-timeout=10s \
+				get pods --all-namespaces -o json |
+				jq -r --arg ctx "${name}/kind-${cluster}" "${PODS_JQ}" ||
+				warn "${name}: kind-${cluster} did not answer"
+		done < <(forge_clusters) | sort ${reverse:+"${reverse}"} | cut -f2-
+	} | column -t -s $'\t'
+}
+
+# kube-system and local-path-storage are kind's own, and churn enough to bury
+# everything else. An event's time is the first of lastTimestamp, eventTime and
+# creationTimestamp that is set, since events.k8s.io/v1 writers leave
+# lastTimestamp null.
+# shellcheck disable=SC2016  # $ctx is jq's, not the shell's
+readonly EVENTS_JQ='
+	def fmt:
+		select(.metadata.namespace | IN("kube-system", "local-path-storage") | not)
+		| [ ((.lastTimestamp // .eventTime // .metadata.creationTimestamp)[0:19]),
+			$ctx, .metadata.namespace, .type, .reason,
+			"\(.involvedObject.kind)/\(.involvedObject.name)",
+			(.message // "" | gsub("\n"; " ")) ]
+		| @tsv;'
+
+# Pads every tab-separated field but the last to the widest seen in its column.
+# Rows before the first empty line are held until it arrives and aligned as one
+# table; each row after is printed as it comes, so a wider field than any yet
+# seen pushes its own row out and widens the column from then on.
+# shellcheck disable=SC2016  # the $ fields are awk's
+readonly ALIGN_AWK='
+	function emit(line,   f, n, i) {
+		n = split(line, f, "\t")
+		for (i = 1; i < n; i++) printf "%-*s  ", w[i], f[i]
+		print f[n]
+		fflush()
+	}
+	function widen(line,   f, n, i) {
+		n = split(line, f, "\t")
+		for (i = 1; i < n; i++) if (length(f[i]) > w[i]) w[i] = length(f[i])
+	}
+	!streaming && $0 == "" { for (r = 1; r <= held; r++) emit(rows[r]); streaming = 1; next }
+	!streaming { rows[++held] = $0; widen($0); next }
+	{ widen($0); emit($0) }
+	END { if (!streaming) for (r = 1; r <= held; r++) emit(rows[r]) }'
+
+# The last <count> events of every cluster forge_clusters names, merged and
+# sorted by time. With -f, then every new one as it arrives, aligned with them.
+cmd_events() {
+	local follow=false count=20
+	case "${1:-}" in
+	-f) follow=true && shift ;;
+	esac
+	[[ -z ${1:-} ]] || count="$1"
+	[[ ${count} =~ ^[0-9]+$ && -z ${2:-} ]] || die "usage: forge events [-f] [count]"
+
+	local targets
+	targets="$(forge_clusters)"
+	[[ -n ${targets} ]] || die "no running forge instance${INSTANCE:+ ${INSTANCE}}"
+
+	local name kubeconfig cluster
+	{
+		while IFS=$'\t' read -r name kubeconfig cluster; do
+			kubectl --kubeconfig "${kubeconfig}" --context "kind-${cluster}" --request-timeout=10s \
+				get events --all-namespaces -o json |
+				jq -r --arg ctx "${name}/kind-${cluster}" "${EVENTS_JQ} .items[] | fmt" ||
+				warn "${name}: kind-${cluster} did not answer"
+		done <<<"${targets}" | sort | tail -n "${count}"
+		echo ""
+
+		"${follow}" || exit 0
+		trap 'kill $(jobs -p) 2>/dev/null' EXIT
+		while IFS=$'\t' read -r name kubeconfig cluster; do
+			kubectl --kubeconfig "${kubeconfig}" --context "kind-${cluster}" \
+				get events --all-namespaces --watch-only -o json |
+				jq --unbuffered -r --arg ctx "${name}/kind-${cluster}" "${EVENTS_JQ} fmt" &
+		done <<<"${targets}"
+		wait
+	} | awk "${ALIGN_AWK}"
+}
+
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
 # Defines the VM without booting it. pi's --allow-forge checks the instance's
@@ -1188,6 +1336,16 @@ Commands:
                  declared, the guest's load, memory and disk, and the pi
                  agent holding it. Reads state, changes nothing, and needs
                  ~/.lima, so run it outside pi's sandbox.
+  pods [-r]      Every pod in every namespace of every cluster on every
+                 running VM, in one table sorted oldest first, or newest
+                 first with -r.
+  events [-f] [count]
+                 The last <count> (default 20) events of those same clusters,
+                 merged and sorted by time, kube-system and
+                 local-path-storage left out. -f keeps printing new ones.
+                 pods and events cover only FORGE_INSTANCE's clusters when it
+                 is set, read state, change nothing, and need ~/.lima like
+                 'ls'.
   claim <label>  Print the number of a free named instance and record <label>
                  for it, or the number already holding <label>. Use it as
                  FORGE_INSTANCE. 'forge ls' shows the label as OWNER, and
@@ -1299,6 +1457,12 @@ init | start | up | down | status)
 	;;
 ls)
 	cmd_ls
+	;;
+pods)
+	cmd_pods "${@:2}"
+	;;
+events)
+	cmd_events "${@:2}"
 	;;
 claim)
 	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: forge claim <label>"
