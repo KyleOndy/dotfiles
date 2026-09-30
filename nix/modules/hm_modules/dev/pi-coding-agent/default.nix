@@ -607,6 +607,7 @@ in
     home.packages = [
       piPackage
       pkgs.kagi
+      pkgs.pi-delegate
     ];
 
     home.sessionVariables = {
