@@ -89,6 +89,11 @@
           source = ./skills/forge-debug.md;
           isFile = true;
         }
+        {
+          name = "pi-delegate";
+          source = ./skills/pi-delegate.md;
+          isFile = true;
+        }
       ];
     };
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
