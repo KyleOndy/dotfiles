@@ -328,19 +328,26 @@ checkout_worktree() {
 	if git config --get filter.git-crypt.smudge &>/dev/null; then
 		log_info "Setting up git-crypt..."
 
-		local worktree_git_dir gpg_key
+		local worktree_git_dir gpg_key own_key
 		worktree_git_dir=$(git -C "$worktree_path" rev-parse --git-dir)
 		mkdir -p "$worktree_git_dir/git-crypt/keys"
 
-		# The key is encrypted once per authorized GPG key, so try each and
-		# stop at the first that this machine can actually decrypt.
-		for gpg_key in .git-crypt/keys/default/0/*.gpg; do
-			if [[ -f $gpg_key ]]; then
-				if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
-					break
+		# A worktree that is already unlocked hands its key over, which needs
+		# no pinentry, so this also works where nobody can answer one.
+		own_key="$(git rev-parse --git-dir)/git-crypt/keys/default"
+		[[ -s $own_key ]] && cp "$own_key" "$worktree_git_dir/git-crypt/keys/default"
+
+		# Otherwise the key is encrypted once per authorized GPG key, so try
+		# each and stop at the first that this machine can actually decrypt.
+		if [[ ! -s $worktree_git_dir/git-crypt/keys/default ]]; then
+			for gpg_key in .git-crypt/keys/default/0/*.gpg; do
+				if [[ -f $gpg_key ]]; then
+					if gpg --decrypt --quiet "$gpg_key" >"$worktree_git_dir/git-crypt/keys/default" 2>/dev/null; then
+						break
+					fi
 				fi
-			fi
-		done
+			done
+		fi
 	fi
 
 	log_info "Checking out files..."
