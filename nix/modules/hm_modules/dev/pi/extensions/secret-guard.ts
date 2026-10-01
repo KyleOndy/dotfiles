@@ -162,6 +162,18 @@ export default function (pi: ExtensionAPI) {
 
   let cfg = DEFAULT_CONFIG;
   let active = true;
+  let blockedCount = 0;
+
+  // The chip exists only once a block has happened: an always-on badge says
+  // the guard is configured, which the refusals already prove when it matters.
+  const noteBlocked = (ctx: {
+    hasUI: boolean;
+    ui: { setStatus: (k: string, v?: string) => void };
+  }): void => {
+    blockedCount++;
+    if (!ctx.hasUI) return;
+    ctx.ui.setStatus("secret-guard", `secret-guard: ${blockedCount} blocked`);
+  };
 
   const logViolation = (entry: Record<string, unknown>): void => {
     try {
@@ -208,6 +220,7 @@ export default function (pi: ExtensionAPI) {
       const pattern = matchSecret(p, cfg);
       if (pattern) {
         logViolation({ tool: event.toolName, path: abs(p), pattern, cwd });
+        noteBlocked(ctx);
         return {
           block: true,
           reason:
@@ -230,6 +243,7 @@ export default function (pi: ExtensionAPI) {
           const pattern = matchSecret(tok, cfg);
           if (pattern) {
             logViolation({ tool: "bash", token: tok, pattern, cwd, command });
+            noteBlocked(ctx);
             return {
               block: true,
               reason:
@@ -252,14 +266,9 @@ export default function (pi: ExtensionAPI) {
     cfg = loadConfig(ctx.cwd);
     active = cfg.enabled;
     if (!ctx.hasUI) return;
-    if (active) {
-      ctx.ui.setStatus(
-        "secret-guard",
-        ctx.ui.theme.fg("accent", "secret-guard"),
-      );
-    } else {
-      // The only other sign is the absence of the status chip, which reads the
-      // same as never having noticed it.
+    if (!active) {
+      // Silence reads the same as never having noticed it, so an off switch
+      // in config announces itself.
       ctx.ui.notify("secret-guard disabled by secret-guard.json", "warning");
     }
   });

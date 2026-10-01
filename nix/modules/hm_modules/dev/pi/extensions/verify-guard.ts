@@ -147,10 +147,10 @@ export default function (pi: ExtensionAPI) {
   };
 
   // Stale and failed are the states worth interrupting for, so each takes a
-  // row of its own under the editor and names the command; the footer entry
-  // stands down while it is up. The quiet states stay in the footer, where a
-  // line shared with every other extension is the right price for them.
-  // Nothing is shown in both places.
+  // row of its own under the editor and names the command. The quiet states
+  // ("not run" before anything changed, "current" after a green run) show
+  // nothing at all: the status row is for chips that need something, and
+  // neither of these does.
   const showStatus = (ctx: { hasUI: boolean; ui?: unknown }): void => {
     if (!ctx.hasUI || !active) return;
     const ui = ctx.ui as {
@@ -167,7 +167,7 @@ export default function (pi: ExtensionAPI) {
 
     if (!stale && !verifyFailing) {
       ui.setWidget("verify-guard", undefined);
-      ui.setStatus("verify-guard", `verify: ${state()}`);
+      ui.setStatus("verify-guard", undefined);
       return;
     }
 
