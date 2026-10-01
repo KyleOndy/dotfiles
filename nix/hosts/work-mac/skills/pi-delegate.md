@@ -5,9 +5,10 @@ description: Hand a well-defined, self-contained job to glm-5.3 on mcloud throug
 
 # Delegating to pi
 
-`pi-delegate` runs one pi session on `mcloud/zai-org/glm-5.3` and streams
-back one line per tool call, then the outcome. The run's own reading never
-reaches this context, only what it reports.
+`pi-delegate` runs a pi session on `mcloud/zai-org/glm-5.3` in RPC mode.
+Every command that waits prints one line per tool call, then the turn's
+outcome. The run's own reading never reaches this context, only what it
+reports.
 
 ## When it pays
 
@@ -32,43 +33,59 @@ Pass long briefs on stdin with `-`.
 
 ## Running it
 
-Start it under Monitor, always with `--name`, so `follow` can pick it back
-up. Names are lowercase letters, digits, `.`, `_` and `-`, and unique per
-run.
+Run it with Bash `run_in_background`, always with `--name`, and read the
+output when the completion notice arrives. Only use Monitor when the user
+wants to watch progress, because every `tool:` line then becomes its own
+notification and costs a full turn here.
 
 ```bash
 pi-delegate --name hosts-coordinator "Which hosts set ... Max 5 lines." 2>&1
 ```
 
-Set Monitor's `timeout_ms` to the maximum. The run outlives the Monitor, so
-on expiry re-arm with:
-
-```bash
-pi-delegate follow hosts-coordinator 2>&1
-```
+Names are lowercase letters, digits, `.`, `_` and `-`, and unique per run.
 
 - `--edit`: adds bash, edit and write, in a new worktree and branch named
   after the run, off `--base` or the current branch. The caller's checkout
-  is never touched.
+  is never touched. glm can commit there.
 - `--tmux`: also shows the run in a tmux window, for when the human wants to
   watch. Headless otherwise.
-- `PI_DELEGATE_MODEL`, `PI_DELEGATE_TIMEOUT` (default `30m`) override the
-  model and wall clock.
+- `PI_DELEGATE_MODEL`, `PI_DELEGATE_TIMEOUT` (default `30m`, the whole run
+  including idle time) and `PI_DELEGATE_IDLE` (default `300` seconds)
+  override the model and clocks.
 
-Several read-only runs can go at once. Each `--edit` run gets its own
-worktree, so those can too.
+Several runs can go at once. Each `--edit` run gets its own worktree.
+
+## Talking to a run
+
+Once a turn is done, the run stays open for `PI_DELEGATE_IDLE` seconds, in
+the same session with everything it has read:
+
+- `pi-delegate send <name> "<message>"`: a follow-up question or a
+  correction. It starts the next turn and waits for it, with the same output
+  as the first. Sent while a turn is still going, it steers that turn.
+  This is the cheap way to ask for more detail, since glm does not re-read
+  what it already has.
+- `pi-delegate follow <name>`: re-attach to the turn in progress, or reprint
+  the last one.
+- `pi-delegate stop <name>`: abort and close. Use it on a stuck run instead
+  of waiting out the timeout.
+- `pi-delegate ls`: every run, `running`, `open` or `exited:<status>`, with
+  its turn count.
 
 ## Reading the result
 
-The stream ends with one of:
+The output ends with one of:
 
-- `DONE tokens=<n> cost=<usd>`, then for `--edit` the worktree's status and
-  diffstat against its base, then glm's final message.
-- `FAILED exit=<n>` and the tail of pi's stderr. 124 is the timeout, 143 a
-  killed run.
+- `DONE turn=<n> tokens=<n> cost=<usd>`, then for `--edit` the worktree's
+  status and diffstat against its base, then glm's reply, then an `open:`
+  line while the run still takes `send`.
+- `FAILED turn=<n> exit=<n>`, the reason, and the tail of pi's stderr. 124
+  is the timeout, 143 a killed run, 1 an error reply, an aborted turn, or a
+  rejected prompt.
 
-Everything a run leaves is under `~/.local/state/pi-delegate/<name>/`:
-`events.ndjson` is the full record, `result.md` the final message.
+`retry:` lines mean mcloud is failing and pi is backing off. A long run of
+them is worth a `stop`. `~/.local/state/pi-delegate/<name>/events.ndjson`
+is the full record.
 
 glm's work is a lead, not a fact. Spot-check a couple of the file:line
 claims before repeating them. For `--edit`, read the diff before using it:
@@ -87,7 +104,6 @@ git worktree remove <worktree> && git branch -D <name>
 ## When it goes wrong
 
 glm can get stuck inside a tool call or emit garbled argument names
-(`offsetcko`), which shows up as repeated or odd `tool:` lines, or none at
-all. There is no stop command, so set `PI_DELEGATE_TIMEOUT` short for small
-jobs. One retry with a tighter brief is worth it; after that, do the job
-here.
+(`offsetcko`), which shows up as repeated or odd `tool:` lines. `stop` it.
+One retry with a tighter brief, or a `send` with the correction, is worth it;
+after that, do the job here.

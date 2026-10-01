@@ -1,4 +1,4 @@
-# Hands one job to a headless pi run and streams its progress; see
+# Hands jobs to a headless pi run in RPC mode and streams its progress; see
 # pi-delegate.sh for the interface.
 {
   writeShellApplication,
