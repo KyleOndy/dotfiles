@@ -6,12 +6,13 @@
 # the llm-agents flake input, so a copy here would go stale on an input bump
 # with nothing to catch it. `-A "-*"` stops offering these past the first
 # non-flag word, which is where wrapper.sh's parse loop breaks. The trailing
-# `=` on the three value-taking flags is what makes `--allow-read=PATH`
+# `=` on the four value-taking flags is what makes `--allow-read=PATH`
 # complete as well as `--allow-read PATH`; the parse loop takes either.
 _arguments -S -A "-*" \
   '*--allow=[add a domain to the network allowlist]:domain:' \
   '*--allow-write=[add a writable path]:path:_files' \
   '*--allow-read=[add a readable path]:path:_files' \
+  '*--allow-rw=[add a readable and writable path]:path:_files' \
   '--allow-loopback[permit bind and listen on loopback]' \
   '--allow-trustd[verify TLS through trustd, at a wider egress surface]' \
   '--allow-nix[nix daemon socket, equivalent to --no-sandbox under trusted-users]' \

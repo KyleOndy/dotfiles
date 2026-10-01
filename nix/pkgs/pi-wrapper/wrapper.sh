@@ -484,6 +484,19 @@ while [[ $# -gt 0 ]]; do
 		extra_read_paths+=("${1#--allow-read=}")
 		shift
 		;;
+	# Both directions at once: a write grant alone does not buy read-back
+	# (srt emits no file-read* allow for write roots), so a cache dir a
+	# toolchain writes into and reads back is one flag, not two.
+	--allow-rw)
+		extra_read_paths+=("$2")
+		extra_write_paths+=("$2")
+		shift 2
+		;;
+	--allow-rw=*)
+		extra_read_paths+=("${1#--allow-rw=}")
+		extra_write_paths+=("${1#--allow-rw=}")
+		shift
+		;;
 	--web)
 		web_mode=true
 		shift

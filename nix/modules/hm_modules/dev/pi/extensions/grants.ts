@@ -70,7 +70,8 @@ export default function (pi: ExtensionAPI) {
         lines.join("\n") +
         "\n\nWider than any name: `--allow <host>` adds one network host, " +
         "`--allow-read <path>` and `--allow-write <path>` add filesystem " +
-        "paths, `--allow-loopback` permits local binds, and `--web` lifts " +
+        "paths one direction each, `--allow-rw <path>` adds both at once, " +
+        "`--allow-loopback` permits local binds, and `--web` lifts " +
         "the network restriction entirely while keeping reads allowlisted.";
     }
 

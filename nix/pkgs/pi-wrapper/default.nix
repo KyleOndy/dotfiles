@@ -21,7 +21,7 @@
   # an explicit set. $PWD, ~/.pi and defaultSystemReadPaths are always readable;
   # this list adds more, typically the toolchain config/caches an agent's
   # commands read (e.g. ~/.gitconfig, ~/.cargo, ~/.rustup, ~/go, ~/.npmrc).
-  # Runtime --allow-read extends this. Supports ~ expansion.
+  # Runtime --allow-read and --allow-rw extend this. Supports ~ expansion.
   defaultReadPaths ? [ ],
   # System paths re-allowed under that root deny, measured against this
   # toolchain rather than guessed: git, ripgrep, node, python3, jq, pi itself,

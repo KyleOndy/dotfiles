@@ -273,6 +273,18 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e ".filesystem.allowRead | index(\"$HOME/readme\")" >/dev/null \
       || fail "--allow-read did not expand ~ to \$HOME. settings=$settings"
 
+    # --allow-rw grants both directions at once, and in both lists expands ~
+    captured=$(pi --allow-rw /tmp/rw -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.filesystem.allowWrite | index("/tmp/rw")' >/dev/null \
+      || fail "--allow-rw did not extend allowWrite. settings=$settings"
+    echo "$settings" | jq -e '.filesystem.allowRead | index("/tmp/rw")' >/dev/null \
+      || fail "--allow-rw did not extend allowRead. settings=$settings"
+    captured=$(pi --allow-rw '~/rwhome' -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/rwhome\")" >/dev/null \
+      || fail "--allow-rw did not expand ~ to \$HOME in allowWrite. settings=$settings"
+
     # --web picks the right OS primitive for this platform
     captured=$(pi --web -- x 2>&1)
     echo "$captured" | grep -q "PI_PLAN_EXEC.*${webExpect}" \

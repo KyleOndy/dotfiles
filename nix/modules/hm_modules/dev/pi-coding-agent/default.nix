@@ -4,6 +4,7 @@
 #   --allow HOST           add domain to network allowlist (repeatable)
 #   --allow-write PATH     add extra FS write path (repeatable)
 #   --allow-read PATH      add extra FS read path (repeatable)
+#   --allow-rw PATH        add extra FS path for both at once (repeatable)
 #   --web                  network unrestricted; reads and writes stay on
 #                          the strict-mode allowlist
 #   --no-sandbox           bypass sandbox entirely (with warning)
@@ -273,7 +274,7 @@ in
           Paths re-allowed for reading in strict mode, which denies all of
           $HOME. $PWD, ~/.pi and `sourceDir` are always readable; this list
           adds more. Leading `~` expands to $HOME. Runtime --allow-read
-          extends it.
+          and --allow-rw extend it.
 
           srt matches the path as written, not its target, so a symlink
           under $HOME needs its target listed here too. That covers
@@ -298,10 +299,11 @@ in
         description = ''
           Paths added to allowWrite in strict mode, which otherwise grants
           only $PWD and ~/.pi. Leading `~` expands to $HOME. Runtime
-          --allow-write extends it.
+          --allow-write and --allow-rw extend it.
 
           A path listed here is not automatically readable; add it to
-          `allowedReadPaths` too if the tool reads back what it wrote.
+          `allowedReadPaths` too if the tool reads back what it wrote
+          (`--allow-rw <path>` is that pair's one-flag runtime spelling).
 
           Prefer redirecting a tool at a directory already inside the grant
           (the wrapper does this for GOCACHE, CARGO_HOME and friends) over
