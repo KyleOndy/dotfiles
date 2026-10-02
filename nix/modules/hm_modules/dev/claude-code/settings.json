@@ -10,7 +10,10 @@
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
   "cleanupPeriodDays": 30,
-  "tui": "fullscreen",
+  "tui": "default",
+  "env": {
+    "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "1"
+  },
   "preferredNotifChannel": "terminal_bell",
   "voice": {
     "enabled": true
