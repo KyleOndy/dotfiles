@@ -984,7 +984,7 @@ in
             # A 200 that parses to nothing still sets up=1. This is the failure
             # that hid the cogsworth app scrape for a month.
             - alert: ScrapeReturnedNoSamples
-              expr: scrape_samples_scraped == 0
+              expr: scrape_samples_scraped == 0 and on(job, instance, host) up == 1
               for: 30m
               labels:
                 severity: warning
