@@ -198,8 +198,11 @@ in
             # Keyed on download_state, not on increase(gauge[6h]) == 0:
             # MetricsQL reads a gauge decrease as a counter reset, so one item
             # leaving the state restarts the `for:` for every other item in it.
+            # Sonarr reports a blocked item as importPending while it re-checks
+            # it each minute, so the blocked series has gaps that would restart
+            # `for:` too; max_over_time bridges them.
             - alert: SonarrImportBlocked
-              expr: sum by (host) (sonarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}) > 0
+              expr: sum by (host) (max_over_time(sonarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}[30m])) > 0
               for: 24h
               labels:
                 severity: warning
