@@ -43,7 +43,11 @@ rows="$(sqlite3 "$snapshot" 'select count(*) from history;')"
 readonly rows
 
 if [ "${DEST#*:}" != "$DEST" ]; then
-	rsync -a --mkpath "$snapshot" "${DEST%/}/$NAME"
+	# Into the directory, not onto the file: rsync 3.5.0 under rrsync fails to
+	# replace a file named as the destination ("delete_file: unlink(4) failed").
+	# DEST is passed unchanged because rrsync rejects "./" as unsafe while
+	# accepting ".".
+	rsync -a --mkpath "$snapshot" "$DEST"
 else
 	mv -f "$snapshot" "${DEST%/}/$NAME"
 fi

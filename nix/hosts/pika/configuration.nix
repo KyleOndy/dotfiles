@@ -333,8 +333,9 @@ in
     serviceConfig = {
       Type = "oneshot";
       User = "kyle";
-      # Path is relative to the directory rrsync confines the key to.
-      ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup tiger.dmz.1ella.com:/";
+      # Path is relative to the directory rrsync confines the key to, which
+      # rejects "/" and "./" as unsafe.
+      ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup tiger.dmz.1ella.com:.";
     };
   };
 
