@@ -12,7 +12,7 @@ let
   # To get the correct hash: build once with lib.fakeHash, read the hash from the error, update here.
   caddyWithPlugins = pkgs.caddy.withPlugins {
     plugins = [ "github.com/caddy-dns/route53@v1.6.0" ];
-    hash = "sha256-CbbS8vxaBotf2iyiqrmJHSlTXgWFLM7c2IMusFJWdXw=";
+    hash = "sha256-bIsACobQeWWlaJd//ityHiIQXs9tw2Lg2s2wi3VqLlc=";
   };
 
   enabledSites = filterAttrs (_: s: s.enable) cfg.sites;
