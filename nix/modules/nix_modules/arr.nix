@@ -114,7 +114,9 @@ let
               };
 
           systemd.services."${name}-backup" = mkIf cfg.backup.enable {
-            startAt = "*-*-* *:00:00";
+            # Off the hour: bazarr's own scheduled backup starts at :00 and
+            # deletes its temp database mid-run, which fails a racing cp.
+            startAt = "*-*-* *:30:00";
             path = [ pkgs.coreutils ];
             script = ''
               mkdir -p ${dest}
