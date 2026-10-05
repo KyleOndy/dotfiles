@@ -25,7 +25,7 @@
  * Off unless --domestique is passed.
  */
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   appendFileSync,
   existsSync,
@@ -554,6 +554,44 @@ export default function (pi: ExtensionAPI) {
     });
   }
 
+  /**
+   * Write each clone's new commits to bundles/<name>.bundle in the ride
+   * directory, which is how they leave it. The rider fetches the bundle into
+   * the real repository and never runs git inside the clone: its config sits
+   * under ~/.pi, where the agent can set core.fsmonitor or a pager to anything
+   * and git outside the sandbox would run it. A bundle is only data.
+   *
+   * Run here, inside the sandbox, for that same config. Synchronous because it
+   * also runs at shutdown, and a few commits against shared objects take well
+   * under a second.
+   */
+  function bundleClones(): void {
+    if (!rideDir) return;
+    for (const name of configuredRepos().keys()) {
+      const dest = join(rideDir, "repos", name);
+      if (!existsSync(dest)) continue;
+      const bundles = join(rideDir, "bundles");
+      mkdirSync(bundles, { recursive: true });
+      // Refuses with nothing ahead of origin, which leaves any earlier bundle
+      // where it was.
+      spawnSync(
+        "git",
+        [
+          "-C",
+          dest,
+          "bundle",
+          "create",
+          "--quiet",
+          join(bundles, `${name.replace(/\//g, "-")}.bundle`),
+          "--branches",
+          "--not",
+          "--remotes",
+        ],
+        { stdio: "ignore", timeout: 60_000 },
+      );
+    }
+  }
+
   /** Repo name to path, from the paths the wrapper exports (domestique.nix). */
   function configuredRepos(): Map<string, string> {
     const repos = new Map<string, string>();
@@ -595,7 +633,7 @@ export default function (pi: ExtensionAPI) {
       promptSnippet: `Clone a work repo into the ride directory (${available})`,
       promptGuidelines: [
         "Use clone_repo before editing, committing or testing anything in a work repository. The originals are read-only, and the ride directory is the only writable place.",
-        "clone_repo cannot push and neither can anything else here. Commit locally and name the branch out loud; the rider picks it up after the ride.",
+        "clone_repo cannot push and neither can anything else here. Commit locally and name the branch out loud; every branch ahead of origin is bundled into bundles/ after each reply, and the rider fetches it from there.",
       ],
       parameters: Type.Object({
         name: Type.String({ description: `One of: ${available}.` }),
@@ -706,7 +744,8 @@ export default function (pi: ExtensionAPI) {
                 `Cloned ${params.name} to repos/${params.name}, on its default ` +
                 "branch. Branch, switch, edit and commit freely; every branch " +
                 "is fetched. Pushing is not possible, so leave work on a " +
-                "local branch and say its name.",
+                "local branch and say its name; it reaches the rider as " +
+                `bundles/${params.name.replace(/\//g, "-")}.bundle.`,
             },
           ],
         };
@@ -758,6 +797,10 @@ export default function (pi: ExtensionAPI) {
     }, HEARD_POLL_MS);
     // A held timer would keep pi alive after the session ends.
     heardTimer.unref?.();
+  });
+
+  pi.on("agent_end", () => {
+    if (enabled) bundleClones();
   });
 
   // Fires for pi's own threshold compaction as well as for a spoken one, and
@@ -904,6 +947,8 @@ export default function (pi: ExtensionAPI) {
   // has finished speaking.
   pi.on("session_shutdown", () => {
     if (heardTimer) clearInterval(heardTimer);
-    if (enabled) quietThinking();
+    if (!enabled) return;
+    quietThinking();
+    bundleClones();
   });
 }

@@ -425,7 +425,11 @@ let
       # from .bare in under a minute, where the notes beside it are neither. Only
       # the clones go, and only from rides that are over. Their git directories
       # live under ~/.pi keyed by the same date, and are useless without the
-      # worktree, so the two are dropped together.
+      # worktree, so the two are dropped together. Commits made in them survive
+      # as the ride's bundles/, which the extension writes after every run.
+      #
+      # Nothing here asks git what a clone holds first: the agent wrote that
+      # clone's config, and this runs unsandboxed.
       for old in "${dq cfg.rideDir}"/*/repos; do
         [ "$old" = "$RIDE/repos" ] && continue
         printf 'domestique: reclaiming %s\n' "$old"
@@ -875,8 +879,9 @@ in
         `<rideDir>/<YYYY-MM-DD>`, which becomes pi's $PWD and is therefore the
         only place outside ~/.pi the sandbox lets the agent write
         (`nix/pkgs/pi-wrapper/wrapper.sh`, write_paths). Notes taken during a
-        ride land there, `transcript.md` records everything said aloud, and
-        `.sessions` holds one session file per topic.
+        ride land there, `transcript.md` records everything said aloud,
+        `.sessions` holds one session file per topic, and `bundles/` holds
+        each clone's commits as `git fetch <bundle>` takes them.
 
         One directory per day rather than per ride. A second ride appends to
         the same transcript, under its own timestamped headings, and the whole
@@ -1251,8 +1256,14 @@ in
     # depth. The cost is that `hooks` lands outside the matching .git/hooks deny
     # and becomes writable. The agent's own git ignores hooks via GIT_CONFIG
     # core.hooksPath; this covers the rider's git against the same directory
-    # afterwards, which is the only place one would run unsandboxed. The trailing
-    # slash is what makes git append `**` (git-config(1), Conditional includes).
+    # afterwards. The trailing slash is what makes git append `**`
+    # (git-config(1), Conditional includes).
+    #
+    # A backstop, not a boundary. The agent also writes that `config`, where
+    # core.fsmonitor or a pager is as good as a hook, and the clone's `.git`
+    # file, which can point git somewhere this condition does not match. Work
+    # leaves a ride as a bundle (extensions/domestique.ts, bundleClones) so the
+    # rider has no reason to run git inside a clone at all.
     programs.git.includes = [
       {
         condition = "gitdir:${config.home.homeDirectory}/.pi/domestique/gitdirs/";
