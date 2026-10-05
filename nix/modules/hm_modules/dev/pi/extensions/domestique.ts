@@ -221,13 +221,15 @@ export default function (pi: ExtensionAPI) {
   let said = "";
   let contextWarned = false;
 
-  // A turn is in flight, so a transcript has to say how it wants to be
-  // delivered rather than starting a second one.
-  let turnActive = false;
   let heardTimer: ReturnType<typeof setInterval> | undefined;
   let cursor = "";
   // The topic a relaunch opens on, delivered with the first drain.
   let opening = "";
+
+  // pi refuses a prompt outright while a compaction runs, so what the rider
+  // says then waits in HEARD. Cleared by the first drain that finds pi idle,
+  // since a compaction that fails says so through no event.
+  let compacting = false;
 
   // Response text not yet classified as prose or code, and which of the two we
   // are in. Held outside the speech buffer because a fence marker arrives split
@@ -428,8 +430,10 @@ export default function (pi: ExtensionAPI) {
   function compactNow(ctx: ExtensionContext): void {
     if (!ctx.isIdle()) ctx.abort();
     ctx.compact({
-      onError: (error) =>
-        writeUtterance("speak", `Compaction failed. ${error.message}`),
+      onError: (error) => {
+        compacting = false;
+        writeUtterance("speak", `Compaction failed. ${error.message}`);
+      },
     });
   }
 
@@ -468,16 +472,19 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    // Streaming without deliverAs throws; idle with it never starts a turn.
-    pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
-    // The turn is live from here, while message_start is a round trip away.
-    // An utterance arriving in that gap goes bare into a streaming session,
-    // throws asynchronously, and is gone with the cursor already past it.
-    turnActive = true;
+    // pi only reads deliverAs while a run is active, and a run spans every
+    // turn of a tool loop, so without it an utterance landing between two
+    // turns throws and is lost. Idle, pi ignores it and starts a run.
+    pi.sendUserMessage(text, { deliverAs: "steer" });
   }
 
   /** Deliver whatever the rider has said since the cursor, oldest first. */
   function drainHeard(ctx: ExtensionContext) {
+    if (compacting) {
+      if (!ctx.isIdle()) return;
+      compacting = false;
+    }
+
     if (opening) {
       const topic = opening;
       opening = "";
@@ -753,28 +760,26 @@ export default function (pi: ExtensionAPI) {
     heardTimer.unref?.();
   });
 
-  pi.on("turn_end", () => {
-    turnActive = false;
-  });
-
   // Fires for pi's own threshold compaction as well as for a spoken one, and
   // that is the case worth covering: it is silent, it runs for a while, and a
   // rider who cannot see the screen has no way to tell it from a crash.
   pi.on("session_before_compact", () => {
     if (!enabled) return;
+    compacting = true;
     writeUtterance("speak", "Compacting, one moment.");
     logLine("_compacted here_");
   });
 
   pi.on("session_compact", () => {
-    if (enabled) writeUtterance("speak", "Back.");
+    if (!enabled) return;
+    compacting = false;
+    writeUtterance("speak", "Back.");
   });
 
   pi.on("message_start", (event, _ctx) => {
     if (!enabled) return;
     const message = event.message as { role?: string } | undefined;
     if (message?.role !== "assistant") return;
-    turnActive = true;
     // The budget bounds one spoken chunk, not one exchange. A tool-heavy turn
     // produces several assistant messages and each gets its own allowance.
     spokenChars = 0;
