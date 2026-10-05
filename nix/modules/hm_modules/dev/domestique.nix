@@ -350,6 +350,12 @@ let
         where="alacritty window $ALACRITTY_WINDOW_ID"
       fi
 
+      # A pid outlives its process in a file, and once the number comes round
+      # again a bare kill -0 reads some unrelated process as the ride.
+      ours() {
+        [[ "$(ps -p "$1" -o command= 2>/dev/null)" == *domestique* ]]
+      }
+
       # noclobber makes the redirection itself the test, so two rides starting
       # in the same millisecond cannot both come away holding the lock.
       claim() {
@@ -364,10 +370,12 @@ let
 
       if ! claim; then
         held=$(head -n 1 "$LOCK" 2>/dev/null) || held=""
-        if [ -n "$held" ] && kill -0 "$held" 2>/dev/null; then
+        if [ -n "$held" ] && ours "$held"; then
+          # Not `kill`: bash defers a trapped signal until the foreground pi
+          # exits, so the ride would only notice once quit by hand anyway.
           printf 'domestique: a ride is already running\n' >&2
           tail -n +2 "$LOCK" >&2
-          printf '  stop it with:  kill %s\n' "$held" >&2
+          printf '  stop it by quitting pi in that window\n' >&2
           printf '  or review it:  domestique-review\n' >&2
           exit 1
         fi
@@ -379,35 +387,39 @@ let
           exit 1
         fi
       fi
+      # Child pids from launch, and the pidfiles they will write. Killed by the
+      # pid launch saw rather than the file, which a watcher still building the
+      # venv or importing mlx has not written yet. The launcher scripts exec
+      # into python, so the two are one process once both exist.
       started=()
+      pidfiles=()
 
       alive() {
-        [ -e "$1" ] && kill -0 "$(cat "$1" 2>/dev/null)" 2>/dev/null
+        local pid
+        pid=$(cat "$1" 2>/dev/null) || return 1
+        [ -n "$pid" ] && ours "$pid"
       }
 
       stop_watchers() {
         [ "''${#started[@]}" -gt 0 ] || return 0
-        local pidfile
-        for pidfile in "''${started[@]}"; do
-          kill "$(cat "$pidfile" 2>/dev/null)" 2>/dev/null || true
-          # A watcher still loading its model has no cleanup to run yet, and a
-          # pid left behind reads as live once the number comes round again.
-          rm -f "$pidfile"
-        done
+        kill "''${started[@]}" 2>/dev/null || true
+        # A watcher still loading its model has no cleanup to run yet, and a
+        # pid left behind reads as live once the number comes round again.
+        rm -f "''${pidfiles[@]}"
         started=()
+        pidfiles=()
       }
 
-      # A SIGTERM aimed at the driver alone (kill from another terminal, a
-      # process manager) or a SIGHUP from a closing terminal never reaches the
-      # backgrounded watchers, so the drain loop below never runs and the EXIT
-      # trap that only removed the lock left them alive with models resident.
-      # Route every exit-causing signal through exit so the EXIT trap runs
-      # stop_watchers, which SIGTERMs the watchers into their own clean
-      # shutdown paths (tts.py / listen.py both handle SIGTERM). INT is trapped
-      # too: the watchers share the driver's process group and so already
-      # receive Ctrl-C as a KeyboardInterrupt they clean up themselves, and the
-      # driver running `exit 130` loses nothing the drain loop would have done
-      # with the watchers already dying.
+      # A SIGTERM aimed at the driver alone (a process manager) or a SIGHUP
+      # from a closing terminal never reaches the backgrounded watchers, so
+      # every exit-causing signal goes through exit, whose trap SIGTERMs them
+      # into their own clean shutdown paths (tts.py and listen.py both handle
+      # SIGTERM). INT is no exception: without job control a background job
+      # starts with SIGINT ignored, and Python then installs no
+      # KeyboardInterrupt handler, so Ctrl-C reaches the watchers only through
+      # this trap.
+      # https://www.gnu.org/software/bash/manual/html_node/Signals.html
+      # https://docs.python.org/3.12/library/signal.html#general-rules
       trap 'stop_watchers; rm -f "$LOCK"' EXIT
       trap 'exit 130' INT
       trap 'exit 143' TERM
@@ -465,7 +477,8 @@ let
         rm -f "$ready"
         "$bin" >>"$log" 2>&1 &
         local child=$!
-        started+=("$pidfile")
+        started+=("$child")
+        pidfiles+=("$pidfile")
         # The first run of all builds a venv and downloads a model, so this
         # waits in minutes rather than seconds. Steady state is a few. A watcher
         # that dies at startup never writes the file, so the pid bounds the wait
