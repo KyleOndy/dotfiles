@@ -251,12 +251,15 @@ in
 
       root = mkOption {
         type = types.str;
-        default = "${config.home.homeDirectory}/.pi/domestique";
+        default = "${config.home.homeDirectory}/.local/state/domestique";
         description = ''
           Directory the key files are written into: `listening` while channel
           one is held, `outofband` while the pad chord is held, and `replay`,
           which accumulates one byte per replay tap. The domestique watchers
           poll for them; nothing else reads them.
+
+          Outside ~/.pi because every sandboxed pi session can write there,
+          and a forged `listening` would open the microphone.
         '';
       };
 
@@ -295,12 +298,14 @@ in
     assertions = [
       {
         assertion =
-          !cfg.pushToTalk.enable || cfg.pushToTalk.root == "${config.home.homeDirectory}/.pi/domestique";
+          !cfg.pushToTalk.enable
+          || cfg.pushToTalk.root == "${config.home.homeDirectory}/.local/state/domestique";
         message = ''
           hmFoundry.desktop.input.karabiner.pushToTalk.root is polled by
           domestique-listen.py, domestique-tts.py and extensions/domestique.ts,
-          each of which resolves it under ~/.pi/domestique, and the domestique
-          wrappers export DOMESTIQUE_ROOT over anything set in the environment.
+          each of which resolves it under ~/.local/state/domestique, and the
+          domestique wrappers export DOMESTIQUE_STATE over anything set in the
+          environment.
           Any other path leaves the keys touching files nothing reads: no cue,
           no tint, no recording, and nothing anywhere reporting a fault.
         '';

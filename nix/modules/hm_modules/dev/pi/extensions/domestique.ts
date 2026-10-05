@@ -47,6 +47,13 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 
 const ROOT = join(homedir(), ".pi", "domestique");
+
+// What only the watchers and the keys write (dev/domestique.nix, stateDir). A
+// ride is granted read here and nothing in any pi session can write it, which
+// is what keeps another session from speaking as the rider.
+const STATE =
+  process.env.DOMESTIQUE_STATE ||
+  join(homedir(), ".local", "state", "domestique");
 const SPOOL = join(ROOT, "spool");
 const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
@@ -71,12 +78,17 @@ const DENIED_PATHS = [".claude/", ".vscode/", ".mcp.json", ".gitmodules"];
 // What the rider said, transcribed by domestique-listen.py. Speech goes out
 // through the spool and comes back in through here, so the microphone half
 // needs no keystroke synthesis and no accessibility grant.
-const HEARD = join(ROOT, "heard");
+const HEARD = join(STATE, "heard");
 const HEARD_POLL_MS = 200;
+
+// The name of the last heard file taken. HEARD is read-only from here, so this
+// is what keeps a file from being taken twice, including by the session a
+// topic change relaunches.
+const CURSOR = join(ROOT, "heard-cursor");
 
 // Karabiner holds this open while the push-to-talk key is down. The watcher
 // rings for it; this is the same thing for anyone at a desk.
-const LISTENING = join(ROOT, "listening");
+const LISTENING = join(STATE, "listening");
 
 // The watcher clamps to the same range; these bounds are here so /speed reports
 // the rate it actually set.
@@ -213,6 +225,9 @@ export default function (pi: ExtensionAPI) {
   // delivered rather than starting a second one.
   let turnActive = false;
   let heardTimer: ReturnType<typeof setInterval> | undefined;
+  let cursor = "";
+  // The topic a relaunch opens on, delivered with the first drain.
+  let opening = "";
 
   // Response text not yet classified as prose or code, and which of the two we
   // are in. Held outside the speech buffer because a fence marker arrives split
@@ -247,18 +262,6 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
-  /** Hand text to drainHeard as though the rider had said it. Named as
-   * domestique-listen.py publish() names its files, so ordering holds. The
-   * replay suffix marks text this extension wrote rather than heard, which is
-   * not eligible to be read as a command: a topic of "new session handling"
-   * would otherwise end the session opened to discuss it. */
-  function publishHeard(text: string, replayed = false): void {
-    const name = String(Date.now()).padStart(13, "0");
-    const tmp = join(HEARD, `${name}.tmp`);
-    writeFileSync(tmp, `${text}\n`, "utf8");
-    renameSync(tmp, join(HEARD, `${name}${replayed ? ".replay" : ""}.txt`));
-  }
-
   /** Take up the topic the previous session was ended for. Absent on the
    * first session of a ride. */
   function openTopic(): void {
@@ -274,7 +277,7 @@ export default function (pi: ExtensionAPI) {
     logLine(`\n## ${at} ${topic || "ride start"}`);
     if (!topic) return;
     pi.setSessionName(topic);
-    publishHeard(topic, true);
+    opening = topic;
   }
 
   /** Stop the response channel for this message and say why instead. */
@@ -439,16 +442,52 @@ export default function (pi: ExtensionAPI) {
     writeUtterance("speak", "Context is filling up. Say new topic at a break.");
   }
 
+  /** Move the cursor past `name`. Persisted before the send, so a throw
+   * costs one utterance instead of repeating it on every tick. */
+  function take(name: string): void {
+    cursor = name;
+    try {
+      writeFileSync(CURSOR, `${name}\n`, "utf8");
+    } catch {
+      // The in-memory cursor still holds for this session.
+    }
+  }
+
   /**
-   * Deliver whatever the rider has said, oldest first. Each file is unlinked
-   * before its send, so a throw costs one utterance instead of repeating it
-   * on every tick.
+   * Hand one utterance to pi. `replayed` marks text this extension supplied
+   * rather than heard, which is not eligible to be read as a command: a topic
+   * of "compact" would otherwise compact the session opened to discuss it.
    */
+  function deliver(ctx: ExtensionContext, text: string, replayed: boolean) {
+    heard += 1;
+    logLine(`> ${text}`);
+    ctx.ui?.notify(`heard: ${text}`, "info");
+
+    if (!replayed && COMPACT_PHRASES.has(normalize(text))) {
+      compactNow(ctx);
+      return;
+    }
+
+    // Streaming without deliverAs throws; idle with it never starts a turn.
+    pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
+    // The turn is live from here, while message_start is a round trip away.
+    // An utterance arriving in that gap goes bare into a streaming session,
+    // throws asynchronously, and is gone with the cursor already past it.
+    turnActive = true;
+  }
+
+  /** Deliver whatever the rider has said since the cursor, oldest first. */
   function drainHeard(ctx: ExtensionContext) {
+    if (opening) {
+      const topic = opening;
+      opening = "";
+      deliver(ctx, topic, true);
+    }
+
     let names: string[];
     try {
       names = readdirSync(HEARD)
-        .filter((n) => n.endsWith(".txt"))
+        .filter((n) => n.endsWith(".txt") && n > cursor)
         .sort();
     } catch {
       // The listener owns this directory.
@@ -456,16 +495,14 @@ export default function (pi: ExtensionAPI) {
     }
 
     for (const name of names) {
-      const path = join(HEARD, name);
-      const replayed = name.endsWith(".replay.txt");
       const topicChange = name.endsWith(".newtopic.txt");
       let text: string;
       try {
-        text = readFileSync(path, "utf8").trim();
+        text = readFileSync(join(HEARD, name), "utf8").trim();
       } catch {
         continue;
       }
-      rmSync(path, { force: true });
+      take(name);
 
       // Classified outside pi (domestique-listen.py), where the rider has
       // already had a window to cancel. An empty topic is a legitimate one,
@@ -474,23 +511,7 @@ export default function (pi: ExtensionAPI) {
         newTopic(ctx, text);
         return;
       }
-      if (!text) continue;
-
-      heard += 1;
-      logLine(`> ${text}`);
-      ctx.ui?.notify(`heard: ${text}`, "info");
-
-      if (!replayed && COMPACT_PHRASES.has(normalize(text))) {
-        compactNow(ctx);
-        continue;
-      }
-
-      // Streaming without deliverAs throws; idle with it never starts a turn.
-      pi.sendUserMessage(text, turnActive ? { deliverAs: "steer" } : undefined);
-      // The turn is live from here, while message_start is a round trip away.
-      // An utterance arriving in that gap goes bare into a streaming session,
-      // throws asynchronously, and is gone with its file already unlinked.
-      turnActive = true;
+      if (text) deliver(ctx, text, false);
     }
   }
 
@@ -691,7 +712,11 @@ export default function (pi: ExtensionAPI) {
     if (!enabled) return;
 
     mkdirSync(SPOOL, { recursive: true });
-    mkdirSync(HEARD, { recursive: true });
+    try {
+      cursor = readFileSync(CURSOR, "utf8").trim();
+    } catch {
+      // First session of the ride.
+    }
     // A restart mid-ride would otherwise reuse numbers the watcher has not
     // drained yet, and the new utterances would sort behind the stale ones.
     for (const name of readdirSync(SPOOL)) {

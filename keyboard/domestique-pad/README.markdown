@@ -2,7 +2,7 @@
 
 Two switches on an Adafruit KB2040, wired to hand while riding. The pad is one
 end of a protocol and does nothing on its own: Karabiner turns each key into a
-file under `~/.pi/domestique`, and the domestique watchers read those.
+file under `~/.local/state/domestique`, and the domestique watchers read those.
 
 ## Signals
 

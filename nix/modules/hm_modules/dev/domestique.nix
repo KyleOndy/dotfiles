@@ -107,20 +107,33 @@ let
 
   piFlags = allowReadFlags + allowBundleFlags;
 
+  # What only the watchers and the keys write: the venv, pids, the lock, the
+  # Karabiner key files, and `heard`, the rider's words on their way to pi. A
+  # ride reads it and nothing in any pi session can write it, which is the
+  # whole difference from ~/.pi/domestique, where the extension has to write.
+  stateDir = "${config.home.homeDirectory}/.local/state/domestique";
+
+  rideFlags = piFlags + " --allow-read ${lib.escapeShellArg stateDir}";
+
   # Kokoro and misaki are not packaged for darwin in nixpkgs:
   # python3Packages.kokoro depends on dlinfo, which carries
   # `broken = stdenv.hostPlatform.isDarwin`. So the wheels live in a venv built
   # on first run, keyed on the requirements store path so a change to the list
   # rebuilds it. Needs network once.
+  #
+  # Under $STATE, not ~/.pi: every sandboxed pi session can write ~/.pi, and a
+  # .pth file dropped into site-packages would run unsandboxed on the next
+  # ride. The same holds for every pidfile and the lock, which the driver
+  # kills by.
   ensureVenv = ''
-    readonly VENV="$ROOT/venv"
+    readonly VENV="$STATE/venv"
     readonly STAMP="$VENV/.requirements"
 
     if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$STAMP" 2>/dev/null)" != "${venvKey}" ]; then
       # Every domestique command shares this venv, so an older binary still on
       # some shell's PATH rebuilds it to that binary's requirements, deleting
       # it under whatever is already running from it.
-      for holder in "$ROOT/watcher.pid" "$ROOT/listen.pid"; do
+      for holder in "$STATE/watcher.pid" "$STATE/listen.pid"; do
         held=$(cat "$holder" 2>/dev/null) || continue
         if [ -n "$held" ] && kill -0 "$held" 2>/dev/null; then
           printf 'domestique: venv needs rebuilding, but pid %s is using it. Stop it first.\n' \
@@ -154,8 +167,8 @@ let
       pkgs.uv
     ];
     text = ''
-      readonly ROOT="$HOME/.pi/domestique"
-      mkdir -p "$ROOT"
+      readonly STATE=${lib.escapeShellArg stateDir}
+      mkdir -p "$STATE"
       ${ensureVenv}
       # The report has to match the watcher, so the tool loads the watcher's
       # normalizer and lexicon install rather than its own copy.
@@ -175,8 +188,8 @@ let
       pkgs.ffmpeg
     ];
     text = ''
-      readonly ROOT="$HOME/.pi/domestique"
-      mkdir -p "$ROOT"
+      readonly STATE=${lib.escapeShellArg stateDir}
+      mkdir -p "$STATE"
       ${ensureVenv}
       export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
       exec "$VENV/bin/python" ${./domestique-stt.py} "$@"
@@ -190,10 +203,10 @@ let
       pkgs.uv
     ];
     text = ''
-      readonly ROOT="$HOME/.pi/domestique"
-      mkdir -p "$ROOT"
+      readonly STATE=${lib.escapeShellArg stateDir}
+      mkdir -p "$STATE"
       ${ensureVenv}
-      export DOMESTIQUE_ROOT="$ROOT"
+      export DOMESTIQUE_STATE="$STATE"
       export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
       export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${dq cfg.inputDevice}}"
       export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
@@ -213,21 +226,23 @@ let
     ];
     text = ''
       readonly ROOT="$HOME/.pi/domestique"
-      readonly PROMPT="$ROOT/ride-prompt.md"
+      readonly STATE=${lib.escapeShellArg stateDir}
+      readonly PROMPT="$STATE/ride-prompt.md"
 
-      mkdir -p "$ROOT"
+      mkdir -p "$ROOT" "$STATE"
 
       # srt's read allowlist is checked against the path as written, so a
-      # home-manager symlink under ~/.pi resolves outside the allowlist and pi
-      # reports the prompt as missing. Copy it in as a regular file.
+      # store symlink resolves outside the allowlist and pi reports the prompt
+      # as missing. Copy it in as a regular file.
       install -m 0644 "${ridePromptFile}" "$PROMPT"
 
       ${ensureVenv}
 
       printf 'domestique: run pi with\n  pi%s --domestique --append-system-prompt %s\n' \
-        "${piFlags}" "$PROMPT"
+        "${rideFlags}" "$PROMPT"
 
       export DOMESTIQUE_ROOT="$ROOT"
+      export DOMESTIQUE_STATE="$STATE"
       export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${dq cfg.voice}}"
       export DOMESTIQUE_MODEL="${dq cfg.model}"
       export DOMESTIQUE_SPEED="''${DOMESTIQUE_SPEED:-${dq cfg.speed}}"
@@ -268,11 +283,13 @@ let
     ];
     text = ''
       readonly ROOT="$HOME/.pi/domestique"
+      readonly STATE=${lib.escapeShellArg stateDir}
       readonly SPOOL="$ROOT/spool"
-      readonly SPEAKING="$ROOT/watcher.speaking"
+      readonly SPEAKING="$STATE/watcher.speaking"
       readonly RESTART="$ROOT/restart"
       readonly TOPIC="$ROOT/topic"
-      readonly LOCK="$ROOT/ride.lock"
+      readonly CURSOR="$ROOT/heard-cursor"
+      readonly LOCK="$STATE/ride.lock"
       RIDE="${dq cfg.rideDir}/$(date +%Y-%m-%d)"
       readonly RIDE
 
@@ -285,6 +302,7 @@ let
       # empty, and a format string with no arguments is SC2183, which fails the
       # writeShellApplication build on any host that has not set it.
       export DOMESTIQUE_REPOS=${lib.escapeShellArg (lib.concatStringsSep "\n" cfg.repos)}
+      export DOMESTIQUE_STATE="$STATE"
 
       # Held apart from "$@" because the loop below clears the arguments after
       # the first topic: an opening prompt is one topic's, a model is the ride's.
@@ -313,7 +331,7 @@ let
       set -- "''${rest[@]}"
 
       shopt -s nullglob
-      mkdir -p "$ROOT"
+      mkdir -p "$ROOT" "$STATE"
 
       # A ride is a singleton, and now says so. There is one rider, one
       # microphone, one pair of headphones, and one push-to-talk key writing one
@@ -469,9 +487,9 @@ let
       export DOMESTIQUE_RIDE="$RIDE"
 
       launch speech "${domestique-speak}/bin/domestique-speak" \
-        "$ROOT/watcher.pid" "$ROOT/watcher.ready" "$ROOT/speak.log"
+        "$STATE/watcher.pid" "$STATE/watcher.ready" "$STATE/speak.log"
       launch listening "${domestique-listen}/bin/domestique-listen" \
-        "$ROOT/listen.pid" "$ROOT/listen.ready" "$ROOT/listen.log"
+        "$STATE/listen.pid" "$STATE/listen.ready" "$STATE/listen.log"
 
       # --allow-read and --allow-<bundle> belong to the pi wrapper, --domestique
       # to pi, and the wrapper's arg loop breaks at the first flag it does not
@@ -486,11 +504,14 @@ let
       # The topic outlives the restart flag it travels with: a pi that dies
       # before session_start consumes neither, and the next ride would open
       # itself on a subject from whenever that was.
-      rm -f "$RESTART" "$TOPIC"
+      # The cursor is the last of `heard` a session took, so a relaunch resumes
+      # where its predecessor stopped. It sits where any session can write, so
+      # one from outside this ride must not get to hold the rider back.
+      rm -f "$RESTART" "$TOPIC" "$CURSOR"
       while true; do
-        pi${piFlags} --domestique \
+        pi${rideFlags} --domestique \
           --session-dir "$RIDE/.sessions" \
-          --append-system-prompt "$ROOT/ride-prompt.md" \
+          --append-system-prompt "$STATE/ride-prompt.md" \
           "''${model[@]}" "$@" || true
         [ -e "$RESTART" ] || break
         rm -f "$RESTART"
@@ -1167,8 +1188,9 @@ in
       '';
       description = ''
         Text appended to pi's system prompt in ride mode, via
-        `--append-system-prompt`. Written to ~/.pi/domestique/ride-prompt.md
-        by the watcher.
+        `--append-system-prompt`. Written to
+        ~/.local/state/domestique/ride-prompt.md by the watcher, outside ~/.pi
+        so no pi session can rewrite what the next ride is told.
 
         This is what keeps responses short enough to stream. Compressing a
         long response after the fact is not an option: streaming means there

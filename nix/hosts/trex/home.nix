@@ -168,7 +168,7 @@ in
   hmFoundry.desktop.input.karabiner.enable = true;
 
   # Caps lock is push to talk for a domestique ride: held, it creates
-  # ~/.pi/domestique/listening and domestique-listen opens the microphone.
+  # ~/.local/state/domestique/listening and domestique-listen opens the microphone.
   # The rule carries no application condition, so caps lock stops toggling
   # case everywhere and not only during a ride. That is the trade the module
   # documents, and the key has to be one pi's TUI never reads.

@@ -3,9 +3,12 @@
 
 The microphone is denied inside pi's strict sandbox for the same reason the
 speaker is, so this runs beside the speech watcher rather than inside pi, and
-the two halves meet in ~/.pi/domestique. Karabiner creates a file on key down
-and removes it on key up (nix/modules/hm_modules/desktop/input/karabiner.nix);
-everything between those two edges becomes one utterance.
+the two halves meet in ~/.local/state/domestique. No pi session can write
+there, where a forged key file would open the microphone and a forged
+transcript would put words in the rider's mouth. Karabiner creates a file on
+key down and removes it on key up
+(nix/modules/hm_modules/desktop/input/karabiner.nix); everything between those
+two edges becomes one utterance.
 
 Two channels, told apart by which file exists:
 
@@ -72,40 +75,37 @@ def seconds(name: str, default: str, floor: float) -> float:
     return max(floor, value)
 
 
-ROOT = Path(env("DOMESTIQUE_ROOT", str(Path.home() / ".pi/domestique")))
+STATE = Path(env("DOMESTIQUE_STATE", str(Path.home() / ".local/state/domestique")))
 
 # Written by Karabiner while a key is held. Presence is the whole protocol;
 # nothing writes into either.
-LISTENING = ROOT / "listening"
-OUTOFBAND = ROOT / "outofband"
+LISTENING = STATE / "listening"
+OUTOFBAND = STATE / "outofband"
 
 # One byte per replay tap, appended by Karabiner. A touch would not do: the poll
 # below runs at 0.1s and a tap lands entirely between two of them, so what has
 # to accumulate is the count rather than the file's existence.
-REPLAY = ROOT / "replay"
+REPLAY = STATE / "replay"
 
 # The count this hands to the speech watcher once the tapping has stopped.
-REPLAY_REQUEST = ROOT / "replay-request"
+REPLAY_REQUEST = STATE / "replay-request"
 
 # Out-of-band speech. The spool belongs to pi's stream and is numbered by the
 # extension, so an announcement from here goes through its own door.
-SAY = ROOT / "say"
+SAY = STATE / "say"
 
-# Read by the wrapper's relaunch loop and by the next session, exactly as the
-# extension writes them (extensions/domestique.ts).
-TOPIC = ROOT / "topic"
-RESTART = ROOT / "restart"
+# Finished transcripts, one file per utterance, read by the pi extension. It
+# can only read here, so it keeps a cursor rather than deleting what it took,
+# and this sweeps the directory at startup.
+HEARD = STATE / "heard"
 
-# Finished transcripts, one file per utterance, drained by the pi extension.
-HEARD = ROOT / "heard"
-
-PIDFILE = ROOT / "listen.pid"
-READY = ROOT / "listen.ready"
+PIDFILE = STATE / "listen.pid"
+READY = STATE / "listen.ready"
 
 # Where a note goes. The ride directory is the launcher's to name, so it
-# arrives in the environment (dev/domestique.nix). Falling back to ROOT keeps a
+# arrives in the environment (dev/domestique.nix). Falling back to STATE keeps a
 # hand-started listener from dropping notes on the floor.
-RIDE = Path(env("DOMESTIQUE_RIDE", "") or ROOT)
+RIDE = Path(env("DOMESTIQUE_RIDE", "") or STATE)
 NOTES = RIDE / "notes.md"
 
 MODEL = env("DOMESTIQUE_STT_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
@@ -155,7 +155,7 @@ def publish(text: str, suffix: str = "") -> None:
 
 def say(text: str) -> None:
     """Speak something the rider needs now, ahead of anything pi has queued."""
-    tmp = ROOT / "say.tmp"
+    tmp = STATE / "say.tmp"
     try:
         tmp.write_text(f"{text}\n")
         tmp.rename(SAY)

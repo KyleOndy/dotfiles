@@ -61,12 +61,17 @@ def number(name: str, default: str, floor: float) -> float:
     return max(floor, value)
 
 
+# What pi writes: the spool and its controls. Every sandboxed session can write
+# here, so nothing read from it is trusted beyond being spoken.
 ROOT = Path(env("DOMESTIQUE_ROOT", str(Path.home() / ".pi/domestique")))
 SPOOL = ROOT / "spool"
 STOP = ROOT / "stop"
 STOP_THINK = ROOT / "stop-think"
-PIDFILE = ROOT / "watcher.pid"
-READY = ROOT / "watcher.ready"
+
+# What only the watchers and the keys write (dev/domestique.nix, stateDir).
+STATE = Path(env("DOMESTIQUE_STATE", str(Path.home() / ".local/state/domestique")))
+PIDFILE = STATE / "watcher.pid"
+READY = STATE / "watcher.ready"
 
 # Rate for the next utterance, written by /speed. State rather than an event, so
 # unlike `stop` it survives being read. The utterance already playing was
@@ -76,27 +81,27 @@ SPEED_FILE = ROOT / "speed"
 # An empty spool is not silence: an utterance leaves the spool when synthesis
 # starts, not when playback ends. `domestique` waits on this to know a reply has
 # finished before it takes the watcher down.
-SPEAKING = ROOT / "watcher.speaking"
+SPEAKING = STATE / "watcher.speaking"
 
 # Written by Karabiner while the push-to-talk key is held
 # (nix/modules/hm_modules/desktop/input/karabiner.nix). Read here as well as by
 # the recorder, because the answer has to get out of the rider's way and the
 # device that says so is this one.
-LISTENING = ROOT / "listening"
+LISTENING = STATE / "listening"
 
 # The second push-to-talk channel, whose transcripts never reach pi. Read here
 # for the same reason as LISTENING: the answer has to get out of the rider's way
 # whichever key they are holding.
-OUTOFBAND = ROOT / "outofband"
+OUTOFBAND = STATE / "outofband"
 
 # How many recent replies to repeat, written by domestique-listen.py once the
 # tapping on the replay key has stopped. That watcher owns the tap count and
 # this one owns the audio, so neither reads the other's file.
-REPLAY_REQUEST = ROOT / "replay-request"
+REPLAY_REQUEST = STATE / "replay-request"
 
 # Out-of-band speech: something the rider needs now, from a process that is not
 # pi and therefore has no place in the spool's numbering.
-SAY = ROOT / "say"
+SAY = STATE / "say"
 
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
@@ -405,7 +410,7 @@ def unlink(paths) -> None:
 
 
 def main() -> int:
-    ROOT.mkdir(parents=True, exist_ok=True)
+    STATE.mkdir(parents=True, exist_ok=True)
     SPOOL.mkdir(parents=True, exist_ok=True)
 
     # A ride ends by SIGTERMing its watchers (dev/domestique.nix). Python's
