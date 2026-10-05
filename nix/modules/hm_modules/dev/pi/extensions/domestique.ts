@@ -264,6 +264,13 @@ export default function (pi: ExtensionAPI) {
     }
   }
 
+  /** One answer is one transcript line, so the prose of a message is held
+   * until it ends, or until something cuts it off. */
+  function flushSaid(): void {
+    if (said) logLine(said);
+    said = "";
+  }
+
   /** Take up the topic the previous session was ended for. Absent on the
    * first session of a ride. */
   function openTopic(): void {
@@ -394,6 +401,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   function hush(): void {
+    flushSaid();
     buffers.think = "";
     buffers.speak = "";
     pending = "";
@@ -422,6 +430,7 @@ export default function (pi: ExtensionAPI) {
     if (topic) writeFileSync(TOPIC, `${topic}\n`, "utf8");
     else rmSync(TOPIC, { force: true });
     writeFileSync(RESTART, "", "utf8");
+    flushSaid();
     writeUtterance("speak", "New topic.");
     ctx.abort();
     ctx.shutdown();
@@ -830,7 +839,7 @@ export default function (pi: ExtensionAPI) {
     codeAnnounced = false;
     pending = "";
     inFence = false;
-    said = "";
+    flushSaid();
   });
 
   pi.on("message_update", (event, _ctx) => {
@@ -855,10 +864,7 @@ export default function (pi: ExtensionAPI) {
         if (!inFence) feed("speak", pending);
         pending = "";
         drain("speak");
-        if (said) {
-          logLine(said);
-          said = "";
-        }
+        flushSaid();
         return;
       case "error":
         hush();

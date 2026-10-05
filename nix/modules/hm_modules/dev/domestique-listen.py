@@ -356,10 +356,9 @@ def main() -> int:
                 return
 
         topic = TOPIC_PREFIX.sub("", text).strip()
-        TOPIC.write_text(f"{topic}\n")
-        RESTART.write_text("")
         # The extension is what can actually end the session, so the verdict
         # travels the same road an utterance does and keeps its place in line.
+        # It writes the topic and restart files itself (newTopic).
         publish(topic, ".newtopic")
         log(f"topic change: {topic[:60]}")
 
@@ -378,7 +377,14 @@ def main() -> int:
 
         audio = np.concatenate(blocks)
         begun = time.monotonic()
-        text = transcribe(audio)
+        try:
+            text = transcribe(audio)
+        except Exception as exc:
+            # The close cue has already rung, so silence here reads as the agent
+            # thinking and the rider waits on an answer that is not coming.
+            log(f"transcription failed: {exc}")
+            say("Didn't catch that.")
+            return
         elapsed = time.monotonic() - begun
         if not text:
             log(f"nothing heard in {len(audio) / rate:.1f}s")
@@ -386,24 +392,38 @@ def main() -> int:
         log(f"{channel:9} {len(audio) / rate:5.1f}s heard in {elapsed:.2f}s  {text}")
 
         if channel == "agent":
-            publish(text)
+            try:
+                publish(text)
+            except OSError as exc:
+                log(f"could not publish: {exc}")
+                say("Didn't catch that.")
             return
 
         note(text)
         threading.Thread(target=resolve, args=(text,), daemon=True).start()
 
+    taken = STATE / "replay.taken"
+
     def drain_replay() -> int:
-        """Take the taps accumulated so far and reset the counter."""
+        """Take the taps accumulated so far and reset the counter.
+
+        Renamed before it is measured, so a tap Karabiner appends in between
+        lands in a fresh file rather than in one about to be deleted.
+        """
         try:
-            taps = REPLAY.stat().st_size
+            REPLAY.rename(taken)
         except OSError:
             return 0
-        if taps:
-            REPLAY.unlink(missing_ok=True)
+        taps = taken.stat().st_size
+        taken.unlink(missing_ok=True)
         return taps
 
     taps = 0
     last_tap = 0.0
+    # The key file of a recording cut at MAX_SECONDS, until it is released.
+    # Polled rather than waited on, so the replay tap still reaches a pending
+    # cancel window while the key is stuck.
+    stuck: Path | None = None
 
     try:
         while True:
@@ -420,7 +440,10 @@ def main() -> int:
                     REPLAY_REQUEST.write_text(f"{taps}\n")
                     taps = 0
 
-                if stream is None:
+                if stuck is not None:
+                    if not stuck.exists():
+                        stuck = None
+                elif stream is None:
                     # Both files at once should not happen, the chord being one
                     # keycode rather than two. First one seen still wins, so a
                     # keyboard that disagrees cannot open two streams.
@@ -432,12 +455,10 @@ def main() -> int:
                     finish()
                 elif time.monotonic() - opened >= MAX_SECONDS:
                     log(f"cut at {MAX_SECONDS:.0f}s, key still down")
-                    held = flag(channel)
-                    finish()
                     # Waiting for the release keeps a stuck key from recording
                     # the same rider on a loop.
-                    while held.exists():
-                        time.sleep(POLL_SECONDS)
+                    stuck = flag(channel)
+                    finish()
             except Exception as exc:
                 # The cues and the window tint are rung by the speech watcher
                 # off these files alone, so an exit here leaves every later key
