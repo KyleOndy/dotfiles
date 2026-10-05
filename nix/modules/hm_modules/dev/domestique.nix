@@ -30,27 +30,15 @@ let
 
   classifyPromptFile = pkgs.writeText "domestique-classify.md" cfg.classifyPrompt;
 
-  # misaki[en] minus spacy-curated-transformers. That extra serves only the
-  # transformer POS tagger (G2P trf=True), which this never uses, and it pulls
-  # torch: 493MB of a 1.1GB tree.
-  #
-  # numba arrives under parakeet-mlx via librosa and caps numpy at <2.5, so an
-  # unfloored resolve keeps numpy 2.5 and drops numba to 0.53.1, which predates
-  # cp312 wheels and fails building llvmlite from source. 0.59.0 is the first
-  # release supporting Python 3.12:
-  # https://numba.readthedocs.io/en/stable/release/0.59.0-notes.html
-  requirementsFile = pkgs.writeText "domestique-requirements.txt" ''
-    mlx-audio
-    misaki
-    espeakng-loader
-    num2words
-    phonemizer-fork
-    spacy
-    soundfile
-    parakeet-mlx
-    numba>=0.59
-    en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
-  '';
+  # Hash-locked, because everything in it runs unsandboxed with the
+  # microphone, and the watchers reach into mlx-audio, misaki and parakeet-mlx
+  # internals that a floating resolve would move. domestique-requirements.in
+  # says what is wanted and how to regenerate this.
+  requirementsFile = ./domestique-requirements.txt;
+
+  # The venv is keyed on both: a collected python312 leaves its interpreter
+  # link dangling without changing the requirements.
+  venvKey = "${requirementsFile} ${pkgs.python312}";
 
   # Refs, not working trees. Every repo here is a bare checkout with one
   # worktree per branch, several holding uncommitted work, so fetching into
@@ -128,7 +116,7 @@ let
     readonly VENV="$ROOT/venv"
     readonly STAMP="$VENV/.requirements"
 
-    if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$STAMP" 2>/dev/null)" != "${requirementsFile}" ]; then
+    if [ ! -x "$VENV/bin/python" ] || [ "$(cat "$STAMP" 2>/dev/null)" != "${venvKey}" ]; then
       # Every domestique command shares this venv, so an older binary still on
       # some shell's PATH rebuilds it to that binary's requirements, deleting
       # it under whatever is already running from it.
@@ -144,8 +132,8 @@ let
       printf 'domestique: building the speech venv, this runs once\n' >&2
       rm -rf "$VENV"
       uv venv --python "${pkgs.python312}/bin/python3.12" "$VENV" >&2
-      VIRTUAL_ENV="$VENV" uv pip install --quiet -r "${requirementsFile}" >&2
-      printf '%s\n' "${requirementsFile}" > "$STAMP"
+      VIRTUAL_ENV="$VENV" uv pip sync --quiet --require-hashes "${requirementsFile}" >&2
+      printf '%s\n' "${venvKey}" > "$STAMP"
     fi
 
     # A leaked PYTHONPATH shadows the venv, and a mismatched minor version then

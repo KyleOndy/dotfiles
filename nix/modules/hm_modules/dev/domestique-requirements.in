@@ -1,0 +1,25 @@
+# Input to domestique-requirements.txt, which is what the venv installs:
+#
+#   uv pip compile --no-header --no-annotate --generate-hashes \
+#     --python-version 3.12 --python-platform aarch64-apple-darwin \
+#     domestique-requirements.in -o domestique-requirements.txt
+#
+# misaki[en] minus spacy-curated-transformers. That extra serves only the
+# transformer POS tagger (G2P trf=True), which this never uses, and it pulls
+# torch: 493MB of a 1.1GB tree.
+#
+# numba arrives under parakeet-mlx via librosa and caps numpy at <2.5, so an
+# unfloored resolve keeps numpy 2.5 and drops numba to 0.53.1, which predates
+# cp312 wheels and fails building llvmlite from source. 0.59.0 is the first
+# release supporting Python 3.12:
+# https://numba.readthedocs.io/en/stable/release/0.59.0-notes.html
+mlx-audio
+misaki
+espeakng-loader
+num2words
+phonemizer-fork
+spacy
+soundfile
+parakeet-mlx
+numba>=0.59
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
