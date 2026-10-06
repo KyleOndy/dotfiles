@@ -107,27 +107,23 @@ in
           autosnap = true;
           autoprune = true;
 
-          # This share is for things I truly want backed up. In this context
-          # backup is offside availability and not the ability to comb through
-          # old archived copied. I do keep some yearly since storage is cheap,
-          # but I'm not afraid to lower the longer tiers if needed to save some
-          # space.
+          # Long history lives on pika (monthly 36, yearly 15). pika never
+          # snapshots, so these tiers exist to create what it keeps: 0 would
+          # starve it, 1 still creates one per period.
           hourly = 4;
           daily = 31;
-          monthly = 24;
-          yearly = 10;
+          monthly = 3;
+          yearly = 1;
         };
         "storage/photos" = {
           autosnap = true;
           autoprune = true;
 
-          # pika prunes and never snapshots, so its own yearly = 10 is inert
-          # unless this matches it. Photos outrank documents on reach: a cull
-          # deletes files nothing else references, and nothing reports it.
+          # Same split as storage/backups: pika keeps monthly 24, yearly 10.
           hourly = 0;
           daily = 8;
-          monthly = 12;
-          yearly = 10;
+          monthly = 3;
+          yearly = 1;
         };
         "storage/projects" = {
           autosnap = true;

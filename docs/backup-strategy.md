@@ -186,8 +186,8 @@ tiger does not get restructured. You do not rebuild the only writable copy
 of the data.
 
 Sanoid runs at `tiger/configuration.nix:98`, covering `storage/backups`
-(hourly 4, daily 31, monthly 24, yearly 10), `storage/photos` (daily 8,
-monthly 12, yearly 10) and `storage/projects` (hourly 24, daily 30, monthly
+(hourly 4, daily 31, monthly 3, yearly 1), `storage/photos` (daily 8,
+monthly 3, yearly 1) and `storage/projects` (hourly 24, daily 30, monthly
 2, no yearly). `autoScrub` is on at `:95`, `autoSnapshot` off at `:96`.
 
 `storage/projects` is the only one without a yearly tier, and the asymmetry
@@ -198,9 +198,21 @@ archive. Hourly is there for the few hundred KB of edit decisions that
 change every session, and costs almost nothing for the footage beside them,
 since unchanged blocks are shared between snapshots rather than copied.
 
-`storage/photos` carries `yearly = 10` so that pika's own `yearly = 10` has
-something to hold. sanoid on pika prunes and never creates, so a retention
-tier tiger does not produce is a tier pika cannot keep.
+Long history is pika's job, not tiger's. tiger keeps enough to undo a
+mistake without touching the replica, and its monthly and yearly tiers
+exist to create the snapshots pika keeps. sanoid on pika prunes and never
+creates, so a tier tiger sets to 0 is a tier pika cannot keep, while a
+count of 1 still creates one per period. Replication runs nightly, so each
+one reaches pika long before tiger replaces it.
+
+The cost of that split: anything older than three months exists on pika
+and nowhere else. Before it, tiger's yearly tiers pinned blocks of long
+deleted files on an 85% pool; the 2023 yearly on `storage/backups` alone
+held 112G that pika already had.
+
+sanoid prunes only its own `autosnap_*` names. A snapshot taken by hand,
+like `storage/photos@pre-trip-fold`, stays on tiger until someone destroys
+it.
 
 The unsnapshotted datasets are a decision, recorded here so it reads as
 one: `storage/media` and `storage/scratch-big` are replaceable,
@@ -323,9 +335,9 @@ The invariant: pika retention >= tiger retention, always.
 ```
               tiger                       pika
 tank/backups  hourly 4, daily 31,         hourly 4, daily 60,
-              monthly 24, yearly 10       monthly 36, yearly 15
-tank/photos   daily 8, monthly 12,        daily 30, monthly 24,
-              yearly 10                   yearly 10
+              monthly 3, yearly 1         monthly 36, yearly 15
+tank/photos   daily 8, monthly 3,         daily 30, monthly 24,
+              yearly 1                    yearly 10
 tank/projects hourly 24, daily 30,        hourly 24, daily 60,
               monthly 2, no yearly        monthly 3, no yearly
 ```
@@ -588,9 +600,9 @@ config, so treat each one as a plan until a drill has exercised it.
 
 ### A file or directory got deleted
 
-Recover from a tiger snapshot. `storage/photos` keeps daily 8, monthly 12,
-yearly 10. `storage/backups` keeps hourly 4, daily 31, monthly 24, yearly
-10, and `storage/projects` hourly 24, daily 30, monthly 2.
+Recover from a tiger snapshot. `storage/photos` keeps daily 8, monthly 3,
+yearly 1. `storage/backups` keeps hourly 4, daily 31, monthly 3, yearly 1,
+and `storage/projects` hourly 24, daily 30, monthly 2.
 
 ```bash
 ls /mnt/photos/.zfs/snapshot/
@@ -599,7 +611,7 @@ cp -a /mnt/photos/.zfs/snapshot/autosnap_2026-07-24_00:00:03_daily/personal/phot
 ```
 
 Older than tiger's retention, pika holds it: daily 30, monthly 24, yearly
-10 for `tank/photos`, against tiger's 8, 12 and 10. Browse it the same way
+10 for `tank/photos`, against tiger's 8, 3 and 1. Browse it the same way
 under `/tank/photos/.zfs/snapshot/`. The other two datasets are in the
 table under [Tier 2](#retention-must-be-longer-on-pika-than-on-tiger).
 
