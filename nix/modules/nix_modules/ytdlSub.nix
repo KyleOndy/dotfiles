@@ -238,7 +238,10 @@ in
       "d ${cfg.temp_dir} 0775 ytdl-sub media -"
       "d ${cfg.data_dir} 0775 ytdl-sub media -"
       "d ${cfg.data_dir}/logs 0775 ytdl-sub media -"
-    ];
+    ]
+    # The textfile directory is sticky, so a file any other user owns blocks
+    # the rename that replaces it.
+    ++ optional cfg.housekeeping.enable "z ${textfile} 0644 ytdl-sub textfile -";
 
     systemd.services.ytdl-sub-youtube = {
       serviceConfig = {
@@ -270,11 +273,50 @@ in
         pkgs.findutils
       ];
 
-      # root, like the other textfile producers: the .prom directory is
-      # root-owned 0755 and the sops API key is 0440.
       serviceConfig = {
         Type = "oneshot";
-        User = "root";
+        User = "ytdl-sub";
+        Group = "media";
+        SupplementaryGroups = [ "textfile" ];
+        LoadCredential = "jellyfin-api-key:${cfg.housekeeping.apiKeyFile}";
+
+        ReadWritePaths = [
+          cfg.media_dir
+          cfg.data_dir
+          (dirOf textfile)
+        ];
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateIPC = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
       };
 
       script =
@@ -323,6 +365,8 @@ in
           }
 
           write_metrics() {
+            local tmp
+            tmp=$(mktemp "$OUTFILE.XXXXXX")
             {
               printf '# HELP ytdl_sub_videos_total Video files currently held\n'
               printf '# TYPE ytdl_sub_videos_total gauge\n'
@@ -346,8 +390,9 @@ in
                 printf '# TYPE ytdl_sub_last_download_timestamp_seconds gauge\n'
                 printf 'ytdl_sub_last_download_timestamp_seconds %s\n' "$newest"
               fi
-            } > "$OUTFILE.tmp"
-            mv "$OUTFILE.tmp" "$OUTFILE"
+            } > "$tmp"
+            chmod 0644 "$tmp"
+            mv -fT "$tmp" "$OUTFILE"
           }
 
           # Written before the sweeps as well as after, so a Jellyfin outage
@@ -355,7 +400,7 @@ in
           collect_gauges
           write_metrics
 
-          key=$(cat ${hk.apiKeyFile})
+          key=$(cat "$CREDENTIALS_DIRECTORY/jellyfin-api-key")
           auth="Authorization: MediaBrowser Token=\"$key\""
 
           # Tolerated rather than fatal: the metrics above are already written,

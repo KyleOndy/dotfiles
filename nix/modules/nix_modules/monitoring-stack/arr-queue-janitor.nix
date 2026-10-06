@@ -72,11 +72,46 @@ in
         pkgs.gawk
       ];
 
-      # root, like the other textfile producers: the .prom directory is
-      # root-owned 0755 and the sops API keys are 0440.
       serviceConfig = {
         Type = "oneshot";
-        User = "root";
+        User = "arr-queue-janitor";
+        Group = "arr-queue-janitor";
+        SupplementaryGroups = [ "textfile" ];
+        LoadCredential = mapAttrsToList (app: appCfg: "${app}:${appCfg.apiKeyFile}") enabledApps;
+
+        ReadWritePaths = [ (dirOf textfile) ];
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateIPC = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
       };
 
       script = ''
@@ -85,13 +120,14 @@ in
         readonly OUTFILE="${textfile}"
         readonly CUTOFF=$(( ${toString cfg.graceHours} * 3600 ))
         now=$(date +%s)
+        tmp=$(mktemp "$OUTFILE.XXXXXX")
 
         {
           printf '# HELP arr_queue_janitor_removed_total Queue items removed and blocklisted\n'
           printf '# TYPE arr_queue_janitor_removed_total counter\n'
           printf '# HELP arr_queue_janitor_last_run_timestamp_seconds Unix time this app was last swept successfully\n'
           printf '# TYPE arr_queue_janitor_last_run_timestamp_seconds gauge\n'
-        } > "$OUTFILE.tmp"
+        } > "$tmp"
 
         # index()==1 is the anchor; a "^" here would be matched literally and
         # every lookup would miss, resetting the counter on each run.
@@ -148,20 +184,32 @@ in
           fi
 
           printf 'arr_queue_janitor_removed_total{app="%s"} %s\n' \
-            "$app" "$(( prior_removed + removed ))" >> "$OUTFILE.tmp"
+            "$app" "$(( prior_removed + removed ))" >> "$tmp"
           printf 'arr_queue_janitor_last_run_timestamp_seconds{app="%s"} %s\n' \
-            "$app" "$last_run" >> "$OUTFILE.tmp"
+            "$app" "$last_run" >> "$tmp"
         }
 
         ${concatStringsSep "\n" (
           mapAttrsToList (
-            app: appCfg: ''sweep_app ${app} "${appCfg.url}" "${appCfg.apiKeyFile}" "${appCfg.apiVersion}"''
+            app: appCfg:
+            ''sweep_app ${app} "${appCfg.url}" "$CREDENTIALS_DIRECTORY/${app}" "${appCfg.apiVersion}"''
           ) enabledApps
         )}
 
-        mv "$OUTFILE.tmp" "$OUTFILE"
+        chmod 0644 "$tmp"
+        mv -fT "$tmp" "$OUTFILE"
       '';
     };
+
+    users.users.arr-queue-janitor = {
+      isSystemUser = true;
+      group = "arr-queue-janitor";
+    };
+    users.groups.arr-queue-janitor = { };
+
+    # The directory is sticky, so a file any other user owns blocks the
+    # rename that replaces it.
+    systemd.tmpfiles.rules = [ "z ${textfile} 0644 arr-queue-janitor textfile -" ];
 
     systemd.timers.arr-queue-janitor = {
       wantedBy = [ "timers.target" ];

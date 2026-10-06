@@ -45,11 +45,8 @@ in
 
     # Export SMART health as Prometheus textfile metrics so vmalert can alert on them.
     # Scans all drives every 15 minutes and writes smartctl_device_smart_healthy{device=...}
-    # (1=healthy, 0=failed) to the node_exporter textfile directory.
-    systemd.tmpfiles.rules = [
-      "d /var/lib/prometheus-node-exporter-text-files 0755 root root -"
-    ];
-
+    # (1=healthy, 0=failed) to the node_exporter textfile directory, which
+    # node_exporter.nix creates.
     systemd.timers.smartctl-exporter = {
       wantedBy = [ "timers.target" ];
       timerConfig = {
@@ -166,6 +163,7 @@ in
         script = ''
           set -euo pipefail
           OUTFILE="/var/lib/prometheus-node-exporter-text-files/smartctl_health.prom"
+          tmp=$(mktemp "$OUTFILE.XXXXXX")
           {
             printf '# HELP smartctl_device_smart_healthy SMART overall health (1=healthy, 0=failed)\n'
             printf '# TYPE smartctl_device_smart_healthy gauge\n'
@@ -233,8 +231,9 @@ in
             # never returns the ATA attribute table. --scan-open probes for
             # sat, and comments out any device it fails to open.
             done < <(smartctl --scan-open | grep -v '^#')
-          } > "$OUTFILE.tmp"
-          mv "$OUTFILE.tmp" "$OUTFILE"
+          } > "$tmp"
+          chmod 0644 "$tmp"
+          mv -fT "$tmp" "$OUTFILE"
         '';
       };
 
@@ -263,6 +262,7 @@ in
         script = ''
           set -euo pipefail
           OUTFILE="/var/lib/prometheus-node-exporter-text-files/zfs_scrub.prom"
+          tmp=$(mktemp "$OUTFILE.XXXXXX")
           {
             printf '# HELP zfs_pool_scrub_end_timestamp_seconds Unix time the last scrub finished (0 if never scrubbed)\n'
             printf '# TYPE zfs_pool_scrub_end_timestamp_seconds gauge\n'
@@ -304,8 +304,9 @@ in
                        | .value | .. | objects | select(.vdev_type? == "disk")
                        | ("read", "write", "checksum") as $kind
                        | "zfs_vdev_errors{pool=\"\($pool)\",vdev=\"\(.name)\",type=\"\($kind)\"} \(.["\($kind)_errors"] // "0")"'
-          } > "$OUTFILE.tmp"
-          mv "$OUTFILE.tmp" "$OUTFILE"
+          } > "$tmp"
+          chmod 0644 "$tmp"
+          mv -fT "$tmp" "$OUTFILE"
         '';
       };
 
@@ -332,6 +333,7 @@ in
         script = ''
           set -euo pipefail
           OUTFILE="/var/lib/prometheus-node-exporter-text-files/zfs_snapshots.prom"
+          tmp=$(mktemp "$OUTFILE.XXXXXX")
           {
             printf '# HELP zfs_dataset_snapshot_count Snapshots held by this dataset\n'
             printf '# TYPE zfs_dataset_snapshot_count gauge\n'
@@ -355,8 +357,9 @@ in
               }
             ' <(zfs list -H -p -t snapshot -o name,creation -S creation) \
               <(zfs list -H -o name -t filesystem)
-          } > "$OUTFILE.tmp"
-          mv "$OUTFILE.tmp" "$OUTFILE"
+          } > "$tmp"
+          chmod 0644 "$tmp"
+          mv -fT "$tmp" "$OUTFILE"
         '';
       };
     }

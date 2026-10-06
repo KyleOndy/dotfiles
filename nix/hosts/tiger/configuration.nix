@@ -644,7 +644,8 @@ in
     path = [ pkgs.coreutils ];
     script = ''
       set -euo pipefail
-      OUTFILE="/var/lib/prometheus-node-exporter-text-files/windows_backup.prom"
+      readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/windows_backup.prom"
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
       {
         printf '# HELP windows_backup_last_success_timestamp_seconds Unix time this machine last completed a mirror\n'
         printf '# TYPE windows_backup_last_success_timestamp_seconds gauge\n'
@@ -659,8 +660,9 @@ in
           printf 'windows_backup_last_success_timestamp_seconds{machine="%s"} %s\n' "${dir}" "$ts"
           printf 'windows_backup_target_mtime_seconds{machine="%s"} %s\n' "${dir}" "$created"
         '') (lib.attrNames windowsBackupDirs)}
-      } > "$OUTFILE.tmp"
-      mv "$OUTFILE.tmp" "$OUTFILE"
+      } > "$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
     '';
   };
 
@@ -688,15 +690,57 @@ in
   # A post-processing script is SABnzbd's own hook for this, but a sweep needs
   # no cooperation from SABnzbd at all, and it clears the jobs that piled up
   # before it existed.
+  #
+  # Runs as sabnzbd, never root: complete/ is writable by the whole media
+  # group, and GNU tar follows a symlink already on disk where an archive
+  # member's parent directory should be. No tar flag turns that off, so the
+  # sandbox is what bounds where a planted link can lead.
   systemd.services.untar-downloads = {
     description = "Extract .tar releases SABnzbd cannot unpack";
     serviceConfig = {
       Type = "oneshot";
-      User = "root";
+      User = "sabnzbd";
+      Group = mediaGroup;
+      SupplementaryGroups = [ "textfile" ];
+      # The *arr apps move and delete what lands here as the media group.
+      UMask = "0002";
+
+      ReadWritePaths = [
+        "/mnt/scratch-big/downloads/complete"
+        "/var/lib/prometheus-node-exporter-text-files"
+      ];
+      PrivateNetwork = true;
+      NoNewPrivileges = true;
+      CapabilityBoundingSet = "";
+      ProtectSystem = "strict";
+      ProtectHome = true;
+      PrivateTmp = true;
+      PrivateDevices = true;
+      PrivateIPC = true;
+      ProtectKernelTunables = true;
+      ProtectKernelModules = true;
+      ProtectKernelLogs = true;
+      ProtectControlGroups = true;
+      ProtectClock = true;
+      ProtectHostname = true;
+      ProtectProc = "invisible";
+      ProcSubset = "pid";
+      RestrictNamespaces = true;
+      RestrictRealtime = true;
+      RestrictSUIDSGID = true;
+      LockPersonality = true;
+      MemoryDenyWriteExecute = true;
+      SystemCallArchitectures = "native";
+      SystemCallFilter = [
+        "@system-service"
+        "~@privileged"
+      ];
+      RestrictAddressFamilies = [ "AF_UNIX" ];
     };
     path = [
       pkgs.coreutils
       pkgs.findutils
+      pkgs.gawk
       pkgs.gnutar
     ];
     script = ''
@@ -704,6 +748,7 @@ in
 
       readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/untar_downloads.prom"
       now=$(date +%s)
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
 
       # The counters have to carry across runs or increase() reads every sweep
       # as a reset. index()==1 anchors the name; "^" would match literally.
@@ -723,10 +768,12 @@ in
       # -mmin +5 keeps the sweep off a tar SABnzbd is still writing out.
       while IFS= read -r -d "" archive; do
         dir=$(dirname "$archive")
-        # --no-same-owner: the archive carries whatever uid the release group
-        # packed it with, and root would honour it.
+        # Without --absolute-names, GNU tar strips a leading / and skips any
+        # member containing "..", and a symlink member pointing out of the
+        # tree is extracted as a placeholder until the archive is done, so
+        # later members cannot be written through it. A symlink already on
+        # disk in a member's own place is unlinked and replaced.
         if tar --no-same-owner --no-same-permissions -xf "$archive" -C "$dir"; then
-          chown -R sabnzbd:${mediaGroup} "$dir"
           rm -f "$archive"
           extracted=$(( extracted + 1 ))
           echo "extracted $archive"
@@ -747,10 +794,20 @@ in
         printf '# HELP untar_downloads_last_run_timestamp_seconds Unix time of the last sweep\n'
         printf '# TYPE untar_downloads_last_run_timestamp_seconds gauge\n'
         printf 'untar_downloads_last_run_timestamp_seconds %s\n' "$now"
-      } > "$OUTFILE.tmp"
-      mv "$OUTFILE.tmp" "$OUTFILE"
+      } > "$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
     '';
   };
+
+  # The textfile directory is sticky, so a file any other user owns blocks
+  # the rename that replaces it.
+  systemd.tmpfiles.settings.untar-downloads."/var/lib/prometheus-node-exporter-text-files/untar_downloads.prom".z =
+    {
+      mode = "0644";
+      user = "sabnzbd";
+      group = "textfile";
+    };
 
   systemd.timers.untar-downloads = {
     wantedBy = [ "timers.target" ];

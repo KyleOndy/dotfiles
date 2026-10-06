@@ -42,9 +42,13 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
-    # Ensure textfile directory exists
+    # Producers join `textfile` and run as their own users. The sticky bit
+    # stops one from replacing or deleting another's file, so a producer that
+    # still runs as root must write through mktemp and rename, never through a
+    # predictable name another member could plant a symlink at.
+    users.groups.textfile = { };
     systemd.tmpfiles.rules = [
-      "d ${cfg.textfileDirectory} 0755 root root -"
+      "d ${cfg.textfileDirectory} 1775 root textfile -"
     ];
 
     services.prometheus.exporters.node = {

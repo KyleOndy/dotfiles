@@ -75,25 +75,84 @@ in
         pkgs.coreutils
       ];
 
-      # root, like the other textfile producers: the .prom directory is
-      # root-owned 0755. The import hook cannot write here, which is why the
+      # The import hook runs as radarr and sonarr, outside `textfile`, so the
       # metric comes from a sweep rather than from the hook itself.
       serviceConfig = {
         Type = "oneshot";
-        User = "root";
+        User = "audio-language";
+        Group = "audio-language";
+        SupplementaryGroups = [
+          "media"
+          "textfile"
+        ];
         # ffprobe on every file plus whisper on the untagged ones; the run is
         # long and entirely IO and CPU the rest of the box wants more.
         Nice = 10;
         IOSchedulingClass = "idle";
+
+        # The sweep asks Radarr and Sonarr for each title's original
+        # language, with the key from their own config.xml, which only they
+        # can read.
+        LoadCredential =
+          optional config.services.radarr.enable "radarr-config:${config.services.radarr.dataDir}/config.xml"
+          ++ optional config.services.sonarr.enable "sonarr-config:${config.services.sonarr.dataDir}/config.xml";
+
+        ReadOnlyPaths = cfg.roots;
+        ReadWritePaths = [ (dirOf textfile) ];
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateIPC = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        # Loopback only, for the Radarr and Sonarr APIs. PrivateNetwork would
+        # cut those off, and an empty language index counts every
+        # foreign-language title as a file missing English audio.
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
       };
 
       environment = {
         AUDIO_LANG_TEXTFILE = textfile;
         AUDIO_LANG_ROOTS = concatStringsSep " " cfg.roots;
+        RADARR_CONFIG = "%d/radarr-config";
+        SONARR_CONFIG = "%d/sonarr-config";
       };
 
       script = "audio-language-check --sweep";
     };
+
+    users.users.audio-language = {
+      isSystemUser = true;
+      group = "audio-language";
+    };
+    users.groups.audio-language = { };
+
+    # The directory is sticky, so a file any other user owns blocks the
+    # rename that replaces it.
+    systemd.tmpfiles.rules = [ "z ${textfile} 0644 audio-language textfile -" ];
 
     # Guarded on the services existing: setting environment on an otherwise
     # undefined unit would generate one with no ExecStart.
