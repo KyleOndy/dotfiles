@@ -506,7 +506,8 @@
             inputs.pre-commit-hooks.lib.${system}.run {
               src = ./.;
               hooks = {
-                black.enable = true;
+                ruff.enable = true;
+                ruff-format.enable = true;
                 nixfmt.enable = true;
                 prettier = {
                   enable = true;
