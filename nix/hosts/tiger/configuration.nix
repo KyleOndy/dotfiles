@@ -152,6 +152,18 @@ in
           monthly = 2;
           yearly = 0;
         };
+        "storage/media" = {
+          autosnap = true;
+          autoprune = true;
+
+          # Re-acquirable, so not replicated. Three days is enough to undo a
+          # mass delete or encryption by a media-group process, and is how
+          # long a deleted or upgraded file keeps holding its space.
+          hourly = 0;
+          daily = 3;
+          monthly = 0;
+          yearly = 0;
+        };
       };
     };
     nix-serve = {
