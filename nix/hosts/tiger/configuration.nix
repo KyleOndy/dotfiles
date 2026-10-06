@@ -958,6 +958,11 @@ in
         # with vainfo/clinfo. AllowAv1Encoding leans on the Arc's AV1 encoder.
         # The card's settings live in the module's encoding.xml.
         hardwareAcceleration = true;
+
+        # Upload measures 21 Mbit/s (librespeed and UniFi's daily speedtest).
+        # Two remote streams at 8 leave about 5 for HLS bursts and the rest
+        # of the house.
+        remoteClientBitrateLimit = 8000000;
       };
 
       ytdlSub = {

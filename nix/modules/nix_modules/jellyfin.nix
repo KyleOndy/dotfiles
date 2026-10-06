@@ -152,6 +152,17 @@ in
       description = "Automatically install the Playback Reporting plugin for play history tracking";
     };
 
+    remoteClientBitrateLimit = mkOption {
+      type = types.nullOr types.ints.positive;
+      default = null;
+      example = 8000000;
+      description = ''
+        Per-stream cap for remote clients, in bits per second. Jellyfin has no
+        total across streams, so size it as upload / expected concurrent
+        streams. null leaves the dashboard's value alone.
+      '';
+    };
+
     hardwareAcceleration = mkEnableOption ''
       declarative hardware-accelerated transcoding. Writes encoding.xml on every
       Jellyfin start, so Nix is the source of truth: changes made in the Playback
@@ -290,11 +301,23 @@ in
       wantedBy = [ "jellyfin.service" ];
       before = [ "jellyfin.service" ];
       partOf = [ "jellyfin.service" ];
-      path = with pkgs; [ coreutils ];
+      path = with pkgs; [
+        coreutils
+        gnused
+      ];
       script = ''
         mkdir -p ${stateDir}/config
         install -o jellyfin -g ${cfg.group} -m 0644 ${networkXml} ${stateDir}/config/network.xml
         ${optionalString cfg.hardwareAcceleration "install -o jellyfin -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml"}
+        ${optionalString (cfg.remoteClientBitrateLimit != null) ''
+          # system.xml holds every other dashboard setting, so only this one
+          # element is pinned. Jellyfin creates the file on first start, which
+          # leaves a fresh install at 0 (no limit) until the next restart.
+          if [ -f ${stateDir}/config/system.xml ]; then
+            sed -i 's|<RemoteClientBitrateLimit>[0-9]*</RemoteClientBitrateLimit>|<RemoteClientBitrateLimit>${toString cfg.remoteClientBitrateLimit}</RemoteClientBitrateLimit>|' ${stateDir}/config/system.xml
+            chown jellyfin:${cfg.group} ${stateDir}/config/system.xml
+          fi
+        ''}
         chown jellyfin:${cfg.group} ${stateDir}/config
       '';
       # No RemainAfterExit: re-run on every Jellyfin (re)start so a dashboard edit
