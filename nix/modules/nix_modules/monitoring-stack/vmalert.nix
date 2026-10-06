@@ -649,6 +649,43 @@ in
                 summary: "Snapshots of {{ $labels.dataset }} on tiger are over 36 hours old"
                 description: "sanoid on tiger has not made a snapshot of {{ $labels.dataset }} in over 36 hours, against an hourly-and-daily policy. pika replicates snapshots and creates none of its own, so this staleness reaches the backup too. Check `systemctl status sanoid` on tiger."
 
+            # The rules above see a chain that stopped. These three see
+            # history being taken away while new snapshots keep arriving.
+            - alert: BackupSnapshotsMassLoss
+              expr: zfs_dataset_snapshot_count{host=~"tiger|pika",dataset=~"(storage|tank)/(photos|backups|projects)"} < 0.5 * max_over_time(zfs_dataset_snapshot_count{host=~"tiger|pika",dataset=~"(storage|tank)/(photos|backups|projects)"}[3d])
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "{{ $labels.dataset }} on {{ $labels.host }} lost over half its snapshots"
+                description: "{{ $labels.dataset }} on {{ $labels.host }} holds {{ $value }} snapshots, under half its 3-day high. sanoid prunes a few per period, never half, so something destroyed them. Read `zpool history -il` on {{ $labels.host }} for the destroys. If it is tiger, stop the next syncoid run on pika until you know why: pika still holds what tiger lost."
+
+            # used, not referenced: it counts snapshot space, so it drops when
+            # history is destroyed rather than when files are deleted, which
+            # snapshots absorb. projects is left out because emptying it is
+            # its lifecycle: a shipped project's last snapshot ageing out is
+            # meant to free most of the dataset.
+            - alert: BackupDatasetShrank
+              expr: zfs_dataset_used_bytes{host=~"tiger|pika",name=~"(storage|tank)/(photos|backups)"} < 0.8 * max_over_time(zfs_dataset_used_bytes{host=~"tiger|pika",name=~"(storage|tank)/(photos|backups)"}[3d])
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.name }} on {{ $labels.host }} shrank by over 20% in 3 days"
+                description: "{{ $labels.name }} on {{ $labels.host }} uses under 80% of its 3-day high. These datasets only grow, and space comes back only as snapshots go. A monthly or yearly prune on tiger releasing a long-deleted tree can do this once; anything else means snapshots were destroyed. Compare `zfs list -t snapshot` against BackupSnapshotsMassLoss and read `zpool history -il` on {{ $labels.host }}."
+
+            # A snapshot dated ahead pins latest_snapshot_timestamp in the
+            # future, so BackupReplicaStale and BackupSourceSnapshotsStale go
+            # quiet until the wall clock catches up with it.
+            - alert: BackupSnapshotInFuture
+              expr: zfs_dataset_latest_snapshot_timestamp_seconds{host=~"tiger|pika",dataset=~"(storage|tank)/(photos|backups|projects)"} - time() > 3600
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Newest snapshot of {{ $labels.dataset }} on {{ $labels.host }} is dated in the future"
+                description: "The newest snapshot of {{ $labels.dataset }} on {{ $labels.host }} is {{ $value | humanizeDuration }} ahead of now, so the staleness rules for it cannot fire. pika takes creation times from tiger's stream, so check tiger's clock first (`timedatectl`), then find the snapshot with `zfs list -t snapshot -o name,creation -s creation {{ $labels.dataset }}`."
+
         # The offsite tier, tier 3 of docs/backup-strategy.md. Same ordering
         # as backup_replication above: absence first, because a push that
         # never runs publishes nothing to be stale about.
@@ -708,6 +745,16 @@ in
               annotations:
                 summary: "Offsite push of {{ $labels.prefix }}/ is over 96 hours old"
                 description: "Four daily runs have failed to complete a sync of {{ $labels.prefix }}/. Treat the offsite copy as not current: anything imported since then exists only in the house."
+
+            # Fires on an initial seed too, which is 100% by definition.
+            - alert: S3ArchivePushMassUpload
+              expr: s3_archive_push_uploaded_objects{host="pika"} > 0.05 * s3_archive_push_source_objects{host="pika"}
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Offsite push rewrote {{ $value }} objects under {{ $labels.prefix }}/"
+                description: "The last push of {{ $labels.prefix }}/ uploaded more than 5% of the prefix's objects. A bulk import explains it. Otherwise the source was rewritten under the push (encryption, a mass touch, a wrong mount), and every overwrite starts the good version's noncurrent clock. Read `journalctl -u s3-archive-push-{{ $labels.prefix }}` on pika and compare the tree against a snapshot on tiger before the next run."
 
             - alert: S3ArchiveObjectsMissing
               expr: s3_reconcile_missing_objects{host="pika"} > 0
