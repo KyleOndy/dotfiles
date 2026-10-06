@@ -223,7 +223,10 @@ in
                   }' <<< "$output"
                 printf 'smartctl_selftest_log_has_errors{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$(( (a_exit & 128) != 0 ))"
               fi
-            done < <(smartctl --scan)
+            # --scan types a SATA disk as scsi without opening it, and -d scsi
+            # never returns the ATA attribute table. --scan-open probes for
+            # sat, and comments out any device it fails to open.
+            done < <(smartctl --scan-open | grep -v '^#')
           } > "$OUTFILE.tmp"
           mv "$OUTFILE.tmp" "$OUTFILE"
         '';
