@@ -75,6 +75,12 @@ in
       description = "Domain to serve qbittorrent's WebUI under";
     };
 
+    downloadsDir = mkOption {
+      type = types.str;
+      default = "/mnt/scratch-big/torrents";
+      description = "The tree holding qBittorrent's incomplete and complete save paths";
+    };
+
     webuiCredentialsFile = mkOption {
       type = types.path;
       description = ''
@@ -126,7 +132,26 @@ in
         # downloads. Group membership is the host's job: tiger sets
         # `group = mediaGroup`, which is already the process GID.
         UMask = "0002";
+
+        # Unset, the WebUI listens on every address in the namespace,
+        # wg0's included. qBittorrent has no command-line flag for the
+        # address, and the WebUI owns the rest of qBittorrent.conf, so this
+        # one key is set in place rather than through serverConfig.
+        ExecStartPre = [
+          "${getExe pkgs.crudini} --ini-options=nospace --set ${config.services.qbittorrent.profileDir}/qBittorrent/config/qBittorrent.conf Preferences WebUI\\\\Address ${netnsCfg.vethNamespaceAddress}"
+        ];
+
+        # Upstream leaves /tmp shared so a torrent can be added by path from
+        # the command line; here torrents only arrive through the WebUI.
+        PrivateTmp = mkForce true;
+        ProtectSystem = mkForce "strict";
+        ReadWritePaths = [
+          config.services.qbittorrent.profileDir
+          cfg.downloadsDir
+        ];
+        SystemCallFilter = [ "~@privileged" ];
       };
+      unitConfig.RequiresMountsFor = [ cfg.downloadsDir ];
     };
 
     systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =

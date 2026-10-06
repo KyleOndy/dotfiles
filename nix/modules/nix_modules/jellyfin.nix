@@ -8,6 +8,14 @@ with lib;
 let
   cfg = config.systemFoundry.jellyfin;
   stateDir = "/var/lib/jellyfin";
+  jfCfg = config.services.jellyfin;
+
+  # 17.0.0.0 targets ABI 10.11.0.0; 19.0.0.0 already targets 12.0.0.0.
+  # The hash is the one published beside the release asset.
+  playbackReporting = pkgs.fetchurl {
+    url = "https://github.com/jellyfin/jellyfin-plugin-playbackreporting/releases/download/v17/playback-reporting_17.0.0.0.zip";
+    sha256 = "e1a36ca85a66f0497e0c85647ba11235ef2c0506bdebcef659eb6353e7204573";
+  };
 
   # Complete encoding.xml for Jellyfin 10.11.x. Schema captured from a
   # freshly-generated 10.11.10 encoding.xml. The hardware values describe the
@@ -247,9 +255,55 @@ in
       }"
     ];
 
-    # Relax UMask so trickplay directories are group-writable, matching the
-    # other *arr services (lidarr, sonarr, etc.) that share the media group.
-    systemd.services.jellyfin.serviceConfig.UMask = mkForce "0002";
+    systemd.services.jellyfin = {
+      serviceConfig = {
+        # Relax UMask so trickplay directories are group-writable, matching the
+        # other *arr services (lidarr, sonarr, etc.) that share the media group.
+        UMask = mkForce "0002";
+
+        # The library is read-only: no library sets SaveLocalMetadata,
+        # SaveTrickplayWithMedia or SaveLyricsWithMedia, and no subtitle
+        # fetcher is installed, so SaveSubtitlesWithMedia only matters for a
+        # subtitle uploaded through the web UI, which this refuses. So does
+        # deleting media from the UI.
+        ProtectSystem = mkForce "strict";
+        ProtectHome = true;
+        ReadWritePaths = [
+          jfCfg.dataDir
+          jfCfg.configDir
+          jfCfg.logDir
+          jfCfg.cacheDir
+        ];
+
+        # QSV and the OpenCL tone mapper both open only the render node.
+        DevicePolicy = "closed";
+        DeviceAllow = [ "/dev/dri/renderD128 rw" ];
+      };
+
+      # Runs as jellyfin inside its sandbox, so the declared XML lands owned by
+      # jellyfin without root following anything in the state directory.
+      preStart = mkMerge [
+        ''
+          install -m 0644 ${networkXml} ${jfCfg.configDir}/network.xml
+          ${optionalString cfg.hardwareAcceleration "install -m 0644 ${encodingXml} ${jfCfg.configDir}/encoding.xml"}
+          ${optionalString (cfg.remoteClientBitrateLimit != null) ''
+            # system.xml holds every other dashboard setting, so only this one
+            # element is pinned. Jellyfin creates the file on first start, which
+            # leaves a fresh install at 0 (no limit) until the next restart.
+            if [ -f ${jfCfg.configDir}/system.xml ]; then
+              sed -i 's|<RemoteClientBitrateLimit>[0-9]*</RemoteClientBitrateLimit>|<RemoteClientBitrateLimit>${toString cfg.remoteClientBitrateLimit}</RemoteClientBitrateLimit>|' ${jfCfg.configDir}/system.xml
+            fi
+          ''}
+        ''
+        (mkIf cfg.installPlaybackReportingPlugin ''
+          plugin=${jfCfg.dataDir}/plugins/PlaybackReporting_17.0.0.0
+          if [ ! -f "$plugin/meta.json" ]; then
+            mkdir -p "$plugin"
+            ${getExe pkgs.unzip} -o ${playbackReporting} -d "$plugin"
+          fi
+        '')
+      ];
+    };
 
     systemd.services = {
       jellyfin-backup = mkIf cfg.backup.enable {
@@ -288,94 +342,18 @@ in
           fi
         '';
         serviceConfig = {
+          User = jfCfg.user;
+          Group = jfCfg.group;
           Nice = 19;
           IOSchedulingClass = "idle";
+          CapabilityBoundingSet = "";
+          NoNewPrivileges = true;
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateNetwork = true;
+          ReadWritePaths = [ "-${jfCfg.cacheDir}/transcodes" ];
         };
-      };
-    };
-
-    # Apply declarative config before Jellyfin starts. Runs on every (re)start
-    # so the dashboard cannot drift from the Nix-declared XML.
-    systemd.services.jellyfin-config = {
-      description = "Apply declarative Jellyfin config (network.xml, encoding.xml)";
-      wantedBy = [ "jellyfin.service" ];
-      before = [ "jellyfin.service" ];
-      partOf = [ "jellyfin.service" ];
-      path = with pkgs; [
-        coreutils
-        gnused
-      ];
-      script = ''
-        mkdir -p ${stateDir}/config
-        install -o jellyfin -g ${cfg.group} -m 0644 ${networkXml} ${stateDir}/config/network.xml
-        ${optionalString cfg.hardwareAcceleration "install -o jellyfin -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml"}
-        ${optionalString (cfg.remoteClientBitrateLimit != null) ''
-          # system.xml holds every other dashboard setting, so only this one
-          # element is pinned. Jellyfin creates the file on first start, which
-          # leaves a fresh install at 0 (no limit) until the next restart.
-          if [ -f ${stateDir}/config/system.xml ]; then
-            sed -i 's|<RemoteClientBitrateLimit>[0-9]*</RemoteClientBitrateLimit>|<RemoteClientBitrateLimit>${toString cfg.remoteClientBitrateLimit}</RemoteClientBitrateLimit>|' ${stateDir}/config/system.xml
-            chown jellyfin:${cfg.group} ${stateDir}/config/system.xml
-          fi
-        ''}
-        chown jellyfin:${cfg.group} ${stateDir}/config
-      '';
-      # No RemainAfterExit: re-run on every Jellyfin (re)start so a dashboard edit
-      # never outlives a restart. partOf ties our lifecycle to jellyfin.service.
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root"; # need root to chown into the jellyfin state dir
-      };
-    };
-
-    # Install Playback Reporting plugin if enabled
-    systemd.services.jellyfin-install-playback-reporting = mkIf cfg.installPlaybackReportingPlugin {
-      description = "Install Jellyfin Playback Reporting Plugin";
-      wantedBy = [ "jellyfin.service" ];
-      before = [ "jellyfin.service" ];
-      path = with pkgs; [
-        unzip
-        curl
-        coreutils
-      ];
-      script =
-        let
-          pluginDir = "${stateDir}/plugins/Jellyfin.Plugin.PlaybackReporting";
-          # Using version 15.0.0.0 which is compatible with Jellyfin 10.8+
-          pluginUrl = "https://github.com/jellyfin/jellyfin-plugin-playbackreporting/releases/download/15.0.0.0/playback_reporting_15.0.0.0.zip";
-        in
-        ''
-          # Create plugins directory if it doesn't exist
-          mkdir -p ${stateDir}/plugins
-
-          # Only install if not already present
-          if [ ! -d "${pluginDir}" ]; then
-            echo "Installing Playback Reporting plugin..."
-
-            # Download plugin
-            curl -L -o /tmp/playback_reporting.zip "${pluginUrl}"
-
-            # Create plugin directory
-            mkdir -p "${pluginDir}"
-
-            # Extract plugin
-            unzip -o /tmp/playback_reporting.zip -d "${pluginDir}"
-
-            # Clean up
-            rm /tmp/playback_reporting.zip
-
-            # Set ownership
-            chown -R jellyfin:${cfg.group} "${pluginDir}"
-
-            echo "Playback Reporting plugin installed successfully"
-          else
-            echo "Playback Reporting plugin already installed"
-          fi
-        '';
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        User = "root"; # Need root to chown
       };
     };
   };

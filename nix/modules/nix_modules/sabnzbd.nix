@@ -24,6 +24,15 @@ in
       type = types.str;
       description = "Domain to server sabnzbd under";
     };
+
+    downloadsDir = mkOption {
+      type = types.str;
+      default = "/mnt/scratch-big/downloads";
+      description = ''
+        The tree holding sabnzbd's download_dir and complete_dir, the only
+        part of /mnt the service can see.
+      '';
+    };
   };
 
   config = mkIf cfg.enable {
@@ -54,7 +63,60 @@ in
     # Files land 664 so the *arr services can import what sabnzbd downloads.
     # Group membership is the host's job: tiger sets `group = mediaGroup`,
     # which is already the process GID.
-    systemd.services.sabnzbd.serviceConfig.UMask = "0002";
+    systemd.services.sabnzbd = {
+      serviceConfig = {
+        UMask = "0002";
+
+        # Everything under /mnt is hidden except the one tree sabnzbd.ini
+        # points download_dir and complete_dir into. The state directory is
+        # writable through the module's StateDirectory.
+        TemporaryFileSystem = "/mnt:ro";
+        BindPaths = [ cfg.downloadsDir ];
+
+        CapabilityBoundingSet = "";
+        NoNewPrivileges = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateUsers = true;
+        ProtectClock = true;
+        ProtectKernelLogs = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectControlGroups = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictSUIDSGID = true;
+        RemoveIPC = true;
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        # @chown for the module's preStart, which installs sabnzbd.ini with
+        # -o/-g set to the service's own user and group.
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+          "~@debug"
+          "~@mount"
+          "@chown"
+        ];
+      };
+      unitConfig.RequiresMountsFor = [ cfg.downloadsDir ];
+    };
+
+    # The queue and history are pickles sabnzbd loads on start, so nothing
+    # but sabnzbd may write them.
+    systemd.tmpfiles.rules = [
+      "z /var/lib/${config.services.sabnzbd.stateDir}/admin 0700 ${config.services.sabnzbd.user} ${cfg.group} -"
+    ];
 
     # A sabnzbd bump that adds a conversion would otherwise rerun it on every
     # start, silently.

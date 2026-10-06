@@ -32,6 +32,9 @@ let
       # bazarr writes to a lowercase directory straight under dataDir, not the
       # Backups/ subdirectory the .NET *arrs use.
       backupSubdir = "backup";
+      # CPython, unlike the .NET runtime behind the others, does not need
+      # writable and executable pages.
+      extraHardening.MemoryDenyWriteExecute = true;
       # Left on the module default rather than pinned like the others.
       setPackage = false;
     };
@@ -43,10 +46,49 @@ let
       dynamicUser = true;
       backupScript = dest: ''
         if [ -d /var/lib/prowlarr/Backups ]; then
-          cp -rn /var/lib/prowlarr/Backups/* ${dest}/ || true
+          cp -rnP /var/lib/prowlarr/Backups/* ${dest}/ || true
         fi
       '';
     };
+  };
+
+  # Applied with mkDefault, so where the servarr modules already set a key
+  # (sonarr and radarr set most of these) their value stands.
+  # MemoryDenyWriteExecute is absent because the .NET JIT needs W+X pages.
+  hardening = {
+    CapabilityBoundingSet = "";
+    NoNewPrivileges = true;
+    ProtectSystem = "strict";
+    ProtectHome = true;
+    PrivateTmp = true;
+    PrivateDevices = true;
+    PrivateUsers = true;
+    ProtectClock = true;
+    ProtectKernelLogs = true;
+    ProtectKernelTunables = true;
+    ProtectKernelModules = true;
+    ProtectControlGroups = true;
+    ProtectHostname = true;
+    ProtectProc = "invisible";
+    ProcSubset = "pid";
+    RestrictSUIDSGID = true;
+    RemoveIPC = true;
+    RestrictNamespaces = true;
+    RestrictRealtime = true;
+    LockPersonality = true;
+    SystemCallArchitectures = "native";
+    RestrictAddressFamilies = [
+      "AF_INET"
+      "AF_INET6"
+      "AF_UNIX"
+    ];
+    SystemCallFilter = [
+      "@system-service"
+      "~@privileged"
+      "~@debug"
+      "~@mount"
+      "@chown"
+    ];
   };
 
   mkArr =
@@ -116,24 +158,45 @@ let
             # deletes its temp database mid-run, which fails a racing cp.
             startAt = "*-*-* *:30:00";
             path = [ pkgs.coreutils ];
-            script = ''
-              mkdir -p ${dest}
-            ''
-            + (
+            # Root reading directories the service account can write: read
+            # without DAC override, write only the destination, and copy
+            # links as links so one planted in the source cannot pull in a
+            # file the service could not read itself.
+            serviceConfig = {
+              CapabilityBoundingSet = "CAP_DAC_READ_SEARCH";
+              NoNewPrivileges = true;
+              ProtectSystem = "strict";
+              ProtectHome = true;
+              PrivateTmp = true;
+              PrivateNetwork = true;
+              ReadWritePaths = [ dest ];
+            };
+            # dest must already exist: ReadWritePaths fails the unit when it
+            # does not, and nothing else under the read-only root could
+            # create it.
+            script =
               if spec ? backupScript then
                 spec.backupScript dest
               else
-                "cp -rn ${config.services.${name}.dataDir}/${spec.backupSubdir or "Backups"} ${dest}/\n"
-            );
+                "cp -rnP ${config.services.${name}.dataDir}/${spec.backupSubdir or "Backups"} ${dest}/\n";
           };
         }
 
+        {
+          systemd.services.${name}.serviceConfig = mapAttrs (_: mkDefault) (
+            hardening // (spec.extraHardening or { })
+          );
+        }
+
         (mkIf (!dynamicUser) {
-          # Create files 664 so the other *arr services and jellyfin can read
-          # what this one writes. Group membership is the host's job: tiger
-          # sets `group = mediaGroup`, which is already the process GID.
-          # mkForce because the servarr modules set UMask = "0022" outright.
-          systemd.services.${name}.serviceConfig.UMask = mkForce "0002";
+          systemd.services.${name}.serviceConfig = {
+            ReadWritePaths = [ "/var/lib/${name}" ];
+            # Create files 664 so the other *arr services and jellyfin can read
+            # what this one writes. Group membership is the host's job: tiger
+            # sets `group = mediaGroup`, which is already the process GID.
+            # mkForce because the servarr modules set UMask = "0022" outright.
+            UMask = mkForce "0002";
+          };
         })
 
         (spec.extraConfig or { })

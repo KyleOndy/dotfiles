@@ -442,6 +442,52 @@ in
     "video"
   ];
 
+  # The media services run under ProtectSystem=strict, so these are the only
+  # paths under /mnt each one can write: its root folder plus the category
+  # directory its download clients complete into, as the apps' own APIs
+  # report them. A missing path fails the unit at start, hence the mount
+  # dependencies.
+  systemd.services.sonarr = {
+    serviceConfig.ReadWritePaths = [
+      "/mnt/media/tv"
+      "/mnt/scratch-big/downloads/complete/tv"
+      "/mnt/scratch-big/torrents/complete/tv"
+    ];
+    unitConfig.RequiresMountsFor = [
+      "/mnt/media"
+      "/mnt/scratch-big"
+    ];
+  };
+  systemd.services.radarr = {
+    serviceConfig.ReadWritePaths = [
+      "/mnt/media/movies"
+      "/mnt/scratch-big/downloads/complete/movies"
+      "/mnt/scratch-big/torrents/complete/movies"
+    ];
+    unitConfig.RequiresMountsFor = [
+      "/mnt/media"
+      "/mnt/scratch-big"
+    ];
+  };
+  systemd.services.lidarr = {
+    serviceConfig.ReadWritePaths = [
+      "/mnt/media/music"
+      "/mnt/scratch-big/downloads/complete/music"
+    ];
+    unitConfig.RequiresMountsFor = [
+      "/mnt/media"
+      "/mnt/scratch-big"
+    ];
+  };
+  # Subtitles land beside the video.
+  systemd.services.bazarr = {
+    serviceConfig.ReadWritePaths = [
+      "/mnt/media/tv"
+      "/mnt/media/movies"
+    ];
+    unitConfig.RequiresMountsFor = [ "/mnt/media" ];
+  };
+
   # nixpkgs has no option for bazarr's auth. Unset, its index page serves the
   # API key to anyone. auth.password holds the md5 hex, not the password.
   systemd.services.bazarr.preStart = ''
