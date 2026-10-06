@@ -185,7 +185,9 @@ in
       };
       "svc.syncoid" = {
         isNormalUser = true;
-        group = "svc.backup";
+        # Its own group, not svc.backup: that one can write
+        # /mnt/backups/kristen, and a pull needs no filesystem access at all.
+        group = "svc.syncoid";
         # No password, and no sudo. Its ZFS authority is the delegation
         # granted by the zfs-delegate-syncoid unit below: send, hold and
         # release. syncoid runs zfs commands over the session, so it keeps a
@@ -213,6 +215,7 @@ in
       "svc.backup"
       "kyle"
     ];
+    groups."svc.syncoid" = { };
   };
 
   # ZFS delegation lives in pool metadata, not in the OS, so without this
@@ -350,6 +353,12 @@ in
   # Downloads land on a different dataset than the library, so imports copy
   # rather than hardlink.
   systemd.tmpfiles.rules = [
+    # Secrets live in both. Only kyle touches kyle/, only the root *arr-backup
+    # units touch apps/, and pika reads through zfs send. `d`, not `z`: `z`
+    # refuses kyle-owned /mnt/backups to root-owned apps/ as an unsafe path
+    # transition and fails systemd-tmpfiles-resetup.
+    "d /mnt/backups/kyle 0700 kyle kyle -"
+    "d /mnt/backups/apps 0700 root root -"
     # rrsync refuses to start if its restricted directory is absent, so this
     # cannot be left to whichever histdb-backup run happens to land first.
     "d /mnt/backups/kyle/histdb 0755 kyle kyle -"
