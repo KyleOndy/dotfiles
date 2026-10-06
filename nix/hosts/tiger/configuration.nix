@@ -1816,10 +1816,14 @@ in
     unpoller_password = {
       mode = "0440";
       group = "unifi-poller";
+      sopsFile = ../../secrets/shared-cogsworth-tiger.yaml;
     };
     # Samba passwords (SMB has its own credential store, separate from the
     # system login password). Read by samba-smbpasswd-seed as root.
-    smb_kyle_password.mode = "0400";
+    smb_kyle_password = {
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
     smb_kristen_password.mode = "0400";
   };
 

@@ -404,8 +404,7 @@ in
       };
     };
 
-    # this file path _feels_ suspect, but works
-    sops.defaultSopsFile = ./../../secrets/secrets.yaml;
+    sops.defaultSopsFile = ../../secrets + "/${config.networking.hostName}.yaml";
 
     # Off by default: these hosts sit behind the router, and every service
     # module already declares the ports it needs, so the firewall adds

@@ -31,7 +31,10 @@ in
     # neededForUsers: /etc/passwd is built before ordinary sops secrets are
     # decrypted, so this one is routed to /run/secrets-for-users earlier in
     # activation. sops-nix requires it to stay root-owned (no owner/group/mode).
-    sops.secrets.kyle_password_hash.neededForUsers = true;
+    sops.secrets.kyle_password_hash = {
+      neededForUsers = true;
+      sopsFile = ../../../secrets/shared-cogsworth-pika-tiger.yaml;
+    };
     users.users.kyle = {
       isNormalUser = true;
       group = "kyle";

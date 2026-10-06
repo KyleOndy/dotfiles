@@ -342,7 +342,7 @@
                   nixpkgs.overlays = overlays;
                   users.users.${username}.home = "/Users/${username}";
                   system.primaryUser = username;
-                  sops.defaultSopsFile = ./nix/secrets/secrets.yaml;
+                  sops.defaultSopsFile = ./nix/secrets + "/${hostname}.yaml";
                   home-manager = {
                     useGlobalPkgs = true;
                     useUserPackages = true;

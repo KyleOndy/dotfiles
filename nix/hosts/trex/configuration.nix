@@ -219,12 +219,14 @@
       # but keep the same permissive mode used on the other NixOS hosts
       # for consistency.
       mode = "0444";
+      sopsFile = ../../secrets/shared-cogsworth-pika-trex.yaml;
     };
     # Same secret tiger seeds smbd with; read here by smb-tiger-mount, which
     # runs as kyle.
     smb_kyle_password = {
       owner = "kyle";
       mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
     trex_backup_git_ssh_key = {
       owner = "kyle";

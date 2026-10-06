@@ -309,6 +309,7 @@ in
     monitoring_password = {
       mode = "0440";
       group = "monitoring-secrets";
+      sopsFile = ../../secrets/shared-cogsworth-pika-trex.yaml;
     };
 
     # awscli2 credentials INI files, one profile each, for the two IAM users

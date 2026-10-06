@@ -17,16 +17,76 @@ keys:
 
   # command to add a new age key for a new host
   # nix-shell -p ssh-to-age --run "ssh-keyscan $host | ssh-to-age"
-  # sops -r updatekeys ./nix/secrets/secrets.yaml
+  # then add it to its own rule below, and run updatekeys on each file whose
+  # rule changed: sops updatekeys ./nix/secrets/<file>.yaml
+#
+# One file per host, plus one shared-<hosts>.yaml per recipient set that
+# more than one host needs. A host holds ciphertext only for the files its
+# own config references, and can decrypt only the ones listed for it here.
 creation_rules:
-  - path_regex: nix/secrets/[^/]+\.yaml$
+  - path_regex: nix/secrets/tiger\.yaml$
+    key_groups:
+      - age:
+          - *tiger
+        pgp:
+          - *kyle
+  - path_regex: nix/secrets/pika\.yaml$
+    key_groups:
+      - age:
+          - *pika
+        pgp:
+          - *kyle
+  - path_regex: nix/secrets/cogsworth\.yaml$
+    key_groups:
+      - age:
+          - *cogsworth
+        pgp:
+          - *kyle
+  - path_regex: nix/secrets/trex\.yaml$
+    key_groups:
+      - age:
+          - *trex
+        pgp:
+          - *kyle
+  # monitoring_password: the agents that push to tiger
+  - path_regex: nix/secrets/shared-cogsworth-pika-trex\.yaml$
+    key_groups:
+      - age:
+          - *cogsworth
+          - *pika
+          - *trex
+        pgp:
+          - *kyle
+  # kyle_password_hash: every NixOS host (nix_modules/users/kyle.nix)
+  - path_regex: nix/secrets/shared-cogsworth-pika-tiger\.yaml$
+    key_groups:
+      - age:
+          - *cogsworth
+          - *pika
+          - *tiger
+        pgp:
+          - *kyle
+  # unpoller_password: tiger's unpoller and cogsworth's kiosk
+  - path_regex: nix/secrets/shared-cogsworth-tiger\.yaml$
     key_groups:
       - age:
           - *cogsworth
           - *tiger
-          - *trex
-          - *pika
         pgp:
+          - *kyle
+  # smb_kyle_password: tiger's smbd and trex's smb-tiger-mount
+  - path_regex: nix/secrets/shared-tiger-trex\.yaml$
+    key_groups:
+      - age:
+          - *tiger
+          - *trex
+        pgp:
+          - *kyle
+  # Any other file under nix/secrets, including keys no host references:
+  # readable by Kyle alone until a rule above claims it.
+  - path_regex: nix/secrets/[^/]+\.yaml$
+    key_groups:
+      - pgp:
           - *kyle
   - path_regex: nix/hosts/cogsworth/keys/.*\.sops$
     key_groups:

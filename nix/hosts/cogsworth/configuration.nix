@@ -35,6 +35,7 @@ in
   sops.secrets.monitoring_password = {
     mode = "0440";
     group = "monitoring-secrets";
+    sopsFile = ../../secrets/shared-cogsworth-pika-trex.yaml;
   };
   users.groups.monitoring-secrets = { };
   systemd.services.alloy.serviceConfig.SupplementaryGroups = [ "monitoring-secrets" ];
@@ -60,6 +61,7 @@ in
   # a departure alarm reaches rooms the Pi's own speaker does not.
   sops.secrets.unpoller_password = {
     owner = "cogsworth";
+    sopsFile = ../../secrets/shared-cogsworth-tiger.yaml;
   };
 
   # Location for weather widget (Open-Meteo API, no API key required)
