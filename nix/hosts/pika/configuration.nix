@@ -11,10 +11,12 @@
 # this file, which is what makes it worth more than an ssh forced-command.
 #
 # Two flags would undo all of it. Never `zfs recv -F`, never
-# `syncoid --force-delete`. Both make the receiving side destroy datasets to
-# match the source, which turns a compromised tiger answering a request pika
-# made into a wipe of the second copy. The NixOS syncoid module defaults to
-# neither, and nothing below adds them.
+# `syncoid --force-delete`. Both make the receiving side destroy snapshots or
+# datasets to match the source, which turns a compromised tiger answering a
+# request pika made into a wipe of the second copy. syncoid passes -F on every
+# receive unless given --no-rollback, so the syncoid block below passes it,
+# and grants receive:append rather than receive so the kernel refuses -F even
+# if the flag is ever lost.
 
 {
   config,
@@ -208,18 +210,27 @@ in
       "--no-sync-snap" # sanoid on tiger owns snapshot creation
       "--sshport"
       "2332" # tiger's sshd is not on 22 (tiger/configuration.nix:129)
+      # Otherwise syncoid adds -F to every receive.
+      "--no-rollback"
+      # tiger prunes hourlies faster than this pulls, so without a hold
+      # pika's newest snapshot is gone from tiger by the next run, and only
+      # -F could land the incremental. tiger's sanoid logs a failed prune of
+      # the held snapshot each run until the next pull moves the hold.
+      "--use-hold"
     ];
     # Trimmed from the module default, which also grants change-key,
     # compression and mountpoint. Nothing here sends raw encrypted or raw
     # compressed streams, so those are unused authority.
     # A property named in recvOptions must be delegated by name, or zfs recv
     # logs a permission error per stream, skips it, and still exits 0.
+    # receive:append is receive without -F, enforced in the kernel.
     localTargetAllow = [
       "create"
       "mount"
       "readonly"
-      "receive"
-      "rollback"
+      "receive:append"
+      "hold"
+      "release"
     ];
     commands = {
       "storage/photos" = {
