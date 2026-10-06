@@ -62,7 +62,7 @@ class _FakeApp:
         pass
 
     @staticmethod
-    def setAttribute(*args, **kwargs):
+    def setAttribute(*args, **kwargs):  # noqa: N802
         """main() disables Qt's Ctrl/Cmd swap on darwin before constructing
         the app. The real call is a classmethod on QApplication, so the
         stand-in needs it too or every darwin run of these tests errors out."""
