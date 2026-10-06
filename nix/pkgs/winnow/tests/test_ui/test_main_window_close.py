@@ -623,8 +623,8 @@ def test_close_event_discard_quits_without_deleting(qapp, tmp_path, monkeypatch)
     assert event.isAccepted()
 
 
-def test_close_event_prints_failures(qapp, tmp_path, monkeypatch, capsys):
-    """Test closeEvent prints failures to stderr."""
+def test_close_event_reports_failures(qapp, tmp_path, monkeypatch, capsys):
+    """Test closeEvent reports failures on stderr and in a warning dialog."""
     test_dir = tmp_path / "photos"
     test_dir.mkdir()
     photo1 = test_dir / "photo1.jpg"
@@ -645,6 +645,10 @@ def test_close_event_prints_failures(qapp, tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(
         QMessageBox, "question", lambda *args, **kwargs: QMessageBox.StandardButton.Yes
     )
+    warnings = []
+    monkeypatch.setattr(
+        QMessageBox, "warning", lambda _parent, _title, text: warnings.append(text)
+    )
 
     from PySide6.QtGui import QCloseEvent
 
@@ -656,6 +660,10 @@ def test_close_event_prints_failures(qapp, tmp_path, monkeypatch, capsys):
     assert "Failed to delete:" in captured.err
     assert str(photo1) in captured.err
     assert str(photo2) not in captured.err  # photo2 succeeded
+
+    assert len(warnings) == 1
+    assert photo1.name in warnings[0]
+    assert photo2.name not in warnings[0]
 
 
 def test_close_event_default_button_no(qapp, tmp_path, monkeypatch):
@@ -684,3 +692,27 @@ def test_close_event_default_button_no(qapp, tmp_path, monkeypatch):
     # Verify default button is No
     assert len(default_button) == 1
     assert default_button[0] == QMessageBox.StandardButton.No
+
+
+def test_delete_marked_files_keeps_raw_when_jpeg_fails(tmp_path, monkeypatch):
+    """A JPEG that cannot be deleted keeps its RAW sibling."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    photo.touch()
+    raw = test_dir / "photo.raf"
+    raw.touch()
+
+    from winnow.core.session import Session
+
+    session = Session(directory=test_dir, images=[photo])
+    session.set_status(photo, PhotoStatus.DELETE)
+
+    _fail_deleting(monkeypatch, photo)
+
+    failed = session.delete_marked_files()
+
+    assert photo in failed
+    assert len(failed) == 2
+    assert photo.exists()
+    assert raw.exists()

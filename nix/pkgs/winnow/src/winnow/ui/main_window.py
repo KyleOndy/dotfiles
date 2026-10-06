@@ -4,6 +4,7 @@ This module provides the main application window containing the viewing area
 and thumbnail strip widgets, along with session state management.
 """
 
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import QTimer
@@ -237,11 +238,16 @@ class MainWindow(QMainWindow):
             # Attempt deletion
             failed = self.session.delete_marked_files()
 
-            # Report failures if any
             if failed:
-                import sys
-
                 for path in failed:
                     print(f"Failed to delete: {path}", file=sys.stderr)
+                # A GUI launch has no visible stderr.
+                names = "\n".join(p.name for p in failed[:20])
+                more = f"\n...and {len(failed) - 20} more" if len(failed) > 20 else ""
+                QMessageBox.warning(
+                    self,
+                    "Delete Failed",
+                    f"{len(failed)} files were not deleted:\n{names}{more}",
+                )
 
         event.accept()

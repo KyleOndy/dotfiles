@@ -173,7 +173,9 @@ class Session:
         Attempts to delete each file in the deletes set and, for each, any
         sibling RAW file found by raw_siblings(). If a file cannot be deleted
         (permission error, file not found, etc.), it is skipped and added to
-        the failed list. The session state is not modified.
+        the failed list. A JPEG that fails keeps its RAW siblings, which are
+        reported as failed too, so a surviving JPEG never loses its RAW. The
+        session state is not modified.
 
         On macOS, files are sent to the Trash (recoverable from Finder)
         instead of being permanently removed, since that's the platform's
@@ -184,7 +186,8 @@ class Session:
         """
         failed = []
         for path in self.deletes:
-            for target in (path, *raw_siblings(path)):
+            siblings = raw_siblings(path)
+            for target in (path, *siblings):
                 try:
                     if sys.platform == "darwin":
                         send2trash(target)
@@ -192,6 +195,9 @@ class Session:
                         target.unlink()
                 except OSError:
                     failed.append(target)
+                    if target == path:
+                        failed.extend(siblings)
+                        break
         return failed
 
     def count_raw_deletes(self) -> int:
