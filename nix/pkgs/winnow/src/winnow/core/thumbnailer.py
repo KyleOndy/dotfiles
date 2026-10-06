@@ -272,12 +272,15 @@ class Thumbnailer(QObject):
         task = ThumbnailTask(image_path, self.size, self)
         self._thread_pool.start(task)
 
-    def wait_for_pending(self) -> None:
-        """Block until all queued/running background decodes finish.
+    def shutdown(self) -> None:
+        """Drop queued decodes and block until the running ones finish.
 
         Call before tearing down the Thumbnailer (e.g. on window close) so no
-        worker thread emits into a partially-destroyed object.
+        worker thread emits into a partially-destroyed object. Queued tasks
+        are discarded rather than drained: on a fresh directory that queue
+        holds every thumbnail, tens of seconds of work nobody will see.
         """
+        self._thread_pool.clear()
         self._thread_pool.waitForDone()
 
     def _on_thumbnail_loaded(

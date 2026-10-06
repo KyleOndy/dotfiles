@@ -6,7 +6,7 @@ and thumbnail strip widgets, along with session state management.
 
 from pathlib import Path
 
-from PySide6.QtCore import QThreadPool, QTimer
+from PySide6.QtCore import QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QLabel,
@@ -230,9 +230,8 @@ class MainWindow(QMainWindow):
         # Stop background image loading and wait for in-flight decodes to
         # finish before any further teardown or file deletion below.
         if self.session.image_cache is not None:
-            self.session.image_cache.set_active_images(set())
-            QThreadPool.globalInstance().waitForDone()
-        self.thumbnailer.wait_for_pending()
+            self.session.image_cache.shutdown()
+        self.thumbnailer.shutdown()
 
         if delete_count > 0 and apply_deletes:
             # Attempt deletion

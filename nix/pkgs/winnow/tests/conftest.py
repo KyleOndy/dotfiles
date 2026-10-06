@@ -25,7 +25,7 @@ from winnow.ui.main_window import MainWindow
 def _drain_thumbnailers():
     """Enforce the Thumbnailer teardown contract after every test.
 
-    Thumbnailer.wait_for_pending's docstring requires draining background
+    Thumbnailer.shutdown's docstring requires stopping background
     decodes before teardown so no worker thread emits into an object being
     destroyed. The app honors this in MainWindow.closeEvent; tests that
     create strips inline and drop them at test end do not, which corrupts
@@ -35,7 +35,7 @@ def _drain_thumbnailers():
     for obj in gc.get_objects():
         if isinstance(obj, Thumbnailer):
             try:
-                obj.wait_for_pending()
+                obj.shutdown()
             except (AttributeError, RuntimeError):
                 # Mid-destruction wrapper: __dict__ already cleared or the
                 # C++ object is gone. Nothing left to drain.
