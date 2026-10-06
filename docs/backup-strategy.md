@@ -788,11 +788,6 @@ not on the timescale of the `rm`.
 
 ## What is left
 
-**Delete the old bucket.** Nothing writes to
-`my-photo-backup-archive-holy-mink` any more: `photos-fanout` and
-`backup-photos --s3` are gone. `tf/photos-backup.tf` still declares it and
-its `svc.photos-backup` user.
-
 **Write the S3 restore script.** The runbook section above is a snippet.
 
 **Restore rights.** Two restores in the runbook need authority nothing

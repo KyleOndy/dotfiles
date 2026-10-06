@@ -3,11 +3,6 @@
 Infrastructure code for resources outside of what Nix manages, mostly AWS.
 
 - `dns.tf` / `iam.tf`: Route53 zones/records and the IAM users that update them.
-- `photos-backup.tf`: the photo disaster-recovery bucket. tiger's
-  `photos-fanout` pushes `archive/` and `helios.db` to it, and
-  `backup-photos --s3` (`nix/pkgs/backup-photos`) pushes `_provisional/`
-  opportunistically. Lifecycle rules move all of it to Deep Archive after 30
-  days.
 - `archive-backup.tf`: the tier 3 offsite bucket from
   `docs/backup-strategy.md`. pika is the only host that writes to it.
 - `video-scratch.tf`: the holding bucket for raw video during a project,
