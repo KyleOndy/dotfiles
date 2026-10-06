@@ -360,6 +360,7 @@
             18
             22
           ];
+      EnvironmentVariables.TEXTFILE_DIR = config.systemFoundry.monitoringAgent.textfileDirectory;
       StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
     };

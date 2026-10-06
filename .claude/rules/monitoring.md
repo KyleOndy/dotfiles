@@ -65,15 +65,15 @@ this in step with `nix/modules/hm_modules/terminal/email.nix`; check
 Seven, each the investigation surface for one or more alert groups. A
 dashboard nothing can send you to does not earn its place:
 
-| Dashboard                 | Alert groups it serves                                                         |
-| ------------------------- | ------------------------------------------------------------------------------ |
-| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health                  |
-| `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, drive_health |
-| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki)         |
-| `Cogsworth`               | cogsworth_monitoring                                                           |
-| `Caddy Reverse Proxy`     | none yet, reads Loki                                                           |
-| `UniFi Network`           | unifi                                                                          |
-| `Monitoring Stack Health` | monitoring_stack                                                               |
+| Dashboard                 | Alert groups it serves                                                                     |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health                              |
+| `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, drive_health |
+| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki)                     |
+| `Cogsworth`               | cogsworth_monitoring                                                                       |
+| `Caddy Reverse Proxy`     | none yet, reads Loki                                                                       |
+| `UniFi Network`           | unifi                                                                                      |
+| `Monitoring Stack Health` | monitoring_stack                                                                           |
 
 JellyfinDown is an alert in systemd_health rather than a group of its own.
 textfile_collector, audio_language and Loki's ruler_heartbeat have no

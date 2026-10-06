@@ -64,3 +64,16 @@ done
 
 rsync -a --mkpath "$STAGING/" "$DEST/"
 echo "backup-git-repos: pushed to $DEST"
+
+# Written only after the push lands, so its age is the age of the newest
+# copy on tiger. The .tmp suffix keeps node_exporter, which reads only
+# *.prom, from scraping a half-written file.
+if [ -n "${TEXTFILE_DIR:-}" ]; then
+	prom="$TEXTFILE_DIR/backup_git_repos.prom"
+	{
+		echo '# HELP backup_git_repos_last_success_timestamp_seconds Unix time backup-git-repos last pushed every bundle to its destination'
+		echo '# TYPE backup_git_repos_last_success_timestamp_seconds gauge'
+		echo "backup_git_repos_last_success_timestamp_seconds $(date +%s)"
+	} >"$prom.tmp"
+	mv -f "$prom.tmp" "$prom"
+fi

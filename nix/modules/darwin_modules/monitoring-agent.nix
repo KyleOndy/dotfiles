@@ -86,6 +86,13 @@ in
       description = "Loki push URL";
     };
 
+    textfileDirectory = mkOption {
+      type = types.str;
+      default = "/var/lib/node-exporter-textfile";
+      readOnly = true;
+      description = "Directory node_exporter's textfile collector reads *.prom files from";
+    };
+
     basicAuth = mkOption {
       type = types.nullOr (
         types.submodule {
@@ -104,6 +111,11 @@ in
   config = mkIf cfg.enable {
     system.activationScripts.postActivation.text = ''
       mkdir -p ${logDir} /var/lib/vmagent /var/lib/alloy
+      # Writable by group admin because the writers are the login user's
+      # launchd agents, and the login user is an admin on both Macs.
+      mkdir -p ${cfg.textfileDirectory}
+      chown root:admin ${cfg.textfileDirectory}
+      chmod 0775 ${cfg.textfileDirectory}
     '';
 
     launchd.daemons.node-exporter = {
@@ -118,6 +130,7 @@ in
           # shares, already monitored on tiger.
           "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware))($|/)"
           "--collector.filesystem.fs-types-exclude=^(devfs|autofs|smbfs)$"
+          "--collector.textfile.directory=${cfg.textfileDirectory}"
         ];
         RunAtLoad = true;
         KeepAlive = true;

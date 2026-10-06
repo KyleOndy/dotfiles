@@ -800,6 +800,27 @@ in
                 summary: "Windows backup freshness metric missing on tiger"
                 description: "No windows_backup_last_success_timestamp_seconds series exists at all, so every rule in this group matches nothing. This is the absence check on the absence check. Run `systemctl status win-backup-exporter` and check its timer on tiger."
 
+        # trex pushes ~/src as git bundles into storage/backups. A fail-safe,
+        # so one permissive warning and no never-succeeded rule.
+        - name: git_backup
+          interval: 60s
+          rules:
+            # Wall time alone would fire on a laptop shut for a fortnight, so
+            # the guard counts awake time: one `up` sample per 15s scrape
+            # (darwin_modules/monitoring-agent.nix), none while asleep.
+            # last_over_time keeps a firing alert from resolving on each sleep.
+            - alert: GitReposBackupStale
+              expr: |-
+                (time() - last_over_time(backup_git_repos_last_success_timestamp_seconds{host="trex"}[1d]) > 3 * 86400)
+                and on (host)
+                (count_over_time(up{host="trex",job="node"}[3d]) * 15 > 8 * 3600)
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "trex has not backed up ~/src in over 3 days"
+                description: "backup-git-repos has not pushed to tiger in over 3 days, while trex was awake for more than 8 of them, against four runs a day. Check ~/Library/Logs/backup-git-repos.log on trex, then run `launchctl kickstart gui/$(id -u)/org.ondy.backup-git-repos`."
+
         # SMART health, scrub age and backup freshness all arrive this way.
         # node_exporter drops a file it cannot parse and keeps serving the
         # rest, so a broken producer costs its alerts in silence:
