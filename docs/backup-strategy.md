@@ -107,6 +107,13 @@ absence is measurable from the inside. The Windows push is not, so the
 client writes a heartbeat file on success and tiger alerts on its age. Any
 future writer that lives off-fleet needs the same treatment.
 
+trex pushes `backup-git-repos` into `/mnt/backups/kyle/git` four times a
+day: one git bundle per repo under `~/src`, plus the git-crypt key of any
+repo that has one. Most of those repos have no remote, so this is their
+only second copy. A bundle is one file written whole, so the archive tier
+holds one object per repo rather than every loose object and superseded
+pack, and a copy can never catch git mid-write.
+
 ### Writers into storage/projects
 
 One, `backup-resolve-projects` on trex, run by hand. It mirrors two trees:

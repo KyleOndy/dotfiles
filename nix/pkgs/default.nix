@@ -2,6 +2,7 @@ self: super: {
   ask = super.callPackage ./ask { };
   audio-language-check = super.callPackage ./audio-language-check { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
+  backup-git-repos = super.callPackage ./backup-git-repos { };
   backup-photos = super.callPackage ./backup-photos { };
   backup-resolve-projects = super.callPackage ./backup-resolve-projects { };
   berkeley-mono = super.callPackage ./berkeley-mono { };

@@ -334,4 +334,34 @@
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/histdb-backup.log";
     };
   };
+
+  # Most repos under ~/src have no remote, so this is their only second copy.
+  # Same transport and wake caveats as histdb-backup above. Four runs a day
+  # because tiger keeps 4 hourly snapshots of storage/backups; the 22:00 run
+  # lands before pika's 00:00 syncoid pull, so a day's commits reach pika
+  # that night and the archive bucket the next morning.
+  home-manager.users.kyle.launchd.agents.backup-git-repos = {
+    enable = true;
+    config = {
+      Label = "org.ondy.backup-git-repos";
+      ProgramArguments = [
+        "${pkgs.backup-git-repos}/bin/backup-git-repos"
+        "tiger:/mnt/backups/kyle/git"
+      ];
+      StartCalendarInterval =
+        map
+          (Hour: {
+            inherit Hour;
+            Minute = 0;
+          })
+          [
+            10
+            14
+            18
+            22
+          ];
+      StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
+      StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
+    };
+  };
 }
