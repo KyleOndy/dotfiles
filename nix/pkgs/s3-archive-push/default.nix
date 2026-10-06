@@ -4,6 +4,7 @@
   zfs,
   coreutils,
   findutils,
+  gnugrep,
 }:
 
 writeShellApplication {
@@ -16,6 +17,7 @@ writeShellApplication {
     zfs
     coreutils
     findutils
+    gnugrep
   ];
   text = builtins.readFile ./s3-archive-push.sh;
 }

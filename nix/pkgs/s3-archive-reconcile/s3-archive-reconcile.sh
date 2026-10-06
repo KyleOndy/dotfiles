@@ -114,6 +114,7 @@ if [ "$prune" = yes ] && [ "$orphan_count" -gt 0 ]; then
 	fi
 fi
 
+tmp=$(mktemp "$OUTFILE.XXXXXX")
 {
 	printf '# HELP s3_reconcile_orphan_objects Objects in the bucket with no counterpart at the source\n'
 	printf '# TYPE s3_reconcile_orphan_objects gauge\n'
@@ -133,8 +134,9 @@ fi
 	printf '# HELP s3_reconcile_last_run_timestamp_seconds Unix time of the last completed comparison\n'
 	printf '# TYPE s3_reconcile_last_run_timestamp_seconds gauge\n'
 	printf 's3_reconcile_last_run_timestamp_seconds{prefix="%s"} %s\n' "$PREFIX" "$(date +%s)"
-} >"$OUTFILE.tmp"
-mv "$OUTFILE.tmp" "$OUTFILE"
+} >"$tmp"
+chmod 0644 "$tmp"
+mv -fT "$tmp" "$OUTFILE"
 
 # Non-zero so the unit fails and the refusal is visible as more than a gauge
 # nobody graphed.

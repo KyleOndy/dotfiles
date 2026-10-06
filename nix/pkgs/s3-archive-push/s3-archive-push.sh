@@ -55,13 +55,24 @@ echo "syncing $SOURCE -> s3://$ARCHIVE_BUCKET/$PREFIX/ (Deep Archive)"
 # puts around a PUT, so a connection reset fails the upload outright instead
 # of retrying it (aws/aws-cli#10026). A retry costs one LIST plus a stat walk
 # rather than a re-upload, because sync skips what the bucket already holds.
+#
+# Symlinks are not followed. s3-archive-reconcile lists regular files only, so
+# a followed link uploads an object the weekly prune then delete-marks, every
+# week, and a link aimed outside the dataset would ship whatever it names.
+#
+# Successes go to a file rather than the journal, one line per object, so a
+# run can report how much of the prefix it rewrote. Failures and warnings stay
+# on stderr.
+uploads=$(mktemp)
+trap 'rm -f "$uploads"' EXIT
 readonly MAX_ATTEMPTS=3
 attempt=1
 while :; do
 	rc=0
 	aws s3 sync "$SOURCE/" "s3://$ARCHIVE_BUCKET/$PREFIX/" \
 		--storage-class DEEP_ARCHIVE \
-		--only-show-errors || rc=$?
+		--no-follow-symlinks \
+		--no-progress >>"$uploads" || rc=$?
 
 	case "$rc" in
 	0) break ;;
@@ -84,10 +95,12 @@ finished=$(date +%s)
 
 objects=$(find "$SOURCE" -type f | wc -l)
 bytes=$(du -sb "$SOURCE" | cut -f1)
+uploaded=$(grep -c '^upload: ' "$uploads" || true)
 
 # What the source holds, not what the bucket holds. s3-archive-reconcile owns
 # the comparison; publishing both sides from one job would let a single bug
 # claim agreement that was never checked.
+tmp=$(mktemp "$OUTFILE.XXXXXX")
 {
 	printf '# HELP s3_archive_push_last_success_timestamp_seconds Unix time this prefix last completed a sync with no failed transfers\n'
 	printf '# TYPE s3_archive_push_last_success_timestamp_seconds gauge\n'
@@ -101,7 +114,11 @@ bytes=$(du -sb "$SOURCE" | cut -f1)
 	printf '# HELP s3_archive_push_source_bytes Bytes under the source dataset\n'
 	printf '# TYPE s3_archive_push_source_bytes gauge\n'
 	printf 's3_archive_push_source_bytes{prefix="%s"} %s\n' "$PREFIX" "$bytes"
-} >"$OUTFILE.tmp"
-mv "$OUTFILE.tmp" "$OUTFILE"
+	printf '# HELP s3_archive_push_uploaded_objects Objects the last completed sync uploaded, retries included\n'
+	printf '# TYPE s3_archive_push_uploaded_objects gauge\n'
+	printf 's3_archive_push_uploaded_objects{prefix="%s"} %s\n' "$PREFIX" "$uploaded"
+} >"$tmp"
+chmod 0644 "$tmp"
+mv -fT "$tmp" "$OUTFILE"
 
-echo "done in $((finished - started))s: $objects objects, $bytes bytes at source"
+echo "done in $((finished - started))s: uploaded $uploaded, $objects objects and $bytes bytes at source"
