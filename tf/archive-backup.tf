@@ -56,10 +56,14 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "archive" {
   }
 }
 
-# 180 days, not 90. Deep Archive bills a 180-day minimum and charges a
-# prorated early-deletion fee for anything removed sooner, so expiring at 90
-# costs exactly the same and buys half the undelete window:
+# 365 days. Deep Archive bills a 180-day minimum and charges a prorated
+# early-deletion fee for anything removed sooner, so nothing under 180 saves
+# money, and past it each extra day of undelete window costs Deep Archive
+# storage on the noncurrent bytes only:
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html#glacier-pricing-considerations
+#
+# Matches the Object Lock retention below, so a version leaves on whichever
+# clock runs out last and neither one strands it.
 resource "aws_s3_bucket_lifecycle_configuration" "archive" {
   bucket = aws_s3_bucket.archive.id
 
@@ -74,7 +78,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "archive" {
       }
 
       noncurrent_version_expiration {
-        noncurrent_days = 180
+        noncurrent_days = 365
       }
 
       expiration {
@@ -86,6 +90,35 @@ resource "aws_s3_bucket_lifecycle_configuration" "archive" {
       }
     }
   }
+}
+
+# Every version PUT after this applies is undeletable for 365 days by anyone
+# without s3:BypassGovernanceRetention, which neither service credential
+# holds: a compromised pika can still write delete markers, and still cannot
+# remove a version. Existing versions are not retroactively locked.
+#
+# A standalone resource, not `object_lock_enabled = true` on the bucket:
+# that argument is ForceNew in hashicorp/aws 5.x and would plan a replacement
+# of this bucket. PutObjectLockConfiguration enables it in place on an
+# existing versioned bucket.
+# https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html
+# https://github.com/hashicorp/terraform-provider-aws/blob/v5.100.0/internal/service/s3/bucket.go#L381-L387
+#
+# GOVERNANCE, so the admin key can still shorten or lift a lock. COMPLIANCE
+# cannot be shortened or removed by anyone, the root user included, for the
+# full retention of every version it covers, and Object Lock itself can never
+# be turned off on a bucket once enabled.
+resource "aws_s3_bucket_object_lock_configuration" "archive" {
+  bucket = aws_s3_bucket.archive.id
+
+  rule {
+    default_retention {
+      mode = "GOVERNANCE"
+      days = 365
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.archive]
 }
 
 output "archive_bucket_name" {

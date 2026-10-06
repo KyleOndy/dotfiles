@@ -2,24 +2,11 @@
 variable "tiger_apps_subdomains" {
   type = list(string)
   default = [
-    # media/downloader stack
-    "bazarr",
+    # Only apps used away from home. Admin and monitoring UIs stay on the
+    # LAN-only *.tiger.infra.ondy.org wildcard.
     "jellyfin",
     "jellyseerr",
-    "lidarr",
     "navidrome",
-    "prowlarr",
-    "radarr",
-    "sabnzbd",
-    "sonarr",
-
-    # photos
     "immich",
-
-    # monitoring stack
-    "grafana",
-    "loki",
-    "metrics",
-    "vmalert",
   ]
 }
