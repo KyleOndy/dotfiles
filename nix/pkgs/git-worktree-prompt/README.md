@@ -38,7 +38,7 @@ if they disagree.
 ## Building
 
 ```bash
-nix build .#git-worktree-prompt        # from the repo root, 20-30s
+nix build .#darwinConfigurations.trex.pkgs.git-worktree-prompt  # from the repo root, 20-30s
 ./result/bin/git-worktree-prompt
 ```
 

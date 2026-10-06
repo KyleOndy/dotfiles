@@ -660,14 +660,6 @@
           };
         in
         {
-          # Expose internal packages for direct building and benchmarking
-          audio-language-check = pkgs.audio-language-check;
-          forge = pkgs.forge;
-          fuji-transcode = pkgs.fuji-transcode;
-          git-worktree-prompt = pkgs.git-worktree-prompt;
-          helios = pkgs.helios;
-          winnow = pkgs.winnow;
-
           # Two-key push-to-talk pad for domestique rides
           pad-firmware = pkgs.callPackage ./keyboard/domestique-pad { };
         }
