@@ -260,6 +260,30 @@ in
                 summary: "Lidarr has {{ $value }} queue item(s) stuck importing"
                 description: "Lidarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://lidarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists blocked items at 48h, but never touches one sitting in importPending."
 
+            # Each app's System > Status page: download client unreachable,
+            # root folder missing, import lists failing. UpdateCheck is noise
+            # where nixpkgs picks the version; the two indexer status checks
+            # flap with Prowlarr's own backoff, and ProwlarrIndexersUnavailable
+            # covers indexers instead.
+            - alert: ArrHealthIssue
+              expr: max by (host, job, source, type, message, wikiurl) (max_over_time({__name__=~"(sonarr|radarr|lidarr|prowlarr|bazarr)_system_health_issues",source!~"UpdateCheck|IndexerStatusCheck|IndexerLongTermStatusCheck"}[1h])) == 1
+              for: 2h
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.job }}: {{ $labels.message }}"
+                description: "{{ $labels.job }} has reported this {{ $labels.type }} from {{ $labels.source }} for 2 hours. {{ $labels.wikiurl }}"
+
+            - alert: ProwlarrIndexersUnavailable
+              expr: sum by (host) (prowlarr_indexer_unavailable) * 2 > max by (host) (prowlarr_indexer_total)
+              for: 2h
+              labels:
+                severity: warning
+                service: prowlarr
+              annotations:
+                summary: "Prowlarr has more than half its indexers unavailable"
+                description: "Searches and RSS reach too few indexers for grabs to work. Usually an expired API key or an indexer outage; see https://prowlarr.tiger.infra.ondy.org/settings/indexers"
+
             - alert: SABnzbdQueueHigh
               expr: sabnzbd_queue_length > 20
               for: 4h
@@ -390,6 +414,27 @@ in
               annotations:
                 summary: "Disk will fill within 24 hours on {{ $labels.instance }}:{{ $labels.mountpoint }}"
                 description: "Based on the last 24 hours, filesystem {{ $labels.mountpoint }} on {{ $labels.instance }} will fill up within 24 hours"
+
+            # The space rules above skip read-only filesystems, so a disk the
+            # kernel remounts read-only after an error would drop out of them
+            # silently. trex's sealed system volume is read-only by design.
+            - alert: FilesystemReadOnly
+              expr: node_filesystem_readonly{fstype!~"tmpfs|squashfs|nsfs|ramfs|overlay|fuse.*"} == 1 unless node_filesystem_readonly{fstype="apfs",mountpoint="/"}
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "{{ $labels.mountpoint }} on {{ $labels.host }} is read-only"
+                description: "{{ $labels.device }} at {{ $labels.mountpoint }} is mounted read-only, usually because the kernel remounted it after an I/O error. Writes there are failing. Check: journalctl -k | grep -iE 'remount|I/O error'"
+
+            - alert: FilesystemDeviceError
+              expr: node_filesystem_device_error{fstype!~"tmpfs|fuse.*|nsfs|ramfs"} == 1
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "node_exporter cannot stat {{ $labels.mountpoint }} on {{ $labels.host }}"
+                description: "statfs on {{ $labels.mountpoint }} fails, so its free space is unknown and the disk space rules cannot fire for it. A hung NFS or SMB mount and a dying disk both look like this."
 
         # Drive health monitoring: SMART and mdraid
         - name: drive_health
@@ -529,6 +574,26 @@ in
               annotations:
                 summary: "Host under memory pressure on {{ $labels.instance }}"
                 description: "The host is experiencing high page fault rate ({{ $value | printf \"%.2f\" }} faults/sec), indicating memory pressure on {{ $labels.instance }}"
+
+            # Linux only: node_exporter on darwin exports neither metric.
+            - alert: HostOomKill
+              expr: increase(node_vmstat_oom_kill[5m]) > 0
+              labels:
+                severity: warning
+              annotations:
+                summary: "The kernel OOM-killed a process on {{ $labels.host }}"
+                description: "Something on {{ $labels.host }} was killed for memory. A service that restarts cleanly afterwards trips no other alert. Find the victim with: journalctl -k | grep -i 'killed process'"
+
+            # cogsworth has no RTC and boots with the wrong time until NTP
+            # syncs, so `for:` has to outlast that.
+            - alert: HostClockNotSynchronising
+              expr: node_timex_sync_status == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Clock on {{ $labels.host }} is not synchronised"
+                description: "The kernel reports the clock unsynchronised for 30 minutes. TLS, sops and sanoid snapshot names all trust it. Check: timedatectl timesync-status"
 
 
         # ZFS pool health and scrub freshness.
@@ -1250,6 +1315,37 @@ in
               annotations:
                 summary: "alloy is dropping log entries ({{ $labels.reason }})"
                 description: "Log lines are being discarded before they reach Loki. `rate_limited` means Loki's ingestion limit; `line_too_long` means a single entry exceeded the max; `ingester_error` means Loki refused them. Entries dropped here are gone."
+
+            # A rule whose query errors can never fire, and vmalert only logs
+            # it. `for:` rides out a VictoriaMetrics restart on deploy.
+            - alert: VmalertRuleErroring
+              expr: sum by (group, alertname) (increase(vmalert_alerting_rules_errors_total[5m])) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "vmalert cannot evaluate {{ $labels.alertname }}"
+                description: "Every evaluation of {{ $labels.alertname }} in group {{ $labels.group }} has errored for 15 minutes, so it cannot fire. Either VictoriaMetrics is not answering or the expression is broken: journalctl -u vmalert | grep {{ $labels.alertname }}"
+
+            # Only tiger's own vmagent is scraped, so this cannot see the
+            # agents on pika and cogsworth.
+            - alert: VmagentDroppingData
+              expr: sum by (host) (increase(vm_persistentqueue_bytes_dropped_total[5m])) > 0
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "vmagent on {{ $labels.host }} is dropping buffered samples"
+                description: "The persistent queue is full and vmagent is discarding the oldest data, so those samples are lost for good. VictoriaMetrics has been unreachable for longer than the queue can hold; check VmagentRemoteWriteFailing and systemctl status victoriametrics."
+
+            - alert: AlloyComponentUnhealthy
+              expr: sum by (host, health_type) (alloy_component_controller_running_components{health_type!="healthy"}) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "alloy on {{ $labels.host }} has {{ $value }} {{ $labels.health_type }} component(s)"
+                description: "A component that is not healthy has usually stopped shipping its logs. The component and its error are on alloy's UI page, or in journalctl -u alloy."
     '';
 
     systemd.services.vmalert = {
