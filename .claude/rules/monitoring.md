@@ -71,7 +71,7 @@ dashboard nothing can send you to does not earn its place:
 | `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, drive_health |
 | `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki)                     |
 | `Cogsworth`               | cogsworth_monitoring                                                                       |
-| `Caddy Reverse Proxy`     | none yet, reads Loki                                                                       |
+| `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), reads Loki                                           |
 | `UniFi Network`           | unifi                                                                                      |
 | `Monitoring Stack Health` | monitoring_stack                                                                           |
 

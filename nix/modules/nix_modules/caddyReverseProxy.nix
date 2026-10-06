@@ -158,6 +158,63 @@ let
       name: site: map (alias: nameValuePair alias { inherit name site; }) site.publicAliases
     ) infraSites
   );
+
+  # One entry per cert Caddy obtains, as "<label> <sni>". The wildcard is
+  # reached through any one name it covers.
+  certProbes =
+    optional hasInfraSites "*.${cfg.infraDomain} ${head (attrNames infraSites)}"
+    ++ map (n: "${n} ${n}") (
+      attrNames externalSites
+      ++ concatMap (s: s.extraDomainNames) (attrValues externalSites)
+      ++ map (p: p.name) publicAliasSites
+    );
+
+  monitoringCfg = config.systemFoundry.monitoringStack;
+  textfileEnabled = monitoringCfg.enable && monitoringCfg.nodeExporter.enable;
+  certTextfile = "${monitoringCfg.nodeExporter.textfileDirectory}/caddy_certs.prom";
+
+  # Probes 127.0.0.1 with each name as SNI rather than the public address:
+  # tiger cannot reach its own WAN IP, and this is the cert Caddy serves
+  # whatever DNS says.
+  certProbeScript = pkgs.writeShellApplication {
+    name = "caddy-cert-probe";
+    runtimeInputs = [
+      pkgs.openssl
+      pkgs.coreutils
+    ];
+    text = ''
+      readonly OUTFILE=${escapeShellArg certTextfile}
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
+      {
+        printf '# HELP tls_cert_not_before_timestamp_seconds Unix time the served cert became valid\n'
+        printf '# TYPE tls_cert_not_before_timestamp_seconds gauge\n'
+        printf '# HELP tls_cert_not_after_timestamp_seconds Unix time the served cert expires\n'
+        printf '# TYPE tls_cert_not_after_timestamp_seconds gauge\n'
+        printf '# HELP tls_cert_probe_success 1 if a TLS handshake for this name returned a cert\n'
+        printf '# TYPE tls_cert_probe_success gauge\n'
+        while read -r label sni; do
+          dates=$(timeout 10 openssl s_client -connect 127.0.0.1:443 -servername "$sni" </dev/null 2>/dev/null \
+            | openssl x509 -noout -startdate -enddate 2>/dev/null || true)
+          if [[ -z "$dates" ]]; then
+            printf 'tls_cert_probe_success{name="%s"} 0\n' "$label"
+            continue
+          fi
+          before=$(date -d "$(sed -n 's/^notBefore=//p' <<<"$dates")" +%s)
+          after=$(date -d "$(sed -n 's/^notAfter=//p' <<<"$dates")" +%s)
+          printf 'tls_cert_probe_success{name="%s"} 1\n' "$label"
+          printf 'tls_cert_not_before_timestamp_seconds{name="%s"} %s\n' "$label" "$before"
+          printf 'tls_cert_not_after_timestamp_seconds{name="%s"} %s\n' "$label" "$after"
+        done <<'EOF'
+      ${concatStringsSep "\n" certProbes}
+      EOF
+        printf '# HELP tls_cert_probe_timestamp_seconds Unix time of the last probe run\n'
+        printf '# TYPE tls_cert_probe_timestamp_seconds gauge\n'
+        printf 'tls_cert_probe_timestamp_seconds %s\n' "$(date +%s)"
+      } >"$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
+    '';
+  };
 in
 {
   options.systemFoundry.caddyReverseProxy = {
@@ -343,7 +400,43 @@ in
     # disk keep the 0600 they were opened with until they roll.
     systemd.tmpfiles.rules = [
       "z ${config.services.caddy.logDir}/access-*.log 0640 caddy caddy -"
-    ];
+    ]
+    # The textfile directory is sticky, so a file any other user owns blocks
+    # the rename that replaces it.
+    ++ optional textfileEnabled "z ${certTextfile} 0644 caddy textfile -";
+
+    systemd.services.caddy-cert-probe = mkIf textfileEnabled {
+      description = "Export expiry of the certs Caddy serves to node_exporter textfile";
+      after = [ "caddy.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "caddy";
+        Group = "caddy";
+        SupplementaryGroups = [ "textfile" ];
+        ExecStart = getExe certProbeScript;
+        ReadWritePaths = [ monitoringCfg.nodeExporter.textfileDirectory ];
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+        ];
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
+      };
+    };
+
+    systemd.timers.caddy-cert-probe = mkIf textfileEnabled {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnBootSec = "5min";
+        OnUnitActiveSec = "15min";
+      };
+    };
 
     networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [
       80

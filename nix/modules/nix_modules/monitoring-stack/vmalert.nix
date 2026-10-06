@@ -884,6 +884,51 @@ in
                 summary: "node_exporter textfile collector failing on {{ $labels.host }}"
                 description: "At least one .prom file in /var/lib/prometheus-node-exporter-text-files on {{ $labels.host }} is unreadable or malformed, and every metric in it is absent. The file name is in the error: journalctl -u prometheus-node-exporter | grep textfile"
 
+        # Read from caddy-cert-probe, which asks Caddy for every cert it is
+        # configured to obtain. Caddy starts renewing with a third of the
+        # lifetime left (certmagic DefaultRenewalWindowRatio), so a quarter
+        # left means renewal has been failing for a twelfth of the lifetime:
+        # about a week on a 90 day cert. Caddy keeps serving a cert after it
+        # expires, so the probe still sees it.
+        - name: tls_certificates
+          interval: 60s
+          rules:
+            - alert: TLSCertExpired
+              expr: tls_cert_not_after_timestamp_seconds < time()
+              labels:
+                severity: critical
+              annotations:
+                summary: "TLS cert for {{ $labels.name }} on {{ $labels.host }} has expired"
+                description: "Caddy is serving an expired cert for {{ $labels.name }}, so every client rejects it. The renewal error is in journalctl -u caddy | grep tls.renew."
+
+            - alert: TLSCertRenewalOverdue
+              expr: (tls_cert_not_after_timestamp_seconds - time()) / (tls_cert_not_after_timestamp_seconds - tls_cert_not_before_timestamp_seconds) < 0.25 and tls_cert_not_after_timestamp_seconds >= time()
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "TLS cert for {{ $labels.name }} on {{ $labels.host }} is overdue for renewal"
+                description: "{{ $labels.name }} has under a quarter of its lifetime left, and Caddy should have renewed it at a third. The ACME error is in journalctl -u caddy | grep tls.renew."
+
+            - alert: TLSCertProbeFailing
+              expr: tls_cert_probe_success == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "No cert served for {{ $labels.name }} on {{ $labels.host }}"
+                description: "A TLS handshake to 127.0.0.1:443 with SNI {{ $labels.name }} returned no cert, so its expiry is unknown. Caddy may never have obtained one; check journalctl -u caddy | grep {{ $labels.name }}."
+
+            # The three rules above go quiet if the probe stops writing.
+            - alert: TLSCertProbeStale
+              expr: (time() - tls_cert_probe_timestamp_seconds > 3600) or (count by (host) (caddy_config_last_reload_successful) unless count by (host) (tls_cert_probe_timestamp_seconds))
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "TLS cert probe has not run on {{ $labels.host }}"
+                description: "{{ $labels.host }} runs Caddy but has no cert expiry metrics from the last hour, so TLSCertExpired cannot fire there. Check systemctl status caddy-cert-probe.timer caddy-cert-probe.service."
+
         # SystemdServiceFailed already catches a run that exits non-zero. These
         # two cover what it cannot see: a run that succeeds while fetching
         # nothing, and a sweeper that dies and freezes the gauge the first rule
