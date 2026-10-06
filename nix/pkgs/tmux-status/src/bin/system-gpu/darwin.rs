@@ -1,137 +1,72 @@
-//! GPU utilization on darwin, from the accelerator's registry properties.
+//! GPU utilization on darwin, from `Device Utilization %` in each
+//! accelerator's `PerformanceStatistics` registry property. IOReport, where
+//! macmon reads GPU residency, costs about 2.4s per process to subscribe to.
 //!
-//! Deliberately not IOReport, which is where macmon reads GPU residency and
-//! which costs about 2.4s per process to subscribe to. The accelerator carries
-//! the same busy percentage in its `PerformanceStatistics` dictionary, and
-//! that is an ordinary registry property read.
-//!
-//! `Device Utilization %` is undocumented, the same standing as the SMC keys in
-//! system-temp, so anything unexpected is treated as "nothing to report"
-//! rather than an error worth putting on screen.
-//!
-//! Constants verified against MacOSX14.4.sdk: `kCFStringEncodingUTF8` in
-//! CFString.h and `kCFNumberSInt64Type` in CFNumber.h.
+//! The key is undocumented and reading it resets it: the value covers only the
+//! time since the previous read by any process, and a read within about 2 ms
+//! of another returns 0 at full load (measured on an M5 under a Metal compute
+//! loop; the AGX driver is closed source). Two attached tmux clients refresh
+//! in the same pass, so readers serialise on a lock around a cache file and
+//! reuse any reading less than a second old.
 
-use std::ffi::CString;
-use std::os::raw::{c_char, c_int, c_void};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, Write};
+use std::time::{SystemTime, UNIX_EPOCH};
 
-type Res<T> = Result<T, Box<dyn std::error::Error>>;
+use tmux_status::{cache_file, iokit, Res};
 
-const KCF_STRING_ENCODING_UTF8: u32 = 0x0800_0100;
-const KCF_NUMBER_SINT64_TYPE: c_int = 4;
+const FRESH_MS: u128 = 1000;
 
-#[link(name = "IOKit", kind = "framework")]
-unsafe extern "C" {
-    fn IOServiceMatching(name: *const c_char) -> *const c_void;
-    fn IOServiceGetMatchingServices(port: u32, matching: *const c_void, it: *mut u32) -> i32;
-    fn IOIteratorNext(it: u32) -> u32;
-    fn IOObjectRelease(obj: u32) -> i32;
-    fn IORegistryEntryCreateCFProperty(
-        entry: u32,
-        key: *const c_void,
-        allocator: *const c_void,
-        options: u32,
-    ) -> *const c_void;
-}
-
-#[link(name = "CoreFoundation", kind = "framework")]
-unsafe extern "C" {
-    fn CFStringCreateWithCString(
-        alloc: *const c_void,
-        cstr: *const c_char,
-        encoding: u32,
-    ) -> *const c_void;
-    fn CFDictionaryGetValue(dict: *const c_void, key: *const c_void) -> *const c_void;
-    fn CFNumberGetValue(number: *const c_void, kind: c_int, out: *mut c_void) -> bool;
-    fn CFGetTypeID(cf: *const c_void) -> usize;
-    fn CFDictionaryGetTypeID() -> usize;
-    fn CFNumberGetTypeID() -> usize;
-    fn CFRelease(cf: *const c_void);
-}
-
-/// Anything obtained from a CoreFoundation Create or Copy call, which the
-/// caller owns and must release.
-struct Owned(*const c_void);
-
-impl Drop for Owned {
-    fn drop(&mut self) {
-        unsafe { CFRelease(self.0) };
-    }
-}
-
-fn cf_string(s: &str) -> Res<Owned> {
-    let c = CString::new(s)?;
-    let raw = unsafe {
-        CFStringCreateWithCString(std::ptr::null(), c.as_ptr(), KCF_STRING_ENCODING_UTF8)
-    };
-    if raw.is_null() {
-        return Err(format!("CFStringCreateWithCString failed for {s}").into());
-    }
-    Ok(Owned(raw))
-}
-
-/// Pull one integer out of one accelerator's statistics dictionary.
-///
-/// Every lookup is type checked first. These are undocumented keys, so a type
-/// that is not what we expect is a real possibility, and handing the wrong
-/// type to CFDictionaryGetValue or CFNumberGetValue is undefined behaviour
-/// rather than a miss.
-fn utilization(entry: u32, stats_key: &Owned, util_key: &Owned) -> Option<i64> {
-    let raw = unsafe { IORegistryEntryCreateCFProperty(entry, stats_key.0, std::ptr::null(), 0) };
-    if raw.is_null() {
-        return None;
-    }
-    let stats = Owned(raw);
-    if unsafe { CFGetTypeID(stats.0) } != unsafe { CFDictionaryGetTypeID() } {
-        return None;
-    }
-
-    // Borrowed under the CoreFoundation Get rule, so it is not released here.
-    let value = unsafe { CFDictionaryGetValue(stats.0, util_key.0) };
-    if value.is_null() || unsafe { CFGetTypeID(value) } != unsafe { CFNumberGetTypeID() } {
-        return None;
-    }
-
-    let mut out: i64 = 0;
-    let ok = unsafe { CFNumberGetValue(value, KCF_NUMBER_SINT64_TYPE, &mut out as *mut _ as _) };
-    ok.then_some(out)
-}
-
-/// Busiest accelerator, as a percentage.
 pub fn busy_percent() -> Res<u8> {
-    let class = CString::new("IOAccelerator")?;
-    let stats_key = cf_string("PerformanceStatistics")?;
-    let util_key = cf_string("Device Utilization %")?;
-
-    let mut iter = 0u32;
-    let rs = unsafe {
-        let matching = IOServiceMatching(class.as_ptr());
-        if matching.is_null() {
-            return Err("IOServiceMatching(IOAccelerator) failed".into());
-        }
-        // IOServiceGetMatchingServices consumes the matching dictionary, so
-        // there is nothing to release on this path.
-        IOServiceGetMatchingServices(0, matching, &mut iter)
+    let Some(mut cache) = cache_file("gpu").and_then(|path| open_locked(&path)) else {
+        return read_registry();
     };
-    if rs != 0 {
-        return Err(format!("IOServiceGetMatchingServices: {rs}").into());
+    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_millis();
+    let mut text = String::new();
+    cache.read_to_string(&mut text)?;
+    if let Some(pct) = fresh(&text, now) {
+        return Ok(pct);
     }
+    let pct = read_registry()?;
+    // Best effort: a failed write costs the next reader a fresh read, nothing more.
+    let _ = cache
+        .set_len(0)
+        .and_then(|()| cache.rewind())
+        .and_then(|()| write!(cache, "{now} {pct}"));
+    Ok(pct)
+}
 
-    let mut best: Option<i64> = None;
-    loop {
-        let entry = unsafe { IOIteratorNext(iter) };
-        if entry == 0 {
-            break;
-        }
-        if let Some(pct) = utilization(entry, &stats_key, &util_key) {
-            best = Some(best.map_or(pct, |b: i64| b.max(pct)));
-        }
-        unsafe { IOObjectRelease(entry) };
+/// The lock is released when the file closes.
+fn open_locked(path: &std::path::Path) -> Option<File> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(path)
+        .ok()?;
+    file.lock().ok()?;
+    Some(file)
+}
+
+/// The cached reading, if it was taken less than `FRESH_MS` before `now_ms`.
+/// The cache holds `<unix ms> <percent>`.
+fn fresh(cache: &str, now_ms: u128) -> Option<u8> {
+    let (at, pct) = cache.trim().split_once(' ')?;
+    let age = now_ms.checked_sub(at.parse().ok()?)?;
+    if age >= FRESH_MS {
+        return None;
     }
-    unsafe { IOObjectRelease(iter) };
+    pct.parse().ok()
+}
 
-    let pct = best.ok_or("no accelerator reported Device Utilization %")?;
-    Ok(pct.clamp(0, 100) as u8)
+/// Busiest accelerator.
+fn read_registry() -> Res<u8> {
+    iokit::services("IOAccelerator")?
+        .filter_map(|gpu| gpu.int_in("PerformanceStatistics", "Device Utilization %"))
+        .max()
+        .map(|pct| pct.clamp(0, 100) as u8)
+        .ok_or_else(|| "no IOAccelerator reports Device Utilization %".into())
 }
 
 #[cfg(test)]
@@ -139,17 +74,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_mac_has_an_accelerator_that_answers() {
-        let pct = busy_percent().expect("busy_percent");
-        assert!(pct <= 100, "got {pct}");
+    fn a_reading_is_reused_for_under_a_second() {
+        assert_eq!(fresh("1000 42", 1000), Some(42));
+        assert_eq!(fresh("1000 42", 1999), Some(42));
+        assert_eq!(fresh("1000 42", 2000), None);
     }
 
-    /// Reading the registry repeatedly must not leak or fault, since this runs
-    /// on every status refresh for the life of the session.
     #[test]
-    fn repeated_reads_stay_healthy() {
-        for _ in 0..50 {
-            assert!(busy_percent().is_ok());
-        }
+    fn an_empty_garbled_or_future_cache_is_not_fresh() {
+        assert_eq!(fresh("", 1000), None);
+        assert_eq!(fresh("garbage", 1000), None);
+        assert_eq!(fresh("1000 lots", 1000), None);
+        assert_eq!(fresh("5000 42", 1000), None);
     }
 }

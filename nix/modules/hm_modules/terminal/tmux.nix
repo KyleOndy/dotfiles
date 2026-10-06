@@ -267,9 +267,10 @@ in
         #   healthy machine. Same collapse-on-failure contract as system-temp.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-mem)"
         # gpu utilization.
-        #   Answers whether the model server is working or wedged. Reads
-        #   IOAccelerator on darwin and amdgpu's sysfs on linux, and exits 1
-        #   where neither answers, so cogsworth never shows this at all.
+        #   Answers whether the model server is working or wedged, and on tiger
+        #   whether Jellyfin is transcoding. Reads IOAccelerator on darwin and
+        #   i915 RC6 residency on linux, which bounds busy from above. Orange
+        #   at 60%, red at 90%.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-gpu)"
         # one minute load average.
         #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on

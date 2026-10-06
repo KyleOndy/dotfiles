@@ -1,35 +1,78 @@
-//! GPU utilization from sysfs.
+//! GPU utilization on Intel i915, from RC6 residency.
 //!
-//! amdgpu publishes `gpu_busy_percent` per card and that is the whole job.
-//! i915 has no equivalent, and nvidia needs nvidia-smi, which costs more than
-//! the rest of the status bar put together. Both of those report nothing and
-//! the segment collapses, which is the right answer for a headless box anyway.
+//! i915 publishes no utilization figure, and its engine-busy counters are a
+//! perf PMU that `perf_event_paranoid=2` closes to an unprivileged user.
+//! `rc6_residency_ms` is world-readable: the milliseconds a GT has spent in
+//! its idle power state. The share of a short window spent outside RC6 is the
+//! share the GT was awake, which bounds busy from above and climbs with
+//! transcoding.
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
-type Res<T> = Result<T, Box<dyn std::error::Error>>;
+use tmux_status::Res;
 
-fn read_percent(path: &Path) -> Option<u8> {
-    let raw = std::fs::read_to_string(path).ok()?;
-    let pct: u16 = raw.trim().parse().ok()?;
-    (pct <= 100).then_some(pct as u8)
+/// Long enough for the millisecond counter to resolve under half a percent,
+/// short enough for a status job.
+const WINDOW: Duration = Duration::from_millis(250);
+
+pub fn busy_percent() -> Res<u8> {
+    busy_in(Path::new("/sys/class/drm"))
 }
 
-/// Busiest card, as a percentage.
-pub fn busy_percent() -> Res<u8> {
-    let mut best: Option<u8> = None;
+fn busy_in(drm: &Path) -> Res<u8> {
+    let before = residencies(drm);
+    if before.is_empty() {
+        return Err(format!("no GT under {} exposes rc6_residency_ms", drm.display()).into());
+    }
+    let start = Instant::now();
+    std::thread::sleep(WINDOW);
+    let after = residencies(drm);
+    let elapsed_ms = start.elapsed().as_millis() as u64;
 
-    // /sys/class/drm holds connectors and render nodes alongside the cards, so
-    // rather than pattern match the names just try the path on each and let
-    // the misses fall through.
-    for entry in std::fs::read_dir("/sys/class/drm")?.flatten() {
-        let path = entry.path().join("device/gpu_busy_percent");
-        if let Some(pct) = read_percent(&path) {
-            best = Some(best.map_or(pct, |b: u8| b.max(pct)));
+    before
+        .iter()
+        .filter_map(|(gt, idle_before)| Some(awake(*idle_before, *after.get(gt)?, elapsed_ms)))
+        .max()
+        .ok_or_else(|| "every GT vanished during the sample".into())
+}
+
+/// RC6 residency in ms for every GT with RC6 enabled. A GT with RC6 off never
+/// accrues residency and would read as permanently busy.
+fn residencies(drm: &Path) -> BTreeMap<PathBuf, u64> {
+    let mut out = BTreeMap::new();
+    let Ok(cards) = fs::read_dir(drm) else {
+        return out;
+    };
+    // Connectors and render nodes have no gt directory and fall through.
+    for card in cards.flatten() {
+        let Ok(gts) = fs::read_dir(card.path().join("gt")) else {
+            continue;
+        };
+        for gt in gts.flatten() {
+            let dir = gt.path();
+            if read_u64(&dir.join("rc6_enable")) == Some(0) {
+                continue;
+            }
+            if let Some(ms) = read_u64(&dir.join("rc6_residency_ms")) {
+                out.insert(dir, ms);
+            }
         }
     }
+    out
+}
 
-    best.ok_or_else(|| "no drm device exposes gpu_busy_percent".into())
+fn read_u64(path: &Path) -> Option<u64> {
+    fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+/// Percent of `elapsed_ms` not spent in RC6, rounded.
+fn awake(idle_before_ms: u64, idle_after_ms: u64, elapsed_ms: u64) -> u8 {
+    let elapsed = elapsed_ms.max(1);
+    let idle = idle_after_ms.saturating_sub(idle_before_ms).min(elapsed);
+    (100 - (idle * 100 + elapsed / 2) / elapsed) as u8
 }
 
 #[cfg(test)]
@@ -37,28 +80,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_a_percentage_and_rejects_nonsense() {
-        let dir = std::env::temp_dir().join("system-gpu-test");
-        std::fs::create_dir_all(&dir).unwrap();
+    fn awake_is_the_share_of_the_window_outside_rc6() {
+        assert_eq!(awake(1000, 1250, 250), 0);
+        assert_eq!(awake(1000, 1000, 250), 100);
+        assert_eq!(awake(1000, 1195, 250), 22);
+        // The counter can run a tick ahead of the clock.
+        assert_eq!(awake(1000, 1260, 250), 0);
+        // A counter that went backwards counts as no idle time.
+        assert_eq!(awake(1000, 900, 250), 100);
+    }
 
-        let good = dir.join("good");
-        std::fs::write(&good, "42\n").unwrap();
-        assert_eq!(read_percent(&good), Some(42));
+    #[test]
+    fn reads_every_gt_with_rc6_on_and_skips_the_rest() {
+        let drm = std::env::temp_dir().join(format!("system-gpu-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&drm);
+        let gt = |card: &str, gt: &str, enable: &str, ms: &str| {
+            let dir = drm.join(card).join("gt").join(gt);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join("rc6_enable"), format!("{enable}\n")).unwrap();
+            fs::write(dir.join("rc6_residency_ms"), format!("{ms}\n")).unwrap();
+        };
+        gt("card1", "gt0", "1", "5000");
+        gt("card2", "gt0", "0", "0");
+        fs::create_dir_all(drm.join("card1-DP-1")).unwrap();
+        fs::create_dir_all(drm.join("renderD128")).unwrap();
 
-        // amdgpu has been seen to report a bare 0 with no newline.
-        let bare = dir.join("bare");
-        std::fs::write(&bare, "0").unwrap();
-        assert_eq!(read_percent(&bare), Some(0));
+        let found = residencies(&drm);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found.values().next(), Some(&5000));
 
-        let silly = dir.join("silly");
-        std::fs::write(&silly, "9999\n").unwrap();
-        assert_eq!(read_percent(&silly), None);
-
-        let words = dir.join("words");
-        std::fs::write(&words, "N/A\n").unwrap();
-        assert_eq!(read_percent(&words), None);
-
-        assert_eq!(read_percent(&dir.join("absent")), None);
-        std::fs::remove_dir_all(&dir).ok();
+        assert!(busy_in(&drm.join("absent")).is_err());
+        fs::remove_dir_all(&drm).ok();
     }
 }
