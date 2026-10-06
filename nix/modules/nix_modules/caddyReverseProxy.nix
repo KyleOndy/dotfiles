@@ -45,8 +45,9 @@ let
   # amount of group membership can get around.
   # Caddy redacts Cookie and Authorization on its own, but nothing else. The
   # *arr APIs and immich authenticate with X-Api-Key and with an apikey query
-  # parameter, both of which would otherwise reach Loki in clear text and sit
-  # there for the full 400 day retention.
+  # parameter, and Jellyfin clients send ?ApiKey=. Caddy matches parameter
+  # names case-sensitively, so each spelling needs its own line. All of these
+  # would otherwise reach Loki in clear text for the full 400 day retention.
   accessLogFormat = hostName: ''
     output file ${config.services.caddy.logDir}/access-${
       replaceStrings [ "/" " " ] [ "_" "_" ] hostName
@@ -59,6 +60,7 @@ let
         request>headers>X-Api-Key delete
         request>uri query {
           replace apikey REDACTED
+          replace ApiKey REDACTED
           replace api_key REDACTED
           replace token REDACTED
           replace password REDACTED
