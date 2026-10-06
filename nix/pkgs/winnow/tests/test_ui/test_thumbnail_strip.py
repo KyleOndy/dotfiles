@@ -278,7 +278,10 @@ def test_zoom_updates_thumbnail_cache(qapp, qtbot, test_images):
 
     # Wait for the background regeneration at the new size to land.
     qtbot.waitUntil(
-        lambda: session.thumbnails[test_images[0]].height() != initial_height,
+        lambda: (
+            test_images[0] in session.thumbnails
+            and session.thumbnails[test_images[0]].height() != initial_height
+        ),
         timeout=2000,
     )
 
@@ -379,6 +382,26 @@ def test_zoom_performance_200_thumbnails(
 
     # Verify thumbnailer size was updated
     assert thumbnailer.size == 300
+
+
+def test_hidden_thumbnail_keeps_its_widget(qapp, test_images):
+    """Filtering hides a photo's widget rather than rebuilding the strip."""
+    session = Session(directory=test_images[0].parent, images=test_images)
+    strip = ThumbnailStrip(session, Thumbnailer())
+    widget = strip.thumbnail_widgets[0]
+
+    session.set_status(test_images[0], PhotoStatus.DELETE)
+    strip.on_photo_status_changed(test_images[0])
+
+    assert widget.isHidden()
+    assert widget not in strip.thumbnail_widgets
+    assert strip.thumbnail_widgets[0].path == test_images[1]
+
+    session.set_status(test_images[0], PhotoStatus.UNMARKED)
+    strip.on_photo_status_changed(test_images[0])
+
+    assert not widget.isHidden()
+    assert strip.thumbnail_widgets[0] is widget
 
 
 def test_selection_indicator_counts_the_filtered_strip(qapp, test_images):

@@ -187,6 +187,11 @@ class ThumbnailStrip(QWidget):
 
         self.session = session
         self.thumbnailer = thumbnailer
+        # Every photo's widget, created once. Filtering hides and shows
+        # these rather than rebuilding them, so marking a photo (which can
+        # hide it) costs one visibility pass, not a strip rebuild.
+        self._widgets: dict[Path, ThumbnailWidget] = {}
+        # The visible widgets, in strip order.
         self.thumbnail_widgets: list[ThumbnailWidget] = []
         self.last_clicked_path: Path | None = None
 
@@ -269,10 +274,7 @@ class ThumbnailStrip(QWidget):
         # changed - update_appearance() rebuilds a QGraphicsDropShadowEffect
         # per call, so doing this for every thumbnail in the directory on
         # every click doesn't scale with directory size.
-        changed_paths = previously_selected ^ set(self.session.selected)
-        for widget in self.thumbnail_widgets:
-            if widget.path in changed_paths:
-                widget.update_appearance()
+        self._restyle(previously_selected ^ set(self.session.selected))
 
         # Update selection indicator
         self._update_selection_indicator()
@@ -307,10 +309,7 @@ class ThumbnailStrip(QWidget):
 
         # Only restyle thumbnails whose selection membership actually
         # changed - see handle_thumbnail_click for why this matters.
-        changed_paths = previously_selected ^ set(paths)
-        for widget in self.thumbnail_widgets:
-            if widget.path in changed_paths:
-                widget.update_appearance()
+        self._restyle(previously_selected ^ set(paths))
 
         # Update selection indicator
         self._update_selection_indicator()
@@ -325,12 +324,20 @@ class ThumbnailStrip(QWidget):
         Args:
             path: Path to the thumbnail to scroll to.
         """
-        # Find the thumbnail widget for this path
-        for widget in self.thumbnail_widgets:
-            if widget.path == path:
-                # Ensure the widget is visible in the scroll area
-                self.scroll_area.ensureWidgetVisible(widget)
-                break
+        widget = self._widgets.get(path)
+        if widget is not None and not widget.isHidden():
+            self.scroll_area.ensureWidgetVisible(widget)
+
+    def _restyle(self, paths: set[Path]) -> None:
+        """Refresh the border of each path's widget, visible or not.
+
+        Args:
+            paths: Photos whose selection or status changed.
+        """
+        for path in paths:
+            widget = self._widgets.get(path)
+            if widget is not None:
+                widget.update_appearance()
 
     def _create_control_bar(self) -> QWidget:
         """Create the control bar with filter buttons and zoom slider.
@@ -447,22 +454,37 @@ class ThumbnailStrip(QWidget):
         # background decode completes.
         for image_path in self.session.images:
             thumbnail_widget = self._create_thumbnail_widget_async(image_path)
-            self.thumbnail_widgets.append(thumbnail_widget)
+            self._widgets[image_path] = thumbnail_widget
             self.container_layout.addWidget(thumbnail_widget)
 
         # Add stretch to prevent thumbnails from spreading out
         self.container_layout.addStretch()
 
+        self._apply_filter()
+
         scroll_area.setWidget(container)
         return scroll_area
+
+    def _apply_filter(self) -> list[Path]:
+        """Show exactly the widgets the current filters let through.
+
+        Returns:
+            The filtered paths, in strip order.
+        """
+        filtered = self.session.filtered_images()
+        visible = set(filtered)
+        for path, widget in self._widgets.items():
+            widget.setHidden(path not in visible)
+        self.thumbnail_widgets = [self._widgets[p] for p in filtered]
+        return filtered
 
     def _create_thumbnail_widget_async(self, path: Path) -> ThumbnailWidget:
         """Create a thumbnail widget for path, decoding in the background if needed.
 
         Reuses an already-cached thumbnail immediately if session.thumbnails
-        has one (e.g. re-displaying after a filter toggle). Otherwise shows a
-        placeholder and queues a background decode - _on_thumbnail_ready
-        swaps in the real thumbnail once it completes.
+        has one. Otherwise shows a placeholder and queues a background
+        decode - _on_thumbnail_ready swaps in the real thumbnail once it
+        completes.
 
         Args:
             path: Path to the image file to thumbnail.
@@ -501,10 +523,9 @@ class ThumbnailStrip(QWidget):
             pixmap: The decoded thumbnail (or a blank placeholder on failure).
         """
         self.session.thumbnails[path] = pixmap
-        for widget in self.thumbnail_widgets:
-            if widget.path == path:
-                widget.regenerate_thumbnail(pixmap)
-                break
+        widget = self._widgets.get(path)
+        if widget is not None:
+            widget.regenerate_thumbnail(pixmap)
 
     def _update_strip_height(self) -> None:
         """Update thumbnail strip height based on current thumbnail size.
@@ -564,64 +585,28 @@ class ThumbnailStrip(QWidget):
     def on_zoom_changed(self) -> None:
         """Handle zoom slider changes by regenerating thumbnails at new size.
 
-        Updates thumbnailer size and asynchronously regenerates all visible
-        thumbnails at the new dimensions. Every widget shows a correctly-sized
-        placeholder immediately (so the layout updates right away without
-        blocking) and swaps in the real thumbnail as its background decode
-        completes - see _on_thumbnail_ready.
-
-        Uses in-place widget updates when possible, falling back to widget
-        recreation only when filter state has changed since the last display.
+        Every widget, hidden ones included, shows a correctly-sized
+        placeholder immediately and swaps in the real thumbnail as its
+        background decode completes (see _on_thumbnail_ready). Visible
+        photos are queued first. session.thumbnails is cleared so nothing
+        later reuses a thumbnail at the old size.
 
         Called when slider is released (not during drag).
         """
-        # Get new size from slider
         value = self.zoom_slider.value()
-
-        # Update thumbnailer size
         self.thumbnailer.set_size(value)
+        self.session.thumbnails.clear()
 
-        # Get currently visible images based on filters
-        visible_images = self.session.filtered_images()
+        placeholder = self._make_placeholder_pixmap(value)
+        for widget in self._widgets.values():
+            widget.regenerate_thumbnail(placeholder)
 
-        # Check if visible images match current widgets
-        current_paths = [w.path for w in self.thumbnail_widgets]
+        visible = [w.path for w in self.thumbnail_widgets]
+        hidden = self._widgets.keys() - set(visible)
+        for path in visible + [p for p in self.session.images if p in hidden]:
+            self.thumbnailer.queue_thumbnail(path)
 
-        if current_paths == visible_images:
-            # Optimized path: update widgets in place. Every cached thumbnail
-            # is now stale (wrong size), so all of them get a placeholder and
-            # a fresh background decode rather than reusing session.thumbnails.
-            for widget in self.thumbnail_widgets:
-                placeholder = self._make_placeholder_pixmap(value)
-                widget.regenerate_thumbnail(placeholder)
-                self.thumbnailer.queue_thumbnail(widget.path)
-        else:
-            # Filters changed - need to recreate widgets
-            # Clear existing thumbnail widgets from layout
-            while self.container_layout.count():
-                item = self.container_layout.takeAt(0)
-                if item.widget():
-                    item.widget().deleteLater()
-
-            self.thumbnail_widgets.clear()
-
-            # Create widgets at the new size, decoding in the background
-            for image_path in visible_images:
-                placeholder = self._make_placeholder_pixmap(value)
-                thumbnail_widget = ThumbnailWidget(
-                    placeholder, image_path, self.session, self
-                )
-                self.thumbnail_widgets.append(thumbnail_widget)
-                self.container_layout.addWidget(thumbnail_widget)
-                self.thumbnailer.queue_thumbnail(image_path)
-
-            # Add stretch
-            self.container_layout.addStretch()
-
-        # Maintain selection indicator
         self._update_selection_indicator()
-
-        # Update strip height to match new thumbnail size
         self._update_strip_height()
 
     def refresh_thumbnail_border(self, path: Path) -> None:
@@ -633,33 +618,23 @@ class ThumbnailStrip(QWidget):
         Args:
             path: Path to the photo whose thumbnail border should be refreshed.
         """
-        for widget in self.thumbnail_widgets:
-            if widget.path == path:
-                widget.update_appearance()
-                break
+        self._restyle({path})
 
     def on_photo_status_changed(self, path: Path) -> None:
         """Handle photo status changes, refreshing display if filtering is affected.
 
-        When a photo's status changes, check if it should now be hidden or shown
-        based on current filter settings. If so, refresh the entire display.
-        Otherwise, just update the thumbnail border.
+        Updates the thumbnail border, and re-applies the filters when the
+        new status hides or reveals the photo.
 
         Args:
             path: Path to the photo whose status changed.
         """
-        # Check if photo is currently visible
-        was_visible = path in [w.path for w in self.thumbnail_widgets]
-
-        # Check if photo should be visible with current filters
-        should_be_visible = path in self.session.filtered_images()
-
-        # If visibility changed, refresh entire display
-        if was_visible != should_be_visible:
+        self.refresh_thumbnail_border(path)
+        widget = self._widgets.get(path)
+        if widget is None:
+            return
+        if widget.isHidden() == (path in self.session.filtered_images()):
             self.refresh_thumbnails()
-        else:
-            # Just update the border color
-            self.refresh_thumbnail_border(path)
 
     def navigate(self, direction: int) -> None:
         """Navigate to the adjacent image in the filtered list.
@@ -693,38 +668,19 @@ class ThumbnailStrip(QWidget):
     def refresh_thumbnails(self) -> None:
         """Refresh thumbnail display based on current filter settings.
 
-        Clears existing thumbnail widgets and recreates only those matching
-        the current filter criteria. Preserves selection state for photos
-        that remain visible after filtering, and notifies listeners via
+        Shows the widgets matching the current filter criteria and hides
+        the rest. Preserves selection state for photos that remain visible
+        after filtering, and notifies listeners via
         selection_changed if the filter hid a currently-displayed photo -
         otherwise the viewing area would keep showing a photo that just
         disappeared from the thumbnail strip.
         """
-        # Get filtered images
-        filtered = self.session.filtered_images()
+        visible = set(self._apply_filter())
 
         # Preserve selection only for still-visible images
         previous_selection = list(self.session.selected)
-        self.session.selected = [p for p in self.session.selected if p in filtered]
-
-        # Clear all widgets from layout
-        while self.container_layout.count():
-            item = self.container_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-
-        # Clear widget tracking list
-        self.thumbnail_widgets.clear()
-
-        # Recreate thumbnails for filtered images, decoding in the background
-        # if not already cached
-        for image_path in filtered:
-            thumbnail_widget = self._create_thumbnail_widget_async(image_path)
-            self.thumbnail_widgets.append(thumbnail_widget)
-            self.container_layout.addWidget(thumbnail_widget)
-
-        # Add stretch to push thumbnails to the left
-        self.container_layout.addStretch()
+        self.session.selected = [p for p in self.session.selected if p in visible]
+        self._restyle(set(previous_selection) - visible)
 
         # Update selection indicator
         self._update_selection_indicator()
