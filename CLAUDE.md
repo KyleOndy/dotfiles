@@ -45,8 +45,10 @@ it.
 
 ## Secrets
 
-sops file: `nix/secrets/secrets.yaml`. The berkeley-mono and pragmata-pro
-fonts and the `tf/` state are git-crypt encrypted. The key lives per worktree
+sops files: `nix/secrets/<host>.yaml` per host, plus `shared-<hosts>.yaml`
+for a secret several hosts need, so no host can decrypt another's.
+`.sops.yaml` holds the recipients. The berkeley-mono and pragmata-pro fonts
+and the `tf/` state are git-crypt encrypted. The key lives per worktree
 (`.bare/worktrees/<name>/git-crypt/keys/`) and the filter is marked required,
 so every `git worktree add` fails until the key is copied into the new
 worktree's git dir.

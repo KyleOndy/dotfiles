@@ -74,7 +74,8 @@ The Makefile turns that into `--override-input work-config path:$WORK_CONFIG`.
 
 ## Secrets
 
-sops-nix, keyed to age. Encrypted values live in `nix/secrets/secrets.yaml`;
+sops-nix, keyed to age. Each host's values live in `nix/secrets/<host>.yaml`,
+and ones several hosts need in `nix/secrets/shared-<hosts>.yaml`;
 the berkeley-mono and pragmata-pro fonts under `nix/pkgs/` are git-crypt
 encrypted separately. A clone without the key still evaluates, but cannot
 build any host with `hmFoundry.dev.enable`, which installs the fonts.

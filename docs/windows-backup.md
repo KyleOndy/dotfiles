@@ -66,7 +66,7 @@ If that fails, stop. Nothing else here matters until it passes.
 Get the password out of sops on a machine that has the key:
 
 ```bash
-sops -d --extract '["smb_kristen_password"]' nix/secrets/secrets.yaml
+sops -d --extract '["smb_kristen_password"]' nix/secrets/tiger.yaml
 ```
 
 Then on the PC, logged in as the account the scheduled task will run as:

@@ -530,8 +530,8 @@ when the geometry needs no custom feature:
 Onshape API keys aren't in sops yet. Today's session used a key dropped in
 a permission-restricted scratch file and shredded after use — fine for a
 one-off, not a pattern to repeat. Follow-up: add `onshape_api_key` /
-`onshape_api_secret` to `nix/secrets/secrets.yaml`, alongside the repo's
-other sops-managed secrets. Not done here; flagging it so it doesn't get
+`onshape_api_secret` to the sops file of the host that uses them
+(`nix/secrets/<host>.yaml`). Not done here; flagging it so it doesn't get
 forgotten.
 
 Still not done as of the second session, which used a world-readable key in
