@@ -12,6 +12,11 @@ Background worker threads decode images into QImage, which is safe to build
 and manipulate off the GUI thread. QPixmap conversion always happens on the
 main thread via a queued signal, since Qt does not support creating or
 scaling QPixmap outside the GUI thread.
+
+Displayed photos decode ahead of prefetch neighbors (ACTIVE_PRIORITY), and a
+queued decode whose path is no longer wanted by the time a worker picks it
+up is skipped, so a jump across the directory never waits behind the old
+position's neighbors.
 """
 
 from collections import OrderedDict
@@ -20,6 +25,9 @@ from pathlib import Path
 from PIL import Image, ImageOps
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from PySide6.QtGui import QImage, QPixmap
+
+# QThreadPool runs higher-priority runnables first; prefetch uses 0.
+ACTIVE_PRIORITY = 1
 
 
 class ImageLoadTask(QRunnable):
@@ -43,7 +51,15 @@ class ImageLoadTask(QRunnable):
         Only builds a QImage here - QPixmap must not be created or scaled
         outside the GUI thread, so the QPixmap conversion happens in the
         main-thread handler (_on_image_loaded) instead.
+
+        Skips the decode when the path is already cached (a duplicate
+        request raised its priority) or no longer wanted (the user moved
+        on while this sat in the queue). The membership checks read
+        main-thread state; each is a single atomic operation under the GIL.
         """
+        if self.path in self.cache._cache or self.path not in self.cache._wanted:
+            self.cache._image_skipped.emit(self.path)
+            return
         try:
             qimage = self._load_qimage()
             self.cache._image_loaded.emit(self.path, qimage, True)
@@ -72,6 +88,7 @@ class ImageLoadTask(QRunnable):
             qimage = QImage(
                 data, img.width, img.height, img.width * 3, QImage.Format.Format_RGB888
             )
+            display_format = QImage.Format.Format_RGB32
         else:  # RGBA
             data = img.tobytes("raw", "RGBA")
             qimage = QImage(
@@ -81,10 +98,13 @@ class ImageLoadTask(QRunnable):
                 img.width * 4,
                 QImage.Format.Format_RGBA8888,
             )
+            display_format = QImage.Format.Format_ARGB32_Premultiplied
 
-        # Copy so the QImage owns its buffer once `data` (and `img`) go out
-        # of scope at the end of this worker call.
-        return qimage.copy()
+        # Convert to the raster paint engine's native format here, off the
+        # GUI thread: QPixmap.fromImage on that format is a cheap copy, while
+        # on RGB888 it costs ~13ms per 40MP photo on the main thread. The
+        # converted QImage also owns its buffer once `data` goes out of scope.
+        return qimage.convertToFormat(display_format)
 
 
 class ImageCache(QObject):
@@ -108,6 +128,9 @@ class ImageCache(QObject):
     # Internal signal used to marshal background thread callbacks to the main
     # thread. (path, qimage, success)
     _image_loaded = Signal(object, object, bool)
+
+    # A queued decode was skipped as stale or redundant. (path)
+    _image_skipped = Signal(object)
 
     def __init__(
         self,
@@ -143,12 +166,21 @@ class ImageCache(QObject):
         # Protected from eviction regardless of recency.
         self._active_images: set[Path] = set()
 
-        # Paths with a background decode currently queued or running.
-        self._inflight: set[Path] = set()
+        # Paths a queued decode should still run for: the active set, its
+        # prefetch neighbors, and anything request()ed since. Replaced, never
+        # mutated, because worker threads read it.
+        self._wanted: frozenset[Path] = frozenset()
+
+        # Paths with a background decode queued or running, mapped to the
+        # highest priority one was started at.
+        self._inflight: dict[Path, int] = {}
 
         # Marshal background thread callbacks to the main thread.
         self._image_loaded.connect(
             self._on_image_loaded, Qt.ConnectionType.QueuedConnection
+        )
+        self._image_skipped.connect(
+            self._on_image_skipped, Qt.ConnectionType.QueuedConnection
         )
 
     def get(self, path: Path) -> QPixmap | None:
@@ -209,7 +241,7 @@ class ImageCache(QObject):
         )
         return total_bytes / (1024 * 1024)
 
-    def request(self, path: Path) -> None:
+    def request(self, path: Path, priority: int = ACTIVE_PRIORITY) -> None:
         """Queue a background decode for path unless already cached or in flight.
 
         The single choke point for starting an ImageLoadTask. Both
@@ -217,19 +249,21 @@ class ImageCache(QObject):
         neighbors) and ImageWidget (defensively, on its own cache miss) call
         this for the same paths in the common case, so a path the other
         caller already covered is a safe no-op rather than a duplicate
-        decode.
+        decode. A path in flight at a lower priority gets a second task at
+        the higher one; whichever runs second finds it cached and skips.
 
         Args:
             path: Path to the image file to decode in the background.
+            priority: ACTIVE_PRIORITY for a displayed photo, 0 for prefetch.
         """
         if path in self._cache:
             self._cache.move_to_end(path)  # LRU hit - bump recency
             return
-        if path in self._inflight:
+        self._wanted = self._wanted | {path}
+        if self._inflight.get(path, -1) >= priority:
             return
-        self._inflight.add(path)
-        task = ImageLoadTask(path, self)
-        self.thread_pool.start(task)
+        self._inflight[path] = priority
+        self.thread_pool.start(ImageLoadTask(path, self), priority)
 
     def set_active_images(
         self, active: set[Path], prefetch: set[Path] = frozenset()
@@ -249,8 +283,21 @@ class ImageCache(QObject):
                 comparison mode, where there's no obvious "next" image.
         """
         self._active_images = set(active)
-        for path in self._active_images | set(prefetch):
+        self._wanted = frozenset(self._active_images | set(prefetch))
+        for path in self._active_images:
             self.request(path)
+        for path in set(prefetch) - self._active_images:
+            self.request(path, priority=0)
+
+    def shutdown(self) -> None:
+        """Drop queued decodes and block until the running ones finish.
+
+        Call before tearing down the cache so no worker thread emits into a
+        partially-destroyed object.
+        """
+        self._wanted = frozenset()
+        self.thread_pool.clear()
+        self.thread_pool.waitForDone()
 
     def _evict_lru_if_over_budget(self) -> None:
         """Evict least-recently-used, non-active entries while over budget.
@@ -283,7 +330,7 @@ class ImageCache(QObject):
             qimage: Decoded QImage, or None if loading failed.
             success: Whether the load succeeded.
         """
-        self._inflight.discard(path)
+        self._inflight.pop(path, None)
 
         if success and qimage is not None:
             self._cache[path] = QPixmap.fromImage(qimage)
@@ -292,3 +339,18 @@ class ImageCache(QObject):
             self.image_ready.emit(path)
         else:
             self.load_failed.emit(path)
+
+    def _on_image_skipped(self, path: Path) -> None:
+        """Clear the in-flight marker for a skipped decode (main thread).
+
+        A worker can skip a path just before the main thread wants it
+        again; that request() saw the path in flight and queued nothing,
+        so re-request it here or the photo would never decode.
+
+        Args:
+            path: Path whose queued decode was skipped.
+        """
+        self._inflight.pop(path, None)
+        if path in self._wanted and path not in self._cache:
+            priority = ACTIVE_PRIORITY if path in self._active_images else 0
+            self.request(path, priority)

@@ -59,11 +59,10 @@ def test_is_active_reflects_active_set(qapp, qtbot, portrait_image, landscape_im
     assert not cache.is_active(portrait_image)
     assert cache.is_active(landscape_image)
 
-    # Both calls queued a real background decode for their active path
-    # (neither was cached yet) - drain both before returning.
+    # Both calls queued a real background decode; the first may be
+    # skipped as stale. Drain both before returning.
     qtbot.waitUntil(
-        lambda: cache.get(portrait_image) is not None
-        and cache.get(landscape_image) is not None,
+        lambda: not cache._inflight and cache.get(landscape_image) is not None,
         timeout=2000,
     )
 
@@ -273,3 +272,22 @@ def test_rapid_selection_changes_do_not_raise(
     assert (
         not errors
     ), f"background load errors during rapid selection changes: {errors}"
+
+
+def test_stale_prefetch_is_skipped(
+    qapp, qtbot, portrait_image, landscape_image, square_image, tmp_path
+):
+    """Prefetches still queued when the selection moves on never decode."""
+    cache = ImageCache(max_threads=1)
+    other = tmp_path / "other.jpg"
+    other.write_bytes(square_image.read_bytes())
+
+    # One worker: the active photo runs first, both prefetches wait.
+    cache.set_active_images({portrait_image}, prefetch={landscape_image, square_image})
+    cache.set_active_images({other})
+
+    qtbot.waitUntil(
+        lambda: not cache._inflight and cache.get(other) is not None, timeout=2000
+    )
+    assert cache.get(landscape_image) is None
+    assert cache.get(square_image) is None
