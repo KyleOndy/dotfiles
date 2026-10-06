@@ -67,7 +67,12 @@ in
         };
         scrape_configs = cfg.scrapeConfigs;
       };
-      extraArgs = optionals (cfg.basicAuth != null) [
+      # The write API has no auth and relays under this host's remote-write
+      # credential, and the only scrape of vmagent's own metrics is local.
+      extraArgs = [
+        "-httpListenAddr=127.0.0.1:8429"
+      ]
+      ++ optionals (cfg.basicAuth != null) [
         "-remoteWrite.basicAuth.username=${cfg.basicAuth.username}"
         "-remoteWrite.basicAuth.passwordFile=${toString cfg.basicAuth.passwordFile}"
       ];
