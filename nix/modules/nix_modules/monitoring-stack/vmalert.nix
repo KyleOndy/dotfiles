@@ -421,6 +421,60 @@ in
                 summary: "NVMe endurance exceeded on {{ $labels.host }}:{{ $labels.device }}"
                 description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} has Percentage Used >= 100% (warranty endurance exhausted). Drive is still healthy while Available Spare > threshold."
 
+            # Any non-zero count fires: the overall SMART verdict above flips
+            # only once a drive is already failing, and these are the leading
+            # indicators. Same-batch drives in a single-parity pool are why
+            # the bar is zero rather than a tolerance.
+            - alert: SmartDriveSectorsFailing
+              expr: smartctl_ata_attribute_raw{attribute_id=~"5|187|197|198"} > 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "REPLACE NOW: {{ $labels.host }}:{{ $labels.device }} {{ $labels.attribute_name }} = {{ $value }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} reports {{ $labels.attribute_name }} = {{ $value }}. This drive is failing and must be replaced now, not watched: drives with any non-zero reallocated, pending or uncorrectable count fail at many times the normal rate. Order a replacement today. Fit it in a free port and run `zpool replace <pool> <this-disk> <new-disk>` while this drive is still attached, so the pool keeps its redundancy during the resilver. Run: smartctl -a /dev/{{ $labels.device }}"
+
+            - alert: SmartSelfTestFailed
+              expr: smartctl_selftest_log_has_errors == 1
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "REPLACE NOW: SMART self-test failed on {{ $labels.host }}:{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} failed a SMART self-test: it could not read part of its own surface. This drive must be replaced now. Order a replacement today and `zpool replace` it while this drive is still attached. Run: smartctl -l selftest /dev/{{ $labels.device }}"
+
+            - alert: SmartLinkCrcErrorsIncreasing
+              expr: increase(smartctl_ata_attribute_raw{attribute_id="199"}[1d]) > 0
+              labels:
+                severity: warning
+              annotations:
+                summary: "SATA link errors on {{ $labels.host }}:{{ $labels.device }}"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} logged {{ $value }} new UDMA CRC errors in 24h. This is the cable, port or backplane, not the platters: reseat or swap the SATA cable before replacing the drive."
+
+            - alert: ZfsVdevErrors
+              expr: zfs_vdev_errors > 0
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "ZFS {{ $labels.type }} errors on {{ $labels.host }}:{{ $labels.pool }}/{{ $labels.vdev }}"
+                description: "ZFS counted {{ $value }} {{ $labels.type }} errors on {{ $labels.vdev }} in pool {{ $labels.pool }} on {{ $labels.host }}. ZFS repaired what it could from parity, but the drive returned bad or no data. Treat this drive as failing: check its SMART attributes, and if they are also non-zero, replace it now. Run: zpool status -v {{ $labels.pool }}"
+
+            # Neither the ATA nor the NVMe branch of smartctl-exporter
+            # produced data for a drive it scanned, so every alert above is
+            # silently blind to it.
+            - alert: SmartAttributesMissing
+              expr: |
+                smartctl_device_smart_healthy
+                unless on(host, device) smartctl_ata_attribute_raw
+                unless on(host, device) smartctl_nvme_critical_warning
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No SMART attributes for {{ $labels.host }}:{{ $labels.device }}"
+                description: "smartctl-exporter reports a health verdict for {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} but no attributes, so the failure-predicting alerts cannot fire for it. Run: smartctl -a /dev/{{ $labels.device }}"
+
         # Resource usage monitoring
         - name: resource_usage
           interval: 30s

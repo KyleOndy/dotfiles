@@ -171,6 +171,10 @@ in
             printf '# TYPE smartctl_nvme_available_spare gauge\n'
             printf '# HELP smartctl_nvme_available_spare_threshold NVMe Available Spare Threshold (percent)\n'
             printf '# TYPE smartctl_nvme_available_spare_threshold gauge\n'
+            printf '# HELP smartctl_ata_attribute_raw ATA SMART attribute raw value, failure-predictive attributes only\n'
+            printf '# TYPE smartctl_ata_attribute_raw gauge\n'
+            printf '# HELP smartctl_selftest_log_has_errors Whether the ATA self-test log holds a failed test (smartctl exit bit 7)\n'
+            printf '# TYPE smartctl_selftest_log_has_errors gauge\n'
             while IFS= read -r device_line; do
               device=$(awk '{print $1}' <<< "$device_line")
               devtype=$(awk '{print $3}' <<< "$device_line")
@@ -186,7 +190,8 @@ in
               else
                 continue
               fi
-              output=$(smartctl -a -d "$devtype" "$device" 2>&1 || true)
+              a_exit=0
+              output=$(smartctl -a -d "$devtype" "$device" 2>&1) || a_exit=$?
               serial=$(awk -F: 'tolower($1) == "serial number" {gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2; exit}' <<< "$output")
               serial=''${serial:-unknown}
               printf 'smartctl_device_smart_healthy{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$status"
@@ -207,6 +212,16 @@ in
                 if [[ -n "$spare_thr" ]]; then
                   printf 'smartctl_nvme_available_spare_threshold{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$spare_thr"
                 fi
+              else
+                # 5, 187, 197 and 198 are the attributes whose non-zero raw
+                # values Backblaze found to predict failure; 199 counts link
+                # CRC errors, which point at the cable or port instead.
+                # Field 10 is the raw value; some firmware appends text after it.
+                awk -v dev="$devname" -v ser="$serial" '
+                  $1 ~ /^(5|187|197|198|199)$/ && $10 ~ /^[0-9]+$/ {
+                    printf "smartctl_ata_attribute_raw{device=\"%s\",serial=\"%s\",attribute_id=\"%s\",attribute_name=\"%s\"} %s\n", dev, ser, $1, $2, $10
+                  }' <<< "$output"
+                printf 'smartctl_selftest_log_has_errors{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$(( (a_exit & 128) != 0 ))"
               fi
             done < <(smartctl --scan)
           } > "$OUTFILE.tmp"
@@ -226,7 +241,7 @@ in
       # the difference between a parser that survives a resilver and one
       # that does not.
       zfs-scrub-exporter = lib.mkIf config.boot.zfs.enabled {
-        description = "Export ZFS scrub age to node_exporter textfile";
+        description = "Export ZFS scrub age and vdev errors to node_exporter textfile";
         serviceConfig = {
           Type = "oneshot";
           User = "root";
@@ -271,6 +286,15 @@ in
                   printf 'zfs_pool_scrub_in_progress{pool="%s"} %d\n' "$pool" "$in_progress"
                   printf 'zfs_pool_creation_timestamp_seconds{pool="%s"} %s\n' "$pool" "$created"
                 done
+            # Counts since the last import or `zpool clear`, so a reboot
+            # resets them.
+            printf '# HELP zfs_vdev_errors Read, write and checksum errors on a leaf vdev\n'
+            printf '# TYPE zfs_vdev_errors gauge\n'
+            zpool status -jp \
+              | jq -r '.pools | to_entries[] | .key as $pool
+                       | .value | .. | objects | select(.vdev_type? == "disk")
+                       | ("read", "write", "checksum") as $kind
+                       | "zfs_vdev_errors{pool=\"\($pool)\",vdev=\"\(.name)\",type=\"\($kind)\"} \(.["\($kind)_errors"] // "0")"'
           } > "$OUTFILE.tmp"
           mv "$OUTFILE.tmp" "$OUTFILE"
         '';
