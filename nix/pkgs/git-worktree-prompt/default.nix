@@ -14,7 +14,7 @@ rustPlatform.buildRustPackage {
     lockFile = ./Cargo.lock;
   };
 
-  nativeBuildInputs = [
+  nativeCheckInputs = [
     git
   ];
 

@@ -6,11 +6,14 @@ invocation because it runs on every prompt.
 
 - **Plain repo**, including a `git worktree add` checkout:
   `<branch-icon> <branch>`.
-- **`.bare` layout**, with `.bare` at most 4 levels up:
+- **`.bare` layout**, any worktree whose common git directory is a `.bare`:
   `<tree-icon> <worktree> → <branch-icon> <branch>`. Just
-  `<tree-icon> <worktree>` when the worktree path with `/` turned into `-`
-  equals the branch, and `<tree-icon> [bare]` at the root beside `.bare`.
+  `<tree-icon> <worktree>` when the worktree path, as is or with `/` turned
+  into `-`, equals the branch, and `<tree-icon> [bare]` at the root beside
+  `.bare`. A clone or submodule nested inside a worktree is a plain repo.
 - **Detached HEAD**: the 7-character hash in place of the branch.
+- **reftable repo**: HEAD holds a fixed stub there, so it asks git, at the
+  cost of one process.
 
 The icons default to a tree and U+2387; `GIT_WORKTREE_PROMPT_WORKTREE_ICON`
 and `GIT_WORKTREE_PROMPT_BRANCH_ICON` override them.
@@ -44,7 +47,8 @@ nix build .#darwinConfigurations.trex.pkgs.git-worktree-prompt  # from the repo 
 
 `cargo build` and `cargo test` work from this directory for quick iteration,
 but may pick a different toolchain than the Nix build, so confirm with
-`nix build` before committing. Tests run as part of the Nix build.
+`nix build` before committing. Tests run as part of the Nix build and need
+`git` 2.45 or later for the reftable case.
 
 Benchmark:
 
@@ -56,11 +60,11 @@ nix-shell -p hyperfine --run \
 ## Debugging
 
 The prompt swallows its own errors so a broken git state cannot break the
-shell. To see them:
+shell. To see one, run it by hand in the directory where the prompt looks
+wrong:
 
 ```bash
 git-worktree-prompt --debug
-cat "${XDG_STATE_HOME:-$HOME/.local/state}/git-worktree-prompt/error.log"
 ```
 
 ## License
