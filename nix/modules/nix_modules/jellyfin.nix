@@ -272,8 +272,8 @@ in
           fd
         ];
         script = ''
-          if [ -d "${stateDir}/transcodes" ]; then
-            fd --type=file --changed-before="${"6 hours"}" . ${stateDir}/transcodes/ -X rm -v --
+          if [ -d "${config.services.jellyfin.cacheDir}/transcodes" ]; then
+            fd --type=file --changed-before="${"6 hours"}" . ${config.services.jellyfin.cacheDir}/transcodes/ -X rm -v --
           fi
         '';
         serviceConfig = {
