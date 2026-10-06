@@ -418,6 +418,17 @@ in
     "video"
   ];
 
+  # nixpkgs has no option for bazarr's auth. Unset, its index page serves the
+  # API key to anyone. auth.password holds the md5 hex, not the password.
+  systemd.services.bazarr.preStart = ''
+    conf=${config.services.bazarr.dataDir}/config/config.yaml
+    if [ -f "$conf" ]; then
+      PW=$(tr -d '\n' < ${config.sops.secrets.bazarr_ui_password.path} | ${pkgs.coreutils}/bin/md5sum | cut -d' ' -f1) \
+        ${pkgs.yq-go}/bin/yq -i \
+        '.auth.type = "form" | .auth.username = "kyle" | .auth.password = strenv(PW) | .general.ip = "127.0.0.1"' "$conf"
+    fi
+  '';
+
   # ---------------------------------------------------------------------------
   # SMB file sharing for LAN clients (trex, the Mac). Two authenticated,
   # read-write shares: /mnt/data (general files) and /mnt/photos (the laptop
@@ -1655,6 +1666,7 @@ in
       mode = "0440";
       group = "exportarr";
     };
+    bazarr_ui_password.owner = "bazarr";
     # PIA account credentials (EnvironmentFile: PIA_USER / PIA_PASS), read by
     # pia-wg-connect.service as root to authenticate the WireGuard + port
     # forwarding API calls.
