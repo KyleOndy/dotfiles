@@ -269,9 +269,9 @@ def test_rapid_selection_changes_do_not_raise(
     for _ in range(20):
         qapp.processEvents()
 
-    assert (
-        not errors
-    ), f"background load errors during rapid selection changes: {errors}"
+    assert not errors, (
+        f"background load errors during rapid selection changes: {errors}"
+    )
 
 
 def test_stale_prefetch_is_skipped(

@@ -1,4 +1,3 @@
-import sys
 import math
 import argparse
 import asyncio
@@ -222,7 +221,7 @@ class Message:
         self.checksum = checksum  # unsigned char
 
     def __str__(self):
-        return f'Signature: {self.signature.decode()}, size: {self.size}, SID: {self.sid.name}, result code: {self.resultCode.name}, data: {self.data.hex(" ", 1)}, checksum: {self.checksum}'
+        return f"Signature: {self.signature.decode()}, size: {self.size}, SID: {self.sid.name}, result code: {self.resultCode.name}, data: {self.data.hex(' ', 1)}, checksum: {self.checksum}"
 
     def get_content(self):
         return (
@@ -274,7 +273,7 @@ class Request:
         self.message = OutboundMessage(sid, data)
 
     def __str__(self):
-        return f'SID: {self.message.sid.name}, data: {self.message.data.hex(" ", 1)}'
+        return f"SID: {self.message.sid.name}, data: {self.message.data.hex(' ', 1)}"
 
 
 class SupportFunctionaAndVersionInfoRequest(Request):
@@ -348,7 +347,7 @@ class Response:
         self.valid = self.validate()
 
     def __str__(self):
-        return f'SID: {self.message.sid.name}, result code: {self.message.resultCode.name}, data: {self.message.data.hex(" ", 1)}'
+        return f"SID: {self.message.sid.name}, result code: {self.message.resultCode.name}, data: {self.message.data.hex(' ', 1)}"
 
     def parse(self, payload):
         signature, size, modeCode, typeCode, resultCode = unpack_from(
@@ -463,9 +462,7 @@ class PrinterFunctionInfo:
             self.printerOperationFlg,
             self.printerErrFlg,
             self.printerOperationInfo,
-        ) = self.setStatusData(
-            statusData
-        )  # unsigned char
+        ) = self.setStatusData(statusData)  # unsigned char
         self.filmRemain, self.batteryRemain, self.chargeFlg = self.setFilmData(
             filmData
         )  # unsigned char
@@ -697,49 +694,49 @@ class InstaxBLEConnection:
                 "00002a29-0000-1000-8000-00805f9b34fb"
             )
             print("Manufacturer Name: %s" % manufacturerName.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Manufacturer Name")
         try:
             modelNumber = await self.client.read_gatt_char(
                 "00002a24-0000-1000-8000-00805f9b34fb"
             )
             print("Model Number: %s" % modelNumber.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Model Number")
         try:
             serialNumber = await self.client.read_gatt_char(
                 "00002a25-0000-1000-8000-00805f9b34fb"
             )
             print("Serial Number: %s" % serialNumber.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Serial Number")
         try:
             hardwareRevision = await self.client.read_gatt_char(
                 "00002a27-0000-1000-8000-00805f9b34fb"
             )
             print("Hardware Revision: %s" % hardwareRevision.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Hardware Revision")
         try:
             firmwareRevision = await self.client.read_gatt_char(
                 "00002a26-0000-1000-8000-00805f9b34fb"
             )
             print("Firmware Revision: %s" % firmwareRevision.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Firmware Revision")
         try:
             softwareRevision = await self.client.read_gatt_char(
                 "00002a28-0000-1000-8000-00805f9b34fb"
             )
             print("Software Revision: %s" % softwareRevision.decode("ascii"))
-        except:
+        except Exception:
             raise Exception("Failed to read Software Revision")
         try:
             systemId = await self.client.read_gatt_char(
                 "00002a23-0000-1000-8000-00805f9b34fb"
             )
             print("System ID: " + "".join("{:02x} ".format(x) for x in systemId))
-        except:
+        except Exception:
             raise Exception("Failed to read System ID")
         try:
             ieee = await self.client.read_gatt_char(
@@ -749,14 +746,14 @@ class InstaxBLEConnection:
                 "IEEE Regulatory Certification: "
                 + "".join("{:02x} ".format(x) for x in ieee)
             )
-        except:
+        except Exception:
             raise Exception("Failed to read IEEE Regulatory Certification")
         try:
             pnpId = await self.client.read_gatt_char(
                 "00002a50-0000-1000-8000-00805f9b34fb"
             )
             print("PnP ID:  " + "".join("{:02x} ".format(x) for x in pnpId))
-        except:
+        except Exception:
             raise Exception("Failed to read PnP ID")
 
     async def send_command(self, payload):
@@ -772,7 +769,7 @@ class InstaxBLEConnection:
             await self.client.write_gatt_char(
                 self.writeCharacteristicUUID, packet, False
             )
-        while self.responseReceived == False:
+        while not self.responseReceived:
             await asyncio.sleep(0.1)
         self.responseReceived = False
         if self.debug:

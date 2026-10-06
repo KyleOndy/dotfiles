@@ -77,9 +77,9 @@ class TestLayoutWithAspectRatios:
         pixmap = widget.image_label.pixmap()
 
         # Image should maintain aspect ratio (portrait is taller than wide)
-        assert (
-            pixmap.height() > pixmap.width()
-        ), "Portrait image should maintain tall aspect ratio"
+        assert pixmap.height() > pixmap.width(), (
+            "Portrait image should maintain tall aspect ratio"
+        )
 
 
 class TestWindowSizing:
@@ -148,6 +148,6 @@ class TestWindowSizing:
         # Overlay should move right (further from left edge)
         # Calculate expected positions for validation
         expected_delta = 400  # Width increased by 400px
-        assert (
-            new_x >= initial_x + expected_delta - 10
-        ), f"Zoom overlay should reposition on resize: {new_x} vs {initial_x}"
+        assert new_x >= initial_x + expected_delta - 10, (
+            f"Zoom overlay should reposition on resize: {new_x} vs {initial_x}"
+        )

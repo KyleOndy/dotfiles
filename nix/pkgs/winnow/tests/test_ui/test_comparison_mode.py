@@ -699,12 +699,12 @@ def test_individual_pan_offset_preserved_when_adding_image(
     # Set different individual pan offsets per widget (simulating Shift+drag)
     portrait_offset = QPoint(50, 30)
     landscape_offset = QPoint(-20, 15)
-    viewing_area.image_widgets[0].individual_pan_offset = (
-        portrait_offset  # portrait_image
-    )
-    viewing_area.image_widgets[1].individual_pan_offset = (
-        landscape_offset  # landscape_image
-    )
+    viewing_area.image_widgets[
+        0
+    ].individual_pan_offset = portrait_offset  # portrait_image
+    viewing_area.image_widgets[
+        1
+    ].individual_pan_offset = landscape_offset  # landscape_image
 
     # Add 3rd image to comparison
     viewing_area.set_images([portrait_image, landscape_image, square_image])

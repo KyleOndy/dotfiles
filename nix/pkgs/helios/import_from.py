@@ -366,7 +366,7 @@ def camera(
     # The return value is an opaque SWIG object that must be kept alive for
     # as long as the callbacks might fire (python-gphoto2 frees them once
     # this is garbage collected), hence the otherwise-unused local.
-    progress_callbacks = gp.gp_context_set_progress_funcs(
+    progress_callbacks = gp.gp_context_set_progress_funcs(  # noqa: F841
         context, _progress_start, _progress_update, _progress_stop, None
     )
 
@@ -1014,7 +1014,6 @@ def get_exif_data(image_path):
             for tag_code, value in img_exif.items():
                 # if the tag is an IFD block, nest into it
                 if tag_code in IFD_CODE_LOOKUP:
-                    ifd_tag_name = IFD_CODE_LOOKUP[tag_code]
                     ifd_data = img_exif.get_ifd(tag_code).items()
 
                     for nested_key, nested_value in ifd_data:

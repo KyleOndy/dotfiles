@@ -42,7 +42,7 @@ test = [
 winnow = "winnow.app:main"
 
 [tool.ruff]
-line-length = 100
+line-length = 88
 target-version = "py311"
 src = ["src"]
 

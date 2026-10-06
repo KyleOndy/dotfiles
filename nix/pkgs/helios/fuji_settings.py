@@ -196,9 +196,11 @@ class PtpDevice:
 
         intf = usb.util.find_descriptor(
             cfg,
-            custom_match=lambda i: i.bInterfaceClass == USB_CLASS_IMAGE
-            and i.bInterfaceSubClass == USB_SUBCLASS_STILL_IMAGE
-            and i.bInterfaceProtocol == USB_PROTOCOL_PTP,
+            custom_match=lambda i: (
+                i.bInterfaceClass == USB_CLASS_IMAGE
+                and i.bInterfaceSubClass == USB_SUBCLASS_STILL_IMAGE
+                and i.bInterfaceProtocol == USB_PROTOCOL_PTP
+            ),
         )
         if intf is None:
             logging.error(f"no PTP interface on the camera; {MODE_HINT}")
@@ -211,15 +213,19 @@ class PtpDevice:
 
         self.ep_out = usb.util.find_descriptor(
             intf,
-            custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
-            == usb.util.ENDPOINT_OUT
-            and usb.util.endpoint_type(e.bmAttributes) == usb.util.ENDPOINT_TYPE_BULK,
+            custom_match=lambda e: (
+                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT
+                and usb.util.endpoint_type(e.bmAttributes)
+                == usb.util.ENDPOINT_TYPE_BULK
+            ),
         )
         self.ep_in = usb.util.find_descriptor(
             intf,
-            custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress)
-            == usb.util.ENDPOINT_IN
-            and usb.util.endpoint_type(e.bmAttributes) == usb.util.ENDPOINT_TYPE_BULK,
+            custom_match=lambda e: (
+                usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN
+                and usb.util.endpoint_type(e.bmAttributes)
+                == usb.util.ENDPOINT_TYPE_BULK
+            ),
         )
         if self.ep_out is None or self.ep_in is None:
             logging.error("PTP interface is missing its bulk endpoints")

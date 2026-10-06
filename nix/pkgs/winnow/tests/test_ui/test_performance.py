@@ -86,9 +86,9 @@ def test_initial_load_performance_300_photos(qapp, large_image_set):
     assert len(window.thumbnail_strip.thumbnail_widgets) == len(image_paths)
 
     # Assert performance target: < 500ms for first thumbnails visible
-    assert (
-        elapsed < 0.5
-    ), f"Initial load took {elapsed:.3f}s, expected < 0.5s (first thumbnails visible)"
+    assert elapsed < 0.5, (
+        f"Initial load took {elapsed:.3f}s, expected < 0.5s (first thumbnails visible)"
+    )
 
     # Cleanup
     window.close()
@@ -156,12 +156,12 @@ def test_selection_change_performance(qapp, tmp_path, portrait_image, landscape_
     max_time = max(times)
 
     # Assert performance target: < 100ms for selection change
-    assert (
-        avg_time < 0.1
-    ), f"Average selection change took {avg_time:.3f}s, expected < 0.1s"
-    assert (
-        max_time < 0.15
-    ), f"Max selection change took {max_time:.3f}s, expected < 0.15s (allowing some variance)"
+    assert avg_time < 0.1, (
+        f"Average selection change took {avg_time:.3f}s, expected < 0.1s"
+    )
+    assert max_time < 0.15, (
+        f"Max selection change took {max_time:.3f}s, expected < 0.15s (allowing some variance)"
+    )
 
     # Cleanup
     window.close()
@@ -284,12 +284,12 @@ def test_zoom_pan_frame_rate_2x(qapp, tmp_path, portrait_image):
 
     # Assert 60fps target: < 16.67ms per frame
     # Allow some variance for the max time
-    assert (
-        avg_time < 0.017
-    ), f"Average pan time {avg_time * 1000:.2f}ms, expected < 17ms"
-    assert (
-        max_time < 0.025
-    ), f"Max pan time {max_time * 1000:.2f}ms, expected < 25ms (allowing variance)"
+    assert avg_time < 0.017, (
+        f"Average pan time {avg_time * 1000:.2f}ms, expected < 17ms"
+    )
+    assert max_time < 0.025, (
+        f"Max pan time {max_time * 1000:.2f}ms, expected < 25ms (allowing variance)"
+    )
 
     # Cleanup
     window.close()
@@ -353,12 +353,12 @@ def test_zoom_pan_frame_rate_4x(qapp, tmp_path, landscape_image):
 
     # At 4x zoom, allow slightly more time but should still be fast
     # Target is still 60fps, but allow more variance
-    assert (
-        avg_time < 0.02
-    ), f"Average pan time at 4x zoom {avg_time * 1000:.2f}ms, expected < 20ms"
-    assert (
-        max_time < 0.03
-    ), f"Max pan time at 4x zoom {max_time * 1000:.2f}ms, expected < 30ms"
+    assert avg_time < 0.02, (
+        f"Average pan time at 4x zoom {avg_time * 1000:.2f}ms, expected < 20ms"
+    )
+    assert max_time < 0.03, (
+        f"Max pan time at 4x zoom {max_time * 1000:.2f}ms, expected < 30ms"
+    )
 
     # Cleanup
     window.close()
@@ -405,9 +405,9 @@ def test_300_photo_handling(qapp, large_image_set):
             selection_times.append(elapsed)
 
     avg_selection_time = sum(selection_times) / len(selection_times)
-    assert (
-        avg_selection_time < 0.15
-    ), f"Selection with 300 photos took {avg_selection_time:.3f}s, expected < 0.15s"
+    assert avg_selection_time < 0.15, (
+        f"Selection with 300 photos took {avg_selection_time:.3f}s, expected < 0.15s"
+    )
 
     # Test 2: Filter toggling remains responsive
     start = time.perf_counter()
@@ -428,9 +428,9 @@ def test_300_photo_handling(qapp, large_image_set):
         qapp.processEvents()
     comparison_time = time.perf_counter() - start
 
-    assert (
-        comparison_time < 0.5
-    ), f"Comparison mode with 300 photos took {comparison_time:.3f}s, expected < 0.5s"
+    assert comparison_time < 0.5, (
+        f"Comparison mode with 300 photos took {comparison_time:.3f}s, expected < 0.5s"
+    )
 
     # Verify comparison mode is active
     assert len(window.viewing_area.image_widgets) == 4
@@ -492,12 +492,12 @@ def test_thumbnail_strip_scroll_performance(qapp, large_image_set):
     max_scroll_time = max(scroll_times)
 
     # Scrolling should be very fast
-    assert (
-        avg_scroll_time < 0.05
-    ), f"Average scroll time {avg_scroll_time:.3f}s, expected < 0.05s"
-    assert (
-        max_scroll_time < 0.1
-    ), f"Max scroll time {max_scroll_time:.3f}s, expected < 0.1s"
+    assert avg_scroll_time < 0.05, (
+        f"Average scroll time {avg_scroll_time:.3f}s, expected < 0.05s"
+    )
+    assert max_scroll_time < 0.1, (
+        f"Max scroll time {max_scroll_time:.3f}s, expected < 0.1s"
+    )
 
     # Cleanup
     window.close()
