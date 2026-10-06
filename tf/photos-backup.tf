@@ -22,6 +22,9 @@ resource "random_pet" "suffix" {
 
 resource "aws_s3_bucket" "backup_bucket" {
   bucket = "${local.photos_bucket_name}-${random_pet.suffix.id}"
+  # Destroying the bucket destroys every object version in it. The offsite
+  # copy is pika's archive bucket (archive-backup.tf), not this one.
+  force_destroy = true
   tags = {
     Name = "Photo Backup Bucket"
   }
@@ -154,6 +157,8 @@ output "photos_backup_bucket_name" {
 # admin credentials used to run terraform itself.
 resource "aws_iam_user" "photos_backup" {
   name = "svc.photos-backup"
+  # Its access key was minted outside terraform.
+  force_destroy = true
 }
 
 resource "aws_iam_policy" "photos_backup" {
