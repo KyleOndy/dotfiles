@@ -811,3 +811,38 @@ def test_image_widget_resize_updates_display(qapp, portrait_image):
     # verify the widget accepted the resize
     assert widget.width() == 800
     assert widget.height() == 600
+
+
+def _wheel(widget, delta_y):
+    event = Mock()
+    event.angleDelta.return_value = Mock(y=Mock(return_value=delta_y))
+    event.position.return_value = Mock(
+        x=Mock(return_value=widget.width() / 2),
+        y=Mock(return_value=widget.height() / 2),
+    )
+    widget.wheelEvent(event)
+
+
+def test_zoom_wheel_ignores_zero_delta(qapp, portrait_image):
+    """Horizontal scrolls and trackpad phase events (zero y delta) do not zoom."""
+    session = Session(directory=portrait_image.parent, images=[portrait_image])
+    widget = ImageWidget(portrait_image, session)
+    widget.set_zoom(1.0, emit_signal=False)
+
+    _wheel(widget, 0)
+
+    assert widget.zoom_level == 1.0
+
+
+def test_zoom_wheel_accumulates_trackpad_deltas(qapp, portrait_image):
+    """Small trackpad deltas move one stop per notch's worth, not one each."""
+    session = Session(directory=portrait_image.parent, images=[portrait_image])
+    widget = ImageWidget(portrait_image, session)
+    widget.set_zoom(1.0, emit_signal=False)
+
+    for _ in range(3):
+        _wheel(widget, 30)
+    assert widget.zoom_level == 1.0
+
+    _wheel(widget, 30)
+    assert widget.zoom_level == pytest.approx(1.5)

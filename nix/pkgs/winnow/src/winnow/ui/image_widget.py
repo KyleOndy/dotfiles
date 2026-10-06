@@ -28,6 +28,10 @@ from winnow.core.session import PhotoStatus, Session
 # ladder only requires editing this one list.
 ZOOM_STOPS_PERCENT = (10, 25, 33, 50, 67, 75, 100, 150, 200, 300, 400)
 
+# angleDelta units (1/8 degree) in one mouse-wheel notch. A trackpad sends
+# many smaller deltas; they accumulate to one zoom stop per notch's worth.
+WHEEL_NOTCH = 120
+
 
 class ImageWidget(QWidget):
     """Zoomable/pannable image viewer with status overlay.
@@ -95,6 +99,11 @@ class ImageWidget(QWidget):
         self.viewport_size: QSize | None = (
             None  # Track viewport size for pan adjustment
         )
+
+        # Wheel delta not yet spent on a zoom stop (see wheelEvent).
+        self._wheel_accum = 0
+        # Display scale when the current pinch began (see pinch_triggered).
+        self._pinch_base_zoom: float | None = None
 
         # True while original_pixmap is a placeholder standing in for a
         # background decode that hasn't landed yet (see load_full_image).
@@ -542,7 +551,9 @@ class ImageWidget(QWidget):
     def wheelEvent(self, event: QWheelEvent) -> None:  # noqa: N802
         """Handle mouse wheel for zoom.
 
-        Scroll up zooms in to next stop, scroll down zooms out to previous stop.
+        Each notch's worth of vertical delta (WHEEL_NOTCH) moves one zoom
+        stop: up zooms in, down zooms out. Horizontal scrolls and the
+        zero-delta events that bracket a trackpad scroll do nothing.
         Uses standard zoom stops: 10%, 25%, 33%, 50%, 67%, 75%, 100%, 150%, 200%, 300%, 400%
 
         The zoom is centered on the mouse cursor position, keeping the point under
@@ -551,8 +562,17 @@ class ImageWidget(QWidget):
         Args:
             event: The wheel event containing scroll direction and position.
         """
-        if not self.has_valid_image():
+        delta = event.angleDelta().y()
+        if delta == 0 or not self.has_valid_image():
             return
+        if (delta > 0) != (self._wheel_accum > 0):
+            self._wheel_accum = 0
+        self._wheel_accum += delta
+        if abs(self._wheel_accum) < WHEEL_NOTCH:
+            return
+        direction = 1 if self._wheel_accum > 0 else -1
+        # Drop any excess so a fast flick moves one stop, not several.
+        self._wheel_accum = 0
 
         # Get current zoom as percentage
         if self.fit_mode:
@@ -565,10 +585,6 @@ class ImageWidget(QWidget):
             current_percentage = int(min(scale_w, scale_h) * 100)
         else:
             current_percentage = int(self.zoom_level * 100)
-
-        # Determine zoom direction
-        delta = event.angleDelta().y()
-        direction = 1 if delta > 0 else -1
 
         # Find next zoom stop
         if direction > 0:
@@ -625,36 +641,38 @@ class ImageWidget(QWidget):
         Returns:
             True if the gesture was handled.
         """
-        if gesture.state() == Qt.GestureState.GestureUpdated:
-            if not self.has_valid_image():
-                return True
+        state = gesture.state()
+        if state in (Qt.GestureState.GestureFinished, Qt.GestureState.GestureCanceled):
+            self._pinch_base_zoom = None
+            return True
+        if state != Qt.GestureState.GestureUpdated or not self.has_valid_image():
+            return True
 
-            # Get scale factor (relative change since last update)
-            scale_factor = gesture.scaleFactor()
+        current_zoom = self._display_zoom()
+        if self._pinch_base_zoom is None:
+            self._pinch_base_zoom = current_zoom
 
-            # Calculate new zoom level from actual current display scale
-            if self.fit_mode:
-                target_size = (
-                    self.fixed_size if self.fixed_size is not None else self.size()
-                )
-                scale_w = target_size.width() / self.image_size.width()
-                scale_h = target_size.height() / self.image_size.height()
-                current_zoom = min(scale_w, scale_h)
-            else:
-                current_zoom = self.zoom_level
-            new_zoom = current_zoom * scale_factor
-
-            # Snap to nearest standard zoom stop for cleaner feel
-            zoom_stops = [p / 100.0 for p in ZOOM_STOPS_PERCENT]
-            new_zoom = min(zoom_stops, key=lambda x: abs(x - new_zoom))
-
-            # Clamp to valid range
-            new_zoom = max(zoom_stops[0], min(zoom_stops[-1], new_zoom))
-
+        # totalScaleFactor is relative to the start of the gesture, so a
+        # slow pinch still accumulates. Snapping the per-update scaleFactor
+        # instead rounds every small step back to the stop it started at.
+        target = self._pinch_base_zoom * gesture.totalScaleFactor()
+        zoom_stops = [p / 100.0 for p in ZOOM_STOPS_PERCENT]
+        new_zoom = min(zoom_stops, key=lambda x: abs(x - target))
+        if self.fit_mode or new_zoom != self.zoom_level:
             center_point = gesture.centerPoint()
             self._zoom_to_point(new_zoom, center_point.x(), center_point.y())
 
         return True
+
+    def _display_zoom(self) -> float:
+        """Current display scale, as a fraction of original image size."""
+        if not self.fit_mode:
+            return self.zoom_level
+        target_size = self.fixed_size if self.fixed_size is not None else self.size()
+        return min(
+            target_size.width() / self.image_size.width(),
+            target_size.height() / self.image_size.height(),
+        )
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         """Start panning on left button press.
