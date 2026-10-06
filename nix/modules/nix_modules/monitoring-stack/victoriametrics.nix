@@ -46,17 +46,15 @@ in
       retentionPeriod = "${toString cfg.retentionPeriod}d";
     };
 
-    # Caddy reverse proxy (basic auth on write endpoints)
+    # Basic auth on every path: the query, export and admin APIs
+    # (delete_series, snapshot) are as dangerous as write. Grafana and
+    # vmalert use loopback.
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable
         {
           enable = true;
           proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
           basicAuth = parentCfg.monitoringBasicAuth;
-          basicAuthPaths = [
-            "/api/v1/write"
-            "/api/v1/import*"
-          ];
         };
   };
 }

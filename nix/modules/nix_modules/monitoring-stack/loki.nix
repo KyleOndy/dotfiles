@@ -211,14 +211,14 @@ in
       };
     };
 
-    # Caddy reverse proxy (basic auth on push endpoint)
+    # Basic auth on every path: the query and admin APIs (delete, rules,
+    # flush) are as dangerous as push. Grafana and the ruler use loopback.
     systemFoundry.caddyReverseProxy.sites."${cfg.domain}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable
         {
           enable = true;
           proxyPass = "http://${cfg.listenAddress}:${toString cfg.port}";
           basicAuth = parentCfg.monitoringBasicAuth;
-          basicAuthPaths = [ "/loki/api/v1/push" ];
         };
   };
 }
