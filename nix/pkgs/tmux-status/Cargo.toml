@@ -34,11 +34,6 @@ path = "src/bin/system-temp/main.rs"
 name = "vpn-state"
 path = "src/bin/vpn-state/main.rs"
 
-[dependencies]
-# battery-draw only. Cargo has no per-binary dependencies, so the other four
-# binaries link it and never call it; the linker drops it.
-battery = "0.7.8"
-
 [profile.release]
 lto = true
 strip = true

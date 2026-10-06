@@ -1,39 +1,34 @@
-//! Battery charge and power draw, formatted for a tmux status bar.
+//! Battery charge and power draw for the tmux status bar. Exits 1 where there
+//! is no battery, which collapses the segment on desktops and VMs.
 //!
-//! Mirrors the system-temp contract: one short string on stdout, exit 1 and
-//! print nothing when there is no battery, so the segment disappears on
-//! desktops and VMs rather than showing an error.
-//!
-//! One behaviour the other segments do not have: thresholds only apply while
-//! discharging. A machine at 15% and climbing is not a problem, and painting it
-//! red teaches you to ignore the colour.
-//!
-//! Charge and draw are both always present. Dropping them on a docked full
-//! laptop saved twelve columns and cost a stable bar, since docking and
-//! undocking then slid every segment to the left of it.
+//! Thresholds only apply while the battery drains: a machine at 15% and
+//! climbing is fine, and painting it red teaches you to ignore the colour.
+//! Draining is read off the current, not the charger, because a 15 W charger
+//! under load reports charging and still loses ground.
 
-use battery::units::power::watt;
-// Aliased because uom's units are unit structs: an unaliased `percent` in
-// scope turns every `percent` binding into a unit-struct pattern match rather
-// than a variable, which breaks the `Charge` field of the same name.
-use battery::units::ratio::percent as percent_unit;
-use battery::State;
-use std::process;
+#[cfg(target_os = "macos")]
+mod darwin;
+#[cfg(target_os = "linux")]
+mod linux;
 
-/// What the bar needs, split from the hardware so the formatting is testable
-/// without a battery present.
-pub struct Charge {
-    /// State of charge, already rounded to whole percent.
-    pub percent: i64,
-    /// Current energy rate. Zero when the battery is neither filling nor
-    /// draining, which is what a full docked machine reports. f32 to match
-    /// what the battery crate hands back.
-    pub watts: f32,
-    /// False whenever the machine is on AC, whatever the charger is doing.
-    pub discharging: bool,
+#[cfg(target_os = "macos")]
+use darwin::sample;
+#[cfg(target_os = "linux")]
+use linux::sample;
+
+use tmux_status::{colors_enabled, emit, falling, paint, NORMAL};
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn sample() -> tmux_status::Res<Charge> {
+    Err("unsupported platform".into())
 }
 
-use tmux_status::{colors_enabled, styled, HOT, NORMAL, SEP, WARM};
+struct Charge {
+    /// Percent of full, unrounded.
+    percent: f64,
+    /// Watts into the battery, negative while it drains.
+    watts: f64,
+}
 
 // Sized for "should I go find a charger": warm while there is still time to
 // react, hot once it is the next thing you have to deal with.
@@ -41,132 +36,96 @@ const WARM_UNDER: i64 = 25;
 const HOT_UNDER: i64 = 10;
 
 fn main() {
-    match sample() {
-        Ok(charge) => print!("{}", format_charge(&charge, colors_enabled())),
-        Err(_) => process::exit(1),
-    }
+    emit(sample().map(|charge| format_charge(&charge, colors_enabled())));
 }
 
-fn sample() -> Result<Charge, Box<dyn std::error::Error>> {
-    let manager = battery::Manager::new()?;
-    let battery = manager.batteries()?.next().ok_or("no battery found")??;
-
-    Ok(Charge {
-        percent: battery.state_of_charge().get::<percent_unit>().round() as i64,
-        watts: battery.energy_rate().get::<watt>(),
-        // Anything that is not actively draining means a charger is attached.
-        // Darwin reports Full or Unknown while holding at a charge limit, and
-        // treating those as "on battery" would flash the warning colours every
-        // time the machine stopped topping up.
-        discharging: battery.state() == State::Discharging,
-    })
-}
-
-/// Charge only reads as a warning when nothing is refilling it.
-fn color_for(charge: &Charge) -> &'static str {
-    if !charge.discharging {
-        NORMAL
-    } else if charge.percent < HOT_UNDER {
-        HOT
-    } else if charge.percent < WARM_UNDER {
-        WARM
+/// Eleven columns for anything under 100 W, so the segments to its left hold
+/// still. Only filling takes a sign: once the percentage stops moving it is
+/// the one thing telling the directions apart, and "+0.0W" would claim a
+/// charge that is not happening.
+fn format_charge(charge: &Charge, colored: bool) -> String {
+    let percent = charge.percent.round() as i64;
+    let watts = (charge.watts * 10.0).round() / 10.0;
+    let sign = if watts > 0.0 { "+" } else { "" };
+    let draw = format!("{sign}{:.1}W", watts.abs());
+    let color = if watts < 0.0 {
+        falling(percent, WARM_UNDER, HOT_UNDER)
     } else {
         NORMAL
-    }
-}
-
-fn format_charge(charge: &Charge, color: bool) -> String {
-    // The sign is the only thing distinguishing filling from draining once the
-    // percentage stops moving. A battery moving neither way takes no sign:
-    // "+0.0W" would claim a charge that is not happening.
-    let prefix = if charge.discharging || charge.watts <= 0.0 {
-        ""
-    } else {
-        "+"
     };
-    let body = format!("{}% {}{:.1}W", charge.percent, prefix, charge.watts);
-
-    if color {
-        styled(color_for(charge), &body)
-    } else {
-        format!("{body}{SEP}")
-    }
+    paint(&format!("{percent:>3}% {draw:>6}"), color, colored)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tmux_status::{HOT, WARM};
 
-    fn charge(percent: i64, watts: f32, discharging: bool) -> Charge {
-        Charge {
-            percent,
-            watts,
-            discharging,
-        }
+    fn plain(percent: f64, watts: f64) -> String {
+        format_charge(&Charge { percent, watts }, false)
+    }
+
+    fn color(percent: f64, watts: f64) -> &'static str {
+        let painted = format_charge(&Charge { percent, watts }, true);
+        [HOT, WARM, NORMAL]
+            .into_iter()
+            .find(|c| painted.starts_with(&format!("#[fg={c}]")))
+            .unwrap()
     }
 
     #[test]
-    fn draining_omits_the_sign_and_charging_carries_it() {
-        assert_eq!(
-            format_charge(&charge(75, 12.5, true), false),
-            "75% 12.5W \u{e0b3} "
-        );
-        assert_eq!(
-            format_charge(&charge(75, 44.3, false), false),
-            "75% +44.3W \u{e0b3} "
-        );
+    fn draining_omits_the_sign_and_filling_carries_it() {
+        assert_eq!(plain(75.0, -12.5), " 75%  12.5W \u{e0b3} ");
+        assert_eq!(plain(75.0, 44.3), " 75% +44.3W \u{e0b3} ");
     }
 
-    /// A battery holding steady still reports its draw, as a zero rather than
-    /// by dropping the field and pulling the bar in six columns.
     #[test]
     fn a_resting_battery_reports_zero_draw_unsigned() {
-        assert_eq!(
-            format_charge(&charge(80, 0.0, false), false),
-            "80% 0.0W \u{e0b3} "
-        );
-    }
-
-    /// Docking used to empty this segment, which slid everything left of it.
-    #[test]
-    fn full_on_ac_keeps_its_place_in_the_bar() {
-        assert_eq!(
-            format_charge(&charge(100, 2.3, false), false),
-            "100% +2.3W \u{e0b3} "
-        );
+        assert_eq!(plain(80.0, 0.0), " 80%   0.0W \u{e0b3} ");
+        assert_eq!(plain(80.0, -0.04), " 80%   0.0W \u{e0b3} ");
     }
 
     #[test]
-    fn a_full_battery_on_its_own_power_still_reports() {
-        assert_eq!(
-            format_charge(&charge(100, 8.0, true), false),
-            "100% 8.0W \u{e0b3} "
-        );
+    fn width_is_constant_under_a_hundred_watts() {
+        let widths: Vec<usize> = [(5.0, 0.0), (100.0, 2.3), (42.0, -99.9), (8.0, 15.1)]
+            .iter()
+            .map(|&(p, w)| plain(p, w).chars().count())
+            .collect();
+        assert!(widths.windows(2).all(|w| w[0] == w[1]), "{widths:?}");
     }
 
     #[test]
-    fn thresholds_pick_escalating_colors_while_draining() {
-        assert_eq!(color_for(&charge(80, 8.0, true)), NORMAL);
-        assert_eq!(color_for(&charge(WARM_UNDER, 8.0, true)), NORMAL);
-        assert_eq!(color_for(&charge(WARM_UNDER - 1, 8.0, true)), WARM);
-        assert_eq!(color_for(&charge(HOT_UNDER, 8.0, true)), WARM);
-        assert_eq!(color_for(&charge(HOT_UNDER - 1, 8.0, true)), HOT);
+    fn thresholds_follow_the_printed_percentage_while_draining() {
+        assert_eq!(color(80.0, -8.0), NORMAL);
+        assert_eq!(color(25.0, -8.0), NORMAL);
+        assert_eq!(color(24.6, -8.0), NORMAL);
+        assert_eq!(color(24.4, -8.0), WARM);
+        assert_eq!(color(10.0, -8.0), WARM);
+        assert_eq!(color(9.0, -8.0), HOT);
     }
 
-    /// The whole point of gating on discharge: plugging in at 4% is the fix,
-    /// so the bar should stop shouting the moment you do it.
     #[test]
-    fn charging_never_warns_however_low_it_is() {
-        assert_eq!(color_for(&charge(4, 44.0, false)), NORMAL);
-        assert_eq!(color_for(&charge(4, 44.0, true)), HOT);
+    fn filling_never_warns_however_low_it_is() {
+        assert_eq!(color(4.0, 44.0), NORMAL);
+    }
+
+    #[test]
+    fn a_charger_that_cannot_keep_up_still_warns() {
+        assert_eq!(plain(8.0, -15.1), "  8%  15.1W \u{e0b3} ");
+        assert_eq!(color(8.0, -15.1), HOT);
     }
 
     #[test]
     fn colored_output_restores_the_surrounding_style() {
         assert_eq!(
-            format_charge(&charge(5, 0.0, true), true),
-            "#[fg=colour167]5% 0.0W#[fg=colour246] \u{e0b3} "
+            format_charge(
+                &Charge {
+                    percent: 5.0,
+                    watts: -1.0
+                },
+                true
+            ),
+            "#[fg=colour167]  5%   1.0W#[fg=colour246] \u{e0b3} "
         );
-        assert!(format_charge(&charge(75, 0.0, true), true).ends_with("#[fg=colour246] \u{e0b3} "));
     }
 }
