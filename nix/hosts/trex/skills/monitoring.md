@@ -20,9 +20,10 @@ health, ZFS scrub and snapshot age, and the S3 archive counters through the
 textfile collector.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
-cert. Grafana, Loki, metrics and vmalert also have `<name>.apps.ondy.org`
-public aliases with individual Route53 DNS-01 certs; Alertmanager
-deliberately does not.
+cert, and answers only private source addresses (LAN, DMZ, WireGuard).
+Only apps meant for use away from home (jellyfin, jellyseerr, navidrome,
+immich) have public `<name>.apps.ondy.org` aliases; no admin or monitoring
+UI does.
 
 The vmalert and Alertmanager UIs are not read-only: they create and expire
 silences.

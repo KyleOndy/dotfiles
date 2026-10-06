@@ -884,15 +884,10 @@ in
           email = "kyle@ondy.org";
           credentialsSecret = "apps_ondy_org_route53";
         };
-        # Public apps.ondy.org aliases for the migrated stack. Each gets its own
-        # vhost + individual cert via Route53 DNS-01.
+        # Public aliases, each with its own vhost and cert via Route53 DNS-01,
+        # outside the LAN-only infra wildcard. Only apps meant for use away
+        # from home belong here; cogsworth reaches immich by its alias.
         sites = {
-          "sonarr.tiger.infra.ondy.org".publicAliases = [ "sonarr.apps.ondy.org" ];
-          "radarr.tiger.infra.ondy.org".publicAliases = [ "radarr.apps.ondy.org" ];
-          "lidarr.tiger.infra.ondy.org".publicAliases = [ "lidarr.apps.ondy.org" ];
-          "bazarr.tiger.infra.ondy.org".publicAliases = [ "bazarr.apps.ondy.org" ];
-          "prowlarr.tiger.infra.ondy.org".publicAliases = [ "prowlarr.apps.ondy.org" ];
-          "sabnzbd.tiger.infra.ondy.org".publicAliases = [ "sabnzbd.apps.ondy.org" ];
           "jellyseerr.tiger.infra.ondy.org".publicAliases = [ "jellyseerr.apps.ondy.org" ];
           "navidrome.tiger.infra.ondy.org".publicAliases = [ "navidrome.apps.ondy.org" ];
           "jellyfin.tiger.infra.ondy.org".publicAliases = [ "jellyfin.apps.ondy.org" ];
@@ -900,13 +895,6 @@ in
             "immich.apps.ondy.org"
             "photos.ondy.org"
           ];
-
-          # Monitoring stack public aliases. Each gets its own
-          # vhost + individual cert via Route53 DNS-01.
-          "grafana.tiger.infra.ondy.org".publicAliases = [ "grafana.apps.ondy.org" ];
-          "loki.tiger.infra.ondy.org".publicAliases = [ "loki.apps.ondy.org" ];
-          "metrics.tiger.infra.ondy.org".publicAliases = [ "metrics.apps.ondy.org" ];
-          "vmalert.tiger.infra.ondy.org".publicAliases = [ "vmalert.apps.ondy.org" ];
 
           # Individual certs in the kyleondy.com and ondy.org zones via Route53 DNS-01.
           "www.kyleondy.com" = {

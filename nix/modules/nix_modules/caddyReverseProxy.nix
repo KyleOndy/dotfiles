@@ -128,7 +128,20 @@ let
     }
   '';
 
-  wildcardVhostBody = concatStringsSep "\n" (mapAttrsToList mkInfraSiteHandler infraSites) + ''
+  # The public wildcard DNS record and the router's 443 forward make every
+  # infra name reachable from the internet. Caddy keeps same-directive
+  # handle blocks with non-path matchers in source order, so @wan must come
+  # first. remote_ip is the TCP peer, which a client cannot spoof with
+  # headers the way it can client_ip.
+  wildcardVhostBody = ''
+    @wan not remote_ip private_ranges
+    handle @wan {
+      abort
+    }
+
+  ''
+  + concatStringsSep "\n" (mapAttrsToList mkInfraSiteHandler infraSites)
+  + ''
 
     handle {
       abort

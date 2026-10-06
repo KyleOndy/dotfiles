@@ -40,7 +40,7 @@ ssh cogsworth 'journalctl -u cogsworth-kiosk -n 500 --no-pager' \
 
 ### Loki (durable, >1h)
 
-Via Grafana Explore at `https://grafana.apps.ondy.org`:
+Via Grafana Explore at `https://grafana.tiger.infra.ondy.org` (LAN or VPN only):
 
 ```
 {host="cogsworth", unit="cogsworth-kiosk.service"} |= "CONSOLE"
