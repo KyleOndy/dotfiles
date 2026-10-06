@@ -47,8 +47,8 @@ let
       <DeinterlaceMethod>yadif</DeinterlaceMethod>
       <EnableDecodingColorDepth10Hevc>true</EnableDecodingColorDepth10Hevc>
       <EnableDecodingColorDepth10Vp9>true</EnableDecodingColorDepth10Vp9>
-      <EnableDecodingColorDepth10HevcRext>false</EnableDecodingColorDepth10HevcRext>
-      <EnableDecodingColorDepth12HevcRext>false</EnableDecodingColorDepth12HevcRext>
+      <EnableDecodingColorDepth10HevcRext>true</EnableDecodingColorDepth10HevcRext>
+      <EnableDecodingColorDepth12HevcRext>true</EnableDecodingColorDepth12HevcRext>
       <EnableEnhancedNvdecDecoder>true</EnableEnhancedNvdecDecoder>
       <PreferSystemNativeHwDecoder>true</PreferSystemNativeHwDecoder>
       <EnableIntelLowPowerH264HwEncoder>false</EnableIntelLowPowerH264HwEncoder>
@@ -60,9 +60,9 @@ let
       <HardwareDecodingCodecs>
         <string>h264</string>
         <string>hevc</string>
+        <string>mpeg2video</string>
         <string>av1</string>
         <string>vp9</string>
-        <string>vc1</string>
       </HardwareDecodingCodecs>
       <AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
         <string>mkv</string>
