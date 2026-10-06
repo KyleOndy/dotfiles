@@ -19,7 +19,7 @@ either case), and the quit dialog counts those.
 Linux and macOS, JPEG only (`.jpg`/`.jpeg` in the top level of the directory,
 not subdirectories). A few hundred photos per directory is the sweet spot;
 comparisons top out around 5 photos before things degrade.
-`--max-memory MB` caps the full-resolution image cache (default 40% of
+`--max-memory MB` caps the full-resolution image cache (default 50% of
 physical RAM).
 
 ## Keys

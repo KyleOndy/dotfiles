@@ -19,8 +19,10 @@ from winnow.ui.main_window import MainWindow
 # Fraction of physical RAM used as the default full-resolution image cache
 # budget (see --max-memory / ImageCache.max_memory_mb). A soft cap, not a
 # preallocation, so this only bounds how much the LRU cache is allowed to
-# grow to under sustained navigation.
-_DEFAULT_CACHE_RAM_FRACTION = 0.4
+# grow to under sustained navigation. Half, because winnow is usually the
+# only app running: on a 32 GB machine that holds about 100 decoded 40MP
+# frames at 160 MB each.
+_DEFAULT_CACHE_RAM_FRACTION = 0.5
 
 # Used when physical RAM can't be detected (unknown platform, sysctl/sysconf
 # failure). Conservative rather than the old flat 24576 MB default.
@@ -104,7 +106,7 @@ def main() -> int:
         type=float,
         default=default_max_memory_mb(),
         help="Maximum memory (MB) for the full-resolution image cache "
-        "(default: 40%% of physical RAM)",
+        "(default: 50%% of physical RAM)",
     )
 
     args = parser.parse_args()

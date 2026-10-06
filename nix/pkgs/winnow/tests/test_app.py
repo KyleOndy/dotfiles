@@ -138,8 +138,8 @@ def test_main_version_exits_cleanly(monkeypatch, capsys):
 # the port plan's on-device verification steps).
 
 
-def test_default_max_memory_mb_is_40_percent_of_detected_ram(monkeypatch):
-    """default_max_memory_mb() returns 40% of physical RAM, in MB."""
+def test_default_max_memory_mb_is_half_of_detected_ram(monkeypatch):
+    """default_max_memory_mb() returns 50% of physical RAM, in MB."""
     import winnow.app as app_module
 
     sixteen_gib = 16 * 1024**3
@@ -147,7 +147,7 @@ def test_default_max_memory_mb_is_40_percent_of_detected_ram(monkeypatch):
 
     result = app_module.default_max_memory_mb()
 
-    assert result == pytest.approx(sixteen_gib * 0.4 / (1024 * 1024))
+    assert result == pytest.approx(sixteen_gib * 0.5 / (1024 * 1024))
 
 
 def test_default_max_memory_mb_falls_back_when_ram_undetected(monkeypatch):
