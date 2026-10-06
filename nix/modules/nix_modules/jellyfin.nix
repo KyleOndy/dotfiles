@@ -69,6 +69,43 @@ let
       </AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
     </EncodingOptions>
   '';
+
+  # Complete network.xml for Jellyfin 10.11.x, captured from tiger's.
+  # KnownProxies is the Caddy site below: without it Jellyfin ignores
+  # X-Forwarded-For and sees every proxied client as 127.0.0.1, so remote
+  # viewers count as local and skip remote bitrate and access limits.
+  networkXml = pkgs.writeText "jellyfin-network.xml" ''
+    <?xml version="1.0" encoding="utf-8"?>
+    <NetworkConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <BaseUrl />
+      <EnableHttps>false</EnableHttps>
+      <RequireHttps>false</RequireHttps>
+      <CertificatePath />
+      <CertificatePassword />
+      <InternalHttpPort>8096</InternalHttpPort>
+      <InternalHttpsPort>8920</InternalHttpsPort>
+      <PublicHttpPort>8096</PublicHttpPort>
+      <PublicHttpsPort>8920</PublicHttpsPort>
+      <AutoDiscovery>true</AutoDiscovery>
+      <EnableUPnP>false</EnableUPnP>
+      <EnableIPv4>true</EnableIPv4>
+      <EnableIPv6>false</EnableIPv6>
+      <EnableRemoteAccess>true</EnableRemoteAccess>
+      <LocalNetworkSubnets />
+      <LocalNetworkAddresses />
+      <KnownProxies>
+        <string>127.0.0.1</string>
+      </KnownProxies>
+      <IgnoreVirtualInterfaces>true</IgnoreVirtualInterfaces>
+      <VirtualInterfaceNames>
+        <string>veth</string>
+      </VirtualInterfaceNames>
+      <EnablePublishedServerUriByRequest>false</EnablePublishedServerUriByRequest>
+      <PublishedServerUriBySubnet />
+      <RemoteIPFilter />
+      <IsRemoteIPFilterBlacklist>false</IsRemoteIPFilterBlacklist>
+    </NetworkConfiguration>
+  '';
 in
 {
   options.systemFoundry.jellyfin = {
@@ -249,17 +286,18 @@ in
       };
     };
 
-    # Apply declarative transcoding config before Jellyfin starts. Runs on every
-    # (re)start so the dashboard cannot drift from the Nix-declared encoding.xml.
-    systemd.services.jellyfin-encoding-config = mkIf cfg.hardwareAcceleration {
-      description = "Apply declarative Jellyfin transcoding config (encoding.xml)";
+    # Apply declarative config before Jellyfin starts. Runs on every (re)start
+    # so the dashboard cannot drift from the Nix-declared XML.
+    systemd.services.jellyfin-config = {
+      description = "Apply declarative Jellyfin config (network.xml, encoding.xml)";
       wantedBy = [ "jellyfin.service" ];
       before = [ "jellyfin.service" ];
       partOf = [ "jellyfin.service" ];
       path = with pkgs; [ coreutils ];
       script = ''
         mkdir -p ${stateDir}/config
-        install -o jellyfin -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml
+        install -o jellyfin -g ${cfg.group} -m 0644 ${networkXml} ${stateDir}/config/network.xml
+        ${optionalString cfg.hardwareAcceleration "install -o jellyfin -g ${cfg.group} -m 0644 ${encodingXml} ${stateDir}/config/encoding.xml"}
         chown jellyfin:${cfg.group} ${stateDir}/config
       '';
       # No RemainAfterExit: re-run on every Jellyfin (re)start so a dashboard edit
