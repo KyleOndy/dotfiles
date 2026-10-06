@@ -96,7 +96,8 @@ let
       mkdir -p "${runtimePath}" /etc/netns/${cfg.namespace}
       chmod 700 "${runtimePath}"
 
-      region_data=$(curl -fsS https://serverlist.piaservers.net/vpninfo/servers/v6 | head -1)
+      region_data=$(curl -fsS https://serverlist.piaservers.net/vpninfo/servers/v6)
+      region_data=''${region_data%%$'\n'*}
       region=$(echo "$region_data" | jq -r --arg id "${cfg.region}" '.regions[] | select(.id == $id)')
       if [ -z "$region" ]; then
         echo "pia-wg-connect: region '${cfg.region}' not found in PIA's server list" >&2
