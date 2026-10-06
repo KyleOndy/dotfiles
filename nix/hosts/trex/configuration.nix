@@ -79,6 +79,15 @@
       # binfmt qemu. speedFactor only orders machines that can build a given
       # system, so this decides aarch64 and leaves x86_64 alone.
       speedFactor = 10;
+
+      # The VM's store is a read-only store.img of its own closure, rebuilt
+      # on every start, under the qcow2 that holds the Nix DB. Once the
+      # closure changes, the DB still lists paths the new image lacks, and
+      # any build that needs one fails:
+      #   getting attributes of path "/nix/store/...-attr-2.5.2": No such
+      #   file or directory
+      # Wiping the qcow2 on every start costs the VM's build cache.
+      ephemeral = true;
     };
 
     # tiger is the only x86_64-linux builder, and at 23s for that same zstd
