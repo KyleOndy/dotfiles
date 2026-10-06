@@ -1,129 +1,119 @@
-//! One-minute load average, formatted for a tmux status bar.
-//!
-//! Replaces a six process shell pipeline that ran on every status refresh:
-//!
-//! ```text
-//! uptime | rev | cut -d':' -f1 | rev | xargs | sed -e 's/,//g'
-//! ```
-//!
-//! That existed to paper over `uptime` printing a different shape on darwin
-//! than on linux. getloadavg(3) is one call and is on both, so the whole
-//! problem goes away and there is no per-OS module here.
+//! One-minute load average for the tmux status bar. getloadavg(3) is the same
+//! call on darwin and linux, so there is no per-OS module.
 //!
 //! Shows the one minute figure only. The 5 and 15 minute values cost ten
 //! columns on a bar that is nearly full, and they are rarely the reason
 //! anyone looks.
 
-use std::os::raw::c_int;
-use std::process;
+use std::os::raw::{c_int, c_long};
 
-// stdlib.h: int getloadavg(double [], int);
+use tmux_status::{colors_enabled, emit, paint, rising, Res};
+
+// unistd.h. glibc and musl agree on 84 for every linux architecture.
+#[cfg(target_os = "macos")]
+const SC_NPROCESSORS_ONLN: c_int = 58;
+#[cfg(not(target_os = "macos"))]
+const SC_NPROCESSORS_ONLN: c_int = 84;
+
 unsafe extern "C" {
+    // Returns the number of samples written, or -1.
     fn getloadavg(loadavg: *mut f64, nelem: c_int) -> c_int;
+    fn sysconf(name: c_int) -> c_long;
 }
 
-use tmux_status::{colors_enabled, HOT, NORMAL, SEP, WARM};
-
-/// A bare load figure means nothing without knowing the core count: 4.0 is
-/// idle on trex and on fire on a two core VM. Thresholds are per core.
+/// A bare load figure means nothing without the core count: 4.0 is idle on
+/// trex and on fire on a two core VM. Thresholds are per core.
 const WARM_PER_CORE: f64 = 1.0;
 const HOT_PER_CORE: f64 = 2.0;
 
 fn main() {
-    match one_minute() {
-        Ok(load) => print!("{}", format_load(load, cores(), colors_enabled())),
-        Err(_) => process::exit(1),
-    }
+    emit(one_minute().map(|load| format_load(load, cores(), colors_enabled())));
 }
 
-fn one_minute() -> Result<f64, Box<dyn std::error::Error>> {
+fn one_minute() -> Res<f64> {
     let mut out = [0f64; 3];
-    // Returns the number of samples actually retrieved, or -1.
     let got = unsafe { getloadavg(out.as_mut_ptr(), 3) };
-    if got < 1 {
-        return Err("getloadavg reported no samples".into());
-    }
-    if !out[0].is_finite() || out[0] < 0.0 {
-        return Err("getloadavg returned a nonsense value".into());
+    if got < 1 || !out[0].is_finite() || out[0] < 0.0 {
+        return Err(format!("getloadavg returned {got} samples, first {}", out[0]).into());
     }
     Ok(out[0])
 }
 
-/// Respects cgroup limits on linux, unlike a raw processor count, so a
-/// container reports the cores it may actually use.
+/// Online CPUs, deliberately not `available_parallelism`: that applies cgroup
+/// quotas and affinity on linux, while the load average is machine-wide, so
+/// one divided by the other would misread a container.
 fn cores() -> f64 {
-    std::thread::available_parallelism()
-        .map(|n| n.get() as f64)
-        .unwrap_or(1.0)
-}
-
-fn color_for(load: f64, cores: f64) -> &'static str {
-    let per_core = load / cores;
-    if per_core >= HOT_PER_CORE {
-        HOT
-    } else if per_core >= WARM_PER_CORE {
-        WARM
+    let n = unsafe { sysconf(SC_NPROCESSORS_ONLN) };
+    if n >= 1 {
+        n as f64
     } else {
-        NORMAL
+        1.0
     }
 }
 
-/// The brackets are what made this segment recognisable as load at a glance,
-/// so they stay even though only one number is left inside them.
-fn format_load(load: f64, cores: f64, color: bool) -> String {
-    if color {
-        format!(
-            "#[fg={}][ {:.2} ]#[fg={}]{SEP}",
-            color_for(load, cores),
-            load,
-            NORMAL
-        )
-    } else {
-        format!("[ {load:.2} ]{SEP}")
-    }
+/// Nine columns up to 99.99. The brackets are what make it read as load at
+/// a glance.
+fn format_load(load: f64, cores: f64, colored: bool) -> String {
+    let shown = (load * 100.0).round() / 100.0;
+    paint(
+        &format!("[ {shown:>5.2} ]"),
+        rising(shown / cores, WARM_PER_CORE, HOT_PER_CORE),
+        colored,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tmux_status::{HOT, NORMAL, WARM};
 
-    #[test]
-    fn renders_two_decimals_inside_the_brackets() {
-        assert_eq!(format_load(2.951, 10.0, false), format!("[ 2.95 ]{SEP}"));
-        assert_eq!(format_load(0.0, 10.0, false), format!("[ 0.00 ]{SEP}"));
-        assert_eq!(format_load(12.5, 10.0, false), format!("[ 12.50 ]{SEP}"));
+    fn painted(load: f64, cores: f64) -> &'static str {
+        let out = format_load(load, cores, true);
+        [HOT, WARM, NORMAL]
+            .into_iter()
+            .find(|c| out.starts_with(&format!("#[fg={c}]")))
+            .unwrap()
     }
 
-    /// The whole point of scaling by core count: the same figure is fine on a
-    /// laptop and alarming on a small VM.
+    #[test]
+    fn renders_two_decimals_right_aligned_inside_the_brackets() {
+        assert_eq!(format_load(2.951, 10.0, false), "[  2.95 ] \u{e0b3} ");
+        assert_eq!(format_load(12.5, 10.0, false), "[ 12.50 ] \u{e0b3} ");
+    }
+
+    #[test]
+    fn width_is_constant_below_a_hundred() {
+        let widths: Vec<usize> = [0.0, 9.99, 10.0, 99.99]
+            .iter()
+            .map(|&l| format_load(l, 10.0, false).chars().count())
+            .collect();
+        assert!(widths.windows(2).all(|w| w[0] == w[1]), "{widths:?}");
+    }
+
     #[test]
     fn thresholds_scale_with_the_core_count() {
-        assert_eq!(color_for(4.0, 10.0), NORMAL);
-        assert_eq!(color_for(4.0, 4.0), WARM);
-        assert_eq!(color_for(4.0, 2.0), HOT);
+        assert_eq!(painted(4.0, 10.0), NORMAL);
+        assert_eq!(painted(4.0, 4.0), WARM);
+        assert_eq!(painted(4.0, 2.0), HOT);
+        assert_eq!(painted(9.99, 10.0), NORMAL);
+        assert_eq!(painted(10.0, 10.0), WARM);
+        assert_eq!(painted(20.0, 10.0), HOT);
     }
 
+    /// 20472/2048, a value the kernel's 1/2048 fixed point can produce, prints
+    /// as 10.00 and must colour like it.
     #[test]
-    fn thresholds_pick_escalating_colors() {
-        assert_eq!(color_for(9.9, 10.0), NORMAL);
-        assert_eq!(color_for(10.0, 10.0), WARM);
-        assert_eq!(color_for(19.9, 10.0), WARM);
-        assert_eq!(color_for(20.0, 10.0), HOT);
+    fn the_color_follows_the_printed_figure() {
+        assert!(format_load(9.996_093_75, 10.0, false).starts_with("[ 10.00 ]"));
+        assert_eq!(painted(9.996_093_75, 10.0), WARM);
     }
 
+    /// Affinity and quotas only ever lower `available_parallelism`, so the
+    /// online count can never be below it.
     #[test]
-    fn colored_output_restores_the_surrounding_style() {
-        assert_eq!(
-            format_load(30.0, 10.0, true),
-            format!("#[fg=colour167][ 30.00 ]#[fg=colour246]{SEP}")
-        );
-        assert!(format_load(1.0, 10.0, true).ends_with(&format!("#[fg=colour246]{SEP}")));
-    }
-
-    #[test]
-    fn the_machine_reports_a_plausible_load() {
+    fn the_machine_reports_a_plausible_load_and_core_count() {
         let load = one_minute().expect("getloadavg");
-        assert!(load >= 0.0 && load < 10_000.0, "load was {load}");
-        assert!(cores() >= 1.0);
+        assert!((0.0..10_000.0).contains(&load), "load was {load}");
+        assert!(cores() as usize >= std::thread::available_parallelism().unwrap().get());
     }
 }

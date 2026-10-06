@@ -273,9 +273,7 @@ in
         #   at 60%, red at 90%.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-gpu)"
         # one minute load average.
-        #   Was uptime piped through rev/cut/rev/xargs/sed, six processes on
-        #   every refresh, to paper over uptime's output differing on darwin.
-        #   getloadavg(3) is on both, so that is one process and no parsing.
+        #   getloadavg(3) on both kernels, so one process and no parsing.
         #   Shows the 1 minute figure only; the 5 and 15 minute values cost ten
         #   columns on a bar that is nearly full. Colours by load per core, so
         #   the same number reads correctly on trex and on a two core VM.
