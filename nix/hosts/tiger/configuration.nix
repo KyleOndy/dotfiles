@@ -1108,10 +1108,9 @@ in
         domainName = "jellyfin.tiger.infra.ondy.org";
         transcodeDebugLogging = true;
         installPlaybackReportingPlugin = true;
-        # jellyfin_api_key secret authenticates the backup + exporter.
         backup = {
           enable = true;
-          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+          apiKeyFile = config.sops.secrets.jellyfin_api_key_backup.path;
         };
 
         # Intel Arc A380 (QSV via VPL). renderD128 + OpenCL tone mapping verified
@@ -1138,7 +1137,7 @@ in
         max_videos = 20;
 
         housekeeping = {
-          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+          apiKeyFile = config.sops.secrets.jellyfin_api_key_ytdl_sub.path;
           jellyfinUser = "knk";
         };
 
@@ -1376,7 +1375,7 @@ in
         jellyfinExporter = {
           enable = true;
           jellyfinUrl = "http://127.0.0.1:8096";
-          apiKeyFile = config.sops.secrets.jellyfin_api_key.path;
+          apiKeyFile = config.sops.secrets.jellyfin_api_key_exporter.path;
           enableActivityCollector = true;
         };
 
@@ -1806,9 +1805,13 @@ in
     # qbittorrent-set-port.service can push the PIA-forwarded port into it.
     # EnvironmentFile: QBITTORRENT_USER / QBITTORRENT_PASS.
     qbittorrent_webui_credentials.mode = "0400";
-    # Read directly by jellyfin-backup, which runs as root, and through
-    # LoadCredential by jellyfin-exporter and ytdl-sub-housekeeping.
-    jellyfin_api_key.mode = "0400";
+    # One Jellyfin key per consumer, each named after it in Jellyfin's API
+    # key list, so one can be revoked without the others. jellyfin-backup
+    # runs as root and reads its file directly; the other two take theirs
+    # through LoadCredential.
+    jellyfin_api_key_backup.mode = "0400";
+    jellyfin_api_key_exporter.mode = "0400";
+    jellyfin_api_key_ytdl_sub.mode = "0400";
     # UniFi read-only account password for unpoller. The "unifi-poller" user
     # and group come from the upstream nixpkgs module, which runs the unit
     # under a static User= (not DynamicUser), so sharing the group name here
