@@ -22,9 +22,9 @@ let
       <DownMixAudioBoost>2</DownMixAudioBoost>
       <DownMixStereoAlgorithm>None</DownMixStereoAlgorithm>
       <MaxMuxingQueueSize>2048</MaxMuxingQueueSize>
-      <EnableThrottling>false</EnableThrottling>
+      <EnableThrottling>true</EnableThrottling>
       <ThrottleDelaySeconds>180</ThrottleDelaySeconds>
-      <EnableSegmentDeletion>false</EnableSegmentDeletion>
+      <EnableSegmentDeletion>true</EnableSegmentDeletion>
       <SegmentKeepSeconds>720</SegmentKeepSeconds>
       <HardwareAccelerationType>qsv</HardwareAccelerationType>
       <VaapiDevice>/dev/dri/renderD128</VaapiDevice>
