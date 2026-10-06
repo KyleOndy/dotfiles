@@ -379,3 +379,17 @@ def test_zoom_performance_200_thumbnails(
 
     # Verify thumbnailer size was updated
     assert thumbnailer.size == 300
+
+
+def test_selection_indicator_counts_the_filtered_strip(qapp, test_images):
+    """The position readout matches h/l navigation, not the unfiltered list."""
+    session = Session(directory=test_images[0].parent, images=test_images)
+    strip = ThumbnailStrip(session, Thumbnailer())
+    session.set_status(test_images[0], PhotoStatus.DELETE)
+    strip.on_photo_status_changed(test_images[0])
+
+    strip.handle_thumbnail_click(
+        test_images[1], ctrl_pressed=False, shift_pressed=False
+    )
+
+    assert strip.selection_indicator.text() == f"1/{len(test_images) - 1}"

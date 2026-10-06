@@ -523,14 +523,15 @@ class ThumbnailStrip(QWidget):
             # No selection - hide indicator
             self.selection_indicator.hide()
         else:
-            # Calculate position of first selected photo
-            total_photos = len(self.session.images)
+            # Position within the strip as filtered, matching h/l navigation.
+            visible = [w.path for w in self.thumbnail_widgets]
+            total_photos = len(visible)
             first_photo_path = self.session.selected[0]
 
             try:
-                position = self.session.images.index(first_photo_path) + 1  # 1-indexed
+                position = visible.index(first_photo_path) + 1  # 1-indexed
             except ValueError:
-                position = 0  # Photo not found in session
+                position = 0  # Photo filtered out of the strip
 
             # Build indicator text
             if len(self.session.selected) == 1:
