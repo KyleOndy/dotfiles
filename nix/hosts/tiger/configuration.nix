@@ -702,7 +702,6 @@ in
   # is routed. This block still serves clients on tiger's own subnet.
   services.avahi = {
     enable = true;
-    openFirewall = true;
     nssmdns4 = true;
     publish = {
       enable = true;
@@ -728,21 +727,34 @@ in
   # the policy just needs the name to resolve.
   users.groups.netdev = { };
 
-  # deployment_target.nix (shared by every host) disables the firewall
-  # entirely; override for tiger only now that it's serving SMB to the LAN.
-  # This does not newly expose anything to the WAN: every service module
-  # already declares its own allowedTCPPorts (e.g. caddyReverseProxy.nix's
-  # 80/443, which the router actually forwards), and openssh's 2332 opens
-  # automatically (openFirewall defaults to true). Those were inert no-ops
-  # with the firewall off; enabling it just activates them. SMB (445) and
-  # direct-LAN Jellyfin (8096/tcp, 7359/udp discovery) are added here.
-  # Jellyfin's WAN path stays on Caddy/443. enp10s0 is the only uplink, so
-  # the interface alone would not stop a router port-forward from exposing
-  # plaintext 8096; Jellyfin's rules also require a 10.0.0.0/8 source, which
-  # a forwarded WAN connection never has.
+  # deployment_target.nix (shared by every host) disables the firewall; tiger
+  # enables it. Every port opened here is scoped to enp10s0, the only uplink,
+  # because vethpia0 leads into the qBittorrent PIA namespace, whose forwarded
+  # port takes connections from the internet. caddyReverseProxy, openssh and
+  # avahi would otherwise open theirs on every interface, so their own
+  # openFirewall is off (caddyReverseProxy's under systemFoundry below) and
+  # their ports are listed here.
+  #
+  # The router forwards only 80 and 443 to enp10s0, but the interface alone
+  # would not stop a future port-forward from exposing plaintext 8096;
+  # Jellyfin's rules also require a 10.0.0.0/8 source, which a forwarded WAN
+  # connection never has.
   networking.firewall.enable = lib.mkForce true;
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 445 ];
+  services.openssh.openFirewall = false;
+  services.avahi.openFirewall = false;
+  networking.firewall.interfaces."enp10s0" = {
+    allowedTCPPorts = [
+      80
+      443
+      445
+    ];
+    allowedUDPPorts = [ 5353 ];
+  };
+  # sshd answers only the LAN and trex's WireGuard pool; nothing in the DMZ
+  # logs in. IPv6 gets no rule, so ssh over v6 is refused.
   networking.firewall.extraCommands = ''
+    iptables -A nixos-fw -i enp10s0 -s 10.24.89.0/24 -p tcp --dport 2332 -j nixos-fw-accept
+    iptables -A nixos-fw -i enp10s0 -s 192.168.5.0/24 -p tcp --dport 2332 -j nixos-fw-accept
     iptables -A nixos-fw -i enp10s0 -s 10.0.0.0/8 -p tcp --dport 8096 -j nixos-fw-accept
     iptables -A nixos-fw -i enp10s0 -s 10.0.0.0/8 -p udp --dport 7359 -j nixos-fw-accept
   '';
@@ -879,6 +891,7 @@ in
     {
       caddyReverseProxy = {
         enable = true;
+        openFirewall = false;
         infraDomain = "tiger.infra.ondy.org";
         acme = {
           email = "kyle@ondy.org";

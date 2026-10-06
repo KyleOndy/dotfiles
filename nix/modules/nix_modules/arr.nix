@@ -32,8 +32,6 @@ let
       # bazarr writes to a lowercase directory straight under dataDir, not the
       # Backups/ subdirectory the .NET *arrs use.
       backupSubdir = "backup";
-      # Reached directly on the LAN as well as through Caddy.
-      serviceArgs.openFirewall = true;
       # Left on the module default rather than pinned like the others.
       setPackage = false;
     };

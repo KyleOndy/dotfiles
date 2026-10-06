@@ -176,6 +176,12 @@ in
       };
     };
 
+    openFirewall = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Open 80 and 443 on every interface. Disable to open them per interface instead.";
+    };
+
     infraDomain = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -339,7 +345,7 @@ in
       "z ${config.services.caddy.logDir}/access-*.log 0640 caddy caddy -"
     ];
 
-    networking.firewall.allowedTCPPorts = [
+    networking.firewall.allowedTCPPorts = mkIf cfg.openFirewall [
       80
       443
     ];
