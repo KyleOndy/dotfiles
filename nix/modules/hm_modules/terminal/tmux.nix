@@ -256,8 +256,8 @@ in
         #   which is how it stays off tiger.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/battery-draw)"
         # hottest cpu/gpu die sensor.
-        #   Emits its own #[fg=] so it can go orange past 80C and red past 95C,
-        #   then restores colour246 for the segments that follow. Prints
+        #   Emits its own #[fg=] so it can go orange at 80C and red at 95C (90C
+        #   on linux), then restores colour246 for the segments that follow. Prints
         #   nothing and exits 1 where no sensor is readable (WSL, VMs), which
         #   collapses the segment rather than showing an error.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/system-temp)"
