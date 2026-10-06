@@ -27,12 +27,19 @@ disables the three built-ins it replaces (`git_branch`, `git_status`,
 
 ```nix
 custom.git-worktree = {
-  command = "git-worktree-prompt";
+  shell = [ "git-worktree-prompt" ];
+  command = "";
+  use_stdin = false;
+  require_repo = true;
   when = true;
   # Parens make the format conditional: nothing renders outside a repo.
   format = "(on [$output]($style) )";
 };
 ```
+
+Naming the binary as `shell` with `use_stdin = false` runs it directly.
+Without that, starship starts zsh and pipes the command into it, which costs
+more than the binary itself.
 
 The key must be `git-worktree`, matching `"\${custom.git-worktree}"` in the
 format string. A hyphen, not an underscore: starship silently renders nothing

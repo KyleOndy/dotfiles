@@ -68,9 +68,15 @@ in
           truncate_to_repo = true;
         };
 
-        # Our custom git worktree module
+        # Both custom modules name their binary as the `shell`. Starship
+        # otherwise starts $STARSHIP_SHELL (zsh) and feeds it the command on
+        # stdin, about 5ms per module per prompt. With use_stdin off it appends
+        # `command` as the last argument, which is how vpn-state gets --prompt.
         custom.git-worktree = {
-          command = "git-worktree-prompt";
+          shell = [ "git-worktree-prompt" ];
+          command = "";
+          use_stdin = false;
+          require_repo = true;
           when = true;
           # Parentheses make format conditional - won't render if $output is empty
           format = "(on [$output]($style) )";
@@ -83,7 +89,9 @@ in
         # segment are the only signals. Exits 1 when none is up, which is what
         # collapses the module.
         custom.vpn = {
-          command = "vpn-state --prompt";
+          shell = [ "vpn-state" ];
+          command = "--prompt";
+          use_stdin = false;
           when = true;
           format = "(via [$output]($style) )";
           style = "bold red";
