@@ -59,7 +59,7 @@
       url = "github:numtide/llm-agents.nix";
     };
     cogsworth = {
-      url = "git+ssh://git@github.com/KyleOndy/cogsworth?ref=v3";
+      url = "git+ssh://git@github.com/KyleOndy/cogsworth?ref=main";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Work-specific configuration. Default is a no-op stub.
