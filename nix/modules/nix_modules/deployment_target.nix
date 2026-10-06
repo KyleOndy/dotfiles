@@ -70,16 +70,22 @@ in
         # unset locks the account (`!` in /etc/shadow) instead of carrying a
         # password nobody uses, SSH pubkey auth and sudo are unaffected.
         # todo: make a key for just deploys
-        openssh.authorizedKeys.keys = config.systemFoundry.users.kyle.authorizedKeys ++ [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINYGnEHYJv1C/hCkXZjHjKZI8t6cHHLLNhE11oTf9DOn root@trex-nix-remote-builder" # for nix distributed builds
-        ];
+        openssh.authorizedKeys.keys = config.systemFoundry.users.kyle.authorizedKeys;
       };
     };
     services = {
       openssh = {
         enable = true;
+        authorizedKeysInHomedir = false;
         settings = {
           PermitRootLogin = "no";
+          PasswordAuthentication = false;
+          KbdInteractiveAuthentication = false;
+          # A host whose services log in over ssh adds those users itself.
+          AllowUsers = [
+            "kyle"
+            "svc.deploy"
+          ];
           AcceptEnv = [
             "LANG"
             "LC_*"

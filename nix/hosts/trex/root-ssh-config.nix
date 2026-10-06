@@ -7,7 +7,7 @@
     extraConfig = ''
       Host tiger tiger.dmz.1ella.com
         HostName tiger.dmz.1ella.com
-        User svc.deploy
+        User svc.nixbuild
         Port 2332
         IdentityFile /var/root/.ssh/id_ed25519
         StrictHostKeyChecking accept-new

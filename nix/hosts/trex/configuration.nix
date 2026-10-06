@@ -98,7 +98,7 @@
     buildMachines = [
       {
         hostName = "tiger.dmz.1ella.com";
-        sshUser = "svc.deploy";
+        sshUser = "svc.nixbuild";
         systems = [
           "x86_64-linux"
           "aarch64-linux"

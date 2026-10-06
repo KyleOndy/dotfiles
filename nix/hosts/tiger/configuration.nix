@@ -6,6 +6,13 @@
 }:
 let
   mediaGroup = "media";
+
+  # Sources for the from= options on the keys below. pika's address is a DHCP
+  # reservation on the UDM; if that goes, both of its keys stop working. trex
+  # arrives from more than one LAN address and from the WireGuard pool in
+  # nix/hosts/trex/wireguard.nix.
+  pikaAddress = "10.24.89.102";
+  trexSources = "10.24.89.0/24,192.168.5.0/24";
   service_root = "/var/lib";
 
   # Directory under /mnt/backups -> the POSIX account that owns it, for each
@@ -153,6 +160,12 @@ in
     openssh.ports = [ 2332 ];
   };
 
+  nix.settings.trusted-users = [ "svc.nixbuild" ];
+  services.openssh.settings.AllowUsers = [
+    "svc.syncoid"
+    "svc.nixbuild"
+  ];
+
   nix.gc = {
     automatic = true;
     dates = "weekly";
@@ -173,15 +186,26 @@ in
       "svc.syncoid" = {
         isNormalUser = true;
         group = "svc.backup";
-        # No password, and no sudo. Its entire authority is the ZFS
-        # delegation granted by the zfs-delegate-syncoid unit below, which is
-        # send,hold,release and nothing else.
+        # No password, and no sudo. Its ZFS authority is the delegation
+        # granted by the zfs-delegate-syncoid unit below: send, hold and
+        # release. syncoid runs zfs commands over the session, so it keeps a
+        # shell; restrict takes away pty, forwarding and user rc.
         #
         # The public half of the key pika's syncoid service uses. Its private
         # half is sops key pika_syncoid_ssh_key, readable only by the syncoid
         # user on pika.
         openssh.authorizedKeys.keys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOyqBqFsTK779kr21wva3XrD3oq9QJoWIYml2y9J/4HF syncoid@pika"
+          "from=\"${pikaAddress}\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOyqBqFsTK779kr21wva3XrD3oq9QJoWIYml2y9J/4HF syncoid@pika"
+        ];
+      };
+      # trex's remote builder. The forced command is what nix's legacy ssh://
+      # store runs on the far end (`nix-store --serve --write`), so the key
+      # can build and copy paths but never reach a shell. trusted-users is
+      # what lets it submit unsigned derivations.
+      "svc.nixbuild" = {
+        isNormalUser = true;
+        openssh.authorizedKeys.keys = [
+          "command=\"${config.nix.package}/bin/nix-store --serve --write\",from=\"${trexSources}\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINYGnEHYJv1C/hCkXZjHjKZI8t6cHHLLNhE11oTf9DOn root@trex-nix-remote-builder"
         ];
       };
     };
@@ -284,9 +308,9 @@ in
   # other hosts' history back out, and -no-del stops it deleting them. Same
   # posture as its syncoid key, which carries only zfs send,hold,release.
   users.users.kyle.openssh.authorizedKeys.keys = [
-    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/histdb\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2MvhvbsUVV1HjzbP7tL553Ux5bJyYufICn1jMCCHu8 kyle-histdb@pika"
+    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/histdb\",from=\"${pikaAddress}\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2MvhvbsUVV1HjzbP7tL553Ux5bJyYufICn1jMCCHu8 kyle-histdb@pika"
     # trex's unattended git bundle push, held to the same posture.
-    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/git\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFdI5qaMnisu9vCuQgO0zfzhiAtYHrfS/5j+V4YG8y4l kyle-backup-git-repos@trex"
+    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/git\",from=\"${trexSources}\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFdI5qaMnisu9vCuQgO0zfzhiAtYHrfS/5j+V4YG8y4l kyle-backup-git-repos@trex"
   ];
 
   # Shell history lives on the root disk, which is out of scope by design
