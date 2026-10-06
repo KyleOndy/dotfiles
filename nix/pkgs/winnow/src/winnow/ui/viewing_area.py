@@ -241,7 +241,7 @@ class ZoomControlOverlay(QWidget):
         widget = self.viewing_area.image_widgets[0]
         if not widget.has_valid_image():
             return 100.0
-        original_size = widget.original_pixmap.size()
+        original_size = widget.image_size
         target_size = widget.fixed_size if widget.fixed_size else widget.size()
 
         # Calculate how much the image is scaled when fitted

@@ -7,7 +7,7 @@ plus a status overlay for marking photos as keeper/delete/unmarked.
 import math
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import ExifTags, Image, ImageOps
 from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QImage, QMouseEvent, QPixmap, QWheelEvent
 from PySide6.QtWidgets import (
@@ -104,6 +104,15 @@ class ImageWidget(QWidget):
         # from disk or a placeholder while a background decode runs).
         self.original_pixmap = self.load_full_image()
 
+        # The photo's oriented dimensions in original-image pixels, which
+        # every zoom and pan calculation works in. Differs from
+        # original_pixmap.size() only while the thumbnail placeholder shows.
+        self.image_size = (
+            self._header_size()
+            if self._pending_full_load
+            else self.original_pixmap.size()
+        )
+
         # Build UI
         self.setup_ui()
 
@@ -193,6 +202,23 @@ class ImageWidget(QWidget):
             # Fallback to Qt's loader if PIL fails
             return QPixmap(str(self.path))
 
+    def _header_size(self) -> QSize:
+        """Read the oriented dimensions from the file header without decoding.
+
+        Returns:
+            Width and height after EXIF orientation, or the placeholder's
+            size if the header cannot be read.
+        """
+        try:
+            with Image.open(self.path) as img:
+                width, height = img.size
+                # Orientations 5-8 include a 90-degree rotation.
+                if img.getexif().get(ExifTags.Base.Orientation, 1) in (5, 6, 7, 8):
+                    width, height = height, width
+        except Exception:
+            return self.original_pixmap.size()
+        return QSize(width, height)
+
     def _placeholder_pixmap(self) -> QPixmap:
         """Return an immediate stand-in shown while the full image decodes in the background.
 
@@ -226,6 +252,7 @@ class ImageWidget(QWidget):
             return
         self._pending_full_load = False
         self.original_pixmap = pixmap
+        self.image_size = pixmap.size()
         self.update_display()
 
     def show_load_failed(self) -> None:
@@ -237,6 +264,7 @@ class ImageWidget(QWidget):
         """
         self._pending_full_load = False
         self.original_pixmap = QPixmap()
+        self.image_size = QSize()
         self.update_display()
 
     def has_valid_image(self) -> bool:
@@ -245,7 +273,7 @@ class ImageWidget(QWidget):
         A corrupt, truncated, or zero-byte file yields a null (0x0) pixmap -
         either from load_full_image's synchronous fallback, or from
         show_load_failed() after a failed background decode. Callers must
-        check this before dividing by original_pixmap.width()/height()
+        check this before dividing by image_size.width()/height()
         (fit-percentage and zoom-to-cursor math), or an invalid file would
         raise ZeroDivisionError on selection. While a background decode is
         still pending, original_pixmap is a placeholder (see
@@ -407,8 +435,8 @@ class ImageWidget(QWidget):
         Returns:
             A QPixmap sized to fit within target_size (KeepAspectRatio).
         """
-        orig_w = self.original_pixmap.width()
-        orig_h = self.original_pixmap.height()
+        orig_w = self.image_size.width()
+        orig_h = self.image_size.height()
 
         # Source region size needed to fill the viewport at this zoom level,
         # clamped to the image's own bounds (zooming out below 1:1 needs more
@@ -430,7 +458,17 @@ class ImageWidget(QWidget):
         src_x = max(0, min(src_x, orig_w - src_w))
         src_y = max(0, min(src_y, orig_h - src_h))
 
-        crop = self.original_pixmap.copy(QRect(src_x, src_y, src_w, src_h))
+        # The rect is in original-image pixels; scale it onto the
+        # placeholder while the full decode is still pending.
+        scale = self.original_pixmap.width() / orig_w
+        crop = self.original_pixmap.copy(
+            QRect(
+                round(src_x * scale),
+                round(src_y * scale),
+                max(1, round(src_w * scale)),
+                max(1, round(src_h * scale)),
+            )
+        )
 
         return crop.scaled(
             target_size,
@@ -471,8 +509,8 @@ class ImageWidget(QWidget):
 
         if self.fit_mode and self.has_valid_image():
             old_zoom = min(
-                target_size.width() / self.original_pixmap.width(),
-                target_size.height() / self.original_pixmap.height(),
+                target_size.width() / self.image_size.width(),
+                target_size.height() / self.image_size.height(),
             )
         else:
             old_zoom = self.zoom_level
@@ -522,8 +560,8 @@ class ImageWidget(QWidget):
             target_size = (
                 self.fixed_size if self.fixed_size is not None else self.size()
             )
-            scale_w = target_size.width() / self.original_pixmap.width()
-            scale_h = target_size.height() / self.original_pixmap.height()
+            scale_w = target_size.width() / self.image_size.width()
+            scale_h = target_size.height() / self.image_size.height()
             current_percentage = int(min(scale_w, scale_h) * 100)
         else:
             current_percentage = int(self.zoom_level * 100)
@@ -599,8 +637,8 @@ class ImageWidget(QWidget):
                 target_size = (
                     self.fixed_size if self.fixed_size is not None else self.size()
                 )
-                scale_w = target_size.width() / self.original_pixmap.width()
-                scale_h = target_size.height() / self.original_pixmap.height()
+                scale_w = target_size.width() / self.image_size.width()
+                scale_h = target_size.height() / self.image_size.height()
                 current_zoom = min(scale_w, scale_h)
             else:
                 current_zoom = self.zoom_level
