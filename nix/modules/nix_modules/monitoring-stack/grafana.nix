@@ -304,6 +304,7 @@ in
     services.grafana.settings.security = {
       admin_password = "$__file{${config.sops.secrets.grafana_admin_password.path}}";
       secret_key = "$__file{${config.sops.secrets.grafana_secret_key.path}}";
+      cookie_secure = true;
     };
 
     # Every file under dashboards/ is provisioned at the path it already has in
