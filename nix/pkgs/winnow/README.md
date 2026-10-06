@@ -39,7 +39,6 @@ the current context; press `?` in the app for the full map.
 | Esc               | leave comparison for the focused photo                                                     |
 | gg / G            | first / last photo                                                                         |
 | tu / tk / td      | toggle unmarked / keepers / deletes in the strip                                           |
-| ts                | sort the strip softest-focus-first (toggle)                                                |
 | - / = / 0 / f     | zoom out / in / 100% / fit                                                                 |
 | Shift+h/j/k/l     | pan the view                                                                               |
 | Ctrl+h/j/k/l      | nudge the focused tile to align a mismatched shot                                          |
@@ -61,8 +60,8 @@ printing. This is a culling tool, not a DAM.
 ## Structure
 
 `src/winnow/core/` is the logic below the widgets (scanner, session state,
-thumbnailer, LRU image cache, undo stack, focus scoring), unit-tested on its
-own. Only the scanner and focus scoring are free of Qt; the session,
+thumbnailer, LRU image cache, undo stack), unit-tested on its
+own. Only the scanner is free of Qt; the session,
 thumbnailer and image cache use PySide6's QtCore and QtGui (pixmaps, worker
 threads) but no widgets, and the undo stack imports the session. `src/winnow/ui/` is the Qt/PySide6 layer (main
 window, thumbnail strip, viewing area, image widget, keyboard controller)

@@ -6,8 +6,8 @@ Currently a placeholder, will be extended to show scrollable thumbnails with sel
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPaintEvent, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QColor, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
@@ -22,14 +22,6 @@ from PySide6.QtWidgets import (
 from winnow.core.session import PhotoStatus, Session
 from winnow.core.thumbnailer import Thumbnailer
 
-# Softest-quartile badge. Amber, distinct from the keeper/delete/selection
-# border colors (green/red/blue) so it never reads as a status - it's a
-# relative "this is among the softest in the directory" hint, not a verdict.
-_SOFT_BADGE_FILL = QColor("#FFB300")
-_SOFT_BADGE_OUTLINE = QColor("#7A4B00")
-_SOFT_BADGE_DIAMETER = 10
-_SOFT_BADGE_MARGIN = 4
-
 
 class ThumbnailWidget(QLabel):
     """Widget displaying a single thumbnail with status-colored border.
@@ -42,9 +34,6 @@ class ThumbnailWidget(QLabel):
     - Gray (1px): Unmarked (default state)
 
     The border updates when update_appearance() is called after session state changes.
-    An amber corner dot additionally marks photos in the softest sharpness
-    quartile of the directory (see Session.sharpness_bucket) - a relative
-    focus hint, not a status.
     """
 
     def __init__(
@@ -157,52 +146,6 @@ class ThumbnailWidget(QLabel):
         else:
             self.setGraphicsEffect(None)
 
-        self.setToolTip(
-            "Relatively soft focus in this directory"
-            if self._soft_badge_visible()
-            else ""
-        )
-        # setStyleSheet alone doesn't reliably repaint the badge (it's drawn
-        # in paintEvent, not styled) - schedule one explicitly so a
-        # sharpness score that arrives without a border change still shows.
-        self.update()
-
-    def _soft_badge_visible(self) -> bool:
-        """Whether this thumbnail is in the softest sharpness quartile.
-
-        Requires at least a couple of scored photos in the directory - a
-        lone scored photo is trivially "softest" and not a meaningful
-        signal. Purely relative (see Session.sharpness_bucket): there is
-        no absolute "blurry" cutoff.
-        """
-        return (
-            len(self.session.sharpness) >= 2
-            and self.session.sharpness_bucket(self.path) == 0
-        )
-
-    def paintEvent(self, event: QPaintEvent) -> None:  # noqa: N802
-        """Paint the thumbnail, then a soft-focus badge on top if flagged.
-
-        A small amber corner dot - see the module-level _SOFT_BADGE_*
-        constants for why amber (distinct from the green/red/blue used for
-        keeper/delete/selection, so it never reads as a status).
-        """
-        super().paintEvent(event)
-        if not self._soft_badge_visible():
-            return
-
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(_SOFT_BADGE_FILL)
-        painter.setPen(_SOFT_BADGE_OUTLINE)
-        painter.drawEllipse(
-            self.width() - _SOFT_BADGE_DIAMETER - _SOFT_BADGE_MARGIN,
-            _SOFT_BADGE_MARGIN,
-            _SOFT_BADGE_DIAMETER,
-            _SOFT_BADGE_DIAMETER,
-        )
-        painter.end()
-
     def regenerate_thumbnail(self, pixmap: QPixmap) -> None:
         """Update the thumbnail with a new pixmap at a different size.
 
@@ -249,17 +192,6 @@ class ThumbnailStrip(QWidget):
 
         # Swap in the real thumbnail as each background decode completes.
         self.thumbnailer.thumbnail_ready.connect(self._on_thumbnail_ready)
-        # Record each background sharpness score as it lands.
-        self.thumbnailer.sharpness_ready.connect(self._on_sharpness_ready)
-
-        # Coalesces sort-order rebuilds while sort_by_sharpness is on: a
-        # fresh directory scan reports scores in a tight burst, and
-        # resorting the whole strip on every single arrival would be
-        # wasted work repeated hundreds of times. Debounced by restarting
-        # on every call - see _arm_sort_resort_timer.
-        self._sort_resort_timer = QTimer(self)
-        self._sort_resort_timer.setSingleShot(True)
-        self._sort_resort_timer.timeout.connect(self.refresh_thumbnails)
 
         # Calculate initial height based on thumbnail size
         # Control bar: 40px + thumbnail size + margins (20px)
@@ -432,15 +364,6 @@ class ThumbnailStrip(QWidget):
         self.deletes_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.deletes_btn.clicked.connect(self.on_filter_toggle)
 
-        # Sort toggle - reorders the strip softest-focus-first instead of
-        # by capture order. Not a filter (nothing is hidden), so it's wired
-        # to on_sort_toggle rather than on_filter_toggle.
-        self.sort_btn = QPushButton("Sort: soft first")
-        self.sort_btn.setCheckable(True)
-        self.sort_btn.setChecked(False)  # Capture order by default
-        self.sort_btn.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.sort_btn.clicked.connect(self.on_sort_toggle)
-
         # Apply styling to make checked/unchecked state more obvious
         button_style = """
             QPushButton {
@@ -466,12 +389,10 @@ class ThumbnailStrip(QWidget):
         self.unmarked_btn.setStyleSheet(button_style)
         self.keepers_btn.setStyleSheet(button_style)
         self.deletes_btn.setStyleSheet(button_style)
-        self.sort_btn.setStyleSheet(button_style)
 
         control_layout.addWidget(self.unmarked_btn)
         control_layout.addWidget(self.keepers_btn)
         control_layout.addWidget(self.deletes_btn)
-        control_layout.addWidget(self.sort_btn)
 
         # Selection indicator label (e.g., "34/113" or "34/113 · 3 selected")
         self.selection_indicator = QLabel()
@@ -585,39 +506,6 @@ class ThumbnailStrip(QWidget):
                 widget.regenerate_thumbnail(pixmap)
                 break
 
-    def _on_sharpness_ready(self, path: Path, score: float) -> None:
-        """Handle a background sharpness score completing.
-
-        Records the score (Session.set_sharpness also refreshes the
-        quartile cutoffs sharpness_bucket() reads) and repaints that
-        thumbnail's soft-focus badge. If the strip is currently sorted by
-        sharpness, schedules a coalesced re-sort rather than resorting on
-        every individual score - a fresh directory scan reports scores in
-        a tight burst as thumbnails decode.
-
-        Args:
-            path: Path to the scored image.
-            score: Sharpness score from focus.sharpness_score.
-        """
-        self.session.set_sharpness(path, score)
-        for widget in self.thumbnail_widgets:
-            if widget.path == path:
-                widget.update_appearance()
-                break
-        if self.session.sort_by_sharpness:
-            self._arm_sort_resort_timer()
-
-    def _arm_sort_resort_timer(self) -> None:
-        """(Re)start the debounce timer that re-sorts the strip.
-
-        Calling QTimer.start() while already running restarts its
-        countdown, so a burst of scores arriving faster than 200ms apart
-        collapses into a single refresh_thumbnails() call once the burst
-        settles - rebuilding the whole strip once per score would be
-        wasted, repeated work during an initial directory scan.
-        """
-        self._sort_resort_timer.start(200)
-
     def _update_strip_height(self) -> None:
         """Update thumbnail strip height based on current thumbnail size.
 
@@ -670,18 +558,6 @@ class ThumbnailStrip(QWidget):
         self.filter_changed.emit()
 
         # Refresh thumbnail display based on new filter state
-        self.refresh_thumbnails()
-
-    def on_sort_toggle(self) -> None:
-        """Handle the sort-by-sharpness toggle.
-
-        Softest-first is a relative ordering over whatever scores are
-        currently known (see Session.filtered_images) - toggling it
-        reorders the strip immediately even if the directory's background
-        scan hasn't finished scoring every photo yet; unscored photos sink
-        to the end and settle into place as their scores arrive.
-        """
-        self.session.sort_by_sharpness = self.sort_btn.isChecked()
         self.refresh_thumbnails()
 
     def on_zoom_changed(self) -> None:

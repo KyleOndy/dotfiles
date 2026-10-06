@@ -112,7 +112,6 @@ class KeyboardController(QObject):
             "toggle_unmarked": self._toggle_unmarked,
             "toggle_keepers": self._toggle_keepers,
             "toggle_deletes": self._toggle_deletes,
-            "toggle_sort_sharpness": self._toggle_sort_sharpness,
             "undo": self._undo,
             "redo": self._redo,
             "toggle_help": self._show_help,
@@ -567,9 +566,6 @@ class KeyboardController(QObject):
 
     def _toggle_deletes(self, _key: str) -> None:
         self._strip.deletes_btn.click()
-
-    def _toggle_sort_sharpness(self, _key: str) -> None:
-        self._strip.sort_btn.click()
 
     # -- Undo / redo ------------------------------------------------------
 

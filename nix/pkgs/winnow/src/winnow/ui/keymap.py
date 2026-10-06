@@ -420,15 +420,6 @@ KEYMAP: tuple[Binding, ...] = (
         help_text="Toggle deletes in the strip",
         auto_repeat=False,
     ),
-    Binding(
-        keys=("T,S",),
-        label="ts",
-        action="toggle_sort_sharpness",
-        modes=ALL_MODES,
-        group="Filters",
-        help_text="Toggle sorting the strip softest-focus-first",
-        auto_repeat=False,
-    ),
     # Session
     Binding(
         keys=("U",),

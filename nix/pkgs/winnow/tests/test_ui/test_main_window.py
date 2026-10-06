@@ -151,13 +151,12 @@ def test_thumbnail_strip_has_control_bar(qapp, tmp_path):
     buttons = window.thumbnail_strip.findChildren(QPushButton)
     sliders = window.thumbnail_strip.findChildren(QSlider)
 
-    # Verify we have 3 filter buttons plus the sort-by-sharpness toggle
-    assert len(buttons) == 4
+    # Verify we have 3 filter buttons
+    assert len(buttons) == 3
     button_texts = [btn.text() for btn in buttons]
     assert "Unmarked" in button_texts
     assert "Keepers" in button_texts
     assert "Deletes" in button_texts
-    assert "Sort: soft first" in button_texts
 
     # Verify buttons are enabled and checkable
     for btn in buttons:
@@ -168,12 +167,10 @@ def test_thumbnail_strip_has_control_bar(qapp, tmp_path):
     unmarked_btn = next(btn for btn in buttons if btn.text() == "Unmarked")
     keepers_btn = next(btn for btn in buttons if btn.text() == "Keepers")
     deletes_btn = next(btn for btn in buttons if btn.text() == "Deletes")
-    sort_btn = next(btn for btn in buttons if btn.text() == "Sort: soft first")
 
     assert unmarked_btn.isChecked()  # Should be checked (show unmarked by default)
     assert keepers_btn.isChecked()  # Should be checked (show keepers by default)
     assert not deletes_btn.isChecked()  # Should be unchecked (hide deletes by default)
-    assert not sort_btn.isChecked()  # Should be unchecked (capture order by default)
 
     # Verify we have a zoom slider
     assert len(sliders) == 1

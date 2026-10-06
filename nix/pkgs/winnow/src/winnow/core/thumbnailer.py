@@ -12,8 +12,6 @@ from PIL import Image, ImageOps
 from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from PySide6.QtGui import QColor, QImage, QPixmap
 
-from winnow.core.focus import sharpness_score
-
 
 def _open_oriented(image_path: Path) -> Image.Image | None:
     """Open image_path and apply its EXIF orientation.
@@ -71,16 +69,14 @@ class ThumbnailTask(QRunnable):
         self.setAutoDelete(True)
 
     def run(self) -> None:
-        """Decode the thumbnail, score its sharpness, and notify the thumbnailer.
+        """Decode the thumbnail and notify the thumbnailer.
 
         Only builds a QImage here - QPixmap must not be created outside the
         GUI thread, so the QPixmap conversion happens in the main-thread
-        handler (Thumbnailer._on_thumbnail_loaded) instead. Scoring rides
-        along on this same decode (one open, two outputs) rather than
-        opening the file a second time.
+        handler (Thumbnailer._on_thumbnail_loaded) instead.
         """
-        qimage, score = self.thumbnailer._decode_with_score(self.path, self.size)
-        self.thumbnailer._thumbnail_loaded.emit(self.path, qimage, score, self.size)
+        qimage = self.thumbnailer.generate_qimage(self.path, self.size)
+        self.thumbnailer._thumbnail_loaded.emit(self.path, qimage, self.size)
 
 
 class Thumbnailer(QObject):
@@ -99,16 +95,9 @@ class Thumbnailer(QObject):
     # failure), so callers never need to special-case a None result.
     thumbnail_ready = Signal(Path, QPixmap)
 
-    # Emitted on the main thread whenever a queue_thumbnail() task produces
-    # a sharpness score. (path, score) - higher is sharper; see
-    # winnow.core.focus.sharpness_score. Not emitted on decode failure or
-    # for a task superseded by a later size change (see _on_thumbnail_loaded).
-    sharpness_ready = Signal(Path, float)
-
     # Internal signal marshaling background decode results to the main
-    # thread. (path, qimage-or-None, sharpness-score-or-None, size the task
-    # was queued at)
-    _thumbnail_loaded = Signal(Path, object, object, int)
+    # thread. (path, qimage-or-None, size the task was queued at)
+    _thumbnail_loaded = Signal(Path, object, int)
 
     def __init__(
         self, size: int = 150, max_threads: int = 2, parent: QObject | None = None
@@ -199,50 +188,12 @@ class Thumbnailer(QObject):
         except Exception:
             return None
 
-    def _decode_with_score(
-        self, image_path: Path, size: int
-    ) -> tuple[QImage | None, float | None]:
-        """Decode a thumbnail QImage and a sharpness score from one open.
-
-        Scores the full-resolution oriented image before it is shrunk to
-        the thumbnail size - sharpness_score expects to do its own
-        resolution-normalizing downscale (to a much larger working size
-        than a thumbnail), so scoring after the thumbnail shrink would
-        starve it of detail. Safe to call from a worker thread - like
-        generate_qimage, this stops at QImage rather than QPixmap.
-
-        Args:
-            image_path: Path to the image file to decode.
-            size: Maximum dimension for the thumbnail, in pixels.
-
-        Returns:
-            (qimage, score). Either may independently be None: a decode
-            failure yields (None, None); if scoring or the QImage
-            conversion individually raises, only that half is None.
-        """
-        img = _open_oriented(image_path)
-        if img is None:
-            return None, None
-
-        try:
-            score = sharpness_score(img)
-        except Exception:
-            score = None
-
-        try:
-            qimage = self._resize_to_qimage(img, size)
-        except Exception:
-            qimage = None
-
-        return qimage, score
-
     @staticmethod
     def _resize_to_qimage(img: Image.Image, size: int) -> QImage:
         """Shrink an oriented PIL image to a thumbnail and convert to QImage.
 
         Mutates and consumes img (thumbnail() resizes in place) - callers
-        needing the original resolution (e.g. for sharpness scoring) must
-        use it first.
+        needing the original resolution must use it first.
 
         Args:
             img: Oriented PIL image, as returned by _open_oriented.
@@ -329,7 +280,7 @@ class Thumbnailer(QObject):
         self._thread_pool.waitForDone()
 
     def _on_thumbnail_loaded(
-        self, path: Path, qimage: QImage | None, score: float | None, size: int
+        self, path: Path, qimage: QImage | None, size: int
     ) -> None:
         """Handle a completed background decode (runs on the main thread).
 
@@ -339,18 +290,9 @@ class Thumbnailer(QObject):
         Args:
             path: Path to the thumbnailed image.
             qimage: Decoded QImage, or None if decoding failed.
-            score: Sharpness score, or None if scoring failed or the source
-                image failed to decode at all.
             size: The size this task was queued at.
         """
         self._inflight.discard((path, size))
-
-        # The sharpness score doesn't depend on the thumbnail's target
-        # size, so it's still valid even if this task was queued at a size
-        # the zoom slider has since moved past - report it regardless of
-        # the staleness check below.
-        if score is not None:
-            self.sharpness_ready.emit(path, score)
 
         if size != self.size:
             # Superseded by a later size change (e.g. the zoom slider moved

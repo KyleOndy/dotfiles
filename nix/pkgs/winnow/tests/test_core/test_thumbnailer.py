@@ -5,7 +5,6 @@ from pathlib import Path
 from PIL import Image
 from PySide6.QtGui import QPixmap
 
-from winnow.core.focus import sharpness_score
 from winnow.core.thumbnailer import Thumbnailer
 
 
@@ -328,88 +327,3 @@ def test_small_image_not_upscaled(qapp, tmp_path):
     # Image should not be upscaled, should remain 50x50 or smaller
     assert result.width() <= 50
     assert result.height() <= 50
-
-
-# Sharpness scoring tests (background queue path)
-
-
-def test_queue_thumbnail_emits_sharpness_ready(qapp, qtbot, tmp_path):
-    """Test that a queued decode reports a sharpness score for the photo."""
-    image_path = create_test_image(tmp_path, "photo.jpg", 400, 300)
-    thumbnailer = Thumbnailer(size=150)
-
-    received = []
-    thumbnailer.sharpness_ready.connect(
-        lambda path, score: received.append((path, score))
-    )
-
-    thumbnailer.queue_thumbnail(image_path)
-    qtbot.waitUntil(lambda: len(received) == 1, timeout=2000)
-
-    path, score = received[0]
-    assert path == image_path
-    assert isinstance(score, float)
-    assert score >= 0.0
-
-
-def test_sharpness_ready_scores_full_resolution_not_thumbnail_size(
-    qapp, qtbot, tmp_path
-):
-    """Test that scoring runs on the full image, not the shrunk thumbnail.
-
-    A tiny thumbnail (size=20) would starve sharpness_score of the detail
-    it needs - this checks the background path's score roughly matches
-    scoring the original file directly, confirming the thumbnailer scores
-    before its own thumbnail() shrink rather than after.
-    """
-    image_path = create_test_image(tmp_path, "photo.jpg", 400, 300)
-    thumbnailer = Thumbnailer(size=20)  # aggressively small thumbnail target
-
-    received = []
-    thumbnailer.sharpness_ready.connect(lambda path, score: received.append(score))
-
-    thumbnailer.queue_thumbnail(image_path)
-    qtbot.waitUntil(lambda: len(received) == 1, timeout=2000)
-
-    direct_score = sharpness_score(Image.open(image_path))
-    # Both computed on the same full-resolution decode, so they should
-    # match closely regardless of the thumbnail's tiny target size.
-    assert abs(received[0] - direct_score) < 1e-6
-
-
-def test_sharpness_ready_not_emitted_for_corrupt_file(qapp, qtbot, tmp_path):
-    """Test that a decode failure reports no sharpness score."""
-    corrupt_file = tmp_path / "corrupt.jpg"
-    corrupt_file.write_bytes(b"\x00\x01\x02\x03random garbage data not an image")
-    thumbnailer = Thumbnailer(size=150)
-
-    sharpness_received = []
-    thumbnail_received = []
-    thumbnailer.sharpness_ready.connect(
-        lambda path, score: sharpness_received.append(score)
-    )
-    thumbnailer.thumbnail_ready.connect(
-        lambda path, pixmap: thumbnail_received.append(pixmap)
-    )
-
-    thumbnailer.queue_thumbnail(corrupt_file)
-    # Wait on thumbnail_ready (always emitted, even on failure) rather than
-    # sharpness_ready, which this test expects never fires.
-    qtbot.waitUntil(lambda: len(thumbnail_received) == 1, timeout=2000)
-
-    assert sharpness_received == []
-
-
-def test_queue_thumbnail_scores_each_photo_once(qapp, qtbot, tmp_path):
-    """Test that queuing several photos reports one score per photo."""
-    paths = [create_test_image(tmp_path, f"photo{i}.jpg", 200, 200) for i in range(4)]
-    thumbnailer = Thumbnailer(size=150)
-
-    received = []
-    thumbnailer.sharpness_ready.connect(lambda path, score: received.append(path))
-
-    for path in paths:
-        thumbnailer.queue_thumbnail(path)
-    qtbot.waitUntil(lambda: len(received) == len(paths), timeout=3000)
-
-    assert sorted(received) == sorted(paths)

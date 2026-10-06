@@ -682,15 +682,6 @@ class TestChordKeys:
         strip_paths = [w.path for w in win_single.thumbnail_strip.thumbnail_widgets]
         assert photos[3] in strip_paths
 
-    def test_ts_toggles_sharpness_sort(self, win_single, qtbot):
-        assert win_single.session.sort_by_sharpness is False
-
-        press(qtbot, win_single, Qt.Key_T)
-        press(qtbot, win_single, Qt.Key_S)
-
-        assert win_single.session.sort_by_sharpness is True
-        assert win_single.thumbnail_strip.sort_btn.isChecked()
-
     def test_broken_chord_swallows_exactly_one_key(self, win_single, qtbot, photos):
         """Characterization: a stray chord prefix eats the next keypress.
 

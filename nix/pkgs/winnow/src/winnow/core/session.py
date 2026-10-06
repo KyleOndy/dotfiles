@@ -4,7 +4,6 @@ This module provides the core state management for photo culling sessions,
 including photo status tracking and session state.
 """
 
-import bisect
 import sys
 from dataclasses import dataclass, field
 from enum import Enum
@@ -98,25 +97,8 @@ class Session:
     # Thumbnail cache (in-memory only)
     thumbnails: dict[Path, QPixmap] = field(default_factory=dict)
 
-    # Sharpness (focus) scores, populated asynchronously as photos decode -
-    # see winnow.core.focus.sharpness_score. Higher is sharper. Purely
-    # relative within this directory: there is no absolute "blurry"
-    # threshold, so these are only used for sorting/ranking (sort_by_sharpness,
-    # sharpness_bucket), never to auto-mark a photo.
-    sharpness: dict[Path, float] = field(default_factory=dict)
-    sort_by_sharpness: bool = False
-
     # Full-resolution image cache
     image_cache: ImageCache | None = None
-
-    def __post_init__(self) -> None:
-        """Initialize private cache state not part of the dataclass surface."""
-        # Sorted snapshot of self.sharpness.values(), recomputed by
-        # set_sharpness() and used to look up a score's rank via bisect
-        # rather than re-sorting on every sharpness_bucket() call. Kept out
-        # of the field list (and so out of __init__'s signature) since it's
-        # derived, not caller-supplied state.
-        self._sharpness_sorted: list[float] = []
 
     def get_status(self, path: Path) -> PhotoStatus:
         """Get the status of a photo.
@@ -157,11 +139,7 @@ class Session:
         """Return images matching current filter settings.
 
         Filters the images list based on show_unmarked, show_keepers,
-        and show_deletes flags, preserving the original order. When
-        sort_by_sharpness is set, the filtered result is further sorted
-        softest-first by sharpness score - this is the single chokepoint
-        the thumbnail strip, navigate(), and gg/G all read from, so sorting
-        here reorders the whole cull workflow at once.
+        and show_deletes flags, preserving the original order.
 
         Returns:
             List of Path objects for photos matching filter criteria.
@@ -178,13 +156,6 @@ class Session:
                 continue
 
             result.append(img)
-
-        if self.sort_by_sharpness:
-            # list.sort is stable, so photos with equal (or no) score keep
-            # their relative capture order - unscored photos (not yet
-            # decoded, or scoring failed) sort as +inf and sink to the end
-            # rather than being mistaken for the softest photos.
-            result.sort(key=lambda p: self.sharpness.get(p, float("inf")))
 
         return result
 
@@ -230,46 +201,6 @@ class Session:
             Total number of existing RAW siblings across all marked deletes.
         """
         return sum(len(raw_siblings(path)) for path in self.deletes)
-
-    def set_sharpness(self, path: Path, score: float) -> None:
-        """Record a photo's focus sharpness score.
-
-        The single write path for sharpness scores - also refreshes the
-        sorted snapshot sharpness_bucket() ranks against, so a bucket
-        lookup is a binary search instead of a full re-sort of every known
-        score on every call (a fresh directory scan reports a score per
-        photo in a tight burst).
-
-        Args:
-            path: Path to the scored photo.
-            score: Sharpness score from focus.sharpness_score (higher is
-                sharper).
-        """
-        self.sharpness[path] = score
-        self._sharpness_sorted = sorted(self.sharpness.values())
-
-    def sharpness_bucket(self, path: Path) -> int | None:
-        """Relative sharpness quartile for path: 0 (softest) to 3 (sharpest).
-
-        Buckets photos by rank rather than by fixed score cutoffs, so the
-        softest-scored photo is always bucket 0 and the sharpest-scored
-        photo is always bucket 3 (a cutoff-based scheme has awkward off-by-
-        one behavior right at the min/max). Relative to every currently-
-        scored photo in this session - never an absolute threshold (see
-        focus.sharpness_score) - so a photo's bucket can shift as more of
-        the directory finishes decoding.
-
-        Args:
-            path: Path to the photo.
-
-        Returns:
-            0-3, or None if path has no recorded score yet.
-        """
-        score = self.sharpness.get(path)
-        if score is None:
-            return None
-        rank = bisect.bisect_left(self._sharpness_sorted, score)
-        return min(3, rank * 4 // len(self._sharpness_sorted))
 
     def get_full_image(self, path: Path) -> QPixmap | None:
         """Get full-resolution image from cache.
