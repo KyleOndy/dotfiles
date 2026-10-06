@@ -98,24 +98,50 @@ in
             exec ${jellyfinExporterPkg}/bin/jellyfin_exporter \
               --web.listen-address=:${toString cfg.port} \
               --jellyfin.address=${cfg.jellyfinUrl} \
-              --jellyfin.token="$(cat ${cfg.apiKeyFile})" \
+              --jellyfin.token="$(cat "$CREDENTIALS_DIRECTORY/api-key")" \
               ${collectorFlags}
           '';
         in
         {
           Type = "simple";
           DynamicUser = true;
-          # Grants read access to the group-scoped (0440) jellyfin_api_key
-          # secret instead of requiring world-readable (0444). Named
-          # "jellyfin-secrets", not "jellyfin-exporter": DynamicUser with no
-          # explicit User= names its dynamic user/group after the unit
-          # itself, so a static group sharing that name collides with it.
-          SupplementaryGroups = [ "jellyfin-secrets" ];
+          LoadCredential = "api-key:${cfg.apiKeyFile}";
           ExecStart = "${startScript}";
           Restart = "on-failure";
           RestartSec = "5s";
           Nice = 19;
           IOSchedulingClass = "idle";
+
+          NoNewPrivileges = true;
+          CapabilityBoundingSet = "";
+          ProtectSystem = "strict";
+          ProtectHome = true;
+          PrivateTmp = true;
+          PrivateDevices = true;
+          PrivateIPC = true;
+          ProtectKernelTunables = true;
+          ProtectKernelModules = true;
+          ProtectKernelLogs = true;
+          ProtectControlGroups = true;
+          ProtectClock = true;
+          ProtectHostname = true;
+          ProtectProc = "invisible";
+          ProcSubset = "pid";
+          RestrictNamespaces = true;
+          RestrictRealtime = true;
+          RestrictSUIDSGID = true;
+          LockPersonality = true;
+          MemoryDenyWriteExecute = true;
+          SystemCallArchitectures = "native";
+          SystemCallFilter = [
+            "@system-service"
+            "~@privileged"
+          ];
+          RestrictAddressFamilies = [
+            "AF_INET"
+            "AF_INET6"
+            "AF_UNIX"
+          ];
         };
     };
   };

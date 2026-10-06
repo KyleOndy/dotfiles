@@ -33,9 +33,11 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
-    sops.secrets.monitoring_smtp_password = {
-      mode = "0444";
-    };
+    sops.secrets.monitoring_smtp_password.mode = "0400";
+
+    # DynamicUser, so the root-only file reaches it as a credential.
+    systemd.services.alertmanager.serviceConfig.LoadCredential =
+      "smtp-password:${config.sops.secrets.monitoring_smtp_password.path}";
 
     services.prometheus.alertmanager = {
       enable = true;
@@ -152,7 +154,7 @@ in
           smtp_smarthost = parentCfg.smtp.server;
           smtp_from = parentCfg.smtp.from;
           smtp_auth_username = parentCfg.smtp.username;
-          smtp_auth_password_file = config.sops.secrets.monitoring_smtp_password.path;
+          smtp_auth_password_file = "/run/credentials/alertmanager.service/smtp-password";
         };
       };
     };

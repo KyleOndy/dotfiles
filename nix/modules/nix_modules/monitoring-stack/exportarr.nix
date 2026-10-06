@@ -24,14 +24,14 @@ let
       serviceConfig = {
         Type = "simple";
         DynamicUser = true;
-        # Grants read access to the group-scoped (0440) API key secrets
-        # instead of requiring world-readable (0444) sops secret files.
-        SupplementaryGroups = [ "exportarr" ];
+        # systemd copies the root-only key in for this unit alone, so no
+        # exporter can read another app's key.
+        LoadCredential = "api-key:${appCfg.apiKeyFile}";
         ExecStart = ''
           ${pkgs.exportarr}/bin/exportarr ${app} \
             --port ${toString appCfg.port} \
             --url ${appCfg.url} \
-            --api-key-file ${appCfg.apiKeyFile} \
+            --api-key-file %d/api-key \
             ${
               optionalString (app != "sabnzbd" && appCfg.enableAdditionalMetrics) "--enable-additional-metrics"
             } \
@@ -41,6 +41,40 @@ let
         '';
         Restart = "on-failure";
         RestartSec = "5s";
+
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateIPC = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        # The app and the scraper are both on this host.
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
       };
     };
 

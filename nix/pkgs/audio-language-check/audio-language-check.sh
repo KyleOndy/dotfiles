@@ -49,8 +49,8 @@ api() {
 }
 
 # Each service can read its own config.xml, so the key it already owns is the
-# one credential this needs. The sops copies are 0440 root:exportarr and are
-# not readable by the radarr and sonarr users that run this script.
+# one credential this needs. The sops copies are 0400 root and are not
+# readable by the radarr and sonarr users that run this script.
 read_api_key() {
 	local override="$1" config="$2"
 	if [ -n "$override" ]; then

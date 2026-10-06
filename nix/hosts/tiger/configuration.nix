@@ -1767,33 +1767,14 @@ in
       mode = "0440";
       group = "caddy";
     };
-    # API keys consumed by the exportarr metrics exporters (all DynamicUser).
-    # Group-scoped (was 0444/world-readable) via the shared "exportarr"
-    # supplementary group instead of world-read.
-    sonarr_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
-    radarr_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
-    lidarr_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
-    prowlarr_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
-    bazarr_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
-    sabnzbd_api_key = {
-      mode = "0440";
-      group = "exportarr";
-    };
+    # *arr API keys. Every consumer (exportarr, arr-queue-janitor) takes its
+    # copy through LoadCredential, which systemd reads as root.
+    sonarr_api_key.mode = "0400";
+    radarr_api_key.mode = "0400";
+    lidarr_api_key.mode = "0400";
+    prowlarr_api_key.mode = "0400";
+    bazarr_api_key.mode = "0400";
+    sabnzbd_api_key.mode = "0400";
     bazarr_ui_password.owner = "bazarr";
     # PIA account credentials (EnvironmentFile: PIA_USER / PIA_PASS), read by
     # pia-wg-connect.service as root to authenticate the WireGuard + port
@@ -1804,20 +1785,9 @@ in
     # qbittorrent-set-port.service can push the PIA-forwarded port into it.
     # EnvironmentFile: QBITTORRENT_USER / QBITTORRENT_PASS.
     qbittorrent_webui_credentials.mode = "0400";
-    # Consumed by the jellyfin backup service (runs as root, unaffected) and
-    # the jellyfin-exporter (DynamicUser, granted via supplementary group).
-    #
-    # Group is named "jellyfin-secrets", NOT "jellyfin-exporter": the
-    # exporter's DynamicUser has no explicit User=, so systemd names its
-    # dynamic user/group after the unit itself ("jellyfin-exporter"). A
-    # static group with that exact name collides with systemd's dynamic
-    # allocation and fails the unit with exit code 217/USER (confirmed via
-    # a failed deploy. exportarr avoided this because its unit names are
-    # "exportarr-sonarr" etc., distinct from the shared "exportarr" group).
-    jellyfin_api_key = {
-      mode = "0440";
-      group = "jellyfin-secrets";
-    };
+    # Read directly by jellyfin-backup, which runs as root, and through
+    # LoadCredential by jellyfin-exporter and ytdl-sub-housekeeping.
+    jellyfin_api_key.mode = "0400";
     # UniFi read-only account password for unpoller. The "unifi-poller" user
     # and group come from the upstream nixpkgs module, which runs the unit
     # under a static User= (not DynamicUser), so sharing the group name here
@@ -1831,8 +1801,6 @@ in
     smb_kyle_password.mode = "0400";
     smb_kristen_password.mode = "0400";
   };
-  users.groups.exportarr = { };
-  users.groups.jellyfin-secrets = { };
 
   system.stateVersion = "21.11"; # Did you read the comment?
 }

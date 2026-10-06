@@ -286,6 +286,8 @@ in
           proxyPass = "http://127.0.0.1:${toString cfg.port}";
         };
 
+    sops.secrets.monitoring_smtp_password.owner = "grafana";
+
     sops.secrets.grafana_admin_password = {
       owner = "grafana";
       group = "grafana";
