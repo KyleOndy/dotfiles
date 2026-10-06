@@ -107,6 +107,14 @@ absence is measurable from the inside. The Windows push is not, so the
 client writes a heartbeat file on success and tiger alerts on its age. Any
 future writer that lives off-fleet needs the same treatment.
 
+`/mnt/backups/kyle` holds the git bundles below, the dotfiles git-crypt
+key and shell history, and `/mnt/backups/apps` holds \*arr backup zips that
+carry API keys. tmpfiles holds them at 0700, `kyle` and `root` respectively,
+because nothing but those accounts reads them on tiger and pika reads through
+`zfs send`. They are `d` rules rather than `z`: `/mnt/backups` is owned by
+kyle, and `z` rejects the step to root-owned `apps/` as an unsafe path
+transition.
+
 trex pushes `backup-git-repos` into `/mnt/backups/kyle/git` four times a
 day: one git bundle per repo under `~/src`, plus the git-crypt key of any
 repo that has one. Most of those repos have no remote, so this is their
@@ -267,6 +275,15 @@ on a child does not revoke a wider one above it.
 Snapshot creation stays with sanoid on tiger, so syncoid runs with
 `--no-sync-snap` and never needs the `snapshot` verb.
 
+`hold,release` is for `--use-hold`. After each pull syncoid holds the
+snapshot it just landed, on both ends, and releases the previous one.
+tiger keeps 4 hourlies and pika pulls daily, so without the hold the newest
+snapshot pika has would be gone from tiger by the next pull, and the only
+way to land an incremental from an older common snapshot is to roll pika
+back to it. The cost is log noise: tiger's sanoid fails to prune the held
+snapshot on every run until the next pull moves the hold, logs it, and
+carries on with exit 0.
+
 ## Tier 2: pika
 
 An ODROID-H2 on the LAN. Quad-core Celeron J4105, 32GB of DDR4, a 500GB
@@ -314,8 +331,27 @@ source. A compromised tiger cannot reach pika, but it can absolutely answer
 a request pika made. Those two flags turn that answer into a wipe of the
 second copy.
 
-The NixOS syncoid module defaults to neither, and nothing in
-`pika/configuration.nix` adds them.
+`--force-delete` is opt-in. `-F` is not: syncoid 2.3.0 appends it to every
+`zfs receive` unless it is given `--no-rollback`
+([syncoid#L911-L913](https://github.com/jimsalterjrs/sanoid/blob/v2.3.0/syncoid#L911-L913)).
+Without `--no-rollback`, every nightly pull of `tank/backups` runs `-F` and
+destroys the previous day's hourlies on pika, because tiger has already
+pruned the snapshot they follow. The same flag lets a tiger that destroys
+its own snapshots roll pika back past them.
+
+So it is closed twice. `pika/configuration.nix` passes `--no-rollback`, and
+delegates `receive:append` rather than `receive`. OpenZFS refuses a forced
+receive to a holder of `receive:append`
+([zfs_ioctl.c](https://github.com/openzfs/zfs/blob/zfs-2.4.4/module/zfs/zfs_ioctl.c#L963-L987)),
+so losing the flag in some later edit fails the pull instead of rolling
+pika back. Resumable receives (`-s`) and the first full receive into a
+new dataset do not need `-F` and still work. A pull that would need a
+rollback now fails, `BackupReplicaStale` fires 36 hours later, and the
+rollback becomes a decision someone makes by hand.
+
+The `--use-hold` described under
+[Delegating send to pika](#delegating-send-to-pika) is what keeps the
+normal case from needing one.
 
 ### Received datasets are readonly
 
@@ -327,9 +363,11 @@ This one has a trap worth recording. A property named in `recvOptions` must
 also appear in `localTargetAllow`, or `zfs recv` logs a permission error per
 stream, skips the property, and still exits 0. The receive succeeds, the
 dataset is writable, and nothing reports it. `localTargetAllow` is trimmed
-to `create,mount,readonly,receive,rollback`: the module default also grants
-`change-key`, `compression` and `mountpoint`, and nothing here sends raw
-encrypted or raw compressed streams.
+to `create,mount,readonly,receive:append,hold,release`: the module default
+also grants `change-key`, `compression`, `mountpoint`, `receive` and
+`rollback`, and nothing here sends raw encrypted or raw compressed streams
+or rolls back. The module grants these at the start of each run and revokes
+them at the end, so `zfs allow tank/photos` between runs shows nothing.
 
 Verify with `zfs get readonly tank/photos tank/backups tank/projects`, not
 by reading the config.
@@ -374,7 +412,13 @@ Seen once for real, on the first receive of `tank/backups`.
 Bucket `ondy-archive-resolved-pug`, two prefixes, `photos/` and
 `backups/`. Defined in `tf/archive-backup.tf`.
 
-Plain files, `aws s3 sync`, no restic.
+Plain files, `aws s3 sync`, no restic. Symlinks are skipped
+(`--no-follow-symlinks`): `s3-archive-reconcile` lists regular files only, so
+a followed link is an object the weekly prune delete-marks and the next
+push uploads again, a new Deep Archive version per link per week. The 14
+in-tree links under `_provisional` carry such stacks, which age out on the
+noncurrent clock below. Their targets sit beside them in the tree and are
+pushed under their own keys.
 
 That is a deliberate trade. restic would give us client-side encryption,
 dedup, append-only snapshots, and real integrity verification. What it
@@ -424,6 +468,23 @@ A fully compromised pika can write 157,301 delete markers and destroy zero
 bytes. Permanent removal is exclusively the lifecycle rule, running as S3
 rather than as anything holding a key.
 
+The account is the remaining hole: the terraform admin key can delete any
+version. `tf/archive-backup.tf` therefore declares S3 Object Lock with a
+default retention of 365 days in GOVERNANCE mode, which puts every new
+version beyond the admin key's ordinary deletes, and beyond the lifecycle
+rule, for a year from its PUT. GOVERNANCE can still be lifted by a principal
+holding `s3:BypassGovernanceRetention`, which neither service credential
+does. COMPLIANCE would remove that escape for everyone including root, and
+Object Lock can never be switched off once on, so the mode is a deliberate
+choice, not a default to tighten later without thinking. See
+[What is left](#what-is-left).
+
+It is a standalone `aws_s3_bucket_object_lock_configuration`, not
+`object_lock_enabled = true` on the bucket, because that argument is
+`ForceNew` in hashicorp/aws 5.x
+([bucket.go#L381-L387](https://github.com/hashicorp/terraform-provider-aws/blob/v5.100.0/internal/service/s3/bucket.go#L381-L387))
+and plans a replacement of the bucket.
+
 MFA Delete would give a similar property and was considered. It is
 incompatible with having any lifecycle configuration at all
 ([lifecycle configuration constraints](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lifecycle-mgmt.html)),
@@ -432,14 +493,16 @@ split does the job instead.
 
 ### Pruning
 
-`noncurrent_version_expiration` at 180 days, plus
+`noncurrent_version_expiration` at 365 days, plus
 `expired_object_delete_marker` and a 7 day
 `abort_incomplete_multipart_upload`.
 
-180 rather than 90 because Deep Archive bills a 180-day minimum and charges
+Never under 180, because Deep Archive bills a 180-day minimum and charges
 a prorated early-deletion fee for anything removed sooner
-([Glacier pricing considerations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html#glacier-pricing-considerations)).
-Expiring at 90 costs exactly the same and buys half the undelete window.
+([Glacier pricing considerations](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html#glacier-pricing-considerations)),
+so a shorter window saves nothing. 365 rather than 180 because a mistake or
+an encrypted tree can sit unnoticed for longer than six months, and it
+matches the Object Lock retention, so neither clock outlives the other.
 
 The push never passes `--delete`. Orphan removal is a separate weekly job,
 `s3-archive-reconcile --prune`, with the prune credential and a safety
@@ -536,20 +599,32 @@ rather than firing.
 
 ### 1. Replication freshness, group `backup_replication`
 
-| Rule                           | Fires when                                 |
-| ------------------------------ | ------------------------------------------ |
-| `BackupReplicaDatasetMissing`  | no snapshot metrics for a pika dataset, 1h |
-| `BackupReplicaEmpty`           | dataset exists, zero snapshots, 2h         |
-| `BackupReplicaStale`           | newest snapshot older than 36h             |
-| `BackupReplicaCriticallyStale` | newest snapshot older than 72h             |
-| `BackupSourceSnapshotsStale`   | tiger's own snapshots older than 36h       |
+| Rule                           | Fires when                                  |
+| ------------------------------ | ------------------------------------------- |
+| `BackupReplicaDatasetMissing`  | no snapshot metrics for a pika dataset, 1h  |
+| `BackupReplicaEmpty`           | dataset exists, zero snapshots, 2h          |
+| `BackupReplicaStale`           | newest snapshot older than 36h              |
+| `BackupReplicaCriticallyStale` | newest snapshot older than 72h              |
+| `BackupSourceSnapshotsStale`   | tiger's own snapshots older than 36h        |
+| `BackupSnapshotsMassLoss`      | count under half its 3-day high, either end |
+| `BackupDatasetShrank`          | `used` under 80% of its 3-day high          |
+| `BackupSnapshotInFuture`       | newest snapshot dated over 1h ahead         |
 
 Freshness is measured the same way on both ends, so the pair says which end
 broke. Stale on pika alone is replication. Stale on both is sanoid on
 tiger.
 
 Metrics come from `zfs-snapshot-exporter` in
-`deployment_target.nix:285`, through the node_exporter textfile collector.
+`deployment_target.nix:285`, through the node_exporter textfile collector,
+except `BackupDatasetShrank`, which reads `zfs_dataset_used_bytes` from
+zfs_exporter and so keys on `name` rather than `dataset`.
+
+The last three watch history being taken away while the chain still runs,
+which no freshness rule can see. `used` counts snapshot space, so it drops
+when snapshots are destroyed, not when files are deleted.
+`storage/projects` is left out of the shrink rule because emptying it is its
+lifecycle. A snapshot dated in the future pins the freshness timestamp
+ahead of now, which silences both staleness rules for that dataset.
 
 ### 2. Pool health and scrub age, group `zfs_storage`
 
@@ -571,10 +646,17 @@ Easy to write a rule that silently matches nothing.
 | `S3ArchivePushNeverSucceeded`  | a prefix has no success timestamp at all, 24h |
 | `S3ArchivePushStale`           | last clean sync older than 36h                |
 | `S3ArchivePushCriticallyStale` | last clean sync older than 96h                |
+| `S3ArchivePushMassUpload`      | one run uploaded over 5% of the prefix        |
 | `S3ArchiveObjectsMissing`      | source files with no object in the bucket, 6h |
 | `S3ArchivePruneBlocked`        | orphan threshold refused a prune              |
 | `S3ReconcileStale`             | no comparison in 14 days                      |
 | `S3ReconcileNeverRan`          | a prefix has no comparison at all, 8d         |
+
+`S3ArchivePushMassUpload` reads `s3_archive_push_uploaded_objects`, the
+count of `upload:` lines from the last completed run, retries included. A
+normal day rewrites a sliver. A run that rewrites a large share is a bulk
+import or the source being rewritten under it, and every overwrite pushes
+the good version onto the noncurrent clock.
 
 `S3ArchiveObjectsMissing` is the one that earns the tier. It is the failure
 where the sync believes it is current and the offsite copy is not, which is
@@ -623,7 +705,7 @@ table under [Tier 2](#retention-must-be-longer-on-pika-than-on-tiger).
 
 Older than pika's retention, only S3 has it, and only if the file survived
 long enough to be pushed at all. The offsite tier keeps deleted objects for
-180 days after they go noncurrent, which is a different clock from either
+365 days after they go noncurrent, which is a different clock from either
 snapshot policy.
 
 ### A dataset got corrupted on tiger
@@ -794,6 +876,12 @@ later for daily and years for yearly. Plan reclamation on that timescale,
 not on the timescale of the `rm`.
 
 ## What is left
+
+**Apply Object Lock.** `tf/archive-backup.tf` declares it and the 365-day
+noncurrent expiry; neither is applied. `terraform plan` shows 1 to add,
+1 to change, 0 to destroy. Once applied it cannot be turned off, so read
+[Two credentials, split on one verb](#two-credentials-split-on-one-verb)
+before running `make apply`, and decide GOVERNANCE against COMPLIANCE then.
 
 **Write the S3 restore script.** The runbook section above is a snippet.
 
