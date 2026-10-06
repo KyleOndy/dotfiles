@@ -62,7 +62,8 @@ for repo in "$SRC"/*/; do
 	fi
 done
 
-rsync -a --mkpath "$STAGING/" "$DEST/"
+# DEST unchanged, never "$DEST/": rrsync rejects "./" as unsafe.
+rsync -a --mkpath "$STAGING/" "$DEST"
 echo "backup-git-repos: pushed to $DEST"
 
 # Written only after the push lands, so its age is the age of the newest

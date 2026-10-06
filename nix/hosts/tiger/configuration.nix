@@ -285,6 +285,8 @@ in
   # posture as its syncoid key, which carries only zfs send,hold,release.
   users.users.kyle.openssh.authorizedKeys.keys = [
     "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/histdb\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA2MvhvbsUVV1HjzbP7tL553Ux5bJyYufICn1jMCCHu8 kyle-histdb@pika"
+    # trex's unattended git bundle push, held to the same posture.
+    "command=\"${pkgs.rrsync}/bin/rrsync -wo -no-del /mnt/backups/kyle/git\",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFdI5qaMnisu9vCuQgO0zfzhiAtYHrfS/5j+V4YG8y4l kyle-backup-git-repos@trex"
   ];
 
   # Shell history lives on the root disk, which is out of scope by design
@@ -327,6 +329,7 @@ in
     # rrsync refuses to start if its restricted directory is absent, so this
     # cannot be left to whichever histdb-backup run happens to land first.
     "d /mnt/backups/kyle/histdb 0755 kyle kyle -"
+    "d /mnt/backups/kyle/git 0755 kyle kyle -"
     # A freshly created dataset mounts as root:root, and backup-resolve-projects
     # comes in over ssh as kyle.
     #

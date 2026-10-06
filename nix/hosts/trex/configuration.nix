@@ -226,6 +226,10 @@
       owner = "kyle";
       mode = "0400";
     };
+    trex_backup_git_ssh_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   # Password script for automated mbsync service. Only kyle@ondy.org is
@@ -336,17 +340,29 @@
   };
 
   # Most repos under ~/src have no remote, so this is their only second copy.
-  # Same transport and wake caveats as histdb-backup above. Four runs a day
+  # Everything the connection needs is spelled out here rather than taken
+  # from ~/.ssh/config. The key is write-only into one directory on tiger
+  # (tiger/configuration.nix), and IdentitiesOnly keeps ssh from offering the
+  # agent's unrestricted key first, which tiger would accept and run without
+  # the forced command. The destination path is relative to that directory,
+  # since rrsync rejects "./" as unsafe. Four runs a day
   # because tiger keeps 4 hourly snapshots of storage/backups; the 22:00 run
   # lands before pika's 00:00 syncoid pull, so a day's commits reach pika
   # that night and the archive bucket the next morning.
+  # Pinned rather than trusted on first use, since an unattended push has no
+  # one to answer the prompt. Same key pika pins (pika/configuration.nix).
+  programs.ssh.knownHosts.tiger = {
+    hostNames = [ "[tiger.dmz.1ella.com]:2332" ];
+    publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFjqSTUpNBfT0hwBYbPUjxgNhmYLDlEmv+juyxAzFiqt";
+  };
+
   home-manager.users.kyle.launchd.agents.backup-git-repos = {
     enable = true;
     config = {
       Label = "org.ondy.backup-git-repos";
       ProgramArguments = [
         "${pkgs.backup-git-repos}/bin/backup-git-repos"
-        "tiger:/mnt/backups/kyle/git"
+        "kyle@tiger.dmz.1ella.com:."
       ];
       StartCalendarInterval =
         map
@@ -360,7 +376,10 @@
             18
             22
           ];
-      EnvironmentVariables.TEXTFILE_DIR = config.systemFoundry.monitoringAgent.textfileDirectory;
+      EnvironmentVariables = {
+        TEXTFILE_DIR = config.systemFoundry.monitoringAgent.textfileDirectory;
+        RSYNC_RSH = "ssh -F none -p 2332 -i ${config.sops.secrets.trex_backup_git_ssh_key.path} -o IdentitiesOnly=yes";
+      };
       StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/backup-git-repos.log";
     };
