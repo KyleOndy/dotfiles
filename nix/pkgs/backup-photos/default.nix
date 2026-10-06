@@ -1,7 +1,5 @@
 {
   writeShellApplication,
-  awscli2,
-  terraform,
   rsync,
   openssh,
 }:
@@ -9,8 +7,6 @@
 writeShellApplication {
   name = "backup-photos";
   runtimeInputs = [
-    awscli2
-    terraform
     rsync
     openssh
   ];

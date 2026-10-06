@@ -2,19 +2,15 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/backup-photos/default.nix).
 #
-# Laptop-side working-set backup. tiger owns the routine archive -> S3 fan-out
-# now (see nix/pkgs/photos-fanout, run on tiger via a systemd timer); this
-# script's job is just the invariant "the working set is never single-copy,"
-# independent of whether tiger is reachable:
+# Laptop-side working-set backup. The offsite copy is pika's push of tiger's
+# replica (docs/backup-strategy.md); this script's job is just the invariant
+# "the working set is never single-copy," independent of whether tiger is
+# reachable:
 #
 #   backup-photos              mirror to tiger over ssh (default, at home)
 #   backup-photos --to PATH    mirror to a local path, e.g. a mounted
 #                               external SSD kept separate from the laptop
 #                               while traveling
-#   backup-photos --s3         opportunistic direct-to-S3 push of the
-#                               working set, for trips where even the SSD
-#                               copy isn't enough (irreplaceable shoots,
-#                               want an offsite copy before getting home)
 #
 # These are independent, not exclusive: run more than one on a given trip
 # if you want belt and suspenders.
@@ -34,8 +30,6 @@ readonly PHOTOS_DIR="${HELIOS_LIBRARY_PATH:-$HOME/photos}"
 readonly HELIOS_DB="${HELIOS_DB_PATH:-${XDG_STATE_HOME:-$HOME/.local/state}/helios/helios.db}"
 readonly TIGER_HOST="tiger"
 readonly TIGER_DEST="/mnt/photos/personal/photos"
-readonly AWS_PROFILE="ondy-org"
-readonly TF_DIR="${DOTFILES:-$HOME/src/dotfiles/main}/tf"
 
 # "<tree>:<depth>", where depth is how far below the tree a shoot directory
 # sits. Declared rather than discovered: selecting units by "directory that
@@ -150,32 +144,6 @@ sync_to_local() {
 	for_each_shoot shoot_to_local "${SYNC_ITEMS[@]}"
 }
 
-shoot_to_s3() {
-	aws s3 sync "$1/" "s3://$bucket_name/$2/" \
-		--delete --exclude "*.RAF" --exclude "*.raf" \
-		--exclude ".DS_Store" --exclude "._*" \
-		--storage-class STANDARD
-}
-
-sync_to_s3() {
-	echo "Getting bucket name from terraform..."
-	bucket_name=$(terraform -chdir="$TF_DIR" output -raw photos_backup_bucket_name)
-	if [ -z "$bucket_name" ]; then
-		echo "Error: could not get bucket name from terraform output" >&2
-		echo "Make sure you've run 'terraform apply' in $TF_DIR first" >&2
-		exit 1
-	fi
-
-	echo "Opportunistic push to s3://$bucket_name (working set only, RAF excluded)..."
-	export AWS_PROFILE
-	# _provisional only, not the whole of SYNC_ITEMS: archive/ is tiger's job
-	# to push (see nix/pkgs/photos-fanout), and pushing it from the laptop too
-	# would mean re-uploading the whole archive on every trip. Uploads land in
-	# STANDARD; the lifecycle rules in tf/photos-backup.tf transition from
-	# there.
-	for_each_shoot shoot_to_s3 "_provisional:2"
-}
-
 mode="tiger"
 dest_path=""
 case "${1:-}" in
@@ -183,12 +151,9 @@ case "${1:-}" in
 	mode="local"
 	dest_path="${2:?--to requires a destination path}"
 	;;
-"--s3")
-	mode="s3"
-	;;
 "") ;;
 *)
-	echo "Usage: backup-photos [--to PATH | --s3]" >&2
+	echo "Usage: backup-photos [--to PATH]" >&2
 	exit 1
 	;;
 esac
@@ -196,7 +161,6 @@ esac
 case "$mode" in
 tiger) sync_to_tiger ;;
 local) sync_to_local ;;
-s3) sync_to_s3 ;;
 esac
 
 echo "Sync complete in ${SECONDS}s"

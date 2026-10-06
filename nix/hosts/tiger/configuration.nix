@@ -279,38 +279,6 @@ in
     };
   };
 
-  # Photo archive fan-out: tiger owns the routine push from the
-  # authoritative archive/ to S3 Deep Archive. The laptop's own backup-photos
-  # handles the working set independently (--to/--s3 modes), so this stays off
-  # the critical path when the laptop can't reach tiger (see the photo
-  # management plan).
-  #
-  # This unit is temporary in its current home. The S3 push moves to pika
-  # once that copy verifies, so that no AWS credential exists on the host
-  # that faces the internet. Nothing has to be re-uploaded when it moves:
-  # `aws s3 sync` compares size and mtime, and zfs send/recv preserves both.
-  systemd.services.photos-fanout = {
-    description = "Fan the photo archive out to S3";
-    environment = {
-      PHOTOS_BACKUP_BUCKET = "my-photo-backup-archive-holy-mink";
-      AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.photos_backup_aws_credentials.path;
-    };
-    serviceConfig = {
-      Type = "oneshot";
-      User = "kyle"; # matches the owner of the rsynced archive tree
-      ExecStart = "${pkgs.photos-fanout}/bin/photos-fanout";
-    };
-  };
-
-  systemd.timers.photos-fanout = {
-    description = "Daily photo archive fan-out";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "daily";
-      Persistent = true;
-    };
-  };
-
   # pika faces the internet, so this key buys exactly one capability and no
   # shell: rrsync confines it to the one directory, -wo forbids reading the
   # other hosts' history back out, and -no-del stops it deleting them. Same
@@ -411,7 +379,7 @@ in
     # failing to index.
     #
     # "A+" sets a default ACL on the directory, so files rsynced in later
-    # (via photos-promote / photos-fanout's mirror) automatically pick up
+    # (via photos-promote / backup-photos) automatically pick up
     # group-immich read. This does NOT retroactively cover files that
     # existed before the ACL was set.
     #
@@ -1712,17 +1680,6 @@ in
     # system login password). Read by samba-smbpasswd-seed as root.
     smb_kyle_password.mode = "0400";
     smb_kristen_password.mode = "0400";
-    # AWS credentials for photos-fanout (see systemd.services.photos-fanout
-    # below), in the ~/.aws/credentials INI format awscli2 expects:
-    #   [ondy-org]
-    #   aws_access_key_id = ...
-    #   aws_secret_access_key = ...
-    # svc.photos-backup (tf/photos-backup.tf), scoped to read+write on just
-    # the my-photo-backup-archive-* bucket.
-    photos_backup_aws_credentials = {
-      owner = "kyle";
-      mode = "0400";
-    };
   };
   users.groups.exportarr = { };
   users.groups.jellyfin-secrets = { };

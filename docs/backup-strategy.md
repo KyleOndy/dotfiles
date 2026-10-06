@@ -172,10 +172,9 @@ sanoid, snapshots            sanoid, prune only          put-only IAM
 Read the arrows as trust, not just data. tiger starts none of them. pika
 pulls from tiger and pushes to S3, and trex pushes its own.
 
-tiger holds no credential for pika and none for the archive bucket. If
-tiger is compromised, the blast radius is tiger. It does still hold AWS
-keys: the old bucket's, until `photos-fanout` goes (see
-[What is left](#what-is-left)), and Route53 keys for DDNS and ACME.
+tiger holds no credential for pika and none for any backup bucket. If
+tiger is compromised, the blast radius is tiger. Its only AWS keys are
+Route53's, for DDNS and ACME.
 
 That property is the reason the topology is worth the second host at all,
 and it is the thing to check first when changing anything here.
@@ -789,17 +788,10 @@ not on the timescale of the `rm`.
 
 ## What is left
 
-**Retire the old bucket.** `my-photo-backup-archive-holy-mink` still holds
-the only finished offsite copy, so it stays until the new bucket completes
-one clean push of both prefixes. Two things still write to it:
-`photos-fanout` on tiger, below, and `backup-photos --s3` on trex. Both go
-with it.
-
-**Remove `photos-fanout` from tiger.** The unit at
-`tiger/configuration.nix:295` still runs nightly against the old bucket,
-and `photos_backup_aws_credentials` at `:1721` is the last S3 credential on
-the host that faces the internet. Removing both is the point of moving the
-push to pika. Blocked on the item above.
+**Delete the old bucket.** Nothing writes to
+`my-photo-backup-archive-holy-mink` any more: `photos-fanout` and
+`backup-photos --s3` are gone. `tf/photos-backup.tf` still declares it and
+its `svc.photos-backup` user.
 
 **Write the S3 restore script.** The runbook section above is a snippet.
 

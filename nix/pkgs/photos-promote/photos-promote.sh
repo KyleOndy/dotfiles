@@ -5,8 +5,8 @@
 # Push finished assets from the local working set into tiger's authoritative
 # archive. This is a copy, not a move: the local source is left in place so
 # you can verify the promotion landed before cleaning up _provisional/
-# yourself. tiger's routine fan-out (nix/pkgs/photos-fanout) then carries
-# archive/ on to S3 Deep Archive.
+# yourself. Replication to pika and pika's push to S3 Deep Archive carry it
+# from there (docs/backup-strategy.md).
 #
 # Deleting the local shoot afterwards does not prune tiger's _provisional/
 # copy; backup-photos only mirrors shoots the laptop still holds. Prune that

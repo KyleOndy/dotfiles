@@ -74,11 +74,10 @@ re-considers everything; content already in the library is detected and
 recorded again without creating duplicates.
 
 `backup-photos` mirrors each shoot under `_provisional/` and `archive/` to
-tiger, plus `helios.db`; it does not copy `settings/`. Its opportunistic
-`--s3` push of `_provisional/` leaves `.RAF` out, while tiger's
-`photos-fanout` sends `archive/` to S3 with raws included. Culling a JPEG
-should take its RAF sibling with it: winnow does that when it deletes, and
-helios does not.
+tiger, plus `helios.db`; it does not copy `settings/`. The offsite copy
+of the whole library, raws included, comes from pika
+(`docs/backup-strategy.md`). Culling a JPEG should take its RAF sibling
+with it: winnow does that when it deletes, and helios does not.
 
 ### On macOS, import from a card reader
 
