@@ -77,8 +77,12 @@ require_populated() {
 # --info: progress2 is the only thing that distinguishes a large sync in
 # flight from a hung ssh connection, and del names what a cleanup is
 # propagating, which is the one destructive thing this script does.
+#
+# go-w because Resolve leaves parts of its library world-writable, and -a would
+# carry that onto tiger, where every service account could rewrite a project.
+# -p reapplies it to files already in place, not only to new transfers.
 mirror() {
-	rsync -a --delete --info=progress2,del "${LITTER_EXCLUDES[@]}" "$1/" "$TIGER_HOST:$2/"
+	rsync -a --chmod=go-w --delete --info=progress2,del "${LITTER_EXCLUDES[@]}" "$1/" "$TIGER_HOST:$2/"
 }
 
 # aws s3 sync compares size and mtime off the LIST response, so a re-run is a
