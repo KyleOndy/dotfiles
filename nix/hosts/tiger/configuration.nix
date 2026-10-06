@@ -724,15 +724,17 @@ in
   # 80/443, which the router actually forwards), and openssh's 2332 opens
   # automatically (openFirewall defaults to true). Those were inert no-ops
   # with the firewall off; enabling it just activates them. SMB (445) and
-  # direct-LAN Jellyfin (8096/tcp, 7359/udp discovery) are added here,
-  # scoped to the LAN interface only -- Jellyfin's WAN path stays on
-  # Caddy/443, this never exposes plaintext 8096 externally.
+  # direct-LAN Jellyfin (8096/tcp, 7359/udp discovery) are added here.
+  # Jellyfin's WAN path stays on Caddy/443. enp10s0 is the only uplink, so
+  # the interface alone would not stop a router port-forward from exposing
+  # plaintext 8096; Jellyfin's rules also require a 10.0.0.0/8 source, which
+  # a forwarded WAN connection never has.
   networking.firewall.enable = lib.mkForce true;
-  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [
-    445
-    8096
-  ];
-  networking.firewall.interfaces."enp10s0".allowedUDPPorts = [ 7359 ];
+  networking.firewall.interfaces."enp10s0".allowedTCPPorts = [ 445 ];
+  networking.firewall.extraCommands = ''
+    iptables -A nixos-fw -i enp10s0 -s 10.0.0.0/8 -p tcp --dport 8096 -j nixos-fw-accept
+    iptables -A nixos-fw -i enp10s0 -s 10.0.0.0/8 -p udp --dport 7359 -j nixos-fw-accept
+  '';
 
   # ---------------------------------------------------------------------------
   # UPS monitoring, automatic shutdown, and power-loss alerts
