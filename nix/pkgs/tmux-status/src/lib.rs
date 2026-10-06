@@ -84,11 +84,6 @@ pub fn cache_file(name: &str) -> Option<PathBuf> {
     Some(dir.join(name))
 }
 
-/// The segments not yet on `paint` call this.
-pub fn styled(color: &str, body: &str) -> String {
-    paint(body, color, true)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

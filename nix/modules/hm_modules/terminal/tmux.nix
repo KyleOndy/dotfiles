@@ -283,10 +283,10 @@ in
         #   into 0.0.0.0/1 and 128.0.0.0/1 instead of replacing it, so macOS
         #   does not count the tunnel as a VPN and never shows one in the menu
         #   bar. Reads warm on a split tunnel and hot on one carrying
-        #   0.0.0.0/0, which is the state worth catching. Alone among these
-        #   segments it holds its width while connected and disconnected, so
-        #   toggling a tunnel does not shuffle the bar; it collapses only
-        #   where /etc/wireguard has no configs at all.
+        #   0.0.0.0/0, which is the state worth catching. It holds its width
+        #   connected and disconnected, so toggling a tunnel does not shuffle
+        #   the bar; it collapses only off macOS or where /etc/wireguard has
+        #   no configs at all.
         set-option -ga status-right "#[fg=colour246,bg=colour239]#(${pkgs.tmux-status}/bin/vpn-state)"
         # local time.
         #   The UTC half still needs a subshell, as tmux cannot run strftime

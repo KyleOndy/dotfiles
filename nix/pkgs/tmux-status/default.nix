@@ -14,7 +14,7 @@ rustPlatform.buildRustPackage {
   };
 
   meta = with lib; {
-    description = "Status bar segments for tmux: battery, GPU, load, memory, temperature";
+    description = "Status bar segments for tmux: battery, GPU, load, memory, temperature, VPN";
     homepage = "https://github.com/kyleondy";
     license = licenses.mit;
     maintainers = with maintainers; [ kyleondy ];
