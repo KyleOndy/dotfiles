@@ -242,7 +242,7 @@ in
         type = with lib.types; attrsOf str;
         default = { };
         example = {
-          OPENROUTER_API_KEY = "security find-generic-password -s pi -a openrouter -w";
+          OPENROUTER_API_KEY = "/usr/bin/security find-generic-password -s pi -a openrouter -w";
         };
         description = ''
           Env vars resolved by the wrapper outside the sandbox before pi
@@ -254,6 +254,10 @@ in
           so pi's models.json can reference them via "!printenv VAR" without
           granting the sandbox read access to credential paths or network
           access to a secrets backend.
+
+          Name the binary by absolute path. Resolvers run as you, unsandboxed,
+          with the PATH pi was started from, and a project's .envrc can put
+          a directory the sandbox writes at the front of it.
 
           Resolver failure (non-zero exit) aborts pi startup with a
           diagnostic on stderr. Resolvers are not cached; keep them cheap

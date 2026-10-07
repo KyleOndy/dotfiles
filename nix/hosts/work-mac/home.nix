@@ -72,7 +72,7 @@
     # wrapper already reads mcloud's from. The entry has to exist on this
     # machine too: the wrapper hard-fails a resolver rather than starting
     # without the value.
-    pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
+    pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
     # critic.md pins zai/glm-5.3-flash, which bills the personal Z.ai plan.
     pi-coding-agent.sandbox.envVars.PI_AGENT_MODEL_CRITIC = "mcloud/moonshotai/kimi-k2.7-code";
     pi-coding-agent.coordinator = {

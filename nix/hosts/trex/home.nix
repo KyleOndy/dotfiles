@@ -255,7 +255,7 @@ in
       # from outside the sandbox and only the resolved value crosses in. The
       # wrapper hard-fails on a resolver error, so a missing entry surfaces
       # here rather than as a 401 from Kagi mid-session.
-      sandbox.envFromCommands.KAGI_API_KEY = "security find-generic-password -s pi -a kagi -w";
+      sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
 
       # zai is a built-in provider, so no modelsJson entry; the key comes
       # from /login zai into ~/.pi/agent/auth.json, which no module owns and
