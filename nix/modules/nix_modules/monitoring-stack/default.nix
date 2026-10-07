@@ -27,10 +27,11 @@ with lib;
       example = "apps.ondy.org";
     };
 
-    # One mail account, used by both alertmanager (alert emails) and grafana
-    # (its own notifications). It lives here rather than in either module so
-    # neither has to reach into the other's option tree. The password is a
-    # sops secret, read as monitoring_smtp_password at both use sites.
+    # One mail account, used by alertmanager (alert emails), grafana (its own
+    # notifications) and the victoriametrics watchdog. It lives here rather
+    # than in any one module so none has to reach into another's option tree.
+    # The password is a sops secret, read as monitoring_smtp_password at every
+    # use site.
     #
     # MXRoute uses server-specific hostnames; keep this in step with
     # nix/modules/hm_modules/terminal/email.nix.

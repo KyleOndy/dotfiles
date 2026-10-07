@@ -83,6 +83,12 @@ UPSCommLost and UPSReplaceBattery straight to Alertmanager, outside any group.
 The last two share a name with a rule in ups, and an inhibit rule in
 `alertmanager.nix` mutes the rule while the push is active.
 
+No vmalert rule can fire while VictoriaMetrics is down, so
+`victoriametrics-watchdog` (`monitoring-stack/victoriametrics.nix`) checks it
+every minute from outside. Once VictoriaMetrics has gone 15 minutes without
+staying up for 5, the watchdog pushes VictoriaMetricsDown to Alertmanager and
+mails once over SMTP directly, then mails again when it recovers.
+
 Drop the JSON in `monitoring-stack/dashboards/<folder>/` and fix its label
 references per `DASHBOARD_CONVENTIONS.md`. That is the whole procedure:
 `grafana.nix` walks the directory with `listFilesRecursive`, and the
