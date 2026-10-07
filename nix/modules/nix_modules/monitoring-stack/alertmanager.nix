@@ -71,6 +71,13 @@ in
               receiver = "null";
             }
             {
+              # Each one is a battery to order or a SATA cable to reseat,
+              # nothing an hour changes, and the CRC rule's 1d increase window
+              # keeps it firing for a day after a single error.
+              matchers = [ "alertname =~ \"UPSReplaceBattery|SmartLinkCrcErrorsIncreasing\"" ];
+              repeat_interval = "24h";
+            }
+            {
               # Clearing an import block means opening the *arr UI and choosing
               # between a manual import and a blocklist, and arr-queue-janitor
               # sweeps whatever is left at 48h. Hourly mail buys no sooner fix.
