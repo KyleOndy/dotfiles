@@ -9,11 +9,9 @@ self: super: {
   berkeley-mono-nerd-font = super.callPackage ./berkeley-mono-nerd-font { };
   birdnet-go = super.callPackage ./birdnet-go { };
   forge = super.callPackage ./forge { lima = self.master.lima; };
-  fuji-transcode = super.callPackage ./fuji-transcode { };
   git-worktree-prompt = super.callPackage ./git-worktree-prompt { };
   helios = super.callPackage ./helios { };
   histdb-backup = super.callPackage ./histdb-backup { };
-  instax-link = super.callPackage ./instax-link { };
   kagi = super.callPackage ./kagi { };
   linear-cli = super.callPackage ./linear-cli { };
   my-scripts = super.callPackage ./my-scripts { };
