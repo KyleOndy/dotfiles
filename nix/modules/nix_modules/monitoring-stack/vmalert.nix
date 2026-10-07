@@ -1083,6 +1083,128 @@ in
                 summary: "trex has not backed up ~/src in over 3 days"
                 description: "backup-git-repos has not pushed to tiger in over 3 days, while trex was awake for more than 8 of them, against four runs a day. Check ~/Library/Logs/backup-git-repos.log on trex, then run `launchctl kickstart gui/$(id -u)/org.ondy.backup-git-repos`."
 
+        # tiger, pika and trex each land a daily snapshot of their shell
+        # history in /mnt/backups/kyle/histdb on tiger. histdb-backup exits 0
+        # when it finds no database, so success is the timestamp it writes
+        # after a snapshot lands, never an exit code.
+        - name: histdb_backup
+          interval: 60s
+          rules:
+            - alert: HistdbBackupStale
+              expr: time() - histdb_backup_last_success_timestamp_seconds{host=~"tiger|pika"} > 2 * 86400
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Shell history backup from {{ $labels.host }} is over 2 days old"
+                description: "histdb-backup on {{ $labels.host }} has not landed a snapshot in /mnt/backups/kyle/histdb on tiger in over 2 days, against a daily timer. A missing ~/.histdb/zsh-history.db exits 0 and leaves the unit green, so read the output rather than the status: `journalctl -u histdb-backup` on {{ $labels.host }}."
+
+            # Same awake-time guard as GitReposBackupStale, scaled to one run a
+            # day. launchd runs a calendar interval missed in sleep on wake.
+            - alert: HistdbBackupStale
+              expr: |-
+                (time() - last_over_time(histdb_backup_last_success_timestamp_seconds{host="trex"}[1d]) > 2 * 86400)
+                and on (host)
+                (count_over_time(up{host="trex",job="node"}[2d]) * 15 > 6 * 3600)
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Shell history backup from {{ $labels.host }} is over 2 days old"
+                description: "histdb-backup on trex has not pushed to tiger in over 2 days, while trex was awake for more than 6 hours of them. The push rides the session ssh-agent, so a run before the first interactive ssh of a boot fails. Check ~/Library/Logs/histdb-backup.log on trex, then run `launchctl kickstart gui/$(id -u)/org.ondy.histdb-backup`."
+
+            # The rules above subtract from a series that exists only after a
+            # first success, so a host that has never succeeded, or whose unit
+            # lacks TEXTFILE_DIR, matches none of them. One rule per host for
+            # the reason HostAbsent gives. A day plus slack covers the wait
+            # for the first run after a deploy.
+            - alert: HistdbBackupMetricMissing
+              expr: absent(histdb_backup_last_success_timestamp_seconds{host="tiger"})
+              for: 26h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No shell history backup metric from {{ $labels.host }}"
+                description: "No histdb_backup_last_success_timestamp_seconds series exists for {{ $labels.host }}, so HistdbBackupStale cannot fire there. Either histdb-backup has never landed a snapshot since it began exporting, or the unit does not set TEXTFILE_DIR. Check `journalctl -u histdb-backup` on {{ $labels.host }}."
+
+            - alert: HistdbBackupMetricMissing
+              expr: absent(histdb_backup_last_success_timestamp_seconds{host="pika"})
+              for: 26h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No shell history backup metric from {{ $labels.host }}"
+                description: "No histdb_backup_last_success_timestamp_seconds series exists for {{ $labels.host }}, so HistdbBackupStale cannot fire there. Either histdb-backup has never landed a snapshot since it began exporting, or the unit does not set TEXTFILE_DIR. Check `journalctl -u histdb-backup` on {{ $labels.host }}."
+
+            # absent_over_time rather than absent, so trex sleeping does not
+            # reset the `for:`.
+            - alert: HistdbBackupMetricMissing
+              expr: |-
+                absent_over_time(histdb_backup_last_success_timestamp_seconds{host="trex"}[2d])
+                and on (host)
+                (count_over_time(up{host="trex",job="node"}[2d]) * 15 > 6 * 3600)
+              for: 1d
+              labels:
+                severity: warning
+              annotations:
+                summary: "No shell history backup metric from {{ $labels.host }}"
+                description: "trex has reported no histdb_backup_last_success_timestamp_seconds in 2 days while awake for more than 6 hours of them, so HistdbBackupStale cannot fire there. Either the push has never succeeded since it began exporting, or the agent does not set TEXTFILE_DIR. Check ~/Library/Logs/histdb-backup.log on trex."
+
+        # launchd agents on trex. Every rule here goes quiet while trex
+        # sleeps, because its vmagent stops pushing and the series go stale.
+        - name: launchd_agents
+          interval: 60s
+          rules:
+            # mlx-openai-server is on demand and mlx-auto-stop stops it on
+            # purpose, so a stopped server is normal. A job missing from
+            # launchd entirely is not, and nothing registers it until the next
+            # activation.
+            - alert: MlxAgentNotLoaded
+              expr: mlx_agent_loaded{host="trex"} == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "mlx-openai-server is not registered with launchd on {{ $labels.host }}"
+                description: "launchd on trex has no org.ondy.mlx-openai-server job, so neither `mlx start` nor search-mail can start the server. A deploy that ran while the server was up leaves it this way. On trex run `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.ondy.mlx-openai-server.plist`, then `mlx status`."
+
+            # The gauge outlives its writer, holding its last value, so a dead
+            # mlx-auto-stop shows only as the file's age. It rewrites the file
+            # every 30 seconds.
+            - alert: MlxAgentMetricMissing
+              expr: |-
+                (absent(mlx_agent_loaded{host="trex"}) and on (host) (up{host="trex",job="node"} == 1))
+                or
+                (time() - node_textfile_mtime_seconds{host="trex",file=~".*/mlx_agent.prom"} > 600)
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "mlx_agent_loaded is missing or stale on {{ $labels.host }}"
+                description: "mlx-auto-stop has not written mlx_agent.prom in over 10 minutes, so MlxAgentNotLoaded cannot fire. The watcher agent is the likely casualty of the same failed bootstrap. Check `launchctl print gui/$(id -u)/org.ondy.mlx-auto-stop` and ~/Library/Logs/mlx-auto-stop.log on trex."
+
+            # A wake waits out the rest of the 15 minute StartInterval, and the
+            # first run after it can beat the network up, so `for:` is an hour.
+            - alert: MbsyncStale
+              expr: time() - mbsync_last_success_timestamp_seconds{host="trex"} > 2 * 3600
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.host }} has not synced mail in over 2 hours"
+                description: "mbsync and notmuch new have not both completed on trex in over 2 hours of it being awake, against a 15 minute interval. Check ~/Library/Logs/mbsync.log on trex, then run `launchctl kickstart gui/$(id -u)/org.ondy.mbsync`."
+
+            # RunAtLoad writes the first timestamp at login, so absence while
+            # trex is reporting means no run has succeeded since.
+            - alert: MbsyncMetricMissing
+              expr: absent(mbsync_last_success_timestamp_seconds{host="trex"}) and on (host) (up{host="trex",job="node"} == 1)
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No mail sync metric from {{ $labels.host }}"
+                description: "trex is reporting but has no mbsync_last_success_timestamp_seconds, so MbsyncStale cannot fire. Either no sync has succeeded since the agent was loaded, or org.ondy.mbsync is not loaded. Check ~/Library/Logs/mbsync.log and `launchctl print gui/$(id -u)/org.ondy.mbsync` on trex."
+
         # SMART health, scrub age and backup freshness all arrive this way.
         # node_exporter drops a file it cannot parse and keeps serving the
         # rest, so a broken producer costs its alerts in silence:

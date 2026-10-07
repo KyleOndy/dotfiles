@@ -139,8 +139,24 @@ let
     name = "mlx-auto-stop-watcher";
     text = ''
       readonly LABEL="org.ondy.mlx-openai-server"
+      readonly PROM=${osConfig.systemFoundry.monitoringAgent.textfileDirectory}/mlx_agent.prom
 
-      state="$(launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null | awk '/state = /{print $3; exit}')"
+      # launchctl print fails only when the job is not registered at all,
+      # which is what a deploy leaves behind when it cannot bootstrap the
+      # agent over a running copy. Stopped on purpose, by this watcher or
+      # `mlx stop`, the job stays registered and only its state changes.
+      loaded=0
+      if out="$(launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null)"; then
+        loaded=1
+      fi
+      {
+        echo '# HELP mlx_agent_loaded Whether launchd has org.ondy.mlx-openai-server registered, running or not'
+        echo '# TYPE mlx_agent_loaded gauge'
+        echo "mlx_agent_loaded $loaded"
+      } >"$PROM.tmp"
+      mv -f "$PROM.tmp" "$PROM"
+
+      state="$(awk '/state = /{print $3; exit}' <<<"$out")"
       if [ "$state" != "running" ]; then
         exit 0
       fi
@@ -322,6 +338,10 @@ in
   # running, so it doesn't hold GPU/unified memory against apps that need it
   # (e.g. DaVinci Resolve). `mlx status` and `mlx start` (nix/pkgs/mlx) bring
   # it back manually; search-mail brings it back on demand.
+  #
+  # Each poll also writes mlx_agent_loaded, for MlxAgentNotLoaded. The server
+  # serves only JSON (/health, /v1/models), nothing vmagent can scrape, and an
+  # `up` probe would read the on-demand idle state as down.
   launchd.agents.mlx-auto-stop = {
     enable = true;
     config = {

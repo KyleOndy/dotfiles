@@ -2,7 +2,7 @@
   "id": null,
   "uid": "storage-data-safety",
   "title": "Storage and Data Safety",
-  "description": "The 3-2-1 chain end to end: tiger snapshots, pika replicas, the S3 archive and Windows backups, plus pool health, scrub age, SMART and capacity. Investigation surface for zfs_storage, backup_replication, offsite_archive, windows_backup, drive_health and disk_space.",
+  "description": "The 3-2-1 chain end to end: tiger snapshots, pika replicas, the S3 archive and Windows backups, plus pool health, scrub age, SMART, capacity and the shell history pushes. Investigation surface for zfs_storage, backup_replication, offsite_archive, windows_backup, histdb_backup, drive_health and disk_space.",
   "tags": ["storage", "zfs", "backup", "smart"],
   "timezone": "",
   "schemaVersion": 39,
@@ -761,6 +761,88 @@
         ]
       },
       "options": { "showHeader": true }
+    },
+    {
+      "type": "row",
+      "title": "Shell History",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Shell History Backup Age",
+      "description": "Time since each host last landed a histdb snapshot in /mnt/backups/kyle/histdb on tiger. Red is HistdbBackupStale's 2 days; trex's rule also needs trex awake for 6 hours of them. A host missing here is HistdbBackupMetricMissing.",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 59 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - histdb_backup_last_success_timestamp_seconds",
+          "legendFormat": "{{host}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 129600 },
+              { "color": "red", "value": 172800 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Shell History Rows",
+      "description": "Rows in the history table of each host's last snapshot. It falls only when rows are deleted or the database is replaced, and that run has already overwritten tiger's copy; the older one survives in storage/backups snapshots.",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 59 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histdb_backup_rows",
+          "legendFormat": "{{host}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
     }
   ]
 }

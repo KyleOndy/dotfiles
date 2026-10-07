@@ -303,11 +303,29 @@
     config = {
       Label = "org.ondy.mbsync";
       ProgramArguments = [
-        "/bin/sh"
-        "-c"
-        "${pkgs.isync}/bin/mbsync -c ${
-          config.sops.templates."mbsyncrc-automated".path
-        } --all && ${pkgs.notmuch}/bin/notmuch new --no-hooks && ${pkgs.notmuch}/bin/notmuch tag +inbox +unread -new -- tag:new"
+        (lib.getExe (
+          pkgs.writeShellApplication {
+            name = "mbsync-sync";
+            runtimeInputs = [
+              pkgs.isync
+              pkgs.notmuch
+            ];
+            text = ''
+              readonly PROM=${config.systemFoundry.monitoringAgent.textfileDirectory}/mbsync.prom
+
+              mbsync -c ${config.sops.templates."mbsyncrc-automated".path} --all
+              notmuch new --no-hooks
+              notmuch tag +inbox +unread -new -- tag:new
+
+              {
+                echo '# HELP mbsync_last_success_timestamp_seconds Unix time mbsync and notmuch new last both completed'
+                echo '# TYPE mbsync_last_success_timestamp_seconds gauge'
+                echo "mbsync_last_success_timestamp_seconds $(date +%s)"
+              } >"$PROM.tmp"
+              mv -f "$PROM.tmp" "$PROM"
+            '';
+          }
+        ))
       ];
       StartInterval = 900; # 15 minutes, matching the equivalent systemd OnCalendar = "*:0/15"
       RunAtLoad = true;
@@ -336,6 +354,7 @@
           Minute = 0;
         }
       ];
+      EnvironmentVariables.TEXTFILE_DIR = config.systemFoundry.monitoringAgent.textfileDirectory;
       StandardOutPath = "${config.users.users.kyle.home}/Library/Logs/histdb-backup.log";
       StandardErrorPath = "${config.users.users.kyle.home}/Library/Logs/histdb-backup.log";
     };

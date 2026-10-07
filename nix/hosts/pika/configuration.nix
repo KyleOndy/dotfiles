@@ -342,14 +342,25 @@ in
   systemd.services.histdb-backup = {
     description = "Push the shell history database to tiger";
     environment.RSYNC_RSH = "ssh -p 2332 -i ${config.sops.secrets.pika_histdb_ssh_key.path} -o IdentitiesOnly=yes";
+    environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
     serviceConfig = {
       Type = "oneshot";
       User = "kyle";
+      SupplementaryGroups = [ "textfile" ];
       # Path is relative to the directory rrsync confines the key to, which
       # rejects "/" and "./" as unsafe.
       ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup tiger.dmz.1ella.com:.";
     };
   };
+
+  # The textfile directory is sticky, so a file any other user owns blocks
+  # the rename that replaces it.
+  systemd.tmpfiles.settings.histdb-backup."${config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory}/histdb_backup.prom".z =
+    {
+      mode = "0644";
+      user = "kyle";
+      group = "textfile";
+    };
 
   systemd.timers.histdb-backup = {
     description = "Daily shell history push";

@@ -2,7 +2,7 @@
   "id": null,
   "uid": "hosts",
   "title": "Hosts",
-  "description": "Fleet and per-host resources. Investigation surface for resource_usage, host_availability, disk_space, systemd_health, ups and the node-based cogsworth_monitoring alerts.",
+  "description": "Fleet and per-host resources. Investigation surface for resource_usage, host_availability, disk_space, systemd_health, launchd_agents, ups and the node-based cogsworth_monitoring alerts.",
   "tags": ["system", "node", "systemd"],
   "timezone": "",
   "schemaVersion": 39,
@@ -567,6 +567,118 @@
           "showLegend": true
         },
         "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "trex Agents",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "MLX Agent",
+      "description": "Whether launchd on trex has org.ondy.mlx-openai-server registered. Loaded covers both running and stopped on purpose; not loaded is MlxAgentNotLoaded. No data while trex sleeps.",
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mlx_agent_loaded{host=\"trex\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "not loaded", "color": "red" },
+                "1": { "text": "loaded", "color": "green" }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "MLX Watcher Last Write",
+      "description": "Age of mlx_agent.prom, which mlx-auto-stop rewrites every 30 seconds. Past 10 minutes is MlxAgentMetricMissing: the MLX Agent panel is then showing a stale value.",
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - node_textfile_mtime_seconds{host=\"trex\",file=~\".*/mlx_agent.prom\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 600 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Mail Sync Age",
+      "description": "Time since mbsync and notmuch new last both completed on trex, against a 15 minute interval. Past 2 hours is MbsyncStale. Reads high for a few minutes after a wake, until the next run.",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - mbsync_last_success_timestamp_seconds{host=\"trex\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1800 },
+              { "color": "red", "value": 7200 }
+            ]
+          }
+        },
+        "overrides": []
       }
     },
     {

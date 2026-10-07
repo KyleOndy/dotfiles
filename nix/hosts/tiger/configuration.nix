@@ -355,12 +355,23 @@ in
   # the dataset is the backup boundary. trex and pika push their copies here.
   systemd.services.histdb-backup = {
     description = "Snapshot the shell history database into storage/backups";
+    environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
     serviceConfig = {
       Type = "oneshot";
       User = "kyle";
+      SupplementaryGroups = [ "textfile" ];
       ExecStart = "${pkgs.histdb-backup}/bin/histdb-backup /mnt/backups/kyle/histdb";
     };
   };
+
+  # The textfile directory is sticky, so a file any other user owns blocks
+  # the rename that replaces it.
+  systemd.tmpfiles.settings.histdb-backup."${config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory}/histdb_backup.prom".z =
+    {
+      mode = "0644";
+      user = "kyle";
+      group = "textfile";
+    };
 
   systemd.timers.histdb-backup = {
     description = "Daily shell history snapshot";

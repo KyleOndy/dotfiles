@@ -23,7 +23,9 @@ cogsworth exposes the kiosk app at `/api/metrics` and birdnet-go's telemetry on
 cogsworth-db-snapshot writes its last success time and size through the
 textfile collector. pika runs zfs_exporter, and exports smartctl health, ZFS
 scrub and snapshot age, and the S3 archive counters through the textfile
-collector.
+collector. tiger, pika and trex each export histdb-backup's last snapshot time
+the same way, and trex adds `mlx_agent_loaded` (written by mlx-auto-stop, so an
+idle-stopped server still reads loaded) and the last mbsync run.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
 cert, and answers only private source addresses (LAN, DMZ, WireGuard).

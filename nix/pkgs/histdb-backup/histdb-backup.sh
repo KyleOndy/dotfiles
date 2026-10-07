@@ -12,6 +12,11 @@
 #
 # The destination is overwritten every run. Its history is the ZFS snapshot
 # history of the dataset it lands in, so there is no rotation here.
+#
+# With TEXTFILE_DIR set, a run that lands a snapshot also writes
+# histdb_backup.prom there for node_exporter. Every other exit, including the
+# exit 0 for a missing database, leaves the previous file alone, so the
+# timestamp's age is the age of the newest copy at the destination.
 
 readonly DB="${HISTDB_FILE:-$HOME/.histdb/zsh-history.db}"
 readonly DEST="${1:?usage: histdb-backup <directory|[user@]host:directory>}"
@@ -53,3 +58,21 @@ else
 fi
 
 echo "histdb-backup: $rows commands -> ${DEST%/}/$NAME"
+
+# mktemp rather than a fixed name: on NixOS the directory is shared and
+# sticky (monitoring-stack/node_exporter.nix). node_exporter reads only
+# *.prom, so the temporary file is never scraped half-written.
+if [ -n "${TEXTFILE_DIR:-}" ]; then
+	prom="$TEXTFILE_DIR/histdb_backup.prom"
+	tmp="$(mktemp "$prom.XXXXXX")"
+	{
+		echo '# HELP histdb_backup_last_success_timestamp_seconds Unix time histdb-backup last landed a snapshot at its destination'
+		echo '# TYPE histdb_backup_last_success_timestamp_seconds gauge'
+		echo "histdb_backup_last_success_timestamp_seconds $(date +%s)"
+		echo '# HELP histdb_backup_rows Rows in the history table of the last snapshot landed'
+		echo '# TYPE histdb_backup_rows gauge'
+		echo "histdb_backup_rows $rows"
+	} >"$tmp"
+	chmod 0644 "$tmp"
+	mv -f "$tmp" "$prom"
+fi
