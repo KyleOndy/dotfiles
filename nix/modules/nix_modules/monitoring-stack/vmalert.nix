@@ -1416,10 +1416,11 @@ in
                 description: "Nothing heals a dead tunnel while this lasts, and PiaHandshakeStale and PiaTunnelFlapping are reading a frozen file. systemctl status pia-wg-healthcheck.timer pia-wg-healthcheck.service on {{ $labels.host }}."
 
             # PIA's reference client calls bindPort every 15 minutes; the timer
-            # here runs every 10.
+            # here runs every 10. `for` outlasts one timer period so the
+            # absent() branch stays quiet until the first run writes the file.
             - alert: PiaPortForwardStale
               expr: time() - pia_port_forward_last_success_timestamp_seconds > 1800 or absent(pia_port_forward_last_success_timestamp_seconds{host="tiger"})
-              for: 10m
+              for: 15m
               labels:
                 severity: warning
               annotations:
