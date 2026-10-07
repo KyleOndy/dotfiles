@@ -191,7 +191,7 @@ in
                         };
                       }
                     ];
-                    noDataState = "NoData";
+                    noDataState = "OK";
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
@@ -258,7 +258,7 @@ in
                         };
                       }
                     ];
-                    noDataState = "NoData";
+                    noDataState = "OK";
                     execErrState = "Error";
                     for = "5m";
                     annotations = {
