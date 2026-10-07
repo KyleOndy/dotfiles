@@ -88,8 +88,9 @@ capture) and the top-left button sends Cmd+Shift+4 (Shottr region capture).
 Installed as a cask for app switching. macOS only draws its own switcher when
 Cmd+Tab is held, so a quick tap silently swaps to the previous app. After
 install, launch it once and grant **Accessibility** and **Screen Recording**
-permission in System Settings -> Privacy & Security, then set its trigger to
-Cmd+Tab in its preferences.
+permission in System Settings -> Privacy & Security. Its preferences, the
+Option+Tab trigger included, come from `nix/modules/darwin_modules/base.nix`
+and take effect the next time AltTab launches, since it caches them in memory.
 
 ## tiger's SMB Shares
 
