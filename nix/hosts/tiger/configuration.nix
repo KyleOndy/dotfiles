@@ -979,10 +979,12 @@ in
       directives = [
         "vendorid = 09ae"
         "productid = 2012"
-        # This Tripp Lite's interrupt-in reports fail with I/O errors, and the
-        # driver's reconnect loop leaves upsd stale for minutes at a time.
-        # https://github.com/networkupstools/nut/blob/v2.8.4/docs/man/usbhid-ups.txt#L127-L130
-        "pollonly"
+        # Not pollonly: with its interrupt endpoint unread, this Tripp Lite
+        # drops off USB every 15s. A 1s poll is Tripp Lite's own advice for
+        # the I/O errors and stale data this model shows:
+        # https://alioth-lists.debian.net/pipermail/nut-upsdev/2019-June/007440.html
+        # https://github.com/networkupstools/nut/blob/v2.8.4/docs/man/ups.conf.txt#L132-L137
+        "pollinterval = 1"
       ];
     };
 
