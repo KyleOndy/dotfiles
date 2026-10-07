@@ -2,7 +2,7 @@
   "id": null,
   "uid": "cogsworth",
   "title": "Cogsworth",
-  "description": "The family calendar kiosk: calendar sync, scheduler tasks, photo index and Pi health. Investigation surface for the cogsworth_monitoring alert group. Scheduler task names are in `task`, not `job`.",
+  "description": "The family calendar kiosk: calendar sync, scheduler tasks, photo index, BirdNET-Go, DB snapshots and Pi health. Investigation surface for the cogsworth_monitoring alert group. Scheduler task names are in `task`, not `job`.",
   "tags": ["application", "cogsworth", "kiosk"],
   "timezone": "",
   "schemaVersion": 39,
@@ -477,9 +477,214 @@
       }
     },
     {
+      "type": "row",
+      "title": "Birds",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 28 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Audio Analysed",
+      "description": "BirdNET analysis windows per 5 minutes, all streams together. Each camera stream adds about 200, so a drop to half means one stream's audio is gone; birdnet-go exports nothing per stream. Zero for 30 minutes fires CogsworthBirdnetNoAudio.",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 29 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (increase(birdnet_predictions_total{host=\"cogsworth\"}[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "min"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Detections",
+      "description": "Approved detections per hour. A day of none while audio is flowing fires CogsworthBirdnetNoDetections.",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 29 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(increase(birdnet_detections{host=\"cogsworth\"}[1h]))",
+          "legendFormat": "Detections per hour"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Processing Errors",
+      "description": "Failed inferences by error type, and audio chunks the pipeline dropped because analysis fell behind, per source ID. Both series are absent until the first one happens.",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 29 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (error_type) (increase(birdnet_prediction_errors_total{host=\"cogsworth\"}[1h]))",
+          "legendFormat": "inference {{error_type}}"
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (source) (increase(birdnet_audio_dropped_chunks{host=\"cogsworth\"}[1h]))",
+          "legendFormat": "dropped {{source}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["sum"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Database",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "DB Snapshot",
+      "description": "Time since cogsworth-db-snapshot last copied the tmpfs DB to the SD card, and the size of that copy. The timer runs every 5 minutes; CogsworthDbSnapshotStale fires at 15. The live DB and its WAL share a 16 MiB tmpfs, so Size turns red at 15 MiB.",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 37 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - cogsworth_db_snapshot_last_success_timestamp_seconds{host=\"cogsworth\"}",
+          "legendFormat": "Age",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "cogsworth_db_snapshot_size_bytes{host=\"cogsworth\"}",
+          "legendFormat": "Size",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Age" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 600 },
+                    { "color": "red", "value": 900 }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Size" },
+            "properties": [
+              { "id": "unit", "value": "bytes" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 12582912 },
+                    { "color": "red", "value": 15728640 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "type": "logs",
       "title": "Backend Errors",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 28 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 41 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {

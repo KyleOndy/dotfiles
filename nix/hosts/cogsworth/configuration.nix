@@ -666,18 +666,43 @@ in
       Type = "oneshot";
       User = "cogsworth";
       Group = "cogsworth";
+      SupplementaryGroups = [ "textfile" ];
     };
 
     script = ''
-      PERSISTENT="/var/lib/cogsworth/persistent"
-      TMPFS="/var/lib/cogsworth/db"
+      set -euo pipefail
+
+      readonly PERSISTENT="/var/lib/cogsworth/persistent"
+      readonly TMPFS="/var/lib/cogsworth/db"
+      readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/cogsworth_db_snapshot.prom"
       mkdir -p "$PERSISTENT"
       if [ -f "$TMPFS/cogsworth.db" ]; then
         cp "$TMPFS/cogsworth.db" "$PERSISTENT/cogsworth.db.tmp"
         mv "$PERSISTENT/cogsworth.db.tmp" "$PERSISTENT/cogsworth.db"
+
+        tmp=$(mktemp "$OUTFILE.XXXXXX")
+        {
+          printf '# HELP cogsworth_db_snapshot_last_success_timestamp_seconds Unix time the DB was last copied to the SD card\n'
+          printf '# TYPE cogsworth_db_snapshot_last_success_timestamp_seconds gauge\n'
+          printf 'cogsworth_db_snapshot_last_success_timestamp_seconds %s\n' "$(date +%s)"
+          printf '# HELP cogsworth_db_snapshot_size_bytes Size of that copy\n'
+          printf '# TYPE cogsworth_db_snapshot_size_bytes gauge\n'
+          printf 'cogsworth_db_snapshot_size_bytes %s\n' "$(stat -c %s "$PERSISTENT/cogsworth.db")"
+        } > "$tmp"
+        chmod 0644 "$tmp"
+        mv -fT "$tmp" "$OUTFILE"
       fi
     '';
   };
+
+  # The directory is sticky, so a file any other user owns blocks the rename
+  # that replaces it.
+  systemd.tmpfiles.settings.cogsworth-db-snapshot."/var/lib/prometheus-node-exporter-text-files/cogsworth_db_snapshot.prom".z =
+    {
+      mode = "0644";
+      user = "cogsworth";
+      group = "textfile";
+    };
 
   systemd.timers.cogsworth-db-snapshot = {
     description = "Periodic Cogsworth DB snapshot timer";

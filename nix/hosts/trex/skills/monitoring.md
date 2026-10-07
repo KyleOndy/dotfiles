@@ -18,9 +18,12 @@ vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). nut serves the UPS at
 `/ups_metrics`; its `/metrics` is only the exporter's own process. tiger also
 scrapes the native endpoints of immich (8081 api, 8082 microservices) and
 navidrome (`/metrics` on its app port, which Caddy answers with a 404).
-cogsworth exposes the kiosk app at `/api/metrics`. pika runs zfs_exporter, and
-exports smartctl health, ZFS scrub and snapshot age, and the S3 archive
-counters through the textfile collector.
+cogsworth exposes the kiosk app at `/api/metrics` and birdnet-go's telemetry on
+`127.0.0.1:8091` (predictions and detections, nothing per stream), and
+cogsworth-db-snapshot writes its last success time and size through the
+textfile collector. pika runs zfs_exporter, and exports smartctl health, ZFS
+scrub and snapshot age, and the S3 archive counters through the textfile
+collector.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
 cert, and answers only private source addresses (LAN, DMZ, WireGuard).

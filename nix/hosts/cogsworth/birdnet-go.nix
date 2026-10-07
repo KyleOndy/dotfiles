@@ -9,10 +9,26 @@ let
   stateDir = "/var/lib/birdnet-go";
   configFile = "${stateDir}/config.yaml";
   port = 8090;
+  # Upstream's default telemetry listen is 0.0.0.0:8090, the web UI's port.
+  telemetryPort = 8091;
 in
 {
   systemd.services.cogsworth.environment.COGSWORTH_BIRDS_API_URL =
     "http://127.0.0.1:${toString port}";
+
+  systemFoundry.monitoringStack.vmagent.scrapeConfigs = [
+    {
+      job_name = "birdnet-go";
+      static_configs = [
+        {
+          targets = [ "127.0.0.1:${toString telemetryPort}" ];
+          labels = {
+            host = "cogsworth";
+          };
+        }
+      ];
+    }
+  ];
 
   # Full rtsps:// URL of each camera channel to listen to. The path segment
   # is the stream credential, so the whole URL is the secret.
@@ -75,6 +91,9 @@ in
           confidence: 0.5
         birdweather:
           enabled: false
+        telemetry:
+          enabled: true
+          listen: "127.0.0.1:${toString telemetryPort}"
       webserver:
         enabled: true
         port: "${toString port}"

@@ -1347,6 +1347,74 @@ in
                 summary: "Cogsworth job {{ $labels.task }} has not succeeded in {{ $value | humanizeDuration }}"
                 description: "Background task {{ $labels.task }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
 
+            # The timer runs every 5 minutes, so 900s is three missed runs.
+            # The file survives a reboot, and the first run is 5 minutes after
+            # boot, which `for:` rides out.
+            - alert: CogsworthDbSnapshotStale
+              expr: time() - cogsworth_db_snapshot_last_success_timestamp_seconds{host="cogsworth"} > 900
+              for: 10m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth DB last reached the SD card {{ $value | humanizeDuration }} ago"
+                description: "The kiosk DB lives on a tmpfs, and cogsworth-db-snapshot copies it to /var/lib/cogsworth/persistent every 5 minutes. A power cut now loses every write since the last copy. The snapshot fails on a full SD card and skips without error when the tmpfs DB does not exist; check `systemctl status cogsworth-db-snapshot.service cogsworth-db-snapshot.timer` on cogsworth."
+
+            - alert: CogsworthDbSnapshotMetricsAbsent
+              expr: absent(cogsworth_db_snapshot_last_success_timestamp_seconds{host="cogsworth"}) and on(host) up{host="cogsworth",job="node"} == 1
+              for: 30m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth exports no DB snapshot timestamp"
+                description: "node_exporter on cogsworth is up but has no cogsworth_db_snapshot_last_success_timestamp_seconds, so CogsworthDbSnapshotStale cannot fire. Either no snapshot has succeeded since the .prom file went missing, or the file is unreadable, which NodeTextfileCollectorFailing reports. Check `ls -l /var/lib/prometheus-node-exporter-text-files/` and `systemctl status cogsworth-db-snapshot` on cogsworth."
+
+            # birdnet-go has no per-stream series at 20260823: the stream
+            # health in its UI lives outside its Prometheus registry. The
+            # prediction counter counts every analysed window from every
+            # stream, so one dead camera of two only halves its rate.
+            - alert: CogsworthBirdnetMetricsAbsent
+              expr: absent(birdnet_predictions_total{host="cogsworth"}) and on(host) up{host="cogsworth",job="node"} == 1
+              for: 30m
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "BirdNET-Go on cogsworth exports no prediction counter"
+                description: "cogsworth is reporting but birdnet_predictions_total is missing, so CogsworthBirdnetNoAudio and CogsworthBirdnetNoDetections cannot fire. The counter appears on the first analysed window, so either birdnet-go is down (InstanceDown on job birdnet-go), telemetry is off in its config, an upgrade renamed the metric, or no stream has delivered audio since it started. On cogsworth: `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state}'`."
+
+            - alert: CogsworthBirdnetNoAudio
+              expr: sum by (host) (increase(birdnet_predictions_total{host="cogsworth"}[30m])) == 0
+              for: 5m
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "BirdNET-Go on cogsworth has analysed no audio for 30 minutes"
+                description: "No camera stream has delivered audio for 30 minutes, so the kiosk's bird feed has stopped moving. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows which stream is down, and `journalctl -u birdnet-go -g ffmpeg` shows why. The streams come off the UniFi Protect NVR, so a camera or NVR outage lands here too."
+
+            # Detections have not dropped below ~250 a day since the feed
+            # started in 2026-09, so a whole day of none is never just a
+            # quiet night. The `or` keeps the rule alive when birdnet-go has
+            # restarted and the per-species counters have not reappeared.
+            - alert: CogsworthBirdnetNoDetections
+              expr: |-
+                (
+                  sum by (host) (increase(birdnet_detections{host="cogsworth"}[24h]))
+                  or
+                  sum by (host) (up{host="cogsworth",job="birdnet-go"}) * 0
+                ) == 0
+                and on (host)
+                sum by (host) (increase(birdnet_predictions_total{host="cogsworth"}[30m])) > 0
+              for: 30m
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "BirdNET-Go on cogsworth has detected no birds in 24 hours"
+                description: "Audio is reaching the classifier but nothing has passed its threshold and filters in a day. If the Audio Analysed panel on the Cogsworth dashboard shows only errors, the model is failing; otherwise the streams are carrying silence, so check that the camera microphones are still on in UniFi Protect. The birdnet-go UI is reached with `ssh -L 8090:127.0.0.1:8090 cogsworth`."
+
         # unpoller reports the controller's view, so a device that drops off
         # stops being reported rather than reporting down. The site-level
         # counters are the only place an absence becomes a number.

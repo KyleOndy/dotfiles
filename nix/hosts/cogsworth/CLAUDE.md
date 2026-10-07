@@ -11,7 +11,7 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 - `cogsworth-amp-keepalive.service`: holds the MAX98357A amp's I2S stream open with silence so it never powers back on with a pop, `Restart = "always"` after 2s
 - `cogsworth-brightness-init.service`: sets the display digipot to minimum brightness before the backend starts
 - `wyoming-openwakeword.service`: wake word detection on `127.0.0.1:10400`
-- `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`)
+- `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`); web UI and API on `:8090`, Prometheus telemetry on `127.0.0.1:8091`
 - `caddy.service`: LAN HTTP on `:80`, proxied to the backend on `127.0.0.1:8080`
 
 ## Viewing Logs
@@ -94,7 +94,10 @@ copies the DB (plus `-wal` and `-shm` when present) up from
 `/var/lib/cogsworth/persistent` before the backend starts.
 `cogsworth-db-snapshot` copies `cogsworth.db` back every 5 minutes, and
 `cogsworth-db-shutdown-snapshot` copies it once more on a clean shutdown.
-Neither copies `-wal` or `-shm`.
+Neither copies `-wal` or `-shm`. Only the periodic one writes
+`cogsworth_db_snapshot_last_success_timestamp_seconds` and
+`cogsworth_db_snapshot_size_bytes` to the textfile collector, after the copy
+lands; CogsworthDbSnapshotStale fires when the timestamp is 15 minutes old.
 
 A hard power cut therefore loses up to 5 minutes of DB writes and every log
 line not yet shipped to Loki. If the app runs SQLite in WAL mode, that bound
