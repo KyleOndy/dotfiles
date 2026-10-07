@@ -104,13 +104,10 @@ in
             }
 
             zvm_after_init() {
-              # White ZVM is super nifty, and better than the built in vi mode,
-              # it does clobber some key bindings; here we source FZF to get
-              # those bindings back.
-              #
+              # zvm's init rebinds keys over fzf's (zsh-vi-mode issue 24). With
+              # ZVM_INIT_MODE=sourcing that happens here, before programs.fzf's
+              # `fzf --zsh`, so fzf's bindings land last.
               # https://github.com/jeffreytse/zsh-vi-mode/issues/24
-              source "${pkgs.fzf}/share/fzf/key-bindings.zsh"
-              source "${pkgs.fzf}/share/fzf/completion.zsh"
 
               # Initialize starship prompt AFTER zvm finishes to prevent prompt corruption
               # https://github.com/jeffreytse/zsh-vi-mode#execute-extra-commands
