@@ -253,44 +253,9 @@
     '';
   };
 
-  # Automated mbsync config for the launchd agent (uses sops-encrypted
-  # password instead of pass/GPG).
-  sops.templates."mbsyncrc-automated" = {
-    owner = "kyle";
-    mode = "0600";
-    content = ''
-      # Generated mbsync config for automated launchd agent
-      # Uses sops-encrypted passwords instead of pass/GPG
-
-      IMAPAccount kyle_at_ondy_org
-      CertificateFile /etc/ssl/certs/ca-certificates.crt
-      Host london.mxroute.com
-      PassCmd "bash ${config.sops.templates."mbsync-password-script".path} kyle@ondy.org"
-      TLSType IMAPS
-      User kyle@ondy.org
-
-      IMAPStore kyle_at_ondy_org-remote
-      Account kyle_at_ondy_org
-
-      MaildirStore kyle_at_ondy_org-local
-      Inbox ${config.users.users.kyle.home}/mail/ondy.org/Inbox
-      Path ${config.users.users.kyle.home}/mail/ondy.org/
-      SubFolders Verbatim
-
-      Channel kyle_at_ondy_org
-      Create Near
-      Expunge None
-      Far :kyle_at_ondy_org-remote:
-      Near :kyle_at_ondy_org-local:
-      Patterns INBOX Archive "Deleted Messages" Drafts Junk Sent
-      Remove None
-      SyncState *
-    '';
-  };
-
-  # Route the interactive mbsync PassCmd (manual `mbsync --all`, notmuch
-  # preNew hook) through the same sops-backed password script used by the
-  # launchd agent below, instead of the unconfigured `pass`.
+  # Route mbsync's PassCmd (the launchd agent below, manual `mbsync --all`,
+  # the notmuch preNew hook) through the sops-backed password script instead
+  # of the unconfigured `pass`.
   home-manager.users.kyle.hmFoundry.terminal.email.passwordCommand =
     addr: "${config.sops.templates."mbsync-password-script".path} ${addr}";
 
@@ -311,7 +276,7 @@
             text = ''
               readonly PROM=${config.systemFoundry.monitoringAgent.textfileDirectory}/mbsync.prom
 
-              mbsync -c ${config.sops.templates."mbsyncrc-automated".path} --all
+              mbsync -c ${config.home-manager.users.kyle.xdg.configHome}/isyncrc --all
               notmuch new --no-hooks
               notmuch tag +inbox +unread -new -- tag:new
 
