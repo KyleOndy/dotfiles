@@ -693,7 +693,7 @@ in
                 description: "CPU load per core has been above 4 for 15 minutes on {{ $labels.host }}. Current load per core: {{ $value | printf \"%.2f\" }}"
 
             - alert: HighMemoryUsage
-              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or 0)) / node_memory_MemTotal_bytes)) > 0.85
+              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or node_memory_MemTotal_bytes * 0)) / node_memory_MemTotal_bytes)) > 0.85
               for: 5m
               labels:
                 severity: warning
@@ -702,7 +702,7 @@ in
                 description: "Memory usage is above 85% on {{ $labels.host }} (excluding reclaimable ZFS ARC). Current: {{ $value | humanizePercentage }}"
 
             - alert: HighMemoryUsageCritical
-              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or 0)) / node_memory_MemTotal_bytes)) > 0.95
+              expr: (1 - ((node_memory_MemAvailable_bytes + (node_zfs_arc_size or node_memory_MemTotal_bytes * 0)) / node_memory_MemTotal_bytes)) > 0.95
               for: 5m
               labels:
                 severity: critical
@@ -1507,26 +1507,6 @@ in
               annotations:
                 summary: "Cogsworth watchdog triggered {{ $value }} restarts"
                 description: "Cogsworth service has been restarted {{ $value }} times in the last 15 minutes. The three-tier watchdog may be recovering from failures."
-
-            - alert: CogsworthHighMemory
-              expr: (1 - (node_memory_MemAvailable_bytes{host="cogsworth"} / node_memory_MemTotal_bytes{host="cogsworth"})) > 0.80
-              for: 10m
-              labels:
-                severity: warning
-                service: cogsworth
-              annotations:
-                summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
-                description: "Raspberry Pi memory usage is above 80% on cogsworth."
-
-            - alert: CogsworthHighMemoryCritical
-              expr: (1 - (node_memory_MemAvailable_bytes{host="cogsworth"} / node_memory_MemTotal_bytes{host="cogsworth"})) > 0.90
-              for: 5m
-              labels:
-                severity: critical
-                service: cogsworth
-              annotations:
-                summary: "Cogsworth memory usage is {{ $value | humanizePercentage }}"
-                description: "Raspberry Pi memory usage is critically high (>90%) on cogsworth. Risk of OOM killer."
 
             - alert: CogsworthHighCPUTemp
               expr: node_hwmon_temp_celsius{host="cogsworth"} > 70
