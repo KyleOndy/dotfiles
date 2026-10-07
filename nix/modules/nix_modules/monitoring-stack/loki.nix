@@ -125,6 +125,7 @@ in
 
         server.http_listen_port = cfg.port;
         server.http_listen_address = cfg.listenAddress;
+        server.log_level = "warn";
 
         auth_enabled = false;
 
@@ -152,8 +153,6 @@ in
               replication_factor = 1;
             };
           };
-          chunk_idle_period = "3m";
-          chunk_block_size = 262144;
           chunk_retain_period = "1m";
         };
 
