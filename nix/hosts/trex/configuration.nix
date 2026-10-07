@@ -215,10 +215,8 @@
       mode = "0400";
     };
     monitoring_password = {
-      # vmagent and alloy run as root here (no DynamicUser on darwin),
-      # but keep the same permissive mode used on the other NixOS hosts
-      # for consistency.
-      mode = "0444";
+      # The only readers are vmagent and alloy, root launchd daemons here.
+      mode = "0400";
       sopsFile = ../../secrets/shared-cogsworth-pika-trex.yaml;
     };
     # Same secret tiger seeds smbd with; read here by smb-tiger-mount, which
