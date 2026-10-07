@@ -1797,6 +1797,15 @@ in
                   };
                 }
               ];
+              # One histogram per daily index table, so it grows by a table a
+              # day for the whole retention, and nothing reads it.
+              metric_relabel_configs = [
+                {
+                  source_labels = [ "__name__" ];
+                  regex = "loki_tsdb_shipper_table_sync_latency_seconds.*";
+                  action = "drop";
+                }
+              ];
             }
             {
               job_name = "alloy";
@@ -1817,6 +1826,13 @@ in
                   labels = {
                     host = "tiger";
                   };
+                }
+              ];
+              metric_relabel_configs = [
+                {
+                  source_labels = [ "__name__" ];
+                  regex = "grafana_feature_toggles_info";
+                  action = "drop";
                 }
               ];
             }

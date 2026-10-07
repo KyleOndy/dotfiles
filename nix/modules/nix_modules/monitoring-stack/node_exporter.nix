@@ -59,7 +59,6 @@ in
       extraFlags = [
         "--collector.textfile.directory=${cfg.textfileDirectory}"
         "--collector.systemd.enable-restarts-metrics"
-        "--collector.systemd.enable-start-time-metrics"
       ];
     };
   };
