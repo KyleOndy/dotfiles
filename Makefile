@@ -55,16 +55,16 @@ endif
 ifeq ($(UNAME), Linux)
 	REBUILD := nixos-rebuild $(IMPURE)
 	# --preserve-env so DOTFILES_WORKTREE (and NIXPKGS_ALLOW_*) survive sudo
-	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
+	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild $(IMPURE)
 	# darwin-rebuild requires root for activation. --preserve-env keeps
 	# GIT_SSH_COMMAND so private flake inputs (e.g. ssh://git@github.com/...)
 	# can still authenticate via the key configured in this repo's
 	# core.sshCommand.
-	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD) $(IMPURE)
+	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
 else
-	(echo "Unsupported file system: $(UNAME)"; exit 1)
+  $(error Unsupported system: $(UNAME))
 endif
 
 .PHONY: help
@@ -75,21 +75,9 @@ help: ## Show this help
 build: ## Buld single host
 	$(REBUILD) --flake .#$(HOSTNAME) build --keep-going
 
-.PHONY: diff-current-system
-diff-current-system:
-	nix store diff-closures /var/run/current-system "$(shell readlink -f ./result)"
-
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
-
-.PHONY: boot
-boot: ## Deploy currently defined configuration for next boot
-	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) boot
-
-.PHONY: apply
-apply: ## Apply the current config without persisting it
-	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) test
 
 .PHONY: deploy-rs
 deploy-rs:
@@ -108,16 +96,6 @@ deploy-rs-all-dry:
 .PHONY: diff-system
 diff-system: ## Print system diff without color
 	@nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result) |  sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
-
-.PHONY: vm
-vm: ## build qemu vm
-	$(REBUILD) build-vm --flake .#$(HOSTNAME)
-	./result/bin/run-$(HOSTNAME)-vm
-
-# port forward: QEMU_NET_OPTS="hostfwd=tcp::8080-:8080"
-.PHONY: run-vm
-run-vm:
-	./result/bin/run-$(HOSTNAME)-vm
 
 .PHONY: update
 update: ## Update all flake soruces
@@ -178,16 +156,6 @@ cleanup: ## Cleanup and reduce diskspace of current system
 	nix-collect-garbage --delete-older-than 7d
 	sudo nix store optimise
 
-# https://kgolding.co.uk/snippets/makefile-check-git-status/
-.PHONY: git-status
-git-status:
-	@status=$$(git status --porcelain); \
-	if [ ! -z "$${status}" ]; \
-	then \
-		echo "Error - working directory is dirty. Commit those changes!"; \
-		exit 1; \
-	fi
-
 # Cache push targets
 # macOS-specific targets
 .PHONY: build-mac
@@ -197,14 +165,6 @@ build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work
 .PHONY: build-mac-dry
 build-mac-dry: ## Dry-run build of work-mac darwin configuration
 	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system --dry-run
-
-.PHONY: test-mac
-test-mac: ## Test work-mac configuration evaluation
-	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.system.stateVersion
-
-.PHONY: test-mac-home
-test-mac-home: ## Test work-mac home-manager configuration
-	nix eval $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.config.home-manager.users.'"kondy"'.home.homeDirectory
 
 .PHONY: deploy-mac
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
@@ -217,14 +177,6 @@ build-trex: ## Build trex darwin configuration
 .PHONY: build-trex-dry
 build-trex-dry: ## Dry-run build of trex darwin configuration
 	nix build $(IMPURE) .#darwinConfigurations.trex.system --dry-run
-
-.PHONY: test-trex
-test-trex: ## Test trex configuration evaluation
-	nix eval $(IMPURE) .#darwinConfigurations.trex.config.system.stateVersion
-
-.PHONY: test-trex-home
-test-trex-home: ## Test trex home-manager configuration
-	nix eval $(IMPURE) .#darwinConfigurations.trex.config.home-manager.users.'"kyle"'.home.homeDirectory
 
 .PHONY: deploy-trex
 deploy-trex: ## Deploy trex darwin configuration
