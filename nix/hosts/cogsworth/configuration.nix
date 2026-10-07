@@ -555,7 +555,7 @@ in
 
   # Caddy reverse proxy: LAN HTTP access to cogsworth on port 80.
   # Using ":80" (not a hostname) disables Caddy's auto-HTTPS so no ACME/cert logic runs.
-  # The backend stays on :8080 with its tight sandbox; only Caddy is LAN-reachable.
+  # The backend binds :8080 on every interface; the firewall keeps it off the LAN.
   services.caddy = {
     enable = true;
     virtualHosts.":80".extraConfig = ''
@@ -563,7 +563,12 @@ in
     '';
   };
 
-  networking.firewall.allowedTCPPorts = [ 80 ];
+  # For the backend and birdnet-go's :8090, which bind every interface. sshd
+  # opens its own port (services.openssh.openFirewall).
+  networking.firewall = {
+    enable = lib.mkForce true;
+    allowedTCPPorts = [ 80 ];
+  };
 
   # Add I2C access for kyle user (for development/debugging)
   users.users.kyle.extraGroups = [

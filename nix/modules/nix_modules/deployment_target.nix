@@ -408,9 +408,10 @@ in
 
     # Off by default: these hosts sit behind the router, and every service
     # module already declares the ports it needs, so the firewall adds
-    # nothing until a host is exposed on a segment it does not trust. tiger
-    # is that host and turns it on itself (nix/hosts/tiger/configuration.nix,
-    # `networking.firewall.enable = lib.mkForce true`).
+    # nothing until a host is exposed on a segment it does not trust, as tiger
+    # is, or runs a listener that cannot be held to loopback, as cogsworth
+    # does. Each turns it on itself with
+    # `networking.firewall.enable = lib.mkForce true`.
     networking.firewall.enable = false;
   };
 }

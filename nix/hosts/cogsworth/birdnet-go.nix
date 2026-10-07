@@ -1,9 +1,11 @@
 # BirdNET-Go listens to the outdoor Protect cameras' RTSP audio and
 # classifies bird song into its own SQLite database. Cogsworth copies the
 # detections out over the loopback API; the BirdNET-Go web UI is for
-# review, reached with `ssh -L 8090:127.0.0.1:8090 cogsworth`. The pi's
-# own I2S mic is not a source: it is indoors and the voice listener owns
-# it.
+# review, reached with `ssh -L 8090:127.0.0.1:8090 cogsworth`. It binds
+# every interface, since its config takes only a port, so the host firewall
+# is what keeps the UI, and the RTSPS URLs it serves at
+# /api/v2/streams/health, off the LAN. The pi's own I2S mic is not a source:
+# it is indoors and the voice listener owns it.
 { config, pkgs, ... }:
 let
   stateDir = "/var/lib/birdnet-go";

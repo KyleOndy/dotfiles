@@ -14,6 +14,9 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 - `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`); web UI and API on `:8090`, Prometheus telemetry on `127.0.0.1:8091`
 - `caddy.service`: LAN HTTP on `:80`, proxied to the backend on `127.0.0.1:8080`
 
+The firewall is on and opens only ssh and `:80`, so `:8080` and `:8090`,
+though bound to every interface, are reachable only over `ssh -L`.
+
 ## Viewing Logs
 
 Journal is RAM-only (50M cap, 1h retention). For anything older, query Loki.
