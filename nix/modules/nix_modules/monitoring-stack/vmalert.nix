@@ -1054,6 +1054,19 @@ in
                 summary: "Shell history backup from {{ $labels.host }} is over 2 days old"
                 description: "histdb-backup on trex has not pushed to tiger in over 2 days, while trex was awake for more than 6 hours of them. The push rides the session ssh-agent, so a run before the first interactive ssh of a boot fails. Check ~/Library/Logs/histdb-backup.log on trex, then run `launchctl kickstart gui/$(id -u)/org.ondy.histdb-backup`."
 
+            # Each run overwrites the copy on tiger, so a wiped or truncated
+            # database replaces the good one the next day and only the
+            # dataset's ZFS snapshots still hold it. last_over_time keeps
+            # trex's series through sleep. Clears once the 7d window holds
+            # only the smaller count.
+            - alert: HistdbHistoryShrank
+              expr: last_over_time(histdb_backup_rows[1d]) < 0.9 * max_over_time(histdb_backup_rows[7d])
+              labels:
+                severity: warning
+              annotations:
+                summary: "Shell history on {{ $labels.host }} lost over a tenth of its rows"
+                description: "The last histdb snapshot from {{ $labels.host }} holds {{ $value }} commands, under 90% of its peak this week, and that snapshot has replaced the larger one in /mnt/backups/kyle/histdb on tiger. Restore {{ $labels.host }}.db from a ZFS snapshot of that dataset before the snapshots holding the larger copy are pruned."
+
             # The rules above subtract from a series that exists only after a
             # first success, so a host that has never succeeded, or whose unit
             # lacks TEXTFILE_DIR, matches none of them. One rule per host for
