@@ -29,12 +29,17 @@ let
   # the same way as every other monitoring alert.
   amUrl = "http://${config.systemFoundry.monitoringStack.alertmanager.listenAddress}:${toString config.systemFoundry.monitoringStack.alertmanager.port}/api/v2/alerts";
 
-  # Dispatcher for upssched: fires alerts on line-state changes and forces the
-  # shutdown when the 20s timer expires. Runs as root (upsmon runs as root).
-  upsSchedCmd = pkgs.writeShellScript "upssched-cmd" ''
-    set -eu
+  upsShutdownSeconds = 90;
 
-    now=$(${pkgs.coreutils}/bin/date -u +%Y-%m-%dT%H:%M:%SZ)
+  # Dispatcher for upssched: fires alerts on line-state changes and forces the
+  # shutdown when the shutdown timer expires. Runs as root (upsmon runs as root).
+  upsSchedCmd = pkgs.writeShellScript "upssched-cmd" ''
+    set -euo pipefail
+
+    stamp() {
+      ${pkgs.coreutils}/bin/date -u -d "$1" +%Y-%m-%dT%H:%M:%SZ
+    }
+    now=$(stamp now)
 
     post() {
       ${pkgs.curl}/bin/curl -sS -m 10 -X POST \
@@ -44,7 +49,7 @@ let
 
     case "$1" in
       onbatt-notify)
-        post '[{"labels":{"alertname":"UPSOnBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS on battery (mains power lost)","description":"Running on battery. tiger shuts down in 20s to extend runtime for the attached network gear; the UPS itself stays on."},"startsAt":"'"$now"'"}]'
+        post '[{"labels":{"alertname":"UPSOnBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS on battery (mains power lost)","description":"Running on battery. tiger shuts down in ${toString upsShutdownSeconds}s to extend runtime for the attached network gear; the UPS itself stays on."},"startsAt":"'"$now"'"}]'
         ;;
       online-notify)
         post '[{"labels":{"alertname":"UPSOnBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS on battery (mains power lost)"},"endsAt":"'"$now"'"}]'
@@ -52,9 +57,25 @@ let
       lowbatt-notify)
         post '[{"labels":{"alertname":"UPSLowBattery","severity":"critical","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS battery low","description":"UPS battery is nearly depleted; attached gear will lose power soon."},"startsAt":"'"$now"'"}]'
         ;;
+      # NOCOMM arrives after 300s without comm and every 300s after that
+      # (NOCOMMWARNTIME). Without an endsAt, Alertmanager's 5m resolve_timeout
+      # would expire the alert between repeats.
+      nocomm-notify)
+        post '[{"labels":{"alertname":"UPSCommLost","severity":"critical","host":"tiger","ups":"tiger"},"annotations":{"summary":"upsmon has lost the tiger UPS for 5 minutes","description":"upsd has had no data from the UPS for 5 minutes, so a power failure now goes unseen: tiger never shuts down and crashes when the battery runs out. The usual cause is the usbhid-ups reconnect loop, see journalctl -u upsdrv and upsc tiger@localhost."},"startsAt":"'"$now"'","endsAt":"'"$(stamp '+10 min')"'"}]'
+        ;;
+      commok-notify)
+        post '[{"labels":{"alertname":"UPSCommLost","severity":"critical","host":"tiger","ups":"tiger"},"annotations":{"summary":"upsmon has lost the tiger UPS for 5 minutes"},"endsAt":"'"$now"'"}]'
+        ;;
+      # REPLBATT repeats every 12h (RBWARNTIME) while RB is set; nothing marks it clearing.
+      replbatt-notify)
+        post '[{"labels":{"alertname":"UPSReplaceBattery","severity":"warning","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger UPS reports its battery needs replacing","description":"The UPS has set RB, usually after failing a self-test. Runtime on battery is no longer what battery.runtime claims."},"startsAt":"'"$now"'","endsAt":"'"$(stamp '+13 hours')"'"}]'
+        ;;
       shutdown)
+        post '[{"labels":{"alertname":"UPSShutdownInitiated","severity":"critical","host":"tiger","ups":"tiger"},"annotations":{"summary":"tiger shutting down on UPS battery","description":"Mains power has been out for ${toString upsShutdownSeconds}s. tiger is powering off so the network gear keeps the battery, and stays off until it is powered on by hand or the battery drains and mains returns."},"startsAt":"'"$now"'"}]'
         ${pkgs.util-linux}/bin/logger -t upssched \
-          "UPS on battery for 20s, forcing shutdown"
+          "UPS on battery for ${toString upsShutdownSeconds}s, forcing shutdown"
+        # Alertmanager holds a new alert for group_wait (10s) before sending it.
+        ${pkgs.coreutils}/bin/sleep 15
         ${pkgs.nut}/sbin/upsmon -c fsd
         ;;
     esac
@@ -915,10 +936,12 @@ in
   #
   #   * On mains loss, upssched immediately pushes a "UPS on battery" alert to
   #     the local Alertmanager (emailed like every other alert) and starts a
-  #     20s timer.
+  #     90s timer (upsShutdownSeconds), long enough to ride out a short outage.
   #   * If power returns first, the alert resolves and the timer is cancelled.
-  #   * If power is still out at 20s, tiger shuts down cleanly. Shedding tiger's
-  #     load lets the attached network gear ride the UPS battery for longer.
+  #   * If power is still out at 90s, it is not coming back quickly, so tiger
+  #     shuts down cleanly and its load comes off the battery, letting the
+  #     network gear keep running for longer. upssched first pushes
+  #     UPSShutdownInitiated and waits 15s so Alertmanager can send it.
   #   * killpower is left OFF (POWERDOWNFLAG = null): tiger powers off but the
   #     UPS keeps running, so the network gear stays online until the battery
   #     is exhausted. Trade-off: tiger will NOT auto-restart after a short
@@ -948,6 +971,10 @@ in
       directives = [
         "vendorid = 09ae"
         "productid = 2012"
+        # This Tripp Lite's interrupt-in reports fail with I/O errors, and the
+        # driver's reconnect loop leaves upsd stale for minutes at a time.
+        # https://github.com/networkupstools/nut/blob/v2.8.4/docs/man/usbhid-ups.txt#L127-L130
+        "pollonly"
       ];
     };
 
@@ -957,6 +984,10 @@ in
     users.upsmon = {
       passwordFile = "/var/lib/nut/monpass";
       upsmon = "primary";
+    };
+    users.upstest = {
+      passwordFile = "/var/lib/nut/testpass";
+      instcmds = [ "test.battery.start.quick" ];
     };
 
     upsmon.monitor.tiger = {
@@ -981,6 +1012,22 @@ in
           "LOWBATT"
           "SYSLOG+EXEC"
         ]
+        [
+          "COMMBAD"
+          "SYSLOG+EXEC"
+        ]
+        [
+          "COMMOK"
+          "SYSLOG+EXEC"
+        ]
+        [
+          "NOCOMM"
+          "SYSLOG+EXEC"
+        ]
+        [
+          "REPLBATT"
+          "SYSLOG+EXEC"
+        ]
       ];
       # Keep the UPS powered after tiger shuts down (network gear stays online).
       POWERDOWNFLAG = null;
@@ -992,19 +1039,26 @@ in
       LOCKFN /run/nut/upssched.lock
       # Alert immediately on mains loss, and start the shutdown countdown.
       AT ONBATT * EXECUTE onbatt-notify
-      AT ONBATT * START-TIMER shutdown 20
+      AT ONBATT * START-TIMER shutdown ${toString upsShutdownSeconds}
       # Power restored: clear the alert and cancel the shutdown.
       AT ONLINE * EXECUTE online-notify
       AT ONLINE * CANCEL-TIMER shutdown
       # Battery nearly empty: last-warning alert.
       AT LOWBATT * EXECUTE lowbatt-notify
+      # COMMBAD opens every comm loss and most last about 20s, so the alert
+      # waits for NOCOMM at 5 minutes. Its resolve trails COMMOK by 2 minutes
+      # so the alerts it inhibits in alertmanager.nix clear first.
+      AT NOCOMM * EXECUTE nocomm-notify
+      AT COMMOK * START-TIMER commok-notify 120
+      AT COMMBAD * CANCEL-TIMER commok-notify
+      AT REPLBATT * EXECUTE replbatt-notify
     ''}";
   };
 
-  # Generate the loopback-only upsd/upsmon password once, before either daemon
+  # Generate the loopback-only upsd passwords once, before either daemon
   # starts. Kept out of the Nix store (world-readable) and out of sops.
   systemd.services.nut-genpass = {
-    description = "Generate local NUT monitor password";
+    description = "Generate local NUT passwords";
     wantedBy = [ "multi-user.target" ];
     before = [
       "upsd.service"
@@ -1017,10 +1071,12 @@ in
     script = ''
       set -euo pipefail
       install -d -m0700 /var/lib/nut
-      if [ ! -s /var/lib/nut/monpass ]; then
-        umask 077
-        ${pkgs.openssl}/bin/openssl rand -hex 24 > /var/lib/nut/monpass
-      fi
+      umask 077
+      for f in monpass testpass; do
+        if [ ! -s "/var/lib/nut/$f" ]; then
+          ${pkgs.openssl}/bin/openssl rand -hex 24 > "/var/lib/nut/$f"
+        fi
+      done
     '';
   };
   systemd.services.upsd = {
@@ -1030,6 +1086,34 @@ in
   systemd.services.upsmon = {
     after = [ "nut-genpass.service" ];
     requires = [ "nut-genpass.service" ];
+  };
+
+  # The self-test is how the UPS finds a weak battery and raises RB; this model
+  # has no ups.test.result. A failing battery can drop the load mid-test,
+  # taking tiger and the network gear down with it.
+  systemd.services.ups-battery-test = {
+    description = "UPS quick battery self-test";
+    after = [ "upsd.service" ];
+    serviceConfig.Type = "oneshot";
+    script = ''
+      set -euo pipefail
+      status=$(${pkgs.nut}/bin/upsc tiger@localhost ups.status 2>/dev/null || true)
+      if [ "$status" != "OL" ]; then
+        echo "ups.status is '$status', not OL; skipping the battery test"
+        exit 0
+      fi
+      ${pkgs.nut}/bin/upscmd -w -u upstest -p "$(cat /var/lib/nut/testpass)" \
+        tiger@localhost test.battery.start.quick
+    '';
+  };
+
+  systemd.timers.ups-battery-test = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Mon *-*-01..07 04:00";
+      # A catch-up run would test the battery whenever a deploy activates.
+      Persistent = false;
+    };
   };
 
   systemFoundry =
@@ -1371,6 +1455,7 @@ in
 
         zfsExporter.enable = true;
         nodeExporter.enable = true;
+        nutExporter.enable = true;
 
         jellyfinExporter = {
           enable = true;
@@ -1480,6 +1565,21 @@ in
               static_configs = [
                 {
                   targets = [ "127.0.0.1:9134" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              # /metrics is only the exporter's own process metrics.
+              # /ups_metrics fails while upsd has no data from the UPS, so `up`
+              # here reads 0 during a comm loss.
+              job_name = "nut";
+              metrics_path = "/ups_metrics";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:9199" ];
                   labels = {
                     host = "tiger";
                   };

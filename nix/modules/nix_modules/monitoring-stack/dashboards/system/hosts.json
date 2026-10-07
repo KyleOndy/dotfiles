@@ -2,7 +2,7 @@
   "id": null,
   "uid": "hosts",
   "title": "Hosts",
-  "description": "Fleet and per-host resources. Investigation surface for resource_usage, host_availability, disk_space, systemd_health and the node-based cogsworth_monitoring alerts.",
+  "description": "Fleet and per-host resources. Investigation surface for resource_usage, host_availability, disk_space, systemd_health, ups and the node-based cogsworth_monitoring alerts.",
   "tags": ["system", "node", "systemd"],
   "timezone": "",
   "schemaVersion": 39,
@@ -564,6 +564,272 @@
           "calcs": ["last"],
           "displayMode": "table",
           "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "tiger UPS",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 47 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "UPS Comm",
+      "description": "Whether the nut scrape got data from upsd. Lost for 5 minutes is UPSCommLost: upsmon is blind too, so a power failure would go unseen. Lost with the exporter down is InstanceDown instead.",
+      "gridPos": { "h": 4, "w": 5, "x": 0, "y": 48 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{host=\"tiger\",job=\"nut\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "lost", "color": "red" },
+                "1": { "text": "ok", "color": "green" }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "UPS Power Source",
+      "description": "The OB flag. upssched shuts tiger down shortly after mains goes, so still on battery at 3 minutes is UPSShutdownOverdue.",
+      "gridPos": { "h": 4, "w": 5, "x": 5, "y": 48 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_ups_status{host=\"tiger\",flag=\"OB\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "mains", "color": "green" },
+                "1": { "text": "battery", "color": "red" }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "UPS Battery",
+      "description": "The RB flag, which the UPS sets after a failed self-test. ups-battery-test runs a quick one on the first Monday of each month. Set is UPSReplaceBattery.",
+      "gridPos": { "h": 4, "w": 5, "x": 10, "y": 48 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_ups_status{host=\"tiger\",flag=\"RB\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "ok", "color": "green" },
+                "1": { "text": "replace", "color": "red" }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "UPS Charge",
+      "description": "Battery charge. Under 80% for an hour while on mains is UPSBatteryNotCharging.",
+      "gridPos": { "h": 4, "w": 4, "x": 15, "y": 48 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_battery_charge{host=\"tiger\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "green", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "UPS Runtime",
+      "description": "The UPS's own estimate of time on battery at the current load. Under 10 minutes is UPSRuntimeLow.",
+      "gridPos": { "h": 4, "w": 5, "x": 19, "y": 48 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_battery_runtime{host=\"tiger\"}"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 600 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "UPS Load and Charge",
+      "description": "Load as a share of the UPS rating; above 80% for 15 minutes is UPSLoadHigh. Gaps are comm losses.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_ups_load{host=\"tiger\"}",
+          "legendFormat": "load"
+        },
+        {
+          "refId": "B",
+          "expr": "network_ups_tools_battery_charge{host=\"tiger\"}",
+          "legendFormat": "charge"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "UPS Voltage",
+      "description": "Mains in and UPS out, against the 108-132V band of UPSInputVoltageOutOfRange.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "network_ups_tools_input_voltage{host=\"tiger\"}",
+          "legendFormat": "input"
+        },
+        {
+          "refId": "B",
+          "expr": "network_ups_tools_output_voltage{host=\"tiger\"}",
+          "legendFormat": "output"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": false,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "transparent", "value": 108 },
+              { "color": "red", "value": 132 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "min", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
           "showLegend": true
         },
         "tooltip": { "mode": "multi", "sort": "desc" }

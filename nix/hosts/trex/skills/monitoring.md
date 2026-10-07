@@ -11,13 +11,14 @@ tiger is the server: VictoriaMetrics, Loki, Grafana, Alertmanager, vmalert.
 Retention is 400 days for both metrics and logs
 (`nix/hosts/tiger/configuration.nix`).
 
-Agents run on tiger, pika, cogsworth and trex: vmagent, alloy,
-node_exporter. tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus
-sabnzbd) and unpoller exporters, and scrapes its own stack (VictoriaMetrics,
-vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). cogsworth exposes the
-kiosk app at `/api/metrics`. pika runs zfs_exporter, and exports smartctl
-health, ZFS scrub and snapshot age, and the S3 archive counters through the
-textfile collector.
+Agents run on tiger, pika, cogsworth and trex: vmagent, alloy, node_exporter.
+tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus sabnzbd),
+unpoller and nut exporters, and scrapes its own stack (VictoriaMetrics,
+vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). nut serves the UPS at
+`/ups_metrics`; its `/metrics` is only the exporter's own process. cogsworth
+exposes the kiosk app at `/api/metrics`. pika runs zfs_exporter, and exports
+smartctl health, ZFS scrub and snapshot age, and the S3 archive counters
+through the textfile collector.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
 cert, and answers only private source addresses (LAN, DMZ, WireGuard).

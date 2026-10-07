@@ -67,7 +67,7 @@ dashboard nothing can send you to does not earn its place:
 
 | Dashboard                 | Alert groups it serves                                                                     |
 | ------------------------- | ------------------------------------------------------------------------------------------ |
-| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health                              |
+| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health, ups                         |
 | `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, drive_health |
 | `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki)                     |
 | `Cogsworth`               | cogsworth_monitoring                                                                       |
@@ -78,6 +78,11 @@ dashboard nothing can send you to does not earn its place:
 JellyfinDown is an alert in systemd_health rather than a group of its own.
 textfile_collector, audio_language and Loki's ruler_heartbeat have no
 dashboard yet.
+
+tiger's upssched pushes UPSOnBattery, UPSLowBattery, UPSShutdownInitiated,
+UPSCommLost and UPSReplaceBattery straight to Alertmanager, outside any group.
+The last two share a name with a rule in ups, and an inhibit rule in
+`alertmanager.nix` mutes the rule while the push is active.
 
 Drop the JSON in `monitoring-stack/dashboards/<folder>/` and fix its label
 references per `DASHBOARD_CONVENTIONS.md`. That is the whole procedure:

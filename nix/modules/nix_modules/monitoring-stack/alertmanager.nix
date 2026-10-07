@@ -132,6 +132,33 @@ in
             ];
             target_matchers = [ "alertname = HostAbsent" ];
           }
+          # tiger's upssched pushes UPSCommLost and UPSReplaceBattery without a
+          # job label. The vmalert rules of the same names and the nut
+          # scrape's InstanceDown carry job=nut and describe the same fault.
+          # The UPSCommLost push resolves 2 minutes after COMMOK, so these
+          # clear while still muted.
+          {
+            source_matchers = [
+              "alertname =~ \"UPSCommLost|UPSReplaceBattery\""
+              "job = \"\""
+            ];
+            target_matchers = [
+              "alertname =~ \"UPSCommLost|UPSReplaceBattery\""
+              "job = nut"
+            ];
+            equal = [
+              "alertname"
+              "host"
+            ];
+          }
+          {
+            source_matchers = [ "alertname = UPSCommLost" ];
+            target_matchers = [
+              "alertname = InstanceDown"
+              "job = nut"
+            ];
+            equal = [ "host" ];
+          }
         ];
 
         receivers = [

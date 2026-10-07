@@ -117,6 +117,93 @@ in
                 summary: "Jellyfin service is down on tiger"
                 description: "Jellyfin has been unavailable for 5 minutes"
 
+        # The UPS behind tiger and the network gear, read from nut_exporter.
+        # upssched also pushes UPSCommLost and UPSReplaceBattery straight to
+        # Alertmanager, where the push inhibits the rule of the same name, so
+        # those two rules speak only when upsmon cannot.
+        - name: ups
+          interval: 30s
+          rules:
+            # upsd fails the scrape while it has no data from the UPS, so `up`
+            # is 0 with the exporter itself still running.
+            - alert: UPSCommLost
+              expr: up{host="tiger",job="nut"} == 0 and on(host) node_systemd_unit_state{host="tiger",name="prometheus-nut-exporter.service",state="active"} == 1
+              for: 5m
+              labels:
+                severity: critical
+              annotations:
+                summary: "No data from the tiger UPS for 5 minutes"
+                description: "nut_exporter is running but upsd has no data from the UPS, so upsmon cannot see a power failure either: tiger would never shut down and would crash when the battery ran out. The usual cause is the usbhid-ups reconnect loop; check journalctl -u upsdrv and upsc tiger@localhost."
+
+            # InstanceDown covers the exporter being down. This covers the
+            # scrape job going missing, or ups.status dropping out of a scrape
+            # that still succeeds, either of which leaves this group blind.
+            - alert: UPSStatusMissing
+              expr: absent(network_ups_tools_ups_status{host="tiger",flag="OL"}) unless on() (up{host="tiger",job="nut"} == 0)
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "No UPS status series from tiger"
+                description: "network_ups_tools_ups_status is missing while the nut scrape is not failing, so either the scrape job is gone from vmagent or ups.status is missing from nutVariables in nut-exporter.nix. Every other rule in the ups group is blind until it is back."
+
+            # tiger runs vmalert, so once upssched has shut it down nothing is
+            # left to evaluate this. It can only fire if that shutdown failed.
+            - alert: UPSShutdownOverdue
+              expr: network_ups_tools_ups_status{host="tiger",flag="OB"} == 1
+              for: 3m
+              labels:
+                severity: critical
+              annotations:
+                summary: "tiger is still running on UPS battery"
+                description: "The UPS has been on battery for 3 minutes and tiger has not shut down, so the upssched shutdown timer never fired or upsmon -c fsd failed. tiger is draining the battery the network gear needs. Check journalctl -t upssched -u upsmon, and shut tiger down by hand if mains is still out."
+
+            - alert: UPSBatteryNotCharging
+              expr: network_ups_tools_battery_charge{host="tiger"} < 80 and on(host) network_ups_tools_ups_status{host="tiger",flag="OL"} == 1
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "UPS battery at {{ $value }}% after an hour on mains"
+                description: "The UPS is on line power but its battery has stayed under 80% for an hour, so it is not recharging. A battery near the end of its life does this before it sets RB."
+
+            - alert: UPSRuntimeLow
+              expr: network_ups_tools_battery_runtime{host="tiger"} < 600
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "UPS runtime estimate is {{ $value | humanizeDuration }}"
+                description: "The UPS expects under 10 minutes on battery at the current load. Either the load has grown (ups.load) or the battery has lost capacity."
+
+            - alert: UPSLoadHigh
+              expr: network_ups_tools_ups_load{host="tiger"} > 80
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "UPS load is {{ $value }}%"
+                description: "The UPS is above 80% of its rated load, which cuts runtime and leaves no headroom for a startup surge."
+
+            - alert: UPSReplaceBattery
+              expr: network_ups_tools_ups_status{host="tiger",flag="RB"} == 1
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "tiger UPS reports its battery needs replacing"
+                description: "The UPS has set RB, usually after failing a self-test (ups-battery-test runs one on the first Monday of each month). Runtime on battery is no longer what battery.runtime claims."
+
+            # 120V nominal, plus or minus 10%.
+            - alert: UPSInputVoltageOutOfRange
+              expr: network_ups_tools_input_voltage{host="tiger"} < 108 or network_ups_tools_input_voltage{host="tiger"} > 132
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "UPS input voltage is {{ $value }}V"
+                description: "Mains at the UPS has been outside 108-132V for 5 minutes. The UPS is trimming or boosting to hold its output; a sustained sag or swell is a wiring or utility problem."
+
         # Media Services (tiger)
         - name: media_services_tiger
           interval: 30s
