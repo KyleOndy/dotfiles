@@ -34,6 +34,21 @@ let
               sum by (host) (
                 count_over_time({unit="ytdl-sub-youtube.service"} |= "Sign in to confirm you" [5m])
               )
+
+      # One line every 5 minutes per source that analysed any audio, none for
+      # one that analysed none. A stream with no name in its config logs its
+      # URL minus userinfo, and a Protect URL's path is the stream credential.
+      # https://github.com/tphakala/birdnet-go/blob/30197a29859303db226f2d8d68146f2b3b3c0490/internal/analysis/processor/pipeline_stats.go#L109-L131
+      - name: birdnet_logs
+        interval: 5m
+        rules:
+          - record: birdnet:pipeline_stats_reports:count5m
+            expr: |
+              sum by (host, source) (
+                count_over_time({unit="birdnet-go.service"} |= "operation=pipeline_stats_report"
+                  | logfmt source
+                  | label_format source=`{{ if contains "://" .source }}unnamed{{ else }}{{ .source }}{{ end }}` [5m])
+              )
   '';
 
   # auth_enabled = false pins every stream to the "fake" tenant, and the local

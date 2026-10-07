@@ -1609,6 +1609,25 @@ in
                 summary: "BirdNET-Go on cogsworth has analysed no audio for 30 minutes"
                 description: "No camera stream has delivered audio for 30 minutes, so the kiosk's bird feed has stopped moving. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows which stream is down, and `journalctl -u birdnet-go -g ffmpeg` shows why. The streams come off the UniFi Protect NVR, so a camera or NVR outage lands here too."
 
+            # Per stream, from birdnet_logs in loki.nix, since one dead camera
+            # of two only halves the counter above. A source counts once it has
+            # reported in 24h, so one renamed or removed in birdnet-go.nix
+            # fires until a day after its last report.
+            - alert: CogsworthBirdnetStreamSilent
+              expr: |-
+                max by (host, source) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth"}[24h]))
+                unless
+                max by (host, source) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth"}[30m]))
+                and on (host) up{host="cogsworth",job="node"} == 1
+                and on (host) count by (host) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth"}[30m]))
+              for: 5m
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "BirdNET-Go stream {{ $labels.source }} on cogsworth has reported nothing for 30 minutes"
+                description: "birdnet-go logs a pipeline stats line for each stream every 5 minutes it analyses any audio from it, and {{ $labels.source }} has logged none in 30 minutes, so that camera's birds are missing from the kiosk feed. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows the stream's state, and `journalctl -u birdnet-go -g ffmpeg` shows why. It fires only while another stream still reports, so every stream going quiet at once, whether birdnet-go itself or its logs not reaching Loki, is left to CogsworthBirdnetNoAudio and LokiRulerDown. A source named unnamed has no name in the birdnet-go config, and its real label would have been its stream URL."
+
             # Detections have not dropped below ~250 a day since the feed
             # started in 2026-09, so a whole day of none is never just a
             # quiet night. The `or` keeps the rule alive when birdnet-go has

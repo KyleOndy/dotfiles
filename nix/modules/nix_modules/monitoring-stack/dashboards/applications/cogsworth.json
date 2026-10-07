@@ -603,9 +603,49 @@
       }
     },
     {
+      "type": "timeseries",
+      "title": "Audio Analysed per Stream",
+      "description": "BirdNET analysis windows per 5 minutes for each camera stream, about 200 when healthy. Read from the pipeline stats line birdnet-go logs every 5 minutes for each stream that analysed any audio, so a stream delivering nothing breaks off rather than dropping to zero; 30 minutes of that fires CogsworthBirdnetStreamSilent. A stream with no name in the birdnet-go config shows as unnamed, since its source would otherwise be its stream URL.",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 36 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "interval": "5m",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (source) (sum_over_time({host=\"cogsworth\",unit=\"birdnet-go.service\"} |= \"operation=pipeline_stats_report\" | logfmt | label_format source=`{{ if contains \"://\" .source }}unnamed{{ else }}{{ .source }}{{ end }}` | unwrap inferences [5m]))",
+          "legendFormat": "{{source}}",
+          "queryType": "range"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "min"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
       "type": "row",
       "title": "Database",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
       "collapsed": false,
       "panels": []
     },
@@ -613,7 +653,7 @@
       "type": "stat",
       "title": "DB Snapshot",
       "description": "Time since cogsworth-db-snapshot last copied the tmpfs DB to the SD card, and the size of that copy. The timer runs every 5 minutes; CogsworthDbSnapshotStale fires at 15. The live DB and its WAL share a 16 MiB tmpfs, so Size turns red at 15 MiB.",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 37 },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 44 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -684,7 +724,7 @@
     {
       "type": "logs",
       "title": "Backend Errors",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 41 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 48 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
