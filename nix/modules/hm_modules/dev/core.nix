@@ -13,22 +13,15 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
       # Essential build tools
-      bashInteractive
-      gnumake
-      gnused
-      coreutils-full
-      findutils
 
       # Essential dev utilities
       ctags
-      direnv
       envsubst
 
       # Search and navigation
       ripgrep
       fd
       tree
-      bat
       silver-searcher
 
       # Network tools
@@ -51,8 +44,6 @@ in
       groff
 
       # Compression
-      unzip
-      xz
 
       # Other essentials
       bc

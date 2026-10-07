@@ -81,7 +81,6 @@ in
     # Ensure Claude Code and required tools are installed
     home.packages = with pkgs; [
       claude-code
-      gitFull # for git operations (matches git.nix module)
     ];
 
     # settings.json is copied as a real writable file instead of the usual

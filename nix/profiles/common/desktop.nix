@@ -10,7 +10,5 @@
 
   home.packages = with pkgs; [
     deploy-rs # nixos deployment
-    glances # system monitor
-    ncspot # cursors spotify client
   ];
 }
