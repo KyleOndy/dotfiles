@@ -29,7 +29,9 @@ let
         LoadCredential = "api-key:${appCfg.apiKeyFile}";
         ExecStart = ''
           ${pkgs.exportarr}/bin/exportarr ${app} \
+            --interface 127.0.0.1 \
             --port ${toString appCfg.port} \
+            --log-level warn \
             --url ${appCfg.url} \
             --api-key-file %d/api-key \
             ${
