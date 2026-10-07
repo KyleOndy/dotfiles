@@ -639,6 +639,9 @@ in
     before = [ "cogsworth.service" ];
     after = [ "var-lib-cogsworth-db.mount" ];
     requires = [ "var-lib-cogsworth-db.mount" ];
+    # A rerun copies the snapshot over the live database, which is what a
+    # switch would do to this unit whenever it changes.
+    restartIfChanged = false;
 
     serviceConfig = {
       Type = "oneshot";
@@ -653,12 +656,6 @@ in
       mkdir -p "$PERSISTENT"
       if [ -f "$PERSISTENT/cogsworth.db" ]; then
         cp "$PERSISTENT/cogsworth.db" "$TMPFS/cogsworth.db"
-        if [ -f "$PERSISTENT/cogsworth.db-wal" ]; then
-          cp "$PERSISTENT/cogsworth.db-wal" "$TMPFS/cogsworth.db-wal"
-        fi
-        if [ -f "$PERSISTENT/cogsworth.db-shm" ]; then
-          cp "$PERSISTENT/cogsworth.db-shm" "$TMPFS/cogsworth.db-shm"
-        fi
       fi
     '';
   };
@@ -666,6 +663,7 @@ in
   # Periodic snapshot: tmpfs DB -> SD card (every 5 minutes)
   systemd.services.cogsworth-db-snapshot = {
     description = "Snapshot Cogsworth DB from tmpfs to SD card";
+    path = [ pkgs.sqlite ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -682,7 +680,14 @@ in
       readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/cogsworth_db_snapshot.prom"
       mkdir -p "$PERSISTENT"
       if [ -f "$TMPFS/cogsworth.db" ]; then
-        cp "$TMPFS/cogsworth.db" "$PERSISTENT/cogsworth.db.tmp"
+        # VACUUM INTO reads through the backend's WAL in one read transaction,
+        # so the copy holds every committed write; it refuses an existing
+        # target. .timeout rides out the exclusive lock a connection holds
+        # while it recovers or closes the WAL.
+        # https://www.sqlite.org/lang_vacuum.html#vacuuminto
+        # https://www.sqlite.org/wal.html#sometimes_queries_return_sqlite_busy_in_wal_mode
+        rm -f "$PERSISTENT/cogsworth.db.tmp"
+        sqlite3 -cmd ".timeout 5000" "$TMPFS/cogsworth.db" "VACUUM INTO '$PERSISTENT/cogsworth.db.tmp'"
         mv "$PERSISTENT/cogsworth.db.tmp" "$PERSISTENT/cogsworth.db"
 
         tmp=$(mktemp "$OUTFILE.XXXXXX")
@@ -732,16 +737,28 @@ in
       "cogsworth.service"
       "shutdown.target"
     ];
+    path = [ pkgs.sqlite ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       User = "cogsworth";
       Group = "cogsworth";
-      # Through a temp file and a rename, like the periodic snapshot, so a
-      # power cut mid-copy leaves the previous snapshot intact.
-      ExecStop = "${pkgs.bash}/bin/bash -c 'cp /var/lib/cogsworth/db/cogsworth.db /var/lib/cogsworth/persistent/cogsworth.db.tmp && mv /var/lib/cogsworth/persistent/cogsworth.db.tmp /var/lib/cogsworth/persistent/cogsworth.db || true'";
     };
+
+    # Same copy as the periodic snapshot, into its own temp file so the two
+    # never write into each other's. sqlite3 replays any WAL a killed backend
+    # left, and a switch that changes this unit runs it with the backend still
+    # up. The -f test keeps sqlite3 from creating an empty database to copy.
+    preStop = ''
+      readonly SRC="/var/lib/cogsworth/db/cogsworth.db"
+      readonly TMP="/var/lib/cogsworth/persistent/cogsworth.db.shutdown.tmp"
+      if [ -f "$SRC" ]; then
+        rm -f "$TMP"
+        sqlite3 -cmd ".timeout 5000" "$SRC" "VACUUM INTO '$TMP'"
+        mv "$TMP" /var/lib/cogsworth/persistent/cogsworth.db
+      fi
+    '';
   };
 
   # Keep the MAX98357A amplifier out of shutdown by holding the I2S PCM open

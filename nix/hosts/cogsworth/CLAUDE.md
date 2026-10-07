@@ -93,19 +93,20 @@ It has no other options; the sizes live in
 `/boot/firmware` comes from `configuration.nix`, not from the module.
 
 `/var/lib/cogsworth/db` is separately a 16M tmpfs. `cogsworth-db-restore`
-copies the DB (plus `-wal` and `-shm` when present) up from
-`/var/lib/cogsworth/persistent` before the backend starts.
-`cogsworth-db-snapshot` copies `cogsworth.db` back every 5 minutes, and
-`cogsworth-db-shutdown-snapshot` copies it once more on a clean shutdown.
-Neither copies `-wal` or `-shm`. Only the periodic one writes
+copies `cogsworth.db` up from `/var/lib/cogsworth/persistent` at boot, before
+the backend starts; a deploy that changes it does not rerun it.
+`cogsworth-db-snapshot` writes it back every 5 minutes, and
+`cogsworth-db-shutdown-snapshot` once more on a clean shutdown, after the
+backend has stopped. Both run `VACUUM INTO` a temp file and rename it over
+the snapshot. The backend runs SQLite in WAL mode, and VACUUM INTO reads
+through the WAL, so the copy is consistent and holds every committed write.
+Only the periodic one writes
 `cogsworth_db_snapshot_last_success_timestamp_seconds` and
 `cogsworth_db_snapshot_size_bytes` to the textfile collector, after the copy
 lands; CogsworthDbSnapshotStale fires when the timestamp is 15 minutes old.
 
 A hard power cut therefore loses up to 5 minutes of DB writes and every log
-line not yet shipped to Loki. If the app runs SQLite in WAL mode, that bound
-does not hold: writes not yet checkpointed into `cogsworth.db` are in none of
-the copies.
+line not yet shipped to Loki.
 
 ## Interactive DevTools
 
