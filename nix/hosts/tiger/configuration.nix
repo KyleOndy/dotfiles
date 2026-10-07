@@ -187,9 +187,6 @@ in
         };
       };
     };
-    nix-serve = {
-      enable = true;
-    };
     openssh.ports = [ 2332 ];
   };
 
