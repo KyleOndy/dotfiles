@@ -141,6 +141,9 @@ in
           "AF_INET6"
           "AF_UNIX"
         ];
+        # The app and the scraper are both on this host.
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
       };
     };
   };
