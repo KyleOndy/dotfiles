@@ -91,6 +91,7 @@ echo "$PREFIX: source $local_count, bucket $s3_count, orphans $orphan_count, mis
 
 deleted=0
 blocked=0
+failed=0
 if [ "$prune" = yes ] && [ "$orphan_count" -gt 0 ]; then
 	# A large orphan set almost never means you deleted a lot. It means the
 	# source listing is wrong, and acting on it would propagate that to the
@@ -105,12 +106,18 @@ if [ "$prune" = yes ] && [ "$orphan_count" -gt 0 ]; then
 			jq -Rn --arg p "$PREFIX" \
 				'{Objects: [inputs | {Key: ($p + "/" + .)}], Quiet: true}' \
 				<"$batch" >"$work/payload.json"
+			# A refused key (AccessDenied, say) still comes back HTTP 200,
+			# listed under Errors. Quiet mode lists nothing else, and -s turns
+			# an empty response into [].
 			aws s3api delete-objects \
 				--bucket "$ARCHIVE_BUCKET" \
-				--delete "file://$work/payload.json" >/dev/null
+				--delete "file://$work/payload.json" \
+				--output json >"$work/result.json"
+			jq -r '.Errors[]? | "delete failed: \(.Key): \(.Code) \(.Message)"' "$work/result.json" >&2
+			failed=$((failed + $(jq -s '[.[].Errors[]?] | length' "$work/result.json")))
 		done
-		deleted=$orphan_count
-		echo "wrote $deleted delete markers"
+		deleted=$((orphan_count - failed))
+		echo "wrote $deleted delete markers, $failed refused"
 	fi
 fi
 
@@ -138,6 +145,6 @@ tmp=$(mktemp "$OUTFILE.XXXXXX")
 chmod 0644 "$tmp"
 mv -fT "$tmp" "$OUTFILE"
 
-# Non-zero so the unit fails and the refusal is visible as more than a gauge
-# nobody graphed.
-[ "$blocked" -eq 0 ]
+# Non-zero so the unit fails and a refusal, ours or S3's, is visible as more
+# than a gauge nobody graphed.
+[ "$blocked" -eq 0 ] && [ "$failed" -eq 0 ]
