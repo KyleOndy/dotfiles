@@ -1112,6 +1112,30 @@ in
                 summary: "No shell history backup metric from {{ $labels.host }}"
                 description: "trex has reported no histdb_backup_last_success_timestamp_seconds in 2 days while awake for more than 6 hours of them, so HistdbBackupStale cannot fire there. Either the push has never succeeded since it began exporting, or the agent does not set TEXTFILE_DIR. Check ~/Library/Logs/histdb-backup.log on trex."
 
+        # tiger pulls kyle@ondy.org from MXRoute into /mnt/backups/kyle/mail
+        # every hour.
+        - name: mail_backup
+          interval: 60s
+          rules:
+            - alert: MailBackupStale
+              expr: time() - mail_backup_last_success_timestamp_seconds{host="tiger"} > 6 * 3600
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Mail backup on tiger is over 6 hours old"
+                description: "mail-backup has not pulled kyle@ondy.org into /mnt/backups/kyle/mail in over 6 hours, against an hourly timer. Check `journalctl -u mail-backup` on tiger; a rotated MXRoute password lands in shared-tiger-trex.yaml for both hosts."
+
+            # Same reason as HistdbBackupMetricMissing.
+            - alert: MailBackupMetricMissing
+              expr: absent(mail_backup_last_success_timestamp_seconds{host="tiger"})
+              for: 2h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No mail backup metric from {{ $labels.host }}"
+                description: "No mail_backup_last_success_timestamp_seconds series exists for tiger, so MailBackupStale cannot fire. Either mail-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u mail-backup` on tiger."
+
         # launchd agents on trex. Every rule here goes quiet while trex
         # sleeps, because its vmagent stops pushing and the series go stale.
         - name: launchd_agents

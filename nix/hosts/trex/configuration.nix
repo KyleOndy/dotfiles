@@ -210,9 +210,11 @@
   };
 
   sops.secrets = {
+    # Also read by tiger's mail-backup.
     email_kyle_ondy_org = {
       owner = "kyle";
       mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
     monitoring_password = {
       # The only readers are vmagent and alloy, root launchd daemons here.

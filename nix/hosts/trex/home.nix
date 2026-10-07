@@ -183,7 +183,7 @@ in
   # winnow's app.py) without needing a per-app Karabiner exclusion.
   hmFoundry.desktop.input.karabiner.enable = true;
 
-  # notmuch, neomutt and mbsync; no other host reads mail.
+  # notmuch, neomutt and mbsync. tiger's mail-backup is the only other copy.
   hmFoundry.terminal.email.enable = true;
 
   # Caps lock is push to talk for a domestique ride: held, it creates

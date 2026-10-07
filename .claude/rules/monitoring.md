@@ -65,15 +65,15 @@ this in step with `nix/modules/hm_modules/terminal/email.nix`; check
 Seven, each the investigation surface for one or more alert groups. A
 dashboard nothing can send you to does not earn its place:
 
-| Dashboard                 | Alert groups it serves                                                                                    |
-| ------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health, launchd_agents, ups                        |
-| `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, histdb_backup, drive_health |
-| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki), immich, vpn_torrent               |
-| `Cogsworth`               | cogsworth_monitoring, birdnet_logs (Loki)                                                                 |
-| `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), ddns, reads Loki                                                    |
-| `UniFi Network`           | unifi                                                                                                     |
-| `Monitoring Stack Health` | monitoring_stack                                                                                          |
+| Dashboard                 | Alert groups it serves                                                                                                 |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health, launchd_agents, ups                                     |
+| `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, histdb_backup, mail_backup, drive_health |
+| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki), immich, vpn_torrent                            |
+| `Cogsworth`               | cogsworth_monitoring, birdnet_logs (Loki)                                                                              |
+| `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), ddns, reads Loki                                                                 |
+| `UniFi Network`           | unifi                                                                                                                  |
+| `Monitoring Stack Health` | monitoring_stack                                                                                                       |
 
 textfile_collector, audio_language and Loki's ruler_heartbeat have no
 dashboard yet.

@@ -2,7 +2,7 @@
   "id": null,
   "uid": "storage-data-safety",
   "title": "Storage and Data Safety",
-  "description": "The 3-2-1 chain end to end: tiger snapshots, pika replicas, the S3 archive and Windows backups, plus pool health, scrub age, SMART, capacity and the shell history pushes. Investigation surface for zfs_storage, backup_replication, offsite_archive, windows_backup, histdb_backup, drive_health and disk_space.",
+  "description": "The 3-2-1 chain end to end: tiger snapshots, pika replicas, the S3 archive and Windows backups, plus pool health, scrub age, SMART, capacity, the shell history pushes and the mail backup. Investigation surface for zfs_storage, backup_replication, offsite_archive, windows_backup, histdb_backup, mail_backup, drive_health and disk_space.",
   "tags": ["storage", "zfs", "backup", "smart"],
   "timezone": "",
   "schemaVersion": 39,
@@ -842,6 +842,50 @@
           "showLegend": true
         },
         "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "Mail",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 65 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Mail Backup Age",
+      "description": "Time since tiger last pulled kyle@ondy.org into /mnt/backups/kyle/mail, against an hourly timer. Red is MailBackupStale's 6 hours. Empty is MailBackupMetricMissing.",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 66 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - mail_backup_last_success_timestamp_seconds{host=\"tiger\"}",
+          "legendFormat": "{{host}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10800 },
+              { "color": "red", "value": 21600 }
+            ]
+          }
+        },
+        "overrides": []
       }
     }
   ]

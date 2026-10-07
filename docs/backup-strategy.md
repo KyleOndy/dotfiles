@@ -103,13 +103,14 @@ A Windows PC mirrors `Documents`, `Pictures` and `Desktop` into
 
 Its freshness alert works differently from the others. Every other writer
 here runs on a timer on a host we control and reports its own success
-(the git bundles and histdb through node_exporter's textfile collector),
+(the git bundles, histdb and mail through node_exporter's textfile
+collector),
 so absence is measurable from the inside. The Windows push is not, so the
 client writes a heartbeat file on success and tiger alerts on its age. Any
 future writer that lives off-fleet needs the same treatment.
 
 `/mnt/backups/kyle` holds the git bundles below, the dotfiles git-crypt
-key and shell history, and `/mnt/backups/apps` holds \*arr backup zips that
+key, shell history and mail, and `/mnt/backups/apps` holds \*arr backup zips that
 carry API keys. tmpfiles holds them at 0700, `kyle` and `root` respectively,
 because nothing but those accounts reads them on tiger and pika reads through
 `zfs send`. They are `d` rules rather than `z`: `/mnt/backups` is owned by
@@ -122,6 +123,17 @@ repo that has one. Most of those repos have no remote, so this is their
 only second copy. A bundle is one file written whole, so the archive tier
 holds one object per repo rather than every loose object and superseded
 pack, and a copy can never catch git mid-write.
+
+tiger pulls kyle@ondy.org from MXRoute into `/mnt/backups/kyle/mail` every
+hour. It's mbsync with `Sync Pull`, so it never writes to the server. INBOX,
+Archive and Sent are mirrored, deletions included, and the undo for a
+deleted message is a snapshot. Deleted Messages and Junk stay on the server.
+
+trex keeps its own maildir for notmuch, but that one syncs both ways, so a
+mistake there reaches the server and it doesn't count. The cost of this one
+is that tiger holds the full MXRoute password
+(`shared-tiger-trex.yaml`), which can also delete mail and send as that
+address.
 
 ### Writers into storage/projects
 
