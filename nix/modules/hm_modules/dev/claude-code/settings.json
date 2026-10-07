@@ -9,7 +9,7 @@
   "alwaysThinkingEnabled": true,
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
-  "cleanupPeriodDays": 30,
+  "cleanupPeriodDays": 365,
   "tui": "default",
   "env": {
     "CLAUDE_CODE_DISABLE_MOUSE_CLICKS": "1"
