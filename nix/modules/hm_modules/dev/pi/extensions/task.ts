@@ -479,7 +479,9 @@ export default function (pi: ExtensionAPI) {
       // terminator, so a model-authored task opening with -, -- or @ is read as
       // a flag or a filename and the subagent exits 1 before it runs. The
       // preamble is unconditional so the first argv word is never the task's.
-      const prefix = params.context ? `${params.context}\n\n` : "Task:\n";
+      const prefix = params.context
+        ? `Context:\n${params.context}\n\nTask:\n`
+        : "Task:\n";
       const startedAt = Date.now();
       // Colons and dots out, matching the shape pi gives its own session files,
       // so the directory sorts chronologically in a plain ls.
