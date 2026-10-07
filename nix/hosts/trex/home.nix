@@ -183,6 +183,9 @@ in
   # winnow's app.py) without needing a per-app Karabiner exclusion.
   hmFoundry.desktop.input.karabiner.enable = true;
 
+  # notmuch, neomutt and mbsync; no other host reads mail.
+  hmFoundry.terminal.email.enable = true;
+
   # Caps lock is push to talk for a domestique ride: held, it creates
   # ~/.local/state/domestique/listening and domestique-listen opens the microphone.
   # The rule carries no application condition, so caps lock stops toggling

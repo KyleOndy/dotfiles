@@ -320,11 +320,7 @@
           system ? "aarch64-darwin",
           includeModules ? [ ],
           username ? "kyle.ondy",
-          extraConfig ? { },
         }:
-        let
-          hostHomeConfig = ./nix/hosts/${hostname}/home.nix;
-        in
         inputs.nix-darwin.lib.darwinSystem {
           inherit system;
           modules =
@@ -337,50 +333,40 @@
             ]
             ++ includeModules
             ++ [
-              (
-                {
-                  nixpkgs.overlays = overlays;
-                  users.users.${username}.home = "/Users/${username}";
-                  system.primaryUser = username;
-                  sops.defaultSopsFile = ./nix/secrets + "/${hostname}.yaml";
-                  home-manager = {
-                    useGlobalPkgs = true;
-                    useUserPackages = true;
-                    extraSpecialArgs = {
-                      dotfiles-root = self.outPath;
-                      dotfiles-worktree = dotfilesWorktree;
-                      inherit inputs;
-                    };
-                    # Include desktop modules for cross-platform validation
-                    sharedModules =
-                      hmCoreModules
-                      ++ [ nixCatsHomeModule ]
-                      ++ [ inputs.work-config.homeManagerModule ]
-                      ++ hmDesktopModules
-                      ++ [
-                        # Spotlight does not index symlinks into the store,
-                        # which is what linkApps (the default below
-                        # stateVersion 25.11) leaves in ~/Applications.
-                        {
-                          targets.darwin.copyApps.enable = true;
-                          targets.darwin.linkApps.enable = false;
-                        }
-                      ];
-                    users.${username} =
-                      let
-                        baseProfile = {
-                          imports = [
-                            ./nix/profiles/desktop.nix
-                          ]
-                          ++ (if builtins.pathExists hostHomeConfig then [ hostHomeConfig ] else [ ]);
-                        };
-                        extraUserConfig = extraConfig.home-manager.users.${username} or { };
-                      in
-                      baseProfile // extraUserConfig;
+              ({
+                nixpkgs.overlays = overlays;
+                users.users.${username}.home = "/Users/${username}";
+                system.primaryUser = username;
+                sops.defaultSopsFile = ./nix/secrets + "/${hostname}.yaml";
+                home-manager = {
+                  useGlobalPkgs = true;
+                  useUserPackages = true;
+                  extraSpecialArgs = {
+                    dotfiles-root = self.outPath;
+                    dotfiles-worktree = dotfilesWorktree;
+                    inherit inputs;
                   };
-                }
-                // (builtins.removeAttrs extraConfig [ "home-manager" ])
-              )
+                  # Include desktop modules for cross-platform validation
+                  sharedModules =
+                    hmCoreModules
+                    ++ [ nixCatsHomeModule ]
+                    ++ [ inputs.work-config.homeManagerModule ]
+                    ++ hmDesktopModules
+                    ++ [
+                      # Spotlight does not index symlinks into the store,
+                      # which is what linkApps (the default below
+                      # stateVersion 25.11) leaves in ~/Applications.
+                      {
+                        targets.darwin.copyApps.enable = true;
+                        targets.darwin.linkApps.enable = false;
+                      }
+                    ];
+                  users.${username}.imports = [
+                    ./nix/profiles/desktop.nix
+                    ./nix/hosts/${hostname}/home.nix
+                  ];
+                };
+              })
             ];
         };
     in
@@ -802,12 +788,6 @@
           ./nix/hosts/trex/root-ssh-config.nix
           inputs.determinate.darwinModules.default
         ];
-        # Email (notmuch/neomutt/mbsync) is only used on trex.
-        extraConfig = {
-          home-manager.users.kyle = {
-            hmFoundry.terminal.email.enable = true;
-          };
-        };
       };
 
       # deploy-rs
