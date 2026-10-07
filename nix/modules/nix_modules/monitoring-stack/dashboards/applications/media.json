@@ -2,7 +2,7 @@
   "id": null,
   "uid": "media",
   "title": "Media",
-  "description": "The media pipeline end to end: service state, download queues, library size, Jellyfin playback, Immich jobs and the PIA tunnel qBittorrent runs behind. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub, immich, vpn_torrent and JellyfinDown.",
+  "description": "The media pipeline end to end: service state, download queues, library size, Jellyfin playback, Immich jobs and the PIA tunnel qBittorrent runs behind. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub, immich and vpn_torrent.",
   "tags": ["application", "media", "arr", "jellyfin", "tiger"],
   "timezone": "",
   "schemaVersion": 39,

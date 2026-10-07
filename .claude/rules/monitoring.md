@@ -75,7 +75,6 @@ dashboard nothing can send you to does not earn its place:
 | `UniFi Network`           | unifi                                                                                                     |
 | `Monitoring Stack Health` | monitoring_stack                                                                                          |
 
-JellyfinDown is an alert in systemd_health rather than a group of its own.
 textfile_collector, audio_language and Loki's ruler_heartbeat have no
 dashboard yet.
 

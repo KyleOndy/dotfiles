@@ -107,16 +107,6 @@ in
                 summary: "Systemd service {{ $labels.name }} is crashlooping on {{ $labels.host }}"
                 description: "Service {{ $labels.name }} has restarted more than 5 times in the last 15 minutes on {{ $labels.host }}"
 
-            - alert: JellyfinDown
-              expr: node_systemd_unit_state{host="tiger",name="jellyfin.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: jellyfin
-              annotations:
-                summary: "Jellyfin service is down on tiger"
-                description: "Jellyfin has been unavailable for 5 minutes"
-
         # The UPS behind tiger and the network gear, read from nut_exporter.
         # upssched also pushes UPSCommLost and UPSReplaceBattery straight to
         # Alertmanager, where the push inhibits the rule of the same name, so
@@ -208,65 +198,16 @@ in
         - name: media_services_tiger
           interval: 30s
           rules:
-            - alert: SonarrDown
-              expr: node_systemd_unit_state{host="tiger",name="sonarr.service",state="active"} != 1
+            # SystemdServiceFailed already mails a failed unit, so this is
+            # for one that stopped without failing.
+            - alert: MediaServiceDown
+              expr: node_systemd_unit_state{host="tiger",name=~"(jellyfin|sonarr|radarr|lidarr|prowlarr|sabnzbd|seerr).service",state="active"} != 1 unless on(host, name) node_systemd_unit_state{state="failed"} == 1
               for: 5m
               labels:
                 severity: critical
-                service: sonarr
               annotations:
-                summary: "Sonarr service is down on tiger"
-                description: "Sonarr has been unavailable for 5 minutes"
-
-            - alert: RadarrDown
-              expr: node_systemd_unit_state{host="tiger",name="radarr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: radarr
-              annotations:
-                summary: "Radarr service is down on tiger"
-                description: "Radarr has been unavailable for 5 minutes"
-
-            - alert: LidarrDown
-              expr: node_systemd_unit_state{host="tiger",name="lidarr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: lidarr
-              annotations:
-                summary: "Lidarr service is down on tiger"
-                description: "Lidarr has been unavailable for 5 minutes"
-
-            - alert: ProwlarrDown
-              expr: node_systemd_unit_state{host="tiger",name="prowlarr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: prowlarr
-              annotations:
-                summary: "Prowlarr service is down on tiger"
-                description: "Prowlarr has been unavailable for 5 minutes"
-
-            - alert: SABnzbdDown
-              expr: node_systemd_unit_state{host="tiger",name="sabnzbd.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: sabnzbd
-              annotations:
-                summary: "SABnzbd service is down on tiger"
-                description: "SABnzbd has been unavailable for 5 minutes"
-
-            - alert: JellyseerrDown
-              expr: node_systemd_unit_state{host="tiger",name="seerr.service",state="active"} != 1
-              for: 5m
-              labels:
-                severity: critical
-                service: jellyseerr
-              annotations:
-                summary: "Jellyseerr service is down on tiger"
-                description: "Jellyseerr has been unavailable for 5 minutes"
+                summary: "{{ $labels.name }} is down on tiger"
+                description: "{{ $labels.name }} has not been active for 5 minutes and is not in a failed state, so it was stopped or never started. systemctl status {{ $labels.name }} on tiger."
 
             # Navidrome writes navidrome_info once at startup, so it is
             # present whenever the endpoint is.
