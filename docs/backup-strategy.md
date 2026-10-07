@@ -141,10 +141,10 @@ It mirrors with `--delete`, so cleaning up a finished project locally
 removes it from tiger on the next run, after which it ages out on the
 retention under [Tier 1](#tier-1-tiger): recoverable for 30 days to two
 months on tiger and 60 days to three months on pika, then gone. That is the
-intended lifecycle for a dataset on a pool at 85%, and it is why the script
-refuses to run against a missing or empty source. `--delete` from an empty
-tree is a one-command wipe of the copy that exists to survive exactly that
-class of mistake.
+intended lifecycle for a dataset on a pool near the 80% where ZFS
+allocation slows, and it is why the script refuses to run against a
+missing or empty source. `--delete` from an empty tree is a one-command
+wipe of the copy that exists to survive exactly that class of mistake.
 
 It also skips the library, loudly and with a non-zero exit, while Resolve is
 running. The library is a live SQLite database, and a copy taken with it
@@ -182,7 +182,7 @@ trex ~/resolve ------------------------------- --sync-->   video scratch
 
 raidz1, 3x 4TB SMR           mirror, 2x 6TB SATA         versioned
 sanoid, snapshots            sanoid, prune only          put-only IAM
-85% full                     NVMe root, on UPS           no --delete
+75% full                     NVMe root, on UPS           no --delete
 ```
 
 Read the arrows as trust, not just data. tiger starts none of them. pika
@@ -208,7 +208,7 @@ monthly 3, yearly 1) and `storage/projects` (hourly 24, daily 30, monthly
 `storage/projects` is the only one without a yearly tier, and the asymmetry
 is deliberate. A video project is finite: it ships, the footage gets
 deleted, and a yearly snapshot would pin those blocks for a year on a pool
-already at 85%. Its retention is sized to survive an accident, not to
+already near 80%. Its retention is sized to survive an accident, not to
 archive. Hourly is there for the few hundred KB of edit decisions that
 change every session, and costs almost nothing for the footage beside them,
 since unchanged blocks are shared between snapshots rather than copied.
@@ -470,15 +470,14 @@ bytes. Permanent removal is exclusively the lifecycle rule, running as S3
 rather than as anything holding a key.
 
 The account is the remaining hole: the terraform admin key can delete any
-version. `tf/archive-backup.tf` therefore declares S3 Object Lock with a
+version. `tf/archive-backup.tf` therefore sets S3 Object Lock with a
 default retention of 365 days in GOVERNANCE mode, which puts every new
 version beyond the admin key's ordinary deletes, and beyond the lifecycle
 rule, for a year from its PUT. GOVERNANCE can still be lifted by a principal
 holding `s3:BypassGovernanceRetention`, which neither service credential
 does. COMPLIANCE would remove that escape for everyone including root, and
 Object Lock can never be switched off once on, so the mode is a deliberate
-choice, not a default to tighten later without thinking. See
-[What is left](#what-is-left).
+choice, not a default to tighten later without thinking.
 
 It is a standalone `aws_s3_bucket_object_lock_configuration`, not
 `object_lock_enabled = true` on the bucket, because that argument is
@@ -818,8 +817,8 @@ repo. Write it before we need it, not during.
 in `storage` are `WDC_WD40EFAX`. The EFAX code at 2-6TB is WD Red DM-SMR. A
 resilver is sustained-write, which is precisely the workload where DM-SMR
 throughput collapses, and raidz1 carries zero redundancy for the whole
-window. The pool is at 85% as of 2026-09-01, past the 80% where ZFS
-allocation starts to suffer, with 967G free.
+window. The pool was at 85% on 2026-09-01, past the 80% where ZFS
+allocation starts to suffer, with 967G free, and is at 75% on 2026-10-07.
 
 `storage/projects` was added on top of that, knowingly. 222G of it is one
 trip, which takes the pool to roughly 87%. The dataset carries no yearly
@@ -877,12 +876,6 @@ later for daily and years for yearly. Plan reclamation on that timescale,
 not on the timescale of the `rm`.
 
 ## What is left
-
-**Apply Object Lock.** `tf/archive-backup.tf` declares it and the 365-day
-noncurrent expiry; neither is applied. `terraform plan` shows 1 to add,
-1 to change, 0 to destroy. Once applied it cannot be turned off, so read
-[Two credentials, split on one verb](#two-credentials-split-on-one-verb)
-before running `make apply`, and decide GOVERNANCE against COMPLIANCE then.
 
 **Write the S3 restore script.** The runbook section above is a snippet.
 
