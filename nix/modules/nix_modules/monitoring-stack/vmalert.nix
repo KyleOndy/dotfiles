@@ -227,10 +227,14 @@ in
           rules:
             # Immich exports no waiting count, only how many jobs each queue
             # is running. A queue busy for 2 hours with nothing finishing
-            # anywhere is a hung job, not a long backlog.
+            # anywhere is a hung job, not a long backlog. Each process creates
+            # a queue's gauge at that queue's first job, so the series must
+            # also have existed 2 hours ago, or the first long job after a
+            # restart reads as 2 hours busy.
             - alert: ImmichJobsStuck
               expr: |
                 min_over_time(label_replace({__name__=~"immich_queues_.+_active",host="tiger"}, "queue", "$1", "__name__", "immich_queues_(.+)_active")[2h:1m]) > 0
+                and on(host, queue) label_replace({__name__=~"immich_queues_.+_active",host="tiger"} offset 2h, "queue", "$1", "__name__", "immich_queues_(.+)_active")
                 unless on() sum(increase({__name__=~"immich_jobs_.+_total",host="tiger"}[2h])) > 0
               for: 5m
               labels:
