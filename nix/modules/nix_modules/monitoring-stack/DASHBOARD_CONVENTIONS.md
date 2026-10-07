@@ -189,7 +189,7 @@ is dropping in a file; there is nothing to register.
 
 Three folders exist:
 
-- `system/` - Hosts, Storage and Data Safety, Monitoring Stack Health
+- `system/` - Hosts, Storage and Data Safety, Monitoring Stack Health, UPS
 - `network/` - Caddy Reverse Proxy, UniFi Network
 - `applications/` - Cogsworth, Media (the \*arr stack, jellyfin, ytdl-sub, immich)
 

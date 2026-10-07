@@ -22,13 +22,24 @@ in
       #
       # Variables not listed here are not exported, and the exporter's default
       # list lacks battery.runtime and output.voltage.
+      #
+      # ups.power is left out: this Tripp Lite reports 0.0 at any load, so the
+      # UPS dashboard estimates watts from ups.load instead.
       nutVariables = [
         "battery.charge"
         "battery.runtime"
         "battery.voltage"
+        "battery.voltage.nominal"
+        "input.frequency"
         "input.voltage"
+        "input.voltage.nominal"
+        "output.frequency.nominal"
         "output.voltage"
+        "output.voltage.nominal"
+        "ups.beeper.status"
+        "ups.delay.shutdown"
         "ups.load"
+        "ups.power.nominal"
         "ups.status"
       ];
     };
