@@ -42,6 +42,14 @@ in
   config = mkIf (parentCfg.enable && cfg.enable) {
     services.victoriametrics = {
       enable = true;
+      # The pure Go zstd decoder rejects valid storage blocks, so merges
+      # panic on startup; drop once this is fixed upstream:
+      # https://github.com/VictoriaMetrics/VictoriaMetrics/issues/11683
+      package = pkgs.victoriametrics.overrideAttrs (old: {
+        env = old.env // {
+          CGO_ENABLED = 1;
+        };
+      });
       listenAddress = "${cfg.listenAddress}:${toString cfg.port}";
       retentionPeriod = "${toString cfg.retentionPeriod}d";
     };
