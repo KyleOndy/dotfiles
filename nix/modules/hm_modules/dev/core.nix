@@ -12,8 +12,6 @@ in
 {
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
-      # Essential build tools
-
       # Essential dev utilities
       ctags
       envsubst
@@ -42,8 +40,6 @@ in
       # File utilities
       file
       groff
-
-      # Compression
 
       # Other essentials
       bc
