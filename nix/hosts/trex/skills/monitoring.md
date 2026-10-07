@@ -19,7 +19,8 @@ vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). nut serves the UPS at
 scrapes the native endpoints of immich (8081 api, 8082 microservices) and
 navidrome (`/metrics` on its app port, which Caddy answers with a 404).
 cogsworth exposes the kiosk app at `/api/metrics` and birdnet-go's telemetry on
-`127.0.0.1:8091` (predictions and detections, nothing per stream), and
+`127.0.0.1:8091` (predictions and detections; per stream, only dropped audio
+chunks and queue depth, so stream liveness comes from Loki), and
 cogsworth-db-snapshot writes its last success time and size through the
 textfile collector. pika runs zfs_exporter, and exports smartctl health, ZFS
 scrub and snapshot age, and the S3 archive counters through the textfile

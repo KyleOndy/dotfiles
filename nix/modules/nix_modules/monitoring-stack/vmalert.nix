@@ -1537,7 +1537,9 @@ in
                 summary: "Cogsworth exports no DB snapshot timestamp"
                 description: "node_exporter on cogsworth is up but has no cogsworth_db_snapshot_last_success_timestamp_seconds, so CogsworthDbSnapshotStale cannot fire. Either no snapshot has succeeded since the .prom file went missing, or the file is unreadable, which NodeTextfileCollectorFailing reports. Check `ls -l /var/lib/prometheus-node-exporter-text-files/` and `systemctl status cogsworth-db-snapshot` on cogsworth."
 
-            # birdnet-go has no per-stream series at 20260823: the stream
+            # At 20260823 birdnet-go's only per-stream series are dropped
+            # audio chunks and queue depth, which read the same for a healthy
+            # stream as for a dead one: no drops, an empty queue. The stream
             # health in its UI lives outside its Prometheus registry. The
             # prediction counter counts every analysed window from every
             # stream, so one dead camera of two only halves its rate.
