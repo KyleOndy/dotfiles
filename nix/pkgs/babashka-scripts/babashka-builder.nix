@@ -10,7 +10,6 @@
   pname,
   version,
   src,
-  buildInputs ? [ ],
   meta ? { },
 }:
 
@@ -19,7 +18,7 @@ stdenv.mkDerivation {
 
   src = src;
 
-  buildInputs = [ babashka ] ++ buildInputs;
+  buildInputs = [ babashka ];
 
   installPhase = ''
     mkdir -p $out/bin
@@ -69,10 +68,6 @@ stdenv.mkDerivation {
     ;; Set up classpath for structured project
     (require '[babashka.classpath :as cp])
 
-    ;; Add shared/common to classpath if it exists
-    (when (.exists (java.io.File. "$out/share/common/src"))
-      (cp/add-classpath "$out/share/common/src"))
-
     ;; Add project src to classpath if it exists
     (when (.exists (java.io.File. "$out/share/$project_name/src"))
       (cp/add-classpath "$out/share/$project_name/src"))
@@ -85,22 +80,6 @@ stdenv.mkDerivation {
           fi
         fi
       done
-    fi
-
-    # Set up shared utilities if they exist
-    if [ -d shared ]; then
-      mkdir -p "$out/share/common"
-      cp -r shared/* "$out/share/common/"
-    fi
-
-    # Install completions if they exist
-    if [ -d completions ]; then
-      mkdir -p $out/share/zsh/site-functions
-      find ./completions \( -type f -o -type l \) \
-          -exec cp -pL {} $out/share/zsh/site-functions \;
-      
-      # Update paths in completion files
-      sed -i -e "s|source dots_common\.bash|source $out/share/zsh/site-functions/dots_common\.bash|" $out/share/zsh/site-functions/* || true
     fi
   '';
 }

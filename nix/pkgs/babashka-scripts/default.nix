@@ -2,7 +2,6 @@
 {
   lib,
   stdenv,
-  pkgs,
   babashka,
 }:
 
@@ -17,11 +16,6 @@ buildBabashkaScripts {
   version = "20250811";
 
   src = ./.;
-
-  buildInputs = with pkgs; [
-    coreutils
-    ffmpeg # Required for roku-transcode
-  ];
 
   meta = with lib; {
     description = "Kyle Ondy's babashka scripts";

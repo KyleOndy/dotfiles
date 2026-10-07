@@ -9,9 +9,6 @@ babashka-scripts/
 │   └── roku-check.bb       # media compatibility checker
 ├── projects/               # structured babashka projects
 │   └── roku-transcode/     # video transcoding tool
-├── shared/                 # shared library
-│   ├── bb.edn              # shared dependencies
-│   └── src/common/         # process.clj
 └── babashka-builder.nix    # custom Nix build function
 ```
 
@@ -49,9 +46,9 @@ roku-transcode --quality medium input.mkv   # writes input_roku.mp4
 
 - **`simple/<name>.bb`**: copied to `bin/<name>` as is.
 - **`projects/<name>/`**: copied to `share/<name>`, with a `bin/<name>` wrapper
-  that puts the project's `src/` and `shared/src/` on the classpath and loads
-  `<name>.bb`, else `main.bb`, else the first `.bb` in the project root.
+  that puts the project's `src/` on the classpath and loads `<name>.bb`, else
+  `main.bb`, else the first `.bb` in the project root.
 
-Only projects get the classpath, so `common.process` (`shared/src/common/`) is
-out of reach for `simple/` scripts. `bb.edn` files are copied but never read, so
-a script can use only the libraries babashka ships with.
+Nothing reads a `bb.edn`, so a script can use only the libraries babashka ships
+with. Nothing puts ffmpeg or ffprobe on PATH either: roku-check and
+roku-transcode use whichever ones the caller has.
