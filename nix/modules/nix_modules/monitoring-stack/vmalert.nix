@@ -268,6 +268,63 @@ in
                 summary: "Jellyseerr service is down on tiger"
                 description: "Jellyseerr has been unavailable for 5 minutes"
 
+            # Navidrome writes navidrome_info once at startup, so it is
+            # present whenever the endpoint is.
+            - alert: NavidromeMetricsAbsent
+              expr: absent(navidrome_info{host="tiger"})
+              for: 15m
+              labels:
+                severity: warning
+                service: navidrome
+              annotations:
+                summary: "Navidrome metrics are missing on {{ $labels.host }}"
+                description: "No navidrome_info series for 15 minutes: navidrome.service is down, Prometheus.Enabled is off, or the navidrome scrape job is gone. Check systemctl status navidrome and curl -s 127.0.0.1:4533/metrics on {{ $labels.host }}."
+
+        # Immich (native metrics from immich-server's api and microservices workers)
+        - name: immich
+          interval: 60s
+          rules:
+            # Immich exports no waiting count, only how many jobs each queue
+            # is running. A queue busy for 2 hours with nothing finishing
+            # anywhere is a hung job, not a long backlog.
+            - alert: ImmichJobsStuck
+              expr: |
+                min_over_time(label_replace({__name__=~"immich_queues_.+_active",host="tiger"}, "queue", "$1", "__name__", "immich_queues_(.+)_active")[2h:1m]) > 0
+                unless on() sum(increase({__name__=~"immich_jobs_.+_total",host="tiger"}[2h])) > 0
+              for: 5m
+              labels:
+                severity: warning
+                service: immich
+              annotations:
+                summary: "Immich {{ $labels.queue }} queue has run for 2 hours without finishing a job on {{ $labels.host }}"
+                description: "{{ $labels.queue }} has had a job active for 2 hours and no Immich job of any kind has finished in that time. Check Administration > Jobs in the Immich UI and journalctl -u immich-server on {{ $labels.host }}; restarting immich-server.service clears a hung worker."
+
+            # One corrupt HEIC failed AssetGenerateThumbnails once a night
+            # through September 2026; the threshold sits above that kind of
+            # per-file noise.
+            - alert: ImmichJobsFailing
+              expr: |
+                sum by (host, job_name) (label_replace(increase({__name__=~"immich_jobs_.+_failed_total",host="tiger"}[1h]) keep_metric_names, "job_name", "$1", "__name__", "immich_jobs_(.+)_failed_total")) > 10
+              for: 5m
+              labels:
+                severity: warning
+                service: immich
+              annotations:
+                summary: "Immich {{ $labels.job_name }} failed {{ $value | printf \"%.0f\" }} times in the last hour on {{ $labels.host }}"
+                description: "More than 10 failures of one job type in an hour is systemic, such as machine learning unreachable or the media dataset unwritable, not one bad file. Thrown errors log as 'Unable to run job handler (<JobName>)' in journalctl -u immich-server; job_name is the same name in snake_case."
+
+            # immich_users_total is set when the api worker boots, so it is
+            # present whenever the endpoint is.
+            - alert: ImmichMetricsAbsent
+              expr: absent(immich_users_total{host="tiger"})
+              for: 15m
+              labels:
+                severity: warning
+                service: immich
+              annotations:
+                summary: "Immich API metrics are missing on {{ $labels.host }}"
+                description: "No immich_users_total series for 15 minutes: immich-server is down, IMMICH_TELEMETRY_INCLUDE no longer covers api, or the immich-api scrape job is gone. Check systemctl status immich-server and curl -s 127.0.0.1:8081/metrics on {{ $labels.host }}."
+
         # Arr Queue Health (exportarr metrics)
         - name: arr_queue_health
           interval: 60s

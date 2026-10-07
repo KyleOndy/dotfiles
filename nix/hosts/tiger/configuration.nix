@@ -1679,6 +1679,41 @@ in
                 }
               ];
             }
+            # Both immich endpoints belong to immich-server, one per worker:
+            # api carries request and user metrics, microservices the jobs.
+            {
+              job_name = "immich-api";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:8081" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "immich-microservices";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:8082" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
+            {
+              job_name = "navidrome";
+              static_configs = [
+                {
+                  targets = [ "127.0.0.1:4533" ];
+                  labels = {
+                    host = "tiger";
+                  };
+                }
+              ];
+            }
             {
               job_name = "unpoller";
               # unpoller polls the controller on scrape, so the scrape interval

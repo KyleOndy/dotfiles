@@ -15,10 +15,12 @@ Agents run on tiger, pika, cogsworth and trex: vmagent, alloy, node_exporter.
 tiger additionally runs the zfs, jellyfin, exportarr (\*arr plus sabnzbd),
 unpoller and nut exporters, and scrapes its own stack (VictoriaMetrics,
 vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). nut serves the UPS at
-`/ups_metrics`; its `/metrics` is only the exporter's own process. cogsworth
-exposes the kiosk app at `/api/metrics`. pika runs zfs_exporter, and exports
-smartctl health, ZFS scrub and snapshot age, and the S3 archive counters
-through the textfile collector.
+`/ups_metrics`; its `/metrics` is only the exporter's own process. tiger also
+scrapes the native endpoints of immich (8081 api, 8082 microservices) and
+navidrome (`/metrics` on its app port, which Caddy answers with a 404).
+cogsworth exposes the kiosk app at `/api/metrics`. pika runs zfs_exporter, and
+exports smartctl health, ZFS scrub and snapshot age, and the S3 archive
+counters through the textfile collector.
 
 Every UI is `<name>.tiger.infra.ondy.org`, served by Caddy off a wildcard
 cert, and answers only private source addresses (LAN, DMZ, WireGuard).

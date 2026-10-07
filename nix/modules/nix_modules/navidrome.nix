@@ -6,6 +6,7 @@
 with lib;
 let
   cfg = config.systemFoundry.navidrome;
+  metricsPath = "/metrics";
 in
 {
   options.systemFoundry.navidrome = {
@@ -38,6 +39,10 @@ in
         MusicFolder = cfg.musicFolder;
         Address = "127.0.0.1";
         Port = cfg.port;
+        Prometheus = {
+          Enabled = true;
+          MetricsPath = metricsPath;
+        };
       };
     };
 
@@ -46,6 +51,9 @@ in
         {
           enable = true;
           proxyPass = "http://127.0.0.1:${toString cfg.port}";
+          # Navidrome serves metrics on its app port, so every vhost proxying
+          # it, the public alias included, would publish them.
+          extraCaddyConfig = "respond ${metricsPath}* 404";
         };
   };
 }

@@ -191,7 +191,7 @@ Three folders exist:
 
 - `system/` - Hosts, Storage and Data Safety, Monitoring Stack Health
 - `network/` - Caddy Reverse Proxy, UniFi Network
-- `applications/` - Cogsworth, Media (the \*arr stack, jellyfin, ytdl-sub)
+- `applications/` - Cogsworth, Media (the \*arr stack, jellyfin, ytdl-sub, immich)
 
 ### Naming Conventions
 

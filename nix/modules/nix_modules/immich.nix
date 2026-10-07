@@ -78,6 +78,23 @@ in
 
       machine-learning.enable = true;
 
+      # immich-server runs two workers, each with its own metrics endpoint:
+      # api (requests, users) and microservices (jobs). Immich hands the
+      # OpenTelemetry Prometheus exporter a port and no host, so without
+      # OTEL_EXPORTER_PROMETHEUS_HOST both listen on every interface. The
+      # same SDK otherwise ships traces and logs over OTLP to localhost:4318,
+      # where nothing listens. The repo group is a histogram per repository
+      # method per worker, roughly 10k series that nothing here reads.
+      environment = {
+        IMMICH_TELEMETRY_INCLUDE = "all";
+        IMMICH_TELEMETRY_EXCLUDE = "repo";
+        IMMICH_API_METRICS_PORT = "8081";
+        IMMICH_MICROSERVICES_METRICS_PORT = "8082";
+        OTEL_EXPORTER_PROMETHEUS_HOST = "127.0.0.1";
+        OTEL_TRACES_EXPORTER = "none";
+        OTEL_LOGS_EXPORTER = "none";
+      };
+
       # settings = null means all configuration is done through the web UI.
       # That includes creating an External Library and setting its import
       # paths, which have no NixOS option. List those same paths in

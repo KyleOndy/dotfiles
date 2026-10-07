@@ -69,7 +69,7 @@ dashboard nothing can send you to does not earn its place:
 | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `Hosts`                   | resource_usage, host_availability, disk_space, systemd_health, ups                         |
 | `Storage and Data Safety` | zfs_storage, backup_replication, offsite_archive, windows_backup, git_backup, drive_health |
-| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki)                     |
+| `Media`                   | media_services_tiger, arr_queue_health, ytdl_sub, ytdl_sub_logs (Loki), immich             |
 | `Cogsworth`               | cogsworth_monitoring                                                                       |
 | `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), reads Loki                                           |
 | `UniFi Network`           | unifi                                                                                      |

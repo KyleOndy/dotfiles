@@ -2,7 +2,7 @@
   "id": null,
   "uid": "media",
   "title": "Media",
-  "description": "The media pipeline end to end: service state, download queues, library size and Jellyfin playback. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub and JellyfinDown.",
+  "description": "The media pipeline end to end: service state, download queues, library size, Jellyfin playback and Immich jobs. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub, immich and JellyfinDown.",
   "tags": ["application", "media", "arr", "jellyfin", "tiger"],
   "timezone": "",
   "schemaVersion": 39,
@@ -19,7 +19,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|seerr.service\",state=\"active\"}",
+          "expr": "node_systemd_unit_state{host=\"tiger\",name=~\"sonarr.service|radarr.service|lidarr.service|prowlarr.service|bazarr.service|sabnzbd.service|jellyfin.service|seerr.service|navidrome.service|immich-server.service\",state=\"active\"}",
           "legendFormat": "{{name}}",
           "instant": true
         }
@@ -539,6 +539,165 @@
         "dedupStrategy": "none"
       },
       "fieldConfig": { "defaults": {}, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Immich",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Active Jobs by Queue",
+      "description": "Jobs running right now in each queue. Immich exports no waiting count. ImmichJobsStuck fires when a queue stays above zero for 2 hours while Finished Jobs stays flat.",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (queue) (label_replace({__name__=~\"immich_queues_.+_active\",host=\"tiger\"}, \"queue\", \"$1\", \"__name__\", \"immich_queues_(.+)_active\"))",
+          "legendFormat": "{{queue}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Finished Jobs",
+      "description": "Jobs finished over the trailing hour, by outcome.",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (label_replace(increase({__name__=~\"immich_jobs_.+_total\",host=\"tiger\"}[1h]) keep_metric_names, \"status\", \"$1\", \"__name__\", \"immich_jobs_.+_(success|skipped|failed)_total\"))",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed Jobs by Type",
+      "description": "Failures over the trailing hour per job type. ImmichJobsFailing fires above 10.",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (job_name) (label_replace(increase({__name__=~\"immich_jobs_.+_failed_total\",host=\"tiger\"}[1h]) keep_metric_names, \"job_name\", \"$1\", \"__name__\", \"immich_jobs_(.+)_failed_total\"))",
+          "legendFormat": "{{job_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "API Requests by Status",
+      "description": "From the api worker's endpoint. Empty when ImmichMetricsAbsent is firing.",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 43 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (http_response_status_code) (rate(http_server_request_duration_count{host=\"tiger\",job=\"immich-api\"}[5m]))",
+          "legendFormat": "{{http_response_status_code}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
     }
   ]
 }
