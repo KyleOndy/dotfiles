@@ -2,7 +2,7 @@
   "id": null,
   "uid": "media",
   "title": "Media",
-  "description": "The media pipeline end to end: service state, download queues, library size, Jellyfin playback and Immich jobs. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub, immich and JellyfinDown.",
+  "description": "The media pipeline end to end: service state, download queues, library size, Jellyfin playback, Immich jobs and the PIA tunnel qBittorrent runs behind. Investigation surface for media_services_tiger, arr_queue_health, ytdl_sub, immich, vpn_torrent and JellyfinDown.",
   "tags": ["application", "media", "arr", "jellyfin", "tiger"],
   "timezone": "",
   "schemaVersion": 39,
@@ -677,6 +677,234 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "row",
+      "title": "VPN and Torrents",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Tunnel Handshake Age",
+      "description": "Measured by pia-wg-healthcheck every 5 minutes, after any restart it triggers. A tunnel that has never handshaken reads as the time since 1970. PiaHandshakeStale fires above 5 minutes.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pia_wg_latest_handshake_age_seconds{host=\"tiger\"}",
+          "legendFormat": "Handshake age",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 300 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "qBittorrent Listen Port",
+      "description": "Read back from qBittorrent after qbittorrent-set-port pushes the forwarded port. A failed WebUI login reads as a mismatch.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "qbittorrent_listen_port_matches_forwarded{host=\"tiger\"}",
+          "legendFormat": "Matches PIA",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": { "text": "MATCH", "color": "green", "index": 0 },
+                "0": { "text": "MISMATCH", "color": "red", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Forwarded Port",
+      "description": "From the getSignature payload pia-wg-connect stored. Only a reconnect gets a new signature, so once it expires bindPort fails until the tunnel restarts.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "pia_port_forward_port{host=\"tiger\"}",
+          "legendFormat": "Port",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "pia_port_forward_expiry_timestamp_seconds{host=\"tiger\"} - time()",
+          "legendFormat": "Expires in",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Expires in" },
+            "properties": [
+              { "id": "unit", "value": "s" },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "red", "value": null },
+                    { "color": "yellow", "value": 86400 },
+                    { "color": "green", "value": 604800 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "stat",
+      "title": "VPN Job Freshness",
+      "description": "Time since each job last succeeded. PiaHealthcheckStale fires past 15 minutes, PiaPortForwardStale and QbittorrentSetPortStale past 30.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 52 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - pia_wg_healthcheck_last_success_timestamp_seconds{host=\"tiger\"}",
+          "legendFormat": "Health check",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "time() - pia_port_forward_last_success_timestamp_seconds{host=\"tiger\"}",
+          "legendFormat": "Port refresh",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "time() - qbittorrent_set_port_last_success_timestamp_seconds{host=\"tiger\"}",
+          "legendFormat": "Set port",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 900 },
+              { "color": "red", "value": 1800 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Tunnel Restarts",
+      "description": "Restarts pia-wg-healthcheck triggered in the trailing hour. systemd's own restart counter does not see these. PiaTunnelFlapping fires above 3.",
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 57 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(pia_wg_healthcheck_restarts_total{host=\"tiger\"}[1h])",
+          "legendFormat": "Restarts in the last hour"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
           "min": 0,
           "color": { "mode": "palette-classic" },
           "custom": {

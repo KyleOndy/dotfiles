@@ -31,6 +31,7 @@ let
 
   stateDir = "/var/lib/ddns-route53";
   stateFile = "${stateDir}/current_ip";
+  textfile = "${config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory}/ddns_route53.prom";
 
   updateScript = pkgs.writeShellApplication {
     name = "ddns-route53-update";
@@ -38,8 +39,11 @@ let
       pkgs.curl
       pkgs.awscli2
       pkgs.coreutils
+      pkgs.gawk
     ];
     text = ''
+      readonly OUTFILE=${escapeShellArg textfile}
+
       # Resolve the current WAN IP from external echo services, with fallbacks.
       ip=""
       for url in https://checkip.amazonaws.com https://api.ipify.org https://ifconfig.co; do
@@ -60,31 +64,69 @@ let
         last="$(cat "${stateFile}")"
       fi
 
+      prior_metric() {
+        awk -v pat="$1 " 'index($0, pat) == 1 { print $2 }' "$OUTFILE" 2>/dev/null || true
+      }
+      updates=$(prior_metric ddns_route53_record_updates_total)
+      updates=''${updates:-0}
+      last_success=$(prior_metric ddns_route53_last_success_timestamp_seconds)
+      last_success=''${last_success:-0}
+      failed=0
+
       if [ "$ip" = "$last" ]; then
         echo "ddns-route53: WAN IP unchanged ($ip), nothing to do"
-        exit 0
+      else
+        echo "ddns-route53: WAN IP changed ''${last:-<none>} -> $ip, updating Route53"
+
+        ${concatMapStringsSep "\n" (r: ''
+          if aws route53 change-resource-record-sets \
+            --hosted-zone-id ${r.zoneId} \
+            --change-batch "{
+              \"Changes\": [{
+                \"Action\": \"UPSERT\",
+                \"ResourceRecordSet\": {
+                  \"Name\": \"${r.name}\",
+                  \"Type\": \"A\",
+                  \"TTL\": 300,
+                  \"ResourceRecords\": [{\"Value\": \"$ip\"}]
+                }
+              }]
+            }"; then
+            updates=$(( updates + 1 ))
+            echo "ddns-route53: upserted ${r.name} -> $ip"
+          else
+            failed=1
+            echo "ddns-route53: failed to upsert ${r.name} -> $ip" >&2
+          fi
+        '') cfg.records}
+
+        if [ "$failed" = 0 ]; then
+          printf '%s' "$ip" > "${stateFile}"
+        fi
       fi
 
-      echo "ddns-route53: WAN IP changed ''${last:-<none>} -> $ip, updating Route53"
+      # The match is current_ip against the WAN IP, not a read of the records:
+      # svc.ddns may only ChangeResourceRecordSets (tf/iam.tf), so a record
+      # edited outside this updater still reads as a match.
+      if [ "$failed" = 0 ]; then
+        last_success=$(date +%s)
+      fi
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
+      {
+        printf '# HELP ddns_route53_records_match_wan_ip 1 if every managed record was last set to the WAN IP this run detected\n'
+        printf '# TYPE ddns_route53_records_match_wan_ip gauge\n'
+        printf 'ddns_route53_records_match_wan_ip %s\n' "$(( 1 - failed ))"
+        printf '# HELP ddns_route53_record_updates_total Record UPSERTs Route53 accepted\n'
+        printf '# TYPE ddns_route53_record_updates_total counter\n'
+        printf 'ddns_route53_record_updates_total %s\n' "$updates"
+        printf '# HELP ddns_route53_last_success_timestamp_seconds Unix time a run last left every record on the WAN IP, 0 if none has\n'
+        printf '# TYPE ddns_route53_last_success_timestamp_seconds gauge\n'
+        printf 'ddns_route53_last_success_timestamp_seconds %s\n' "$last_success"
+      } > "$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
 
-      ${concatMapStringsSep "\n" (r: ''
-        aws route53 change-resource-record-sets \
-          --hosted-zone-id ${r.zoneId} \
-          --change-batch "{
-            \"Changes\": [{
-              \"Action\": \"UPSERT\",
-              \"ResourceRecordSet\": {
-                \"Name\": \"${r.name}\",
-                \"Type\": \"A\",
-                \"TTL\": 300,
-                \"ResourceRecords\": [{\"Value\": \"$ip\"}]
-              }
-            }]
-          }"
-        echo "ddns-route53: upserted ${r.name} -> $ip"
-      '') cfg.records}
-
-      printf '%s' "$ip" > "${stateFile}"
+      exit "$failed"
     '';
   };
 in

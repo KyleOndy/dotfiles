@@ -11,6 +11,7 @@ with lib;
 let
   cfg = config.systemFoundry.qbittorrent;
   netnsCfg = config.systemFoundry.piaWireguardNetns;
+  textfileDir = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
 
   # Pushes the currently-forwarded PIA port (written by pia-wg-connect.service)
   # into qBittorrent's own listen port over its WebUI API -- the only
@@ -23,10 +24,35 @@ let
     runtimeInputs = [
       pkgs.curl
       pkgs.coreutils
+      pkgs.gawk
+      pkgs.jq
     ];
     text = ''
       : "''${QBITTORRENT_USER:?QBITTORRENT_USER not set}"
       : "''${QBITTORRENT_PASS:?QBITTORRENT_PASS not set}"
+
+      readonly OUTFILE=${escapeShellArg "${textfileDir}/qbittorrent_set_port.prom"}
+      last_success=$(awk -v pat="qbittorrent_set_port_last_success_timestamp_seconds " 'index($0, pat) == 1 { print $2 }' "$OUTFILE" 2>/dev/null || true)
+      last_success=''${last_success:-0}
+      matches=0
+
+      # On every exit, so a run that skips or dies reads as a mismatch rather
+      # than leaving the last match standing.
+      write_metrics() {
+        local tmp
+        tmp=$(mktemp "$OUTFILE.XXXXXX")
+        {
+          printf '# HELP qbittorrent_listen_port_matches_forwarded 1 if qBittorrent read back the PIA forwarded port as its listen port\n'
+          printf '# TYPE qbittorrent_listen_port_matches_forwarded gauge\n'
+          printf 'qbittorrent_listen_port_matches_forwarded %s\n' "$matches"
+          printf '# HELP qbittorrent_set_port_last_success_timestamp_seconds Unix time a run last confirmed the match, 0 if none has\n'
+          printf '# TYPE qbittorrent_set_port_last_success_timestamp_seconds gauge\n'
+          printf 'qbittorrent_set_port_last_success_timestamp_seconds %s\n' "$last_success"
+        } > "$tmp"
+        chmod 0644 "$tmp"
+        mv -fT "$tmp" "$OUTFILE"
+      }
+      trap write_metrics EXIT
 
       port_file="${netnsCfg.forwardedPortFile}"
       if [ ! -f "$port_file" ]; then
@@ -55,6 +81,14 @@ let
       curl -fsS -b "$jar" \
         --data-urlencode "json={\"listen_port\": $port}" \
         "$base/api/v2/app/setPreferences" >/dev/null
+
+      actual=$(curl -fsS -b "$jar" "$base/api/v2/app/preferences" | jq -r '.listen_port')
+      if [ "$actual" != "$port" ]; then
+        echo "qbittorrent-set-port: listen_port reads $actual after setting $port" >&2
+        exit 0
+      fi
+      matches=1
+      last_success=$(date +%s)
 
       echo "qbittorrent-set-port: listen_port set to $port"
     '';

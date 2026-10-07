@@ -37,6 +37,8 @@ let
   runtimeDir = "pia-wg";
   runtimePath = "/run/${runtimeDir}";
 
+  textfileDir = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
+
   netnsSetup = pkgs.writeShellApplication {
     name = "netns-pia-setup";
     runtimeInputs = [
@@ -226,6 +228,8 @@ let
       pkgs.iproute2
     ];
     text = ''
+      readonly OUTFILE=${escapeShellArg "${textfileDir}/pia_port_forward.prom"}
+
       state="${runtimePath}/port_forward.json"
       if [ ! -f "$state" ]; then
         echo "pia-port-forward-refresh: no $state yet, skipping until pia-wg-connect has run" >&2
@@ -250,6 +254,25 @@ let
         echo "pia-port-forward-refresh: bindPort did not return OK: $resp" >&2
         exit 1
       fi
+
+      decoded=$(echo "$payload" | base64 -d)
+      port=$(echo "$decoded" | jq -r '.port')
+      expires=$(date -d "$(echo "$decoded" | jq -r '.expires_at')" +%s)
+
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
+      {
+        printf '# HELP pia_port_forward_port Port PIA forwards through the tunnel\n'
+        printf '# TYPE pia_port_forward_port gauge\n'
+        printf 'pia_port_forward_port %s\n' "$port"
+        printf '# HELP pia_port_forward_expiry_timestamp_seconds Unix time the getSignature payload expires and bindPort stops accepting it\n'
+        printf '# TYPE pia_port_forward_expiry_timestamp_seconds gauge\n'
+        printf 'pia_port_forward_expiry_timestamp_seconds %s\n' "$expires"
+        printf '# HELP pia_port_forward_last_success_timestamp_seconds Unix time bindPort last returned OK\n'
+        printf '# TYPE pia_port_forward_last_success_timestamp_seconds gauge\n'
+        printf 'pia_port_forward_last_success_timestamp_seconds %s\n' "$(date +%s)"
+      } > "$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
     '';
   };
 
@@ -263,21 +286,51 @@ let
       pkgs.coreutils
     ];
     text = ''
-      now=$(date +%s)
-      # wg0 may not exist yet (pia-wg-connect hasn't run or is mid-retry);
-      # pipefail would otherwise turn that into a hard failure of this
-      # script instead of the "no handshake yet, restart" case below.
-      handshake=$(ip netns exec "${cfg.namespace}" wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}') || true
+      readonly OUTFILE=${escapeShellArg "${textfileDir}/pia_wg_healthcheck.prom"}
 
-      if [ -z "''${handshake:-}" ] || [ "$handshake" = "0" ] || [ $((now - handshake)) -gt 300 ]; then
+      # Seconds since wg0's last handshake, or since the epoch when it has
+      # never had one.
+      handshake_age() {
+        local handshake
+        # wg0 may not exist yet (pia-wg-connect hasn't run or is mid-retry);
+        # pipefail would otherwise turn that into a hard failure of this
+        # script instead of the "no handshake yet, restart" case below.
+        handshake=$(ip netns exec "${cfg.namespace}" wg show wg0 latest-handshakes 2>/dev/null | awk '{print $2}') || true
+        echo $(( $(date +%s) - ''${handshake:-0} ))
+      }
+
+      # NRestarts counts only Restart= restarts, never a `systemctl restart`,
+      # so this count is carried across runs here instead.
+      restarts=$(awk -v pat="pia_wg_healthcheck_restarts_total " 'index($0, pat) == 1 { print $2 }' "$OUTFILE" 2>/dev/null || true)
+      restarts=''${restarts:-0}
+
+      age=$(handshake_age)
+      if [ "$age" -gt 300 ]; then
         echo "pia-wg-healthcheck: no recent wg0 handshake, restarting pia-wg-connect.service"
+        restarts=$(( restarts + 1 ))
         # A failed restart means pia-wg-connect.service is itself broken
         # (bad credentials, PIA outage), which it already reports as its
         # own failed unit -- this check shouldn't also fail just because
         # the thing it's trying to heal didn't heal, or deploy-rs's
         # any-failed-unit rollback check gets tripped twice over.
         systemctl restart pia-wg-connect.service || true
+        age=$(handshake_age)
       fi
+
+      tmp=$(mktemp "$OUTFILE.XXXXXX")
+      {
+        printf '# HELP pia_wg_latest_handshake_age_seconds Seconds since wg0 last handshook, measured after any restart this run triggered\n'
+        printf '# TYPE pia_wg_latest_handshake_age_seconds gauge\n'
+        printf 'pia_wg_latest_handshake_age_seconds %s\n' "$age"
+        printf '# HELP pia_wg_healthcheck_restarts_total Restarts of pia-wg-connect.service the health check has triggered\n'
+        printf '# TYPE pia_wg_healthcheck_restarts_total counter\n'
+        printf 'pia_wg_healthcheck_restarts_total %s\n' "$restarts"
+        printf '# HELP pia_wg_healthcheck_last_success_timestamp_seconds Unix time the health check last completed\n'
+        printf '# TYPE pia_wg_healthcheck_last_success_timestamp_seconds gauge\n'
+        printf 'pia_wg_healthcheck_last_success_timestamp_seconds %s\n' "$(date +%s)"
+      } > "$tmp"
+      chmod 0644 "$tmp"
+      mv -fT "$tmp" "$OUTFILE"
     '';
   };
 in
@@ -399,7 +452,10 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnBootSec = "15min";
-        OnUnitActiveSec = "1h";
+        # The handshake gauge is only as fresh as the last run, and
+        # PiaHandshakeStale and PiaTunnelFlapping in vmalert.nix are sized
+        # for this interval.
+        OnUnitActiveSec = "5min";
       };
     };
   };

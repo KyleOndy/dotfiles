@@ -1144,6 +1144,35 @@ in
                 summary: "TLS cert probe has not run on {{ $labels.host }}"
                 description: "{{ $labels.host }} runs Caddy but has no cert expiry metrics from the last hour, so TLSCertExpired cannot fire there. Check systemctl status caddy-cert-probe.timer caddy-cert-probe.service."
 
+        # ddns-route53 holds only the ondy.org and kyleondy.com apex A records.
+        # Every other public name, *.apps included, is a CNAME chain ending at
+        # home.1ella.com, which the UniFi console keeps current (tf/dns.tf).
+        # The match is the updater's own current_ip against the WAN IP, since
+        # svc.ddns cannot read the records back (tf/iam.tf).
+        - name: ddns
+          interval: 60s
+          rules:
+            - alert: DdnsRecordsMismatch
+              expr: ddns_route53_records_match_wan_ip == 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "Route53 apex records do not match the WAN IP of {{ $labels.host }}"
+                description: "The WAN IP changed and at least one UPSERT failed, so ondy.org or kyleondy.com still resolves to the old address and the bare domain cannot reach Caddy. The aws error is in journalctl -u ddns-route53 on {{ $labels.host }}; AccessDenied points at the svc.ddns policy in tf/iam.tf."
+
+            # A 0 is DdnsRecordsMismatch's to report, so this one fires only
+            # while the gauge still claims a match: every WAN IP echo service
+            # failing, or the timer stopping.
+            - alert: DdnsStale
+              expr: (time() - ddns_route53_last_success_timestamp_seconds > 1800 unless ddns_route53_records_match_wan_ip == 0) or absent(ddns_route53_records_match_wan_ip{host="tiger"})
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "ddns-route53 has not checked the WAN IP on {{ $labels.host }} in 30 minutes"
+                description: "A WAN IP change would go unpublished and DdnsRecordsMismatch cannot fire. If journalctl -u ddns-route53 on {{ $labels.host }} says it could not determine the WAN IP, the internet link or all three echo services are down; if it is empty, check systemctl status ddns-route53.timer."
+
         # SystemdServiceFailed already catches a run that exits non-zero. These
         # two cover what it cannot see: a run that succeeds while fetching
         # nothing, and a sweeper that dies and freezes the gauge the first rule
@@ -1259,6 +1288,70 @@ in
                   nothing. Subscription order is shuffled per run, so a channel
                   blocked one night is usually collected the next; the same
                   channel starving several nights running is the real signal.
+
+        # pia-wg-healthcheck restarts the tunnel itself whenever the handshake
+        # is over 5 minutes old, every 5 minutes, and measures again after, so
+        # the handshake rule fires only once healing has failed.
+        - name: vpn_torrent
+          interval: 60s
+          rules:
+            - alert: PiaHandshakeStale
+              expr: pia_wg_latest_handshake_age_seconds > 300
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "PIA tunnel on {{ $labels.host }} has not handshaken in {{ $value | humanizeDuration }}"
+                description: "Restarting pia-wg-connect has not brought the tunnel back, so qBittorrent has no route out. The kill switch still holds. The reason is in journalctl -u pia-wg-connect on {{ $labels.host }}: a rejected token is the PIA credentials, a getSignature that never answers is the PIA server."
+
+            - alert: PiaTunnelFlapping
+              expr: increase(pia_wg_healthcheck_restarts_total[1h]) > 3
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "PIA tunnel on {{ $labels.host }} restarted {{ $value }} times in an hour"
+                description: "pia-wg-healthcheck keeps finding the handshake stale and restarting pia-wg-connect, and SystemdServiceCrashlooping cannot see it because a systemctl restart does not count toward NRestarts. Every reconnect takes a new forwarded port. journalctl -u pia-wg-healthcheck -u pia-wg-connect on {{ $labels.host }}."
+
+            - alert: PiaHealthcheckStale
+              expr: time() - pia_wg_healthcheck_last_success_timestamp_seconds > 900 or absent(pia_wg_healthcheck_last_success_timestamp_seconds{host="tiger"})
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "PIA health check has not run on {{ $labels.host }} in 15 minutes"
+                description: "Nothing heals a dead tunnel while this lasts, and PiaHandshakeStale and PiaTunnelFlapping are reading a frozen file. systemctl status pia-wg-healthcheck.timer pia-wg-healthcheck.service on {{ $labels.host }}."
+
+            # PIA's reference client calls bindPort every 15 minutes; the timer
+            # here runs every 10.
+            - alert: PiaPortForwardStale
+              expr: time() - pia_port_forward_last_success_timestamp_seconds > 1800 or absent(pia_port_forward_last_success_timestamp_seconds{host="tiger"})
+              for: 10m
+              labels:
+                severity: warning
+              annotations:
+                summary: "PIA port forward on {{ $labels.host }} has not been refreshed in 30 minutes"
+                description: "bindPort has not returned OK across three refreshes, so the forwarded port has likely lapsed and peers cannot reach qBittorrent. If pia_port_forward_expiry_timestamp_seconds has passed, the signature is spent and only a reconnect gets a new one: systemctl restart pia-wg-connect. Otherwise journalctl -u pia-port-forward-refresh on {{ $labels.host }}."
+
+            - alert: QbittorrentPortMismatch
+              expr: qbittorrent_listen_port_matches_forwarded == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "qBittorrent on {{ $labels.host }} is not listening on the PIA forwarded port"
+                description: "qBittorrent still downloads but accepts no incoming peers. A run that cannot log in to the WebUI also reads 0: 'WebUI login failed' in journalctl -u qbittorrent-set-port on {{ $labels.host }} means the password in sops no longer matches qBittorrent's."
+
+            # A 0 is QbittorrentPortMismatch's to report, so this one fires
+            # only while the gauge still claims a match.
+            - alert: QbittorrentSetPortStale
+              expr: (time() - qbittorrent_set_port_last_success_timestamp_seconds > 1800 unless qbittorrent_listen_port_matches_forwarded == 0) or absent(qbittorrent_listen_port_matches_forwarded{host="tiger"})
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "qbittorrent-set-port has stopped reporting on {{ $labels.host }}"
+                description: "No run has confirmed the listen port in 30 minutes, or none has ever written its file, so QbittorrentPortMismatch is reading a frozen gauge. systemctl status qbittorrent-set-port.timer qbittorrent-set-port.service on {{ $labels.host }}."
 
         # Cogsworth kiosk monitoring
         - name: cogsworth_monitoring

@@ -2,7 +2,7 @@
   "id": null,
   "uid": "caddy-overview",
   "title": "Caddy Reverse Proxy",
-  "description": "Per-site traffic from Caddy's access logs. caddy_http_requests_total carries no vhost label, so everything here comes from Loki rather than VictoriaMetrics.",
+  "description": "Per-site traffic from Caddy's access logs, and the Route53 DDNS updater that keeps the apex domains pointed at it. caddy_http_requests_total carries no vhost label, so the traffic panels come from Loki rather than VictoriaMetrics. Investigation surface for tls_certificates and ddns.",
   "tags": ["network", "caddy", "tiger"],
   "timezone": "",
   "schemaVersion": 39,
@@ -592,6 +592,183 @@
       },
       "fieldConfig": {
         "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "title": "DDNS",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 38
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Apex Records",
+      "description": "ondy.org and kyleondy.com, the only records ddns-route53 holds, against the WAN IP it detected. The updater cannot read Route53 back, so this compares its own record of what it last wrote. *.apps and every other name follow home.1ella.com, which the UniFi console updates.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 39
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ddns_route53_records_match_wan_ip{host=\"tiger\"}",
+          "legendFormat": "Apex records",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "MATCH",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "MISMATCH",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "DDNS Last Success",
+      "description": "Time since a run last left every apex record on the WAN IP. DdnsStale fires past 30 minutes while the records still read as matching.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 39
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - ddns_route53_last_success_timestamp_seconds{host=\"tiger\"}",
+          "legendFormat": "Last success",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 900
+              },
+              {
+                "color": "red",
+                "value": 1800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Record Updates (30d)",
+      "description": "UPSERTs Route53 accepted, one per apex record each time the WAN IP changes.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 39
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(ddns_route53_record_updates_total{host=\"tiger\"}[30d])",
+          "legendFormat": "Updates",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
         "overrides": []
       }
     }
