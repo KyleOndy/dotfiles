@@ -1283,6 +1283,15 @@ in
                 summary: "Route53 apex records do not match the WAN IP of {{ $labels.host }}"
                 description: "The WAN IP changed and at least one UPSERT failed, so ondy.org or kyleondy.com still resolves to the old address and the bare domain cannot reach Caddy. The aws error is in journalctl -u ddns-route53 on {{ $labels.host }}; AccessDenied points at the svc.ddns policy in tf/iam.tf."
 
+            - alert: UnifiDdnsMismatch
+              expr: ddns_unifi_record_matches_wan_ip == 0
+              for: 30m
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.record }} does not resolve to the WAN IP of {{ $labels.host }}"
+                description: "Every *.apps.ondy.org name, photos.ondy.org, www.kyleondy.com and the rest of the CNAMEs through tiger.infra.ondy.org end at {{ $labels.record }}, so they reach the old address instead of Caddy. The UniFi console's own Dynamic DNS owns this record, not ddns-route53, so the fix is in UniFi Network. journalctl -u ddns-route53 on {{ $labels.host }} logs what 1.1.1.1 returned; a timeout there means the lookup failed, not the record."
+
             # A 0 is DdnsRecordsMismatch's to report, so this one fires only
             # while the gauge still claims a match: every WAN IP echo service
             # failing, or the timer stopping.
@@ -1293,7 +1302,7 @@ in
                 severity: warning
               annotations:
                 summary: "ddns-route53 has not checked the WAN IP on {{ $labels.host }} in 30 minutes"
-                description: "A WAN IP change would go unpublished and DdnsRecordsMismatch cannot fire. If journalctl -u ddns-route53 on {{ $labels.host }} says it could not determine the WAN IP, the internet link or all three echo services are down; if it is empty, check systemctl status ddns-route53.timer."
+                description: "A WAN IP change would go unpublished, and neither DdnsRecordsMismatch nor UnifiDdnsMismatch can fire. If journalctl -u ddns-route53 on {{ $labels.host }} says it could not determine the WAN IP, the internet link or all three echo services are down; if it is empty, check systemctl status ddns-route53.timer."
 
         # SystemdServiceFailed already catches a run that exits non-zero. These
         # two cover what it cannot see: a run that succeeds while fetching

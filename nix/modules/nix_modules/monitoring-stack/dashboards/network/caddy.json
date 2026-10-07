@@ -613,7 +613,7 @@
       "description": "ondy.org and kyleondy.com, the only records ddns-route53 holds, against the WAN IP it detected. The updater cannot read Route53 back, so this compares its own record of what it last wrote. *.apps and every other name follow home.1ella.com, which the UniFi console updates.",
       "gridPos": {
         "h": 4,
-        "w": 8,
+        "w": 6,
         "x": 0,
         "y": 39
       },
@@ -676,12 +676,79 @@
     },
     {
       "type": "stat",
+      "title": "UniFi Record",
+      "description": "The record the UniFi console's own DDNS updates, where every CNAME through tiger.infra.ondy.org ends, resolved through 1.1.1.1 against the same WAN IP. A failed lookup also reads as a mismatch. UnifiDdnsMismatch fires after 30 minutes of it.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 39
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ddns_unifi_record_matches_wan_ip{host=\"tiger\"}",
+          "legendFormat": "{{record}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "MATCH",
+                  "color": "green",
+                  "index": 0
+                },
+                "0": {
+                  "text": "MISMATCH",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
       "title": "DDNS Last Success",
       "description": "Time since a run last left every apex record on the WAN IP. DdnsStale fires past 30 minutes while the records still read as matching.",
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 8,
+        "w": 6,
+        "x": 12,
         "y": 39
       },
       "datasource": {
@@ -733,8 +800,8 @@
       "description": "UPSERTs Route53 accepted, one per apex record each time the WAN IP changes.",
       "gridPos": {
         "h": 4,
-        "w": 8,
-        "x": 16,
+        "w": 6,
+        "x": 18,
         "y": 39
       },
       "datasource": {

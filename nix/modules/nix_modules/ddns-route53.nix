@@ -39,10 +39,13 @@ let
       pkgs.curl
       pkgs.awscli2
       pkgs.coreutils
+      pkgs.dig
       pkgs.gawk
     ];
     text = ''
       readonly OUTFILE=${escapeShellArg textfile}
+      readonly UNIFI_RECORD=${escapeShellArg cfg.unifiRecord}
+      readonly PUBLIC_RESOLVER=1.1.1.1
 
       # Resolve the current WAN IP from external echo services, with fallbacks.
       ip=""
@@ -105,6 +108,17 @@ let
         fi
       fi
 
+      # Read only, through a public resolver so a LAN override cannot mask
+      # what the internet sees. A failed lookup reads as a mismatch, and dig's
+      # error lands in the log line below.
+      resolved=$(dig +short "@$PUBLIC_RESOLVER" A "$UNIFI_RECORD" 2>&1 | paste -sd ' ' -) || true
+      unifi_match=0
+      if [ "$resolved" = "$ip" ]; then
+        unifi_match=1
+      else
+        echo "ddns-route53: $UNIFI_RECORD resolves to ''${resolved:-nothing} via $PUBLIC_RESOLVER, not $ip" >&2
+      fi
+
       # The match is current_ip against the WAN IP, not a read of the records:
       # svc.ddns may only ChangeResourceRecordSets (tf/iam.tf), so a record
       # edited outside this updater still reads as a match.
@@ -122,6 +136,9 @@ let
         printf '# HELP ddns_route53_last_success_timestamp_seconds Unix time a run last left every record on the WAN IP, 0 if none has\n'
         printf '# TYPE ddns_route53_last_success_timestamp_seconds gauge\n'
         printf 'ddns_route53_last_success_timestamp_seconds %s\n' "$last_success"
+        printf '# HELP ddns_unifi_record_matches_wan_ip 1 if the record the UniFi console updates resolved through %s to exactly the WAN IP this run detected\n' "$PUBLIC_RESOLVER"
+        printf '# TYPE ddns_unifi_record_matches_wan_ip gauge\n'
+        printf 'ddns_unifi_record_matches_wan_ip{record="%s"} %s\n' "$UNIFI_RECORD" "$unifi_match"
       } > "$tmp"
       chmod 0644 "$tmp"
       mv -fT "$tmp" "$OUTFILE"
@@ -149,6 +166,16 @@ in
     records = mkOption {
       type = types.listOf recordType;
       description = "Records to keep pointed at the current WAN IP.";
+    };
+
+    unifiRecord = mkOption {
+      type = types.str;
+      default = "home.1ella.com";
+      description = ''
+        Name the UniFi console's own DDNS keeps on the WAN IP, and the end of
+        every CNAME chain that is not one of `records`. Each run checks it
+        against the WAN IP but never writes it.
+      '';
     };
 
     interval = mkOption {
