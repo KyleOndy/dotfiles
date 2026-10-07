@@ -502,9 +502,13 @@ in
 
             # The space rules above skip read-only filesystems, so a disk the
             # kernel remounts read-only after an error would drop out of them
-            # silently. trex's sealed system volume is read-only by design.
+            # silently. Only filesystems that remount read-only on an error
+            # are watched: ZFS suspends the pool instead, and its snapshot
+            # mounts and pika's replica datasets are read-only on purpose. So
+            # are NixOS's /nix/store bind mount and trex's sealed system
+            # volume.
             - alert: FilesystemReadOnly
-              expr: node_filesystem_readonly{fstype!~"tmpfs|squashfs|nsfs|ramfs|overlay|fuse.*"} == 1 unless node_filesystem_readonly{fstype="apfs",mountpoint="/"}
+              expr: node_filesystem_readonly{fstype=~"ext[234]|xfs|vfat|apfs",mountpoint!="/nix/store"} == 1 unless node_filesystem_readonly{fstype="apfs",mountpoint="/"}
               for: 5m
               labels:
                 severity: critical

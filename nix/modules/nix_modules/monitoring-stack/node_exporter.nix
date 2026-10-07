@@ -51,6 +51,24 @@ in
       "d ${cfg.textfileDirectory} 1775 root textfile -"
     ];
 
+    # Before 1.12.0, node_filesystem_readonly reads 0 for any read-only mount
+    # with more than one option, which is every real one:
+    # https://github.com/prometheus/node_exporter/pull/3659
+    nixpkgs.overlays = [
+      (final: prev: {
+        prometheus-node-exporter = prev.prometheus-node-exporter.overrideAttrs (old: {
+          patches =
+            (old.patches or [ ])
+            ++ lib.optional (lib.versionOlder old.version "1.12.0") (
+              final.fetchpatch {
+                url = "https://github.com/prometheus/node_exporter/commit/65902fa97a8343b97a267a024d276f9361739f8a.patch";
+                hash = "sha256-AYdsnhzu0kyjuU9naqzU7E+cBF3+l4cnzRfcYc2rACM=";
+              }
+            );
+        });
+      })
+    ];
+
     services.prometheus.exporters.node = {
       enable = true;
       port = cfg.port;
