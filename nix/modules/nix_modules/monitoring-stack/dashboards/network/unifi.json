@@ -413,19 +413,19 @@
     {
       "type": "timeseries",
       "title": "Weakest Client Signal",
-      "description": "RSSI closer to zero is stronger. Persistent lows usually mean an AP placement problem rather than a client fault.",
+      "description": "The 8 clients with the weakest average signal over the time range, in dBm: closer to zero is stronger. A client's series is its weakest radio at each point, so roaming between APs does not split it. Persistent lows usually mean an AP placement problem rather than a client fault.",
       "gridPos": { "h": 7, "w": 12, "x": 12, "y": 22 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "bottomk(8, unpoller_client_rssi_db)",
+          "expr": "bottomk_avg(8, min by (name) (unpoller_client_radio_signal_db))",
           "legendFormat": "{{name}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "dB",
+          "unit": "dBm",
           "color": { "mode": "palette-classic" },
           "custom": {
             "drawStyle": "line",
