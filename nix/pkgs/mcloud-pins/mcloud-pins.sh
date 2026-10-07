@@ -31,7 +31,18 @@
 # drives a model, would have to be invented rather than fetched. The pi module
 # owns that file declaratively and overwrites it on every activation.
 
-readonly MODELS_JSON="$HOME/.pi/agent/models.json"
+# The key goes to whatever baseUrl this file names, and every sandboxed pi
+# session can write ~/.pi. home-manager links the real one into the store, so
+# anything else is refused, and reads go to the resolved, immutable path.
+MODELS_JSON="$(realpath "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
+readonly MODELS_JSON
+case "$MODELS_JSON" in
+/nix/store/*) ;;
+*)
+	echo "mcloud-pins: ~/.pi/agent/models.json does not resolve into /nix/store (${MODELS_JSON:-missing}), so it was not written by home-manager" >&2
+	exit 2
+	;;
+esac
 
 # The endpoint belongs with the provider definition: this repo names no model
 # ids and no base URLs, both arrive in models.json from the private work-config
