@@ -802,7 +802,9 @@ in
   # Cogsworth kiosk: Wayland (sway-unwrapped) + Chromium.
   environment.etc."cogsworth/sway.config".text = ''
     # Panel is physically landscape but mounted portrait; rotate 90° CW.
-    output HDMI-A-1 mode 1920x1080@60Hz transform 90 max_render_time 1
+    # max_render_time off gives sway the whole refresh interval to composite;
+    # a small budget delays the frame whenever compositing runs long.
+    output HDMI-A-1 mode 1920x1080@60Hz transform 90 max_render_time off
 
     # Rotate touch overlay to match display orientation (90° CW).
     # Matrix for 90° CW: [ 0 1 0 / -1 0 1 ]
@@ -822,6 +824,9 @@ in
     bindsym --release Ctrl+Alt+F6 nop
     bindsym --release Ctrl+Alt+F7 nop
 
+    # --touch-slop-distance is how far (px) a finger can drift before a tap
+    # becomes a scroll; Chromium's Linux default is 15. FilteringScrollPrediction
+    # smooths noisy touch scroll input; Chromium only enables it on Android.
     exec ${pkgs.chromium}/bin/chromium \
       --kiosk \
       --no-first-run \
@@ -830,12 +835,13 @@ in
       --disable-infobars \
       --disable-session-crashed-bubble \
       --disable-pinch \
+      --touch-slop-distance=24 \
       --check-for-update-interval=31536000 \
       --ozone-platform=wayland \
       --ignore-gpu-blocklist \
       --enable-gpu-rasterization \
       --enable-zero-copy \
-      "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder" \
+      "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder,FilteringScrollPrediction" \
       "--disable-features=SkiaGraphite,UseChromeOSDirectVideoDecoder,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation,OptimizationGuideModelDownloading,OptimizationHints,OnDeviceModel" \
       "--js-flags=--max-old-space-size=256" \
       --process-per-site \
