@@ -99,7 +99,7 @@
         },
         {
           "refId": "C",
-          "expr": "count(zfs_dataset_snapshot_count{host=\"pika\"} == 0) or vector(0)",
+          "expr": "count(zfs_dataset_snapshot_count{host=\"pika\",dataset!=\"tank\"} == 0) or vector(0)",
           "legendFormat": "Empty replicas",
           "instant": true
         },
@@ -530,7 +530,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "increase(zfs_dataset_used_bytes{type=\"filesystem\"}[24h])",
+          "expr": "delta(zfs_dataset_used_bytes{type=\"filesystem\"}[24h])",
           "legendFormat": "{{host}} {{name}}"
         }
       ],
