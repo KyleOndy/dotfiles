@@ -37,7 +37,7 @@
         },
         {
           "refId": "D",
-          "expr": "increase(node_systemd_service_restart_total{host=\"cogsworth\",name=\"cogsworth.service\"}[24h]) or vector(0)",
+          "expr": "sum(increase(node_systemd_service_restart_total{host=\"cogsworth\",name=\"cogsworth.service\"}[24h])) or vector(0)",
           "legendFormat": "Restarts 24h",
           "instant": true
         }
@@ -288,7 +288,7 @@
     {
       "type": "stat",
       "title": "Task Freshness",
-      "description": "Time since each scheduler task last completed. The loops run every minute; immich-sync and gphotos-sync are daily.",
+      "description": "Time since each scheduler task last completed. The loops run every few minutes and go red at an hour, which is CogsworthJobStalled. The syncs and cleanups run daily and go yellow once a day has passed; the alert covers only immich-sync and gphotos-sync.",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 13 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
@@ -312,12 +312,32 @@
             "mode": "absolute",
             "steps": [
               { "color": "green", "value": null },
-              { "color": "yellow", "value": 3600 },
-              { "color": "red", "value": 86400 }
+              { "color": "yellow", "value": 600 },
+              { "color": "red", "value": 3600 }
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "immich-sync|gphotos-sync|bird-art-sync|.*-cleanup|.*-sweep"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 86400 },
+                    { "color": "red", "value": 90000 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -335,9 +355,9 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "min": 0,
           "color": { "mode": "palette-classic" },
           "custom": {
+            "scaleDistribution": { "type": "log", "log": 10 },
             "drawStyle": "line",
             "lineWidth": 1,
             "fillOpacity": 0,
