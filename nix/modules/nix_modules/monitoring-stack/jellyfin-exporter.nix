@@ -88,61 +88,60 @@ in
       ];
       wants = [ "jellyfin.service" ];
 
-      serviceConfig =
-        let
-          collectorFlags =
-            concatStringsSep " " (map (c: "--collector.${c}") cfg.enabledCollectors)
-            + optionalString cfg.enableActivityCollector " --collector.activity";
+      serviceConfig = {
+        Type = "simple";
+        DynamicUser = true;
+        LoadCredential = "api-key:${cfg.apiKeyFile}";
+        # The token has no file or env flag, so it goes in as a kingpin
+        # @file argument rather than on the command line, where ps shows it:
+        # https://github.com/alecthomas/kingpin/blob/v2.4.0/parser.go#L217-L227
+        ExecStart = concatStringsSep " " (
+          [
+            (getExe jellyfinExporterPkg)
+            "--web.listen-address=127.0.0.1:${toString cfg.port}"
+            "--jellyfin.address=${cfg.jellyfinUrl}"
+            "--jellyfin.token"
+            "@%d/api-key"
+          ]
+          ++ map (c: "--collector.${c}") cfg.enabledCollectors
+          ++ optional cfg.enableActivityCollector "--collector.activity"
+        );
+        Restart = "on-failure";
+        RestartSec = "5s";
+        Nice = 19;
+        IOSchedulingClass = "idle";
 
-          startScript = pkgs.writeShellScript "jellyfin-exporter-start" ''
-            exec ${jellyfinExporterPkg}/bin/jellyfin_exporter \
-              --web.listen-address=:${toString cfg.port} \
-              --jellyfin.address=${cfg.jellyfinUrl} \
-              --jellyfin.token="$(cat "$CREDENTIALS_DIRECTORY/api-key")" \
-              ${collectorFlags}
-          '';
-        in
-        {
-          Type = "simple";
-          DynamicUser = true;
-          LoadCredential = "api-key:${cfg.apiKeyFile}";
-          ExecStart = "${startScript}";
-          Restart = "on-failure";
-          RestartSec = "5s";
-          Nice = 19;
-          IOSchedulingClass = "idle";
-
-          NoNewPrivileges = true;
-          CapabilityBoundingSet = "";
-          ProtectSystem = "strict";
-          ProtectHome = true;
-          PrivateTmp = true;
-          PrivateDevices = true;
-          PrivateIPC = true;
-          ProtectKernelTunables = true;
-          ProtectKernelModules = true;
-          ProtectKernelLogs = true;
-          ProtectControlGroups = true;
-          ProtectClock = true;
-          ProtectHostname = true;
-          ProtectProc = "invisible";
-          ProcSubset = "pid";
-          RestrictNamespaces = true;
-          RestrictRealtime = true;
-          RestrictSUIDSGID = true;
-          LockPersonality = true;
-          MemoryDenyWriteExecute = true;
-          SystemCallArchitectures = "native";
-          SystemCallFilter = [
-            "@system-service"
-            "~@privileged"
-          ];
-          RestrictAddressFamilies = [
-            "AF_INET"
-            "AF_INET6"
-            "AF_UNIX"
-          ];
-        };
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        PrivateIPC = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        MemoryDenyWriteExecute = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+      };
     };
   };
 }
