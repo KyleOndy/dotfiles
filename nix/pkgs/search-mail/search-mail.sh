@@ -253,7 +253,12 @@ pin_changelog_cursor() {
 		current="$(cat "$settings")"
 	fi
 	tmp="$(mktemp "${settings}.XXXXXX")"
-	echo "$current" | jq --arg v "9999.0.0" '.lastChangelogVersion = $v' >"$tmp"
+	# Called under ||, which turns off set -e in here, so a jq failure would
+	# otherwise go on to mv an empty file over the settings.
+	if ! echo "$current" | jq --arg v "9999.0.0" '.lastChangelogVersion = $v' >"$tmp"; then
+		rm -f "$tmp"
+		return 1
+	fi
 	mv "$tmp" "$settings"
 }
 pin_changelog_cursor || echo "search-mail: warning: could not pin pi's changelog cursor, continuing anyway" >&2
