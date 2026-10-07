@@ -165,11 +165,9 @@ in
       };
     };
 
-    # Continuously captures the macOS unified log to a plain file so alloy
-    # has something file-based to tail (there's no journald on
-    # darwin). `--level default` drops debug/info noise to keep growth
-    # bounded; nothing here rotates the file yet, so /var/log/monitoring-agent
-    # disk usage is worth checking after trex has been running a while.
+    # A plain file for alloy to tail, since darwin has no journald. Errors and
+    # faults only: the default level ran about 2M lines an hour on trex, 97%
+    # of tiger's Loki ingest. Nothing rotates the file.
     launchd.daemons.log-capture = {
       serviceConfig = {
         Label = "org.ondy.log-capture";
@@ -178,8 +176,8 @@ in
           "stream"
           "--style"
           "syslog"
-          "--level"
-          "default"
+          "--predicate"
+          "messageType == error OR messageType == fault"
         ];
         RunAtLoad = true;
         KeepAlive = true;
