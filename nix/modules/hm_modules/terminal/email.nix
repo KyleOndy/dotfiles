@@ -7,6 +7,16 @@
 with lib;
 let
   cfg = config.hmFoundry.terminal.email;
+  maildir = "ondy.org";
+
+  # Derived from the folder on every run, since other clients move mail after
+  # notmuch has indexed it. Searches skip search.exclude_tags (deleted, spam)
+  # unless the query names one.
+  folderTags = {
+    inbox = "Inbox";
+    deleted = "Deleted Messages";
+    spam = "Junk";
+  };
 in
 {
   options.hmFoundry.terminal.email = {
@@ -26,13 +36,18 @@ in
 
     programs.notmuch = {
       enable = true;
-      new.tags = [ "new" ];
+      # unread comes from the S flag alone. A flag-mapped tag (draft, flagged,
+      # passed, replied, unread) set here or in postNew is written into the
+      # filename, and mbsync pushes it over every other client.
+      new.tags = [ ];
       hooks = {
         preNew = "mbsync --all";
-        postNew = ''
-          # retag all "new" messages "inbox" and "unread"
-          notmuch tag +inbox +unread -new -- tag:new
-        '';
+        postNew = concatStrings (
+          mapAttrsToList (tag: folder: ''
+            notmuch tag +${tag} -- 'folder:"${maildir}/${folder}" and not tag:${tag}'
+            notmuch tag -${tag} -- 'tag:${tag} and not folder:"${maildir}/${folder}"'
+          '') folderTags
+        );
       };
     };
     accounts.email = {
@@ -40,7 +55,7 @@ in
       accounts = {
         kyle_at_ondy_org = {
           address = "kyle@ondy.org";
-          maildir.path = "ondy.org";
+          maildir.path = maildir;
           gpg = {
             key = "3C799D26057B64E6D907B0ACDB0E3C33491F91C9";
             signByDefault = false;

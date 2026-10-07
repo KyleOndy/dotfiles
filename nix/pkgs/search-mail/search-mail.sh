@@ -51,18 +51,19 @@ Only the kyle@ondy.org account is synced, about 19,700 messages:
 
 Two consequences you must respect:
 
-1. Most mail here is deleted mail, so a bare search returns mostly trash.
-   Unless Kyle is explicitly asking about something he deleted, append:
-       and not folder:"ondy.org/Deleted Messages"
-   It matters more than it sounds: 'from:amazon and date:1month..' matches
-   121 threads, of which only 3 are not deleted.
+1. Deleted Messages and Junk are hidden from search and count. A sync hook
+   tags them deleted and spam, and notmuch skips those tags unless the query
+   names one; a folder: term alone does not count. When Kyle asks about
+   something he deleted, name the tag:
+       tag:deleted and from:amazon
+   Otherwise leave deleted mail hidden. It is most of the database:
+   'from:amazon and date:1month..' matched 121 threads, of which only 3
+   were not deleted.
 
-2. tag:inbox does not filter anything. A sync hook applies it to every
-   message, so it matches all ~19,700; tag:unread is nearly as useless at
-   ~19,600. For "in his inbox right now" use folder:ondy.org/Inbox, and for
-   "recently" use a date: range. The tags that do discriminate are
-   attachment (~890), replied (~440), passed (~140), flagged (~45), and
-   signed (~17).
+2. tag:inbox matches exactly what is in ondy.org/Inbox, and tag:unread is
+   what Kyle has not read in any of his mail clients. For "recently" use a
+   date: range. Other tags that discriminate are attachment (~890), replied
+   (~440), passed (~140), flagged (~45), and signed (~17).
 
 If Kyle asks about mail at kyle@ondy.me or kyleondy@gmail.com, tell him those
 accounts are not synced into notmuch rather than reporting that you found
@@ -85,7 +86,7 @@ inside it for notmuch. Double quotes mean "these words, in this order":
 A prefix value that contains a space needs those double quotes too, or
 notmuch silently reads just the first word:
 
-  notmuch count 'folder:"ondy.org/Deleted Messages"'
+  notmuch count 'tag:deleted and folder:"ondy.org/Deleted Messages"'
   notmuch count 'from:"Kyle Ondy"'
 
 COMMON QUERIES

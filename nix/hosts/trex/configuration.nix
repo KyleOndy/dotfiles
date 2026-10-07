@@ -275,9 +275,8 @@
             text = ''
               readonly PROM=${config.systemFoundry.monitoringAgent.textfileDirectory}/mbsync.prom
 
-              mbsync -c ${config.home-manager.users.kyle.xdg.configHome}/isyncrc --all
-              notmuch new --no-hooks
-              notmuch tag +inbox +unread -new -- tag:new
+              # The pre-new hook runs mbsync, post-new tags (terminal/email.nix).
+              notmuch new
 
               {
                 echo '# HELP mbsync_last_success_timestamp_seconds Unix time mbsync and notmuch new last both completed'
