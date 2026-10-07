@@ -13,8 +13,11 @@ Agents, extensions, grants, themes, `keybindings.json` and `AGENTS.md` live
 in `nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so
 `/reload` sees edits without a rebuild. `settings.json` is the exception: it
 is copied from `dev/pi-coding-agent/` on each switch. The sandbox wrapper is `nix/pkgs/pi-wrapper`,
-which records every carried `--allow-*` grant in `PI_GRANTS` and the full
-catalog in `PI_AVAILABLE_GRANTS`; `extensions/grants.ts` turns the carried
+which records the named grants it carries (`--allow-nix`, `-ssh-agent`,
+`-forge`, `-clipboard`, each network bundle, and `--coordinator`) in
+`PI_GRANTS` and the full catalog in `PI_AVAILABLE_GRANTS`. Path grants,
+`--allow <host>`, `--allow-loopback`, `--allow-trustd` and
+`--allow-git-write` are not recorded; `extensions/grants.ts` turns the carried
 ones into system-prompt sections from `grants/<name>.md` and lists the rest,
 so a session the sandbox blocks knows which flag to ask the human to restart
 with.

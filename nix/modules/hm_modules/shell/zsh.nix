@@ -668,7 +668,7 @@ in
             # tells you what it wrote and `git adopt` is what claims it. pi
             # exports the same keys itself (pi-wrapper/wrapper.sh); this covers
             # the agents that do not. Scoped to $cmd, so your own commits in
-            # the worktree afterwards sign normally.
+            # the worktree afterwards follow your usual signing config.
             #
             # `--` separates wt's arguments from the agent's, and is consumed
             # here rather than forwarded: pi's sandbox wrapper reads `--` as

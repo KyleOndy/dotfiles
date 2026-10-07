@@ -10,7 +10,7 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 - `cogsworth-db-restore` / `cogsworth-db-snapshot` / `cogsworth-db-shutdown-snapshot`: move the SQLite DB between tmpfs and the SD card
 - `cogsworth-amp-keepalive.service`: holds the MAX98357A amp's I2S stream open with silence so it never powers back on with a pop, `Restart = "always"` after 2s
 - `cogsworth-brightness-init.service`: sets the display digipot to minimum brightness before the backend starts
-- `wyoming-openwakeword.service`: wake word detection on `127.0.0.1:10400`
+- `wyoming-openwakeword.service`: wake word detection on `127.0.0.1:10400`, disabled until nixpkgs unbreaks pyopen-wakeword on aarch64-linux
 - `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`); web UI and API on `:8090`, Prometheus telemetry on `127.0.0.1:8091`
 - `caddy.service`: LAN HTTP on `:80`, proxied to the backend on `127.0.0.1:8080`
 

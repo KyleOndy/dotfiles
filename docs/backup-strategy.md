@@ -101,9 +101,10 @@ A Windows PC mirrors `Documents`, `Pictures` and `Desktop` into
 `/mnt/backups/kristen-data` over SMB, on a nightly scheduled task. See
 [windows-backup.md](windows-backup.md).
 
-It gets one thing the other writers do not: its own freshness alert. Every
-other tier here is driven by a systemd timer on a host we control, so
-absence is measurable from the inside. The Windows push is not, so the
+Its freshness alert works differently from the others. Every other writer
+here runs on a timer on a host we control and reports its own success
+(the git bundles and histdb through node_exporter's textfile collector),
+so absence is measurable from the inside. The Windows push is not, so the
 client writes a heartbeat file on success and tiger alerts on its age. Any
 future writer that lives off-fleet needs the same treatment.
 

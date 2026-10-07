@@ -717,9 +717,10 @@ in
                 summary: "Pool {{ $labels.pool }} on {{ $labels.host }} has not completed a scrub in over 45 days"
                 description: "No scrub of {{ $labels.pool }} on {{ $labels.host }} has finished in 45 days and none is running. Silent corruption is only found by scrubbing, and a resilver is the worst time to discover it. Check services.zfs.autoScrub on that host."
 
-            # Age lives in the expression, not in `for:`: vmalert runs with
-            # no -remoteRead.url and restarts on every rules edit, so a long
-            # `for:` resets before it ever elapses.
+            # Age lives in the expression, not in `for:`. The pool's creation
+            # time is a fixed anchor, so the alert is due on day 7 however
+            # long vmalert has been evaluating it, where a `for:` would count
+            # only from the first evaluation that saw an unscrubbed pool.
             - alert: ZpoolNeverScrubbed
               expr: (zfs_pool_scrub_end_timestamp_seconds == 0) and on(pool, host) (time() - zfs_pool_creation_timestamp_seconds > 7 * 86400) and on(pool, host) zfs_pool_scrub_in_progress == 0
               for: 1h
@@ -981,10 +982,9 @@ in
                 description: "Three daily runs of the {{ $labels.machine }} mirror have failed to land anything. Whatever that PC has created since then exists only on that PC."
 
             # Age in the expression rather than in `for:`, for the reason
-            # ZpoolNeverScrubbed gives above: vmalert restarts on every rules
-            # edit, so a long `for:` resets before it elapses. The directory
-            # mtime is the grace anchor, so provisioning a machine on tiger
-            # does not alert before anyone could have set the PC up.
+            # ZpoolNeverScrubbed gives above. The directory mtime is the grace
+            # anchor, so provisioning a machine on tiger does not alert before
+            # anyone could have set the PC up.
             - alert: WindowsBackupNeverSucceeded
               expr: (windows_backup_last_success_timestamp_seconds{host="tiger"} == 0) and on(machine) (time() - windows_backup_target_mtime_seconds{host="tiger"} > 7 * 86400)
               for: 1h

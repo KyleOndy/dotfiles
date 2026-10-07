@@ -604,7 +604,7 @@ in
       }
     ];
 
-    # pi has no web tool and no MCP, so search and page-reading are a CLI the
+    # pi has no web tool, so search and page-reading are a CLI the
     # bash tool reaches. Both halves are Kagi endpoints, which is what lets
     # the kagi bundle below grant one domain instead of the wildcard egress
     # that reading arbitrary pages would otherwise need.

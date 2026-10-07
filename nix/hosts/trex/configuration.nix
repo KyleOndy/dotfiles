@@ -232,9 +232,8 @@
     };
   };
 
-  # Password script for automated mbsync service. Only kyle@ondy.org is
-  # wired up for automated sync (the other two accounts in
-  # nix/modules/hm_modules/terminal/email.nix have mbsync.enable = false).
+  # Password script for mbsync. kyle@ondy.org is the only account in
+  # nix/modules/hm_modules/terminal/email.nix.
   sops.templates."mbsync-password-script" = {
     owner = "kyle";
     mode = "0500";
