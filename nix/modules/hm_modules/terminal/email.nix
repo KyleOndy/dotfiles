@@ -69,6 +69,9 @@ in
           mbsync = {
             enable = true;
             create = "maildir";
+            # Expunge Near: a message deleted or moved away on the server is
+            # removed here too. Nothing here expunges on the server.
+            expunge = "maildir";
             patterns = [
               "INBOX"
               "Archive"
