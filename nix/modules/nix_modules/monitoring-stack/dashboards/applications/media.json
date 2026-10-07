@@ -179,7 +179,10 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Janitor removed 24h" },
+            "matcher": {
+              "id": "byRegexp",
+              "options": "Janitor removed 24h|Untarred 24h"
+            },
             "properties": [
               {
                 "id": "thresholds",
@@ -488,7 +491,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({host=\"tiger\",unit=\"jellyfin.service\"} |= \"FFmpeg exited with code\" != \"code 0\" [$__auto]))",
+          "expr": "sum(count_over_time({host=\"tiger\",unit=\"jellyfin.service\"} |= \"FFmpeg exited with code\" != \"code 0\" [$__auto])) or vector(0)",
           "queryType": "range",
           "legendFormat": "Failures"
         }
@@ -550,7 +553,7 @@
     {
       "type": "timeseries",
       "title": "Active Jobs by Queue",
-      "description": "Jobs running right now in each queue. Immich exports no waiting count. ImmichJobsStuck fires when a queue stays above zero for 2 hours while Finished Jobs stays flat.",
+      "description": "Jobs running right now in each queue. Immich exports no waiting count, and creates a queue's series only once the queue first runs after a restart, so this starts sparse. ImmichJobsStuck fires when a queue stays above zero for 2 hours while Finished Jobs stays flat.",
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 43 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
@@ -588,7 +591,7 @@
     {
       "type": "timeseries",
       "title": "Finished Jobs",
-      "description": "Jobs finished over the trailing hour, by outcome.",
+      "description": "Jobs finished over the trailing hour, by outcome. A job type has no series until it first runs after a restart.",
       "gridPos": { "h": 8, "w": 6, "x": 6, "y": 43 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
@@ -664,14 +667,15 @@
     {
       "type": "timeseries",
       "title": "API Requests by Status",
-      "description": "From the api worker's endpoint. Empty when ImmichMetricsAbsent is firing.",
+      "description": "Requests Caddy served for immich's three names, from its access log. The api worker's metrics endpoint exports no HTTP series.",
       "gridPos": { "h": 8, "w": 6, "x": 18, "y": 43 },
-      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (http_response_status_code) (rate(http_server_request_duration_count{host=\"tiger\",job=\"immich-api\"}[5m]))",
-          "legendFormat": "{{http_response_status_code}}"
+          "expr": "sum by (status) (rate({job=\"caddy-access\", vhost=~\"immich.tiger.infra.ondy.org|immich.apps.ondy.org|photos.ondy.org\"} | json status=\"status\" [$__auto]))",
+          "queryType": "range",
+          "legendFormat": "{{status}}"
         }
       ],
       "fieldConfig": {
