@@ -144,6 +144,9 @@ in
         Label = "org.ondy.vmagent";
         ProgramArguments = [
           "${pkgs.vmagent}/bin/vmagent"
+          # The default is every interface, where /api/v1/write would relay
+          # anything sent to it under this host's tiger credential.
+          "-httpListenAddr=127.0.0.1:8429"
           "-remoteWrite.url=${cfg.remoteWriteUrl}"
           "-remoteWrite.tmpDataPath=/var/lib/vmagent/remote_write_tmp"
           "-promscrape.config=${vmagentScrapeConfig}"
