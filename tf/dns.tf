@@ -58,6 +58,25 @@ resource "aws_route53_record" "ondy_org_txt" {
   records = ["v=spf1 include:mxroute.com -all"]
 }
 
+# Public half of the key MXRoute signs ondy.org mail with, copied from
+# DirectAdmin's DNS Records page. A TXT string caps at 255 characters, so \"\"
+# splits the value into two strings that verifiers concatenate.
+resource "aws_route53_record" "ondy_org_dkim" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "x._domainkey.ondy.org"
+  type    = "TXT"
+  ttl     = "3600"
+  records = ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvUujk0gWip7+DmLKTFJ19GZGz0UAZ9la9ftmimHSFMXiDw9X1hXm3+K/ZXFhAtn1gIq9sZhAlC63ktx48uFB12q1J5hE/XercJ1twKY0eG5aubwq9xmO5r27e1qs8vwoGqEa0J6xdf1LhDGacmxB5DzRosBaTrQTsXNUTv/+w/PeuwwIL77kAeIb+7lGWRILk\"\"iQzDFcFIig+mIDGFNE3uhiVlUjA0BJH9xGDcBEcGbFd1xYaX8kVQ+Km969hxgm9ueZ+jhGEu6XIM4kgZm+mSqBwbMN7CWx2I6sY6zvy/6dyWB+YOvCvimdF2M3wF09chwXIt0Az/pigXbvKUKwONQIDAQAB"]
+}
+
+resource "aws_route53_record" "ondy_org_dmarc" {
+  zone_id = aws_route53_zone.ondy_org.zone_id
+  name    = "_dmarc.ondy.org"
+  type    = "TXT"
+  ttl     = "3600"
+  records = ["v=DMARC1; p=none; rua=mailto:kyle@ondy.org"]
+}
+
 resource "aws_route53_record" "ondy_org_txt_atproto" {
   zone_id = aws_route53_zone.ondy_org.zone_id
   name    = "_atproto.ondy.org"
