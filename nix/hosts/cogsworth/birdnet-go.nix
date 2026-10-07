@@ -6,13 +6,43 @@
 # is what keeps the UI, and the RTSPS URLs it serves at
 # /api/v2/streams/health, off the LAN. The pi's own I2S mic is not a source:
 # it is indoors and the voice listener owns it.
-{ config, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   stateDir = "/var/lib/birdnet-go";
   configFile = "${stateDir}/config.yaml";
   port = 8090;
   # Upstream's default telemetry listen is 0.0.0.0:8090, the web UI's port.
   telemetryPort = 8091;
+  # Every module's file log defaults to debug, and each keeps ten 100 MB
+  # rotations, uncompressed. Sub-modules inherit, so analysis covers
+  # analysis.processor's actions.log:
+  # https://github.com/tphakala/birdnet-go/blob/30197a29859303db226f2d8d68146f2b3b3c0490/internal/conf/defaults.go#L474-L480
+  loggedModules = [
+    "access"
+    "analysis"
+    "api"
+    "audio"
+    "auth"
+    "backup"
+    "birdnet"
+    "config"
+    "datastore"
+    "diskmanager"
+    "events"
+    "imageprovider"
+    "monitor"
+    "notifications"
+    "securefs"
+    "security"
+    "spectrogram"
+    "support"
+    "telemetry"
+  ];
 in
 {
   systemd.services.cogsworth.environment.COGSWORTH_BIRDS_API_URL =
@@ -49,6 +79,11 @@ in
     # to it alone would not restart anything.
     restartUnits = [ "birdnet-go.service" ];
     content = ''
+      logging:
+        file_output:
+          compress: true
+        modules:
+      ${lib.concatMapStrings (m: "    ${m}:\n      level: info\n") loggedModules}
       main:
         name: Cogsworth birds
       birdnet:
