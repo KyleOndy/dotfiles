@@ -219,13 +219,14 @@
     {
       "type": "timeseries",
       "title": "Active Time Series",
+      "description": "Series that received a sample in the last hour.",
       "gridPos": { "h": 7, "w": 12, "x": 0, "y": 14 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (type) (vm_rows)",
-          "legendFormat": "{{type}}"
+          "expr": "sum(vm_cache_entries{type=\"storage/hour_metric_ids\"})",
+          "legendFormat": "Active series"
         }
       ],
       "fieldConfig": {
@@ -266,7 +267,7 @@
         },
         {
           "refId": "B",
-          "expr": "sum by (path) (rate(vm_http_request_errors_total[5m]))",
+          "expr": "sum by (path) (rate(vm_http_request_errors_total[5m])) > 0",
           "legendFormat": "Errors {{path}}"
         }
       ],
