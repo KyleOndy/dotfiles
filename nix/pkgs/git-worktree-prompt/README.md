@@ -6,11 +6,12 @@ invocation because it runs on every prompt.
 
 - **Plain repo**, including a `git worktree add` checkout:
   `<branch-icon> <branch>`.
-- **`.bare` layout**, any worktree whose common git directory is a `.bare`:
-  `<tree-icon> <worktree> → <branch-icon> <branch>`. Just
+- **`.bare` layout**, any worktree inside the directory that holds the
+  `.bare` it shares: `<tree-icon> <worktree> → <branch-icon> <branch>`. Just
   `<tree-icon> <worktree>` when the worktree path, as is or with `/` turned
   into `-`, equals the branch, and `<tree-icon> [bare]` at the root beside
-  `.bare`. A clone or submodule nested inside a worktree is a plain repo.
+  `.bare`. A clone or submodule nested inside a worktree, and a worktree
+  added outside that directory, are plain repos.
 - **Detached HEAD**: the 7-character hash in place of the branch.
 - **reftable repo**: HEAD holds a fixed stub there, so it asks git, at the
   cost of one process.

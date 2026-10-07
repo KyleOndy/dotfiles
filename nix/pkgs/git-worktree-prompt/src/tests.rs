@@ -191,6 +191,18 @@ fn the_bare_layout_names_worktrees_and_nothing_else() {
     );
     git(&root, &["worktree", "add", "-q", "-b", "x", "a/b/c/deep"]);
     fs::create_dir_all(root.join("feat/work-config/nix/deep")).unwrap();
+    let elsewhere = scratch("bare-elsewhere").join("wt");
+    git(
+        &root,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "-b",
+            "elsewhere",
+            elsewhere.to_str().unwrap(),
+        ],
+    );
     repo(&root.join("main/scratch/other"), &[]);
     git(
         &root.join("main/scratch/other"),
@@ -213,5 +225,7 @@ fn the_bare_layout_names_worktrees_and_nothing_else() {
         "🌳 a/b/c/deep → ⎇ x"
     );
     assert_eq!(prompt(&root.join("main/scratch/other")).unwrap(), "⎇ other");
+    assert_eq!(prompt(&elsewhere).unwrap(), "⎇ elsewhere");
     fs::remove_dir_all(root).ok();
+    fs::remove_dir_all(elsewhere.parent().unwrap()).ok();
 }

@@ -73,11 +73,15 @@ fn run(
     }
     let root = common.parent().ok_or("`.bare` has no parent")?;
     let work_dir = canonical(&work_dir)?;
-    let name = work_dir
-        .strip_prefix(root)
-        .map_err(|_| format!("{} is outside {}", work_dir.display(), root.display()))?
-        .to_string_lossy()
-        .into_owned();
+    // A worktree added outside the root has no place in the layout to name.
+    let Ok(name) = work_dir.strip_prefix(root) else {
+        return Ok(Some(format!(
+            "{} {}",
+            icons.branch,
+            branch(&git_dir, &work_dir)?
+        )));
+    };
+    let name = name.to_string_lossy().into_owned();
     if name.is_empty() {
         return Ok(Some(format!("{} [bare]", icons.worktree)));
     }
