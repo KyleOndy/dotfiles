@@ -226,6 +226,7 @@ let
       pkgs.jq
       pkgs.coreutils
       pkgs.iproute2
+      pkgs.systemd
     ];
     text = ''
       readonly OUTFILE=${escapeShellArg "${textfileDir}/pia_port_forward.prom"}
@@ -241,6 +242,20 @@ let
       hostname=$(jq -r '.hostname' "$state")
       gateway=$(jq -r '.gateway' "$state")
 
+      decoded=$(echo "$payload" | base64 -d)
+      port=$(echo "$decoded" | jq -r '.port')
+      expires=$(date -d "$(echo "$decoded" | jq -r '.expires_at')" +%s)
+
+      # bindPort never extends expires_at (about two months after
+      # getSignature), and only pia-wg-connect calls getSignature, so a
+      # tunnel that stays up that long loses its port. Reconnect while three
+      # days remain; the next run binds the new payload.
+      if [ $(( expires - $(date +%s) )) -lt $(( 3 * 86400 )) ]; then
+        echo "pia-port-forward-refresh: payload expires $(date -d "@$expires"), reconnecting for a new one"
+        systemctl restart pia-wg-connect.service
+        exit 0
+      fi
+
       # In the namespace for the same reason getSignature is: bindPort only
       # authorizes callers arriving through the tunnel.
       resp=$(ip netns exec "${cfg.namespace}" curl -Gs -m 5 \
@@ -254,10 +269,6 @@ let
         echo "pia-port-forward-refresh: bindPort did not return OK: $resp" >&2
         exit 1
       fi
-
-      decoded=$(echo "$payload" | base64 -d)
-      port=$(echo "$decoded" | jq -r '.port')
-      expires=$(date -d "$(echo "$decoded" | jq -r '.expires_at')" +%s)
 
       tmp=$(mktemp "$OUTFILE.XXXXXX")
       {
