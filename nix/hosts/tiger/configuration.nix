@@ -1411,7 +1411,6 @@ in
         enable = true;
         group = mediaGroup;
         domainName = "qbittorrent.tiger.infra.ondy.org";
-        webuiCredentialsFile = config.sops.secrets.qbittorrent_webui_credentials.path;
       };
 
       jellyseerr = {
@@ -1946,11 +1945,6 @@ in
     # pia-wg-connect.service as root to authenticate the WireGuard + port
     # forwarding API calls.
     pia_credentials.mode = "0400";
-    # qBittorrent's WebUI login, generated through its own UI on first boot
-    # like the other *arr apps' API keys above, then copied in here so
-    # qbittorrent-set-port.service can push the PIA-forwarded port into it.
-    # EnvironmentFile: QBITTORRENT_USER / QBITTORRENT_PASS.
-    qbittorrent_webui_credentials.mode = "0400";
     # One Jellyfin key per consumer, each named after it in Jellyfin's API
     # key list, so one can be revoked without the others. jellyfin-backup
     # runs as root and reads its file directly; the other two take theirs

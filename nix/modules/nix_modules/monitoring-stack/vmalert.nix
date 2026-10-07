@@ -1462,7 +1462,7 @@ in
                 severity: warning
               annotations:
                 summary: "qBittorrent on {{ $labels.host }} is not listening on the PIA forwarded port"
-                description: "qBittorrent still downloads but accepts no incoming peers. A run that cannot log in to the WebUI also reads 0: 'WebUI login failed' in journalctl -u qbittorrent-set-port on {{ $labels.host }} means the password in sops no longer matches qBittorrent's."
+                description: "qBittorrent still downloads but accepts no incoming peers. A failed run also reads 0: a 403 in journalctl -u qbittorrent-set-port on {{ $labels.host }} means qBittorrent rejected the API key, usually because it was rotated or deleted in the WebUI, and systemctl restart qbittorrent puts the generated one back."
 
             # A 0 is QbittorrentPortMismatch's to report, so this one fires
             # only while the gauge still claims a match.

@@ -12,13 +12,36 @@ let
   cfg = config.systemFoundry.qbittorrent;
   netnsCfg = config.systemFoundry.piaWireguardNetns;
   textfileDir = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
+  configDir = "${config.services.qbittorrent.profileDir}/qBittorrent/config";
+  apiKeyFile = "${configDir}/webui-api-key";
+
+  # Runs as qbittorrent before every start. 5.2.2 reads the key from
+  # WebUI\APIKey in plain text and ignores any value that is not qbt_ plus 28
+  # characters:
+  # https://github.com/qbittorrent/qBittorrent/blob/release-5.2.2/src/base/utils/apikey.cpp#L36-L50
+  # https://github.com/qbittorrent/qBittorrent/blob/release-5.2.2/src/webui/webapplication.cpp#L563-L564
+  injectApiKeyScript = pkgs.writeShellApplication {
+    name = "qbittorrent-inject-api-key";
+    runtimeInputs = [
+      pkgs.crudini
+      pkgs.openssl
+    ];
+    text = ''
+      readonly KEY_FILE=${escapeShellArg apiKeyFile}
+
+      if [ ! -s "$KEY_FILE" ]; then
+        key=$(openssl rand -hex 14)
+        (umask 077 && printf 'qbt_%s' "$key" > "$KEY_FILE")
+      fi
+      # Through stdin, so the key never lands in crudini's argv.
+      printf 'WebUI\\APIKey=%s\n' "$(< "$KEY_FILE")" \
+        | crudini --ini-options=nospace --merge ${escapeShellArg "${configDir}/qBittorrent.conf"} Preferences
+    '';
+  };
 
   # Pushes the currently-forwarded PIA port (written by pia-wg-connect.service)
-  # into qBittorrent's own listen port over its WebUI API -- the only
-  # interface it has, qBittorrent has no separate machine-auth token like the
-  # *arr apps' X-Api-Key. Safe to run repeatedly: setting the same port is a
-  # no-op, and a qBittorrent-not-up-yet failure just waits for the next timer
-  # tick rather than wedging any other unit.
+  # into qBittorrent's own listen port over its WebUI API. Safe to run
+  # repeatedly: setting the same port is a no-op.
   setPortScript = pkgs.writeShellApplication {
     name = "qbittorrent-set-port";
     runtimeInputs = [
@@ -28,16 +51,17 @@ let
       pkgs.jq
     ];
     text = ''
-      : "''${QBITTORRENT_USER:?QBITTORRENT_USER not set}"
-      : "''${QBITTORRENT_PASS:?QBITTORRENT_PASS not set}"
-
+      readonly KEY_FILE=${escapeShellArg apiKeyFile}
       readonly OUTFILE=${escapeShellArg "${textfileDir}/qbittorrent_set_port.prom"}
       last_success=$(awk -v pat="qbittorrent_set_port_last_success_timestamp_seconds " 'index($0, pat) == 1 { print $2 }' "$OUTFILE" 2>/dev/null || true)
       last_success=''${last_success:-0}
       matches=0
 
       # On every exit, so a run that skips or dies reads as a mismatch rather
-      # than leaving the last match standing.
+      # than leaving the last match standing. Every exit is 0:
+      # switch-to-configuration fails on any failed unit, so a transient
+      # failure here would make deploy-rs roll back an unrelated tiger deploy.
+      # QbittorrentPortMismatch reports a run that keeps failing.
       write_metrics() {
         local tmp
         tmp=$(mktemp "$OUTFILE.XXXXXX")
@@ -52,7 +76,7 @@ let
         chmod 0644 "$tmp"
         mv -fT "$tmp" "$OUTFILE"
       }
-      trap write_metrics EXIT
+      trap 'write_metrics; exit 0' EXIT
 
       port_file="${netnsCfg.forwardedPortFile}"
       if [ ! -f "$port_file" ]; then
@@ -62,30 +86,19 @@ let
       port=$(cat "$port_file")
 
       base="http://${netnsCfg.vethNamespaceAddress}:8080"
-      jar="''${RUNTIME_DIRECTORY:-/tmp}/cookies"
 
-      # A rejected login is HTTP 200 with the body "Fails.", so the body is the
-      # only thing that says whether it worked:
-      # https://github.com/qbittorrent/qBittorrent/wiki/WebUI-API-(qBittorrent-4.1)#login
-      # It stays rejected until the password is bootstrapped through the UI and
-      # copied into sops. Skipping keeps this unit out of a failed state, which
-      # deploy-rs reads as grounds to roll the whole host back.
-      if [ "$(curl -fsS -c "$jar" \
-        --data-urlencode "username=$QBITTORRENT_USER" \
-        --data-urlencode "password=$QBITTORRENT_PASS" \
-        "$base/api/v2/auth/login")" != "Ok." ]; then
-        echo "qbittorrent-set-port: WebUI login failed, leaving listen_port at $port unset" >&2
-        exit 0
-      fi
+      # The header goes in on stdin, so the key never lands in curl's argv.
+      api() {
+        printf 'Authorization: Bearer %s\n' "$(< "$KEY_FILE")" | curl -fsS -H @- "$@"
+      }
 
-      curl -fsS -b "$jar" \
-        --data-urlencode "json={\"listen_port\": $port}" \
+      api --data-urlencode "json={\"listen_port\": $port}" \
         "$base/api/v2/app/setPreferences" >/dev/null
 
-      actual=$(curl -fsS -b "$jar" "$base/api/v2/app/preferences" | jq -r '.listen_port')
+      actual=$(api "$base/api/v2/app/preferences" | jq -r '.listen_port')
       if [ "$actual" != "$port" ]; then
         echo "qbittorrent-set-port: listen_port reads $actual after setting $port" >&2
-        exit 0
+        exit 1
       fi
       matches=1
       last_success=$(date +%s)
@@ -114,16 +127,6 @@ in
       default = "/mnt/scratch-big/torrents";
       description = "The tree holding qBittorrent's incomplete and complete save paths";
     };
-
-    webuiCredentialsFile = mkOption {
-      type = types.path;
-      description = ''
-        EnvironmentFile with QBITTORRENT_USER and QBITTORRENT_PASS (e.g. a
-        sops secret path) -- qBittorrent's own WebUI login, bootstrapped
-        through the UI on first boot and copied here so
-        qbittorrent-set-port.service can authenticate to it.
-      '';
-    };
   };
 
   config = mkIf cfg.enable {
@@ -139,6 +142,10 @@ in
       group = cfg.group;
       webuiPort = 8080;
     };
+
+    # qBittorrent.conf holds the API key in plain text and is rewritten under
+    # the service's UMask=0002, so only the directory keeps other users out.
+    systemd.tmpfiles.settings.qbittorrent."${configDir}/".d.mode = mkForce "0700";
 
     systemd.services.qbittorrent = {
       # Only netns-pia.service, not pia-wg-connect.service: the namespace
@@ -169,10 +176,12 @@ in
 
         # Unset, the WebUI listens on every address in the namespace,
         # wg0's included. qBittorrent has no command-line flag for the
-        # address, and the WebUI owns the rest of qBittorrent.conf, so this
-        # one key is set in place rather than through serverConfig.
+        # address, and the WebUI owns the rest of qBittorrent.conf, so the
+        # address and the API key are set in place. serverConfig would
+        # replace the whole file on every start.
         ExecStartPre = [
-          "${getExe pkgs.crudini} --ini-options=nospace --set ${config.services.qbittorrent.profileDir}/qBittorrent/config/qBittorrent.conf Preferences WebUI\\\\Address ${netnsCfg.vethNamespaceAddress}"
+          "${getExe pkgs.crudini} --ini-options=nospace --set ${configDir}/qBittorrent.conf Preferences WebUI\\\\Address ${netnsCfg.vethNamespaceAddress}"
+          (getExe injectApiKeyScript)
         ];
 
         # Upstream leaves /tmp shared so a torrent can be added by path from
@@ -200,8 +209,6 @@ in
       after = [ "qbittorrent.service" ];
       serviceConfig = {
         Type = "oneshot";
-        RuntimeDirectory = "qbittorrent-set-port";
-        EnvironmentFile = cfg.webuiCredentialsFile;
         ExecStart = getExe setPortScript;
       };
     };
