@@ -11,11 +11,15 @@ let
 
   # Derived from the folder on every run, since other clients move mail after
   # notmuch has indexed it. Searches skip search.exclude_tags (deleted, spam)
-  # unless the query names one.
+  # unless the query names one. folder: matches only that directory, not its
+  # subfolders. mbsync puts the server's INBOX/spam under the Inbox maildir.
   folderTags = {
-    inbox = "Inbox";
-    deleted = "Deleted Messages";
-    spam = "Junk";
+    inbox = [ "Inbox" ];
+    deleted = [ "Deleted Messages" ];
+    spam = [
+      "Junk"
+      "Inbox/spam"
+    ];
   };
 in
 {
@@ -43,10 +47,16 @@ in
       hooks = {
         preNew = "mbsync --all";
         postNew = concatStrings (
-          mapAttrsToList (tag: folder: ''
-            notmuch tag +${tag} -- 'folder:"${maildir}/${folder}" and not tag:${tag}'
-            notmuch tag -${tag} -- 'tag:${tag} and not folder:"${maildir}/${folder}"'
-          '') folderTags
+          mapAttrsToList (
+            tag: folders:
+            let
+              inFolders = "(${concatMapStringsSep " or " (f: ''folder:"${maildir}/${f}"'') folders})";
+            in
+            ''
+              notmuch tag +${tag} -- '${inFolders} and not tag:${tag}'
+              notmuch tag -${tag} -- 'tag:${tag} and not ${inFolders}'
+            ''
+          ) folderTags
         );
       };
     };
@@ -74,6 +84,7 @@ in
             expunge = "maildir";
             patterns = [
               "INBOX"
+              "INBOX/spam"
               "Archive"
               "Deleted Messages"
               "Drafts"
