@@ -196,13 +196,12 @@
     brews = [ ];
   };
 
-  # Report metrics/logs to tiger, darwin-native equivalent of the NixOS
+  # Report metrics to tiger, darwin-native equivalent of the NixOS
   # systemFoundry.monitoringStack (nix/modules/darwin_modules/monitoring-agent.nix).
   systemFoundry.monitoringAgent = {
     enable = true;
     hostLabel = "trex";
     remoteWriteUrl = "https://metrics.tiger.infra.ondy.org/api/v1/write";
-    lokiUrl = "https://loki.tiger.infra.ondy.org/loki/api/v1/push";
     basicAuth = {
       username = "monitoring";
       passwordFile = config.sops.secrets.monitoring_password.path;
@@ -217,7 +216,7 @@
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
     monitoring_password = {
-      # The only readers are vmagent and alloy, root launchd daemons here.
+      # The only reader is vmagent, a root launchd daemon here.
       mode = "0400";
       sopsFile = ../../secrets/shared-cogsworth-pika-trex.yaml;
     };

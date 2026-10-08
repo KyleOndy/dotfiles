@@ -65,5 +65,5 @@ A dashboard showing "No data" is usually one of five things: the exporter is
 down (`systemctl status`), vmagent is not scraping it (no job in
 `scrapeConfigs`), the query filters on `instance` instead of `host`, the
 metric name never existed, or it is a Loki panel selecting on `job` instead of
-`unit`. Loki has three job values (`systemd-journal`, `darwin-unified-log`,
-`caddy-access`), so per-service log queries must name the unit.
+`unit`. Loki has two job values (`systemd-journal`, `caddy-access`), so
+per-service log queries must name the unit.

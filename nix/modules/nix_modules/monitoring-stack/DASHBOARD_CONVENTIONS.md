@@ -104,15 +104,13 @@ whole journal under one job, so there is no per-service job to select on:
 ```bash
 $ ssh tiger 'curl -s localhost:3100/loki/api/v1/label/job/values' | jq -r '.data[]'
 caddy-access
-darwin-unified-log
 systemd-journal
 ```
 
-`darwin-unified-log` tails a file instead of the journal, but it is still one
-stream for the whole host. `caddy-access` is the exception, and the only one:
-it carries a `vhost` label taken from `request.host` in the line. Caddy writes
-one access log per vhost block, so every `*.tiger.infra.ondy.org` site shares
-one file and only `vhost` tells them apart.
+`caddy-access` is the exception, and the only one: it carries a `vhost` label
+taken from `request.host` in the line. Caddy writes one access log per vhost
+block, so every `*.tiger.infra.ondy.org` site shares one file and only `vhost`
+tells them apart.
 
 A selector like `{host="tiger",job="jellyfin"}` therefore matches
 nothing and the panel sits empty forever. Name the systemd unit

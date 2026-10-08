@@ -1,8 +1,9 @@
 # Darwin-native equivalent of systemFoundry.monitoringStack (nix/modules/nix_modules/monitoring-stack/),
 # which is NixOS-only (systemd.tmpfiles/services, DynamicUser) and cannot be
-# imported under nix-darwin. Runs vmagent + node_exporter + alloy as
-# launchd daemons instead of systemd services, reporting to the same tiger
-# endpoints NixOS hosts use.
+# imported under nix-darwin. Runs vmagent + node_exporter as launchd daemons
+# instead of systemd services, reporting to the same tiger endpoint NixOS
+# hosts use. Logs are not shipped: nothing on tiger reads them, and macOS
+# keeps its own unified log for `log show`.
 {
   lib,
   pkgs,
@@ -33,57 +34,19 @@ let
     }
   );
 
-  # Interpolating a multi-line string into an indented one does not re-indent
-  # it, so this block lands flush left in the generated file.
-  basicAuthBlock = optionalString (cfg.basicAuth != null) ''
-
-    basic_auth {
-      username      = "${cfg.basicAuth.username}"
-      password_file = "${toString cfg.basicAuth.passwordFile}"
-    }'';
-
-  alloyConfig = pkgs.writeText "config.alloy" ''
-    loki.write "default" {
-      endpoint {
-        url = "${cfg.lokiUrl}"${basicAuthBlock}
-      }
-      external_labels = { host = "${cfg.hostLabel}" }
-    }
-
-    // macOS has no journald; this tails a continuously-running `log stream`
-    // capture (see the log-capture daemon below) rather than reading the log
-    // source directly.
-    loki.source.file "darwin_unified_log" {
-      targets = [{
-        __path__ = "${logDir}/unified.log",
-        job      = "darwin-unified-log",
-      }]
-      forward_to = [loki.write.default.receiver]
-
-      // The capture file is whatever `log stream` has written since the daemon
-      // last started, so a first start with no stored position would replay it
-      // from the top.
-      tail_from_end = true
-    }
-  '';
 in
 {
   options.systemFoundry.monitoringAgent = {
-    enable = mkEnableOption "darwin-native vmagent/node_exporter/alloy reporting to tiger";
+    enable = mkEnableOption "darwin-native vmagent/node_exporter reporting to tiger";
 
     hostLabel = mkOption {
       type = types.str;
-      description = "Value for the host= label on all metrics/logs sent to tiger";
+      description = "Value for the host= label on all metrics sent to tiger";
     };
 
     remoteWriteUrl = mkOption {
       type = types.str;
       description = "VictoriaMetrics remote write URL";
-    };
-
-    lokiUrl = mkOption {
-      type = types.str;
-      description = "Loki push URL";
     };
 
     textfileDirectory = mkOption {
@@ -103,14 +66,14 @@ in
         }
       );
       default = null;
-      description = "Basic auth credentials shared by vmagent remote-write and the Loki push";
+      description = "Basic auth credentials for vmagent remote-write";
     };
 
   };
 
   config = mkIf cfg.enable {
     system.activationScripts.postActivation.text = ''
-      mkdir -p ${logDir} /var/lib/vmagent /var/lib/alloy
+      mkdir -p ${logDir} /var/lib/vmagent
       # Writable by group admin because the writers are the login user's
       # launchd agents, and the login user is an admin on both Macs.
       mkdir -p ${cfg.textfileDirectory}
@@ -159,50 +122,6 @@ in
         KeepAlive = true;
         StandardOutPath = "${logDir}/vmagent.log";
         StandardErrorPath = "${logDir}/vmagent.log";
-        EnvironmentVariables = {
-          SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-        };
-      };
-    };
-
-    # A plain file for alloy to tail, since darwin has no journald. Errors and
-    # faults only: the default level ran about 2M lines an hour on trex, 97%
-    # of tiger's Loki ingest. Nothing rotates the file.
-    launchd.daemons.log-capture = {
-      serviceConfig = {
-        Label = "org.ondy.log-capture";
-        ProgramArguments = [
-          "/usr/bin/log"
-          "stream"
-          "--style"
-          "syslog"
-          "--predicate"
-          "messageType == error OR messageType == fault"
-        ];
-        RunAtLoad = true;
-        KeepAlive = true;
-        StandardOutPath = "${logDir}/unified.log";
-        StandardErrorPath = "${logDir}/log-capture.err.log";
-      };
-    };
-
-    launchd.daemons.alloy = {
-      serviceConfig = {
-        Label = "org.ondy.alloy";
-        ProgramArguments = [
-          "${pkgs.grafana-alloy}/bin/alloy"
-          "run"
-          # Alloy phones home a component inventory to Grafana on startup
-          # unless told not to.
-          # https://grafana.com/docs/alloy/latest/data-collection/
-          "--disable-reporting"
-          "--storage.path=/var/lib/alloy"
-          "${alloyConfig}"
-        ];
-        RunAtLoad = true;
-        KeepAlive = true;
-        StandardOutPath = "${logDir}/alloy.log";
-        StandardErrorPath = "${logDir}/alloy.log";
         EnvironmentVariables = {
           SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
         };
