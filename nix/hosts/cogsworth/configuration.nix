@@ -134,6 +134,26 @@ in
     '';
   };
 
+  # Email channel (cogs@ondy.org on MXRoute). Consumed by
+  # cogsworth.mail.config; the poller registers only when host, user and
+  # password are all set. An empty allowlist accepts nobody.
+  sops.secrets.cogsworth_mail_password = {
+    owner = "cogsworth";
+  };
+  sops.secrets.cogsworth_mail_allowed_senders = {
+    owner = "cogsworth";
+  };
+
+  sops.templates."cogsworth-mail-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_MAIL_HOST=london.mxroute.com
+      COGSWORTH_MAIL_USER=cogs@ondy.org
+      COGSWORTH_MAIL_PASSWORD=${config.sops.placeholder.cogsworth_mail_password}
+      COGSWORTH_MAIL_ALLOWED_SENDERS=${config.sops.placeholder.cogsworth_mail_allowed_senders}
+    '';
+  };
+
   # wpa_supplicant secrets file template
   sops.templates."wpa-secrets" = {
     content = ''
@@ -516,6 +536,7 @@ in
       config.sops.templates."cogsworth-weather-env".path
       config.sops.templates."cogsworth-openrouter-env".path
       config.sops.templates."cogsworth-sms-env".path
+      config.sops.templates."cogsworth-mail-env".path
     ];
   };
 
