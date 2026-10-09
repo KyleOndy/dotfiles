@@ -17,6 +17,10 @@ export DOTFILES_WORKTREE := $(shell git rev-parse --show-toplevel 2>/dev/null)
 # vars, but the --impure flag itself is always on.
 IMPURE := --impure
 
+# GC roots for builds no substituter serves, so a garbage collection on
+# this machine does not force a rebuild. Each build replaces its own root.
+DEPLOY_GC := $(HOME)/.local/state/deploy-rs/gcroots
+
 # Lift this repo's core.sshCommand into GIT_SSH_COMMAND so Nix's git+ssh
 # fetchers (e.g. the private cogsworth flake input) use the same key as
 # git operations in this worktree. Repo-level core.sshCommand only
@@ -79,17 +83,23 @@ build: ## Buld single host
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
 
+.PHONY: deploy-rs-gcroots
+deploy-rs-gcroots:
+	nix build $(IMPURE) --out-link $(DEPLOY_GC)/cogsworth-kernel \
+	  .#nixosConfigurations.cogsworth.config.system.build.kernel \
+	  .#nixosConfigurations.cogsworth.config.system.modulesTree
+
 .PHONY: deploy-rs
-deploy-rs:
+deploy-rs: $(if $(filter cogsworth,$(HOSTNAME)),deploy-rs-gcroots)
 	deploy .#$(HOSTNAME) -- $(IMPURE)
 
 .PHONY: deploy-rs-all
-deploy-rs-all:
+deploy-rs-all: deploy-rs-gcroots
 	nix flake check $(IMPURE) -L
 	deploy --skip-checks . -- $(IMPURE)
 
 .PHONY: deploy-rs-all-dry
-deploy-rs-all-dry:
+deploy-rs-all-dry: deploy-rs-gcroots
 	nix flake check $(IMPURE) -L
 	deploy --skip-checks --dry-activate . -- $(IMPURE)
 
