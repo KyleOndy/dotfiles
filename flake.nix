@@ -299,7 +299,6 @@
                   useGlobalPkgs = true;
                   useUserPackages = true;
                   extraSpecialArgs = {
-                    dotfiles-root = self.outPath;
                     dotfiles-worktree = dotfilesWorktree;
                     inherit inputs;
                   };
@@ -342,7 +341,6 @@
                   useGlobalPkgs = true;
                   useUserPackages = true;
                   extraSpecialArgs = {
-                    dotfiles-root = self.outPath;
                     dotfiles-worktree = dotfilesWorktree;
                     inherit inputs;
                   };

@@ -3,14 +3,12 @@
 {
   pkgs,
   config,
-  dotfiles-root,
   ...
 }:
 {
   home.sessionVariables = {
     DOTFILES = "${config.home.homeDirectory}/src/dotfiles/main";
     SRC = "${config.home.homeDirectory}/src";
-    DOTFILES_STORE = dotfiles-root;
     EDITOR = "nvim";
     VISUAL = "nvim";
     # this allows the rest of the nix tooling to use the same nixpkgs that I
