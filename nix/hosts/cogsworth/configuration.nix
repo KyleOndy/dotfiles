@@ -558,14 +558,12 @@ in
     extraArgs = [ "--debug" ];
   };
 
-  # voice.enabled lives in app_config so the admin UI's switch is the
-  # authority. Environment beats the database in cogsworth.service.config,
-  # so it is pinned here only while the wake word server is off: with
-  # nothing listening on 10400 the backend redials every 3s and logs a
-  # stack trace each time.
+  # An empty Wyoming address turns off only the backend's wake-word loop;
+  # push-to-talk (the shopping mic) needs no wake word server. With the
+  # address set and nothing listening on 10400, the backend would redial
+  # every 3s and log a stack trace each time.
   systemd.services.cogsworth.environment = {
-    COGSWORTH_VOICE_ENABLED = lib.mkIf (!config.services.wyoming.openwakeword.enable) "false";
-    COGSWORTH_VOICE_WYOMING_ADDR = "127.0.0.1:10400";
+    COGSWORTH_VOICE_WYOMING_ADDR = lib.optionalString config.services.wyoming.openwakeword.enable "127.0.0.1:10400";
     COGSWORTH_VOICE_WAKEWORD_NAME = "hey_cogs_500";
     COGSWORTH_VOICE_CAPTURE_DEVICE = "mic";
     # A path, not the password. The backend reads the file at call time, so
