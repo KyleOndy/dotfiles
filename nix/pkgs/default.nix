@@ -27,6 +27,7 @@ self: super: {
   pi-broker = super.callPackage ./pi-broker { inherit (self) forge my-scripts; };
   pi-delegate = super.callPackage ./pi-delegate { inherit (self) my-scripts; };
   mcloud-pins = super.callPackage ./mcloud-pins { };
+  advisor-eval = super.callPackage ./advisor-eval { };
   search-mail = super.callPackage ./search-mail { };
   mlx = super.callPackage ./mlx { };
   tmux-status = super.callPackage ./tmux-status { };
