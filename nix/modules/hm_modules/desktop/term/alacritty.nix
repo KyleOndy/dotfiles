@@ -26,6 +26,15 @@ in
             "exec ${getExe config.programs.tmux.package} new-session -A -s scratch"
           ];
         };
+        # Unbinds the default vi mode toggle: one Shift away from the tmux
+        # prefix, and tmux copy-mode covers the same ground with full history.
+        keyboard.bindings = [
+          {
+            key = "Space";
+            mods = "Control|Shift";
+            action = "ReceiveChar";
+          }
+        ];
         window = {
           option_as_alt = "OnlyLeft"; # Left Option = Meta, right Option = normal (matches iTerm2)
           decorations = "Buttonless"; # Remove window buttons but keep draggable title bar
