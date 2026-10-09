@@ -29,9 +29,21 @@ let
     Lossless = [ 6 ];
   };
 
+  # Types the Standard metadata profile shows. Showing a release only lists it;
+  # nothing is grabbed unless it is monitored.
+  primaryAlbumTypes = [
+    "Album"
+    "EP"
+    "Single"
+  ];
+  secondaryAlbumTypes = [
+    "Studio"
+    "Soundtrack"
+  ];
+
   settings = pkgs.writeText "lidarr-settings.json" (
     builtins.toJSON {
-      inherit profiles;
+      inherit profiles primaryAlbumTypes secondaryAlbumTypes;
       inherit (cfg) spotifyPlaylists rejectTerms;
       losslessArtists = attrValues cfg.losslessArtists;
       excludedArtists = mapAttrsToList (name: mbid: {
@@ -209,6 +221,11 @@ in
           api PUT "rootfolder/$(jq .id <<< "$root")" -d "$(jq --argjson p "$lossy" '
             . + {defaultQualityProfileId: $p, defaultNewItemMonitorOption: "none"}' <<< "$root")" >/dev/null
         done < <(api GET rootfolder | jq -c '.[]')
+
+        standard=$(api GET metadataprofile | jq -c '.[] | select(.name == "Standard")')
+        api PUT "metadataprofile/$(jq .id <<< "$standard")" -d "$(jq --slurpfile s "$SETTINGS" '
+          .primaryAlbumTypes |= map(.allowed = (.albumType.name as $n | $s[0].primaryAlbumTypes | index($n) != null))
+          | .secondaryAlbumTypes |= map(.allowed = (.albumType.name as $n | $s[0].secondaryAlbumTypes | index($n) != null))' <<< "$standard")" >/dev/null
 
         # forceSave skips the connection test, which fails on an empty
         # playlist list.
