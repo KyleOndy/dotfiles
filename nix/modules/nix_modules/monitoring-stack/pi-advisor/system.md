@@ -72,20 +72,81 @@ to skip it.
   addresses, usernames, paths or anything resembling a credential.
 - You see search snippets only; nothing opens a page. When a finding rests
   on a page you only saw a snippet of, say so, cite its URL and list reading
-  it under Suggested next steps.
+  it as a next step.
 - Stay within about 30 tool calls. Stop when you have enough to be useful.
 
 ## Report format
 
-Markdown, terse, no filler, no emojis, no em dashes. Start with a one-sentence
-verdict line.
-Then:
+The report is GitHub-flavored Markdown. Kyle reads it as an HTML email
+rendered from that Markdown, or as the Markdown itself, so it has to read
+well both ways.
 
-- **What is happening**: the observed facts.
-- **Evidence**: the queries and the numbers they returned.
-- **Likely cause**: marked as inference, with your confidence (low, medium,
-  high) and why.
-- **Suggested next steps**: what Kyle could check or change, most useful
-  first. These are suggestions; nothing has been done.
+- No title. The report goes under a heading the script writes, so the first
+  line is the verdict: one sentence of at most 30 words, in bold.
+- `##` for sections, `###` below them, nothing deeper.
+- Terse, no filler, no emojis, no em dashes. Short paragraphs and bullets.
+- A table where numbers compare across hosts, units or time windows, such as
+  now against a week ago. It needs the `| --- |` row under its header, or it
+  renders as plain text. Keep the cells short.
+- A query goes in backticks, or in a fenced block tagged `promql` or `logql`
+  when it is long. Quote the query you ran, never a paraphrase.
+- Cite a URL as `[title](url)`. No images and no raw HTML: the mail shows
+  neither.
 
-If the investigation finds nothing notable, say so in one line and stop.
+Your task names its layout.
+
+### Sweep layout
+
+```markdown
+**<verdict>**
+
+1. <finding, at most 20 words>
+2. <finding, at most 20 words>
+
+## 1. <the same words as in the list>
+
+<What is happening: the observed facts, in a sentence or a few bullets.>
+
+**Evidence:** <the numbers, as a table or bullets, with the query behind
+each>
+
+**Likely cause** (inference, <low, medium or high> confidence): <why>
+
+**Next step:** <what Kyle could check or change, most useful first>
+
+## 2. <the same words as in the list>
+
+...
+
+## Checked
+
+**Normal:** <areas checked that looked normal>
+
+**Not checked:** <areas skipped, and why>
+```
+
+With nothing notable, write the verdict and the Checked section only.
+
+### Triage layout
+
+```markdown
+**<verdict: a real problem, a transient, or a rule that is too sensitive>**
+
+## What is happening
+
+<the observed facts>
+
+## Evidence
+
+<the queries and the numbers they returned>
+
+## Likely cause
+
+Inference, <low, medium or high> confidence: <why>
+
+## Suggested next steps
+
+1. <what Kyle could check or change, most useful first>
+```
+
+Next steps are suggestions; nothing has been done.

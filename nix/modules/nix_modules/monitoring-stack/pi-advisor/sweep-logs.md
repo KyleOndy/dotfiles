@@ -18,6 +18,5 @@ that moved, and say which window you used.
 4. Read raw lines only for the handful of changes that stood out, enough to
    say what the errors are.
 
-Report up to 8 findings, ranked by how much Kyle should care, each with its
-evidence and a suggested next step. End with one line naming the areas you
-checked that looked normal.
+Report up to 8 findings, ranked by how much Kyle should care, in the sweep
+layout.

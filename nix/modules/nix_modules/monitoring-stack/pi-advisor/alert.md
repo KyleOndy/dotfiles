@@ -10,3 +10,5 @@ below. Triage it:
    alerts, the logs of the units involved, CPU, memory, disk and network.
 4. Say whether it looks like a real problem, a transient, or a rule that is
    too sensitive, and what Kyle should do about it.
+
+Write the report in the triage layout.

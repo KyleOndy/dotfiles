@@ -26,6 +26,5 @@ that moved, or to fit a trend toward a limit with `predict_linear` over
    - Backups: last-success timestamps and scrub ages drifting later even when
      still inside their alert thresholds.
 
-Report up to 8 findings, ranked by how much Kyle should care, each with its
-evidence and a suggested next step. End with one line naming the areas you
-checked that looked normal.
+Report up to 8 findings, ranked by how much Kyle should care, in the sweep
+layout.
