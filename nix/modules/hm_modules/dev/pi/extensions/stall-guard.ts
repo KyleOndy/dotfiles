@@ -17,6 +17,8 @@
  * While jobs run, a heartbeat updates the status line and asks the model
  * about a job that has printed nothing new, on a doubling schedule. A job
  * that ends reports as a steer, which starts a turn when the agent is idle.
+ * Its output stays in PI_JOB_LOG_DIR as <session id>-job-<n>.log, kept
+ * for later analysis; the wrapper prunes that dir only if told to.
  *
  * Repeating results are questioned too: OpenHands' same action, same
  * observation check (software-agent-sdk stuck_detector.py@cd17bd8,
@@ -28,7 +30,13 @@
  */
 
 import { createHash } from "node:crypto";
-import { createWriteStream, readFileSync, rmSync } from "node:fs";
+import {
+  createWriteStream,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -37,6 +45,7 @@ import {
   type ExtensionContext,
   createBashToolDefinition,
   createLocalBashOperations,
+  getAgentDir,
 } from "@earendil-works/pi-coding-agent";
 
 const DETACH_AFTER_MS = 120_000;
@@ -100,6 +109,7 @@ export default function (pi: ExtensionAPI) {
   const jobs = new Map<number, Job>();
   let nextJobId = 1;
   let runs = 0;
+  const logDir = process.env.PI_JOB_LOG_DIR ?? join(getAgentDir(), "job-logs");
   let beat: ReturnType<typeof setInterval> | undefined;
   let ui: ExtensionContext | undefined;
   let shuttingDown = false;
@@ -215,6 +225,7 @@ export default function (pi: ExtensionAPI) {
         );
       }
       ui = ctx;
+      const sessionId = ctx.sessionManager.getSessionId();
 
       for (const job of jobs.values()) {
         if (job.command !== params.command) continue;
@@ -238,7 +249,9 @@ export default function (pi: ExtensionAPI) {
       const operations: BashOperations = {
         exec: (command, execCwd, options) =>
           new Promise((resolve, reject) => {
-            const log = join(tmpdir(), `pi-job-${process.pid}-${++runs}.log`);
+            const seq = ++runs;
+            mkdirSync(logDir, { recursive: true });
+            const log = join(logDir, `${sessionId}-run-${seq}.log`);
             // An unhandled stream error would take pi down; losing the log
             // only costs the full output, and the tail is kept in memory.
             const out = createWriteStream(log).on("error", () => {});
@@ -252,7 +265,7 @@ export default function (pi: ExtensionAPI) {
               command: params.command,
               startedAt: Date.now(),
               log,
-              pidFile: `${log}.pid`,
+              pidFile: join(tmpdir(), `pi-job-${process.pid}-${seq}.pid`),
               bytes: 0,
               bytesAtBeat: 0,
               silentBeats: 0,
@@ -284,6 +297,12 @@ export default function (pi: ExtensionAPI) {
               options.signal?.removeEventListener("abort", forwardAbort);
               job.detached = true;
               job.id = nextJobId++;
+              // The open stream follows the rename, so output keeps landing.
+              const named = join(logDir, `${sessionId}-job-${job.id}.log`);
+              try {
+                renameSync(job.log, named);
+                job.log = named;
+              } catch {}
               job.bytesAtBeat = job.bytes;
               detached = job;
               track(job);
