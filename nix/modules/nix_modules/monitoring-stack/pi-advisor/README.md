@@ -9,12 +9,12 @@ The module is `../pi-advisor.nix`. Prompts and tools live beside this file.
 
 ## What runs
 
-| Unit                                   | When                | Does                                                                                                                            |
-| -------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `pi-advisor-alerts.timer` / `.service` | every 2 minutes     | Triages each newly firing, unsilenced alert. At most 3 a run and 20 a day.                                                      |
-| `pi-advisor-sweep.timer` / `.service`  | 06:00               | The log sweep, then the metrics sweep. One report each.                                                                         |
-| `pi-advisor-mail.path` / `.service`    | when a report lands | Mails each report not yet sent to the monitoring stack's fixed recipients, with a footer pointing at the acknowledgements file. |
-| `pi-advisor-mail.timer`                | hourly              | The same, for a report that landed mid-send or failed to send.                                                                  |
+| Unit                                   | When                | Does                                                                                                                                                     |
+| -------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pi-advisor-alerts.timer` / `.service` | every 2 minutes     | Triages each newly firing, unsilenced alert. At most 3 a run and 20 a day.                                                                               |
+| `pi-advisor-sweep.timer` / `.service`  | 06:00               | The log sweep, then the metrics sweep. One report each.                                                                                                  |
+| `pi-advisor-mail.path` / `.service`    | when a report lands | Mails each report not yet sent to the monitoring stack's fixed recipients, as Markdown and as HTML, with a footer pointing at the acknowledgements file. |
+| `pi-advisor-mail.timer`                | hourly              | The same, for a report that landed mid-send or failed to send.                                                                                           |
 
 ## Where things live on tiger
 
@@ -103,7 +103,11 @@ dependencies runs code of its own:
 - **Files:** `/mnt` and the local daemons' sockets are hidden from it.
 - **The mailer** is a separate `DynamicUser` unit and the only holder of the
   SMTP password. pi cannot start it, and it mails only plain files, never
-  a symlink.
+  a symlink. It renders the HTML part with pandoc in `--sandbox`, and
+  `mail.lua` turns images into links and shows raw HTML as code. An image
+  in a mail loads on open, so data in its URL would leave without a click,
+  the same leak `read_result`'s limit closes. It also prints each link's
+  URL beside its text, as the Markdown part shows it.
 
 What leaves tiger: every query result goes to z.ai, search queries and page
 URLs go to Kagi, and reports go to kyle@ondy.org.

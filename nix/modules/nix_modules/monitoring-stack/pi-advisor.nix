@@ -113,14 +113,25 @@ let
       pkgs.coreutils
       pkgs.curl
       pkgs.gnugrep
+      pkgs.pandoc
     ];
     text = ''
       # Report file names already sent, one per line.
       readonly MAILED="$STATE_DIRECTORY/mailed"
       readonly FOOTER="Already know about something in here? Add it to ${acks} on tiger and the daily sweeps will stop reporting it. Each entry covers one specific event, so a recurrence is still reported. Format: nix/modules/nix_modules/monitoring-stack/pi-advisor/README.md in the dotfiles repo."
+      # base64 has no "-", so no line of an encoded part can match it.
+      readonly BOUNDARY="pi-advisor-alternative"
       touch "$MAILED"
       shopt -s nullglob
       failed=0
+
+      # part <content-type>: stdin as one MIME part. base64 because a report
+      # is UTF-8 and its paragraphs run past SMTP's 998-octet line limit
+      # (RFC 5322, section 2.1.1).
+      part() {
+        printf -- '--%s\nContent-Type: %s; charset=utf-8\nContent-Transfer-Encoding: base64\n\n' "$BOUNDARY" "$1"
+        base64 -w 76
+      }
 
       for report in ${reports}/*.md; do
         # pi-advisor owns this directory, and this unit holds a credential
@@ -133,18 +144,31 @@ let
         # The first line is the header pi-advisor.sh writes from the alert's
         # labels or the sweep's name, never text from the model. Labels can
         # hold anything, so the subject keeps printable ASCII only, and stays
-        # well inside SMTP's 998-octet line limit (RFC 5322, section 2.1.1).
+        # well inside the line limit.
         subject=$(head -n 1 "$report" | LC_ALL=C tr -cd '[:print:]' | cut -c 1-200)
+        subject=''${subject#\# }
+        body=$(
+          cat "$report"
+          printf '\n\n---\n\n%s' "$FOOTER"
+        )
+
+        # --sandbox keeps pandoc from reading any file but the filter.
+        if ! html=$(pandoc -f gfm -t html5 -s --sandbox -L ${./pi-advisor/mail.lua} \
+          -M pagetitle="$subject" <<<"$body"); then
+          echo "could not render $name" >&2
+          failed=1
+          continue
+        fi
+
         if ! {
           printf 'From: %s\nTo: %s\nSubject: [pi-advisor] %s\nDate: %s\n' \
-            "${smtp.from}" "${concatStringsSep ", " smtp.to}" "''${subject#\# }" "$(date -R)"
-          # base64 because a report is UTF-8 and its paragraphs run past
-          # that same line limit.
-          printf 'MIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: base64\n\n'
-          {
-            cat "$report"
-            printf '\n\n---\n\n%s\n' "$FOOTER"
-          } | base64 -w 76
+            "${smtp.from}" "${concatStringsSep ", " smtp.to}" "$subject" "$(date -R)"
+          printf 'MIME-Version: 1.0\nContent-Type: multipart/alternative; boundary="%s"\n\n' "$BOUNDARY"
+          # A client shows the last part it can display (RFC 2046, section
+          # 5.1.4), so the Markdown stays for anything that cannot render HTML.
+          part text/plain <<<"$body"
+          part text/html <<<"$html"
+          printf -- '--%s--\n' "$BOUNDARY"
         } | curl -sS -m 60 --ssl-reqd --crlf -T - "smtp://${smtp.server}" \
           --variable "pw@$CREDENTIALS_DIRECTORY/smtp-password" \
           --expand-user "${smtp.username}:{{pw:trim}}" \
