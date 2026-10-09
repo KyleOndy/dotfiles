@@ -6,6 +6,11 @@
   "model": "opus[1m]",
   "outputStyle": "Direct",
   "effortLevel": "xhigh",
+  "modelSettings": {
+    "opus": {
+      "effortLevel": "xhigh"
+    }
+  },
   "alwaysThinkingEnabled": true,
   "syncClaudeAiSkills": false,
   "syncClaudeAiPlugins": false,
