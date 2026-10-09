@@ -89,7 +89,7 @@ Installed as a cask for app switching. macOS only draws its own switcher when
 Cmd+Tab is held, so a quick tap silently swaps to the previous app. After
 install, launch it once and grant **Accessibility** and **Screen Recording**
 permission in System Settings -> Privacy & Security. Its preferences, the
-Option+Tab trigger included, come from `nix/modules/darwin_modules/base.nix`
+Option+Tab trigger included, come from `nix/modules/darwin_modules/alt-tab.nix`
 and take effect the next time AltTab launches, since it caches them in memory.
 
 ## tiger's SMB Shares

@@ -1,6 +1,5 @@
 # Base darwin system configuration shared by all nix-darwin hosts.
 {
-  config,
   lib,
   pkgs,
   ...
@@ -145,26 +144,8 @@
         "60".enabled = false; # Select previous input source (Ctrl+Space)
         "61".enabled = false; # Select next source in input menu (Ctrl+Option+Space)
       };
-
-      # Values are indexes into AltTab's MacroPreferences.swift enums.
-      "com.lwouis.alt-tab-macos" = {
-        appearanceSize = "0"; # small
-        updatePolicy = "1"; # autoCheck
-      };
     };
   };
-
-  # AltTab's hold key stays on its default, Option. A stored shortcut is an
-  # NSKeyedArchiver blob that CustomUserPreferences cannot write, so clear any
-  # override instead.
-  system.activationScripts.postActivation.text =
-    let
-      user = lib.escapeShellArg config.system.primaryUser;
-    in
-    ''
-      launchctl asuser "$(id -u -- ${user})" sudo --user=${user} -- \
-        defaults delete com.lwouis.alt-tab-macos holdShortcut 2>/dev/null || true
-    '';
 
   # Many personal/dev tools require this
   nixpkgs.config.allowUnfree = true;
