@@ -1496,6 +1496,18 @@ in
           destinationPath = "${backup_path}/lidarr/";
         };
       };
+      lidarrSettings = {
+        enable = true;
+        apiKeyFile = config.sops.secrets.lidarr_api_key.path;
+        excludedArtists = {
+          "Chris Brown" = "c234fa42-e6a6-443e-937e-2f4b073538a3";
+          "Ye" = "164f0d73-1234-4e2c-8743-d77bf2191051";
+        };
+        # Vinyl rips: 24-bit images, WavPack and single-file FLAC with a cue
+        # sheet, none of which Lidarr imports. Blocklisting one release at a
+        # time never stopped the group.
+        rejectTerms = [ "REETKEVER" ];
+      };
       bazarr = {
         enable = true;
         group = mediaGroup;
