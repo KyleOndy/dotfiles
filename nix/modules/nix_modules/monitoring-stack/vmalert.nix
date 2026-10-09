@@ -442,27 +442,9 @@ in
                 summary: "Critical disk space on {{ $labels.host }}:{{ $labels.mountpoint }}"
                 description: "Disk space is below 3% on {{ $labels.host }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
 
-            # trex runs 85-90% full in normal use, so the 15% default sits
-            # inside its daily swing.
-            - alert: DiskSpaceLow
-              expr: (node_filesystem_avail_bytes{host="trex",fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"} / node_filesystem_size_bytes{host="trex",fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"} < 0.08) and on(host, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: warning
-              annotations:
-                summary: "Low disk space on {{ $labels.host }}:{{ $labels.mountpoint }}"
-                description: "Disk space is below 8% on {{ $labels.host }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
-
-            - alert: DiskSpaceCritical
-              expr: (node_filesystem_avail_bytes{host="trex",fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"} / node_filesystem_size_bytes{host="trex",fstype!~"tmpfs|fuse.*",mountpoint!~"/Volumes/.*"} < 0.04) and on(host, device, mountpoint) node_filesystem_readonly == 0
-              for: 5m
-              labels:
-                severity: critical
-              annotations:
-                summary: "Critical disk space on {{ $labels.host }}:{{ $labels.mountpoint }}"
-                description: "Disk space is below 4% on {{ $labels.host }} at {{ $labels.mountpoint }} ({{ $labels.device }}). Current: {{ $value | humanizePercentage }}"
-
-            # Default disk space alerts for all other filesystems.
+            # Default disk space alerts for all other filesystems. trex is a
+            # laptop whose usage swings daily and is managed by hand, so no
+            # disk space rule watches it.
             # macOS mounts removable media, .dmg installers and network shares
             # under /Volumes; none of them are this host's storage to manage, and
             # a writable USB stick evades the readonly guard below.
@@ -491,10 +473,10 @@ in
             - alert: DiskWillFillSoon
               expr: |
                 (
-                  predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}[24h], 24*3600) < 0
+                  predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",host!="trex",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}[24h], 24*3600) < 0
                   and
-                  node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}
-                    / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} < 0.20
+                  node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*",host!="trex",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"}
+                    / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*",host!="trex",mountpoint!="/mnt/media",mountpoint!~"/Volumes/.*"} < 0.20
                 )
                 and on(host, device, mountpoint) node_filesystem_readonly == 0
               for: 30m
