@@ -641,6 +641,11 @@ in
   systemd.services.lidarr = {
     serviceConfig.ReadWritePaths = [
       "/mnt/media/music"
+      # The library as it stood on 2026-10-09, before the restart from an
+      # empty one. Manual import moves albums back out of it. A missing
+      # ReadWritePaths entry fails the unit, so drop this line with the
+      # directory.
+      "/mnt/media/music-archive"
       "/mnt/scratch-big/downloads/complete/music"
     ];
     unitConfig.RequiresMountsFor = [
