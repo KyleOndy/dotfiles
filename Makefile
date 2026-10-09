@@ -199,3 +199,14 @@ flash-ergodox:
 .PHONY: flash-pad
 flash-pad: ## Flash the domestique push-to-talk pad
 	nix run .#flash-pad
+
+# Replaces the script Roundcube's Filters UI edits, so changes made there
+# are lost on the next push. The server rejects a script that fails to
+# parse, a still-encrypted git-crypt file included.
+SIEVE_CONNECT = pass show email/kyle@ondy.org | head -1 | nix run --inputs-from . nixpkgs\#sieve-connect -- \
+	--server london.mxroute.com --user kyle@ondy.org --passwordfd 0 --remotesieve managesieve
+
+.PHONY: sieve-push
+sieve-push: ## Upload and activate the ondy.org mail filters
+	$(SIEVE_CONNECT) --localsieve mail/ondy.org.sieve --upload
+	$(SIEVE_CONNECT) --activate
