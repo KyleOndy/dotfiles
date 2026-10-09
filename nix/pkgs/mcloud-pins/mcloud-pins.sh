@@ -21,8 +21,11 @@
 #                             work-config file this repo cannot see
 #   mcloud/<vendor>/<id>      every reference in the tree: sandbox.defaultArgs,
 #                             agent frontmatter, domestique's classifyModel
-#   advisor.ts                its own constant, unprefixed because it calls the
-#                             endpoint directly rather than through pi
+#   the installed pi wrapper  its sandbox.envVars as deployed: PI_ADVISOR_MODEL,
+#                             unprefixed because advisor.ts calls the endpoint
+#                             directly, and PI_AGENT_MODEL_<NAME> overrides. Read
+#                             from the build because work-config sets some of
+#                             them where this repo cannot see.
 #
 # Not a flake check: this needs the network and a credential, and `nix flake
 # check` has neither. Not a models.json generator either. `GET /v1/models`
@@ -32,14 +35,15 @@
 # owns that file declaratively and overwrites it on every activation.
 
 # The key goes to whatever baseUrl this file names, and every sandboxed pi
-# session can write ~/.pi. home-manager links the real one into the store, so
-# anything else is refused, and reads go to the resolved, immutable path.
-MODELS_JSON="$(realpath "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
+# session can write ~/.pi, so the link must be home-manager's. Only the first
+# hop is checked: on work-mac that store link points on to a file in the work
+# repo through mkOutOfStoreSymlink, which is home-manager's doing too.
+MODELS_JSON="$(readlink "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
 readonly MODELS_JSON
 case "$MODELS_JSON" in
 /nix/store/*) ;;
 *)
-	echo "mcloud-pins: ~/.pi/agent/models.json does not resolve into /nix/store (${MODELS_JSON:-missing}), so it was not written by home-manager" >&2
+	echo "mcloud-pins: ~/.pi/agent/models.json is not a link into /nix/store (${MODELS_JSON:-missing}), so it was not written by home-manager" >&2
 	exit 2
 	;;
 esac
@@ -84,10 +88,20 @@ if [ -n "$root" ]; then
 	done < <(grep -rnoE 'mcloud/[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+' \
 		--include='*.nix' --include='*.ts' --include='*.md' --include='*.sh' \
 		"$root" 2>/dev/null || true)
-	while IFS=: read -r file _line match; do
-		id="${match#*\"}"
-		pins+="${id%\"}	${file#"$root"/}"$'\n'
-	done < <(grep -rnoE 'ADVISOR_MODEL = "[^"]+"' --include='*.ts' "$root" 2>/dev/null || true)
+fi
+pi_bin="$(command -v pi 2>/dev/null || true)"
+env_vars="$([ -n "$pi_bin" ] && grep -oE '/nix/store/[a-z0-9]+-pi-env-vars' "$(realpath "$pi_bin")" | head -n 1 || true)"
+if [ -n "$env_vars" ]; then
+	while IFS=$'\t' read -r name value; do
+		case "$name" in
+		PI_ADVISOR_MODEL) pins+="$value	pi env $name"$'\n' ;;
+		PI_AGENT_MODEL_*)
+			if [[ $value == mcloud/* ]]; then
+				pins+="${value#mcloud/}	pi env $name"$'\n'
+			fi
+			;;
+		esac
+	done <"$env_vars"
 fi
 
 ids="$(printf '%s' "$pins" | cut -f1 | grep -v '^$' | sort -u)"
