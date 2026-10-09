@@ -613,6 +613,8 @@ in
   ) (lib.attrNames windowsBackupDirs);
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
+  # Read pi-advisor's reports in /var/lib/pi-advisor/reports.
+  users.users.kyle.extraGroups = [ "pi-advisor" ];
 
   # media is jellyfin's primary group (set below), so only the GPU groups
   # need adding here.
@@ -1765,6 +1767,12 @@ in
           passwordFile = config.sops.secrets.unpoller_password.path;
         };
 
+        piAdvisor = {
+          enable = true;
+          apiKeyFile = config.sops.secrets.pi_advisor_zai_api_key.path;
+          kagiApiKeyFile = config.sops.secrets.pi_advisor_kagi_api_key.path;
+        };
+
         # Scrape local exporters into the now-local VictoriaMetrics instance.
         vmagent = {
           enable = true;
@@ -2167,6 +2175,9 @@ in
     prowlarr_api_key.mode = "0400";
     bazarr_api_key.mode = "0400";
     sabnzbd_api_key.mode = "0400";
+    # pi-advisor's Z.ai and Kagi keys, read through LoadCredential.
+    pi_advisor_zai_api_key.mode = "0400";
+    pi_advisor_kagi_api_key.mode = "0400";
     bazarr_ui_password.owner = "bazarr";
     # PIA account credentials (EnvironmentFile: PIA_USER / PIA_PASS), read by
     # pia-wg-connect.service as root to authenticate the WireGuard + port

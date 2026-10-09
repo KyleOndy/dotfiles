@@ -50,6 +50,13 @@ Grafana (`monitoring-stack/default.nix`, sops key
 this in step with `nix/modules/hm_modules/terminal/email.nix`; check
 `dig ondy.org MX +short` if the provider changes.
 
+### pi-advisor
+
+pi, read-only on tiger, triages each new alert and sweeps logs and metrics
+daily, mailing its reports. Its acknowledged-issues file lives only on
+tiger, at `/var/lib/pi-advisor-acks/acknowledged.md`. Units, file format,
+tool boundary and secrets: `monitoring-stack/pi-advisor/README.md`.
+
 ### Adding an exporter
 
 1. Write `monitoring-stack/<name>.nix` with options under
