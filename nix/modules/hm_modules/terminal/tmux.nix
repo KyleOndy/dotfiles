@@ -172,6 +172,14 @@ in
         bind-key -T copy-mode-vi 'M-l' select-pane -R
         bind-key -T copy-mode-vi 'M-\' select-pane -l
 
+        # move the pane itself, with the shifted keys of the focus bindings.
+        # -d is what keeps focus on the moved pane; without it focus stays
+        # put and lands on the pane that was swapped in.
+        bind-key -n 'M-H' swap-pane -d -t '{left-of}'
+        bind-key -n 'M-J' swap-pane -d -t '{down-of}'
+        bind-key -n 'M-K' swap-pane -d -t '{up-of}'
+        bind-key -n 'M-L' swap-pane -d -t '{right-of}'
+
         # ----------------------
         # Window Navigation
         # ----------------------
