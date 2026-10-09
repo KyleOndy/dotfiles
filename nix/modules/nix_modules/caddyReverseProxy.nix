@@ -239,6 +239,12 @@ in
       description = "Open 80 and 443 on every interface. Disable to open them per interface instead.";
     };
 
+    metricsPort = mkOption {
+      type = types.port;
+      default = 2020;
+      description = "Port on 127.0.0.1 where Caddy serves its Prometheus metrics.";
+    };
+
     infraDomain = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -343,10 +349,22 @@ in
       # raw request Host, which on a public :443 grows a permanent series for
       # every header a scanner sends. Per-site traffic comes from the access
       # logs in Loki instead.
+      #
+      # The admin API replaces Caddy's whole config on request, with no auth,
+      # so it listens where only caddy can reach it; `caddy reload` reads the
+      # address from the config it loads. Metrics get a loopback site with no
+      # log block, which keeps scrapes out of the access logs Alloy ships.
       globalConfig = ''
         email ${cfg.acme.email}
         acme_dns route53
         metrics
+        admin unix//run/caddy/admin.sock
+      '';
+      extraConfig = ''
+        http://127.0.0.1:${toString cfg.metricsPort} {
+          bind 127.0.0.1
+          metrics
+        }
       '';
 
       virtualHosts = mkMerge [
@@ -393,8 +411,11 @@ in
     };
 
     # Route53 credentials for ACME DNS-01 (read by systemd as root before privilege drop)
-    systemd.services.caddy.serviceConfig.EnvironmentFile =
-      config.sops.secrets.${cfg.acme.credentialsSecret}.path;
+    systemd.services.caddy.serviceConfig = {
+      EnvironmentFile = config.sops.secrets.${cfg.acme.credentialsSecret}.path;
+      RuntimeDirectory = "caddy";
+      RuntimeDirectoryMode = "0700";
+    };
 
     # `mode 640` only governs files Caddy creates from here on. Logs already on
     # disk keep the 0600 they were opened with until they roll.

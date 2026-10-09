@@ -1892,13 +1892,13 @@ in
               ];
             }
             {
-              # Caddy's own admin endpoint, turned on by `servers { metrics }`
-              # in caddyReverseProxy.nix. Not a separate exporter, so there is
-              # no unit to check when this job goes down: it means Caddy is.
+              # Caddy's own loopback metrics site, from caddyReverseProxy.nix.
+              # Not a separate exporter, so there is no unit to check when
+              # this job goes down: it means Caddy is.
               job_name = "caddy";
               static_configs = [
                 {
-                  targets = [ "127.0.0.1:2019" ];
+                  targets = [ "127.0.0.1:${toString config.systemFoundry.caddyReverseProxy.metricsPort}" ];
                   labels = {
                     host = "tiger";
                   };
