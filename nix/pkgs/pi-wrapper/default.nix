@@ -78,6 +78,8 @@
   # --allow-loopback is passed), srt's macOS profile permits bind/listen on
   # loopback only, external network is still gated by the domain allowlist.
   defaultAllowLoopback ? false,
+  # Days to keep ~/.pi/agent/task-logs and job-logs files; null keeps them.
+  logKeepDays ? null,
   # Default for srt's enableWeakerNetworkIsolation setting. When true (or when
   # --allow-trustd is passed, or when an invoked bundle declares trustd=true),
   # the macOS sandbox profile permits com.apple.trustd.agent mach lookups so
@@ -233,6 +235,7 @@ let
         "@envVarsFile@"
         "@networkBundlesFile@"
         "@defaultAllowLoopback@"
+        "@logKeepDays@"
         "@defaultAllowTrustd@"
         "@defaultAllowNix@"
         "@defaultAllowForge@"
@@ -257,6 +260,7 @@ let
         "${envVarsFile}"
         "${networkBundlesFile}"
         (if defaultAllowLoopback then "true" else "false")
+        (if logKeepDays == null then "" else toString logKeepDays)
         (if defaultAllowTrustd then "true" else "false")
         (if defaultAllowNix then "true" else "false")
         (if defaultAllowForge then "true" else "false")

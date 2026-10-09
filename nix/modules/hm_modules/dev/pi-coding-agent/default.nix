@@ -123,6 +123,7 @@ let
           };
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
+        inherit (cfg.sandbox) logKeepDays;
         defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
         gitWriteMode = cfg.sandbox.gitWrite;
@@ -366,6 +367,18 @@ in
           branch cannot move these. A `git pack-refs` or `git gc` rewrite of
           the packed-refs file still can; treat this as a guardrail, not a
           boundary.
+        '';
+      };
+
+      logKeepDays = lib.mkOption {
+        type = lib.types.nullOr lib.types.ints.positive;
+        default = null;
+        description = ''
+          Days the wrapper keeps files in ~/.pi/agent/task-logs (subagent
+          transcripts) and ~/.pi/agent/job-logs (background bash output)
+          before deleting them at startup. null keeps them forever, so
+          every run stays available for analysis and the two directories
+          grow without bound.
         '';
       };
 

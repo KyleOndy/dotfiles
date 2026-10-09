@@ -132,7 +132,11 @@ pi_cache_root="$HOME/.pi/sandbox-cache"
 # never read one back, its own included. Reading them is a job for the human,
 # outside the sandbox.
 pi_task_log_dir="$HOME/.pi/agent/task-logs"
-pi_task_log_keep_days=30
+# Background bash output (extensions/stall-guard.ts). Unlike task-logs the
+# agent reads these back, since it tails its own jobs.
+pi_job_log_dir="$HOME/.pi/agent/job-logs"
+# Days before both log dirs are pruned; empty keeps everything.
+pi_log_keep_days=@logKeepDays@
 
 # Env vars kept through the secret-suffix scrub even though their names look
 # secret-bearing. Anything the wrapper injects via envFromCommands/envVars is
@@ -372,9 +376,12 @@ __pi_set_hardening_env() {
 	# mkdir -p does inside, and pruned out here because nothing under the deny
 	# can enumerate what it wrote.
 	export PI_TASK_LOG_DIR="$pi_task_log_dir"
+	export PI_JOB_LOG_DIR="$pi_job_log_dir"
 	if [[ ${PI_DEBUG:-} != "plan" ]]; then
-		mkdir -p "$pi_task_log_dir" 2>/dev/null || true
-		find "$pi_task_log_dir" -type f -mtime +"$pi_task_log_keep_days" -delete 2>/dev/null || true
+		mkdir -p "$pi_task_log_dir" "$pi_job_log_dir" 2>/dev/null || true
+		if [[ -n $pi_log_keep_days ]]; then
+			find "$pi_task_log_dir" "$pi_job_log_dir" -type f -mtime +"$pi_log_keep_days" -delete 2>/dev/null || true
+		fi
 	fi
 }
 
