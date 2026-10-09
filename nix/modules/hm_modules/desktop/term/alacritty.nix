@@ -64,7 +64,7 @@ in
             family = "Berkeley Mono Nerd Font Mono";
             style = "Bold Oblique";
           };
-          size = 13;
+          size = 14;
         };
         colors = {
           # Colors (Gruvbox dark)
