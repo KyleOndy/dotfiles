@@ -1,6 +1,6 @@
 ---
 name: personal-prose
-description: "Kyle's prose voice and anti-AI-ism rules. Apply whenever writing any non-code text on Kyle's behalf: commit message bodies, PR descriptions and reviews, documentation, READMEs, blog posts, emails."
+description: "Kyle's prose voice and anti-AI-ism rules. Apply whenever writing any non-code text on Kyle's behalf: commit message bodies, PR descriptions and reviews, documentation, READMEs, blog posts, emails, Slack messages."
 ---
 
 # Personal Prose Style
@@ -47,6 +47,24 @@ When writing prose, documentation, or any non-code text on my behalf, match my n
 - Bullet lists with **bold label**: description for enumerated items.
 - Close a longer list or status update with a flat one-line summary sentence.
 - Parentheticals for quick asides.
+
+### Slack
+
+My composer has "Format messages with markup" on, so drafts I paste use
+Slack's markup, not GitHub markdown:
+
+- Links are `[text](url)`, never a bare URL. `<url|text>` is the API's
+  mrkdwn and shows up literally when pasted.
+- Bold is `*text*`, so a bold label is `*Label*:`. Italic `_text_`,
+  strikethrough `~text~`.
+- Bullets with `-`, inline code in backticks, no headings or tables.
+
+The Slack MCP tools take standard markdown instead: `**bold**`, `[text](url)`.
+
+```text
+Fixed upstream in [envoyproxy/gateway#9042](https://github.com/envoyproxy/gateway/pull/9042).
+- [Listener updates, last 24h](https://app.datadoghq.com/logs?query=...): still churning on prod-1.
+```
 
 ## Never Do
 

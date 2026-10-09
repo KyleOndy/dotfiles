@@ -39,7 +39,7 @@ Full ruleset: the code-comments skill.
 ## Writing on My Behalf
 
 When writing prose (commit bodies, PR descriptions, docs, blog posts,
-email), follow the personal-prose skill.
+email, Slack), follow the personal-prose skill.
 
 Always, everywhere, including code comments and commit subjects: no
 emojis, no em dashes.
