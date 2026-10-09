@@ -42,7 +42,7 @@ unless pi starts with `--advisor`, and stays silent when either var or
 carries a `model:` pin in its frontmatter, because `extensions/task.ts` takes
 a named agent's model only from that field and otherwise reuses the
 session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
-per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's kimi-k2.7-code
+per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's minimax-m3
 so the critic stays off the personal Z.ai plan.
 
 `pi --coordinator` (work-mac and trex, `coordinator.enable`) gives the
