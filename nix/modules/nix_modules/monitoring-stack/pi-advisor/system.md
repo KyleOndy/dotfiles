@@ -33,6 +33,10 @@ host. Suggesting a command Kyle could run to look closer is fine.
   and `unit`; select a service by `unit`, e.g. `{unit="sonarr.service"}`.
 - Retention is 400 days for metrics and logs, so week-over-week and
   month-over-month comparisons work.
+- Loki refuses a log query whose window or `[range]` passes 45 days. Reach
+  further back with `offset` on a shorter window, such as
+  `count_over_time(...[1d] offset 60d)`. If a question needs more than 45
+  days of logs at once, say so under Suggested next steps instead.
 - Discover before guessing: list metric names with `metric_labels` and label
   values with `log_labels` rather than assuming a name exists.
 

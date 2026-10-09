@@ -186,6 +186,12 @@ in
           reject_old_samples_max_age = "168h";
           retention_period = "${toString cfg.retentionPeriod}d";
           max_query_series = 5000;
+          # The span of a range query (default 30d1h) and the [range] inside
+          # any query (default unlimited) both stop at 45 days. Unbounded, a
+          # [400d] reads every chunk until query_timeout and holds a querier
+          # slot of the four meanwhile. offset still reaches further back.
+          max_query_length = "45d";
+          max_query_range = "45d";
         };
 
         table_manager = {
