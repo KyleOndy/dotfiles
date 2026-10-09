@@ -74,7 +74,7 @@ resource "aws_route53_record" "ondy_org_dmarc" {
   name    = "_dmarc.ondy.org"
   type    = "TXT"
   ttl     = "3600"
-  records = ["v=DMARC1; p=none; rua=mailto:kyle@ondy.org"]
+  records = ["v=DMARC1; p=quarantine; rua=mailto:kyle@ondy.org"]
 }
 
 resource "aws_route53_record" "ondy_org_txt_atproto" {
