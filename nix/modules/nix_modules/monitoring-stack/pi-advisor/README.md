@@ -5,6 +5,11 @@ firing, and every morning it reviews the last day of logs and metrics for
 what the static rules miss. It changes nothing. It writes reports, and a
 separate unit mails them.
 
+Its web research is deliberately thin: a few searches a run, snippets only,
+no page reads (see [the boundary](#the-boundary)). A report is a starting
+point, and a finding that rests on an upstream page may need a closer read
+by us before we act on it. Every email says so in its footer.
+
 The module is `../pi-advisor.nix`. Prompts and tools live beside this file.
 
 ## What runs
@@ -84,10 +89,19 @@ are in `tools.ts`:
   supplies a query, never a URL. That matters because the same ports serve
   VictoriaMetrics' `delete_series`, Loki's delete API and Alertmanager's
   silences.
-- **`web_search`**: Kagi search, at most 5 a run.
-- **`read_result`**: Kagi's extractor, at most 5 pages a run, and only for a
-  URL `web_search` returned in the same run. A free-form fetch would let the
-  model put data in a URL and send it anywhere.
+- **`web_search`**: Kagi search, at most 5 a run, returning titles, URLs and
+  snippets.
+
+Nothing opens a page. A fetch sends its URL to the server it names, so a
+prompt injection could have the model put what it has read into that URL.
+Fetching only URLs a search returned does not stop that: Kagi returns a URL
+typed as the query as its own top result, indexed or not. OpenAI's write-up
+of the same problem, [Preventing
+URL-Based Data Exfiltration in Language-Model
+Agents](https://cdn.openai.com/pdf/dd8e7875-e606-42b4-80a1-f824e4e11cf4/prevent-url-data-exfil.pdf),
+reached the same verdict on "URLs ... returned in search results" and on
+domain allowlists, which open redirects defeat. Its fix needs a crawler
+index of our own.
 
 A run gets at most 60 queries.
 
@@ -106,11 +120,11 @@ dependencies runs code of its own:
   a symlink. It renders the HTML part with pandoc in `--sandbox`, and
   `mail.lua` turns images into links and shows raw HTML as code. An image
   in a mail loads on open, so data in its URL would leave without a click,
-  the same leak `read_result`'s limit closes. It also prints each link's
-  URL beside its text, as the Markdown part shows it.
+  the same leak that keeps page fetches out of the tools. It also prints
+  each link's URL beside its text, as the Markdown part shows it.
 
-What leaves tiger: every query result goes to z.ai, search queries and page
-URLs go to Kagi, and reports go to kyle@ondy.org.
+What leaves tiger: every query result goes to z.ai, search queries go to
+Kagi, and reports go to kyle@ondy.org.
 
 ## Secrets
 
@@ -139,8 +153,7 @@ journalctl -u pi-advisor-alerts -u pi-advisor-sweep -u pi-advisor-mail
 ```
 
 Each `wrote` line in the journal carries that run's token counts, summed
-over its model requests, plus how many queries, searches and page reads it
-made.
+over its model requests, plus how many queries and searches it made.
 
-An alert triage takes 4 to 5 minutes. Kagi costs at most $0.08 a run. The
+An alert triage takes 4 to 5 minutes. Kagi costs at most $0.06 a run. The
 model runs on the z.ai plan.

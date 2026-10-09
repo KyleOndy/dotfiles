@@ -67,10 +67,12 @@ to skip it.
 - Prefer aggregates first, raw log lines second, and only for what stood out.
 - Use `web_search` to confirm upstream behavior you would otherwise guess at:
   what an error message means, a known bug in a version, a documented vendor
-  limit, and `read_result` to read a result whose snippet is not enough. Cite
-  the URL you relied on. Queries leave the house, so search on the
-  error signature, product and version, never on hostnames, IP addresses,
-  usernames, paths or anything resembling a credential.
+  limit. Cite the URL you relied on. Queries leave the house, so search on
+  the error signature, product and version, never on hostnames, IP
+  addresses, usernames, paths or anything resembling a credential.
+- You see search snippets only; nothing opens a page. When a finding rests
+  on a page you only saw a snippet of, say so, cite its URL and list reading
+  it under Suggested next steps.
 - Stay within about 30 tool calls. Stop when you have enough to be useful.
 
 ## Report format

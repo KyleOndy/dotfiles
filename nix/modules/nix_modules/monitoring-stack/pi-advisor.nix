@@ -11,8 +11,8 @@
 #
 # The boundary is the tool list. pi runs with no built-in tools (no bash,
 # read, write or edit) and only the tools in pi-advisor/tools.ts: queries
-# that each call one fixed GET path, a Kagi web search, and a Kagi page read
-# limited to URLs that search returned. The unit confines pi itself, in case
+# that each call one fixed GET path, and a Kagi web search that returns
+# snippets and never opens a page. The unit confines pi itself, in case
 # pi or one of its dependencies ever runs code of its own: its own user, no
 # capabilities, the state directory and a private /tmp as the only writable
 # paths, the model and search keys as the only credentials, no route to the
@@ -118,7 +118,9 @@ let
     text = ''
       # Report file names already sent, one per line.
       readonly MAILED="$STATE_DIRECTORY/mailed"
-      readonly FOOTER="Already know about something in here? Add it to ${acks} on tiger and the daily sweeps will stop reporting it. Each entry covers one specific event, so a recurrence is still reported. Format: nix/modules/nix_modules/monitoring-stack/pi-advisor/README.md in the dotfiles repo."
+      readonly FOOTER="Web research behind this report is limited on purpose: the advisor gets at most 5 searches a run and sees only their snippets, never the pages, since opening a page would give it a way to send data out. Treat the links as leads; anything that rests on one may need a closer read before acting on it.
+
+      Already know about something in here? Add it to ${acks} on tiger and the daily sweeps will stop reporting it. Each entry covers one specific event, so a recurrence is still reported. Format: nix/modules/nix_modules/monitoring-stack/pi-advisor/README.md in the dotfiles repo."
       # base64 has no "-", so no line of an encoded part can match it.
       readonly BOUNDARY="pi-advisor-alternative"
       touch "$MAILED"
