@@ -15,15 +15,34 @@ let
   trexSources = "10.24.89.0/24,192.168.5.0/24";
   service_root = "/var/lib";
 
-  # Directory under /mnt/backups -> the POSIX account that owns it, for each
-  # Windows machine mirroring in over SMB. Drives both the tmpfiles rules and
-  # the heartbeat exporter, so a machine cannot end up with a directory
-  # nothing watches or an alert label with no directory. The share itself is
-  # declared literally alongside the other two. Client side is
-  # docs/windows-backup.md.
+  # Directory under /mnt/backups -> the Windows machine that mirrors into it
+  # with Syncthing, so a machine cannot end up with a directory nothing
+  # watches. Client side is docs/windows-backup.md.
+  #
+  # device null means enrolled but not yet paired: the folders exist, are
+  # shared with nobody, and the exporter reports the never-ran sentinel.
   windowsBackupDirs = {
-    kristen-data = "kristen";
+    kristen-data = {
+      device = null;
+      folders = [
+        "Desktop"
+        "Documents"
+        "Dropbox"
+        "Pictures"
+      ];
+    };
   };
+  # id is the Syncthing folder ID, which the laptop accepts tiger's offer under.
+  windowsBackupFolders = lib.concatLists (
+    lib.mapAttrsToList (
+      dir: m:
+      map (folder: {
+        inherit dir folder;
+        inherit (m) device;
+        id = "${dir}-${lib.toLower folder}";
+      }) m.folders
+    ) windowsBackupDirs
+  );
 
   # Local Alertmanager endpoint; NUT pushes UPS events here so they email out
   # the same way as every other monitoring alert.
@@ -586,17 +605,12 @@ in
     #   setfacl -R -m g:immich:rX /mnt/photos/personal/photos/archive
     "A+ /mnt/photos/personal/photos/archive - - - - g:immich:rX"
   ]
-  # Only the directory. _heartbeat cannot be seeded here: /mnt/backups is
-  # owned by kyle and these are owned per-machine, and systemd-tmpfiles
-  # refuses to canonicalize a path across that ownership change.
-  #
-  #   Detected unsafe path transition /mnt/backups (owned by kyle) ->
-  #   /mnt/backups/kristen-data (owned by kristen)
-  #
-  # The client creates it instead, which is the better split anyway: a
-  # machine that has never run reads 0 and a machine that stopped reads
-  # stale, so the two cases get two alerts instead of one.
-  ++ lib.mapAttrsToList (dir: user: "d /mnt/backups/${dir} 0750 ${user} ${user} -") windowsBackupDirs;
+  # Syncthing creates each folder beneath this, which it cannot do in
+  # /mnt/backups itself (owned by kyle).
+  ++ map (
+    dir:
+    "d /mnt/backups/${dir} 0750 ${config.services.syncthing.user} ${config.services.syncthing.group} -"
+  ) (lib.attrNames windowsBackupDirs);
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
 
@@ -746,31 +760,8 @@ in
         "create mask" = "0644";
         "directory mask" = "0755";
       };
-      # The client mirrors with `robocopy /MIR`, so this share carries delete
-      # rights over its whole path. Hence one subdirectory rather than
-      # /mnt/backups: rooting it at the dataset would put kyle/, videos/,
-      # apps/ and the 185G in kristen/ that predates this share inside the
-      # blast radius of one machine's mirror job.
-      tiger-kristen-data = {
-        path = "/mnt/backups/kristen-data";
-        "valid users" = "kristen";
-        "read only" = "no";
-        "force user" = "kristen";
-        "force group" = "kristen";
-        "create mask" = "0644";
-        "directory mask" = "0755";
-      };
     };
   };
-
-  # smbd keeps its own passdb, but `force user` and NSS still need a POSIX
-  # account to resolve against. No password and no groups: its whole
-  # authority is the share.
-  users.users.kristen = {
-    isSystemUser = true;
-    group = "kristen";
-  };
-  users.groups.kristen = { };
 
   # Seed the Samba passwords (separate from the system login passwords) from
   # sops secrets before smbd starts, the same pattern as nut-genpass below but
@@ -798,30 +789,110 @@ in
       ''
         set -euo pipefail
         ${seed "kyle" config.sops.secrets.smb_kyle_password.path}
-        ${seed "kristen" config.sops.secrets.smb_kristen_password.path}
       '';
   };
 
-  # tiger initiates nothing here, so a Windows scheduled task that quietly
-  # stops running leaves no failed unit and no exit code to watch. The client
-  # writes _heartbeat after a clean mirror and this publishes its mtime, which
-  # is what makes the alerts absence-based like the rest of the backup rules.
+  # One-way: the laptop's folders are send-only and these are receive-only,
+  # so nothing on tiger ever reaches the laptop, and a deletion that
+  # propagates is undone from a snapshot. No Syncthing versioning, since
+  # sanoid and pika already keep the history.
   #
-  # mtime and not file contents: the write arrives over SMB, so it carries
-  # tiger's clock. A PC with a wrong clock cannot report itself fresh.
+  # LAN only. Discovery and relays would carry the laptop's traffic through
+  # public servers, and NAT traversal would ask the router to forward 22000
+  # from the WAN. The laptop dials tiger by name, so tiger never has to reach
+  # into the LAN, which the router forbids anyway.
+  services.syncthing = {
+    enable = true;
+    settings = {
+      options = {
+        globalAnnounceEnabled = false;
+        localAnnounceEnabled = false;
+        relaysEnabled = false;
+        natEnabled = false;
+      };
+      devices = lib.mapAttrs (_: m: { id = m.device; }) (
+        lib.filterAttrs (_: m: m.device != null) windowsBackupDirs
+      );
+      # The label is what the laptop's accept dialog appends to its home
+      # directory for the default path, so "Documents" proposes the real one.
+      folders = lib.listToAttrs (
+        map (
+          f:
+          lib.nameValuePair f.id {
+            path = "/mnt/backups/${f.dir}/${f.folder}";
+            label = f.folder;
+            type = "receiveonly";
+            devices = lib.optional (f.device != null) f.dir;
+            # Dropbox's own trash and staging area, not her files.
+            ignorePatterns = [ "/.dropbox.cache" ];
+          }
+        ) windowsBackupFolders
+      );
+    };
+  };
+
+  # tiger initiates nothing, so a laptop that stops running Syncthing leaves
+  # no failed unit and no exit code to watch. This asks tiger's Syncthing
+  # whether the laptop is sharing every one of its folders and tiger has
+  # nothing left to pull, and on a yes touches a per-machine stamp. The
+  # stamp's mtime is the last success, on disk so that a restart of either
+  # end does not reset it.
   systemd.services.win-backup-exporter = {
     description = "Export Windows backup freshness to node_exporter textfile";
     serviceConfig = {
       Type = "oneshot";
       User = "root";
+      StateDirectory = "win-backup-exporter";
     };
-    path = [ pkgs.coreutils ];
+    path = [
+      pkgs.coreutils
+      pkgs.curl
+      pkgs.jq
+      pkgs.libxml2
+    ];
     script = ''
       set -euo pipefail
       readonly OUTFILE="/var/lib/prometheus-node-exporter-text-files/windows_backup.prom"
+      readonly ST_CONFIG="${config.services.syncthing.configDir}/config.xml"
+
+      # The key goes to curl on stdin, never on its command line.
+      api() {
+        printf 'header = "X-API-Key: %s"\n' \
+          "$(xmllint --xpath 'string(configuration/gui/apikey)' "$ST_CONFIG")" |
+          curl -sf -K - "http://${config.services.syncthing.guiAddress}/rest/$1"
+      }
+
+      # in_sync <device> <folder>...
+      # remoteState is "valid" only while the device is connected and sharing
+      # that folder back, so a folder the laptop never accepted, or paused,
+      # cannot read as in sync just because tiger has nothing to pull.
+      in_sync() {
+        local device=$1 folder
+        shift
+        for folder in "$@"; do
+          api "db/completion?folder=$folder&device=$device" |
+            jq -e '.remoteState == "valid"' >/dev/null || return 1
+          api "db/status?folder=$folder" |
+            jq -e '.state == "idle" and .needTotalItems == 0 and .pullErrors == 0' >/dev/null || return 1
+        done
+      }
+
+      ${lib.concatStrings (
+        lib.mapAttrsToList (
+          dir: m:
+          lib.optionalString (m.device != null) ''
+            if in_sync ${m.device} ${
+              lib.concatMapStringsSep " " (f: f.id) (lib.filter (f: f.dir == dir) windowsBackupFolders)
+            }; then
+              touch "$STATE_DIRECTORY/${dir}"
+            fi
+          ''
+        ) windowsBackupDirs
+      )}
+
       tmp=$(mktemp "$OUTFILE.XXXXXX")
       {
-        printf '# HELP windows_backup_last_success_timestamp_seconds Unix time this machine last completed a mirror\n'
+        printf '# HELP windows_backup_last_success_timestamp_seconds Unix time tiger last saw this machine connected and fully synced\n'
         printf '# TYPE windows_backup_last_success_timestamp_seconds gauge\n'
         # mtime and not %W: birth time reads 0 where the filesystem does not
         # carry it, and a 0 anchor makes the grace window in
@@ -829,7 +900,7 @@ in
         printf '# HELP windows_backup_target_mtime_seconds Unix time this machine directory last changed\n'
         printf '# TYPE windows_backup_target_mtime_seconds gauge\n'
         ${lib.concatMapStrings (dir: ''
-          ts=$(stat -c %Y "/mnt/backups/${dir}/_heartbeat" 2>/dev/null || echo 0)
+          ts=$(stat -c %Y "$STATE_DIRECTORY/${dir}" 2>/dev/null || echo 0)
           created=$(stat -c %Y "/mnt/backups/${dir}" 2>/dev/null || echo 0)
           printf 'windows_backup_last_success_timestamp_seconds{machine="%s"} %s\n' "${dir}" "$ts"
           printf 'windows_backup_target_mtime_seconds{machine="%s"} %s\n' "${dir}" "$created"
@@ -844,7 +915,8 @@ in
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnBootSec = "5min";
-      OnUnitActiveSec = "1h";
+      # Short enough to catch a laptop opened for half an hour.
+      OnUnitActiveSec = "15min";
       Persistent = true;
     };
   };
@@ -1048,8 +1120,12 @@ in
       80
       443
       445
+      22000
     ];
-    allowedUDPPorts = [ 5353 ];
+    allowedUDPPorts = [
+      5353
+      22000
+    ];
   };
   # sshd answers only the LAN and trex's WireGuard pool; nothing in the DMZ
   # logs in. IPv6 gets no rule, so ssh over v6 is refused.
@@ -2118,7 +2194,6 @@ in
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
-    smb_kristen_password.mode = "0400";
     # Full MXRoute account password: it can also delete mail and send as
     # kyle@ondy.org. Read by mail-backup, which runs as kyle.
     email_kyle_ondy_org = {

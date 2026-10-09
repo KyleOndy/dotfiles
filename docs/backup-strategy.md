@@ -97,17 +97,18 @@ push is declared per dataset. "How many copies does this have?" is still
 
 ### Writers into storage/backups
 
-A Windows PC mirrors `Documents`, `Pictures` and `Desktop` into
-`/mnt/backups/kristen-data` over SMB, on a nightly scheduled task. See
-[windows-backup.md](windows-backup.md).
+Kristen's Windows laptop mirrors `Desktop`, `Documents`, `Dropbox` and
+`Pictures` into `/mnt/backups/kristen-data` with Syncthing, whenever it is
+at home and awake. See [windows-backup.md](windows-backup.md).
 
 Its freshness alert works differently from the others. Every other writer
 here runs on a timer on a host we control and reports its own success
 (the git bundles, histdb and mail through node_exporter's textfile
 collector),
-so absence is measurable from the inside. The Windows push is not, so the
-client writes a heartbeat file on success and tiger alerts on its age. Any
-future writer that lives off-fleet needs the same treatment.
+so absence is measurable from the inside. The laptop is not, so tiger asks
+its own Syncthing every 15 minutes whether the laptop is connected and fully
+synced, stamps a file when it is, and alerts on the stamp's age. Any future
+writer that lives off-fleet needs the same treatment.
 
 `/mnt/backups/kyle` holds the git bundles below, the dotfiles git-crypt
 key, shell history and mail, and `/mnt/backups/apps` holds \*arr backup zips that
@@ -906,11 +907,11 @@ design, not a demonstrated capability.
 
 **Freshness for `backup-resolve-projects`.** It is run by hand, so its
 absence is not measurable from the inside, which is the same hole the
-Windows push has. The Windows fix does not port directly: that push is
-nightly, so a heartbeat older than a day is unambiguously a fault. This one
-legitimately does not run for weeks between projects, so a naive staleness
-alert would fire through every gap and get silenced, which is worse than no
-alert.
+Windows laptop has. The Windows fix does not port directly: that laptop
+syncs whenever it is home and awake, so two weeks without a sync is a fault.
+This one legitimately does not run for weeks between projects, so a naive
+staleness alert would fire through every gap and get silenced, which is
+worse than no alert.
 
 The existing replication rules do not cover it either. sanoid keeps
 snapshotting `storage/projects` whether or not anything new lands in it, so

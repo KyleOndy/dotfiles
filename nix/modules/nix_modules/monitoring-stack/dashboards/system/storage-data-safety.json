@@ -21,7 +21,7 @@
     {
       "type": "stat",
       "title": "Chain Freshness",
-      "description": "Time since each link last succeeded. Thresholds match the alert boundaries: 36h warns, 72h is critical.",
+      "description": "Time since each link last succeeded. Thresholds match the alert boundaries: 36h warns, 72h is critical, except Windows, which warns at 14 days because the machine is a laptop that travels.",
       "gridPos": { "h": 7, "w": 14, "x": 0, "y": 1 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
@@ -76,7 +76,26 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "windows .* \\(success\\)"
+            },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 1209600 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       }
     },
     {

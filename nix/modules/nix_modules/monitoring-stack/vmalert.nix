@@ -941,35 +941,31 @@ in
                 summary: "Offsite reconciliation for one prefix has never recorded a run"
                 description: "No s3_reconcile_last_run_timestamp_seconds series exists for one of the two prefixes. The timers are weekly, photos on Sunday and backups on Monday, so 8 days is one full cycle plus slack. Check `systemctl status s3-archive-prune-photos s3-archive-prune-backups` on pika."
 
-        # Windows machines mirroring into storage/backups over SMB
+        # Windows machines mirroring into storage/backups with Syncthing
         # (docs/windows-backup.md). Once the files land, tiger's snapshots,
         # pika and the S3 tier already cover them and the groups above already
-        # watch that. The only leg with no coverage is the client, and it is
-        # the one leg nothing in this fleet controls: the push is a Windows
-        # scheduled task, so there is no unit to fail here when it stops.
+        # watch that. The only leg with no coverage is the laptop, and it is
+        # the one leg nothing in this fleet controls, so there is no unit to
+        # fail here when it stops.
         - name: windows_backup
           interval: 60s
           rules:
+            # 14 days rather than the 36h of every other backup here: the
+            # machine is a laptop that travels, and tiger is reachable only
+            # from home, so a two-week trip is a healthy gap.
+            #
             # `> 0` is load-bearing for the same reason it is in ZpoolScrubStale
-            # above: a missing heartbeat reports the sentinel 0 and `time() - 0`
-            # reads as 1970. WindowsBackupHeartbeatMissing covers that case.
+            # above: a machine never synced reports the sentinel 0 and
+            # `time() - 0` reads as 1970. WindowsBackupNeverSucceeded covers
+            # that case.
             - alert: WindowsBackupStale
-              expr: time() - (windows_backup_last_success_timestamp_seconds{host="tiger"} > 0) > 36 * 3600
+              expr: time() - (windows_backup_last_success_timestamp_seconds{host="tiger"} > 0) > 14 * 86400
               for: 1h
               labels:
                 severity: warning
               annotations:
-                summary: "Windows backup of {{ $labels.machine }} is over 36 hours old"
-                description: "{{ $labels.machine }} has not completed a mirror in over 36 hours, against a daily scheduled task. The PC being off explains it; so does a task that has silently stopped, a changed SMB password, or a full pool. Check the Task Scheduler history and %LOCALAPPDATA%\\tiger-backup.log on the PC."
-
-            - alert: WindowsBackupCriticallyStale
-              expr: time() - (windows_backup_last_success_timestamp_seconds{host="tiger"} > 0) > 72 * 3600
-              for: 1h
-              labels:
-                severity: critical
-              annotations:
-                summary: "Windows backup of {{ $labels.machine }} is over 72 hours old"
-                description: "Three daily runs of the {{ $labels.machine }} mirror have failed to land anything. Whatever that PC has created since then exists only on that PC."
+                summary: "Windows backup of {{ $labels.machine }} is over 14 days old"
+                description: "tiger has not seen {{ $labels.machine }} connected and fully synced in over 14 days. A long trip explains it. So does Syncthing no longer starting at logon on the laptop, its folders paused or no longer send-only, or a full pool on tiger. Check `systemctl status syncthing` on tiger and the Syncthing web UI on the laptop. Whatever that laptop has created since then exists only on it."
 
             # Age in the expression rather than in `for:`, for the reason
             # ZpoolNeverScrubbed gives above. The directory mtime is the grace
@@ -981,8 +977,8 @@ in
               labels:
                 severity: warning
               annotations:
-                summary: "Windows backup of {{ $labels.machine }} has never run"
-                description: "/mnt/backups/{{ $labels.machine }} was created over 7 days ago and still holds no _heartbeat, so that machine has never completed a mirror. Either the Windows side was never set up, or every run so far has failed before the last step. docs/windows-backup.md has the client setup; the log is %LOCALAPPDATA%\\tiger-backup.log on the PC."
+                summary: "Windows backup of {{ $labels.machine }} has never synced"
+                description: "/mnt/backups/{{ $labels.machine }} was created over 7 days ago and tiger has never seen that machine connected and fully synced. Either its device ID is still null in windowsBackupDirs in tiger/configuration.nix, or the laptop never accepted the folders. docs/windows-backup.md has the client setup."
 
             - alert: WindowsBackupExporterMissing
               expr: absent(windows_backup_last_success_timestamp_seconds{host="tiger"})
