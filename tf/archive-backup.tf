@@ -97,12 +97,10 @@ resource "aws_s3_bucket_lifecycle_configuration" "archive" {
 # holds: a compromised pika can still write delete markers, and still cannot
 # remove a version. Existing versions are not retroactively locked.
 #
-# A standalone resource, not `object_lock_enabled = true` on the bucket:
-# that argument is ForceNew in hashicorp/aws 5.x and would plan a replacement
-# of this bucket. PutObjectLockConfiguration enables it in place on an
-# existing versioned bucket.
+# No `object_lock_enabled = true` on the bucket. PutObjectLockConfiguration
+# enables Object Lock in place on an existing versioned bucket and sets the
+# default retention in the same call, so this one resource does both.
 # https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html
-# https://github.com/hashicorp/terraform-provider-aws/blob/v5.100.0/internal/service/s3/bucket.go#L381-L387
 #
 # GOVERNANCE, so the admin key can still shorten or lift a lock. COMPLIANCE
 # cannot be shortened or removed by anyone, the root user included, for the
