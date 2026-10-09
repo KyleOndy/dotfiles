@@ -189,6 +189,7 @@
     casks = lib.mkDefault [
       "alt-tab" # app switcher; macOS only draws its own on a held Cmd+Tab
       "firefox" # Mozilla's signed build, see hmFoundry.desktop.browsers.firefox
+      "google-chrome" # for Claude in Chrome; updates itself, nixpkgs' read-only copy can't
       "karabiner-elements" # applies the Kensington trackball remapping, see home.nix
       "shottr" # screenshot tool the trackball buttons trigger
     ];
