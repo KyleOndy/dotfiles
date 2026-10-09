@@ -14,6 +14,7 @@ The module is `../pi-advisor.nix`. Prompts and tools live beside this file.
 | `pi-advisor-alerts.timer` / `.service` | every 2 minutes     | Triages each newly firing, unsilenced alert. At most 3 a run and 20 a day.                                                      |
 | `pi-advisor-sweep.timer` / `.service`  | 06:00               | The log sweep, then the metrics sweep. One report each.                                                                         |
 | `pi-advisor-mail.path` / `.service`    | when a report lands | Mails each report not yet sent to the monitoring stack's fixed recipients, with a footer pointing at the acknowledgements file. |
+| `pi-advisor-mail.timer`                | hourly              | The same, for a report that landed mid-send or failed to send.                                                                  |
 
 ## Where things live on tiger
 
@@ -88,11 +89,21 @@ are in `tools.ts`:
   URL `web_search` returned in the same run. A free-form fetch would let the
   model put data in a URL and send it anywhere.
 
-The units add their own limits. The advisor runs as its own user with no
-capabilities, can write only its state and cache directories, holds only the
-z.ai and Kagi keys, and cannot reach the LAN. The mailer is a separate
-`DynamicUser` unit and the only holder of the SMTP password. pi cannot start
-it.
+A run gets at most 60 queries.
+
+The units add their own limits, for the case where pi or one of its npm
+dependencies runs code of its own:
+
+- **The advisor** runs as its own user with no capabilities. It can write
+  only its state directory and a private `/tmp`, and holds only the z.ai and
+  Kagi keys.
+- **Network:** it cannot reach the LAN, and on loopback an iptables owner
+  match lets it reach only the four monitoring ports, not Caddy's admin
+  socket, Syncthing or the apps.
+- **Files:** `/mnt` and the local daemons' sockets are hidden from it.
+- **The mailer** is a separate `DynamicUser` unit and the only holder of the
+  SMTP password. pi cannot start it, and it mails only plain files, never
+  a symlink.
 
 What leaves tiger: every query result goes to z.ai, search queries and page
 URLs go to Kagi, and reports go to kyle@ondy.org.

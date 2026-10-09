@@ -9,9 +9,9 @@
 #   sweep   the daily log and metrics reviews
 #
 # Each run writes one Markdown report to $STATE_DIRECTORY/reports. The unit
-# supplies STATE_DIRECTORY, CREDENTIALS_DIRECTORY, PI_ADVISOR_ASSETS (this
-# directory in the store), PI_ADVISOR_ACKS (Kyle's acknowledged issues) and
-# the PI_ADVISOR_*_URL endpoints.
+# supplies STATE_DIRECTORY, CREDENTIALS_DIRECTORY, PI_CODING_AGENT_DIR,
+# PI_ADVISOR_ASSETS (this directory in the store), PI_ADVISOR_ACKS (Kyle's
+# acknowledged issues) and the PI_ADVISOR_*_URL endpoints.
 
 readonly MODEL="zai/glm-5.3"
 readonly REPORTS="${STATE_DIRECTORY}/reports"
@@ -44,6 +44,9 @@ readonly PI_ARGS=(
 	--no-extensions
 	--no-skills
 	--no-context-files
+	--no-prompt-templates
+	--no-themes
+	--no-approve
 	--extension "${PI_ADVISOR_ASSETS}/tools.ts"
 	--tools "promql,logql,metric_labels,log_labels,alerts,alert_rules,web_search,read_result"
 	--model "$MODEL"
@@ -55,7 +58,7 @@ ZAI_API_KEY=$(<"${CREDENTIALS_DIRECTORY}/zai")
 KAGI_API_KEY=$(<"${CREDENTIALS_DIRECTORY}/kagi")
 export ZAI_API_KEY KAGI_API_KEY
 
-mkdir -p "$REPORTS"
+mkdir -p "$REPORTS" "$PI_CODING_AGENT_DIR"
 
 slug() {
 	printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-80
@@ -64,22 +67,25 @@ slug() {
 # advise <name> <header> <task>
 advise() {
 	local name="$1" header="$2" task="$3"
-	local out status=0
-	out="${REPORTS}/$(date -u +%Y%m%dT%H%M%SZ)-${name}.md"
+	local file work status=0
+	file="$(date -u +%Y%m%dT%H%M%SZ)-${name}.md"
+	# Built outside the reports directory, so the only change the mailer's
+	# path unit sees there is the finished report arriving.
+	work="${STATE_DIRECTORY}/${file}"
 
 	{
 		printf '%s\n\n' "$header"
 		# pi reads a non-TTY stdin to its end and adds it to the prompt, and the
 		# caller's stdin may be the rest of the alert list.
-		timeout "$RUN_TIMEOUT" pi "${PI_ARGS[@]}" "$task" </dev/null 2>"${out}.err" || status=$?
+		timeout "$RUN_TIMEOUT" pi "${PI_ARGS[@]}" "$task" </dev/null 2>"${work}.err" || status=$?
 		if ((status != 0)); then
-			printf '\n\npi exited %d:\n\n```\n%s\n```\n' "$status" "$(tail -c 4000 "${out}.err")"
+			printf '\n\npi exited %d:\n\n```\n%s\n```\n' "$status" "$(tail -c 4000 "${work}.err")"
 		fi
-	} >"${out}.tmp"
+	} >"${work}.tmp"
 
-	rm -f "${out}.err"
-	mv "${out}.tmp" "$out"
-	echo "wrote ${out} (pi exit ${status})"
+	rm -f "${work}.err"
+	mv "${work}.tmp" "${REPORTS}/${file}"
+	echo "wrote ${REPORTS}/${file} (pi exit ${status})"
 }
 
 triage_alerts() {
@@ -105,8 +111,9 @@ triage_alerts() {
 		fi
 
 		# The fingerprint keeps apart two alerts of one name on one host, such as
-		# two failed units, triaged in the same second.
-		name=$(jq -r '[.labels.alertname, .labels.host // empty, .fingerprint] | join("-")' <<<"$alert")
+		# two failed units, triaged in the same second. It goes first so that
+		# slug's cut never reaches it.
+		name=$(jq -r '[.fingerprint, .labels.alertname, .labels.host // empty] | join("-")' <<<"$alert")
 		advise "alert-$(slug "$name")" \
 			"$(jq -r --arg model "$MODEL" \
 				'"# \(.labels.alertname) on \(.labels.host // "-")\n\nstarted \(.startsAt), triaged by \($model)"' <<<"$alert")" \

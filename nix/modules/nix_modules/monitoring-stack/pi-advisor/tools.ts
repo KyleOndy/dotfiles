@@ -4,11 +4,11 @@
  * These are the advisor's only tools: it runs with no bash, read, write or
  * edit. The model supplies PromQL or LogQL, a time range and at most a label
  * name, never a URL or a path. That matters because the ports these reach
- * also answer mutating requests: VictoriaMetrics serves
- * /api/v1/admin/tsdb/delete_series on the query port, Loki serves its delete
- * API whenever retention_deletes_enabled is set, and Alertmanager creates
- * silences. So every tool calls one fixed GET path, and the only model input
- * that reaches a path is a label name that has matched LABEL_NAME first.
+ * also change things, some on a plain GET: VictoriaMetrics' /snapshot/* and
+ * /internal/force_merge, vmalert's /-/reload, and Loki's /flush and
+ * /ingester/shutdown. So every tool calls one fixed GET path, and the only
+ * model input that reaches a path is a label name that has matched
+ * LABEL_NAME first.
  *
  * The base URLs come from the unit's environment, not from anything the model
  * can set.
@@ -30,6 +30,10 @@ const AM = process.env.PI_ADVISOR_AM_URL ?? "";
 const VMALERT = process.env.PI_ADVISOR_VMALERT_URL ?? "";
 
 const REQUEST_TIMEOUT_MS = 60_000;
+// The prompt asks for about 30. This is the bound when a prompt injection or
+// a loop asks for more.
+const MAX_QUERIES_PER_RUN = 60;
+let queriesMade = 0;
 
 const KAGI_API = "https://kagi.com/api/v1";
 // $0.012 a search whatever the result count and $0.004 a page
@@ -132,6 +136,12 @@ async function get(
   params: Record<string, string | undefined>,
   signal?: AbortSignal,
 ): Promise<any> {
+  if (queriesMade >= MAX_QUERIES_PER_RUN) {
+    throw new Error(
+      `All ${MAX_QUERIES_PER_RUN} queries for this run are spent. Write the report with what you have.`,
+    );
+  }
+  queriesMade += 1;
   const url = new URL(path, base);
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, value);

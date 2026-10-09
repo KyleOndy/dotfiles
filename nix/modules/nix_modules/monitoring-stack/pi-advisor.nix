@@ -12,9 +12,11 @@
 # The boundary is the tool list. pi runs with no built-in tools (no bash,
 # read, write or edit) and only the tools in pi-advisor/tools.ts: queries
 # that each call one fixed GET path, a Kagi web search, and a Kagi page read
-# limited to URLs that search returned. The unit confines pi itself: its own user, no capabilities,
-# the state and cache directories as the only writable paths, the model and
-# search keys as the only credentials, and no route to the LAN.
+# limited to URLs that search returned. The unit confines pi itself, in case
+# pi or one of its dependencies ever runs code of its own: its own user, no
+# capabilities, the state directory and a private /tmp as the only writable
+# paths, the model and search keys as the only credentials, no route to the
+# LAN, and on loopback only the four monitoring ports.
 #
 # Every query result goes to the model provider, including journal lines from
 # every host and Caddy's access log. Search queries go to Kagi.
@@ -36,12 +38,31 @@ let
   acks = "${acksDir}/acknowledged.md";
 
   url = c: "http://${c.listenAddress}:${toString c.port}";
+  queryPorts = map (c: toString c.port) [
+    parentCfg.victoriametrics
+    parentCfg.loki
+    parentCfg.alertmanager
+    parentCfg.vmalert
+  ];
 
   hardening = {
     NoNewPrivileges = true;
     CapabilityBoundingSet = "";
     ProtectSystem = "strict";
     ProtectHome = true;
+    # The ZFS datasets under /mnt are world-readable, and so are the sockets
+    # of the local daemons (D-Bus, Avahi, dhcpcd, winbind, sshd, Postgres).
+    # Neither unit needs any of them; DNS goes through /run/nscd.
+    InaccessiblePaths = [
+      "-/mnt"
+      "-/srv"
+      "-/run/dbus"
+      "-/run/avahi-daemon"
+      "-/run/dhcpcd"
+      "-/run/samba"
+      "-/run/ssh-unix-local"
+      "-/run/postgresql"
+    ];
     PrivateTmp = true;
     PrivateDevices = true;
     PrivateIPC = true;
@@ -99,19 +120,26 @@ let
       readonly FOOTER="Already know about something in here? Add it to ${acks} on tiger and the daily sweeps will stop reporting it. Each entry covers one specific event, so a recurrence is still reported. Format: nix/modules/nix_modules/monitoring-stack/pi-advisor/README.md in the dotfiles repo."
       touch "$MAILED"
       shopt -s nullglob
+      failed=0
 
       for report in ${reports}/*.md; do
+        # pi-advisor owns this directory, and this unit holds a credential
+        # pi-advisor does not, so a symlink, FIFO or anything else that is not
+        # a plain file is never read.
+        [[ -f $report && ! -L $report ]] || continue
         name=''${report##*/}
         grep -qxF "$name" "$MAILED" && continue
 
         # The first line is the header pi-advisor.sh writes from the alert's
-        # labels or the sweep's name, never text from the model.
-        subject=$(head -n 1 "$report" | tr -d '\r')
-        {
+        # labels or the sweep's name, never text from the model. Labels can
+        # hold anything, so the subject keeps printable ASCII only, and stays
+        # well inside SMTP's 998-octet line limit (RFC 5322, section 2.1.1).
+        subject=$(head -n 1 "$report" | LC_ALL=C tr -cd '[:print:]' | cut -c 1-200)
+        if ! {
           printf 'From: %s\nTo: %s\nSubject: [pi-advisor] %s\nDate: %s\n' \
             "${smtp.from}" "${concatStringsSep ", " smtp.to}" "''${subject#\# }" "$(date -R)"
           # base64 because a report is UTF-8 and its paragraphs run past
-          # SMTP's 998-octet line limit (RFC 5322, section 2.1.1).
+          # that same line limit.
           printf 'MIME-Version: 1.0\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: base64\n\n'
           {
             cat "$report"
@@ -121,11 +149,17 @@ let
           --variable "pw@$CREDENTIALS_DIRECTORY/smtp-password" \
           --expand-user "${smtp.username}:{{pw:trim}}" \
           --mail-from "${smtp.from}" \
-          ${concatMapStringsSep " " (to: "--mail-rcpt ${escapeShellArg to}") smtp.to}
+          ${concatMapStringsSep " " (to: "--mail-rcpt ${escapeShellArg to}") smtp.to}; then
+          echo "could not mail $name" >&2
+          failed=1
+          continue
+        fi
 
         echo "$name" >>"$MAILED"
         echo "mailed $name"
       done
+
+      exit "$failed"
     '';
   };
 
@@ -161,8 +195,11 @@ let
       PI_ADVISOR_AM_URL = url parentCfg.alertmanager;
       PI_ADVISOR_VMALERT_URL = url parentCfg.vmalert;
       PI_ADVISOR_ACKS = acks;
-      HOME = "/var/cache/pi-advisor";
-      PI_CODING_AGENT_DIR = "/var/cache/pi-advisor";
+      # pi reads settings, models, extensions and prompts from its agent
+      # directory. PrivateTmp makes this one empty at the start of every run,
+      # so nothing a run leaves behind reaches the next.
+      HOME = "/tmp/pi";
+      PI_CODING_AGENT_DIR = "/tmp/pi";
     };
 
     serviceConfig = hardening // {
@@ -178,9 +215,10 @@ let
       ];
       StateDirectory = "pi-advisor";
       StateDirectoryMode = "0750";
-      CacheDirectory = "pi-advisor";
-      CacheDirectoryMode = "0700";
       UMask = "0027";
+      # A run peaks near 110M. Query results are read whole before they are
+      # cut down, so a huge one would otherwise take memory from the host.
+      MemoryMax = "2G";
       # No MemoryDenyWriteExecute: pi is a Bun binary, and JavaScriptCore's
       # JIT maps memory writable and executable.
     };
@@ -202,6 +240,30 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    assertions = [
+      {
+        assertion = config.networking.firewall.enable;
+        message = "piAdvisor confines its loopback traffic with networking.firewall rules, which do nothing while the firewall is off.";
+      }
+    ];
+
+    # IPAddressAllow= takes addresses, not ports, and the rest of loopback
+    # holds Caddy's admin API, Syncthing's GUI and every app's API. So the
+    # pi-advisor uid may open loopback connections to the four monitoring
+    # ports and nothing else. The mailer runs under a DynamicUser uid, which
+    # this does not match.
+    networking.firewall.extraCommands = ''
+      ip46tables -N pi-advisor-lo 2>/dev/null || true
+      ip46tables -F pi-advisor-lo
+      ip46tables -A pi-advisor-lo -p tcp -m multiport --dports ${concatStringsSep "," queryPorts} -j RETURN
+      ip46tables -A pi-advisor-lo -j REJECT
+      ip46tables -D OUTPUT -o lo -m owner --uid-owner pi-advisor -j pi-advisor-lo 2>/dev/null || true
+      ip46tables -I OUTPUT -o lo -m owner --uid-owner pi-advisor -j pi-advisor-lo
+    '';
+    networking.firewall.extraStopCommands = ''
+      ip46tables -D OUTPUT -o lo -m owner --uid-owner pi-advisor -j pi-advisor-lo 2>/dev/null || true
+    '';
+
     users.users.pi-advisor = {
       isSystemUser = true;
       group = "pi-advisor";
@@ -230,12 +292,13 @@ in
     systemd.services.pi-advisor-sweep = mkService "sweep" "Review the day's logs and metrics with pi";
 
     # A failed send leaves the report unmarked and the unit failed, which
-    # SystemdServiceFailed reports; the next report to land retries it.
+    # SystemdServiceFailed reports; the hourly timer retries it.
     systemd.services.pi-advisor-mail = {
       description = "Mail each new pi-advisor report";
       serviceConfig = hardening // {
         Type = "oneshot";
         ExecStart = getExe mailer;
+        TimeoutStartSec = "5min";
         DynamicUser = true;
         # Read access to the reports, which are 0640 pi-advisor:pi-advisor.
         SupplementaryGroups = [ "pi-advisor" ];
@@ -248,6 +311,13 @@ in
     systemd.paths.pi-advisor-mail = {
       wantedBy = [ "paths.target" ];
       pathConfig.PathChanged = reports;
+    };
+
+    # A path unit stops watching while the service it started runs, so a
+    # report that lands during a send waits for this.
+    systemd.timers.pi-advisor-mail = {
+      wantedBy = [ "timers.target" ];
+      timerConfig.OnCalendar = "hourly";
     };
 
     systemd.timers.pi-advisor-alerts = {
