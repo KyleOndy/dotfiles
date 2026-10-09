@@ -803,9 +803,17 @@ in
   # public servers, and NAT traversal would ask the router to forward 22000
   # from the WAN. The laptop dials tiger by name, so tiger never has to reach
   # into the LAN, which the router forbids anyway.
+  #
+  # The GUI listens on loopback only, but every local process can reach
+  # loopback, and without a login any of them could share these folders with
+  # a new device. Tools use the API key, which the password does not affect.
+  # Setting settings.gui makes syncthing-init PUT the whole GUI section, which
+  # issues a new API key on every run, so read the key from config.xml.
   services.syncthing = {
     enable = true;
+    guiPasswordFile = config.sops.secrets.syncthing_gui_password.path;
     settings = {
+      gui.user = "kyle";
       options = {
         globalAnnounceEnabled = false;
         localAnnounceEnabled = false;
@@ -2178,6 +2186,8 @@ in
     # pi-advisor's Z.ai and Kagi keys, read through LoadCredential.
     pi_advisor_zai_api_key.mode = "0400";
     pi_advisor_kagi_api_key.mode = "0400";
+    # Read by syncthing-init, which bcrypts it into Syncthing's config.
+    syncthing_gui_password.owner = config.services.syncthing.user;
     bazarr_ui_password.owner = "bazarr";
     # PIA account credentials (EnvironmentFile: PIA_USER / PIA_PASS), read by
     # pia-wg-connect.service as root to authenticate the WireGuard + port
