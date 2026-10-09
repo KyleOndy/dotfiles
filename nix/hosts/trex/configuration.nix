@@ -209,8 +209,18 @@
   };
 
   sops.secrets = {
-    # Also read by tiger's mail-backup.
+    # The three email_* secrets are also read by tiger's mail-backup.
     email_kyle_ondy_org = {
+      owner = "kyle";
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
+    email_kyle_ondy_me = {
+      owner = "kyle";
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
+    email_kyleondy_gmail_com = {
       owner = "kyle";
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
@@ -233,7 +243,7 @@
     };
   };
 
-  # Password script for mbsync. kyle@ondy.org is the only account in
+  # Password script for mbsync, one case per account in
   # nix/modules/hm_modules/terminal/email.nix.
   sops.templates."mbsync-password-script" = {
     owner = "kyle";
@@ -244,6 +254,12 @@
       case "$1" in
         "kyle@ondy.org")
           cat ${config.sops.secrets.email_kyle_ondy_org.path}
+          ;;
+        "kyle@ondy.me")
+          cat ${config.sops.secrets.email_kyle_ondy_me.path}
+          ;;
+        "kyleondy@gmail.com")
+          cat ${config.sops.secrets.email_kyleondy_gmail_com.path}
           ;;
         *)
           echo "Unknown email account: $1" >&2

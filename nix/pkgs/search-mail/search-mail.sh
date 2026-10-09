@@ -65,9 +65,9 @@ Two consequences you must respect:
    date: range. Other tags that discriminate are attachment (~890), replied
    (~440), passed (~140), flagged (~45), and signed (~17).
 
-If Kyle asks about mail at kyle@ondy.me or kyleondy@gmail.com, tell him those
-accounts are not synced into notmuch rather than reporting that you found
-nothing.
+kyle@ondy.me and kyleondy@gmail.com are synced read-only into ondy.me/ and
+gmail.com/ and get no inbox, deleted or spam tags; search them with
+path:ondy.me/** or path:gmail.com/**.
 
 QUOTING, WHICH IS WHAT MOST OFTEN GOES WRONG
 

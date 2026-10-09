@@ -124,14 +124,17 @@ only second copy. A bundle is one file written whole, so the archive tier
 holds one object per repo rather than every loose object and superseded
 pack, and a copy can never catch git mid-write.
 
-tiger pulls kyle@ondy.org from MXRoute into `/mnt/backups/kyle/mail` every
-hour. It's mbsync with `Sync Pull`, so it never writes to the server. INBOX,
-Archive and Sent are mirrored, deletions included, and the undo for a
-deleted message is a snapshot. Deleted Messages and Junk stay on the server.
+tiger pulls kyle@ondy.org and kyle@ondy.me from MXRoute, and
+kyleondy@gmail.com from Gmail, into `/mnt/backups/kyle/mail` every hour.
+It's mbsync with `Sync Pull`, so it never writes to the server. Deletions
+are mirrored, and the undo for a deleted message is a snapshot. For
+ondy.org that covers INBOX, Archive and Sent; Deleted Messages and Junk stay
+on the server. ondy.me is being retired, so every folder is kept. Gmail
+keeps INBOX and All Mail, which holds every label except Spam and Trash.
 
 trex keeps its own maildir for notmuch, but that one syncs both ways, so a
 mistake there reaches the server and it doesn't count. The cost of this one
-is that tiger holds the full MXRoute password
+is that tiger holds each account's full password
 (`shared-tiger-trex.yaml`), which can also delete mail and send as that
 address.
 

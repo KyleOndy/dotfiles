@@ -1112,8 +1112,8 @@ in
                 summary: "No shell history backup metric from {{ $labels.host }}"
                 description: "trex has reported no histdb_backup_last_success_timestamp_seconds in 2 days while awake for more than 6 hours of them, so HistdbBackupStale cannot fire there. Either the push has never succeeded since it began exporting, or the agent does not set TEXTFILE_DIR. Check ~/Library/Logs/histdb-backup.log on trex."
 
-        # tiger pulls kyle@ondy.org from MXRoute into /mnt/backups/kyle/mail
-        # every hour.
+        # tiger pulls kyle@ondy.org, kyle@ondy.me and kyleondy@gmail.com into
+        # /mnt/backups/kyle/mail every hour.
         - name: mail_backup
           interval: 60s
           rules:
@@ -1124,7 +1124,7 @@ in
                 severity: warning
               annotations:
                 summary: "Mail backup on tiger is over 6 hours old"
-                description: "mail-backup has not pulled kyle@ondy.org into /mnt/backups/kyle/mail in over 6 hours, against an hourly timer. Check `journalctl -u mail-backup` on tiger; a rotated MXRoute password lands in shared-tiger-trex.yaml for both hosts."
+                description: "mail-backup has not pulled every account into /mnt/backups/kyle/mail in over 6 hours, against an hourly timer; one failing account holds back the whole run. Check `journalctl -u mail-backup` on tiger; a rotated password lands in shared-tiger-trex.yaml for both hosts."
 
             # Same reason as HistdbBackupMetricMissing.
             - alert: MailBackupMetricMissing

@@ -98,6 +98,49 @@ in
           passwordCommand = cfg.passwordCommand "kyle@ondy.org";
           userName = "kyle@ondy.org";
         };
+        # ondy.me and Gmail are synced only to see whether anything still
+        # arrives before the accounts are shut down. Sync Pull, so reading or
+        # tagging here never changes the server.
+        kyle_at_ondy_me = {
+          address = "kyle@ondy.me";
+          maildir.path = "ondy.me";
+          imap = {
+            host = "london.mxroute.com";
+            tls.enable = true;
+          };
+          mbsync = {
+            enable = true;
+            create = "maildir";
+            expunge = "maildir";
+            patterns = [ "*" ];
+            extraConfig.channel.Sync = "Pull";
+          };
+          notmuch.enable = true;
+          realName = "Kyle Ondy";
+          passwordCommand = cfg.passwordCommand "kyle@ondy.me";
+          userName = "kyle@ondy.me";
+        };
+        kyleondy_at_gmail_com = {
+          address = "kyleondy@gmail.com";
+          flavor = "gmail.com";
+          maildir.path = "gmail.com";
+          mbsync = {
+            enable = true;
+            create = "maildir";
+            expunge = "maildir";
+            # All Mail holds every label except Spam and Trash; "*" would
+            # store a copy per label.
+            patterns = [
+              "INBOX"
+              "[Gmail]/All Mail"
+            ];
+            extraConfig.channel.Sync = "Pull";
+          };
+          notmuch.enable = true;
+          realName = "Kyle Ondy";
+          passwordCommand = cfg.passwordCommand "kyleondy@gmail.com";
+          userName = "kyleondy@gmail.com";
+        };
       };
     };
   };

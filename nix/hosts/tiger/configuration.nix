@@ -380,67 +380,112 @@ in
   };
 
   # trex's maildir syncs both ways, so a mistake there reaches the server.
-  # This copy is pull-only: Sync Pull never writes to MXRoute. Server-side
+  # This copy is pull-only: Sync Pull never writes to the server. Server-side
   # deletions are mirrored, and the undo is a storage/backups snapshot.
-  # Deleted Messages, Junk and Drafts are not kept.
-  systemd.services.mail-backup = {
-    description = "Pull kyle@ondy.org into storage/backups";
-    unitConfig.RequiresMountsFor = "/mnt/backups";
-    environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
-    serviceConfig = {
-      Type = "oneshot";
-      User = "kyle";
-      SupplementaryGroups = [ "textfile" ];
-      ExecStart = lib.getExe (
-        pkgs.writeShellApplication {
-          name = "mail-backup";
-          runtimeInputs = [ pkgs.isync ];
-          text = ''
-            mbsync --config ${pkgs.writeText "mail-backup-isyncrc" ''
-              IMAPAccount kyle_at_ondy_org
-              Host london.mxroute.com
-              User kyle@ondy.org
-              PassCmd "${pkgs.coreutils}/bin/cat ${config.sops.secrets.email_kyle_ondy_org.path}"
-              TLSType IMAPS
-              CertificateFile /etc/ssl/certs/ca-certificates.crt
+  # ondy.org skips Deleted Messages, Junk and Drafts. ondy.me and Gmail are
+  # being retired, so they keep everything except Gmail's Spam and Trash,
+  # which All Mail leaves out.
+  systemd.services.mail-backup =
+    let
+      account =
+        {
+          name,
+          host,
+          user,
+          secret,
+          dir,
+          patterns,
+        }:
+        ''
+          IMAPAccount ${name}
+          Host ${host}
+          User ${user}
+          PassCmd "${pkgs.coreutils}/bin/cat ${config.sops.secrets.${secret}.path}"
+          TLSType IMAPS
+          CertificateFile /etc/ssl/certs/ca-certificates.crt
 
-              IMAPStore kyle_at_ondy_org-remote
-              Account kyle_at_ondy_org
+          IMAPStore ${name}-remote
+          Account ${name}
 
-              MaildirStore kyle_at_ondy_org-local
-              Path /mnt/backups/kyle/mail/ondy.org/
-              Inbox /mnt/backups/kyle/mail/ondy.org/Inbox
-              SubFolders Verbatim
+          MaildirStore ${name}-local
+          Path /mnt/backups/kyle/mail/${dir}/
+          Inbox /mnt/backups/kyle/mail/${dir}/Inbox
+          SubFolders Verbatim
 
-              Channel kyle_at_ondy_org
-              Far :kyle_at_ondy_org-remote:
-              Near :kyle_at_ondy_org-local:
-              Patterns INBOX Archive Sent
-              Sync Pull
-              Create Near
-              Expunge Near
-              SyncState *
-            ''} --all
+          Channel ${name}
+          Far :${name}-remote:
+          Near :${name}-local:
+          Patterns ${patterns}
+          Sync Pull
+          Create Near
+          Expunge Near
+          SyncState *
 
-            {
-              echo '# HELP mail_backup_last_success_timestamp_seconds Unix time mbsync last pulled kyle@ondy.org into storage/backups'
-              echo '# TYPE mail_backup_last_success_timestamp_seconds gauge'
-              echo "mail_backup_last_success_timestamp_seconds $(date +%s)"
-            } >"$TEXTFILE_DIR/mail_backup.prom.tmp"
-            mv -f "$TEXTFILE_DIR/mail_backup.prom.tmp" "$TEXTFILE_DIR/mail_backup.prom"
-          '';
-        }
-      );
-      ProtectSystem = "strict";
-      ReadWritePaths = [
-        "/mnt/backups/kyle/mail"
-        config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory
-      ];
+        '';
+    in
+    {
+      description = "Pull kyle@ondy.org, kyle@ondy.me and kyleondy@gmail.com into storage/backups";
+      unitConfig.RequiresMountsFor = "/mnt/backups";
+      environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
+      serviceConfig = {
+        Type = "oneshot";
+        User = "kyle";
+        SupplementaryGroups = [ "textfile" ];
+        ExecStart = lib.getExe (
+          pkgs.writeShellApplication {
+            name = "mail-backup";
+            runtimeInputs = [ pkgs.isync ];
+            text = ''
+              mbsync --config ${
+                pkgs.writeText "mail-backup-isyncrc" (
+                  lib.concatMapStrings account [
+                    {
+                      name = "kyle_at_ondy_org";
+                      host = "london.mxroute.com";
+                      user = "kyle@ondy.org";
+                      secret = "email_kyle_ondy_org";
+                      dir = "ondy.org";
+                      patterns = "INBOX Archive Sent";
+                    }
+                    {
+                      name = "kyle_at_ondy_me";
+                      host = "london.mxroute.com";
+                      user = "kyle@ondy.me";
+                      secret = "email_kyle_ondy_me";
+                      dir = "ondy.me";
+                      patterns = "*";
+                    }
+                    {
+                      name = "kyleondy_at_gmail_com";
+                      host = "imap.gmail.com";
+                      user = "kyleondy@gmail.com";
+                      secret = "email_kyleondy_gmail_com";
+                      dir = "gmail.com";
+                      patterns = ''INBOX "[Gmail]/All Mail"'';
+                    }
+                  ]
+                )
+              } --all
+
+              {
+                echo '# HELP mail_backup_last_success_timestamp_seconds Unix time mbsync last pulled every account into storage/backups'
+                echo '# TYPE mail_backup_last_success_timestamp_seconds gauge'
+                echo "mail_backup_last_success_timestamp_seconds $(date +%s)"
+              } >"$TEXTFILE_DIR/mail_backup.prom.tmp"
+              mv -f "$TEXTFILE_DIR/mail_backup.prom.tmp" "$TEXTFILE_DIR/mail_backup.prom"
+            '';
+          }
+        );
+        ProtectSystem = "strict";
+        ReadWritePaths = [
+          "/mnt/backups/kyle/mail"
+          config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory
+        ];
+      };
     };
-  };
 
   systemd.timers.mail-backup = {
-    description = "Hourly kyle@ondy.org backup";
+    description = "Hourly mail backup";
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "hourly";
@@ -476,6 +521,8 @@ in
     # mbsync creates mailboxes but not the store root.
     "d /mnt/backups/kyle/mail 0700 kyle kyle -"
     "d /mnt/backups/kyle/mail/ondy.org 0700 kyle kyle -"
+    "d /mnt/backups/kyle/mail/ondy.me 0700 kyle kyle -"
+    "d /mnt/backups/kyle/mail/gmail.com 0700 kyle kyle -"
     # A freshly created dataset mounts as root:root, and backup-resolve-projects
     # comes in over ssh as kyle.
     #
@@ -2058,6 +2105,16 @@ in
     # Full MXRoute account password: it can also delete mail and send as
     # kyle@ondy.org. Read by mail-backup, which runs as kyle.
     email_kyle_ondy_org = {
+      owner = "kyle";
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
+    email_kyle_ondy_me = {
+      owner = "kyle";
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
+    email_kyleondy_gmail_com = {
       owner = "kyle";
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
