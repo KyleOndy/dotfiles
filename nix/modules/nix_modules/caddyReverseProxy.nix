@@ -47,12 +47,16 @@ let
   # on its own, but nothing else. The *arr APIs authenticate with X-Api-Key
   # and an apikey query parameter, their SignalR sockets with access_token,
   # Jellyfin with ApiKey, api_key and X-Emby-Token or X-MediaBrowser-Token,
-  # and immich shared links with key. All of these would otherwise reach
-  # Loki in clear text for the full 400 day retention. The `query` filter
-  # matches parameter names case-sensitively, so a case-insensitive regexp
-  # covers every spelling, in the Referer and Location URLs too. Header names
-  # arrive in Go's canonical form.
-  secretParams = ''"(?i)([?&](?:api_?key|access_token|token|password|key)=)[^&#]*" "''${1}REDACTED"'';
+  # immich shared links with key, and Navidrome with a JWT in
+  # X-Nd-Authorization (both ways) or jwt, plus the Subsonic API's t and s
+  # (a salted password hash that replays until the password changes) or p
+  # (the password itself). All of these would otherwise reach Loki in clear
+  # text for the full 400 day retention. The `query` filter matches
+  # parameter names case-sensitively, so a case-insensitive regexp covers
+  # every spelling, in the Referer and Location URLs too. t, s and p go on
+  # every site, which also blanks other apps' page and search parameters.
+  # Header names arrive in Go's canonical form.
+  secretParams = ''"(?i)([?&](?:api_?key|access_token|token|password|key|jwt|t|s|p)=)[^&#]*" "''${1}REDACTED"'';
   accessLogFormat = hostName: ''
     output file ${config.services.caddy.logDir}/access-${
       replaceStrings [ "/" " " ] [ "_" "_" ] hostName
@@ -66,6 +70,8 @@ let
         request>headers>X-Emby-Token delete
         request>headers>X-Mediabrowser-Token delete
         request>headers>X-Emby-Authorization delete
+        request>headers>X-Nd-Authorization delete
+        resp_headers>X-Nd-Authorization delete
         request>uri regexp ${secretParams}
         request>headers>Referer regexp ${secretParams}
         resp_headers>Location regexp ${secretParams}
