@@ -66,7 +66,10 @@ else ifeq ($(UNAME), Darwin)
 	# GIT_SSH_COMMAND so private flake inputs (e.g. ssh://git@github.com/...)
 	# can still authenticate via the key configured in this repo's
 	# core.sshCommand.
-	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
+	# sudo dies with EXC_GUARD in pam_tid on the retry after a wrong password
+	# once pam_reattach has run, so each attempt gets a fresh `sudo -v` and
+	# the switch reuses the cached credential.
+	SWITCH := until sudo -v; do :; done; sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
 else
   $(error Unsupported system: $(UNAME))
 endif
