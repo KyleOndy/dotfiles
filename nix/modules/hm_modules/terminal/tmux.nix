@@ -48,20 +48,6 @@ let
       tmux switch-client -t "=$session"
     '';
   };
-  # git-wt-feature-branch comes from my-scripts on PATH, as git finds it.
-  ticketWorktree = pkgs.writeShellApplication {
-    name = "tw";
-    runtimeInputs = [ sessionizer ];
-    text = ''
-      if [[ $# -eq 0 || $1 == -h || $1 == --help ]]; then
-        echo "usage: tw <ticket> <name> [base] | tw <name> [base]" >&2
-        echo "Makes the worktree with git wt-feature-branch, then switches to its tmux session." >&2
-        exit 64
-      fi
-      path="$(git wt-feature-branch --print-path "$@")"
-      exec tmux-sessionizer "$path"
-    '';
-  };
   agentIconSuffix = optionalString (
     claudeCfg.enable || piCfg.enable
   ) "#(${getExe agentIcons} '#{window_id}')";
@@ -86,10 +72,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    home.packages = [
-      sessionizer
-      ticketWorktree
-    ];
+    home.packages = [ sessionizer ];
 
     programs.tmux = {
       enable = true;

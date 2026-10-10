@@ -628,10 +628,67 @@ in
             # A function, not a script in my-scripts: only the calling shell
             # can change its own directory. Same reason fzf_pick_git_worktree
             # lives here.
+            #
+            # One worktree substrate, four destinations. The worktree step
+            # below -- make-or-reuse, direnv allow, cd -- is shared; the mode
+            # flag says what happens there afterwards:
+            #   (none)  stay in this shell
+            #   -s      switch to the worktree's tmux session
+            #   -p      run pi there; -c run claude there (the wtp/wtc aliases)
+            _wt_usage() {
+              echo "usage: wt [-s|-p|-c] <name> | <ticket> <name> [-- <agent args>]" >&2
+              echo "  makes or reuses the worktree, direnv-allows it when it matches" >&2
+              echo "  its base, and cds into it; then" >&2
+              echo "  -s  switches to its tmux session" >&2
+              echo "  -p  runs pi, -c runs claude; args after -- are the agent's" >&2
+            }
+
             wt() {
               # Not `path`: zsh ties that name to $PATH, so declaring it local
               # empties PATH for the rest of the function.
-              local wt_path wt_base wt_ticket wt_title wt_slug
+              local wt_path wt_base wt_ticket wt_title wt_slug mode cmd
+              local -a wt_args agent_args
+
+              case $1 in
+              -s | -p | -c)
+                mode=$1
+                shift
+                ;;
+              -h | --help)
+                _wt_usage
+                return 0
+                ;;
+              -*)
+                echo "wt: unknown flag: $1" >&2
+                return 1
+                ;;
+              esac
+
+              # `--` separates the worktree's arguments from the agent's, and
+              # is consumed here rather than forwarded: pi's sandbox wrapper
+              # reads `--` as its own end-of-flags and would hand --allow-read
+              # to the real pi binary, which rejects it. A grant before the
+              # separator reaches git wt-feature-branch, which takes unknown
+              # flags as positionals, so --allow-kagi there is read as a base
+              # ref and fails there instead.
+              while (( $# )); do
+                [[ $1 == -- ]] && { shift; agent_args=("$@"); break }
+                wt_args+=("$1")
+                shift
+              done
+              if (( $#wt_args == 0 )); then
+                _wt_usage
+                return 1
+              fi
+              if (( $#agent_args )) && [[ $mode != -p && $mode != -c ]]; then
+                echo "wt: args after -- are only for -p and -c" >&2
+                return 1
+              fi
+              if [[ $mode == -s ]] && ! command -v tmux-sessionizer >/dev/null 2>&1; then
+                echo "wt: -s needs tmux-sessionizer on PATH (hmFoundry.terminal.tmux.enable)" >&2
+                return 1
+              fi
+              set -- "''${wt_args[@]}"
 
               # A bare ticket takes its name from the issue title.
               if (( $# == 1 )) && [[ $1 =~ '^[A-Za-z]+-[0-9]+$' ]]; then
@@ -658,47 +715,37 @@ in
                 ${pkgs.direnv}/bin/direnv allow "$wt_path"
               fi
               cd "$wt_path" || return
+
+              case $mode in
+              -s)
+                tmux-sessionizer "$PWD"
+                ;;
+              -p | -c)
+                if [[ $mode == -p ]]; then cmd=pi; else cmd=claude; fi
+                # The agent can write flake.nix, whose shellHook direnv would
+                # run unsandboxed in any shell here once it reloads. deny
+                # leaves this shell's already-loaded env for the agent and
+                # blocks every reload until `git adopt` allows the worktree
+                # again.
+                if [[ -e .envrc ]]; then
+                  ${pkgs.direnv}/bin/direnv deny "$PWD" || return
+                fi
+                # The agent's commits stay unsigned, so `git log
+                # --show-signature` tells you what it wrote and `git adopt`
+                # is what claims it. pi exports the same keys itself
+                # (pi-wrapper/wrapper.sh); this covers the agents that do
+                # not. Scoped to $cmd, so your own commits in the worktree
+                # afterwards follow your usual signing config.
+                GIT_CONFIG_COUNT=2 \
+                  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
+                  GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false \
+                  "$cmd" "''${agent_args[@]}"
+                ;;
+              esac
             }
 
-            # The agent's commits stay unsigned, so `git log --show-signature`
-            # tells you what it wrote and `git adopt` is what claims it. pi
-            # exports the same keys itself (pi-wrapper/wrapper.sh); this covers
-            # the agents that do not. Scoped to $cmd, so your own commits in
-            # the worktree afterwards follow your usual signing config.
-            #
-            # `--` separates wt's arguments from the agent's, and is consumed
-            # here rather than forwarded: pi's sandbox wrapper reads `--` as
-            # its own end-of-flags and would hand --allow-read to the real pi
-            # binary, which rejects it.
-            wtx() {
-              if [[ $# -lt 2 ]]; then
-                echo "usage: wtx <command> <ticket|name> [base] [-- <command args>]" >&2
-                return 1
-              fi
-              local cmd="$1"
-              shift
-              local -a wt_args cmd_args
-              while (( $# )); do
-                [[ $1 == -- ]] && { shift; cmd_args=("$@"); break }
-                wt_args+=("$1")
-                shift
-              done
-              wt "''${wt_args[@]}" || return
-              # The agent can write flake.nix, whose shellHook direnv would run
-              # unsandboxed in any shell here once it reloads. deny leaves this
-              # shell's already-loaded env for the agent and blocks every reload
-              # until `git adopt` allows the worktree again.
-              if [[ -e .envrc ]]; then
-                ${pkgs.direnv}/bin/direnv deny "$PWD" || return
-              fi
-              GIT_CONFIG_COUNT=2 \
-                GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
-                GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false \
-                "$cmd" "''${cmd_args[@]}"
-            }
-
-            wtc() { wtx claude "$@" }
-            wtp() { wtx pi "$@" }
+            wtc() { wt -c "$@" }
+            wtp() { wt -p "$@" }
           ''
         ];
       };
