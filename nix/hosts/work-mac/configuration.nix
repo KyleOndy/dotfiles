@@ -23,6 +23,8 @@
     # particular: this host's models.json comes from work-config, so nothing in
     # this repo can spot a stale id in it.
     pkgs.mcloud-pins
+    # Ranks the served models by AA score per reasoning effort.
+    pkgs.mcloud-rank
     # Grades candidate reviewer models before PI_ADVISOR_MODEL changes.
     pkgs.advisor-eval
   ];
