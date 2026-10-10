@@ -17,7 +17,10 @@ pi's policy. Build and run what the task needs, not more.
 When `FORGE_INSTANCE` is set, the instance is yours alone, and no other
 agent's VM is reachable from here. `forge down && forge up` rebuilds its
 clusters; creating or deleting the VM itself is not possible from inside the
-sandbox. Unset, it is the human's shared instance, and its kubeconfig is
+sandbox. A coordinator's agent holds one of these per spawn, and the
+coordinator deletes it when the agent is torn down: nothing kept only inside
+the VM outlives the agent, the branch is what survives. Unset, it is the
+human's shared instance, and its kubeconfig is
 read-only.
 
 `~/.kube` and `~/.docker` stay masked. `DOCKER_CONFIG` points at a

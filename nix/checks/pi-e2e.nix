@@ -14,6 +14,11 @@
 #     from the prompt, and this pins that the sections path does not);
 #   - coordinator.ts names the coordinator and session ids in a section, so
 #     the restart it asks for can name both;
+#   - coordinator.ts gates every mention of forge on PI_COORD_FORGE, so a
+#     host that gives agents no VMs (trex) never offers one: its request says
+#     nothing of forge, while one with it carries spawn_agent's size and the
+#     memory-budget guideline. The grant prose every coordinator and child
+#     reads verbatim says nothing of VMs either way.
 #   - secret-guard lets jq-style accessor tokens (.key) and regex-escaped
 #     variants (\.key) through in bash commands, while `cat .env` stays
 #     blocked;
@@ -269,6 +274,30 @@ pkgs.runCommand "pi-e2e-check"
         echo "$c" | grep -q -- '--coordinator=test-1' || fail "coordinator section missing its id: $c"
         echo "$c" | grep -qE -- '--session [0-9A-Za-z_-]{8,}' \
           || fail "coordinator section missing the session id: $c"
+        stop_server
+
+        # ---- coordinator.ts: forge content rides PI_COORD_FORGE ----
+        # A coordinator whose host gives agents no VMs (trex) must say nothing
+        # of forge anywhere in its request: no size parameter on spawn_agent,
+        # no VM prose in a description or guideline. pi's own base prompt and
+        # built-in tools never mention it, so the whole request is fair game.
+        grep -q forge captures/coord.jsonl \
+          && fail "a forge-less coordinator's request mentions forge: $(grep -o 'forge[^\"]*' captures/coord.jsonl | head -3)"
+
+        # The grant prose reaches every coordinator and child verbatim
+        # (grants.ts reads it from PI_GRANTS), so a host's VM costs may live
+        # only where the extension can gate them: not in these two files.
+        grep -qE "forge|VM" ${extDir}/../grants/coordinator.md ${extDir}/../grants/coord-child.md \
+          && fail "coordinator grant prose mentions forge or VMs"
+
+        start_server ""
+        mkdir -p coord/test-2
+        PI_COORD_ROLE=coordinator PI_COORD_DIR="$PWD/coord/test-2" PI_COORD_FORGE=1 \
+          run_pi coord-forge -e ${extDir}/coordinator.ts
+        grep -q xlarge captures/coord-forge.jsonl \
+          || fail "a forge coordinator's spawn_agent lacks the size parameter"
+        grep -q "memory budget" captures/coord-forge.jsonl \
+          || fail "a forge coordinator's request lacks the VM budget guideline"
         stop_server
 
         # ---- secret-guard: accessor tokens pass, .env still blocks ----

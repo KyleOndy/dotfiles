@@ -273,6 +273,11 @@ in
       };
       sandbox.envGrantGates.KAGI_API_KEY = "kagi";
 
+      # Coordinated agents on this host hold no forge: coordinator.forge
+      # stays off (only work-mac has forge), so the broker is built without
+      # it, spawn_agent takes no size here, and nothing forge-shaped reaches
+      # a coordinator's prompt (extensions/coordinator.ts gates its VM prose
+      # on PI_COORD_FORGE, which this build does not export).
       coordinator.enable = true;
     };
   };

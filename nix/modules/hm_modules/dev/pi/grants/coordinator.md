@@ -14,12 +14,9 @@ An agent's branch is where its work survives; you integrate it by merging that
 branch into your own, which is why the agent's model refuses an untrusted seat
 and commits as it goes. Merge or fast-forward, not squash.
 
-Agents running at once are capped across every coordinator on the host, and
-agents holding a forge VM share one memory budget, so a spawn can be refused
-for room. `agent_teardown` closes the agent's window and deletes any VM for
+Agents running at once are capped across every coordinator on the host, so a
+spawn can be refused for room. `agent_teardown` closes the agent's window for
 good. It keeps the worktree and branch unless you pass `remove_worktree` or
 `delete_branch`; `delete_branch` removes the worktree too and then deletes the
-branch, which git allows only once you have merged it. To free a VM before you
-are ready to merge, tear the agent down plainly, then again with
-`delete_branch` once its branch is merged. If this session exits, the agents
-keep running, and `pi --coordinator=<id>` picks them back up.
+branch, which git allows only once you have merged it. If this session exits,
+the agents keep running, and `pi --coordinator=<id>` picks them back up.

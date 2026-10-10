@@ -244,6 +244,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
         ? [
             "Give a size only when the task needs kind clusters or the forge docker daemon: an agent spawned without one can never get a VM. small covers one workload cluster, large two or heavy workloads, xlarge three or more each running a full stack.",
             "You hold no forge VM yourself, so work that needs kind clusters goes to an agent spawned with a size.",
+            "Agents holding a VM share one memory budget, so a spawn naming a size can be refused for room.",
           ]
         : []),
     ],
@@ -288,8 +289,9 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   pi.registerTool({
     name: "agent_status",
     label: "Agent status",
-    description:
-      "Show each spawned agent's state, worktree, any forge instance, and whether it has reported a result.",
+    description: forge
+      ? "Show each spawned agent's state, worktree, any forge instance, and whether it has reported a result."
+      : "Show each spawned agent's state, worktree, and whether it has reported a result.",
     parameters: Type.Object({
       agent: Type.Optional(
         Type.String({ description: "One agent; all of them when omitted." }),
@@ -387,13 +389,20 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   pi.registerTool({
     name: "agent_teardown",
     label: "Tear down agent",
-    description:
-      "Close an agent's tmux window and delete any forge VM it holds. Keeps its worktree and branch unless remove_worktree or delete_branch is set.",
+    description: forge
+      ? "Close an agent's tmux window and delete any forge VM it holds. Keeps its worktree and branch unless remove_worktree or delete_branch is set."
+      : "Close an agent's tmux window. Keeps its worktree and branch unless remove_worktree or delete_branch is set.",
     promptGuidelines: [
-      "Tear an agent down only once its result has been read and acted on, or when the user asks: its window, and any VM, is gone for good.",
+      forge
+        ? "Tear an agent down only once its result has been read and acted on, or when the user asks: its window, and any VM, is gone for good."
+        : "Tear an agent down only once its result has been read and acted on, or when the user asks: its window is gone for good.",
       "remove_worktree fails safe: git refuses to remove a worktree with uncommitted changes.",
       "delete_branch removes the worktree too and then deletes the branch, but only once you have merged it into your own branch: git refuses to delete an unmerged branch, since the agent's commits live only there. Merge or fast-forward it, not squash, or git will not count it as merged.",
-      "To free a VM before you are ready to merge, tear the agent down keeping the branch, then tear it down again with delete_branch once the branch is merged.",
+      ...(forge
+        ? [
+            "To free a VM before you are ready to merge, tear the agent down keeping the branch, then tear it down again with delete_branch once the branch is merged.",
+          ]
+        : []),
     ],
     parameters: Type.Object({
       agent: Type.String(),
