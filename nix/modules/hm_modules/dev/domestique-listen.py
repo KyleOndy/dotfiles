@@ -112,6 +112,8 @@ MODEL = env("DOMESTIQUE_STT_MODEL", "mlx-community/parakeet-tdt-0.6b-v3")
 INPUT_DEVICE = env("DOMESTIQUE_INPUT_DEVICE", "")
 POLL_SECONDS = seconds("DOMESTIQUE_POLL_SECONDS", "0.1", 0.01)
 
+# provider/id[:level], resolved once per ride by the launcher
+# (dev/domestique.nix) from the PI_CLASSIFY_MODEL seat. Empty means off.
 CLASSIFY_MODEL = env("DOMESTIQUE_CLASSIFY_MODEL", "")
 CLASSIFY_PROMPT = env("DOMESTIQUE_CLASSIFY_PROMPT", "")
 CLASSIFY_TIMEOUT = seconds("DOMESTIQUE_CLASSIFY_TIMEOUT", "20", 1.0)
@@ -128,6 +130,9 @@ MAX_SECONDS = seconds("DOMESTIQUE_MAX_UTTERANCE_SECONDS", "120", 1.0)
 # Quiet after the last tap before the count is taken as final. Below roughly
 # this a deliberate double tap reads as two separate single taps.
 REPLAY_QUIET = 0.4
+
+# pi's thinking levels, which a model value may carry as a :level suffix.
+LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
 
 # Cosmetic only. The classifier decides whether an utterance changes topic; this
 # just keeps the words that asked for it out of the session name, so a false
@@ -178,6 +183,17 @@ def note(text: str) -> None:
         log(f"could not write {NOTES}: {exc}")
 
 
+def thinking(model: str) -> str:
+    """The model's :level suffix, or off when it carries none.
+
+    pi reads the suffix from --model too, but any --thinking beats it, and
+    the wrapper's defaultArgs can carry one. Passing the level as --thinking,
+    after those, is what keeps the seat's level in charge.
+    """
+    _, colon, level = model.rpartition(":")
+    return level if colon and level in LEVELS else "off"
+
+
 def classify(text: str) -> str:
     """Sort an out-of-band utterance into note or new_topic.
 
@@ -197,7 +213,7 @@ def classify(text: str) -> str:
                 "--no-session",
                 "--no-tools",
                 "--thinking",
-                "off",
+                thinking(CLASSIFY_MODEL),
                 "--model",
                 CLASSIFY_MODEL,
                 "--system-prompt",
@@ -210,6 +226,11 @@ def classify(text: str) -> str:
             text=True,
             timeout=CLASSIFY_TIMEOUT,
         )
+    except subprocess.TimeoutExpired:
+        # Not the exception's own text, which quotes the whole command line,
+        # the model id included.
+        log(f"classifier timed out after {CLASSIFY_TIMEOUT:g}s, treating as a note")
+        return "note"
     except Exception as exc:
         log(f"classifier unavailable, treating as a note: {exc}")
         return "note"
@@ -274,7 +295,9 @@ def main() -> int:
 
     name = sd.query_devices(device(), "input")["name"]
     log(f"{MODEL} ready in {time.monotonic() - started:.1f}s, mic {name}")
-    log(f"notes to {NOTES}, classifier {CLASSIFY_MODEL or 'off'}")
+    # The provider only. Model ids stay out of plaintext, logs included.
+    classifier = f"on {CLASSIFY_MODEL.partition('/')[0]}" if CLASSIFY_MODEL else "off"
+    log(f"notes to {NOTES}, classifier {classifier}")
 
     READY.write_text("ready\n")
 

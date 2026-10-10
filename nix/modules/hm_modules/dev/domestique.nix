@@ -210,7 +210,16 @@ let
       export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
       export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${dq cfg.inputDevice}}"
       export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
-      export DOMESTIQUE_CLASSIFY_MODEL="${dq cfg.classifyModel}"
+
+      # The classifier seat, resolved once per ride: the caller's env, else the
+      # host's seats file, else classifyModel. pi-seats is installed only on
+      # hosts that have seats.
+      classify_model="''${PI_CLASSIFY_MODEL:-}"
+      if [ -z "$classify_model" ] && command -v pi-seats >/dev/null; then
+        classify_model="$(pi-seats get PI_CLASSIFY_MODEL)" ||
+          echo "domestique-listen: pi-seats get PI_CLASSIFY_MODEL failed" >&2
+      fi
+      export DOMESTIQUE_CLASSIFY_MODEL="''${classify_model:-${dq cfg.classifyModel}}"
       export DOMESTIQUE_CLASSIFY_PROMPT="${classifyPromptFile}"
       export DOMESTIQUE_CLASSIFY_TIMEOUT="${toString cfg.classifyTimeoutSeconds}"
       export DOMESTIQUE_CANCEL_SECONDS="${toString cfg.cancelSeconds}"
@@ -1043,23 +1052,30 @@ in
       type = lib.types.str;
       default = "";
       description = ''
-        Model that sorts an out-of-band utterance into a note or a topic
-        change, passed to `pi --model`. Invoked as a one-shot `pi --print`
-        with no tools and no session, so it can act on nothing and the
-        provider credential stays with the wrapper rather than reaching this
-        watcher.
+        Last fallback for the classifier, the model that sorts an out-of-band
+        utterance into a note or a topic change. Each ride's listener takes
+        the first non-empty of `PI_CLASSIFY_MODEL` in its environment, the
+        host's seats file through `pi-seats get PI_CLASSIFY_MODEL`, and this.
+        A value here is a literal in the Nix store, so a private model id
+        belongs in the seats file instead.
 
-        Empty disables classification: every utterance becomes a note, which
-        is the verdict that cannot destroy anything, and startup logs
-        `classifier off`. Empty is the default because a value here names a
-        model on a specific provider, and every provider this agent reaches
-        is host-private and configured through the work-config input.
+        The value is `provider/id[:level]` and goes to `pi --model` as is.
+        The level also goes to `--thinking`, `off` when the value names none,
+        so a `--thinking` in the wrapper's defaultArgs cannot override it.
+
+        Invoked as a one-shot `pi --print` with no tools and no session, so
+        it can act on nothing and the provider credential stays with the
+        wrapper rather than reaching this watcher.
+
+        Empty in all three disables classification: every utterance becomes a
+        note, which is the verdict that cannot destroy anything, and startup
+        logs `classifier off`.
 
         Wants a small instruct model rather than the ride model. A frontier
         model on the same endpoint ran between 2.5 and 60 seconds for no
         better answer, and returns an empty message whenever a token cap
         leaves no room after its reasoning, which is the whole reason this is
-        a separate setting from the ride model.
+        a separate seat from the ride model.
       '';
     };
 
@@ -1139,7 +1155,7 @@ in
         note
       '';
       description = ''
-        System prompt for `classifyModel`, written to a store file and passed
+        System prompt for the classifier, written to a store file and passed
         with `--system-prompt`, which replaces pi's coding prompt rather than
         appending to it.
 
