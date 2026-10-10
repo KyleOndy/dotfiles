@@ -5,6 +5,7 @@
   lib,
   pkgs,
   config,
+  osConfig,
   ...
 }:
 {
@@ -77,6 +78,14 @@
     # machine too: the wrapper hard-fails a resolver rather than starting
     # without the value.
     pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
+    # The catalog and the seats are sops secrets (nix/secrets/work-mac.yaml),
+    # since the model ids in them are private. work-config appends its
+    # gateway and loopback providers to trustedProviders, whose names are
+    # private too.
+    pi-coding-agent.modelsJsonFile = osConfig.sops.secrets.pi_models_json.path;
+    pi-coding-agent.seatsFile = osConfig.sops.secrets.pi_seats.path;
+    pi-coding-agent.secretsSource = "nix/secrets/work-mac.yaml";
+    pi-coding-agent.trustedProviders = [ "mcloud" ];
     pi-coding-agent.coordinator = {
       enable = true;
       # The one host with forge.

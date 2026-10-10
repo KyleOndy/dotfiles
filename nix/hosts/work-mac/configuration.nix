@@ -32,6 +32,21 @@
     pkgs.leak-guard
   ];
 
+  # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile and
+  # seatsFile), secrets rather than store paths because the model ids in them
+  # are private. The provider keys stay in the Keychain, read through
+  # work-config's envFromCommands.
+  sops.secrets = {
+    pi_models_json = {
+      owner = "kondy";
+      mode = "0400";
+    };
+    pi_seats = {
+      owner = "kondy";
+      mode = "0400";
+    };
+  };
+
   # Homebrew integration for GUI applications and tools not in nixpkgs
   homebrew = {
     # Default casks (can be overridden with lib.mkForce in work.nix)
