@@ -26,11 +26,14 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 
 // The broker polls every 2s, so this is several of its rounds.
 const RESPONSE_TIMEOUT_MS = 20_000;
 const WAIT_POLL_MS = 5_000;
+// The broker polls every 2s, so rereading state/ faster shows nothing new.
+const WIDGET_POLL_MS = 2_000;
 const MAX_WAIT_MINUTES = 120;
 // forge's own VM_TIMEOUT is 10m, and the cache may need booting first.
 const BOOT_TIMEOUT_MS = 15 * 60_000;
@@ -93,8 +96,10 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   const allStates = (): AgentState[] => {
     const stateDir = join(dir, "state");
     if (!existsSync(stateDir)) return [];
+    // APFS lists in no fixed order, and the pinned rows would reshuffle.
     return readdirSync(stateDir)
       .filter((f) => f.endsWith(".json"))
+      .sort()
       .map((f) => readState(f.slice(0, -5)))
       .filter((s): s is AgentState => s !== undefined);
   };
@@ -109,6 +114,62 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
     ]
       .filter(Boolean)
       .join("\n");
+
+  const row = (s: AgentState, theme: Theme): string => {
+    const color =
+      s.state === "failed" || s.state === "exited"
+        ? "error"
+        : s.result || s.state === "done"
+          ? "success"
+          : "warning";
+    return [
+      theme.fg("accent", s.agent),
+      theme.fg(color, s.state),
+      s.result && theme.fg("success", "result reported"),
+      s.error && theme.fg("dim", s.error),
+    ]
+      .filter(Boolean)
+      .join("  ");
+  };
+
+  // agent_status answers only when the model asks, and its answer scrolls
+  // away, so every agent not yet torn down stays pinned above the editor.
+  // Polled, since state/ is the broker's only channel. Component factories
+  // are terminal-only (docs/rpc-extension-ui.md), hence the mode.
+  let poll: ReturnType<typeof setInterval> | undefined;
+  pi.on("session_start", (_event, ctx) => {
+    if (ctx.mode !== "tui") return;
+    let shown = "";
+    const refresh = (): void => {
+      // This runs outside any tool call, so nothing would report a throw. A
+      // state file that does not parse shows up through agent_status.
+      let states: AgentState[];
+      try {
+        states = allStates().filter((s) => s.state !== "torn-down");
+      } catch {
+        return;
+      }
+      const key = JSON.stringify(states);
+      if (key === shown) return;
+      shown = key;
+      ctx.ui.setWidget(
+        "coordinator",
+        states.length === 0
+          ? undefined
+          : (_tui, theme) => ({
+              invalidate: () => {},
+              render: (width: number) =>
+                states.map((s) =>
+                  truncateToWidth(row(s, theme), width, theme.fg("dim", "...")),
+                ),
+            }),
+      );
+    };
+    clearInterval(poll);
+    refresh();
+    poll = setInterval(refresh, WIDGET_POLL_MS);
+  });
+  pi.on("session_shutdown", () => clearInterval(poll));
 
   // Written under a dot name the broker's *.json glob skips, then renamed,
   // so it never reads half a request.
