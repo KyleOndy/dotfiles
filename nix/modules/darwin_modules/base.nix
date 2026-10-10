@@ -61,8 +61,9 @@
   };
 
   system.defaults = {
-    # Disable Globe/Fn key emoji picker
-    hitoolbox.AppleFnUsageType = lib.mkDefault "Do Nothing";
+    # Fn twice starts Dictation. Only "Show Emoji & Symbols" binds the emoji
+    # picker to Fn.
+    hitoolbox.AppleFnUsageType = lib.mkDefault "Start Dictation";
 
     dock = {
       autohide = lib.mkDefault true;
