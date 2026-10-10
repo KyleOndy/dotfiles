@@ -273,10 +273,7 @@ in
       };
       sandbox.envGrantGates.KAGI_API_KEY = "kagi";
 
-      coordinator = {
-        enable = true;
-        maxAgents = 3;
-      };
+      coordinator.enable = true;
     };
   };
 
