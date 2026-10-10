@@ -68,10 +68,12 @@ keep in sync.
 Out of scope, deliberately:
 
 - **`storage/media`** (4.34T). Re-acquirable. Not worth the drives.
-- **`storage/immich`** (334G). Immich is a read-only view of the curated
-  archive through `externalLibraryPaths`, which `immich.nix:118-121`
-  enforces with `ReadOnlyPaths`. It holds no originals, so it needs no
-  backup. It is a projection of tier 1, not a source.
+- **`storage/immich`** (339G). Immich's own library: 63,816 photos and
+  videos (233G) uploaded from a Google Photos Takeout export in April 2026,
+  plus thumbnails, transcodes and Immich's nightly database dumps. No
+  External Library is configured, so none of it comes from the curated
+  archive, and in a sample of 40 uploads, 24 had no copy there. Losing the
+  dataset loses that library, and we accept that.
 - **tiger's root disk.** jellyfin, navidrome, sabnzbd, prowlarr, the
   \*arrs, and the monitoring stack are all rebuildable from the flake.
 - **`storage/scratch-big`, `scratch/scratch`, `storage/data`.** Scratch is
@@ -247,8 +249,8 @@ it.
 
 The unsnapshotted datasets are a decision, recorded here so it reads as
 one: `storage/media` and `storage/scratch-big` are replaceable,
-`storage/data` is empty, `scratch/scratch` is scratch, and
-`storage/immich` is a projection.
+`storage/data` is empty, `scratch/scratch` is scratch, and losing
+`storage/immich` is a risk we accept.
 
 The pools were created by hand and are not declared in Nix. The `disko`
 input was removed in `e94efb4e`, so this stays manual, and any new dataset
