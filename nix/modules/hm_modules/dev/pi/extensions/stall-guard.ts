@@ -171,10 +171,15 @@ export default function (pi: ExtensionAPI) {
     showStatus();
   };
 
+  // terminal-title.ts reads this to keep a session with a running job out of
+  // IDL after its turn settles.
+  const announce = (): void => pi.events.emit("stall-guard:jobs", jobs.size);
+
   const track = (job: Job): void => {
     jobs.set(job.id, job);
     beat ??= setInterval(tick, HEARTBEAT_MS);
     showStatus();
+    announce();
   };
 
   const finish = (job: Job, exitCode: number | null, error?: unknown) => {
@@ -184,6 +189,7 @@ export default function (pi: ExtensionAPI) {
       beat = undefined;
     }
     showStatus();
+    announce();
     rmSync(job.pidFile, { force: true });
     if (shuttingDown) return;
 

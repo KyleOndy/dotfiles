@@ -22,12 +22,13 @@
  * socket, which srt denies, and granting it would also hand the agent
  * `tmux new-window` and `send-keys`, which execute outside the sandbox.
  *
- * States are IDL waiting on you, RUN in the agent loop, EXE running a tool,
- * CMP compacting, and RTY sleeping between provider retries, which the
- * retry budget stretches to 126s. There is no permission-prompt state: pi
- * gates tools with the sandbox rather than by asking. `--print` and
- * `--mode json` leave hasUI false, where setTitle is a no-op, so a
- * non-interactive run reports nothing.
+ * States are IDL waiting on you with nothing running, RUN in the agent loop,
+ * EXE running a tool or, once the turn has settled, a background job
+ * (stall-guard.ts), CMP compacting, and RTY sleeping between provider
+ * retries, which the retry budget stretches to 126s. There is no
+ * permission-prompt state: pi gates tools with the sandbox rather than by
+ * asking. `--print` and `--mode json` leave hasUI false, where setTitle is a
+ * no-op, so a non-interactive run reports nothing.
  *
  * Applied on session_start rather than once at load: /reload runs
  * resetExtensionUI(), whose updateTerminalTitle() call drops the marker.
@@ -56,8 +57,12 @@ export default function (pi: ExtensionAPI) {
   // null while pi is shutting down, so a pane the agent has left behind
   // stops claiming a state it is no longer in.
   let state: string | null = "IDL";
+  let jobs = 0;
+  // The job count arrives on pi.events, whose handlers get no context.
+  let last: ExtensionContext | undefined;
 
   const show = (ctx: ExtensionContext): void => {
+    last = ctx;
     if (!ctx.hasUI) return;
     const name = pi.getSessionName();
     const cwd = path.basename(ctx.cwd);
@@ -68,7 +73,8 @@ export default function (pi: ExtensionAPI) {
       return;
     }
     const title = `π - ${name ? `${name} - ${cwd}` : cwd}`;
-    const marker = underTmux ? `[pi:${state}]` : state === "IDL" ? "○" : "●";
+    const shown = state === "IDL" && jobs > 0 ? "EXE" : state;
+    const marker = underTmux ? `[pi:${shown}]` : shown === "IDL" ? "○" : "●";
     ctx.ui.setTitle(`${marker} ${title}`);
   };
 
@@ -76,6 +82,11 @@ export default function (pi: ExtensionAPI) {
     state = next;
     show(ctx);
   };
+
+  pi.events.on("stall-guard:jobs", (count) => {
+    jobs = Number(count);
+    if (last) show(last);
+  });
 
   pi.on("session_start", (_event, ctx) => enter("IDL", ctx));
   pi.on("session_info_changed", (_event, ctx) => show(ctx));
