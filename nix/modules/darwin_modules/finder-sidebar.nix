@@ -51,11 +51,10 @@ in
   };
 
   config = mkIf (cfg.folders != [ ]) {
+    # `command` for /bin/wait4path; see monitoring-agent.nix.
     launchd.agents.finder-sidebar = {
-      serviceConfig = {
-        ProgramArguments = [ "${script}" ];
-        RunAtLoad = true;
-      };
+      command = "${script}";
+      serviceConfig.RunAtLoad = true;
     };
   };
 }

@@ -81,20 +81,23 @@ in
       chmod 0775 ${cfg.textfileDirectory}
     '';
 
+    # `command`, not ProgramArguments, so nix-darwin waits for /nix/store via
+    # /bin/wait4path. launchd loads these plists at boot before that volume
+    # mounts, and a daemon exec'ing /nix/store directly stays in EX_CONFIG.
     launchd.daemons.node-exporter = {
+      command = escapeShellArgs [
+        "${pkgs.prometheus-node-exporter}/bin/node_exporter"
+        "--web.listen-address=127.0.0.1:9100"
+        # Every APFS volume in a container reports the container's free
+        # space, so one full disk raises one alert per volume. Data is the
+        # only one whose number is actionable. The smbfs mounts are tiger's
+        # shares, already monitored on tiger.
+        "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware))($|/)"
+        "--collector.filesystem.fs-types-exclude=^(devfs|autofs|smbfs)$"
+        "--collector.textfile.directory=${cfg.textfileDirectory}"
+      ];
       serviceConfig = {
         Label = "org.ondy.node-exporter";
-        ProgramArguments = [
-          "${pkgs.prometheus-node-exporter}/bin/node_exporter"
-          "--web.listen-address=127.0.0.1:9100"
-          # Every APFS volume in a container reports the container's free
-          # space, so one full disk raises one alert per volume. Data is the
-          # only one whose number is actionable. The smbfs mounts are tiger's
-          # shares, already monitored on tiger.
-          "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware))($|/)"
-          "--collector.filesystem.fs-types-exclude=^(devfs|autofs|smbfs)$"
-          "--collector.textfile.directory=${cfg.textfileDirectory}"
-        ];
         RunAtLoad = true;
         KeepAlive = true;
         StandardOutPath = "${logDir}/node-exporter.log";
@@ -103,9 +106,8 @@ in
     };
 
     launchd.daemons.vmagent = {
-      serviceConfig = {
-        Label = "org.ondy.vmagent";
-        ProgramArguments = [
+      command = escapeShellArgs (
+        [
           "${pkgs.vmagent}/bin/vmagent"
           # The default is every interface, where /api/v1/write would relay
           # anything sent to it under this host's tiger credential.
@@ -117,7 +119,10 @@ in
         ++ optionals (cfg.basicAuth != null) [
           "-remoteWrite.basicAuth.username=${cfg.basicAuth.username}"
           "-remoteWrite.basicAuth.passwordFile=${toString cfg.basicAuth.passwordFile}"
-        ];
+        ]
+      );
+      serviceConfig = {
+        Label = "org.ondy.vmagent";
         RunAtLoad = true;
         KeepAlive = true;
         StandardOutPath = "${logDir}/vmagent.log";
