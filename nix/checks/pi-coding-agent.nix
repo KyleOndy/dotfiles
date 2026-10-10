@@ -294,6 +294,8 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.network.allowedDomains | index("example.com")' >/dev/null \
       || fail "--allow did not extend allowedDomains. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_ALLOWED_HOSTS: example.com" \
+      || fail "--allow host missing from PI_ALLOWED_HOSTS. captured=$captured"
 
     # --allow-write extends the write-path list
     captured=$(pi --allow-write /tmp/x -- x 2>&1)
@@ -1289,6 +1291,10 @@ pkgs.runCommand "pi-coding-agent-check"
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
     echo "$settings" | jq -e '.network.allowedDomains == ["gw.fakecloud.test"]' >/dev/null \
       || fail "catalog endpoints: want the trusted, non-loopback host alone. settings=$settings"
+    # Endpoints are private, and PI_ALLOWED_HOSTS is shown in the footer.
+    if echo "$captured" | grep -q "PI_PLAN_ALLOWED_HOSTS"; then
+      fail "catalog endpoints: a provider host reached PI_ALLOWED_HOSTS. captured=$captured"
+    fi
     rm "$HOME/.pi/agent/models.json"
     cp ${catalogInStore} "$HOME/.pi/agent/models.json"
     captured=$(PI_SESSION_MODEL=fakecloud/acme/zeta-9000 ${wrapperWithCatalog}/bin/pi -- x 2>&1)

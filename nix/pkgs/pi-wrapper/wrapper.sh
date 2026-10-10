@@ -21,6 +21,7 @@ export PI_REAL_BIN="$real_pi"
 [[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_REAL_BIN: %s\n' "$real_pi"
 
 extra_domains=()
+allowed_hosts=()
 extra_write_paths=()
 extra_read_paths=()
 grants=()
@@ -594,10 +595,12 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--allow)
 		extra_domains+=("$2")
+		allowed_hosts+=("$2")
 		shift 2
 		;;
 	--allow=*)
 		extra_domains+=("${1#--allow=}")
+		allowed_hosts+=("${1#--allow=}")
 		shift
 		;;
 	--allow-write)
@@ -753,6 +756,18 @@ if [[ ${#grants[@]} -gt 0 ]]; then
 	)
 	export PI_GRANTS
 	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_GRANTS: %s\n' "$PI_GRANTS"
+fi
+
+# The hosts --allow named, for the footer (extensions/grants-status.ts).
+# Not extra_domains: a bundle's or forge's hosts already show as its grant
+# name, and provider endpoints are private.
+if [[ ${#allowed_hosts[@]} -gt 0 ]]; then
+	PI_ALLOWED_HOSTS=$(
+		IFS=,
+		printf '%s' "${allowed_hosts[*]}"
+	)
+	export PI_ALLOWED_HOSTS
+	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_ALLOWED_HOSTS: %s\n' "$PI_ALLOWED_HOSTS"
 fi
 
 # The full grant catalog this wrapper can carry: the four built-in flags
