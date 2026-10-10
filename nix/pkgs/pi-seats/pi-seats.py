@@ -6,8 +6,10 @@
   pi-seats check --deploy      the seats file's values; an id missing from
                                the catalog fails
   pi-seats check --start [--require VAR]...
-                               the effective values; an id missing from the
-                               catalog only warns
+                               the effective values; only a problem in the
+                               session's seat or a required one fails, the
+                               rest warn, and an id missing from the catalog
+                               only warns
   pi-seats source              the sops file this host's seats and catalog
                                are edited in, or nothing
 
@@ -194,36 +196,50 @@ def cmd_list():
 def cmd_check(deploy, requires):
     errors, warnings = [], []
     path = seats_path()
+    session_seats = {"PI_SESSION_MODEL", *requires}
+
+    def problem(var, message):
+        """At deploy every problem fails. At start only one in a seat this
+        session runs on does, so a missing vision seat doesn't stop the
+        session: every other seat's consumer refuses on its own when used
+        (task.ts, or the wrapper a child or the classifier starts through)."""
+        (errors if deploy or var in session_seats else warnings).append(message)
 
     known = list(FIXED)
     required = ["PI_SESSION_MODEL"]
+    needs_image = set()
     for name, fields in agents():
         if not AGENT_NAME.fullmatch(fields["name"]):
-            errors.append(
-                f"agents/{name}: name is not [A-Za-z0-9_]+, so no variable can hold its seat. Rename the agent in its frontmatter."
+            problem(
+                None,
+                f"agents/{name}: name is not [A-Za-z0-9_]+, so no variable can hold its seat. Rename the agent in its frontmatter.",
             )
             continue
         var = "PI_AGENT_MODEL_" + fields["name"].upper()
         known.append(var)
         if fields.get("seat") == "required":
             required.append(var)
+        if fields.get("needs") == "image":
+            needs_image.add(var)
     known = dict.fromkeys(known + requires)
     required = dict.fromkeys(required + requires)
 
     good, bad = read_lines()
     for n in bad:
-        errors.append(
-            f"{path}:{n}: not VAR=value. Each line of pi_seats is blank, a # comment, or VAR=provider/id[:level] with no spaces."
+        problem(
+            None,
+            f"{path}:{n}: not VAR=value. Each line of pi_seats is blank, a # comment, or VAR=provider/id[:level] with no spaces.",
         )
     first = {}
     for n, var, _value in good:
         if var not in known:
-            errors.append(
-                f"{var} ({path}:{n}): not a seat, so nothing reads it. Seats here: {', '.join(known)}."
+            problem(
+                None,
+                f"{var} ({path}:{n}): not a seat, so nothing reads it. Seats here: {', '.join(known)}.",
             )
         elif var in first:
-            errors.append(
-                f"{var}: set on lines {first[var]} and {n} of {path}. Keep one."
+            problem(
+                var, f"{var}: set on lines {first[var]} and {n} of {path}. Keep one."
             )
         else:
             first[var] = n
@@ -243,8 +259,9 @@ def cmd_check(deploy, requires):
                 if missing
                 else ""
             )
-            errors.append(
-                f"{var}: required, and not set. Add a {var}=provider/id[:level] line to pi_seats.{hint}"
+            problem(
+                var,
+                f"{var}: required, and not set. Add a {var}=provider/id[:level] line to pi_seats.{hint}",
             )
 
     catalog = load_catalog(errors, needed=bool(seats) and bool(SEATS_FILE or TRUSTED))
@@ -252,24 +269,27 @@ def cmd_check(deploy, requires):
     for var, value in seats.items():
         seat = parse(value)
         if seat is None:
-            errors.append(
-                f"{var}: not provider/id[:level]. Write the provider, a /, the model id, and optionally :{'|'.join(LEVELS)}."
+            problem(
+                var,
+                f"{var}: not provider/id[:level]. Write the provider, a /, the model id, and optionally :{'|'.join(LEVELS)}.",
             )
             continue
         parsed[var] = seat
         provider, model, level = seat
         if TRUSTED and provider not in TRUSTED:
-            errors.append(
+            problem(
+                var,
                 f"{var}: its provider is not one of {', '.join(TRUSTED)}, the only ones allowed to see this host's model ids. "
-                f"Point it at a model on one of those, or add the provider to trustedProviders in this host's config."
+                f"Point it at a model on one of those, or add the provider to trustedProviders in this host's config.",
             )
             continue
         entry = lookup(catalog, provider, model)
         if entry is None:
             if deploy:
-                errors.append(
+                problem(
+                    var,
                     f"{var}: its id is not listed under its provider in models.json. "
-                    f"Add the model to pi_models_json, or fix the id in the seat."
+                    f"Add the model to pi_models_json, or fix the id in the seat.",
                 )
             else:
                 warnings.append(
@@ -279,27 +299,31 @@ def cmd_check(deploy, requires):
         if level is not None:
             levels = entry.get("thinkingLevelMap") or {}
             if level in levels and levels[level] is None:
-                errors.append(
+                problem(
+                    var,
                     f"{var}: level {level} maps to null in the model's thinkingLevelMap, so pi would not send it. "
-                    f"Use a level the map gives a value, or drop the :level suffix."
+                    f"Use a level the map gives a value, or drop the :level suffix.",
                 )
             elif level != "off" and entry.get("reasoning") is False:
-                errors.append(
+                problem(
+                    var,
                     f'{var}: level {level} would do nothing: the model\'s catalog entry says "reasoning": false. '
-                    f"Use :off, or drop the :level suffix."
+                    f"Use :off, or drop the :level suffix.",
                 )
-        if var == "PI_AGENT_MODEL_VISION" and "image" not in (entry.get("input") or []):
-            errors.append(
-                f'{var}: the model\'s catalog entry has no "image" in input, so the vision agent could not send it images. '
-                f"Point the seat at a model whose entry declares image input, and run mcloud-pins to confirm the endpoint accepts images."
+        if var in needs_image and "image" not in (entry.get("input") or []):
+            problem(
+                var,
+                f'{var}: the model\'s catalog entry has no "image" in input, and its agent says `needs: image`, so every image would be dropped. '
+                f"Point the seat at a model whose entry declares image input and passes mcloud-pins' image check.",
             )
 
     session = parsed.get("PI_SESSION_MODEL")
     for var in ("PI_ADVISOR_MODEL", "PI_AGENT_MODEL_CRITIC"):
         if session and var in parsed and parsed[var][:2] == session[:2]:
-            errors.append(
+            problem(
+                var,
                 f"{var}: same model as PI_SESSION_MODEL, so it would share the blind spots it is there to catch. "
-                f"Pick another model, ideally from another family."
+                f"Pick another model, ideally from another family.",
             )
 
     for warning in warnings:
@@ -312,6 +336,12 @@ def cmd_check(deploy, requires):
             file=sys.stderr,
         )
         return 1
+    if warnings and not deploy:
+        print(
+            f"pi-seats: {len(warnings)} warning(s), which fail the next deploy check; a seat warned about refuses when it is used. "
+            f"Edit with {where()}, then redeploy.",
+            file=sys.stderr,
+        )
     if deploy:
         print(f"pi-seats: {len(seats)} seats ok")
     return 0

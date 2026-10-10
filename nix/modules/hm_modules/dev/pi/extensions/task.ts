@@ -80,6 +80,9 @@ interface Agent {
   // Frontmatter `seat: required`: with its seat unset, the agent refuses
   // rather than run the session's model.
   seatRequired: boolean;
+  // Frontmatter `needs: image`: the agent refuses a model whose catalog entry
+  // takes no image input, which would drop every image it is handed.
+  needsImage: boolean;
   systemPrompt: string;
 }
 
@@ -129,11 +132,11 @@ function parseTools(value: unknown): string {
   return tools.length > 0 ? tools.join(",") : SUBAGENT_TOOLS;
 }
 
-// ~/.pi/agent/agents/*.md: frontmatter name/description/tools/model/seat with
-// the body as the role prompt. Read once at registration, like every other
-// file under the extensions symlink, so an edit lands on /reload. Upstream
-// also walks up for a project-scoped <repo>/.pi/agents; nothing has wanted a
-// repo-specific researcher yet.
+// ~/.pi/agent/agents/*.md: frontmatter name/description/tools/model/seat/
+// needs with the body as the role prompt. Read once at registration, like
+// every other file under the extensions symlink, so an edit lands on
+// /reload. Upstream also walks up for a project-scoped <repo>/.pi/agents;
+// nothing has wanted a repo-specific researcher yet.
 function discoverAgents(): Agent[] {
   const dir = join(getAgentDir(), "agents");
   if (!existsSync(dir)) return [];
@@ -161,6 +164,7 @@ function discoverAgents(): Agent[] {
       tools?: unknown;
       model?: unknown;
       seat?: unknown;
+      needs?: unknown;
     }>(content);
     if (
       typeof frontmatter.name !== "string" ||
@@ -175,6 +179,7 @@ function discoverAgents(): Agent[] {
       model:
         typeof frontmatter.model === "string" ? frontmatter.model : undefined,
       seatRequired: frontmatter.seat === "required",
+      needsImage: frontmatter.needs === "image",
       systemPrompt: body.trim(),
     });
   }
@@ -260,13 +265,14 @@ function resolveModel(
     who = `agent ${agent.name} (seat ${seat})`;
   }
 
+  const slash = model ? model.indexOf("/") : -1;
+  const provider = model && slash > 0 ? model.slice(0, slash) : undefined;
+
   // Unset or empty: the host has no trust list, so nothing is checked.
   const trusted = (process.env.PI_TRUSTED_PROVIDERS ?? "")
     .split(",")
     .filter(Boolean);
   if (model && trusted.length > 0) {
-    const slash = model.indexOf("/");
-    const provider = slash > 0 ? model.slice(0, slash) : undefined;
     if (!provider)
       throw new Error(
         `task: ${who} names no provider, so it cannot be checked against PI_TRUSTED_PROVIDERS. Write the seat as provider/id.`,
@@ -276,7 +282,38 @@ function resolveModel(
         `task: ${who} is on provider ${provider}, which is not in PI_TRUSTED_PROVIDERS (${trusted.join(", ")}). Point it at a model on one of those.`,
       );
   }
+
+  // An id the catalog lacks runs as a copy of its provider's default model,
+  // so there is no entry to hold it to; that is how a new model gets tried.
+  if (agent?.needsImage && model && provider) {
+    const entry = ctx.modelRegistry.find(
+      provider,
+      stripLevel(model.slice(slash + 1)),
+    );
+    if (entry && !entry.input.includes("image"))
+      throw new Error(
+        `task: ${who} is on a model whose catalog entry takes no image input, so every image would be dropped. Point the seat at a model whose pi_models_json entry has "image" in input and passes mcloud-pins' image check.`,
+      );
+  }
   return model;
+}
+
+const LEVELS = new Set([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
+
+// pi's split: a suffix after the last `:` is a level only when it names one.
+function stripLevel(id: string): string {
+  const colon = id.lastIndexOf(":");
+  return colon >= 0 && LEVELS.has(id.slice(colon + 1))
+    ? id.slice(0, colon)
+    : id;
 }
 
 // Pull the final assistant message out of `--mode json`'s NDJSON event

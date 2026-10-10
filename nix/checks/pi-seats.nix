@@ -35,12 +35,13 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   seats() {
     printf '%s\n' "$@" >"$HOME/seats"
   }
-  agent() { # <file> <name> [seat]
+  agent() { # <file> <name> [seat] [needs]
     {
       echo ---
       echo "name: $2"
       echo "description: d"
       [ -z "''${3:-}" ] || echo "seat: $3"
+      [ -z "''${4:-}" ] || echo "needs: $4"
       echo ---
       echo body
     } >"$A/agents/$1.md"
@@ -52,7 +53,7 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   S=$HOME/seats
   mkdir -p "$A/agents"
   agent critic critic required
-  agent vision vision required
+  agent vision vision required image
   agent scout scout
   cat >"$A/models.json" <<'EOF'
   {"providers": {
@@ -76,61 +77,63 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
     PI_AGENT_MODEL_VISION=fakecloud/acme/omega-2
     PI_CLASSIFY_MODEL=fakecloud/acme/kappa-7:off
   )
-  modes() { # <exit>: the same verdict from either mode on the seats file
+  # deploy fails on every problem; start only on one in the session's own
+  # seat, and warns about the rest.
+  modes() { # <deploy exit> <start exit>
     run "$1" pi-seats check --deploy
     cp "$T/out" "$T/deploy"
-    run "$1" pi-seats check --start
+    run "$2" pi-seats check --start
     cp "$T/out" "$T/start"
   }
-  both() { # <exit> [line]...: modes on the good file, each line replacing its var's or appended
+  both() { # <deploy exit> <start exit> [line]...: modes on the good file, each line replacing its var's or appended
     printf '%s\n' "''${good[@]}" >"$S"
-    for line in "''${@:2}"; do
+    for line in "''${@:3}"; do
       grep -v "^''${line%%=*}=" "$S" >"$T/seats"
       echo "$line" >>"$T/seats"
       mv "$T/seats" "$S"
     done
-    modes "$1"
+    modes "$1" "$2"
   }
-  both_have() {
+  both_have() { # the problem, failing deploy and failing or warning at start
     grep -qF -- "$1" "$T/deploy" || fail "--deploy: no line: $1"
-    grep -qF -- "$1" "$T/start" || fail "--start: no line: $1"
+    grep -qF -- "''${1#pi-seats: }" "$T/start" || fail "--start: no line: $1"
   }
 
   # A good file passes; deploy says so, start says nothing.
-  both 0
+  both 0 0
   grep -qxF 'pi-seats: 5 seats ok' "$T/deploy" || fail "no deploy summary"
   [ ! -s "$T/start" ] || fail "--start printed on success"
 
   # Lines: the shape, by number only.
-  both 1 'PI_SPAWN_MODEL = fakecloud/acme/omega-2'
+  both 1 0 'PI_SPAWN_MODEL = fakecloud/acme/omega-2'
   both_have "pi-seats: $S:8: not VAR=value"
-  both 1 'pi_spawn_model=fakecloud/acme/omega-2'
+  both 1 0 'pi_spawn_model=fakecloud/acme/omega-2'
   both_have "pi-seats: $S:8: not VAR=value"
-  both 1 'PI_SPAWN_MODEL=fakecloud/acme/omega-2 '
+  both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/omega-2 '
   both_have "pi-seats: $S:8: not VAR=value"
-  both 1 '  # an indented comment'
+  both 1 0 '  # an indented comment'
   both_have "pi-seats: $S:8: not VAR=value"
-  both 0 'PI_AGENT_MODEL_SCOUT=fakecloud/acme/omega-2:low'
+  both 0 0 'PI_AGENT_MODEL_SCOUT=fakecloud/acme/omega-2:low'
 
   # Lines: a known seat, once.
-  both 1 'PI_AGENT_MODEL_CRTIC=fakecloud/acme/omega-2'
+  both 1 0 'PI_AGENT_MODEL_CRTIC=fakecloud/acme/omega-2'
   both_have "pi-seats: PI_AGENT_MODEL_CRTIC ($S:8): not a seat"
-  both 1 'FOO=bar'
+  both 1 0 'FOO=bar'
   both_have "pi-seats: FOO ($S:8): not a seat"
   seats "''${good[@]}" PI_SESSION_MODEL=fakecloud/acme/zeta-9000:high
-  modes 1
+  modes 1 1
   both_have "pi-seats: PI_SESSION_MODEL: set on lines 3 and 8 of $S. Keep one."
 
   # Values: provider/id[:level].
   for bad in acme-zeta-9000 /acme/zeta-9000 fakecloud/ fakecloud/:high; do
-    both 1 "PI_SPAWN_MODEL=$bad"
+    both 1 0 "PI_SPAWN_MODEL=$bad"
     both_have 'pi-seats: PI_SPAWN_MODEL: not provider/id[:level]'
   done
-  both 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta'
-  both 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta:max'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta:max'
 
   # Trust.
-  both 1 'PI_SPAWN_MODEL=othercloud/acme/omega-2'
+  both 1 0 'PI_SPAWN_MODEL=othercloud/acme/omega-2'
   both_have 'pi-seats: PI_SPAWN_MODEL: its provider is not one of fakecloud'
 
   # The catalog: an error at deploy, a warning at start that skips the
@@ -149,13 +152,13 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   has 'pi-seats: warning: PI_SESSION_MODEL: not in the catalog'
 
   # Levels the catalog makes inert.
-  both 1 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:max'
+  both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:max'
   both_have "pi-seats: PI_SPAWN_MODEL: level max maps to null in the model's thinkingLevelMap"
-  both 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:high'
-  both 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000'
-  both 1 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7:low'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:high'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000'
+  both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7:low'
   both_have 'pi-seats: PI_SPAWN_MODEL: level low would do nothing'
-  both 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7'
 
   # Required: the session, each `seat: required` agent, each --require.
   seats "''${good[@]:3}"
@@ -167,6 +170,10 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   printf '%s\n' "''${good[@]}" | grep -v PI_AGENT_MODEL_VISION >"$S"
   run 1 pi-seats check --deploy
   has 'pi-seats: PI_AGENT_MODEL_VISION: required, and not set'
+  # An agent's seat doesn't stop the session; the agent refuses when used.
+  run 0 pi-seats check --start
+  has 'pi-seats: warning: PI_AGENT_MODEL_VISION: required, and not set'
+  has 'warning(s), which fail the next deploy check'
   run 0 env PI_AGENT_MODEL_VISION=fakecloud/acme/omega-2 pi-seats check --start
   printf '%s\n' "''${good[@]}" | grep -v PI_ADVISOR_MODEL >"$S"
   run 0 pi-seats check --deploy
@@ -182,22 +189,24 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   run 2 pi-seats check
 
   # The advisor and the critic aren't the session's model, whatever the level.
-  both 1 'PI_ADVISOR_MODEL=fakecloud/acme/zeta-9000:low'
+  both 1 0 'PI_ADVISOR_MODEL=fakecloud/acme/zeta-9000:low'
   both_have 'pi-seats: PI_ADVISOR_MODEL: same model as PI_SESSION_MODEL'
-  both 1 'PI_AGENT_MODEL_CRITIC=fakecloud/acme/zeta-9000'
+  run 1 pi-seats check --start --require PI_ADVISOR_MODEL
+  has 'pi-seats: PI_ADVISOR_MODEL: same model as PI_SESSION_MODEL'
+  both 1 0 'PI_AGENT_MODEL_CRITIC=fakecloud/acme/zeta-9000'
   both_have 'pi-seats: PI_AGENT_MODEL_CRITIC: same model as PI_SESSION_MODEL'
 
-  # vision sees images.
-  both 1 'PI_AGENT_MODEL_VISION=fakecloud/acme/kappa-7'
+  # An agent with `needs: image` gets a model that takes images.
+  both 1 0 'PI_AGENT_MODEL_VISION=fakecloud/acme/kappa-7'
   both_have "pi-seats: PI_AGENT_MODEL_VISION: the model's catalog entry has no \"image\" in input"
 
   # Agents: a name no variable can hold, and a file task.ts skips.
   agent bad-name bad-name
-  both 1
+  both 1 0
   both_have 'pi-seats: agents/bad-name.md: name is not [A-Za-z0-9_]+, so no variable can hold its seat'
   rm "$A/agents/bad-name.md"
   printf -- '---\nname: nodesc\nseat: required\n---\n' >"$A/agents/nodesc.md"
-  both 1 'PI_AGENT_MODEL_NODESC=fakecloud/acme/omega-2'
+  both 1 0 'PI_AGENT_MODEL_NODESC=fakecloud/acme/omega-2'
   both_have "pi-seats: PI_AGENT_MODEL_NODESC ($S:8): not a seat"
   rm "$A/agents/nodesc.md"
 
@@ -234,7 +243,7 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   rm "$S"
   run 1 pi-seats check --start
   has 'pi-seats: PI_SESSION_MODEL: required, and not set'
-  has 'pi-seats: PI_AGENT_MODEL_CRITIC: required, and not set'
+  has 'pi-seats: warning: PI_AGENT_MODEL_CRITIC: required, and not set'
   run 0 env PI_SESSION_MODEL=fakecloud/acme/zeta-9000 PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2 \
     PI_AGENT_MODEL_VISION=fakecloud/acme/omega-2 pi-seats check --start
   run 0 pi-seats list
