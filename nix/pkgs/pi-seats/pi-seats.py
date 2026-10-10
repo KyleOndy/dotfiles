@@ -173,6 +173,38 @@ def lookup(catalog, provider, model):
     return None
 
 
+def runs_at(entry, level):
+    """The level pi 1.0.0 runs a seat at, and why when that differs.
+
+    pi-ai's getSupportedThinkingLevels and clampThinkingLevel: an entry
+    without "reasoning": true supports only off; a level mapped to null, and
+    xhigh or max without a mapping, is unsupported. An unsupported level
+    moves to the nearest supported one, searching up first.
+    """
+    levels = entry.get("thinkingLevelMap") or {}
+    if entry.get("reasoning") is not True:
+        supported = ["off"]
+        why = 'its catalog entry does not say "reasoning": true'
+    else:
+        supported = [
+            lv
+            for lv in LEVELS
+            if not (lv in levels and levels[lv] is None)
+            and (lv not in ("xhigh", "max") or lv in levels)
+        ]
+        if level in levels:
+            why = f"the entry's thinkingLevelMap maps {level} to null"
+        else:
+            why = f"pi runs {level} only when the entry's thinkingLevelMap names it"
+    if level in supported:
+        return level, None
+    i = LEVELS.index(level)
+    for lv in LEVELS[i:] + LEVELS[:i][::-1]:
+        if lv in supported:
+            return lv, why
+    return "off", why
+
+
 def cmd_source():
     if SOURCE:
         print(SOURCE)
@@ -297,18 +329,18 @@ def cmd_check(deploy, requires):
                 )
             continue
         if level is not None:
-            levels = entry.get("thinkingLevelMap") or {}
-            if level in levels and levels[level] is None:
+            runs, why = runs_at(entry, level)
+            if why and entry.get("reasoning") is not True:
                 problem(
                     var,
-                    f"{var}: level {level} maps to null in the model's thinkingLevelMap, so pi would not send it. "
-                    f"Use a level the map gives a value, or drop the :level suffix.",
+                    f"{var}: pi runs level {level} as {runs}: {why}. "
+                    f'Add "reasoning": true to the entry in pi_models_json if the model reasons, or use :{runs}, in {where()}.',
                 )
-            elif level != "off" and entry.get("reasoning") is False:
+            elif why:
                 problem(
                     var,
-                    f'{var}: level {level} would do nothing: the model\'s catalog entry says "reasoning": false. '
-                    f"Use :off, or drop the :level suffix.",
+                    f"{var}: pi runs level {level} as {runs}: {why}. "
+                    f'Give the entry\'s thinkingLevelMap a "{level}" value the endpoint takes in pi_models_json, or use :{runs}, in {where()}.',
                 )
         if var in needs_image and "image" not in (entry.get("input") or []):
             problem(

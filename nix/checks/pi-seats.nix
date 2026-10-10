@@ -59,8 +59,8 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   {"providers": {
     "fakecloud": {"models": [
       {"id": "acme/zeta-9000", "input": ["text"], "reasoning": true,
-       "thinkingLevelMap": {"max": null, "high": "high"}},
-      {"id": "acme/omega-2", "input": ["text", "image"]},
+       "thinkingLevelMap": {"max": null, "xhigh": "high", "high": "high"}},
+      {"id": "acme/omega-2", "input": ["text", "image"], "reasoning": true},
       {"id": "acme/kappa-7", "input": ["text"], "reasoning": false},
       {"id": "acme/sigma-3:beta", "input": ["text"]}
     ]},
@@ -130,7 +130,7 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
     both_have 'pi-seats: PI_SPAWN_MODEL: not provider/id[:level]'
   done
   both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta'
-  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta:max'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta:off'
 
   # Trust.
   both 1 0 'PI_SPAWN_MODEL=othercloud/acme/omega-2'
@@ -151,13 +151,20 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   run 0 env PI_SESSION_MODEL=fakecloud/acme/nope-1:max pi-seats check --start
   has 'pi-seats: warning: PI_SESSION_MODEL: not in the catalog'
 
-  # Levels the catalog makes inert.
+  # Levels pi clamps to another one.
   both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:max'
-  both_have "pi-seats: PI_SPAWN_MODEL: level max maps to null in the model's thinkingLevelMap"
+  both_have "pi-seats: PI_SPAWN_MODEL: pi runs level max as xhigh: the entry's thinkingLevelMap maps max to null."
+  both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/omega-2:xhigh'
+  both_have "pi-seats: PI_SPAWN_MODEL: pi runs level xhigh as high: pi runs xhigh only when the entry's thinkingLevelMap names it."
+  both_have "thinkingLevelMap a \"xhigh\" value the endpoint takes in pi_models_json, or use :high, in"
   both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:high'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:minimal'
   both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/zeta-9000'
   both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7:low'
-  both_have 'pi-seats: PI_SPAWN_MODEL: level low would do nothing'
+  both_have 'pi-seats: PI_SPAWN_MODEL: pi runs level low as off: its catalog entry does not say "reasoning": true.'
+  both 1 0 'PI_SPAWN_MODEL=fakecloud/acme/sigma-3:beta:high'
+  both_have 'pi-seats: PI_SPAWN_MODEL: pi runs level high as off: its catalog entry does not say "reasoning": true.'
+  both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7:off'
   both 0 0 'PI_SPAWN_MODEL=fakecloud/acme/kappa-7'
 
   # Required: the session, each `seat: required` agent, each --require.
