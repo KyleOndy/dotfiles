@@ -50,10 +50,11 @@ import { Type } from "typebox";
 import {
   type ExtensionAPI,
   type ExtensionContext,
+  type Theme,
   getAgentDir,
   parseFrontmatter,
 } from "@earendil-works/pi-coding-agent";
-import { Text } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 
 // Matches the local model server's --prompt-concurrency 3 (mlx-openai-server
 // launchd config, nix/hosts/trex/home.nix) -- no point queuing more subagents
@@ -382,6 +383,34 @@ function fmtElapsed(ms: number): string {
     : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
 }
 
+// One subagent's line, in the tool row and the pinned widget alike.
+// `run`/`done`/`FAILED` are words rather than glyphs so the state survives
+// without color, and the latter two match the wire format the model already
+// receives. A running subagent's clock is read at render time, not at its
+// last event, so one thinking for minutes does not look stalled.
+function taskRow(r: TaskResult, theme: Theme): string {
+  const label =
+    r.state === "running"
+      ? theme.fg("warning", "run   ")
+      : r.state === "done"
+        ? theme.fg("success", "done  ")
+        : theme.fg("error", "FAILED");
+  const subject =
+    r.state === "running"
+      ? theme.fg("muted", r.activity ?? "thinking")
+      : theme.fg("muted", oneLine(r.task));
+  const trailing =
+    r.state === "running"
+      ? theme.fg(
+          "dim",
+          `  ${r.tools} tool${r.tools === 1 ? "" : "s"}  ${fmtElapsed(Date.now() - r.startedAt)}`,
+        )
+      : r.elapsedMs
+        ? theme.fg("dim", `  ${fmtElapsed(r.elapsedMs)}`)
+        : "";
+  return `${theme.fg("dim", `[${r.index + 1}]`)} ${label} ${subject}${trailing}`;
+}
+
 // pi.exec would be the shorter call, but it buffers: it resolves once, after
 // the child has exited, which is exactly the ten minutes of silence this tool
 // used to report nothing during. spawn hands back the NDJSON as it is written.
@@ -593,8 +622,6 @@ export default function (pi: ExtensionAPI) {
       }));
 
       const emit = (): void => {
-        for (const r of results)
-          if (r.state === "running") r.elapsedMs = Date.now() - r.startedAt;
         onUpdate?.({
           content: [
             {
@@ -611,6 +638,27 @@ export default function (pi: ExtensionAPI) {
         });
       };
       emit();
+
+      // The tool row scrolls away once anything prints below it, so the same
+      // rows stay pinned above the editor until the batch returns. Keyed by
+      // call, since one turn can hold more than one task call. RPC drops
+      // component factories (docs/rpc-extension-ui.md), hence the mode rather
+      // than hasUI. The working row's spinner redraws the screen for as long
+      // as the tool runs, which is what keeps the clocks moving.
+      const widget = `task-${toolCallId}`;
+      const pinned = ctx.mode === "tui";
+      if (pinned)
+        ctx.ui.setWidget(widget, (_tui, theme) => ({
+          invalidate: () => {},
+          render: (width: number) =>
+            results.map((r) =>
+              truncateToWidth(
+                `${theme.fg("accent", agent?.name ?? "task")} ${taskRow(r, theme)}`,
+                width,
+                theme.fg("dim", "..."),
+              ),
+            ),
+        }));
 
       await runWithConcurrency<string, void>(
         params.tasks,
@@ -705,7 +753,9 @@ export default function (pi: ExtensionAPI) {
           });
           emit();
         },
-      );
+      ).finally(() => {
+        if (pinned) ctx.ui.setWidget(widget, undefined);
+      });
 
       const summary = results
         .map(
@@ -724,9 +774,6 @@ export default function (pi: ExtensionAPI) {
     // three-subagent fan-out sits behind several screens of their prose. These
     // put the batch first: which tasks are running and what they are doing,
     // which came back and which failed, with the summaries behind ctrl+O.
-    // `run`/`done`/`FAILED` are words rather than glyphs so the state survives
-    // without color, and the latter two match the wire format the model
-    // already receives.
     renderCall(args, theme, _context) {
       const count = Array.isArray(args.tasks) ? args.tasks.length : 0;
       let text =
@@ -769,28 +816,7 @@ export default function (pi: ExtensionAPI) {
 
       const lines = [head];
       for (const r of results) {
-        const label =
-          r.state === "running"
-            ? theme.fg("warning", "run   ")
-            : r.state === "done"
-              ? theme.fg("success", "done  ")
-              : theme.fg("error", "FAILED");
-        const subject =
-          r.state === "running"
-            ? theme.fg("muted", r.activity ?? "thinking")
-            : theme.fg("muted", oneLine(r.task));
-        const trailing =
-          r.state === "running"
-            ? theme.fg(
-                "dim",
-                `  ${r.tools} tool${r.tools === 1 ? "" : "s"}  ${fmtElapsed(r.elapsedMs)}`,
-              )
-            : r.elapsedMs
-              ? theme.fg("dim", `  ${fmtElapsed(r.elapsedMs)}`)
-              : "";
-        lines.push(
-          `${theme.fg("dim", `[${r.index + 1}]`)} ${label} ${subject}${trailing}`,
-        );
+        lines.push(taskRow(r, theme));
         if (!expanded) continue;
         // While it runs the path it took is the only thing to show; once it
         // finishes, what it concluded matters more.
