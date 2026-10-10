@@ -142,6 +142,10 @@ update/pi-coding-agent: ## Update pi.dev coding agent (via numtide/llm-agents.ni
 check: ## Run nix checks
 	nix flake check $(IMPURE)
 
+.PHONY: secrets-status
+secrets-status: ## Show whether each git-crypt and sops file is stored encrypted, locally and upstream
+	@nix run .#secrets-check -- status
+
 .PHONY: info
 info: ## Print information about the system
 	@echo "Current generation's largest dependencies:"

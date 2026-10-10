@@ -11,6 +11,8 @@
 #   secrets-check          the index, as a pre-commit hook
 #   secrets-check          PRE_COMMIT_FROM_REF..PRE_COMMIT_TO_REF, as a
 #                          pre-push hook
+#   secrets-check status   each protected file in the index, HEAD and the
+#                          upstream as of the last fetch
 #
 # pre-commit passes the range of the first ref pushed only, so `git push
 # --all` checks one branch.
@@ -100,7 +102,51 @@ check_range() {
 	return "$fail"
 }
 
-if [ -n "${PRE_COMMIT_FROM_REF:-}" ] && [ -n "${PRE_COMMIT_TO_REF:-}" ]; then
+status() {
+	local fail=0 upstream first kind blob path ref spec row
+	local -a refs=(index HEAD)
+	upstream=$(git rev-parse --abbrev-ref '@{upstream}' 2>/dev/null || true)
+	[ -n "$upstream" ] && refs+=("$upstream")
+
+	git ls-files -s | awk -F'\t' -v OFS='\t' '{ split($1, f, " "); print "-", f[2], $2 }' >"$tmp/blobs"
+	protected "$tmp/blobs" >"$tmp/protected"
+
+	first=$(awk -F'\t' '$1 == "git-crypt" { print $4; exit }' "$tmp/protected")
+	if ! git config --get filter.git-crypt.clean >/dev/null; then
+		echo "git-crypt filter: not configured, so a new file under a git-crypt pattern commits as plaintext"
+	elif [ -n "$first" ] && [ "$(head -c 10 "$first" | od -An -tx1 | tr -d ' \n')" = "$MAGIC" ]; then
+		echo "git-crypt filter: configured, worktree locked"
+	else
+		echo "git-crypt filter: configured, worktree unlocked, so files on disk read as plaintext"
+	fi
+	[ -n "$upstream" ] || echo "no upstream, so nothing shows what the remote holds"
+	echo
+
+	printf '%-56s' file
+	printf ' %-11s' "${refs[@]}"
+	echo
+	while IFS=$'\t' read -r kind _ _ path; do
+		row=$(printf '%-56s' "$path")
+		for ref in "${refs[@]}"; do
+			spec="$ref:$path"
+			[ "$ref" = index ] && spec=":$path"
+			if ! blob=$(git rev-parse -q --verify "$spec" 2>/dev/null); then
+				row+=$(printf ' %-11s' -)
+			elif encrypted "$kind" "$blob"; then
+				row+=$(printf ' %-11s' encrypted)
+			else
+				row+=$(printf ' %-11s' PLAINTEXT)
+				fail=1
+			fi
+		done
+		echo "$row"
+	done <"$tmp/protected"
+	return "$fail"
+}
+
+if [ "${1:-}" = status ]; then
+	status
+elif [ -n "${PRE_COMMIT_FROM_REF:-}" ] && [ -n "${PRE_COMMIT_TO_REF:-}" ]; then
 	check_range "$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF"
 elif [ -n "${PRE_COMMIT_REMOTE_NAME:-}" ]; then
 	# A push that includes the root commit, for which pre-commit sets no range.

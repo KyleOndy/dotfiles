@@ -592,6 +592,8 @@
         {
           # Two-key push-to-talk pad for domestique rides
           pad-firmware = pkgs.callPackage ./keyboard/domestique-pad { };
+          # `make secrets-status`
+          inherit (pkgs) secrets-check;
         }
         // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           # keyboard/ergodox/default.nix:73 sets meta.platforms =

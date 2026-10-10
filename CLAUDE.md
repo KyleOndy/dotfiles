@@ -55,3 +55,5 @@ worktree's git dir.
 
 The `secrets-check` hook runs on commit and on push and reads the bytes git
 stores, so a decrypted worktree file never counts as plaintext.
+`make secrets-status` shows each protected file in the index, `HEAD` and
+upstream.
