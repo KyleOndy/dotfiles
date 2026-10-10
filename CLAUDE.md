@@ -52,3 +52,6 @@ and the `tf/` state are git-crypt encrypted. The key lives per worktree
 (`.bare/worktrees/<name>/git-crypt/keys/`) and the filter is marked required,
 so every `git worktree add` fails until the key is copied into the new
 worktree's git dir.
+
+The `secrets-check` hook runs on commit and on push and reads the bytes git
+stores, so a decrypted worktree file never counts as plaintext.

@@ -1,16 +1,13 @@
 [extend]
 useDefault = true
 
+# No git-crypt paths: secrets-check scans stored bytes, so those are ciphertext.
 [allowlist]
-description = "Encrypted-at-rest paths that decrypt in the working tree / flake snapshot"
-paths = [
-  '''^tf/''',                       # git-crypt (tfstate, tfvars, keys, pem)
-  '''^nix/secrets/''',              # sops (ENC[...] is high-entropy)
-  '''^nix/hosts/cogsworth/keys/''', # sops .sops files
-  '''^nix/pkgs/berkeley-mono/''',   # git-crypt otf
-  '''^nix/pkgs/pragmata-pro/''',    # git-crypt otf
-]
+description = "sops values and metadata, and a public GPG fingerprint"
+regexTarget = "line"
 regexes = [
+  # A plaintext value in a sops file has no ENC[ on its line, so it is scanned.
+  '''ENC\[AES256_GCM,''',
   # kyle's public GPG (YubiKey) fingerprint, used as a gpg-sign `key =`
   # setting in email.nix. Same public key ID as .sops.yaml; not a secret.
   '''3C799D26057B64E6D907B0ACDB0E3C33491F91C9''',

@@ -20,6 +20,7 @@ self: super: {
   pragmata-pro = super.callPackage ./pragmata-pro { };
   s3-archive-push = super.callPackage ./s3-archive-push { };
   s3-archive-reconcile = super.callPackage ./s3-archive-reconcile { };
+  secrets-check = super.callPackage ./secrets-check { };
   winnow = super.callPackage ./winnow { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
