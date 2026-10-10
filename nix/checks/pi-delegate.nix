@@ -2,8 +2,8 @@
 # pi in RPC mode: a clean turn, a second turn by `send`, a steer joining a turn
 # in progress, idle close, `stop` mid-turn, a cancelled dialog, a rejected
 # brief, pi exiting 0 without running the agent, an errored final reply, a
-# crash, a timeout, a killed pi, refused names, briefs that look like flags,
-# an --edit worktree and a --tmux window.
+# crash, a timeout, a killed pi, refused names, a missing model, briefs that
+# look like flags, an --edit worktree and a --tmux window.
 #
 # pi and tmux are stubs; git, the worktree script, the detached runner, the
 # supervisor and the followers are real.
@@ -23,8 +23,8 @@ pkgs.runCommand "pi-delegate-check"
   ''
     set -euo pipefail
     T=$TMPDIR/t
-    export HOME=$T/home PI_STUB_DIR=$T PI_DELEGATE_IDLE=5
-    unset TMUX XDG_STATE_HOME PI_DELEGATE_MODEL PI_DELEGATE_TIMEOUT PI_DELEGATE_TMUX
+    export HOME=$T/home PI_STUB_DIR=$T PI_DELEGATE_IDLE=5 PI_DELEGATE_MODEL=stub/model
+    unset TMUX XDG_STATE_HOME PI_DELEGATE_TIMEOUT PI_DELEGATE_TMUX
     STATE=$HOME/.local/state/pi-delegate
     mkdir -p "$HOME" "$T/stubs"
     # Runs left open would outlive the build.
@@ -90,6 +90,7 @@ pkgs.runCommand "pi-delegate-check"
     grep -qx "rpc" "$T/args" || fail "pi ran outside RPC mode: $(cat "$T/args")"
     grep -qx "read,grep,find,ls" "$T/args" || fail "read-only run got other tools: $(cat "$T/args")"
     grep -qx -- "--no-approve" "$T/args" || fail "pi ran without --no-approve"
+    grep -qx "stub/model" "$T/args" || fail "pi ran on another model: $(cat "$T/args")"
     head -n 1 "$T/cmds" | jq -e '.type == "prompt" and .id == "brief" and .message == "ok go\n"' >/dev/null \
       || fail "the brief went in as $(head -n 1 "$T/cmds")"
 
@@ -176,6 +177,9 @@ pkgs.runCommand "pi-delegate-check"
     has "name must be"
     pd 2 --name ../up "x"
     [ ! -e "$HOME/.local/state/up" ] || fail "a name escaped the state dir"
+    PI_DELEGATE_MODEL= pd 2 --name nomodel "x"
+    has "PI_DELEGATE_MODEL is unset"
+    [ ! -e "$STATE/nomodel" ] || fail "a run without a model left state behind"
 
     rm -f "$T/cmds"
     printf -- '--version is the brief\n' | pd 0 --name stdin -

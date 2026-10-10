@@ -14,6 +14,8 @@ items that leak internal company details.
   CLAUDE.md (cluster names, AWS profiles) and pi `AGENTS.md`, pi's
   `models.json` with its Keychain key resolvers and advisor env, and the
   linear, helm, gh and forge-phase commands (internal workflow details).
+  Every mcloud model id goes there too, pins and comment examples alike:
+  the org can have access to a model before its public release.
 - **`nix/work-config-stub/flake.nix`**: no-op default; documents the required
   flake interface (`darwinModule`, `homeManagerModule`).
 

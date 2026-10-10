@@ -37,7 +37,9 @@
 #   closed           pi's stdin is closed, so it takes no more commands
 #   exit             pi's exit status, written last; 124 when it timed out
 
-readonly MODEL="${PI_DELEGATE_MODEL:-mcloud/zai-org/glm-5.3}"
+# Set per host, with no default: this repo is public, and an mcloud model id
+# must not be (nix/hosts/work-mac/CLAUDE.md).
+readonly MODEL="${PI_DELEGATE_MODEL:-}"
 readonly READ_TOOLS="read,grep,find,ls"
 readonly EDIT_TOOLS="read,grep,find,ls,edit,write,bash"
 # Wall clock for the whole run, idle time included. A model can stall
@@ -376,6 +378,10 @@ done
 [[ $# -eq 1 ]] || usage
 if [[ $1 == - ]]; then brief="$(cat)"; else brief="$1"; fi
 [[ -n ${brief} ]] || usage
+if [[ -z ${MODEL} ]]; then
+	echo "pi-delegate: PI_DELEGATE_MODEL is unset" >&2
+	exit 2
+fi
 
 name="${name:-delegate-$(date +%Y%m%d-%H%M%S)}"
 if [[ ! ${name} =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then

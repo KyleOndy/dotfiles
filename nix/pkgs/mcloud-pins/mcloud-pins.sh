@@ -29,6 +29,8 @@
 #                             directly, and PI_AGENT_MODEL_<NAME> overrides. Read
 #                             from the build because work-config sets some of
 #                             them where this repo cannot see.
+#   PI_DELEGATE_MODEL         pi-delegate's model, from this shell's
+#                             environment, where work-config sets it
 #
 # Not a flake check: this needs the network and a credential, and `nix flake
 # check` has neither. Not a models.json generator either. `GET /v1/models`
@@ -102,6 +104,9 @@ if [ -n "$env_vars" ]; then
 			;;
 		esac
 	done <"$env_vars"
+fi
+if [[ ${PI_DELEGATE_MODEL:-} == mcloud/* ]]; then
+	pins+="${PI_DELEGATE_MODEL#mcloud/}	env PI_DELEGATE_MODEL"$'\n'
 fi
 
 ids="$(printf '%s' "$pins" | cut -f1 | grep -v '^$' | sort -u)"

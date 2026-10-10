@@ -42,8 +42,8 @@ unless pi starts with `--advisor`, and stays silent when either var or
 carries a `model:` pin in its frontmatter, because `extensions/task.ts` takes
 a named agent's model only from that field and otherwise reuses the
 session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
-per host; work-mac sets `PI_AGENT_MODEL_CRITIC` to mcloud's minimax-m3
-so the critic stays off the personal Z.ai plan.
+per host; work-config sets `PI_AGENT_MODEL_CRITIC` to an mcloud model so
+the critic stays off the personal Z.ai plan.
 
 `pi --coordinator` (work-mac and trex, `coordinator.enable`) gives the
 session `spawn_agent` and friends (`extensions/coordinator.ts`). Each agent

@@ -15,9 +15,10 @@
 # itself, so a model is graded on exactly the request the advisor sends.
 # cases.json holds each turn as summarizeTurn renders it.
 #
-# A leaderboard score does not predict this job. qwen3.8-27b outscores
-# minimax-m3 on the AA Intelligence Index, yet at the advisor's budget it spent
-# every token reasoning and returned nothing on a turn that deserved a steer.
+# A leaderboard score does not predict this job. A model that outscores
+# another on the AA Intelligence Index can still spend every token of the
+# advisor's budget reasoning and return nothing on a turn that deserved a
+# steer.
 #
 # Verdicts: OK and STEER are what the prompt asks for. FORMAT is any other
 # reply, which the advisor drops, so it counts as silence. EMPTY is no content,

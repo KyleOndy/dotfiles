@@ -77,8 +77,6 @@
     # machine too: the wrapper hard-fails a resolver rather than starting
     # without the value.
     pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
-    # critic.md pins zai/glm-5.3-flash, which bills the personal Z.ai plan.
-    pi-coding-agent.sandbox.envVars.PI_AGENT_MODEL_CRITIC = "mcloud/minimax/minimax-m3";
     pi-coding-agent.coordinator = {
       enable = true;
       # The one host with forge.
