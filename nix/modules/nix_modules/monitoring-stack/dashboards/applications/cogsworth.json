@@ -664,8 +664,159 @@
     },
     {
       "type": "row",
-      "title": "Database",
+      "title": "Mail",
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 43 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Mail Handled",
+      "description": "Messages to cogs@ondy.org over the dashboard's time range, from cogsworth_mail_logs in loki.nix. Rejected failed the allowlist or DKIM gate. Failed counts agent, ingest and reply failures, and any one fires CogsworthMailFailed. Nothing logs a successful reply, so answered is accepted minus failed.",
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sum_over_time(cogsworth_mail:events:count5m{host=\"cogsworth\",event=\"cogsworth.mail.ingest/accepted\"}[$__range])) or vector(0)",
+          "legendFormat": "Accepted",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(sum_over_time(cogsworth_mail:events:count5m{host=\"cogsworth\",event=\"cogsworth.mail.ingest/rejected\"}[$__range])) or vector(0)",
+          "legendFormat": "Rejected",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "sum(sum_over_time(cogsworth_mail:events:count5m{host=\"cogsworth\",event=~\".*/(agent|ingest|reply)-failed\"}[$__range])) or vector(0)",
+          "legendFormat": "Failed",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Failed" },
+            "properties": [
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "red", "value": 1 }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Mail Events",
+      "description": "Mail and agent log events per hour. Each agent round logs one completion, so completions run ahead of accepted when the agent calls tools.",
+      "gridPos": { "h": 7, "w": 8, "x": 8, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "interval": "1h",
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "label_replace(sum by (event) (sum_over_time(cogsworth_mail:events:count5m{host=\"cogsworth\",event!~\".*/ledger-cleaned\"}[$__interval])), \"event\", \"$1\", \"event\", \".*/(.*)\")",
+          "legendFormat": "{{event}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "mode": "normal", "group": "A" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["sum"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Agent Usage",
+      "description": "OpenRouter tokens and charge for the mail agent over the dashboard's time range, summed from the usage object on each completion line.",
+      "gridPos": { "h": 7, "w": 8, "x": 16, "y": 44 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sum_over_time(cogsworth_mail:agent_cost_usd:sum5m{host=\"cogsworth\"}[$__range])) or vector(0)",
+          "legendFormat": "Cost",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "sum(sum_over_time(cogsworth_mail:agent_tokens:sum5m{host=\"cogsworth\"}[$__range])) or vector(0)",
+          "legendFormat": "Tokens",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "text", "value": null }]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Cost" },
+            "properties": [
+              { "id": "unit", "value": "currencyUSD" },
+              { "id": "decimals", "value": 2 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "row",
+      "title": "Database",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
       "collapsed": false,
       "panels": []
     },
@@ -673,7 +824,7 @@
       "type": "stat",
       "title": "DB Snapshot",
       "description": "Time since cogsworth-db-snapshot last copied the tmpfs DB to the SD card, and the size of that copy. The timer runs every 5 minutes; CogsworthDbSnapshotStale fires at 15. The live DB and its WAL share a 16 MiB tmpfs, so Size turns red at 15 MiB.",
-      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 44 },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 52 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -744,7 +895,7 @@
     {
       "type": "logs",
       "title": "Backend Errors",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 48 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 56 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {

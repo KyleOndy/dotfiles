@@ -60,6 +60,32 @@ let
                   | logfmt source
                   | label_format source=`{{ if contains "://" .source }}unnamed{{ else }}{{ .source }}{{ end }}` [5m])
               )
+
+      # cogsworth exports nothing about its mail channel, but mulog writes
+      # one JSON line per message outcome and one per agent completion.
+      # Nothing logs a successful reply: answered is accepted minus
+      # agent-failed. usage.cost is OpenRouter's charge in USD.
+      - name: cogsworth_mail_logs
+        interval: 5m
+        rules:
+          - record: cogsworth_mail:events:count5m
+            expr: |
+              sum by (host, event) (
+                count_over_time({unit="cogsworth.service"} |~ "cogsworth\\.(mail\\.[a-z]+|agent\\.core)/"
+                  | json event=`["mulog/event-name"]` [5m])
+              )
+          - record: cogsworth_mail:agent_tokens:sum5m
+            expr: |
+              sum by (host, model) (
+                sum_over_time({unit="cogsworth.service"} |= "cogsworth.agent.core/completion"
+                  | json model, tokens=`usage.total_tokens` | unwrap tokens [5m])
+              )
+          - record: cogsworth_mail:agent_cost_usd:sum5m
+            expr: |
+              sum by (host, model) (
+                sum_over_time({unit="cogsworth.service"} |= "cogsworth.agent.core/completion"
+                  | json model, cost=`usage.cost` | unwrap cost [5m])
+              )
   '';
 
   # auth_enabled = false pins every stream to the "fake" tenant, and the local

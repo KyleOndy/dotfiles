@@ -1554,7 +1554,7 @@ in
             # failure surfaces as disk growth, which DiskWillFillSoon covers.
             - alert: CogsworthJobStalled
               expr: |
-                time() - cogsworth_job_last_success_timestamp_seconds{task=~"birds-poll|display-loop|light-loop|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
+                time() - cogsworth_job_last_success_timestamp_seconds{task=~"birds-poll|display-loop|light-loop|mail-poll|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
                 or
                 time() - cogsworth_job_last_success_timestamp_seconds{task=~"immich-sync|gphotos-sync"} > 86400
               for: 15m
@@ -1564,6 +1564,18 @@ in
               annotations:
                 summary: "Cogsworth job {{ $labels.task }} has not succeeded in {{ $value | humanizeDuration }}"
                 description: "Background task {{ $labels.task }} last completed {{ $value | humanizeDuration }} ago, well past its interval. The scheduler catches throws to keep the ticker alive, so this means the task is hanging, failing on every tick, or has never succeeded since boot. Check `journalctl -u cogsworth -g task-failed` on cogsworth, then restart the unit if the task is wedged."
+
+            # From cogsworth_mail_logs in loki.nix. mail-poll catches every
+            # per-message throw, so CogsworthJobStalled sees only IMAP
+            # failures and this is the only thing that sees the rest.
+            - alert: CogsworthMailFailed
+              expr: sum by (host, event) (sum_over_time(cogsworth_mail:events:count5m{host="cogsworth",event=~".*/(agent|ingest|reply)-failed"}[1h])) > 0
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth mail {{ $labels.event }} in the last hour"
+                description: "agent-failed has already mailed the sender an apology and is never retried. reply-failed means the sender got nothing back. An ingest-failed message stays unclaimed and fails again on every poll until it ages out of the 2-day lookback, so this keeps firing until it is fixed. Run `journalctl -u cogsworth -g '{{ $labels.event }}'` on cogsworth for the exception."
 
             # The timer runs every 5 minutes, so 900s is three missed runs.
             # The file survives a reboot, and the first run is 5 minutes after
