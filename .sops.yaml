@@ -10,6 +10,10 @@ keys:
 
   - &trex age1ckcr5cc6g9nmfhhhwud0jkpjvfpz8lhsa7kdsshqmh5cfcma4qhse3vcak
 
+  # work-mac's /etc/ssh/ssh_host_ed25519_key, which sops-nix reads by default.
+  # Root on that mac can read it, which includes the employer's IT.
+  - &work-mac age1axr9myzq32e4x82t2t5tk8k3zqdlzhdfdsqq9rswr0exmkgrucpsl9h9gu
+
   # Derived from a host key generated on trex and installed via
   # nixos-anywhere --extra-files, so it is enrolled before pika's first
   # activation rather than after it fails on monitoring_password.
@@ -46,6 +50,12 @@ creation_rules:
     key_groups:
       - age:
           - *trex
+        pgp:
+          - *kyle
+  - path_regex: nix/secrets/work-mac\.yaml$
+    key_groups:
+      - age:
+          - *work-mac
         pgp:
           - *kyle
   # monitoring_password: the agents that push to tiger
