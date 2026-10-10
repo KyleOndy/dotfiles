@@ -27,13 +27,13 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds{host=\"tiger\"}",
+          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds{host=\"tiger\",dataset=~\"storage/(photos|backups|projects)\"}",
           "legendFormat": "1. tiger snapshot {{dataset}}",
           "instant": true
         },
         {
           "refId": "B",
-          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds{host=\"pika\"}",
+          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds{host=\"pika\",dataset=~\"tank/(photos|backups|projects)\"}",
           "legendFormat": "2. pika replica {{dataset}}",
           "instant": true
         },
@@ -61,7 +61,7 @@
         "colorMode": "value",
         "graphMode": "none",
         "textMode": "auto",
-        "orientation": "horizontal"
+        "orientation": "auto"
       },
       "fieldConfig": {
         "defaults": {
@@ -172,7 +172,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds",
+          "expr": "time() - zfs_dataset_latest_snapshot_timestamp_seconds{host=~\"tiger|pika\",dataset=~\"(storage|tank)/(photos|backups|projects)\"}",
           "legendFormat": "{{host}} {{dataset}}"
         },
         {
