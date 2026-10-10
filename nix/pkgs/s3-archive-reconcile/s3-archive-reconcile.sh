@@ -16,8 +16,8 @@
 #
 # Deletion here writes delete markers. No principal in the fleet holds
 # s3:DeleteObjectVersion, so nothing this script does destroys a byte; the
-# 180-day lifecycle rule in tf/archive-backup.tf is the only thing that ever
-# reclaims space.
+# 365-day noncurrent expiration in tf/archive-backup.tf is the only thing
+# that ever reclaims space.
 #
 #   orphans  present in S3, absent at the source. Your deletions, untidied.
 #   missing  present at the source, absent from S3. The actual emergency.
