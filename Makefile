@@ -175,6 +175,16 @@ cleanup: ## Cleanup and reduce diskspace of current system
 
 # Cache push targets
 # macOS-specific targets
+
+# pi's seats and catalog are sops secrets, which nix cannot see at eval, so
+# they are checked here against what the switch just decrypted to
+# /run/secrets, then each pinned mcloud id against the live endpoint,
+# images included where the catalog declares them. The new generation is
+# active by now, so a failure means another deploy. Both name the seat var or
+# catalog entry and what to change, never a model id. mcloud-pins needs
+# MCLOUD_API_KEY_COMMAND, which a shell started before the first deploy that
+# set it does not have.
+PI_SEATS_CHECK := pi-seats check --deploy && mcloud-pins --deploy
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
 	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system
@@ -186,6 +196,7 @@ build-mac-dry: ## Dry-run build of work-mac darwin configuration
 .PHONY: deploy-mac
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch
+	$(PI_SEATS_CHECK)
 
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
@@ -198,6 +209,7 @@ build-trex-dry: ## Dry-run build of trex darwin configuration
 .PHONY: deploy-trex
 deploy-trex: ## Deploy trex darwin configuration
 	$(SWITCH) --flake .#trex switch
+	$(PI_SEATS_CHECK)
 
 .PHONY: flash-ergodox
 flash-ergodox:
