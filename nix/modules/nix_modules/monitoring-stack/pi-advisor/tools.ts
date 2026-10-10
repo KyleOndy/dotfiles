@@ -66,6 +66,12 @@ const DEFAULT_LOG_LIMIT = 100;
 const MAX_LOG_LIMIT = 500;
 const TARGET_RANGE_POINTS = 200;
 
+const DAY_SECONDS = 86_400;
+// Fixed, so "outside its range" means the same in every report and the model
+// cannot widen or narrow the window until something looks unusual. Two of
+// each weekday.
+const BASELINE_DAYS = 14;
+
 const LABEL_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const RELATIVE_TIME = /^now(?:-(\d+)([smhdw]))?$/;
 const STEP = /^\d+[smhd]$/;
@@ -115,6 +121,11 @@ function parseRange(params: { start: string; end?: string; step?: string }): {
     params.step ??
     `${Math.max(60, Math.ceil((end - start) / TARGET_RANGE_POINTS))}s`;
   return { start, end, step };
+}
+
+/** Loki takes nanoseconds. */
+function toNs(seconds: number): string {
+  return `${seconds}000000000`;
 }
 
 function labelPath(label: string): string {
@@ -268,6 +279,75 @@ function formatQueryResult(data: { resultType: string; result: any }): string {
   }
 }
 
+function median(sorted: number[]): number {
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Per series, today against the min, median and max of the prior days, then
+ * every day's value. `times` are the evaluation times, oldest first, ending
+ * with today's. `missing` stands in for a time with no sample: 0 for a LogQL
+ * count, which has no sample for a window without lines, undefined where a
+ * gap means no data. Series outside their range come first, so the series cap
+ * drops ordinary ones.
+ */
+function formatBaseline(
+  series: { metric: Labels; values: Sample[] }[],
+  times: number[],
+  missing: number | undefined,
+): string {
+  if (series.length === 0) return "empty result";
+  const rows = series.map((s) => {
+    const byTime = new Map(
+      s.values.map(([t, v]) => [Math.round(t), Number(v)]),
+    );
+    const daily = times.map((t) => byTime.get(t) ?? missing);
+    const now = daily[daily.length - 1];
+    const prior = daily
+      .slice(0, -1)
+      .filter((v): v is number => Number.isFinite(v))
+      .sort((a, b) => a - b);
+    let verdict: string;
+    if (now === undefined) {
+      verdict = "no value now";
+    } else if (prior.length === 0) {
+      verdict = `now ${formatNumber(now)}, no prior values`;
+    } else {
+      const min = prior[0];
+      const max = prior[prior.length - 1];
+      const mid = median(prior);
+      const where =
+        now > max ? "above range" : now < min ? "below range" : "within range";
+      const ratio =
+        mid === 0
+          ? "the median is 0"
+          : `${Number((now / mid).toPrecision(2))}x the median`;
+      verdict = `${where}: now ${formatNumber(now)}, ${ratio}; prior ${prior.length} days min ${formatNumber(min)}, median ${formatNumber(mid)}, max ${formatNumber(max)}`;
+    }
+    const values = daily
+      .map(
+        (v, i) =>
+          `${shortTime(times[i]).slice(0, 5)}=${v === undefined ? "-" : formatNumber(v)}`,
+      )
+      .join(" ");
+    return {
+      ordinary: verdict.startsWith("within"),
+      text: `${formatLabels(s.metric)}\n  ${verdict}\n  ${values}`,
+    };
+  });
+  rows.sort((a, b) => Number(a.ordinary) - Number(b.ordinary));
+  const outside = rows.filter((r) => !r.ordinary).length;
+  const blocks = rows.slice(0, MAX_MATRIX_SERIES).map((r) => r.text);
+  if (rows.length > MAX_MATRIX_SERIES) {
+    blocks.push(
+      `[${rows.length - MAX_MATRIX_SERIES} more series: aggregate with sum by (...) or topk]`,
+    );
+  }
+  const zero = missing === 0 ? " A day with no sample counts as 0." : "";
+  return `${rows.length} series, ${outside} not within their range. Each value is the query at ${shortTime(times[times.length - 1]).slice(6)} on that date, oldest first, ending today.${zero}\n${blocks.join("\n")}`;
+}
+
 const rangeParams = {
   start: Type.Optional(
     Type.String({
@@ -377,7 +457,7 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "Query metrics with PromQL",
     promptGuidelines: [
       "Filter and group by the host label, never instance.",
-      "Compare a window against the same window a week earlier with offset 7d, and project fill or drain with predict_linear.",
+      "Judge whether a value changed with baseline, not against one earlier window, and project fill or drain with predict_linear.",
       "Aggregate before asking for many series; results past 200 series (instant) or 40 (range) are dropped.",
     ],
     parameters: Type.Object({
@@ -433,7 +513,6 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(_id, params, signal) {
-      const toNs = (seconds: number) => `${seconds}000000000`;
       if (params.start === undefined) {
         const now = Math.floor(Date.now() / 1000);
         const time = parseTime(params.end ?? "now", now);
@@ -463,6 +542,62 @@ export default function (pi: ExtensionAPI) {
         signal,
       );
       return result(formatQueryResult(json.data));
+    },
+  });
+
+  pi.registerTool({
+    name: "baseline",
+    label: "Baseline",
+    description: `Judge today against the spread of the prior days. Runs one PromQL or LogQL metric query at the same time of day on today and each of the prior ${BASELINE_DAYS} days, and returns per series every day's value, the prior days' min, median and max, whether today is below, within or above that range, and today's ratio to the median. Write the query for one day's figure: increase(x[1d]) or count_over_time({...} [1d]) for a count, the bare metric for a gauge.`,
+    promptSnippet: "Judge today against the prior days' range",
+    promptGuidelines: [
+      "Use baseline before calling anything a jump, a drop or unusual. One earlier day, such as offset 7d, can itself be high or low; the range of the prior days is the comparison.",
+      'For logql, narrow to one unit or one line, e.g. count_over_time({unit="sonarr.service"} |= "database is locked" [1d]). The whole journal over 14 days outruns Loki\'s one-minute query timeout.',
+    ],
+    parameters: Type.Object({
+      language: Type.Union([Type.Literal("promql"), Type.Literal("logql")], {
+        description: "promql for VictoriaMetrics, logql for Loki.",
+      }),
+      query: Type.String({
+        description: "Metric query whose value at a time is one day's figure.",
+      }),
+    }),
+    async execute(_id, params, signal) {
+      const logs = params.language === "logql";
+      const days = BASELINE_DAYS;
+      const now = Math.floor(Date.now() / 1000);
+      // Loki's query frontend rounds start down and end up to a multiple of
+      // step (pkg/querier/queryrange/splitters.go, alignStartEnd, v3.7.8), so
+      // a 1d step lands on 00:00 UTC and makes today a part day. An hourly
+      // step ending on the hour is left alone, and every 24th point is read.
+      // VictoriaMetrics keeps start and end as given below 50 points
+      // (app/vmselect/promql/eval.go, AdjustStartEnd, v1.153.0).
+      const step = logs ? 3600 : DAY_SECONDS;
+      const end = logs ? now - (now % step) : now;
+      const start = end - days * DAY_SECONDS;
+      const times = Array.from(
+        { length: days + 1 },
+        (_, i) => start + i * DAY_SECONDS,
+      );
+      const json = await get(
+        logs ? LOKI : VM,
+        logs ? "/loki/api/v1/query_range" : "/api/v1/query_range",
+        {
+          query: params.query,
+          start: logs ? toNs(start) : String(start),
+          end: logs ? toNs(end) : String(end),
+          step: `${step}s`,
+        },
+        signal,
+      );
+      if (json.data.resultType !== "matrix") {
+        throw new Error(
+          "baseline needs a metric query such as count_over_time({...} [1d]), not a log selector.",
+        );
+      }
+      return result(
+        formatBaseline(json.data.result, times, logs ? 0 : undefined),
+      );
     },
   });
 

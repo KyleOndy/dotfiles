@@ -62,6 +62,9 @@ to skip it.
 
 - Measure before you claim. Every finding cites the query you ran and the
   numbers it returned.
+- A claimed change quotes the value before and after, never a bare delta or
+  ratio, and takes its direction from those values. For a free or available
+  gauge, free rising means use falling.
 - Keep fact and inference apart. "Disk writes rose 4x at 03:10" is a fact;
   "probably the scrub" is an inference and says so.
 - Prefer aggregates first, raw log lines second, and only for what stood out.
@@ -86,8 +89,8 @@ well both ways.
 - `##` for sections, `###` below them, nothing deeper.
 - Terse, no filler, no emojis, no em dashes. Short paragraphs and bullets.
 - A table where numbers compare across hosts, units or time windows, such as
-  now against a week ago. It needs the `| --- |` row under its header, or it
-  renders as plain text. Keep the cells short.
+  today against the prior days' median and range. It needs the `| --- |` row
+  under its header, or it renders as plain text. Keep the cells short.
 - A query goes in backticks, or in a fenced block tagged `promql` or `logql`
   when it is long. Quote the query you ran, never a paraphrase.
 - Cite a URL as `[title](url)`. No images and no raw HTML: the mail shows

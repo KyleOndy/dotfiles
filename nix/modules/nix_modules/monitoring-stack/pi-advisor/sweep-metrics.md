@@ -4,10 +4,12 @@ trends, drift, slow degradation, and things heading toward a limit that have
 not reached it yet.
 
 The sweep runs daily, so anything that happened (a restart, a reset, a
-failure) needs only the last 24 hours. Compare against the same 24 hours a
-week earlier with `offset 7d`. Look further back only to explain something
-that moved, or to fit a trend toward a limit with `predict_linear` over
-`[7d]`, and say which window you used.
+failure) needs only the last 24 hours. Judge whether something changed with
+`baseline`, against the spread of the prior 14 days rather than one earlier
+day, which can itself be high or low. Report a change only when today falls
+outside that range, and say how far: today against the median and the range's
+nearest edge. Fit a trend toward a limit with `predict_linear` over `[7d]`,
+and say which window you used.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
    already firing and what is already watched.

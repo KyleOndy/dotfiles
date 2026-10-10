@@ -84,11 +84,14 @@ acknowledged.
 pi runs with no built-in tools: no bash, read, write or edit. Its only tools
 are in `tools.ts`:
 
-- **`promql`, `logql`, `metric_labels`, `log_labels`, `alerts`,
+- **`promql`, `logql`, `baseline`, `metric_labels`, `log_labels`, `alerts`,
   `alert_rules`**: each calls one fixed GET path on loopback. The model
   supplies a query, never a URL. That matters because the same ports serve
   VictoriaMetrics' `delete_series`, Loki's delete API and Alertmanager's
-  silences.
+  silences. `baseline` is one range query whose arithmetic the tool does
+  itself: today's value against the min, median and max of the prior 14
+  days, so a sweep judges change against that spread and not one earlier
+  day.
 - **`web_search`**: Kagi search, at most 5 a run, returning titles, URLs and
   snippets.
 

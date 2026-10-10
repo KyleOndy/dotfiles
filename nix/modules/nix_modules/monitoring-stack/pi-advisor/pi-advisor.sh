@@ -48,7 +48,7 @@ readonly PI_ARGS=(
 	--no-themes
 	--no-approve
 	--extension "${PI_ADVISOR_ASSETS}/tools.ts"
-	--tools "promql,logql,metric_labels,log_labels,alerts,alert_rules,web_search"
+	--tools "promql,logql,baseline,metric_labels,log_labels,alerts,alert_rules,web_search"
 	--model "$MODEL"
 	--thinking high
 	--system-prompt "$system_prompt"
