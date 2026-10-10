@@ -734,6 +734,20 @@ in
                 summary: "Scrub age metric missing on {{ $labels.host }}"
                 description: "{{ $labels.host }} reports zfs_pool_health but no zfs_pool_scrub_end_timestamp_seconds, so ZpoolScrubStale cannot fire there. Check the zfs-scrub-exporter unit and its timer."
 
+            # DiskSpaceLow cannot stand in for this. A dataset's filesystem
+            # size is its own usage plus the whole pool's free space, so the
+            # ratio it checks stays high until the pool is nearly out: on
+            # tiger, /mnt/media reaches its 5% line at about 97% allocated.
+            # This is the same ratio as `zpool list` CAP.
+            - alert: ZpoolCapacityHigh
+              expr: zfs_pool_allocated_bytes / zfs_pool_size_bytes > 0.85
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Pool {{ $labels.pool }} on {{ $labels.host }} is {{ $value | humanizePercentage }} allocated"
+                description: "{{ $labels.pool }} on {{ $labels.host }} is past 85% allocated, and the per-dataset DiskSpaceLow rules fire only near full. Prune, or plan capacity. Check: zpool list {{ $labels.pool }}; zfs list -o name,used,usedbysnapshots -r {{ $labels.pool }}"
+
         # Tier 2 of docs/backup-strategy.md: tiger snapshots, pika pulls.
         #
         # Freshness is measured the same way on both ends, so the pair says
