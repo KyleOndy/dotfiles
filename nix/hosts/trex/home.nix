@@ -9,6 +9,8 @@
   ...
 }:
 let
+  mcloudKeyCommand = "/bin/cat ${osConfig.sops.secrets.mcloud_api_key.path}";
+
   # SMB shares tiger exports (services.samba in nix/hosts/tiger/configuration.nix).
   # Addressed by DNS name, not tiger.local: trex is on 10.24.89.0/24 and tiger
   # on 10.25.89.0/24, and mDNS is link-local, so .local never resolves here.
@@ -197,6 +199,10 @@ in
   hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;
   hmFoundry.desktop.input.karabiner.pushToTalk.pad.enable = true;
 
+  # mcloud-pins, advisor-eval and leak-guard run this when MCLOUD_API_KEY
+  # itself is unset.
+  home.sessionVariables.MCLOUD_API_KEY_COMMAND = mcloudKeyCommand;
+
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
   # executables) since `uv tool update-shell` can't write the home-manager
@@ -230,49 +236,38 @@ in
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # pi's z.ai key is not managed here. `/login zai` writes it to
-    # ~/.pi/agent/auth.json, which no nix module owns, and the sandbox can
-    # read it because the wrapper re-allows ~/.pi. The provider itself is
-    # built into pi (GLM Coding Plan), so unlike mcloud there is no
-    # modelsJson block and the catalog, costs and reasoning maps are pi's
-    # real entries rather than the no-op stub's.
+    # pi runs on mcloud. The catalog and the seats are sops secrets
+    # (nix/secrets/trex.yaml) because the model ids in them are private, so
+    # this file names no model. `sops edit nix/secrets/trex.yaml` shows each
+    # seat next to the comment saying what it is for.
     #
     # trex's local mlx models are absent. search-mail
     # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
     # only workload that needs mail to stay off the network.
     pi-coding-agent = {
+      modelsJsonFile = osConfig.sops.secrets.pi_models_json.path;
+      seatsFile = osConfig.sops.secrets.pi_seats.path;
+      secretsSource = "nix/secrets/trex.yaml";
+      trustedProviders = [ "mcloud" ];
+
       # Loopback egress for local dev servers and httptest; see
       # nix/pkgs/pi-wrapper/wrapper.sh.
       sandbox.allowLocalBinding = true;
 
-      # The z.ai Coding Plan endpoint, and nothing else. An empty list would
-      # mean no network at all rather than unrestricted (sandbox-runtime
-      # 0.0.67 README, Network Isolation). agents/critic.md pins zai/glm-5.3-flash
-      # for the review seat, so the one domain covers both seats. The plan
-      # serves only 5.3 and 5.3-flash directly; older ids like glm-5.2 are
-      # silently rerouted to glm-5.3, which would break the two-seat rule.
-      sandbox.allowedDomains = [ "api.z.ai" ];
+      # No allowedDomains: the wrapper allows mcloud's endpoint from the
+      # catalog's baseUrl, and nothing else, so a session cannot reach a
+      # provider outside trustedProviders even by switching models mid-run.
 
       # Resolvers run in the wrapper before it execs srt (`__pi_resolve_all`
-      # ahead of `run_strict`'s dispatch), so this reaches the Keychain
-      # from outside the sandbox and only the resolved value crosses in. The
-      # wrapper hard-fails on a resolver error, so a missing entry surfaces
-      # here rather than as a 401 from Kagi mid-session.
-      sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
-
-      # zai is a built-in provider, so no modelsJson entry; the key comes
-      # from /login zai into ~/.pi/agent/auth.json, which no module owns and
-      # the sandbox already reads. Its glm-5.3 supports low/high/max only, so
-      # xhigh would be inert (null in thinkingLevelMap).
-      sandbox.defaultArgs = [
-        "--model"
-        "zai/glm-5.3"
-        "--thinking"
-        "high"
-      ];
-
-      # No modelsJson: zai is built-in and carries real catalog entries, so
-      # unlike the mcloud provider there is nothing to register.
+      # ahead of `run_strict`'s dispatch), so these reach the Keychain and
+      # /run/secrets from outside the sandbox and only the resolved value
+      # crosses in. The wrapper hard-fails on a resolver error, so a missing
+      # entry surfaces here rather than as a 401 mid-session. models.json
+      # reads the mcloud key as `$MCLOUD_API_KEY`.
+      sandbox.envFromCommands = {
+        KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
+        MCLOUD_API_KEY = mcloudKeyCommand;
+      };
 
       coordinator = {
         enable = true;

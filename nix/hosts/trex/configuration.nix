@@ -142,6 +142,7 @@
     mail-stragglers # who still mails ondy.me or the old gmail, see nix/pkgs/mail-stragglers
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
     leak-guard # refuses commits and pushes naming a private model id
+    mcloud-pins # checks every pinned mcloud id answers, see nix/pkgs/mcloud-pins
     mpv
   ];
 
@@ -241,6 +242,22 @@
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
     trex_backup_git_ssh_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile
+    # and seatsFile), secrets rather than store paths because the model ids
+    # in them are private. mcloud_api_key is the console.modular.com token
+    # pi, mcloud-pins and leak-guard read through MCLOUD_API_KEY_COMMAND.
+    pi_models_json = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    pi_seats = {
+      owner = "kyle";
+      mode = "0400";
+    };
+    mcloud_api_key = {
       owner = "kyle";
       mode = "0400";
     };
