@@ -202,7 +202,7 @@
       "type": "stat",
       "title": "Calendar Sync",
       "description": "1 means the calendar's last sync succeeded; a failure pins it at 0 while the kiosk keeps serving cached events. iCloud login is the cogs@ondy.org app-specific password, and 0 there means iCloud answers 401, so every iCloud calendar fails too.",
-      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -250,7 +250,7 @@
     {
       "type": "timeseries",
       "title": "Events Cached",
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 6 },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -282,6 +282,44 @@
           "showLegend": true
         },
         "tooltip": { "mode": "multi", "sort": "desc" }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "iCloud Writes",
+      "description": "Event creates, updates and deletes sent to iCloud from the admin UI and the email agent, per hour. conflict means a phone saved the event first; rejected is bad input or a read-only event. unavailable and error did not land, which is CogsworthCalendarWriteFailing.",
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (op, outcome) (increase(cogsworth_calendar_writes_total[1h])) > 0",
+          "legendFormat": "{{op}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 60,
+            "showPoints": "never",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": ["sum"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": { "mode": "multi" }
       }
     },
     {

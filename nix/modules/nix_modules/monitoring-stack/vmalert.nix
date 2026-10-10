@@ -1559,6 +1559,18 @@ in
                 summary: "iCloud rejects Cogsworth's CalDAV password"
                 description: "iCloud answers 401 to the cogs@ondy.org app-specific password, so the family calendars stop syncing and every write to them fails. Apple revokes all app-specific passwords when the account's main password changes. Create a new one at account.apple.com > Sign-In and Security > App-Specific Passwords, store it in pass at apple.com/cogs@ondy.org/app-passwords/cogsworth-pi, then run `pass show apple.com/cogs@ondy.org/app-passwords/cogsworth-pi | head -n1 | jq -R . | sops set --value-stdin nix/secrets/cogsworth.yaml '[\"cogsworth_caldav_password\"]'` in dotfiles and deploy cogsworth."
 
+            # A conflict (a phone saved the event first) or a rejection (bad
+            # input, a read-only event) is answered to whoever made the
+            # change. unavailable and error are writes that did not land.
+            - alert: CogsworthCalendarWriteFailing
+              expr: sum by (host, op) (increase(cogsworth_calendar_writes_total{host="cogsworth",outcome=~"unavailable|error"}[1h])) > 0
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth failed to {{ $labels.op }} an iCloud event in the last hour"
+                description: "An event change from the admin UI or the email agent did not reach iCloud. The admin UI shows the error and the agent gets it back to report to the sender, so nobody was told it landed, but the change is not on anyone's iPhone. unavailable is iCloud failing or refusing the request; if CogsworthCalDAVAuthFailed is also firing, that is the cause. Run `journalctl -u cogsworth -g 'iCloud CalDAV'` on cogsworth for the failed request, and `curl -s localhost:8080/api/admin/audit` for the agent's tool calls."
+
             # Every periodic task records success at one choke point in
             # cogsworth.scheduler/safe-run, which already swallows throws to
             # keep the ticker alive. A task that hangs stops the next tick
