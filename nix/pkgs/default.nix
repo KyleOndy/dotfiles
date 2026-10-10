@@ -30,5 +30,6 @@ self: super: {
   advisor-eval = super.callPackage ./advisor-eval { };
   search-mail = super.callPackage ./search-mail { };
   mlx = super.callPackage ./mlx { };
+  mysides = super.callPackage ./mysides { };
   tmux-status = super.callPackage ./tmux-status { };
 }
