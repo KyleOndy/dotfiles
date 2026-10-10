@@ -2,8 +2,9 @@
 # pi in RPC mode: a clean turn, a second turn by `send`, a steer joining a turn
 # in progress, idle close, `stop` mid-turn, a cancelled dialog, a rejected
 # brief, pi exiting 0 without running the agent, an errored final reply, a
-# crash, a timeout, a killed pi, refused names, a missing model, briefs that
-# look like flags, an --edit worktree and a --tmux window.
+# crash, a timeout, a killed pi, refused names, a run on the session seat,
+# briefs that look like flags, an --edit worktree and a --tmux window that
+# gets the seats through `-e`.
 #
 # pi and tmux are stubs; git, the worktree script, the detached runner, the
 # supervisor and the followers are real.
@@ -23,7 +24,7 @@ pkgs.runCommand "pi-delegate-check"
   ''
     set -euo pipefail
     T=$TMPDIR/t
-    export HOME=$T/home PI_STUB_DIR=$T PI_DELEGATE_IDLE=5 PI_DELEGATE_MODEL=stub/model
+    export HOME=$T/home PI_STUB_DIR=$T PI_DELEGATE_IDLE=5 PI_DELEGATE_MODEL=fakecloud/acme/zeta-9000:high
     unset TMUX XDG_STATE_HOME PI_DELEGATE_TIMEOUT PI_DELEGATE_TMUX
     STATE=$HOME/.local/state/pi-delegate
     mkdir -p "$HOME" "$T/stubs"
@@ -41,11 +42,16 @@ pkgs.runCommand "pi-delegate-check"
     }
 
     ln -s ${stub} "$T/stubs/pi"
-    # new-window -d -n <name> -c <dir> -- <cmd...>: run it detached in <dir>.
+    # new-window -d -n <name> -c <dir> [-e VAR=value]... -- <cmd...>: run it
+    # detached in <dir>. A real window starts from the server's env, so the
+    # caller's seats are dropped and only the -e ones set.
     cat >"$T/stubs/tmux" <<EOF
     #!${pkgs.runtimeShell}
     echo "tmux \$*" >>"$T/calls"
-    shift 4; dir="\$2"; shift 3
+    unset PI_SESSION_MODEL PI_DELEGATE_MODEL PI_AGENT_MODEL_CRITIC PI_TRUSTED_PROVIDERS
+    shift 4; dir="\$2"; shift 2
+    while [ "\$1" = -e ]; do export "\$2"; shift 2; done
+    shift
     (cd "\$dir" && "\$@" </dev/null >/dev/null 2>&1) &
     EOF
     chmod +x "$T/stubs/tmux"
@@ -90,7 +96,7 @@ pkgs.runCommand "pi-delegate-check"
     grep -qx "rpc" "$T/args" || fail "pi ran outside RPC mode: $(cat "$T/args")"
     grep -qx "read,grep,find,ls" "$T/args" || fail "read-only run got other tools: $(cat "$T/args")"
     grep -qx -- "--no-approve" "$T/args" || fail "pi ran without --no-approve"
-    grep -qx "stub/model" "$T/args" || fail "pi ran on another model: $(cat "$T/args")"
+    grep -qx "fakecloud/acme/zeta-9000:high" "$T/args" || fail "pi ran on another model: $(cat "$T/args")"
     head -n 1 "$T/cmds" | jq -e '.type == "prompt" and .id == "brief" and .message == "ok go\n"' >/dev/null \
       || fail "the brief went in as $(head -n 1 "$T/cmds")"
 
@@ -177,9 +183,9 @@ pkgs.runCommand "pi-delegate-check"
     has "name must be"
     pd 2 --name ../up "x"
     [ ! -e "$HOME/.local/state/up" ] || fail "a name escaped the state dir"
-    PI_DELEGATE_MODEL= pd 2 --name nomodel "x"
-    has "PI_DELEGATE_MODEL is unset"
-    [ ! -e "$STATE/nomodel" ] || fail "a run without a model left state behind"
+    # The wrapper picks the session seat when pi gets no --model.
+    PI_DELEGATE_MODEL= pd 0 --name nomodel "ok"
+    ! grep -qx -- "--model" "$T/args" || fail "a run without PI_DELEGATE_MODEL got --model: $(cat "$T/args")"
 
     rm -f "$T/cmds"
     printf -- '--version is the brief\n' | pd 0 --name stdin -
@@ -199,8 +205,12 @@ pkgs.runCommand "pi-delegate-check"
     grep -qx "read,grep,find,ls,edit,write,bash" "$T/args" || fail "--edit run lacks edit tools"
     has "?? made.txt"
 
-    pd 0 --tmux --name tm "ok"
-    grep -q "^tmux new-window -d -n tm -c $T/repo/main -- " "$T/calls" || fail "tmux call: $(cat "$T/calls")"
+    rm -f "$T/args"
+    PI_SESSION_MODEL=fakecloud/acme/omega-2:max PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2:xhigh \
+      PI_TRUSTED_PROVIDERS=fakecloud PI_CLASSIFY_MODEL= pd 0 --tmux --name tm "ok"
+    grep -qF "tmux new-window -d -n tm -c $T/repo/main -e PI_SESSION_MODEL=fakecloud/acme/omega-2:max -e PI_DELEGATE_MODEL=fakecloud/acme/zeta-9000:high -e PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2:xhigh -e PI_TRUSTED_PROVIDERS=fakecloud -- " "$T/calls" \
+      || fail "tmux call: $(cat "$T/calls")"
+    grep -qx "fakecloud/acme/zeta-9000:high" "$T/args" || fail "the tmux run lost PI_DELEGATE_MODEL: $(cat "$T/args")"
     has "DONE turn=1 tokens=30"
 
     touch "$out"

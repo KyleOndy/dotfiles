@@ -17,7 +17,8 @@
 # worktree and branch named <name> off <base>, so the caller's checkout is
 # never touched. --tmux, or PI_DELEGATE_TMUX=1, also shows the run in a tmux
 # window; without it the run is headless. Either way the run outlives its
-# caller.
+# caller. It runs on PI_DELEGATE_MODEL when that is set, and otherwise on the
+# session seat the pi wrapper picks.
 #
 # pi runs in RPC mode (pi's docs/rpc.md), reading commands from a FIFO. The
 # brief is the first turn. Once a turn settles, the run stays open for
@@ -37,8 +38,8 @@
 #   closed           pi's stdin is closed, so it takes no more commands
 #   exit             pi's exit status, written last; 124 when it timed out
 
-# Set per host, with no default: this repo is public, and an mcloud model id
-# must not be (nix/hosts/work-mac/CLAUDE.md).
+# Empty runs the session seat. No id is written here, since this repo is
+# public and the hosts' model ids are not.
 readonly MODEL="${PI_DELEGATE_MODEL:-}"
 readonly READ_TOOLS="read,grep,find,ls"
 readonly EDIT_TOOLS="read,grep,find,ls,edit,write,bash"
@@ -128,7 +129,8 @@ supervise() {
 # In a tmux window it also shows the run, then waits for a key so the human
 # can read the end of it.
 run() {
-	local dir="$1" status=143 view=()
+	local dir="$1" status=143 view=() model=()
+	[[ -z ${MODEL} ]] || model=(--model "${MODEL}")
 	trap 'echo "${status}" >"${dir}/exit"' EXIT
 	if [[ -t 1 ]]; then
 		exec 4> >(jq --unbuffered -rj "${PRETTY}")
@@ -144,7 +146,7 @@ run() {
 	cat "${dir}/in" |
 		(
 			echo "${BASHPID}" >"${dir}/pid"
-			exec timeout "${TIMEOUT}" pi --tools "$(<"${dir}/tools")" --model "${MODEL}" --mode rpc \
+			exec timeout "${TIMEOUT}" pi --tools "$(<"${dir}/tools")" "${model[@]}" --mode rpc \
 				--no-session --no-approve --no-verify-guard 2>"${dir}/stderr.log"
 		) |
 		tee "${dir}/events.ndjson" "${view[@]}" |
@@ -378,10 +380,6 @@ done
 [[ $# -eq 1 ]] || usage
 if [[ $1 == - ]]; then brief="$(cat)"; else brief="$1"; fi
 [[ -n ${brief} ]] || usage
-if [[ -z ${MODEL} ]]; then
-	echo "pi-delegate: PI_DELEGATE_MODEL is unset" >&2
-	exit 2
-fi
 
 name="${name:-delegate-$(date +%Y%m%d-%H%M%S)}"
 if [[ ! ${name} =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
@@ -412,7 +410,13 @@ echo "run: ${dir}"
 mkfifo "${dir}/in"
 touch "${dir}/events.ndjson"
 if [[ ${tmux} == 1 ]]; then
-	tmux new-window -d -n "${name}" -c "${workdir}" -- "$0" __run "${dir}"
+	# A window starts from the tmux server's environment, not this one's.
+	seat_env=()
+	for var in PI_SESSION_MODEL PI_ADVISOR_MODEL PI_SPAWN_MODEL PI_DELEGATE_MODEL \
+		PI_CLASSIFY_MODEL "${!PI_AGENT_MODEL_@}" PI_TRUSTED_PROVIDERS; do
+		[[ -z ${!var:-} ]] || seat_env+=(-e "${var}=${!var}")
+	done
+	tmux new-window -d -n "${name}" -c "${workdir}" "${seat_env[@]}" -- "$0" __run "${dir}"
 else
 	# Its own process group, so a caller killed along with its group (a
 	# timed-out tool call, a closed terminal) leaves the run going.

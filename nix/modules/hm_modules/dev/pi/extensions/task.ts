@@ -21,13 +21,15 @@
  *     oh-my-pi's worktree isolation (real complexity for a personal tool) --
  *     read-only access sidesteps the failure mode isolation exists to solve
  *     (parallel subagents racing to edit the same files) without needing it.
- *   - An agent named in `agents/*.md` carries its own model, tool allowlist
- *     and role prompt, so a scout can run on something cheap while the parent
- *     stays on the expensive model that needs the context. Unnamed tasks
- *     inherit the parent's model, which is the only safe default: a cloud
- *     parent fanning out to a small local model gets research too weak to act
- *     on, and a local parent fanning out to a cloud model spends real money
- *     N-at-a-time from a session whose whole point was that it cost nothing.
+ *   - An agent named in `agents/*.md` carries its own tool allowlist and
+ *     role prompt, and runs on its own seat, so a scout can run on something
+ *     cheap while the parent stays on the expensive model that needs the
+ *     context. Unnamed tasks, and an agent whose seat is unset and not
+ *     required, inherit the parent's model, which is the only safe default:
+ *     a cloud parent fanning out to a small local model gets research too
+ *     weak to act on, and a local parent fanning out to a cloud model spends
+ *     real money N-at-a-time from a session whose whole point was that it
+ *     cost nothing.
  *   - The child's NDJSON is read line by line while it runs, so the tool row
  *     reports what each subagent is doing now rather than only what it
  *     concluded ten minutes later. Every event also goes to its own file under
@@ -73,9 +75,17 @@ interface Agent {
   name: string;
   description: string;
   tools: string;
+  // Frontmatter `model:`, which the agent's seat overrides.
   model?: string;
+  // Frontmatter `seat: required`: with its seat unset, the agent refuses
+  // rather than run the session's model.
+  seatRequired: boolean;
   systemPrompt: string;
 }
+
+// An agent's name becomes part of its seat's variable name, and a name that
+// is not a shell identifier aborts the wrapper's `export`.
+const AGENT_NAME = /^[A-Za-z0-9_]+$/;
 
 interface TaskResult {
   index: number;
@@ -119,10 +129,10 @@ function parseTools(value: unknown): string {
   return tools.length > 0 ? tools.join(",") : SUBAGENT_TOOLS;
 }
 
-// ~/.pi/agent/agents/*.md: frontmatter name/description/tools/model with the
-// body as the role prompt. Read once at registration, like every other file
-// under the extensions symlink, so an edit lands on /reload. Upstream also
-// walks up for a project-scoped <repo>/.pi/agents; nothing has wanted a
+// ~/.pi/agent/agents/*.md: frontmatter name/description/tools/model/seat with
+// the body as the role prompt. Read once at registration, like every other
+// file under the extensions symlink, so an edit lands on /reload. Upstream
+// also walks up for a project-scoped <repo>/.pi/agents; nothing has wanted a
 // repo-specific researcher yet.
 function discoverAgents(): Agent[] {
   const dir = join(getAgentDir(), "agents");
@@ -150,6 +160,7 @@ function discoverAgents(): Agent[] {
       description?: unknown;
       tools?: unknown;
       model?: unknown;
+      seat?: unknown;
     }>(content);
     if (
       typeof frontmatter.name !== "string" ||
@@ -157,17 +168,13 @@ function discoverAgents(): Agent[] {
     )
       continue;
 
-    // The agents directory is one symlink shared by every host, so a host
-    // whose providers differ repins through the wrapper's sandbox.envVars.
-    const modelOverride =
-      process.env[`PI_AGENT_MODEL_${frontmatter.name.toUpperCase()}`];
     agents.push({
       name: frontmatter.name,
       description: frontmatter.description,
       tools: parseTools(frontmatter.tools),
       model:
-        modelOverride ||
-        (typeof frontmatter.model === "string" ? frontmatter.model : undefined),
+        typeof frontmatter.model === "string" ? frontmatter.model : undefined,
+      seatRequired: frontmatter.seat === "required",
       systemPrompt: body.trim(),
     });
   }
@@ -224,6 +231,52 @@ function logEvent(file: string, entry: Record<string, unknown>): void {
 // under more than one provider. Undefined before a model is resolved.
 function subagentModel(ctx: ExtensionContext): string | undefined {
   return ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined;
+}
+
+// An agent runs on its seat, PI_AGENT_MODEL_<NAME>, else its frontmatter
+// `model:`, else the session's model. The agents directory is one symlink
+// shared by every host, so a host picks an agent's model through its seats,
+// which the wrapper exports. Every refusal throws, so the model sees a tool
+// error, and names a variable or a provider, never a model id: it lands in
+// the transcript.
+function resolveModel(
+  agent: Agent | undefined,
+  ctx: ExtensionContext,
+): string | undefined {
+  let model = subagentModel(ctx);
+  let who = "the session model";
+  if (agent) {
+    if (!AGENT_NAME.test(agent.name))
+      throw new Error(
+        `task: agent name "${agent.name}" must match ${AGENT_NAME.source}, since it names the agent's seat variable.`,
+      );
+    const seat = `PI_AGENT_MODEL_${agent.name.toUpperCase()}`;
+    const seatModel = process.env[seat] || undefined;
+    if (!seatModel && agent.seatRequired)
+      throw new Error(
+        `task: agent ${agent.name} requires its seat, and ${seat} is unset. Add a ${seat}=provider/id[:level] line to this host's pi_seats (sops) and redeploy, or set ${seat} in the environment pi starts from.`,
+      );
+    model = seatModel ?? agent.model ?? model;
+    who = `agent ${agent.name} (seat ${seat})`;
+  }
+
+  // Unset or empty: the host has no trust list, so nothing is checked.
+  const trusted = (process.env.PI_TRUSTED_PROVIDERS ?? "")
+    .split(",")
+    .filter(Boolean);
+  if (model && trusted.length > 0) {
+    const slash = model.indexOf("/");
+    const provider = slash > 0 ? model.slice(0, slash) : undefined;
+    if (!provider)
+      throw new Error(
+        `task: ${who} names no provider, so it cannot be checked against PI_TRUSTED_PROVIDERS. Write the seat as provider/id.`,
+      );
+    if (!trusted.includes(provider))
+      throw new Error(
+        `task: ${who} is on provider ${provider}, which is not in PI_TRUSTED_PROVIDERS (${trusted.join(", ")}). Point it at a model on one of those.`,
+      );
+  }
+  return model;
 }
 
 // Pull the final assistant message out of `--mode json`'s NDJSON event
@@ -445,7 +498,7 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      const model = agent?.model ?? subagentModel(ctx);
+      const model = resolveModel(agent, ctx);
       if (!model) {
         return {
           content: [

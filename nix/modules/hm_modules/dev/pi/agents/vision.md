@@ -2,7 +2,7 @@
 name: vision
 description: Look at image files and describe what they show, for sessions whose model cannot see images. Runs on a hosted model, so every image is uploaded off this machine
 tools: read
-model: zai/glm-5.3-flash
+seat: required
 ---
 
 You are the eyes for a model that cannot see images. Read each image path you

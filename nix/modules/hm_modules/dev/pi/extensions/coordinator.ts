@@ -36,6 +36,16 @@ const MAX_WAIT_MINUTES = 120;
 const BOOT_TIMEOUT_MS = 15 * 60_000;
 // States after which an agent will not change again without a new request.
 const SETTLED = new Set(["failed", "exited", "done", "torn-down"]);
+// pi's --thinking levels, which pi-broker checks against the same list.
+const LEVELS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
 
 interface AgentState {
   agent: string;
@@ -171,6 +181,21 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
           description:
             "Commit or branch to start from. Defaults to the coordinator's HEAD.",
         }),
+      ),
+      model: Type.Optional(
+        Type.String({
+          description:
+            "The agent's model as provider/id, optionally with a :level suffix taking one of the thinking levels. Defaults to this host's spawn seat, else your own model.",
+        }),
+      ),
+      thinking: Type.Optional(
+        Type.Union(
+          LEVELS.map((level) => Type.Literal(level)),
+          {
+            description:
+              "How hard the agent reasons, from off (none) through minimal, low, medium, high and xhigh to max (the most the model allows). Beats a :level suffix on the model. Defaults to that suffix, else pi's default level.",
+          },
+        ),
       ),
     }),
     async execute(_toolCallId, params, signal) {

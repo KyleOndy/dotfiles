@@ -1,7 +1,8 @@
 # Flake check that drives pi-broker (nix/pkgs/pi-broker) through a coordinator
 # session: spawns with and without a VM, refusals, a child booting its VM, a
 # child quitting with and without a result, teardown, a failed `forge init`,
-# and a second coordinator on a broker built without forge.
+# a second coordinator on a broker built without forge, and each spawn's
+# model, thinking level and seats.
 #
 # forge and tmux are stubs, since neither a VM nor a tmux server exists in the
 # build sandbox; git, the worktree script and the request protocol are real.
@@ -125,6 +126,7 @@ pkgs.runCommand "pi-broker-check"
     [ "$(grep -c 'new-session' "$T/calls")" = 1 ] || fail "made more than one tmux session"
 
     # No size, no VM: no forge call, no slot, and a window without the grant.
+    # This broker holds no seat, so the window gets no -e and no --model.
     forge_calls=$(grep -c '^forge ' "$T/calls")
     req r1n '{"op":"spawn","agent":"nu","task":"do nu"}' true "agent nu on no VM"
     wait_state nu running
@@ -230,21 +232,76 @@ pkgs.runCommand "pi-broker-check"
     wait $BROKER || true
     [ -e "$COORD/broker.pid" ] && fail "broker.pid outlived the broker"
 
-    # A second coordinator, on a broker without forge. nu, eps, zeta and iota
-    # still run under c1, so four more fill the host's cap of 8.
+    # $1 agent, $2 a substring its window's tmux call must (win_has) or must
+    # not (win_lacks) hold.
+    win() { grep -F -- " -n $1 -c " "$T/calls" || fail "no window for $1"; }
+    win_has() { [[ "$(win "$1")" == *"$2"* ]] || fail "$1's window lacks '$2': $(win "$1")"; }
+    win_lacks() { [[ "$(win "$1")" != *"$2"* ]] || fail "$1's window has '$2': $(win "$1")"; }
+
+    # A second coordinator, on a broker without forge and with seats in its
+    # env. nu, eps, zeta and iota still run under c1, so pi2-pi4 here and pi5
+    # on a third coordinator fill the host's cap of 8.
     COORD=$HOME/.local/state/pi-coord/c2
     mkdir -p "$COORD/requests"
     sleep 600 &
     WATCH=$!
-    "$T/broker-no-forge" "$COORD" "$WATCH" "$T/repo/main" /fake/pi >"$T/broker2.log" 2>&1 &
+    PI_SESSION_MODEL=fakecloud/acme/omega-2:max PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:medium \
+      PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2:xhigh PI_AGENT_MODEL_VISION=fakecloud/acme/zeta-9000:low \
+      PI_TRUSTED_PROVIDERS=fakecloud,loopback PI_CLASSIFY_MODEL= \
+      "$T/broker-no-forge" "$COORD" "$WATCH" "$T/repo/main" /fake/pi >"$T/broker2.log" 2>&1 &
     BROKER=$!
     trap 'kill $WATCH $BROKER 2>/dev/null || true' EXIT
     forge_calls=$(grep -c '^forge ' "$T/calls")
     req s1 '{"op":"spawn","agent":"pi1","task":"x","size":"small"}' false "no forge VM"
-    for n in 2 3 4 5; do
-      req s$n "{\"op\":\"spawn\",\"agent\":\"pi$n\",\"task\":\"x\"}" true "no VM"
-      wait_state pi$n running
+
+    # The spawn's own model and level, after the wrapper's flags, and every
+    # set seat as -e, since the window starts from the tmux server's env.
+    req s2 '{"op":"spawn","agent":"pi2","task":"x","model":"fakecloud/acme/zeta-9000:high","thinking":"low"}' true "no VM"
+    wait_state pi2 running
+    win_has pi2 " -- /fake/pi --coord-child=c2/pi2 --model fakecloud/acme/zeta-9000:high --thinking low --name pi2 "
+    for e in PI_SESSION_MODEL=fakecloud/acme/omega-2:max PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:medium \
+      PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2:xhigh PI_AGENT_MODEL_VISION=fakecloud/acme/zeta-9000:low \
+      PI_TRUSTED_PROVIDERS=fakecloud,loopback; do
+      win_has pi2 " -e $e "
     done
+    win_lacks pi2 "PI_CLASSIFY_MODEL"
+    win_lacks pi2 "PI_ADVISOR_MODEL"
+
+    # No model: PI_SPAWN_MODEL, and no --thinking.
+    req s3 '{"op":"spawn","agent":"pi3","task":"x"}' true "no VM"
+    wait_state pi3 running
+    win_has pi3 " --coord-child=c2/pi3 --model fakecloud/acme/zeta-9000:medium --name pi3 "
+
+    # Refused before anything is created, and without echoing the model.
+    req s7 '{"op":"spawn","agent":"bad1","task":"x","model":"-fakecloud/acme/zeta-9000"}' false "model must be"
+    req s8 '{"op":"spawn","agent":"bad2","task":"x","model":"fakecloud/acme zeta-9000"}' false "model must be"
+    req s9 '{"op":"spawn","agent":"bad3","task":"x","model":"zeta-9000"}' false "model must be"
+    req s10 '{"op":"spawn","agent":"bad4","task":"x","thinking":"extreme"}' false "thinking must be one of"
+    req s11 '{"op":"spawn","agent":"bad5","task":"x","thinking":"--model"}' false "thinking must be one of"
+    ! grep -q zeta-9000 "$COORD"/responses/s{7,8,9}.json || fail "a refusal echoed the model"
+    for b in bad1 bad2 bad3 bad4 bad5; do
+      [ ! -e "$COORD/state/$b.json" ] || fail "the refused spawn $b left state behind"
+    done
+
+    req s4 '{"op":"spawn","agent":"pi4","task":"x"}' true "no VM"
+    wait_state pi4 running
+    kill $WATCH
+    wait $BROKER || true
+
+    # A third coordinator whose env holds only the session seat.
+    COORD=$HOME/.local/state/pi-coord/c3
+    mkdir -p "$COORD/requests"
+    sleep 600 &
+    WATCH=$!
+    PI_SESSION_MODEL=fakecloud/acme/omega-2:max \
+      "$T/broker-no-forge" "$COORD" "$WATCH" "$T/repo/main" /fake/pi >"$T/broker3.log" 2>&1 &
+    BROKER=$!
+    trap 'kill $WATCH $BROKER 2>/dev/null || true' EXIT
+    req s5 '{"op":"spawn","agent":"pi5","task":"x"}' true "no VM"
+    wait_state pi5 running
+    win_has pi5 " -e PI_SESSION_MODEL=fakecloud/acme/omega-2:max -- "
+    win_has pi5 " --coord-child=c3/pi5 --model fakecloud/acme/omega-2:max --name pi5 "
+    win_lacks pi5 "PI_SPAWN_MODEL"
     req s6 '{"op":"spawn","agent":"pi6","task":"x"}' false "all 8 agents are running"
     [ "$(grep -c '^forge ' "$T/calls")" = "$forge_calls" ] || fail "the broker without forge called forge"
     kill $WATCH

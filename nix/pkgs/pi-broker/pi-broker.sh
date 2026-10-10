@@ -13,7 +13,9 @@
 # writes requests and this does all three. Each agent gets:
 #   - a worktree and branch named after it, based on the coordinator's HEAD,
 #     under the coordinator branch's ticket when it has one (DEV-123-*)
-#   - a tmux window running `pi --coord-child=<id>/<agent>`
+#   - a tmux window running `pi --coord-child=<id>/<agent>`, on the spawn's
+#     model, else PI_SPAWN_MODEL, else PI_SESSION_MODEL, and with every seat
+#     variable this broker holds
 # and, when the spawn names a size and this build has forge:
 #   - forge instance <n>, its own VM, defined but stopped until the agent
 #     asks for it with forge_boot, and `--allow-forge=<n>` on its pi
@@ -49,6 +51,10 @@ readonly SLOTS_DIR="${COORD_ROOT}/slots"
 readonly FORGE_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/forge"
 # The wrapper's pattern for the agent path component (nix/pkgs/pi-wrapper).
 readonly AGENT_RE='^[a-z0-9][a-z0-9._-]{0,63}$'
+# pi --model's provider/id[:level]. The request comes from inside the
+# sandbox and this runs outside it, so nothing reaches argv unchecked.
+readonly MODEL_RE='^[A-Za-z0-9._-]+/[^[:space:]]+$'
+readonly LEVEL_RE='^(off|minimal|low|medium|high|xhigh|max)$'
 # Enough for a long brief, short of something that is not one.
 readonly MAX_TASK_CHARS=65536
 readonly POLL_SECONDS=2
@@ -254,8 +260,9 @@ forge_config_for() {
 # VM and slot before it reports failed, so failed means there is room again.
 # An empty instance is an agent without a VM.
 run_spawn() {
-	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" dir worktree window blog flog
-	local -a forge_args=()
+	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" model="$7" thinking="$8"
+	local dir worktree window blog flog var
+	local -a forge_args=() model_args=() env_args=()
 	dir="$(agent_dir "${agent}")"
 	blog="$(log_file "${agent}" broker)"
 	flog="$(log_file "${agent}" forge)"
@@ -283,10 +290,20 @@ run_spawn() {
 		set_status "${agent}" worktree "${worktree}"
 	fi
 
+	[[ -z ${model} ]] || model_args+=(--model "${model}")
+	[[ -z ${thinking} ]] || model_args+=(--thinking "${thinking}")
+	# A window starts from the tmux server's environment, not this one's.
+	for var in PI_SESSION_MODEL PI_ADVISOR_MODEL PI_SPAWN_MODEL PI_DELEGATE_MODEL \
+		PI_CLASSIFY_MODEL "${!PI_AGENT_MODEL_@}" PI_TRUSTED_PROVIDERS; do
+		[[ -z ${!var:-} ]] || env_args+=(-e "${var}=${!var}")
+	done
+
+	# The wrapper stops reading its own flags at the first one it does not
+	# know, so pi's --model and --thinking go after --coord-child.
 	if ! window="$(tmux new-window -d -P -F '#{window_id}' -t "${target}:" \
-		-n "${agent}" -c "${worktree}" -- \
+		-n "${agent}" -c "${worktree}" "${env_args[@]}" -- \
 		"${PI_BIN}" "${forge_args[@]}" --coord-child="${COORD_ID}/${agent}" \
-		--name "${agent}" "@${dir}/task.md" 2>>"${blog}")"; then
+		"${model_args[@]}" --name "${agent}" "@${dir}/task.md" 2>>"${blog}")"; then
 		set_status "${agent}" state failed error "tmux new-window failed, see ${blog}"
 		return
 	fi
@@ -295,11 +312,13 @@ run_spawn() {
 }
 
 handle_spawn() {
-	local id="$1" file="$2" agent task size base instance="" reason dir target ticket="" branch vm
+	local id="$1" file="$2" agent task size base model thinking instance="" reason dir target ticket="" branch vm
 	agent="$(jq -r '.agent // ""' "${file}")"
 	task="$(jq -r '.task // ""' "${file}")"
 	size="$(jq -r '.size // ""' "${file}")"
 	base="$(jq -r '.base // ""' "${file}")"
+	model="$(jq -r '.model // ""' "${file}")"
+	thinking="$(jq -r '.thinking // ""' "${file}")"
 
 	if [[ ! ${agent} =~ ${AGENT_RE} ]] || ! git check-ref-format --branch "${agent}" >/dev/null 2>&1; then
 		respond "${id}" false "agent name must match ${AGENT_RE} and be a valid branch name"
@@ -321,6 +340,17 @@ handle_spawn() {
 		respond "${id}" false "size must be small, large or xlarge"
 		return
 	fi
+	# A leading dash would read as an option to pi. The message leaves the
+	# value out, since it may be a private id and responses are logged.
+	if [[ -n ${model} && (! ${model} =~ ${MODEL_RE} || ${model} == -*) ]]; then
+		respond "${id}" false "model must be provider/id, optionally with :level, with no whitespace and no leading '-'"
+		return
+	fi
+	if [[ -n ${thinking} && ! ${thinking} =~ ${LEVEL_RE} ]]; then
+		respond "${id}" false "thinking must be one of off, minimal, low, medium, high, xhigh, max"
+		return
+	fi
+	[[ -n ${model} ]] || model="${PI_SPAWN_MODEL:-${PI_SESSION_MODEL:-}}"
 	# A leading dash would read as an option to git, and the coordinator's own
 	# HEAD is what an agent without a base should start from.
 	[[ -n ${base} ]] || base="$(git -C "${REPO_DIR}" rev-parse --abbrev-ref HEAD)"
@@ -364,7 +394,7 @@ handle_spawn() {
 	vm="no VM"
 	[[ -z ${instance} ]] || vm="forge instance ${instance} (${size})"
 	respond "${id}" true "agent ${agent} on ${vm}, based on ${base}"
-	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" &
+	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" "${model}" "${thinking}" &
 }
 
 # ─── Boot ─────────────────────────────────────────────────────────────────────
