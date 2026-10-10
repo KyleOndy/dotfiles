@@ -154,6 +154,23 @@ in
     '';
   };
 
+  # iCloud calendars over CalDAV, signed in as the cogs@ondy.org Apple Account
+  # with an app-specific password (pass:
+  # apple.com/cogs@ondy.org/app-passwords/cogsworth-pi). Consumed by
+  # cogsworth.cal.caldav; without both values the family calendars fail to
+  # sync. Changing the account's main password revokes the app password.
+  sops.secrets.cogsworth_caldav_password = {
+    owner = "cogsworth";
+  };
+
+  sops.templates."cogsworth-caldav-env" = {
+    owner = "cogsworth";
+    content = ''
+      COGSWORTH_CALDAV_USER=cogs@ondy.org
+      COGSWORTH_CALDAV_PASSWORD=${config.sops.placeholder.cogsworth_caldav_password}
+    '';
+  };
+
   # wpa_supplicant secrets file template
   sops.templates."wpa-secrets" = {
     content = ''
@@ -537,6 +554,7 @@ in
       config.sops.templates."cogsworth-openrouter-env".path
       config.sops.templates."cogsworth-sms-env".path
       config.sops.templates."cogsworth-mail-env".path
+      config.sops.templates."cogsworth-caldav-env".path
     ];
   };
 
