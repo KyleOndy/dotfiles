@@ -32,6 +32,18 @@
 
   programs.zsh.shellAliases.src = lib.mkForce "cd ${config.home.homeDirectory}/src/modularml";
 
+  # work-config sets the global email to the work address. The repos under
+  # ~/src/kyleondy, these dotfiles included, are personal and public, so they
+  # commit as the personal one. The trailing slash makes git append `**`,
+  # which covers each worktree's gitdir under .bare (git-config(1),
+  # Conditional includes).
+  programs.git.includes = [
+    {
+      condition = "gitdir:${config.home.homeDirectory}/src/kyleondy/";
+      contents.user.email = "kyle@ondy.org";
+    }
+  ];
+
   # `pic CLIN-1008`, or `pic` from a worktree under a ticket directory, also
   # grants write on that ticket's notes dir. The coordinator's $PWD has to be
   # the repo the broker cuts worktrees from, so the notes dir never gets the
