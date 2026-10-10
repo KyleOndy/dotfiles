@@ -57,20 +57,27 @@ const DEFAULT_CONFIG: SecretGuardConfig = {
   scanBash: true,
   // Basename globs. High-signal secret material, not general config, the agent
   // rarely needs to read these, so blocking them has a low false-positive rate.
+  //
+  // Extension-shaped globs use a "?*." stem rather than "*.": jq and friends
+  // tokenize a program like `select(.key != null)` into the bare token
+  // `.key`, and a zero-stem `*.key` matches it, blocking honest JSON work
+  // (twice in one session, measured). One leading character is enough stem
+  // to separate `server.key` from the accessor `.key`, and no secret file
+  // named `.key` has ever appeared here; `id_rsa` and friends stay exact.
   denyPatterns: [
     ".env",
     ".env.*",
-    "*.pem",
-    "*.key",
-    "*.p12",
-    "*.pfx",
-    "*.jks",
-    "*.keystore",
+    "?*.pem",
+    "?*.key",
+    "?*.p12",
+    "?*.pfx",
+    "?*.jks",
+    "?*.keystore",
     "id_rsa",
     "id_dsa",
     "id_ecdsa",
     "id_ed25519",
-    "*.secret",
+    "?*.secret",
     "credentials.json",
     // Not secret material, but the switch that turns this off. Both config
     // paths sit inside the sandbox's write allowlist ($PWD and ~/.pi), and
@@ -240,7 +247,14 @@ export default function (pi: ExtensionAPI) {
           // than a file, and auditing the tree for stray keys is the thing this
           // guard exists to support.
           if (/[*?]/.test(tok)) continue;
-          const pattern = matchSecret(tok, cfg);
+          // Backslashes are stripped before matching: in a token they are
+          // regex escapes (`grep '\.key'` reaching this as \.key) or shell
+          // quoting (`cat \.env`), never part of a real filename. Stripping
+          // turns the first into `.key`, which the ?*.key stem lets through,
+          // and the second into `.env`, which the exact pattern still blocks
+          // (without the strip, `cat \.env` reached the matcher as \.env and
+          // slipped past every pattern: a bypass, not just a false positive).
+          const pattern = matchSecret(tok.replace(/\\+/g, ""), cfg);
           if (pattern) {
             logViolation({ tool: "bash", token: tok, pattern, cwd, command });
             noteBlocked(ctx);
