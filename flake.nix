@@ -488,6 +488,7 @@
           pi-broker = import ./nix/checks/pi-broker.nix { inherit pkgs; };
           pi-delegate = import ./nix/checks/pi-delegate.nix { inherit pkgs; };
           leak-guard = import ./nix/checks/leak-guard.nix { inherit pkgs; };
+          pi-seats = import ./nix/checks/pi-seats.nix { inherit pkgs; };
         }
       );
 

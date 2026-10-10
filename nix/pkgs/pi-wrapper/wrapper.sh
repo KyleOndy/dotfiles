@@ -41,6 +41,14 @@ allow_clipboard=false
 git_write_mode=@gitWriteMode@
 protected_branches=(@protectedBranches@)
 git_write_granted=false
+# Empty seats file and trust list: no seat is loaded and no provider refused.
+seats_file="@seatsFile@"
+seats_file="${seats_file/#\~/$HOME}"
+trusted_providers=(@trustedProviders@)
+seats_check="@seatsCheck@"
+# Repo path of the sops file the seats and catalog are edited in, for the
+# fix-it lines. Empty when the host didn't name one.
+secrets_source="@secretsSource@"
 
 # nix talks to the daemon over this socket, and srt blocks unix sockets by
 # default on both platforms (sandbox-runtime README, Unix Socket Settings).
@@ -285,6 +293,123 @@ __pi_apply_env_vars() {
 		fi
 		export "$var=$expanded"
 	done <"$pi_env_vars_file"
+}
+
+# Each seat (a `provider/id[:level]` model choice) the caller's env leaves
+# empty, from the host's seats file, a sops secret. Parsed line by line and
+# never sourced, and only seat names are exported, so the file can set nothing
+# else in this process. Under PI_DEBUG=plan the names are printed, never the
+# values.
+__pi_load_seats() {
+	[[ -n $seats_file && -e $seats_file ]] || return 0
+	if [[ ! -r $seats_file ]]; then
+		echo "pi: refusing to start: cannot read the seats file $seats_file as $(id -un)." >&2
+		echo "pi:          Its sops secret needs owner = \"$(id -un)\" in this host's sops.secrets.pi_seats." >&2
+		exit 1
+	fi
+	local line var value
+	while IFS= read -r line || [[ -n $line ]]; do
+		[[ $line =~ ^([A-Z][A-Z0-9_]*)=([^[:space:]]+)$ ]] || continue
+		var=${BASH_REMATCH[1]}
+		value=${BASH_REMATCH[2]}
+		[[ $var =~ ^PI_(SESSION|ADVISOR|SPAWN|DELEGATE|CLASSIFY)_MODEL$|^PI_AGENT_MODEL_[A-Z0-9_]+$ ]] || continue
+		[[ -z ${!var:-} ]] || continue
+		export "$var=$value"
+		[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_SEAT: %s\n' "$var"
+	done <"$seats_file"
+}
+
+# The session's provider/id from pi's own arguments: the last `--model`, with
+# `--provider` in front when one is given. pi takes neither as --flag=value,
+# and everything after `--` is a message (cli/args.ts).
+__pi_session_from_args() {
+	local a prev="" model="" provider=""
+	for a in "$@"; do
+		[[ $a == "--" ]] && break
+		case "$prev" in
+		--model) model=$a ;;
+		--provider) provider=$a ;;
+		esac
+		prev=$a
+	done
+	if [[ -n $provider && -n $model && $model != "$provider/"* ]]; then
+		model="$provider/$model"
+	fi
+	printf '%s' "$model"
+}
+
+# Only providers in trustedProviders ever see this host's model ids, which
+# are private, so a session on any other refuses to start. That covers every
+# start through this wrapper: coordinator children, pi-delegate and
+# domestique included. task.ts children and the advisor run inside pi and
+# check PI_TRUSTED_PROVIDERS themselves. Messages name a var or a provider,
+# never an id, since they land in transcripts.
+__pi_refuse_untrusted() {
+	local session=$1 provider p trusted edit
+	trusted=$(
+		IFS=,
+		printf '%s' "${trusted_providers[*]}"
+	)
+	if [[ -n $secrets_source ]]; then
+		edit="\`sops edit $secrets_source\`, then redeploy"
+	else
+		edit="this host's sops file, then redeploy"
+	fi
+	if [[ -z $session ]]; then
+		echo "pi: refusing to start: no session model." >&2
+		if [[ -z $seats_file ]]; then
+			echo "pi:          This host sets no seatsFile, so pass --model provider/id." >&2
+		elif [[ ! -e $seats_file ]]; then
+			echo "pi:          The seats file $seats_file does not exist: pi_seats is missing from" >&2
+			echo "pi:          $edit. Or pass --model provider/id." >&2
+		else
+			echo "pi:          Add a PI_SESSION_MODEL=provider/id[:level] line to pi_seats with" >&2
+			echo "pi:          $edit. Or pass --model provider/id." >&2
+		fi
+		exit 1
+	fi
+	if [[ $session != */* ]]; then
+		echo "pi: refusing to start: --model names no provider. Write it as provider/id, so the" >&2
+		echo "pi:          provider can be checked against trustedProviders ($trusted)." >&2
+		exit 1
+	fi
+	provider=${session%%/*}
+	for p in "${trusted_providers[@]}"; do
+		[[ $p == "$provider" ]] && return 0
+	done
+	echo "pi: refusing to start: provider '$provider' is not in trustedProviders ($trusted)," >&2
+	echo "pi:          the only providers allowed to see this host's model ids. Pick a model on" >&2
+	echo "pi:          one of those, or add the provider to trustedProviders in this host's config." >&2
+	exit 1
+}
+
+# Every node pi traverses to open ~/.pi/agent/models.json, in canonical
+# spelling: each symlink, then the file it ends at. Empty when it is missing.
+__pi_link_chain() {
+	local rest=${1#/} resolved="" comp target hops=0 nodes=()
+	[[ -e $1 ]] || return 0
+	while [[ -n $rest ]]; do
+		comp=${rest%%/*}
+		if [[ $rest == */* ]]; then rest=${rest#*/}; else rest=""; fi
+		case "$comp" in
+		"" | .) continue ;;
+		..)
+			resolved=${resolved%/*}
+			continue
+			;;
+		esac
+		if [[ -L $resolved/$comp ]]; then
+			((++hops <= 40)) || return 0
+			nodes+=("$resolved/$comp")
+			target=$(readlink "$resolved/$comp")
+			[[ $target == /* ]] && resolved=""
+			rest="${target#/}${rest:+/$rest}"
+		else
+			resolved="$resolved/$comp"
+		fi
+	done
+	nodes+=("${resolved:-/}")
+	printf '%s\n' "${nodes[@]}"
 }
 
 # Supply-chain + cache hardening defaults, exported BEFORE user env so
@@ -807,8 +932,50 @@ __pi_resolve_all
 # before envVars.
 pi_caller_tmux=${TMUX:-}
 __pi_apply_env_vars
+__pi_load_seats
 __pi_scrub_secret_env
 __pi_scrub_node_options
+
+# Prepend the build-time default pi args before any user-supplied args. Pi
+# uses last-wins for repeated flags (e.g. --model), so the user can still
+# override on the command line.
+set -- "${default_pi_args[@]}" "$@"
+
+# The session seat applies only when no --model was given. Exported either
+# way, so a child started from this session (spawn_agent, pi-delegate) and the
+# advisor's not-the-session rule see the model this session runs. Ahead of the
+# broker's start, which takes this env, and of every grant, so a refused
+# session starts nothing.
+if [[ ${#trusted_providers[@]} -gt 0 || -n $seats_file ]]; then
+	session_model=$(__pi_session_from_args "$@")
+	if [[ -z $session_model && -n ${PI_SESSION_MODEL:-} ]]; then
+		session_model=$PI_SESSION_MODEL
+		set -- --model "$session_model" "$@"
+	fi
+	if [[ ${#trusted_providers[@]} -gt 0 ]]; then
+		__pi_refuse_untrusted "$session_model"
+		PI_TRUSTED_PROVIDERS=$(
+			IFS=,
+			printf '%s' "${trusted_providers[*]}"
+		)
+		export PI_TRUSTED_PROVIDERS
+		[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_TRUSTED: %s\n' "$PI_TRUSTED_PROVIDERS"
+	fi
+	[[ -z $session_model ]] || export PI_SESSION_MODEL="$session_model"
+	[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_SESSION: %s\n' "${session_model:-none}"
+	if [[ -n $seats_check ]]; then
+		seats_require=()
+		for a in "$@"; do
+			[[ $a == "--" ]] && break
+			[[ $a == "--advisor" ]] && seats_require+=(--require PI_ADVISOR_MODEL)
+		done
+		"$seats_check" check --start "${seats_require[@]}" ||
+			{
+				echo "pi: refusing to start: a seat failed its check (above)." >&2
+				exit 1
+			}
+	fi
+fi
 
 __pi_resolve_git_dirs
 if [[ -n $git_common_dir ]]; then
@@ -901,10 +1068,37 @@ if [[ ${PI_DEBUG:-} == "plan" ]]; then
 		"$git_write_granted" "$git_write_mode" "$allow_nix" "$allow_ssh_agent" "$allow_forge"
 fi
 
-# Prepend the build-time default pi args before any user-supplied args. Pi
-# uses last-wins for repeated flags (e.g. --model), so the user can still
-# override on the command line.
-set -- "${default_pi_args[@]}" "$@"
+# Seatbelt checks the read on every symlink an open traverses as well as on
+# the file it ends at, and matches canonical paths (sandbox-exec probe,
+# 2026-10-10), so a models.json link into the store and on to a sops secret
+# under /run, itself a link, would otherwise read as a missing file. Each
+# link node gets its own grant, spelled canonically, along with the file at
+# the end, and never a directory: the generation directory under
+# /run/secrets.d holds every other secret on the host. A deploy that moves the
+# link during a session leaves the catalog unreadable until pi restarts.
+while IFS= read -r node; do
+	[[ -n $node ]] && extra_read_paths+=("$node")
+done < <(__pi_link_chain "$HOME/.pi/agent/models.json")
+
+# Each trusted provider's endpoint, the host of its baseUrl in the catalog,
+# since this repo names no base URL. Read only through home-manager's link:
+# every sandboxed session can write ~/.pi, and a catalog it planted would open
+# the network to any host. Loopback stays off the list, since
+# --allow-loopback governs it. An empty list means no network rather than
+# any (sandbox-runtime 0.0.67 README, Network Isolation).
+if [[ ${#trusted_providers[@]} -gt 0 ]]; then
+	if [[ $(readlink "$HOME/.pi/agent/models.json" 2>/dev/null) == /nix/store/* ]]; then
+		while IFS= read -r host; do
+			extra_domains+=("$host")
+		done < <(jq -r '$ARGS.positional[] as $p
+			| .providers[$p].baseUrl? // empty
+			| capture("^[A-Za-z][A-Za-z0-9+.-]*://(?<h>[^/:?#\\[\\]]+)").h
+			| select(. != "localhost" and (test("^127\\.") | not))' \
+			"$HOME/.pi/agent/models.json" --args "${trusted_providers[@]}")
+	else
+		echo "pi: ~/.pi/agent/models.json is not home-manager's link into /nix/store, so the sandbox allows no provider endpoint." >&2
+	fi
+fi
 
 resolved_extra_writes=()
 for p in "${default_write_paths[@]}" "${extra_write_paths[@]}"; do
@@ -1074,7 +1268,7 @@ run_strict() {
 
 	all_domains=("${default_domains[@]}" "${extra_domains[@]}")
 	if [[ ${#all_domains[@]} -gt 0 ]]; then
-		allowed_json=$(printf '%s\n' "${all_domains[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
+		allowed_json=$(printf '%s\n' "${all_domains[@]}" | jq -Rs '[split("\n")[] | select(. != "")] | unique')
 	else
 		allowed_json='[]'
 	fi

@@ -147,6 +147,47 @@ let
     defaultWritePaths = [ "~/.kube/configs" ];
   };
 
+  # The seats file lives under the check's $HOME, so each case writes its own.
+  wrapperWithSeats = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    seatsFile = "~/seats";
+    trustedProviders = [ "fakecloud" ];
+  };
+
+  # Stands in for pi-seats, whose rules nix/checks/pi-seats.nix covers; this
+  # check only needs the wrapper to call it and to obey its exit status.
+  stubSeatsCheck = pkgs.writeShellScriptBin "pi-seats" ''
+    printf 'SEATS_CHECK %s\n' "$*"
+    [ ! -e "$HOME/fail-seats-check" ]
+  '';
+
+  wrapperWithSeatsCheck = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    seatsFile = "~/seats";
+    trustedProviders = [ "fakecloud" ];
+    seatsCheck = "${stubSeatsCheck}/bin/pi-seats";
+  };
+
+  # Trusts a provider on loopback too, whose host the sandbox must not list.
+  wrapperWithCatalog = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    trustedProviders = [
+      "fakecloud"
+      "loopcloud"
+    ];
+  };
+
+  # A store path, as home-manager's link would be.
+  catalogInStore = pkgs.writeText "models.json" (
+    builtins.toJSON {
+      providers = {
+        fakecloud.baseUrl = "https://gw.fakecloud.test/v1";
+        loopcloud.baseUrl = "http://127.0.0.1:11434/v1";
+        othercloud.baseUrl = "https://other.test/v1";
+      };
+    }
+  );
+
   webExpect = if pkgs.stdenv.isLinux then "bwrap" else "sandbox-exec";
   # One entry unique to this platform's defaultSystemReadPaths: /bin has to be
   # bound for /bin/sh to exist under bwrap, /System exists only on darwin.
@@ -1114,6 +1155,149 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$captured" \
       | grep -q "PI_PLAN_HARDENING: JAVA_TOOL_OPTIONS=.*-Djava.net.preferIPv4Stack=true" \
       || fail "JVM not pinned to IPv4. captured=$captured"
+
+    # Seats: each seat the caller leaves empty comes from the seats file, and
+    # only seat names are exported from it.
+    printf '%s\n' \
+      '# what the session is for' \
+      'PI_SESSION_MODEL=fakecloud/acme/zeta-9000:high' \
+      'PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2' \
+      'NOT_A_SEAT=fakecloud/acme/x' \
+      'PATH=/nowhere' \
+      'PI_SPAWN_MODEL=has a space' \
+      >"$HOME/seats"
+    seats=${wrapperWithSeats}/bin/pi
+    captured=$($seats -- x 2>&1) || fail "seats: refused a trusted seat. captured=$captured"
+    for v in PI_SESSION_MODEL PI_AGENT_MODEL_CRITIC; do
+      echo "$captured" | grep -qx "PI_PLAN_SEAT: $v" || fail "seats: $v not loaded. captured=$captured"
+    done
+    for v in NOT_A_SEAT PATH PI_SPAWN_MODEL; do
+      echo "$captured" | grep -q "PI_PLAN_SEAT: $v" && fail "seats: loaded $v. captured=$captured"
+    done
+    echo "$captured" | grep -q "PI_PLAN_EXEC.*--model fakecloud/acme/zeta-9000:high x" \
+      || fail "seats: session seat not passed as --model. captured=$captured"
+    echo "$captured" | grep -qx "PI_PLAN_SESSION: fakecloud/acme/zeta-9000:high" \
+      || fail "seats: PI_SESSION_MODEL not exported. captured=$captured"
+    echo "$captured" | grep -qx "PI_PLAN_TRUSTED: fakecloud" \
+      || fail "seats: PI_TRUSTED_PROVIDERS not exported. captured=$captured"
+
+    # The caller's env wins over the file, and empty counts as unset.
+    captured=$(PI_AGENT_MODEL_CRITIC=fakecloud/acme/other $seats -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_SEAT: PI_AGENT_MODEL_CRITIC" \
+      && fail "seats: file beat the caller's env. captured=$captured"
+    captured=$(PI_AGENT_MODEL_CRITIC= $seats -- x 2>&1)
+    echo "$captured" | grep -qx "PI_PLAN_SEAT: PI_AGENT_MODEL_CRITIC" \
+      || fail "seats: an empty caller value blocked the file's. captured=$captured"
+
+    # --model beats the session seat, which then adds no second --model.
+    captured=$($seats --model fakecloud/acme/b -- x 2>&1)
+    [ "$(echo "$captured" | grep -o -- '--model' | wc -l)" -eq 1 ] \
+      || fail "seats: --model given, seat added another. captured=$captured"
+    echo "$captured" | grep -qx "PI_PLAN_SESSION: fakecloud/acme/b" \
+      || fail "seats: PI_SESSION_MODEL is not the --model in force. captured=$captured"
+    captured=$($seats --provider fakecloud --model acme/c -- x 2>&1) \
+      || fail "seats: --provider with a trusted name refused. captured=$captured"
+    echo "$captured" | grep -qx "PI_PLAN_SESSION: fakecloud/acme/c" \
+      || fail "seats: --provider not folded into the session. captured=$captured"
+    # A --model after pi's own -- is a message, not a flag. (The wrapper
+    # consumes the first --, which ends its own flags.)
+    captured=$($seats --print -- --model othercloud/acme/x 2>&1) \
+      || fail "seats: a message after -- was read as --model. captured=$captured"
+
+    # Untrusted, unqualified or missing: refused, naming no id.
+    if captured=$($seats --model othercloud/acme/secret-1 -- x 2>&1); then
+      fail "seats: started on an untrusted provider. captured=$captured"
+    fi
+    echo "$captured" | grep -q "provider 'othercloud' is not in trustedProviders (fakecloud)" \
+      || fail "seats: refusal does not name the provider. captured=$captured"
+    echo "$captured" | grep -q "secret-1" && fail "seats: refusal printed the id. captured=$captured"
+    echo "$captured" | grep -q "PI_PLAN_EXEC" && fail "seats: refused but still planned exec. captured=$captured"
+    if captured=$($seats --model zeta-9000 -- x 2>&1); then
+      fail "seats: started on a --model with no provider. captured=$captured"
+    fi
+    mv "$HOME/seats" "$HOME/seats.off"
+    if captured=$($seats -- x 2>&1); then
+      fail "seats: started with no session model. captured=$captured"
+    fi
+    echo "$captured" | grep -q "no session model" || fail "seats: wrong refusal. captured=$captured"
+    echo "$captured" | grep -q "seats file $HOME/seats does not exist" \
+      || fail "seats: a missing seats file not named. captured=$captured"
+    echo "$captured" | grep -q "this host's sops file" \
+      || fail "seats: refusal does not say where to fix it. captured=$captured"
+    printf 'PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2\n' >"$HOME/seats"
+    if captured=$($seats -- x 2>&1); then
+      fail "seats: started with no PI_SESSION_MODEL line. captured=$captured"
+    fi
+    echo "$captured" | grep -q "Add a PI_SESSION_MODEL=provider/id\[:level\] line to pi_seats" \
+      || fail "seats: no fix for a missing session line. captured=$captured"
+    mv "$HOME/seats.off" "$HOME/seats"
+
+    # An unreadable seats file is a refusal that names its owner, not a
+    # silent "no seats".
+    chmod 000 "$HOME/seats"
+    if [ ! -r "$HOME/seats" ]; then
+      if captured=$($seats --model fakecloud/acme/b -- x 2>&1); then
+        fail "seats: started with an unreadable seats file. captured=$captured"
+      fi
+      echo "$captured" | grep -q "needs owner = " \
+        || fail "seats: unreadable seats file without the owner fix. captured=$captured"
+    fi
+    chmod 600 "$HOME/seats"
+
+    # A wrapper with no trust list refuses nothing.
+    pi --model othercloud/acme/x -- x >/dev/null 2>&1 || fail "no trust list, yet a provider was refused"
+
+    # The check runs before every start, requires the advisor seat under
+    # --advisor, and a failure stops the start.
+    captured=$(${wrapperWithSeatsCheck}/bin/pi --advisor -- x 2>&1)
+    echo "$captured" | grep -qx "SEATS_CHECK check --start --require PI_ADVISOR_MODEL" \
+      || fail "seats check: not run, or --advisor not required. captured=$captured"
+    touch "$HOME/fail-seats-check"
+    if captured=$(${wrapperWithSeatsCheck}/bin/pi -- x 2>&1); then
+      fail "seats check: failed, yet pi started. captured=$captured"
+    fi
+    rm "$HOME/fail-seats-check"
+
+    # models.json read grant: every link on the way and the file, canonical,
+    # and never a directory. The links mirror a home-manager store link, then
+    # /run/secrets, then the generation directory.
+    C=$(cd "$TMPDIR" && pwd -P)/chain
+    mkdir -p "$C/secrets.d/1" "$HOME/.pi/agent"
+    echo '{}' >"$C/secrets.d/1/pi_models_json"
+    echo 'other secret' >"$C/secrets.d/1/sibling"
+    ln -s secrets.d/1 "$C/secrets"
+    ln -s "$C/secrets/pi_models_json" "$C/store-link"
+    ln -sfn "$C/store-link" "$HOME/.pi/agent/models.json"
+    H=$(cd "$HOME" && pwd -P)
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    for node in "$H/.pi/agent/models.json" "$C/store-link" "$C/secrets" "$C/secrets.d/1/pi_models_json"; do
+      echo "$settings" | jq -e --arg p "$node" '.filesystem.allowRead | index($p)' >/dev/null \
+        || fail "models.json chain: $node not granted. settings=$settings"
+    done
+    for dir in "$C/secrets.d/1" "$C/secrets.d" "$C"; do
+      echo "$settings" | jq -e --arg p "$dir" '.filesystem.allowRead | index($p) | not' >/dev/null \
+        || fail "models.json chain: granted the directory $dir. settings=$settings"
+    done
+    rm "$HOME/.pi/agent/models.json"
+
+    # Each trusted provider's endpoint comes from the catalog, and only through
+    # home-manager's link into the store: no untrusted provider's, no
+    # loopback, and nothing from a plain file a session could have written.
+    ln -s ${catalogInStore} "$HOME/.pi/agent/models.json"
+    captured=$(PI_SESSION_MODEL=fakecloud/acme/zeta-9000 ${wrapperWithCatalog}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowedDomains == ["gw.fakecloud.test"]' >/dev/null \
+      || fail "catalog endpoints: want the trusted, non-loopback host alone. settings=$settings"
+    rm "$HOME/.pi/agent/models.json"
+    cp ${catalogInStore} "$HOME/.pi/agent/models.json"
+    captured=$(PI_SESSION_MODEL=fakecloud/acme/zeta-9000 ${wrapperWithCatalog}/bin/pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowedDomains == []' >/dev/null \
+      || fail "catalog endpoints: trusted a plain file. settings=$settings"
+    echo "$captured" | grep -q "allows no provider endpoint" \
+      || fail "catalog endpoints: no warning for a plain file. captured=$captured"
+    rm -f "$HOME/.pi/agent/models.json"
 
     touch $out
   ''

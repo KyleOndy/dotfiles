@@ -141,6 +141,20 @@
   ],
   # The pi-broker executable --coordinator starts. Empty refuses --coordinator.
   coordinatorBroker ? "",
+  # The host's seats file, an env file of `PI_*_MODEL=provider/id[:level]`
+  # lines, loaded for every seat the caller's env leaves empty. A leading ~ is
+  # expanded at runtime. Empty loads nothing.
+  seatsFile ? "",
+  # Providers a session may run on. Non-empty refuses any other at start and
+  # exports the list as PI_TRUSTED_PROVIDERS for task.ts and the advisor.
+  # Empty refuses nothing.
+  trustedProviders ? [ ],
+  # The pi-seats executable, run as `check --start` before every start that
+  # has seats or a trust list. Empty skips the check.
+  seatsCheck ? "",
+  # Repo path of the sops file the seats and catalog are edited in, named in
+  # the wrapper's refusals. Empty says "this host's sops file".
+  secretsSource ? "",
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
   # { domains = [str]; trustd = bool; readPaths = [str]; writePaths = [str]; }.
   # domains extend the network allowlist, readPaths and writePaths extend the
@@ -247,6 +261,10 @@ let
         "@protectedBranches@"
         "@gitAuthorName@"
         "@gitAuthorEmail@"
+        "@seatsFile@"
+        "@trustedProviders@"
+        "@seatsCheck@"
+        "@secretsSource@"
       ]
       [
         realPiBin
@@ -272,6 +290,10 @@ let
         (bashArray protectedBranches)
         (lib.escapeShellArg gitAuthorName)
         (lib.escapeShellArg gitAuthorEmail)
+        seatsFile
+        (bashArray trustedProviders)
+        seatsCheck
+        secretsSource
       ]
       (builtins.readFile ./wrapper.sh);
 

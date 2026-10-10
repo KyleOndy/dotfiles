@@ -132,6 +132,10 @@ let
         envFromCommands = cfg.sandbox.envFromCommands;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
+        seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
+        inherit (cfg) trustedProviders;
+        seatsCheck = lib.optionalString seatsEnabled (lib.getExe seatsPackage);
+        secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
         coordinatorBroker = lib.optionalString cfg.coordinator.enable (
           lib.getExe (
             pkgs.pi-broker.override {
@@ -144,6 +148,13 @@ let
       }
     else
       pkgs.llm-agents.pi;
+
+  seatsEnabled = cfg.seatsFile != null || cfg.trustedProviders != [ ];
+  seatsPackage = pkgs.pi-seats.override {
+    seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
+    inherit (cfg) trustedProviders;
+    secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
+  };
 
   defaultSourceDir =
     if dotfiles-worktree != null then
@@ -285,10 +296,11 @@ in
 
           srt matches the path as written, not its target, so a symlink
           under $HOME needs its target listed here too. That covers
-          out-of-store symlinks placed in ~/.pi by another module:
-          models.json or AGENTS.md pointing into a working tree resolve to
-          a path outside the allowlist, and pi reports the file as missing
-          rather than as denied:
+          out-of-store symlinks placed in ~/.pi by another module: AGENTS.md
+          pointing into a working tree resolves to a path outside the
+          allowlist, and pi reports the file as missing rather than as
+          denied. models.json is the exception, since the wrapper grants
+          every link on its way:
 
           ```
           Error: Model "provider/some-model" not found.
@@ -407,9 +419,10 @@ in
           "github.com"
         ];
         description = ''
-          Base network allowlist. Empty by default; each host configures
-          exactly the provider endpoints pi needs. Runtime --allow extends
-          this. srt passes these through its filtering proxy; programs not
+          Base network allowlist. Empty by default. The wrapper adds each
+          trustedProviders endpoint, the host of its baseUrl in models.json,
+          at start, so a host lists only what else pi needs. Runtime --allow
+          extends this. srt passes these through its filtering proxy; programs not
           respecting HTTP_PROXY/HTTPS_PROXY can bypass the filter.
         '';
       };
@@ -556,6 +569,57 @@ in
       };
     };
 
+    seatsFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "/run/secrets/pi_seats";
+      description = ''
+        The host's seats: an env file of `PI_*_MODEL=provider/id[:level]`
+        lines, one per model choice (session, advisor, each task agent,
+        coordinator children, pi-delegate, domestique's classifier), with
+        comments saying what each is for. The ids are private, so the file is
+        a sops secret and never a store path. The wrapper loads each seat the
+        caller's env leaves empty, and `pi-seats check` validates them at
+        every start and after each deploy.
+      '';
+    };
+
+    secretsSource = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "nix/secrets/trex.yaml";
+      description = ''
+        Repo path of the sops file holding this host's seats and catalog.
+        Only ever printed: every refusal and failed seat check names it as
+        the file to `sops edit`.
+      '';
+    };
+
+    trustedProviders = lib.mkOption {
+      type = with lib.types; listOf str;
+      default = [ ];
+      example = [ "mcloud" ];
+      description = ''
+        Providers a session may run on. With any listed, pi refuses to start
+        on another, and task agents and the advisor refuse one too, so this
+        host's model ids only ever reach these. Empty refuses nothing.
+      '';
+    };
+
+    modelsJsonFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "/run/secrets/pi_models_json";
+      description = ''
+        A file outside the store that ~/.pi/agent/models.json links to, for a
+        catalog that must not be world-readable in /nix/store. The wrapper
+        grants the sandbox a read on every link along the way and the file,
+        and nothing else in its directory. Exclusive with `modelsJson`. A
+        lower priority than a plain definition, so another module's link to
+        the same path still wins.
+      '';
+    };
+
     modelsJson = lib.mkOption {
       type = lib.types.attrsOf lib.types.anything;
       default = { };
@@ -612,6 +676,14 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
+        assertion = cfg.modelsJson == { } || cfg.modelsJsonFile == null;
+        message = "hmFoundry.dev.pi-coding-agent: set modelsJson or modelsJsonFile, not both.";
+      }
+      {
+        assertion = seatsEnabled -> cfg.sandbox.enable;
+        message = "hmFoundry.dev.pi-coding-agent: seatsFile and trustedProviders need sandbox.enable: the wrapper is what loads and enforces them.";
+      }
+      {
         assertion = cfg.coordinator.enable -> cfg.sandbox.enable;
         message = "hmFoundry.dev.pi-coding-agent.coordinator needs sandbox.enable: the broker spawns children through the sandbox wrapper.";
       }
@@ -625,7 +697,8 @@ in
       piPackage
       pkgs.kagi
       pkgs.pi-delegate
-    ];
+    ]
+    ++ lib.optional seatsEnabled seatsPackage;
 
     home.sessionVariables = {
       PI_TELEMETRY = "0";
@@ -779,9 +852,12 @@ in
         config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/AGENTS.md"
       );
 
-      ".pi/agent/models.json" = lib.mkIf (cfg.modelsJson != { }) {
-        text = builtins.toJSON cfg.modelsJson;
-      };
+      ".pi/agent/models.json" = lib.mkMerge [
+        (lib.mkIf (cfg.modelsJson != { }) { text = builtins.toJSON cfg.modelsJson; })
+        (lib.mkIf (cfg.modelsJsonFile != null) {
+          source = lib.mkDefault (config.lib.file.mkOutOfStoreSymlink cfg.modelsJsonFile);
+        })
+      ];
     }
     // repoSkills
     // flakeSkills

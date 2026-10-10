@@ -30,6 +30,7 @@ self: super: {
   mcloud-pins = super.callPackage ./mcloud-pins { };
   mcloud-rank = super.callPackage ./mcloud-rank { };
   leak-guard = super.callPackage ./leak-guard { inherit (self) llm-agents; };
+  pi-seats = super.callPackage ./pi-seats { };
   advisor-eval = super.callPackage ./advisor-eval { };
   search-mail = super.callPackage ./search-mail { };
   mail-stragglers = super.callPackage ./mail-stragglers { };
