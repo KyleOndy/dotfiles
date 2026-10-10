@@ -27,6 +27,9 @@
     pkgs.mcloud-rank
     # Grades candidate reviewer models before PI_ADVISOR_MODEL changes.
     pkgs.advisor-eval
+    # Refuses commits and pushes naming a private model id; `leak-guard
+    # install` hooks it into a clone.
+    pkgs.leak-guard
   ];
 
   # Homebrew integration for GUI applications and tools not in nixpkgs

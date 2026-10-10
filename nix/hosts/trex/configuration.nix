@@ -141,6 +141,7 @@
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
     mail-stragglers # who still mails ondy.me or the old gmail, see nix/pkgs/mail-stragglers
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
+    leak-guard # refuses commits and pushes naming a private model id
     mpv
   ];
 

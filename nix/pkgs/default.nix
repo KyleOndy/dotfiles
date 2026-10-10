@@ -29,6 +29,7 @@ self: super: {
   pi-delegate = super.callPackage ./pi-delegate { inherit (self) my-scripts; };
   mcloud-pins = super.callPackage ./mcloud-pins { };
   mcloud-rank = super.callPackage ./mcloud-rank { };
+  leak-guard = super.callPackage ./leak-guard { inherit (self) llm-agents; };
   advisor-eval = super.callPackage ./advisor-eval { };
   search-mail = super.callPackage ./search-mail { };
   mail-stragglers = super.callPackage ./mail-stragglers { };
