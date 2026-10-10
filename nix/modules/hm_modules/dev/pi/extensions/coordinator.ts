@@ -384,6 +384,71 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
       return text(r.message);
     },
   });
+
+  // The human's path to agent_teardown, which needs no model turn, since the
+  // model may be what has gone wrong. An agent_wait on a torn-down agent
+  // returns, so the model still learns of it.
+  const FLAGS = ["--settled", "--remove-worktree"];
+  pi.registerCommand("teardown", {
+    description:
+      "Tear down agents by name, or --settled for every done, exited or failed one. --remove-worktree also removes worktrees git considers clean.",
+    // pi replaces the whole argument text with the chosen value, so the
+    // words before the one being completed are carried over.
+    getArgumentCompletions: (prefix) => {
+      const before = prefix.slice(0, prefix.lastIndexOf(" ") + 1);
+      const word = prefix.slice(before.length);
+      let names: string[];
+      try {
+        names = allStates()
+          .filter((s) => s.state !== "torn-down")
+          .map((s) => s.agent);
+      } catch {
+        names = [];
+      }
+      const items = [...names, ...FLAGS]
+        .filter((n) => n.startsWith(word))
+        .map((n) => ({ value: before + n, label: n }));
+      return items.length > 0 ? items : null;
+    },
+    handler: async (args, ctx) => {
+      const words = args.trim().split(/\s+/).filter(Boolean);
+      const unknown = words.filter(
+        (w) => w.startsWith("-") && !FLAGS.includes(w),
+      );
+      const agents = new Set(words.filter((w) => !w.startsWith("-")));
+      if (words.includes("--settled"))
+        for (const s of allStates())
+          if (SETTLED.has(s.state) && s.state !== "torn-down")
+            agents.add(s.agent);
+      if (unknown.length > 0 || agents.size === 0) {
+        ctx.ui.notify(
+          unknown.length > 0
+            ? `teardown: unknown ${unknown.join(" ")}. Usage: /teardown <agent>... | --settled [--remove-worktree]`
+            : "teardown: no agents to tear down",
+          "warning",
+        );
+        return;
+      }
+      const remove_worktree = words.includes("--remove-worktree");
+      const lines = await Promise.all(
+        [...agents].map(async (agent) => {
+          try {
+            const r = await request({ op: "teardown", agent, remove_worktree });
+            return { ok: r.ok, line: `${agent}: ${r.message}` };
+          } catch (err) {
+            return {
+              ok: false,
+              line: `${agent}: ${err instanceof Error ? err.message : String(err)}`,
+            };
+          }
+        }),
+      );
+      ctx.ui.notify(
+        lines.map((l) => l.line).join("\n"),
+        lines.every((l) => l.ok) ? "info" : "error",
+      );
+    },
+  });
 }
 
 function forgeBoot(pi: ExtensionAPI, dir: string) {
