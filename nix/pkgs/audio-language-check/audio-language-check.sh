@@ -10,18 +10,24 @@ set -euo pipefail
 
 readonly WHISPER_MODEL="${WHISPER_MODEL:?WHISPER_MODEL must point at a ggml model}"
 readonly ENFORCE="${AUDIO_LANG_ENFORCE:-0}"
-# Seven rather than a token few: a rejected import is blocklisted, so a file
-# wrongly called non-English costs a good release, not just a wrong number on
-# a dashboard. Whisper reads 30 seconds per sample regardless, so the only
-# price of sampling wider is wall time on a nice 10 unit.
-readonly SAMPLES="${AUDIO_LANG_SAMPLES:-7}"
+# Twenty rather than a token few: a rejected import is blocklisted, and a
+# relabel accepts the file, so a track whose English share sits near
+# OVERRIDE_PERCENT needs enough samples to land on the right side of it. Each
+# sample costs about 0.6 s of wall time. Many more stop helping: on a
+# 22-minute episode, past about 30 the 30-second windows overlap.
+readonly SAMPLES="${AUDIO_LANG_SAMPLES:-20}"
 # Whisper reports a probability per sample; below this a vote is discarded
 # rather than counted, because a sample landing on score or action returns a
 # confident-looking guess from nothing.
 readonly MIN_CONFIDENCE="${AUDIO_LANG_MIN_CONFIDENCE:-0.6}"
+# Share of all samples, in percent, that must hear English before whisper
+# overrides a tag naming another language. Dubs keep songs and credits in
+# English, so a dub wins English votes honestly: a Portuguese dub of a musical
+# drew 3 of 7. English under a wrong tag drew 7 of 7.
+readonly OVERRIDE_PERCENT="${AUDIO_LANG_OVERRIDE_PERCENT:-70}"
 # Sixteen-track dub releases are common in this library, and English sits
 # second in some and much later in others. The import hook hears every track
-# up to this cap, about four seconds each; the sweep stops at the first
+# up to this cap, about twelve seconds each; the sweep stops at the first
 # English one.
 readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-12}"
 # Write what whisper heard into the file: relabel a track whose tag was
@@ -143,12 +149,13 @@ audio_langs() {
 
 # Majority vote over samples spread across one audio stream. A single sample
 # is not evidence: a multilingual film answers differently depending where it
-# lands, and a music cue answers from noise.
+# lands, and a music cue answers from noise. Prints the winning language and
+# how many samples heard English, which check_file weighs against a tag.
 whisper_stream() {
 	local f="$1" stream="$2" dur i frac ss out lang conf work best bestn
 	dur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$f" 2>/dev/null | cut -d. -f1)
 	if [ -z "$dur" ] || ! [ "$dur" -ge 60 ] 2>/dev/null; then
-		printf 'unknown'
+		printf 'unknown 0'
 		return
 	fi
 
@@ -182,7 +189,7 @@ whisper_stream() {
 			bestn=${votes[$lang]}
 		fi
 	done
-	printf '%s' "$best"
+	printf '%s %s' "$best" "${votes[en]:-0}"
 }
 
 # Every stream is examined, not just the one ffmpeg would play by default.
@@ -199,7 +206,7 @@ whisper_language() {
 	fi
 
 	for ((stream = 0; stream < nstreams; stream++)); do
-		lang=$(whisper_stream "$f" "$stream")
+		read -r lang _ <<<"$(whisper_stream "$f" "$stream")"
 		# English anywhere settles it; the remaining streams need no examining.
 		if [ "$lang" = en ]; then
 			printf 'en'
@@ -217,12 +224,13 @@ join_comma() {
 
 # Hears every audio track and checks each tag against what whisper heard.
 #
-# Whisper hearing English is enough to accept the file and relabel the track.
-# Whisper hearing something else, or nothing it can place, on a track tagged
-# English is not enough to reject: a reject blocklists the release, so that
-# file is kept and logged as REVIEW, which MediaAudioNeedsReview mails. Only a
-# file with no English by tag or by ear fails, returning 1 so the caller can
-# reject it.
+# Whisper hearing English accepts the file and relabels the track, but over a
+# tag naming another language only with OVERRIDE_PERCENT of the samples behind
+# it. Short of that, or with whisper hearing another language or nothing it
+# can place on a track tagged English, whisper alone does not decide: a reject
+# blocklists the release, so the file is kept and logged as REVIEW, which
+# MediaAudioNeedsReview mails. Only a file with no English by tag or by ear
+# fails, returning 1 so the caller can reject it.
 #
 # With fix=1 the verdicts are written back (matroska only): relabels, and the
 # first English track made default. mkvpropedit rewrites the header in place in
@@ -230,7 +238,7 @@ join_comma() {
 # of remuxing the whole container, so it is left alone.
 check_file() {
 	local f="$1" title="$2" fix="$3"
-	local i n is_default tag heard eng="" summary
+	local i n is_default tag heard en_votes eng="" summary
 	local -a tags=() shown=() defaults=() heards=() relabel=() review=() args=()
 
 	while IFS=$'\t' read -r is_default tag; do
@@ -244,13 +252,18 @@ check_file() {
 
 	for ((i = 0; i < n; i++)); do
 		tag=${tags[$i]}
-		heard=$(whisper_stream "$f" "$i")
+		read -r heard en_votes <<<"$(whisper_stream "$f" "$i")"
 		heards+=("$heard")
 		relabel+=("")
 		case "$heard" in
 		en)
-			[ -z "$eng" ] && eng=$i
-			has_english_tag "$tag" || relabel[i]=eng
+			if has_english_tag "$tag" || tags_are_unknown "$tag" ||
+				[ $((en_votes * 100)) -ge $((SAMPLES * OVERRIDE_PERCENT)) ]; then
+				[ -z "$eng" ] && eng=$i
+				has_english_tag "$tag" || relabel[i]=eng
+			else
+				review+=("track $((i + 1)) tagged $tag, whisper hears en in $en_votes of $SAMPLES samples")
+			fi
 			;;
 		unknown)
 			has_english_tag "$tag" && review+=("track $((i + 1)) tagged $tag, whisper undecided")
