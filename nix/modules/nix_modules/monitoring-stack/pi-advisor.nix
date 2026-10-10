@@ -189,10 +189,24 @@ let
     '';
   };
 
+  # The seats file is linked to ~/seats at the start of each run, from the
+  # unit's credentials directory, whose path differs between the two units.
+  seats = pkgs.pi-seats.override {
+    seatsFile = "~/seats";
+    trustedProviders = [ "mcloud" ];
+    secretsSource = "nix/secrets/tiger.yaml";
+  };
+
+  # pi's default of 3 retries gives up after 14s, which a routine mcloud
+  # overload outlasts. The interactive config's reasoning is in
+  # hm_modules/dev/pi-coding-agent/default.nix.
+  settings = pkgs.writeText "pi-advisor-settings.json" (builtins.toJSON { retry.maxRetries = 6; });
+
   advisor = pkgs.writeShellApplication {
     name = "pi-advisor";
     runtimeInputs = [
       pkgs.llm-agents.pi
+      seats
       pkgs.coreutils
       pkgs.curl
       pkgs.findutils
@@ -216,6 +230,7 @@ let
 
     environment = {
       PI_ADVISOR_ASSETS = "${./pi-advisor}";
+      PI_ADVISOR_SETTINGS = "${settings}";
       PI_ADVISOR_VM_URL = url parentCfg.victoriametrics;
       PI_ADVISOR_LOKI_URL = url parentCfg.loki;
       PI_ADVISOR_AM_URL = url parentCfg.alertmanager;
@@ -236,7 +251,9 @@ let
       User = "pi-advisor";
       Group = "pi-advisor";
       LoadCredential = [
-        "zai:${cfg.apiKeyFile}"
+        "mcloud:${cfg.apiKeyFile}"
+        "models.json:${cfg.modelsJsonFile}"
+        "seats:${cfg.seatsFile}"
         "kagi:${cfg.kagiApiKeyFile}"
       ];
       StateDirectory = "pi-advisor";
@@ -256,7 +273,24 @@ in
 
     apiKeyFile = mkOption {
       type = types.path;
-      description = "File holding the Z.ai Coding Plan API key.";
+      description = "File holding the mcloud API key, which models.json reads as $MCLOUD_API_KEY.";
+    };
+
+    modelsJsonFile = mkOption {
+      type = types.path;
+      description = ''
+        File holding pi's models.json: the mcloud provider and the model the
+        seat names. A secret, never a store path, because the ids are private.
+      '';
+    };
+
+    seatsFile = mkOption {
+      type = types.path;
+      description = ''
+        File holding one `PI_SESSION_MODEL=mcloud/<id>:<level>` line, the
+        model both units run. `pi-seats check --deploy` validates it against
+        the catalog before every run.
+      '';
     };
 
     kagiApiKeyFile = mkOption {

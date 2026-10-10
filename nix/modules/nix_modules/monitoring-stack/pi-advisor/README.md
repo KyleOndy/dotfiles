@@ -112,8 +112,8 @@ The units add their own limits, for the case where pi or one of its npm
 dependencies runs code of its own:
 
 - **The advisor** runs as its own user with no capabilities. It can write
-  only its state directory and a private `/tmp`, and holds only the z.ai and
-  Kagi keys.
+  only its state directory and a private `/tmp`, and holds only the mcloud
+  and Kagi keys.
 - **Network:** it cannot reach the LAN, and on loopback an iptables owner
   match lets it reach only the four monitoring ports, not Caddy's admin
   socket, Syncthing or the apps.
@@ -126,17 +126,29 @@ dependencies runs code of its own:
   the same leak that keeps page fetches out of the tools. It also prints
   each link's URL beside its text, as the Markdown part shows it.
 
-What leaves tiger: every query result goes to z.ai, search queries go to
+What leaves tiger: every query result goes to mcloud, search queries go to
 Kagi, and reports go to kyle@ondy.org.
 
-## Secrets
+## Model and secrets
 
-All three are in `nix/secrets/tiger.yaml`:
+pi runs whatever `PI_SESSION_MODEL` in `pi_seats` names, as
+`mcloud/<id>:<level>`, against the catalog in `pi_models_json`: the
+mcloud provider entry from trex's `pi_models_json`, cut down to that one
+model. Both are secrets because model ids are private (`.claude/rules/pi.md`),
+which is also why no report header names the model. Each run starts with
+`pi-seats check --deploy`, which fails the unit, before any report, when the
+seat is off mcloud, missing from the catalog, or at a level pi would quietly
+change.
 
-- **`pi_advisor_zai_api_key`**: z.ai Coding Plan. For now it is the same key
+To change the model, `sops edit nix/secrets/tiger.yaml` and deploy. A seat
+names its level, so there is no `--thinking`.
+
+- **`pi_models_json`** and **`pi_seats`**: in
+  `nix/secrets/tiger.yaml`.
+- **`mcloud_api_key`**: in `nix/secrets/shared-tiger-trex.yaml`, the same key
   trex's interactive pi uses.
-- **`pi_advisor_kagi_api_key`**: a Kagi key just for this, so its usage shows
-  up separately on Kagi's usage page.
+- **`pi_advisor_kagi_api_key`**: in `nix/secrets/tiger.yaml`, a Kagi key just
+  for this, so its usage shows up separately on Kagi's usage page.
 - **`monitoring_smtp_password`**: the monitoring stack's shared mail account.
 
 To replace one, copy the new key and run this from the worktree. The key goes
@@ -158,5 +170,5 @@ journalctl -u pi-advisor-alerts -u pi-advisor-sweep -u pi-advisor-mail
 Each `wrote` line in the journal carries that run's token counts, summed
 over its model requests, plus how many queries and searches it made.
 
-An alert triage takes 4 to 5 minutes. Kagi costs at most $0.06 a run. The
-model runs on the z.ai plan.
+An alert triage takes 4 to 5 minutes. Kagi costs at most $0.06 a run. The model
+runs on trex's mcloud account, and the `wrote` lines count its tokens.

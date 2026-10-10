@@ -1777,7 +1777,9 @@ in
 
         piAdvisor = {
           enable = true;
-          apiKeyFile = config.sops.secrets.pi_advisor_zai_api_key.path;
+          apiKeyFile = config.sops.secrets.mcloud_api_key.path;
+          modelsJsonFile = config.sops.secrets.pi_models_json.path;
+          seatsFile = config.sops.secrets.pi_seats.path;
           kagiApiKeyFile = config.sops.secrets.pi_advisor_kagi_api_key.path;
         };
 
@@ -2183,8 +2185,11 @@ in
     prowlarr_api_key.mode = "0400";
     bazarr_api_key.mode = "0400";
     sabnzbd_api_key.mode = "0400";
-    # pi-advisor's Z.ai and Kagi keys, read through LoadCredential.
-    pi_advisor_zai_api_key.mode = "0400";
+    # pi-advisor's catalog, seat and Kagi key, read through LoadCredential,
+    # as is mcloud_api_key below. The catalog and seat are secrets because
+    # the model ids in them are private.
+    pi_models_json.mode = "0400";
+    pi_seats.mode = "0400";
     pi_advisor_kagi_api_key.mode = "0400";
     # Read by syncthing-init, which bcrypts it into Syncthing's config.
     syncthing_gui_password.owner = config.services.syncthing.user;
@@ -2229,6 +2234,11 @@ in
     };
     email_kyleondy_gmail_com = {
       owner = "kyle";
+      mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
+    };
+    # The mcloud token trex's pi also uses.
+    mcloud_api_key = {
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };

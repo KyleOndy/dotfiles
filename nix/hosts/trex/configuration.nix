@@ -263,9 +263,11 @@ in
       owner = "kyle";
       mode = "0400";
     };
+    # Shared with tiger's pi-advisor.
     mcloud_api_key = {
       owner = "kyle";
       mode = "0400";
+      sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
   };
 

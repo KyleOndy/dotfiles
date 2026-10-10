@@ -9,11 +9,11 @@
 #   sweep   the daily log and metrics reviews
 #
 # Each run writes one Markdown report to $STATE_DIRECTORY/reports. The unit
-# supplies STATE_DIRECTORY, CREDENTIALS_DIRECTORY, PI_CODING_AGENT_DIR,
-# PI_ADVISOR_ASSETS (this directory in the store), PI_ADVISOR_ACKS (Kyle's
-# acknowledged issues) and the PI_ADVISOR_*_URL endpoints.
+# supplies STATE_DIRECTORY, CREDENTIALS_DIRECTORY, PI_CODING_AGENT_DIR (also
+# $HOME), PI_ADVISOR_ASSETS (this directory in the store),
+# PI_ADVISOR_SETTINGS, PI_ADVISOR_ACKS (Kyle's acknowledged issues) and the
+# PI_ADVISOR_*_URL endpoints.
 
-readonly MODEL="zai/glm-5.3"
 readonly REPORTS="${STATE_DIRECTORY}/reports"
 # "<fingerprint> <startsAt>" per line: an alert that resolves and fires again
 # gets a new startsAt, and with it a new triage.
@@ -37,6 +37,20 @@ if [[ -s $PI_ADVISOR_ACKS ]]; then
 fi
 readonly system_prompt
 
+mkdir -p "$REPORTS" "$PI_CODING_AGENT_DIR"
+ln -sf "${CREDENTIALS_DIRECTORY}/models.json" "${PI_CODING_AGENT_DIR}/models.json"
+ln -sf "${CREDENTIALS_DIRECTORY}/seats" "${HOME}/seats"
+# A copy, since pi writes its settings file.
+install -m 0644 "$PI_ADVISOR_SETTINGS" "${PI_CODING_AGENT_DIR}/settings.json"
+
+# Fails on a seat pi would run at another level than it names, or that is
+# off mcloud or the catalog, all of which pi would otherwise accept quietly.
+# Its messages never name the model, which is also why no report header
+# does: the ids are private, and reports go out by mail.
+pi-seats check --deploy >/dev/null
+MODEL=$(pi-seats get PI_SESSION_MODEL)
+readonly MODEL
+
 readonly PI_ARGS=(
 	--print
 	--no-session
@@ -50,15 +64,12 @@ readonly PI_ARGS=(
 	--extension "${PI_ADVISOR_ASSETS}/tools.ts"
 	--tools "promql,logql,baseline,metric_labels,log_labels,alerts,alert_rules,web_search"
 	--model "$MODEL"
-	--thinking high
 	--system-prompt "$system_prompt"
 )
 
-ZAI_API_KEY=$(<"${CREDENTIALS_DIRECTORY}/zai")
+MCLOUD_API_KEY=$(<"${CREDENTIALS_DIRECTORY}/mcloud")
 KAGI_API_KEY=$(<"${CREDENTIALS_DIRECTORY}/kagi")
-export ZAI_API_KEY KAGI_API_KEY
-
-mkdir -p "$REPORTS" "$PI_CODING_AGENT_DIR"
+export MCLOUD_API_KEY KAGI_API_KEY
 
 slug() {
 	printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | cut -c1-80
@@ -116,8 +127,7 @@ triage_alerts() {
 		# slug's cut never reaches it.
 		name=$(jq -r '[.fingerprint, .labels.alertname, .labels.host // empty] | join("-")' <<<"$alert")
 		advise "alert-$(slug "$name")" \
-			"$(jq -r --arg model "$MODEL" \
-				'"# \(.labels.alertname) on \(.labels.host // "-")\n\nstarted \(.startsAt), triaged by \($model)"' <<<"$alert")" \
+			"$(jq -r '"# \(.labels.alertname) on \(.labels.host // "-")\n\nstarted \(.startsAt)"' <<<"$alert")" \
 			"$(printf '%s\n\n```json\n%s\n```\n' \
 				"$(<"${PI_ADVISOR_ASSETS}/alert.md")" \
 				"$(jq '{labels, annotations, startsAt}' <<<"$alert")")"
@@ -136,7 +146,7 @@ sweep() {
 	local kind
 	for kind in logs metrics; do
 		advise "sweep-${kind}" \
-			"# Daily ${kind} sweep, $(date -u +%F)"$'\n\n'"by ${MODEL}" \
+			"# Daily ${kind} sweep, $(date -u +%F)" \
 			"$(<"${PI_ADVISOR_ASSETS}/sweep-${kind}.md")"
 	done
 }
