@@ -139,6 +139,17 @@ die() {
 	exit 2
 }
 
+# down <what>: the endpoint as a whole is unreachable or failing. By hand that
+# fails the run. --deploy runs after the switch has landed, and an outage
+# says nothing about this host's config, so there it warns and exits 0.
+down() {
+	if [ -z "$DEPLOY" ]; then
+		die "$1" "rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+	fi
+	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in pi_models_json %s\n' "$1" "$IN_SOPS" >&2
+	exit 0
+}
+
 plural() {
 	if [ "$1" = 1 ]; then echo "1 $2"; else echo "$1 $2s"; fi
 }
@@ -205,8 +216,10 @@ code="${resp##*$'\n'}"
 case "$code" in
 200) ;;
 000)
-	die "GET /models at the mcloud baseUrl got no answer within 30s" \
-		"check the network, then providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+	down "GET /models at the mcloud baseUrl got no answer within 30s"
+	;;
+429 | 5[0-9][0-9])
+	down "GET /models answered HTTP $code"
 	;;
 401 | 403)
 	die "GET /models answered HTTP $code, so the endpoint refuses the key" \
@@ -275,6 +288,16 @@ warning() {
 	report+="mcloud-pins: warning: $subject: $1"$'\n'"  fix: $2"$'\n'
 	warnings=$((warnings + 1))
 }
+# unanswered <what> <fix>: a check that got no answer, a 429 or a 5xx, which
+# says nothing about the pin. By hand that is a problem to rerun; under
+# --deploy, as with down, it only warns.
+unanswered() {
+	if [ -n "$DEPLOY" ]; then
+		warning "$1, so it was not checked" "rerun mcloud-pins once the endpoint answers"
+	else
+		problem "$1" "rerun mcloud-pins; if it fails the same way, $2"
+	fi
+}
 # about <where>: the subject of what follows, the id itself left out of
 # --deploy output.
 about() {
@@ -332,11 +355,11 @@ check_image() {
 	case "$code" in
 	200) ;;
 	000)
-		problem "the image check got no answer within 120s" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the image check got no answer within 120s" "$fix"
 		return
 		;;
 	429 | 5??)
-		problem "the image check answers HTTP $code$(said)" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the image check answers HTTP $code$(said)" "$fix"
 		return
 		;;
 	*)
@@ -374,11 +397,11 @@ check_reason() {
 	case "$code" in
 	200) ;;
 	000)
-		problem "the reasoning check at $lv got no answer within 300s" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the reasoning check at $lv got no answer within 300s" "$fix"
 		return
 		;;
 	429 | 5??)
-		problem "the reasoning check at $lv answers HTTP $code$(said)" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the reasoning check at $lv answers HTTP $code$(said)" "$fix"
 		return
 		;;
 	*)
@@ -436,11 +459,11 @@ check_tools() {
 	case "$code" in
 	200) ;;
 	000)
-		problem "the tool check got no answer within 300s" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the tool check got no answer within 300s" "$fix"
 		return
 		;;
 	429 | 5??)
-		problem "the tool check answers HTTP $code$(said)" "rerun mcloud-pins; if it fails the same way, $fix"
+		unanswered "the tool check answers HTTP $code$(said)" "$fix"
 		return
 		;;
 	*)

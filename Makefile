@@ -181,7 +181,9 @@ cleanup: ## Cleanup and reduce diskspace of current system
 # /run/secrets, then each pinned mcloud id against the live endpoint,
 # images included where the catalog declares them. The new generation is
 # active by now, so a failure means another deploy. Both name the seat var or
-# catalog entry and what to change, never a model id.
+# catalog entry and what to change, never a model id. An endpoint that does
+# not answer at all only warns, since an outage says nothing about this
+# host's config.
 PI_SEATS_CHECK := pi-seats check --deploy && mcloud-pins --deploy
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)

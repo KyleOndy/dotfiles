@@ -265,6 +265,19 @@ pkgs.runCommand "mcloud-pins-check"
         >"$HOME/endpoint.json"
       rm -f "$HOME/requests"
     }
+    # A check with no answer, a 429 or a 5xx says nothing about the pin: a
+    # problem by hand, only a warning under --deploy.
+    unanswered() { # <endpoint> <subject: what> <fix by hand>
+      endpoint "$1"
+      run 0 --deploy
+      if grep -qiE 'acme|zeta|omega|kappa|lambda|sigma|tau|nope' "$T/out"; then fail "--deploy printed a fixture id"; fi
+      cp "$T/out" "$T/deploy"
+      dep "mcloud-pins: warning: $2, so it was not checked"
+      dep "  fix: rerun mcloud-pins once the endpoint answers"
+      run 1
+      cp "$T/out" "$T/plain"
+      plain "  fix: rerun mcloud-pins; if it fails the same way, $3"
+    }
     catalog() {
       ln -sfn "$1" "$A/models.json"
     }
@@ -444,10 +457,10 @@ pkgs.runCommand "mcloud-pins-check"
     dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh answers HTTP 400 to reasoning_effort high"
     dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 so pi sends what the endpoint takes, or pick another level for PI_SESSION_MODEL, $S"
     plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the reasoning check at level xhigh answers HTTP 400 (the endpoint said: acme/zeta-9000 cannot take this request) to reasoning_effort high"
-    endpoint '{reason: {"acme/kappa-7": 503}}'
-    both 1
-    dep "mcloud-pins: PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 503"
-    dep "  fix: rerun mcloud-pins; if it fails the same way, correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
+    unanswered '{reason: {"acme/kappa-7": 503}}' "PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 503" \
+      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
+    unanswered '{reason: {"acme/kappa-7": 429}}' "PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 429" \
+      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
 
     # Tools: prose, another tool, garbled or wrong arguments, refusals.
     endpoint '{tools: {"acme/zeta-9000": "prose"}}'
@@ -472,10 +485,10 @@ pkgs.runCommand "mcloud-pins-check"
     both 1
     dep "mcloud-pins: PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 400, so the endpoint refuses a request with tools"
     dep "  fix: point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
-    endpoint '{tools: {"acme/omega-2": 503}}'
-    both 1
-    dep "mcloud-pins: PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 503"
-    dep "  fix: rerun mcloud-pins; if it fails the same way, point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
+    unanswered '{tools: {"acme/omega-2": 503}}' "PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 503" \
+      "point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
+    unanswered '{tools: {"acme/omega-2": 429}}' "PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 429" \
+      "point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
 
     # Context, only on request: a prompt of 90% of the window less maxTokens
     # at 4 characters a token, opening with the marker.
@@ -557,14 +570,9 @@ pkgs.runCommand "mcloud-pins-check"
     dep 'mcloud-pins: 1 problem across 3 pins, each with its fix above'
     plain "mcloud-pins: acme/omega-2 ($O): the image check answers HTTP 400 (the endpoint said: acme/omega-2 cannot take this request), so the endpoint refuses the image or the request"
     row "acme/omega-2 yes 200 FAIL - ok $O"
-    endpoint '{image: {"acme/kappa-7": 503}}'
-    both 1
-    dep "mcloud-pins: $K: the image check answers HTTP 503"
-    dep "  fix: rerun mcloud-pins; if it fails the same way, $SEE_K"
-    endpoint '{image: {"acme/kappa-7": "000"}}'
-    both 1
-    dep "mcloud-pins: $K: the image check got no answer within 120s"
-    dep "  fix: rerun mcloud-pins; if it fails the same way, $SEE_K"
+    unanswered '{image: {"acme/kappa-7": 503}}' "$K: the image check answers HTTP 503" "$SEE_K"
+    unanswered '{image: {"acme/kappa-7": 429}}' "$K: the image check answers HTTP 429" "$SEE_K"
+    unanswered '{image: {"acme/kappa-7": "000"}}' "$K: the image check got no answer within 120s" "$SEE_K"
     endpoint '{image: {"acme/kappa-7": "red"}}'
     both 1
     dep "mcloud-pins: $K: the image check's reply does not name green, so the endpoint drops the image or the model cannot see it"
@@ -631,13 +639,27 @@ pkgs.runCommand "mcloud-pins-check"
     endpoint '{listing: 404}'
     both 2
     dep 'mcloud-pins: GET /models answered HTTP 404, so the baseUrl is not an OpenAI-compatible API root'
-    endpoint '{listing: 502}'
+    endpoint '{listing: 418}'
     both 2
-    dep 'mcloud-pins: GET /models answered HTTP 502'
-    dep "  fix: rerun mcloud-pins; if it fails the same way, check providers.mcloud.baseUrl in pi_models_json $S"
-    endpoint '{listing: "000"}'
-    both 2
-    dep 'mcloud-pins: GET /models at the mcloud baseUrl got no answer within 30s'
+    dep 'mcloud-pins: GET /models answered HTTP 418'
+
+    # An endpoint that does not answer at all fails a run by hand, and only
+    # warns under --deploy, which runs after the switch has landed.
+    outage() { # <listing status> <what>
+      endpoint "{listing: $1}"
+      run 0 --deploy
+      cp "$T/out" "$T/deploy"
+      run 2
+      cp "$T/out" "$T/plain"
+      dep "mcloud-pins: warning: $2, so no pin was checked"
+      dep "  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in pi_models_json $S"
+      plain "mcloud-pins: $2"
+      plain "  fix: rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in pi_models_json $S"
+      if grep -q 'served and answering' "$T/deploy"; then fail "outage $1: --deploy claimed a pass"; fi
+    }
+    outage 502 'GET /models answered HTTP 502'
+    outage 429 'GET /models answered HTTP 429'
+    outage '"000"' 'GET /models at the mcloud baseUrl got no answer within 30s'
     endpoint
 
     # pi-seats: a failed list, no sops file to name, absent.
