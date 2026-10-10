@@ -10,6 +10,19 @@
  * cannot reach or bury the security contract of one it can. A grant with no
  * file is policy-only (the toolchain bundles) and stays silent.
  *
+ * Delivery is through systemPromptOptions.sections, never a returned
+ * systemPrompt. Two reasons, both measured on pi 1.0.0:
+ *
+ *   - A returned prompt replaces the whole assembled prompt for the run, so
+ *     any section another extension sets is silently dropped (a probe marker
+ *     set alongside a return never reached the provider), and no later
+ *     handler can see the replacement either: every handler is handed the
+ *     same base prompt. Sections compose in both directions.
+ *   - Sections are the assembled prompt's own pipeline: what lands in the
+ *     provider request also lands in the session file's structured record,
+ *     so a human can audit any transcript for whether the grants guidance
+ *     was in it. A forced prompt is invisible by construction.
+ *
  * It then lists the grants the session does not carry, one line each, so a
  * session the sandbox blocks knows a flag exists and asks for a restart
  * instead of retrying into the refusal or inventing a workaround. Grants are
@@ -17,7 +30,8 @@
  * protocol is ask, don't act.
  *
  * Both vars ride the environment, so task.ts subagents ($PI_REAL_BIN
- * children of this process) see the same catalog the parent session does.
+ * children of this process) see the same catalog the parent session does,
+ * and the sections this writes reach their prompts too.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -47,10 +61,10 @@ export default function (pi: ExtensionAPI) {
       if (carried.includes(name)) docs.push(md);
     }
 
-    let systemPrompt = event.systemPrompt;
+    const sections = event.systemPromptOptions.sections;
     if (docs.length > 0) {
-      systemPrompt +=
-        "\n\n# Granted capabilities and their costs\n\n" + docs.join("\n\n");
+      sections.granted_capabilities =
+        "# Granted capabilities and their costs\n\n" + docs.join("\n\n");
     }
 
     const missing = available.filter((name) => !carried.includes(name));
@@ -59,8 +73,8 @@ export default function (pi: ExtensionAPI) {
         (name) =>
           `- ${name}${headings.has(name) ? ` (${headings.get(name)})` : ""}`,
       );
-      systemPrompt +=
-        "\n\n# Grants this session does not carry\n\n" +
+      sections.missing_grants =
+        "# Grants this session does not carry\n\n" +
         "Each of these is one `--allow-<name>` flag on the wrapper away, " +
         "and none was given to this invocation. Flags are read at launch, " +
         "so the sandbox cannot widen mid-session: when work needs one, or a " +
@@ -74,7 +88,5 @@ export default function (pi: ExtensionAPI) {
         "`--allow-loopback` permits local binds, and `--web` lifts " +
         "the network restriction entirely while keeping reads allowlisted.";
     }
-
-    return { systemPrompt };
   });
 }
