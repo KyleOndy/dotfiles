@@ -662,6 +662,37 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git\") == null" >/dev/null \
       || fail "worktree: blanket git-dir deny would defeat the grant. settings=$settings"
 
+    # The escape traps: a writable commondir or config.worktree redirects where
+    # git reads config and hooks, so they stay denied across every worktree,
+    # the session's own and (via the globs) siblings and later ones.
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/commondir\")" >/dev/null \
+      || fail "worktree: commondir trap missing. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/worktrees/*/commondir\")" >/dev/null \
+      || fail "worktree: sibling commondir glob trap missing. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/worktrees/*/config.worktree\")" >/dev/null \
+      || fail "worktree: sibling config.worktree glob trap missing. settings=$settings"
+
+    # --protect-branch adds a branch to the gate: a sibling's ref and reflog
+    # join denyWrite while write on this branch is still granted.
+    captured=$(pi --protect-branch=sibling -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$captured" | grep -q "PI_PLAN_GIT_DIRS:.*branch=feature write=true" \
+      || fail "--protect-branch=sibling should not withhold write on feature. captured=$captured"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/refs/heads/sibling\")" >/dev/null \
+      || fail "--protect-branch did not deny the branch ref. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/logs/refs/heads/sibling\")" >/dev/null \
+      || fail "--protect-branch did not deny the branch reflog. settings=$settings"
+
+    # Protecting the session's own branch withholds its git write, proving the
+    # flag feeds the same gate protectedBranches does.
+    captured=$(pi --protect-branch=feature -- x 2>&1)
+    echo "$captured" | grep -q "PI_PLAN_GIT_DIRS:.*branch=feature write=false" \
+      || fail "--protect-branch=feature should withhold write on feature. captured=$captured"
+
+    # An invalid branch name is refused, not passed through.
+    pi --protect-branch=bad..name -- x >/dev/null 2>&1 \
+      && fail "--protect-branch accepted an invalid branch name"
+
     # --no-git-write withholds it again
     captured=$(pi --no-git-write -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')

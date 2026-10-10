@@ -260,9 +260,9 @@ forge_config_for() {
 # VM and slot before it reports failed, so failed means there is room again.
 # An empty instance is an agent without a VM.
 run_spawn() {
-	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" model="$7" thinking="$8"
+	local agent="$1" instance="$2" size="$3" base="$4" target="$5" ticket="$6" model="$7" thinking="$8" coord_branch="$9"
 	local dir worktree window blog flog var
-	local -a forge_args=() model_args=() env_args=()
+	local -a forge_args=() model_args=() env_args=() protect_args=()
 	dir="$(agent_dir "${agent}")"
 	blog="$(log_file "${agent}" broker)"
 	flog="$(log_file "${agent}" forge)"
@@ -292,6 +292,8 @@ run_spawn() {
 
 	[[ -z ${model} ]] || model_args+=(--model "${model}")
 	[[ -z ${thinking} ]] || model_args+=(--thinking "${thinking}")
+	# So an agent committing on its own branch cannot move the coordinator's.
+	[[ -z ${coord_branch} ]] || protect_args=(--protect-branch="${coord_branch}")
 	# A window starts from the tmux server's environment, not this one's.
 	for var in PI_SESSION_MODEL PI_ADVISOR_MODEL PI_SPAWN_MODEL PI_DELEGATE_MODEL \
 		PI_CLASSIFY_MODEL "${!PI_AGENT_MODEL_@}" PI_TRUSTED_PROVIDERS; do
@@ -299,11 +301,11 @@ run_spawn() {
 	done
 
 	# The wrapper stops reading its own flags at the first one it does not
-	# know, so pi's --model and --thinking go after --coord-child.
+	# know, so pi's --model and --thinking go after the wrapper's own.
 	if ! window="$(tmux new-window -d -P -F '#{window_id}' -t "${target}:" \
 		-n "${agent}" -c "${worktree}" "${env_args[@]}" -- \
 		"${PI_BIN}" "${forge_args[@]}" --coord-child="${COORD_ID}/${agent}" \
-		"${model_args[@]}" --name "${agent}" "@${dir}/task.md" 2>>"${blog}")"; then
+		"${protect_args[@]}" "${model_args[@]}" --name "${agent}" "@${dir}/task.md" 2>>"${blog}")"; then
 		set_status "${agent}" state failed error "tmux new-window failed, see ${blog}"
 		return
 	fi
@@ -312,7 +314,7 @@ run_spawn() {
 }
 
 handle_spawn() {
-	local id="$1" file="$2" agent task size base model thinking instance="" reason dir target ticket="" branch vm
+	local id="$1" file="$2" agent task size base model thinking instance="" reason dir target ticket="" branch vm coord_branch
 	agent="$(jq -r '.agent // ""' "${file}")"
 	task="$(jq -r '.task // ""' "${file}")"
 	size="$(jq -r '.size // ""' "${file}")"
@@ -360,8 +362,11 @@ handle_spawn() {
 	fi
 
 	# git-wt-feature-branch's work mode, so the agent's branch carries the
-	# ticket id Linear links pull requests by.
-	if [[ "$(git -C "${REPO_DIR}" symbolic-ref --short -q HEAD)" =~ ^([A-Z]+-[0-9]+)- ]]; then
+	# ticket id Linear links pull requests by. Empty branch when detached: the
+	# agent then gets no --protect-branch, and there is no integration branch
+	# ref to move anyway.
+	coord_branch="$(git -C "${REPO_DIR}" symbolic-ref --short -q HEAD || true)"
+	if [[ ${coord_branch} =~ ^([A-Z]+-[0-9]+)- ]]; then
 		ticket="${BASH_REMATCH[1]}"
 	fi
 	branch="${ticket:+${ticket}-}${agent}"
@@ -401,7 +406,7 @@ handle_spawn() {
 	vm="no VM"
 	[[ -z ${instance} ]] || vm="forge instance ${instance} (${size})"
 	respond "${id}" true "agent ${agent} on ${vm}, based on ${base}"
-	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" "${model}" "${thinking}" &
+	run_spawn "${agent}" "${instance}" "${size}" "${base}" "${target}" "${ticket}" "${model}" "${thinking}" "${coord_branch}" &
 }
 
 # ─── Boot ─────────────────────────────────────────────────────────────────────

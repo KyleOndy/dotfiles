@@ -711,6 +711,18 @@ while [[ $# -gt 0 ]]; do
 		git_write_mode=off
 		shift
 		;;
+	--protect-branch=*)
+		# protectedBranches gates git-write and keeps the branch's ref in
+		# denyWrite. The broker passes the coordinator's branch to each child so
+		# an agent on its own branch cannot move the integration branch.
+		protect_branch=${1#--protect-branch=}
+		if ! git check-ref-format --branch "$protect_branch" >/dev/null 2>&1; then
+			echo "pi: --protect-branch: '$protect_branch' is not a valid branch name" >&2
+			exit 1
+		fi
+		protected_branches+=("$protect_branch")
+		shift
+		;;
 	--allow-nix)
 		# Exact-match case: it shadows any network bundle named "nix".
 		allow_nix=true
@@ -1362,6 +1374,17 @@ run_strict() {
 	# extension (git-config(1), extensions.worktreeConfig).
 	if [[ -n $git_common_dir ]]; then
 		deny_write_paths+=("$git_common_dir/hooks" "$git_common_dir/config")
+		# A worktree's commondir redirects where git reads config and hooks, and
+		# config.worktree is that worktree's own config, so writing either runs
+		# the human's next git command there under a config the session chose,
+		# outside the sandbox. Only `git worktree add|move|repair` writes them,
+		# which the sandbox cannot run. The globs reach sibling worktrees and
+		# ones added later (sandbox-runtime README, macOS path patterns).
+		deny_write_paths+=(
+			"$git_common_dir/commondir"
+			"$git_common_dir/worktrees/*/commondir"
+			"$git_common_dir/worktrees/*/config.worktree"
+		)
 		if [[ $git_dir != "$git_common_dir" ]]; then
 			deny_write_paths+=("$git_dir/config.worktree")
 		fi

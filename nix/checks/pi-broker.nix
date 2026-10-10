@@ -121,7 +121,7 @@ pkgs.runCommand "pi-broker-check"
       || fail "large was not defined from forge.yaml"
     grep -q "forge start\|forge up" "$T/calls" && fail "a spawn booted a VM nobody asked for"
     [ "$(st alpha vm)" = stopped ] || fail "alpha's VM is $(st alpha vm), not stopped"
-    grep -qF -- "-c $T/repo/alpha -- /fake/pi --allow-forge=1 --coord-child=c1/alpha --name alpha @$COORD/agents/alpha/task.md" "$T/calls" \
+    grep -qF -- "-c $T/repo/alpha -- /fake/pi --allow-forge=1 --coord-child=c1/alpha --protect-branch=main --name alpha @$COORD/agents/alpha/task.md" "$T/calls" \
       || fail "alpha's window does not run the wrapper for its own instance. calls: $(grep new-window "$T/calls")"
     [ "$(grep -c 'new-session' "$T/calls")" = 1 ] || fail "made more than one tmux session"
 
@@ -133,7 +133,7 @@ pkgs.runCommand "pi-broker-check"
     [ "$(grep -c '^forge ' "$T/calls")" = "$forge_calls" ] || fail "a spawn without a size called forge"
     [ -z "$(st nu instance)" ] || fail "nu holds instance $(st nu instance)"
     [ "$(ls "$SLOTS")" = "$(printf '1\n2')" ] || fail "nu took a slot: $(ls "$SLOTS")"
-    grep -qF -- "-c $T/repo/nu -- /fake/pi --coord-child=c1/nu --name nu" "$T/calls" \
+    grep -qF -- "-c $T/repo/nu -- /fake/pi --coord-child=c1/nu --protect-branch=main --name nu" "$T/calls" \
       || fail "nu's window does not run the wrapper without a VM. calls: $(grep new-window "$T/calls")"
     # Its child can still touch boot.request, which must not boot the
     # unnamed instance.
@@ -290,7 +290,7 @@ pkgs.runCommand "pi-broker-check"
     # set seat as -e, since the window starts from the tmux server's env.
     req s2 '{"op":"spawn","agent":"pi2","task":"x","model":"fakecloud/acme/zeta-9000:high","thinking":"low"}' true "no VM"
     wait_state pi2 running
-    win_has pi2 " -- /fake/pi --coord-child=c2/pi2 --model fakecloud/acme/zeta-9000:high --thinking low --name pi2 "
+    win_has pi2 " -- /fake/pi --coord-child=c2/pi2 --protect-branch=DEV-7-coordinate --model fakecloud/acme/zeta-9000:high --thinking low --name pi2 "
     for e in PI_SESSION_MODEL=fakecloud/acme/omega-2:max PI_SPAWN_MODEL=fakecloud/acme/zeta-9000:medium \
       PI_AGENT_MODEL_CRITIC=fakecloud/acme/omega-2:xhigh PI_AGENT_MODEL_VISION=fakecloud/acme/zeta-9000:low \
       PI_TRUSTED_PROVIDERS=fakecloud,loopback; do
@@ -302,7 +302,7 @@ pkgs.runCommand "pi-broker-check"
     # No model: PI_SPAWN_MODEL, and no --thinking.
     req s3 '{"op":"spawn","agent":"pi3","task":"x"}' true "no VM"
     wait_state pi3 running
-    win_has pi3 " --coord-child=c2/pi3 --model fakecloud/acme/zeta-9000:medium --name pi3 "
+    win_has pi3 " --coord-child=c2/pi3 --protect-branch=DEV-7-coordinate --model fakecloud/acme/zeta-9000:medium --name pi3 "
 
     # Refused before anything is created, and without echoing the model.
     req s7 '{"op":"spawn","agent":"bad1","task":"x","model":"-fakecloud/acme/zeta-9000"}' false "model must be"
@@ -332,7 +332,7 @@ pkgs.runCommand "pi-broker-check"
     req s5 '{"op":"spawn","agent":"pi5","task":"x"}' true "no VM"
     wait_state pi5 running
     win_has pi5 " -e PI_SESSION_MODEL=fakecloud/acme/omega-2:max -- "
-    win_has pi5 " --coord-child=c3/pi5 --model fakecloud/acme/omega-2:max --name pi5 "
+    win_has pi5 " --coord-child=c3/pi5 --protect-branch=DEV-7-coordinate --model fakecloud/acme/omega-2:max --name pi5 "
     win_lacks pi5 "PI_SPAWN_MODEL"
     req s6 '{"op":"spawn","agent":"pi6","task":"x"}' false "all 8 agents are running"
     [ "$(grep -c '^forge ' "$T/calls")" = "$forge_calls" ] || fail "the broker without forge called forge"
