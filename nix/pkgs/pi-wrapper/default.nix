@@ -169,6 +169,15 @@
   # the host (Keychain, pass, sops, kubectl). Resolved values flow through to
   # pi via process env; non-zero exit on any resolver aborts pi startup.
   envFromCommands ? { },
+  # Grants a resolver's var must be gated on: { VAR_NAME = "grant"; ... }.
+  # A var whose gate this invocation does not carry (--allow-<grant> absent)
+  # is never resolved and never exported, and a same-named var from the
+  # caller's shell is scrubbed instead of kept: an ungranted session cannot
+  # see the secret at all, rather than holding it uselessly. Gates are
+  # ignored under --no-sandbox, where no grant can be missing. A gate naming
+  # a grant the wrapper does not know aborts startup, so a typo surfaces
+  # once instead of resolving nothing forever.
+  envGrantGates ? { },
   # Identity stamped on any git commit pi makes. Exported as GIT_AUTHOR_* /
   # GIT_COMMITTER_* in the wrapper process so it overrides repo & global
   # config without mutating either. Defaults are deliberately non-human,
@@ -194,13 +203,16 @@
 let
   bashArray = xs: lib.concatStringsSep " " (map (x: ''"${x}"'') xs);
 
-  # Tab-separated VAR<TAB>cmd lines, one per resolver entry. Empty for {}.
+  # Tab-separated VAR<TAB>cmd<TAB>gate lines, one per resolver entry; the
+  # gate column is empty for ungated vars. Empty file for {}.
   # The wrapper reads this file at runtime and calls __pi_resolve per line.
   # Keeping the resolver list out of wrapper.sh, and substituting a single
   # file path instead of a code block, means the wrapper is byte-stable
   # across overrides and there's no token-in-comment hazard for code.
   envResolversFile = writeText "pi-env-resolvers" (
-    lib.concatMapStrings (name: "${name}\t${envFromCommands.${name}}\n") (lib.attrNames envFromCommands)
+    lib.concatMapStrings (
+      name: "${name}\t${envFromCommands.${name}}\t${envGrantGates.${name} or ""}\n"
+    ) (lib.attrNames envFromCommands)
   );
 
   # Tab-separated VAR<TAB>value lines for static env vars. Same sidecar

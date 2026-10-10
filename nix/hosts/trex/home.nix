@@ -262,10 +262,16 @@ in
       # crosses in. The wrapper hard-fails on a resolver error, so a missing
       # entry surfaces here rather than as a 401 mid-session. models.json
       # reads the mcloud key as `$MCLOUD_API_KEY`.
+      #
+      # The Kagi key is gated on --allow-kagi: a session without the grant
+      # never resolves it (the Keychain entry need not even exist there),
+      # and a copy from the caller's shell is scrubbed. The mcloud key stays
+      # ungated because the session itself runs on it.
       sandbox.envFromCommands = {
         KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
         MCLOUD_API_KEY = mcloudKeyCommand;
       };
+      sandbox.envGrantGates.KAGI_API_KEY = "kagi";
 
       coordinator = {
         enable = true;

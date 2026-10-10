@@ -129,6 +129,7 @@ let
         protectedBranches = cfg.sandbox.protectedBranches;
         networkBundles = cfg.sandbox.networkBundles;
         envFromCommands = cfg.sandbox.envFromCommands;
+        envGrantGates = cfg.sandbox.envGrantGates;
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
         seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
@@ -246,6 +247,28 @@ in
           Note: macOS Keychain "Always Allow" entries are keyed to the
           caller binary path, which changes on every pi-wrapper rebuild, so
           a fresh allow-prompt fires once after each rebuild.
+        '';
+      };
+
+      envGrantGates = lib.mkOption {
+        type = with lib.types; attrsOf str;
+        default = { };
+        example = {
+          KAGI_API_KEY = "kagi";
+        };
+        description = ''
+          Grants a resolver's env var must be gated on, keyed like
+          envFromCommands: { VAR_NAME = "grant"; }. A session that does not
+          carry the grant never resolves the var and never exports it, and
+          a same-named var from the caller's shell is scrubbed rather than
+          kept, so the secret does not exist for ungranted sessions at all
+          instead of existing but being unusable.
+
+          The gate must name a grant in the wrapper's catalog (the
+          --allow-<name> built-ins and networkBundles); anything else
+          aborts startup. Gates are ignored under --no-sandbox. Gate only
+          secrets a grant scopes: the provider key the session itself runs
+          on stays ungated, or pi cannot start.
         '';
       };
 

@@ -267,11 +267,57 @@ __pi_resolve() {
 	export "$var=$val"
 }
 
+# Whether this invocation carries a named grant. Grants are final by the
+# time any resolver runs (flag parsing and the defaultAllow* merge both
+# precede __pi_resolve_all), so this is a plain membership test.
+__pi_carries_grant() {
+	local g
+	for g in "${grants[@]}"; do
+		[[ $g == "$1" ]] && return 0
+	done
+	return 1
+}
+
+# A resolver line may carry a third column naming the grant that must be
+# carried before the secret is resolved and exported (envGrantGates). An
+# ungranted session never runs the command and never sees the value: the
+# Kagi key, say, stops existing for sessions without --allow-kagi rather
+# than existing but being unusable. The same gate keeps the var OFF the
+# scrub keep-list, so a value that leaked in from the caller's shell is
+# scrubbed instead of surviving on the resolver's name.
+#
+# Gating applies to the sandbox only. Under --no-sandbox no grant is
+# missing (the catalog is not even exported), so every resolver runs.
+# Unknown gate names hard-fail: a typo would otherwise resolve nothing
+# forever, with no error to say why.
 __pi_resolve_all() {
 	[[ -s $pi_env_resolvers_file ]] || return 0
-	local var cmd
-	while IFS=$'\t' read -r var cmd; do
-		[[ -n $var ]] && __pi_resolve "$var" "$cmd"
+	local var cmd gate known
+	while IFS=$'\t' read -r var cmd gate; do
+		[[ -n $var ]] || continue
+		# `! "$no_sandbox"` is the boolean-command idiom and cannot live inside
+		# [[ ]], where the expansion is a plain string and negation of a
+		# non-empty string is always false; the gate would never fire.
+		if [[ -n $gate ]] && ! "$no_sandbox"; then
+			if [[ -z ${available_grants+x} ]]; then
+				echo "pi: refusing to start: envGrantGates wants gate '$gate' for \$$var" >&2
+				echo "pi:          but this wrapper exports no grant catalog to check it against." >&2
+				exit 1
+			fi
+			if ! printf '%s\n' "${available_grants[@]}" | grep -qx "$gate"; then
+				known=$(
+					IFS=,
+					printf '%s' "${available_grants[*]}"
+				)
+				echo "pi: envGrantGates names '$gate' for \$$var, but the wrapper carries no such grant (known: $known)." >&2
+				exit 1
+			fi
+			if ! __pi_carries_grant "$gate"; then
+				[[ ${PI_DEBUG:-} == "plan" ]] && printf 'PI_PLAN_ENV_SKIPPED: %s (gate: %s, not carried)\n' "$var" "$gate"
+				continue
+			fi
+		fi
+		__pi_resolve "$var" "$cmd"
 	done <"$pi_env_resolvers_file"
 }
 
@@ -515,12 +561,21 @@ __pi_set_hardening_env() {
 # caller's shell, so a stray FOO_TOKEN never rides into pi. Vars the wrapper
 # explicitly injected (envFromCommands / envVars) and the pi_keep_env provider
 # keys survive. Runs AFTER resolution so injected secrets are protected.
+# A resolver var gated on a grant the session does not carry is NOT kept:
+# the gate's whole point is that an ungranted session never holds the value,
+# and a caller-shell copy must not slide past the scrub on the resolver's
+# name (the gate check here mirrors __pi_resolve_all's, including ignoring
+# gates under --no-sandbox).
 __pi_scrub_secret_env() {
-	local v u k
+	local v u k gate
 	declare -A keep=()
 	for k in "${pi_keep_env[@]}"; do keep[$k]=1; done
-	[[ -s $pi_env_resolvers_file ]] && while IFS=$'\t' read -r k _; do
-		[[ -n $k ]] && keep[$k]=1
+	[[ -s $pi_env_resolvers_file ]] && while IFS=$'\t' read -r k _ gate; do
+		[[ -n $k ]] || continue
+		if [[ -n $gate ]] && ! "$no_sandbox" && ! __pi_carries_grant "$gate"; then
+			continue
+		fi
+		keep[$k]=1
 	done <"$pi_env_resolvers_file"
 	[[ -s $pi_env_vars_file ]] && while IFS=$'\t' read -r k _; do
 		[[ -n $k ]] && keep[$k]=1
