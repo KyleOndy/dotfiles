@@ -85,6 +85,7 @@ build: ## Buld single host
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
+	$(if $(filter work-mac trex,$(HOSTNAME)),$(PI_SEATS_CHECK))
 
 .PHONY: deploy-rs-gcroots
 deploy-rs-gcroots:
