@@ -68,8 +68,10 @@ else ifeq ($(UNAME), Darwin)
 	# core.sshCommand.
 	# sudo dies with EXC_GUARD in pam_tid on the retry after a wrong password
 	# once pam_reattach has run, so each attempt gets a fresh `sudo -v` and
-	# the switch reuses the cached credential.
-	SWITCH := until sudo -v; do :; done; sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
+	# the switch reuses the cached credential. Only that crash (SIGKILL, 137)
+	# retries: sudo catches ^C at the prompt and exits 1, so any other status
+	# has to end the loop or ^C cannot stop it.
+	SWITCH := until sudo -v; do [ $$? -eq 137 ] || exit 1; done; sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
 else
   $(error Unsupported system: $(UNAME))
 endif
