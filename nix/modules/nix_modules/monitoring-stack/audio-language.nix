@@ -52,11 +52,13 @@ in
       type = types.bool;
       default = false;
       description = ''
-        Make the English track the default one on import, where the file has
-        English but plays something else. A multi-language release commonly
-        ships sixteen tracks with the default flag set on none of them, in an
-        order that puts English second, so a player picks the first and the
-        episode comes out in Swedish.
+        Write whisper's verdicts into the file on import: make the English
+        track the default one where the file has English but plays something
+        else, and relabel a track whose tag is missing or names another
+        language for English audio. A multi-language release commonly ships
+        sixteen tracks with the default flag set on none of them, in an order
+        that puts English second, so a player picks the first and the episode
+        comes out in Swedish.
 
         Matroska only. mkvpropedit rewrites the flag in the header, so the
         file is not re-encoded and its size does not change; mp4 has no

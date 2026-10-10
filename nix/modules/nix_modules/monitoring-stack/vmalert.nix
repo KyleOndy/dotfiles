@@ -1319,6 +1319,24 @@ in
                   50 files as series and says so in its log when it truncates;
                   media_audio_no_english_files carries the full count.
 
+            # The sweep reads tags, so it passes a file tagged English that
+            # whisper heard otherwise at import. This is the only signal for
+            # one.
+            - alert: MediaAudioNeedsReview
+              expr: sum by (host, unit) (sum_over_time(audio_language:review_lines:count5m[1d])) > 0
+              labels:
+                severity: warning
+              annotations:
+                summary: "An import kept a file whose English track whisper could not confirm"
+                description: >-
+                  {{ $labels.unit }} imported a file tagged English that
+                  whisper heard as another language, or could not place. It
+                  was kept rather than rejected, because a reject blocklists
+                  the release. Listen to it, then replace it or leave it. The
+                  verdict, tags and file name:
+                  `journalctl -t audio-language-check --since -1d | grep REVIEW`
+                  on {{ $labels.host }}. Clears a day after the import.
+
             - alert: MediaAudioUnverified
               expr: media_audio_unverified_files > 10
               for: 6h

@@ -35,6 +35,17 @@ let
                 count_over_time({unit="ytdl-sub-youtube.service"} |= "Sign in to confirm you" [5m])
               )
 
+      # audio-language-check runs inside Radarr and Sonarr, which journal its
+      # stderr under their own units. Its logger copy carries no unit label.
+      - name: audio_language_logs
+        interval: 5m
+        rules:
+          - record: audio_language:review_lines:count5m
+            expr: |
+              sum by (host, unit) (
+                count_over_time({unit=~"radarr.service|sonarr.service"} |= "audio-language-check: REVIEW " [5m])
+              )
+
       # One line every 5 minutes per source that analysed any audio, none for
       # one that analysed none. A stream with no name in its config logs its
       # URL minus userinfo, and a Protect URL's path is the stream credential.

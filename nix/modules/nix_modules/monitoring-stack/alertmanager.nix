@@ -71,10 +71,12 @@ in
               receiver = "null";
             }
             {
-              # Each one is a battery to order or a SATA cable to reseat,
-              # nothing an hour changes, and the CRC rule's 1d increase window
-              # keeps it firing for a day after a single error.
-              matchers = [ "alertname =~ \"UPSReplaceBattery|SmartLinkCrcErrorsIncreasing\"" ];
+              # Each one is a battery to order, a SATA cable to reseat or a file
+              # to listen to, nothing an hour changes. The CRC and review rules'
+              # 1d windows keep them firing for a day after a single event.
+              matchers = [
+                "alertname =~ \"UPSReplaceBattery|SmartLinkCrcErrorsIncreasing|MediaAudioNeedsReview\""
+              ];
               repeat_interval = "24h";
             }
             {

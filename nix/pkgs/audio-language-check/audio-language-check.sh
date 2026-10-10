@@ -2,9 +2,10 @@
 # Verifies an imported file carries an English audio track, for Radarr and
 # Sonarr "Custom Script" connections firing on the Download event.
 #
-# Container tags answer this for most files at no cost. Whisper is the
-# fallback for the minority tagged "und" or carrying no tag at all, which is
-# the only case a tag cannot settle.
+# On import, whisper hears every audio track and each tag is checked against
+# it, which catches English audio tagged as another language and a dub tagged
+# as English. The nightly sweep reads tags and falls back to whisper only for
+# tracks tagged "und" or not at all.
 set -euo pipefail
 
 readonly WHISPER_MODEL="${WHISPER_MODEL:?WHISPER_MODEL must point at a ggml model}"
@@ -19,12 +20,13 @@ readonly SAMPLES="${AUDIO_LANG_SAMPLES:-7}"
 # confident-looking guess from nothing.
 readonly MIN_CONFIDENCE="${AUDIO_LANG_MIN_CONFIDENCE:-0.6}"
 # Sixteen-track dub releases are common in this library, and English sits
-# second in some and much later in others. The walk stops at the first English
-# stream, so a higher ceiling costs nothing on the files that have one and
-# only buys time on the files that do not.
+# second in some and much later in others. The import hook hears every track
+# up to this cap, about four seconds each; the sweep stops at the first
+# English one.
 readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-12}"
-# Promote an English track to default rather than rejecting the file, where
-# the file has one. Matroska only; see promote_english_track.
+# Write what whisper heard into the file: relabel a track whose tag was
+# missing or hid English, and make the first English track the default.
+# Matroska only; see check_file.
 readonly FIX="${AUDIO_LANG_FIX:-0}"
 # An alert carrying no path sends you back to the library to find the file
 # yourself. One series per offender puts the paths in the mail, and the cap is
@@ -208,78 +210,99 @@ whisper_language() {
 	printf '%s' "$best"
 }
 
-# Returns the 0-based index of the first English audio stream, by tag where
-# there is one and by whisper where there is not, or nothing if none is.
-english_stream_index() {
-	local f="$1" idx=0 tag lang
-	while IFS= read -r tag; do
-		case "$tag" in
-		eng | en)
-			printf '%s' "$idx"
-			return
-			;;
-		esac
-		idx=$((idx + 1))
-	done < <(ffprobe -v error -select_streams a -show_entries stream_tags=language -of csv=p=0 "$f" 2>/dev/null)
-
-	idx=0
-	while [ "$idx" -lt "$MAX_STREAMS" ]; do
-		ffprobe -v error -select_streams "a:$idx" -show_entries stream=index -of csv=p=0 "$f" >/dev/null 2>&1 || return
-		lang=$(whisper_stream "$f" "$idx")
-		if [ "$lang" = en ]; then
-			printf '%s' "$idx"
-			return
-		fi
-		idx=$((idx + 1))
-	done
+join_comma() {
+	local IFS=,
+	printf '%s' "$*"
 }
 
-# Promotes the English track to default and labels what it found, so the next
-# reader gets an answer from the container instead of paying for whisper again.
+# Hears every audio track and checks each tag against what whisper heard.
 #
-# Matroska keeps track flags in the header, so mkvpropedit rewrites bytes in
-# place in milliseconds and leaves the file the same size. MP4 has no
-# equivalent: changing a disposition there means remuxing the whole container,
-# which is why this declines to touch one.
-promote_english_track() {
-	local f="$1" eng_idx n i lang args=()
-	case "$f" in
-	*.mkv) ;;
-	*)
-		log "FIX-SKIPPED $(basename "$f"): only matroska can be retagged without a remux"
-		return
-		;;
-	esac
+# Whisper hearing English is enough to accept the file and relabel the track.
+# Whisper hearing something else, or nothing it can place, on a track tagged
+# English is not enough to reject: a reject blocklists the release, so that
+# file is kept and logged as REVIEW, which MediaAudioNeedsReview mails. Only a
+# file with no English by tag or by ear fails, returning 1 so the caller can
+# reject it.
+#
+# With fix=1 the verdicts are written back (matroska only): relabels, and the
+# first English track made default. mkvpropedit rewrites the header in place in
+# milliseconds and leaves the file the same size. MP4 has no equivalent short
+# of remuxing the whole container, so it is left alone.
+check_file() {
+	local f="$1" title="$2" fix="$3"
+	local i n is_default tag heard eng="" summary
+	local -a tags=() shown=() defaults=() heards=() relabel=() review=() args=()
 
-	n=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$f" 2>/dev/null | wc -l)
-	if [ "$n" -le 1 ]; then
-		log "FIX-SKIPPED $(basename "$f"): one audio track, nothing to promote"
-		return
-	fi
-
-	eng_idx=$(english_stream_index "$f")
-	if [ -z "$eng_idx" ]; then
-		log "FIX-SKIPPED $(basename "$f"): no English track to promote"
-		return
-	fi
+	while IFS=$'\t' read -r is_default tag; do
+		defaults+=("$is_default")
+		tags+=("$tag")
+		shown+=("${tag:-none}")
+	done < <(ffprobe -v error -select_streams a -show_entries stream_disposition=default:stream_tags=language \
+		-of json "$f" 2>/dev/null | jq -r '.streams[] | "\(.disposition.default // 0)\t\(.tags.language // "")"')
+	n=${#tags[@]}
+	[ "$n" -gt "$MAX_STREAMS" ] && n="$MAX_STREAMS"
 
 	for ((i = 0; i < n; i++)); do
-		# mkvpropedit numbers tracks of a kind from 1, ffmpeg from 0.
-		args+=(--edit "track:a$((i + 1))")
-		if [ "$i" -eq "$eng_idx" ]; then
-			args+=(--set flag-default=1 --set language=eng)
-		else
-			args+=(--set flag-default=0)
-			lang=$(whisper_stream "$f" "$i")
-			[ "$lang" != unknown ] && [ -n "$lang" ] && args+=(--set "language=$lang")
-		fi
+		tag=${tags[$i]}
+		heard=$(whisper_stream "$f" "$i")
+		heards+=("$heard")
+		relabel+=("")
+		case "$heard" in
+		en)
+			[ -z "$eng" ] && eng=$i
+			has_english_tag "$tag" || relabel[i]=eng
+			;;
+		unknown)
+			has_english_tag "$tag" && review+=("track $((i + 1)) tagged $tag, whisper undecided")
+			;;
+		*)
+			if has_english_tag "$tag"; then
+				review+=("track $((i + 1)) tagged $tag, whisper hears $heard")
+			elif tags_are_unknown "$tag"; then
+				relabel[i]=$heard
+			fi
+			;;
+		esac
 	done
 
-	if mkvpropedit "$f" "${args[@]}" >/dev/null 2>&1; then
-		log "FIXED $(basename "$f"): audio track $eng_idx set default and tagged eng"
+	summary="tagged [$(join_comma "${shown[@]}")], whisper hears [$(join_comma "${heards[@]}")]"
+	if [ -n "$eng" ]; then
+		log "OK $title: $summary"
+	elif [ ${#review[@]} -gt 0 ]; then
+		log "REVIEW $title: $summary; $(join_comma "${review[@]}") ($(basename "$f"))"
 	else
-		log "FIX-FAILED $(basename "$f"): mkvpropedit rejected the edit"
+		log "FAIL $title: $summary, no English track"
 	fi
+
+	if [ "$fix" = 1 ]; then
+		for ((i = 0; i < ${#tags[@]}; i++)); do
+			local -a sets=()
+			[ -n "${relabel[i]:-}" ] && sets+=(--set "language=${relabel[i]}")
+			if [ -n "$eng" ] && [ "${defaults[$eng]}" != 1 ]; then
+				if [ "$i" -eq "$eng" ]; then
+					sets+=(--set flag-default=1)
+				elif [ "${defaults[i]}" = 1 ]; then
+					sets+=(--set flag-default=0)
+				fi
+			fi
+			# mkvpropedit numbers tracks of a kind from 1, ffmpeg from 0.
+			[ ${#sets[@]} -gt 0 ] && args+=(--edit "track:a$((i + 1))" "${sets[@]}")
+		done
+		if [ ${#args[@]} -gt 0 ]; then
+			case "$f" in
+			*.mkv)
+				if mkvpropedit "$f" "${args[@]}" >/dev/null 2>&1; then
+					log "FIXED $(basename "$f"): ${args[*]}"
+				else
+					log "FIX-FAILED $(basename "$f"): mkvpropedit rejected ${args[*]}"
+				fi
+				;;
+			*) log "FIX-SKIPPED $(basename "$f"): only matroska can be retagged without a remux" ;;
+			esac
+		fi
+	fi
+
+	[ -n "$eng" ] || [ ${#review[@]} -gt 0 ]
 }
 
 # Blocklists the grab. autoRedownloadFailed then drives the replacement search,
@@ -406,7 +429,7 @@ main() {
 				log "FIX-SKIPPED $(basename "$_f"): originalLanguage=$_lang"
 				continue
 			fi
-			promote_english_track "$_f"
+			check_file "$_f" "$(basename "$_f")" 1 || true
 		done
 		return
 		;;
@@ -469,36 +492,13 @@ main() {
 		exit 0
 	fi
 
-	local f langs verdict
+	local f
 	for f in "${files[@]}"; do
 		[ -f "$f" ] || {
 			log "SKIP $title: missing file $f"
 			continue
 		}
-		langs=$(audio_langs "$f")
-
-		if has_english_tag "$langs"; then
-			log "OK $title: tagged [$langs]"
-			continue
-		fi
-
-		if tags_are_unknown "$langs"; then
-			verdict=$(whisper_language "$f")
-			if [ "$verdict" = en ]; then
-				log "OK $title: untagged [$langs], whisper says en"
-				continue
-			fi
-			log "FAIL $title: untagged [$langs], whisper says ${verdict}"
-		else
-			log "FAIL $title: tagged [$langs], no English track"
-		fi
-
-		# A file with English on a non-default track is mislabelled, not wrong;
-		# promoting it is cheaper and less destructive than a re-download.
-		if [ "$FIX" = 1 ] && [ -n "$(english_stream_index "$f")" ]; then
-			promote_english_track "$f"
-			continue
-		fi
+		check_file "$f" "$title" "$FIX" && continue
 
 		if [ "$ENFORCE" = 1 ]; then
 			reject "$base" "$key" "$download_id" "$title"
