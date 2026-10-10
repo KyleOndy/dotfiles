@@ -65,7 +65,9 @@ starts with `--advisor`, and then refusing to start without
 `PI_ADVISOR_MODEL`) and the critic. `pi-seats check` holds both to that, which
 is only a floor: "a different family" is a judgment, written in the seat's
 comment. critic.md and vision.md say `seat: required` in their frontmatter,
-so an unset seat refuses rather than falling back to the session model.
+so an unset seat refuses rather than falling back to the session model, and
+vision.md says `needs: image`, so it refuses a model whose catalog entry
+takes no images.
 
 `pi --coordinator` (work-mac and trex, `coordinator.enable`) gives the
 session `spawn_agent` and friends (`extensions/coordinator.ts`). Each agent
@@ -95,8 +97,17 @@ Running the verifier yourself is still the cheaper option.
 
 A dead model id fails silently at runtime, so the seats are checked before a
 run: `pi-seats check` at every start, and after every `make deploy-trex` or
-`make deploy-mac`, which then runs `mcloud-pins` against the live endpoint.
-Both name the seat var, never the value. A catalog or seat change is
+`make deploy-mac`, which then runs `mcloud-pins --deploy` against the live
+endpoint. That probes each pin for an answer, a declared image input, a
+seat's reasoning level and tool calls; `mcloud-pins --context` also fills
+each declared context window, which takes minutes. At start only a problem
+in the session's own seat (or the advisor's, under `--advisor`) stops pi;
+the rest warn, and the seat's consumer refuses when used. Every message
+names the seat var and what to change, never the value. pi runs a level the
+catalog entry does not support at the nearest one it does (no
+`"reasoning": true` supports only off; xhigh and max need a
+`thinkingLevelMap` entry), so `pi-seats check` fails a seat whose level would
+move. A catalog or seat change is
 `sops edit nix/secrets/<host>.yaml` and a deploy; trying a model needs
 neither, since a caller's env override may name an uncatalogued id and only
 warns:

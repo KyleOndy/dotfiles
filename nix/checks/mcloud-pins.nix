@@ -1,11 +1,15 @@
 # Flake check for mcloud-pins (nix/pkgs/mcloud-pins) against a stub
-# endpoint: the listing and one-token probes, the image capability check and
-# the request it sends, every early failure, a fix line under every failure,
-# and that --deploy output names no fixture id.
+# endpoint: the listing and one-token probes, the image, reasoning, tool and
+# context checks and the requests they send (the token field and the
+# reasoning_effort pi would send per entry and level), every early failure,
+# a fix line under every failure and warning, and that --deploy output names
+# no fixture id.
 #
 # The fixtures use made-up ids. The stub endpoint takes its behaviour from
-# ~/endpoint.json: `served` ids, the listing's HTTP status, and per id a
-# status or reply for `text` (one-token) and `image` requests.
+# ~/endpoint.json: `served` ids, the listing's HTTP status, per id a mode or
+# an HTTP status for each kind of request (`text` for the one-token probe,
+# `image`, `reason`, `tools`, `context`), and `contextLimit`, the prompt in
+# tokens above which a context request is refused.
 { pkgs }:
 let
   baseUrl = "http://mcloud.invalid/v1";
@@ -13,6 +17,14 @@ let
     {
       id = "acme/zeta-9000";
       input = [ "text" ];
+      reasoning = true;
+      thinkingLevelMap = {
+        xhigh = "high";
+        max = null;
+        off = "none";
+      };
+      contextWindow = 2000;
+      maxTokens = 200;
     }
     {
       id = "acme/omega-2";
@@ -20,6 +32,10 @@ let
         "text"
         "image"
       ];
+      reasoning = false;
+      compat.maxTokensField = "max_tokens";
+      contextWindow = 1000;
+      maxTokens = 100;
     }
     {
       id = "acme/kappa-7";
@@ -27,6 +43,7 @@ let
         "text"
         "image"
       ];
+      reasoning = true;
     }
   ];
   catalog =
@@ -48,6 +65,32 @@ let
       }
     );
   good = catalog { inherit baseUrl models; };
+  fields = catalog {
+    inherit baseUrl;
+    models = models ++ [
+      {
+        id = "acme/lambda-4";
+        input = [ "text" ];
+        reasoning = true;
+        compat.supportsReasoningEffort = false;
+      }
+    ];
+  };
+  providerCompat = catalog {
+    inherit baseUrl;
+    compat.maxTokensField = "max_tokens";
+    models = map (m: removeAttrs m [ "compat" ]) models ++ [
+      {
+        id = "acme/lambda-4";
+        input = [ "text" ];
+        compat.maxTokensField = "max_completion_tokens";
+      }
+    ];
+  };
+  formatted = catalog {
+    inherit baseUrl models;
+    compat.thinkingFormat = "qwen";
+  };
   noBaseUrl = catalog { inherit models; };
   noModels = catalog {
     inherit baseUrl;
@@ -90,33 +133,76 @@ let
       [ "$1" != 000 ] || exit 28
       exit 0
     }
-    reply() { # <content> <finish_reason>
-      answer 200 "$($jq -nc --arg c "$1" --arg f "$2" \
-        '{choices: [{message: {role: "assistant", content: $c}, finish_reason: $f}]}')"
+    out() { # <message fields> <finish_reason> [usage]
+      answer 200 "$($jq -nc --argjson msg "$1" --arg f "$2" --argjson u "''${3:-null}" \
+        '{choices: [{message: ({role: "assistant"} + $msg), finish_reason: $f}]} + (if $u then {usage: $u} else {} end)')"
+    }
+    say() { # <content> [finish_reason] [usage]
+      out "$($jq -nc --arg c "$1" '{content: $c}')" "''${2:-stop}" "''${3:-null}"
+    }
+    thought() { # <reasoning tokens> [content] [finish_reason]
+      say "''${2-17}" "''${3:-stop}" "{\"completion_tokens_details\": {\"reasoning_tokens\": $1}}"
+    }
+    call() { # <name> <arguments>
+      out "$($jq -nc --arg n "$1" --arg a "$2" \
+        '{content: null, tool_calls: [{id: "call_1", type: "function", function: {name: $n, arguments: $a}}]}')" tool_calls
     }
     [ "$auth" = "Authorization: Bearer test-key" ] || answer 401 '{"error": {"message": "bad key"}}'
     case $url in
     ${baseUrl}/models)
       answer "$($jq -r '.listing // 200' "$E")" "$($jq -c '{data: [.served[] | {id: ., object: "model"}]}' "$E")"
       ;;
-    ${baseUrl}/chat/completions)
-      printf '%s\n' "$data" >>"$HOME/requests"
-      model=$($jq -r .model <<<"$data")
-      if $jq -e '.messages[0].content | type == "array"' <<<"$data" >/dev/null; then
-        mode=$($jq -r --arg m "$model" '.image[$m] // "green"' "$E")
-      else
-        mode=$($jq -r --arg m "$model" '.text[$m] // "ok"' "$E")
-      fi
-      case $mode in
-      ok) reply h length ;;
-      green) reply Green. stop ;;
-      greenish) reply greenish stop ;;
-      red) reply $'The image is\nred.' stop ;;
-      empty) reply "" length ;;
-      *) answer "$mode" "$($jq -nc --arg m "$model" '{error: {message: ($m + " cannot take this request")}}')" ;;
-      esac
-      ;;
+    ${baseUrl}/chat/completions) ;;
     *) answer 404 '{}' ;;
+    esac
+
+    printf '%s\n' "$data" >>"$HOME/requests"
+    model=$($jq -r .model <<<"$data")
+    effort=$($jq -r '.reasoning_effort // ""' <<<"$data")
+    kind=$($jq -r 'if .tools then "tools"
+      elif (.messages[0].content | type) == "array" then "image"
+      elif .messages[0].content == "hi" then "text"
+      elif (.messages[0].content | startswith("Remember this marker")) then "context"
+      else "reason" end' <<<"$data")
+    mode=$($jq -r --arg m "$model" --arg k "$kind" '.[$k][$m] // "ok"' "$E")
+    limit=$($jq -r --arg m "$model" '.contextLimit[$m] // empty' "$E")
+    if [ "$kind" = context ] && [ -n "$limit" ] &&
+      [ $(($($jq -r '.messages[0].content | length' <<<"$data") / 4)) -gt "$limit" ]; then
+      answer 400 "$($jq -nc --arg l "$limit" '{error: {message: ("maximum context length is " + $l + " tokens")}}')"
+    fi
+    case $kind:$mode in
+    *:[0-9][0-9][0-9])
+      answer "$mode" "$($jq -nc --arg m "$model" '{error: {message: ($m + " cannot take this request")}}')"
+      ;;
+    text:ok) say h length ;;
+    image:ok) say Green. ;;
+    image:greenish) say greenish ;;
+    image:red) say $'The image is\nred.' ;;
+    image:empty) say "" length ;;
+    reason:ok)
+      if [ -n "$effort" ] && [ "$effort" != none ]; then thought 64; else thought 0; fi
+      ;;
+    reason:always) thought 64 ;;
+    reason:never) thought 0 ;;
+    reason:silent) say 17 ;;
+    reason:text)
+      if [ -n "$effort" ]; then
+        out '{"content": "17", "reasoning_content": "12 for pens, 21 for notebooks, 50 - 33 = 17."}' stop
+      else
+        say 17
+      fi
+      ;;
+    reason:empty) thought 4096 "" length ;;
+    reason:cut) thought 4096 "Four pens cost" length ;;
+    reason:wrong) thought 64 18 ;;
+    tools:ok) call get_weather '{"city": "Paris"}' ;;
+    tools:prose) say "It is sunny in Paris." ;;
+    tools:name) call get_time '{"city": "Paris"}' ;;
+    tools:garbled) call get_weather '{city: Paris' ;;
+    tools:elsewhere) call get_weather '{"city": "London"}' ;;
+    context:ok) say "$($jq -r '.messages[0].content | capture("^Remember this marker: (?<m>[a-z0-9-]+)").m' <<<"$data")" ;;
+    context:drop) say "There is no marker." ;;
+    *) fail "no mode $kind:$mode" ;;
     esac
   '';
 
@@ -144,19 +230,19 @@ pkgs.runCommand "mcloud-pins-check"
       cat "$T/out" >&2 2>/dev/null || true
       exit 1
     }
-    run() { # <exit> [arg]: mcloud-pins into $T/out; every failure line has a fix line under it
+    run() { # <exit> [arg]...: mcloud-pins into $T/out; every failure and warning has a fix line under it
       want=$1
       shift
       rc=0
       mcloud-pins "$@" >"$T/out" 2>&1 || rc=$?
       [ "$rc" = "$want" ] || fail "mcloud-pins $*: exit $rc, wanted $want"
-      [ "$want" = 0 ] || awk 'want && !/^  fix: / { exit 1 }
-        { want = /^mcloud-pins: / && !/, each with its fix above$/ } END { exit want }' "$T/out" ||
+      awk 'want && !/^  fix: / { exit 1 }
+        { want = /^mcloud-pins: / && !/, each with its fix above$/ && !/ served and answering, / } END { exit want }' "$T/out" ||
         fail "mcloud-pins $*: a failure without a fix line"
     }
     both() { # <exit>: --deploy into $T/deploy, which names no fixture id, and plain into $T/plain
       run "$1" --deploy
-      if grep -qiE 'acme|zeta|omega|kappa|sigma|tau|nope' "$T/out"; then fail "--deploy printed a fixture id"; fi
+      if grep -qiE 'acme|zeta|omega|kappa|lambda|sigma|tau|nope' "$T/out"; then fail "--deploy printed a fixture id"; fi
       cp "$T/out" "$T/deploy"
       run "$1"
       cp "$T/out" "$T/plain"
@@ -171,11 +257,24 @@ pkgs.runCommand "mcloud-pins-check"
       tr -s ' ' <"$T/plain" | grep -qxF -- "$1" || fail "plain: no row: $1"
     }
     endpoint() { # [jq object over the default]
-      jq -n '{served: ["acme/zeta-9000", "acme/omega-2", "acme/kappa-7", "acme/tau-5"]}'" + ''${1:-null}" \
+      jq -n '{served: ["acme/zeta-9000", "acme/omega-2", "acme/kappa-7", "acme/lambda-4", "acme/tau-5"]}'" + ''${1:-null}" \
         >"$HOME/endpoint.json"
+      rm -f "$HOME/requests"
     }
     catalog() {
       ln -sfn "$1" "$A/models.json"
+    }
+    requests() { # <jq test over every request this endpoint saw>
+      jq -se --arg image "What color fills this image? Reply with one lowercase word." \
+        --arg sum "A shop sells pens at 3 dollars each and notebooks at 7 dollars each. Ana buys 4 pens and 3 notebooks and pays with a 50 dollar bill. How many dollars of change does she get? Reply with the number only." \
+        --arg tool "What is the weather in Paris? Use the tool." '
+        def kind: if .tools then "tools" elif (.messages[0].content | type) == "array" then "image"
+          elif .messages[0].content == "hi" then "text" elif .messages[0].content == $sum then "reason"
+          elif (.messages[0].content | startswith("Remember this marker: quartz-pelican-4417\n\n")) then "context"
+          else "other" end;
+        def budget: .max_tokens // .max_completion_tokens;
+        def of($k): map(select(kind == $k));
+        '"$1" "$HOME/requests" >/dev/null || fail "requests: $1"
     }
 
     T=$TMPDIR/mp
@@ -189,49 +288,226 @@ pkgs.runCommand "mcloud-pins-check"
     printf '%s\n' nix/secrets/fake.yaml >"$HOME/source"
     printf '%s\t%s\n' \
       PI_SESSION_MODEL mcloud/acme/zeta-9000:xhigh \
+      PI_ADVISOR_MODEL mcloud/acme/zeta-9000:low \
       PI_AGENT_MODEL_VISION mcloud/acme/omega-2 \
+      PI_AGENT_MODEL_CRITIC mcloud/acme/kappa-7:high \
+      PI_CLASSIFY_MODEL mcloud/acme/kappa-7:off \
       PI_SPAWN_MODEL othercloud/acme/sigma-3 >"$HOME/seats"
+    cp "$HOME/seats" "$T/seats.good"
     catalog ${good}
     S='in nix/secrets/fake.yaml'
-    Z='PI_SESSION_MODEL, pi_models_json providers.mcloud.models[0]'
-    O='PI_AGENT_MODEL_VISION, pi_models_json providers.mcloud.models[1]'
-    K='pi_models_json providers.mcloud.models[2]'
-    SEE="remove \"image\" from input in pi_models_json providers.mcloud.models[1], or point PI_AGENT_MODEL_VISION at a model that sees images, $S"
-    SEE_K="remove \"image\" from input in $K, $S"
+    Z0='pi_models_json providers.mcloud.models[0]'
+    O0='pi_models_json providers.mcloud.models[1]'
+    K0='pi_models_json providers.mcloud.models[2]'
+    Z="PI_SESSION_MODEL, PI_ADVISOR_MODEL, $Z0"
+    O="PI_AGENT_MODEL_VISION, $O0"
+    K="PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL, $K0"
+    SEE="remove \"image\" from input in $O0, or point PI_AGENT_MODEL_VISION at a model that sees images, $S"
+    SEE_K="remove \"image\" from input in $K0, or point PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL at a model that sees images, $S"
+    PASS='mcloud-pins: 3 pins served and answering, 2 image checks, 4 reasoning checks and 3 tool checks passed'
 
     # All pass: one line at deploy, the table otherwise.
     endpoint
     both 0
-    [ "$(cat "$T/deploy")" = 'mcloud-pins: 3 pins served and answering, 2 image checks passed' ] ||
-      fail "deploy success line"
-    row "acme/kappa-7 yes 200 ok $K"
-    row "acme/omega-2 yes 200 ok $O"
-    row "acme/zeta-9000 yes 200 - $Z"
-    plain 'served, unpinned: acme/tau-5'
-    plain 'mcloud-pins: 3 pins served and answering, 2 image checks passed'
+    [ "$(cat "$T/deploy")" = "$PASS" ] || fail "deploy success line"
+    row "acme/kappa-7 yes 200 ok ok ok $K"
+    row "acme/omega-2 yes 200 ok - ok $O"
+    row "acme/zeta-9000 yes 200 - ok ok $Z"
+    plain 'served, unpinned: acme/lambda-4 acme/tau-5'
+    plain "$PASS"
 
-    # What went out: one-token probes, then per image model one request
-    # carrying the known image, with no reasoning parameter. othercloud's
-    # image model is not mcloud's to check.
-    jq -se --arg prompt 'What color fills this image? Reply with one lowercase word.' '
-      (map(select(.messages[0].content | type == "string")) | length == 6 and all(.max_tokens == 1))
-      and (map(select(.messages[0].content | type == "array")) as $img
-        | ($img | length) == 4
-        and ($img | map(.model) | unique) == ["acme/kappa-7", "acme/omega-2"]
-        and all($img[]; keys == ["max_tokens", "messages", "model"] and .max_tokens == 1024
-          and .messages == [{role: "user", content: [{type: "text", text: $prompt},
+    # What went out, over both runs. pi's token field: max_tokens for the
+    # entry whose compat says so, max_completion_tokens otherwise. Its
+    # reasoning_effort: a mapped level's mapping, else the level's name, and
+    # at off with no off mapping nothing; only the reasoning check sends
+    # one. The image goes to image entries only, tools to the ids behind a
+    # tool seat, and othercloud's model is not mcloud's to check. No context
+    # check without --context.
+    requests '
+      all(.[]; if .model == "acme/omega-2" then has("max_tokens") and (has("max_completion_tokens") | not)
+        else has("max_completion_tokens") and (has("max_tokens") | not) end)
+      and of("other") == [] and of("context") == []
+      and (of("text") | length == 6 and all(budget == 1 and (keys | length) == 3))
+      and (of("image") | length == 4 and (map(.model) | unique) == ["acme/kappa-7", "acme/omega-2"]
+        and all(budget == 1024 and (keys | length) == 3
+          and .messages == [{role: "user", content: [{type: "text", text: $image},
             {type: "image_url", image_url: {url: .messages[0].content[1].image_url.url}}]}]
           and (.messages[0].content[1].image_url.url | startswith("data:image/png;base64,"))))
-    ' "$HOME/requests" >/dev/null || fail "requests: $(cat "$HOME/requests")"
+      and (of("reason") | length == 8 and all(budget == 4096)
+        and (map([.model, .reasoning_effort]) | unique)
+          == [["acme/kappa-7", null], ["acme/kappa-7", "high"], ["acme/zeta-9000", "high"], ["acme/zeta-9000", "low"]])
+      and (of("tools") | length == 6
+        and (map(.model) | unique) == ["acme/kappa-7", "acme/omega-2", "acme/zeta-9000"]
+        and all(budget == 4096 and .tool_choice == "auto" and .messages == [{role: "user", content: $tool}]
+          and .tools == [{type: "function", function: {name: "get_weather", description: "Current weather for a city.",
+            parameters: {type: "object", properties: {city: {type: "string"}}, required: ["city"]}}}]))
+      and (map(select(kind != "reason")) | all(has("reasoning_effort") | not))'
     printf '\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0@\0\0\0@' >"$T/head"
     jq -r 'select(.messages[0].content | type == "array") | .messages[0].content[1].image_url.url' "$HOME/requests" |
       sed -n 's/^data:image\/png;base64,//; 1p' | base64 -d | cmp -n 24 - "$T/head" ||
       fail "the image is not a 64x64 PNG"
-    rm "$HOME/requests"
+
+    # pi's fields per entry and level: zeta maps xhigh and off, maps max to
+    # null so max clamps to xhigh; kappa maps nothing, so xhigh clamps to
+    # high and off sends nothing; omega does not reason, so high runs at off
+    # and takes max_tokens; lambda turns reasoning_effort off in compat, so
+    # its level is ignored.
+    catalog ${fields}
+    printf '%s\t%s\n' \
+      PI_DELEGATE_MODEL mcloud/acme/zeta-9000:off \
+      PI_AGENT_MODEL_PLANNER mcloud/acme/zeta-9000:max \
+      PI_AGENT_MODEL_SCOUT mcloud/acme/omega-2:high \
+      PI_AGENT_MODEL_SCRIBE mcloud/acme/kappa-7:xhigh \
+      PI_AGENT_MODEL_NOEFFORT mcloud/acme/lambda-4:high >>"$HOME/seats"
+    endpoint
+    both 1
+    requests '
+      (of("reason") | map([.model, .reasoning_effort, budget]) | unique)
+        == [["acme/kappa-7", null, 4096], ["acme/kappa-7", "high", 4096], ["acme/lambda-4", null, 4096],
+          ["acme/omega-2", null, 4096], ["acme/zeta-9000", "high", 4096], ["acme/zeta-9000", "low", 4096],
+          ["acme/zeta-9000", "none", 4096]]
+      and (of("reason") | length == 18)
+      and (of("tools") | map(.model) | unique == ["acme/kappa-7", "acme/lambda-4", "acme/omega-2", "acme/zeta-9000"])'
+    dep 'mcloud-pins: PI_AGENT_MODEL_NOEFFORT, pi_models_json providers.mcloud.models[3]: accepted level high and did no reasoning, so the level is ignored (0 reasoning tokens with no reasoning_effort)'
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in pi_models_json providers.mcloud.models[3] to what this model honours, or drop the level from PI_AGENT_MODEL_NOEFFORT, $S"
+    dep 'mcloud-pins: 1 problem across 4 pins, each with its fix above'
+    endpoint '{reason: {"acme/zeta-9000": "never", "acme/omega-2": "always"}}'
+    both 1
+    dep "mcloud-pins: PI_AGENT_MODEL_PLANNER, $Z0: accepted level max (pi clamps it to xhigh) and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
+    dep "mcloud-pins: PI_AGENT_MODEL_SCOUT, $O0: reasons at level high (pi clamps it to off): the seat still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
+    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $O0 (pi sends it at off), or point PI_AGENT_MODEL_SCOUT at a model that answers without reasoning, $S"
+    row "acme/zeta-9000 yes 200 - FAIL ok PI_SESSION_MODEL, PI_ADVISOR_MODEL, PI_DELEGATE_MODEL, PI_AGENT_MODEL_PLANNER, $Z0"
+    if grep -q '^mcloud-pins: PI_DELEGATE_MODEL,' "$T/deploy"; then fail "zeta at off failed on no reasoning"; fi
+    cp "$T/seats.good" "$HOME/seats"
+
+    # pi merges the provider's compat into each entry, the entry's winning.
+    catalog ${providerCompat}
+    endpoint
+    both 0
+    requests '
+      length > 0 and all(.[]; if .model == "acme/lambda-4" then has("max_completion_tokens") and (has("max_tokens") | not)
+        else has("max_tokens") and (has("max_completion_tokens") | not) end)
+      and (map(.model) | index("acme/lambda-4") != null)'
+
+    # A thinkingFormat changes what pi sends for reasoning, so the check
+    # stands aside for entries that reason.
+    catalog ${formatted}
+    endpoint
+    both 0
+    requests 'all(of("reason")[]; .model == "acme/omega-2") and (of("tools") | length > 0)'
+    grep -q '^mcloud-pins: warning: .*: the reasoning check at level [a-z]* was skipped: compat.thinkingFormat is set,' "$T/deploy" ||
+      fail "thinkingFormat: no skip warning"
+    catalog ${good}
+
+    # Reasoning: off that reasons, a level that does not, a level the
+    # endpoint gives no sign of, reasoning text as the sign, an empty, a
+    # cut-off and a wrong answer, and refusals.
+    endpoint '{reason: {"acme/kappa-7": "always"}}'
+    both 1
+    dep "mcloud-pins: PI_CLASSIFY_MODEL, $K0: reasons at off: a seat at :off still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
+    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $K0 (pi sends it at off), or point PI_CLASSIFY_MODEL at a model that answers without reasoning, $S"
+    dep 'mcloud-pins: 1 problem across 3 pins, each with its fix above'
+    row "acme/kappa-7 yes 200 ok FAIL ok $K"
+    endpoint '{reason: {"acme/zeta-9000": "never"}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: accepted level xhigh and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 to what this model honours, or drop the level from PI_SESSION_MODEL, $S"
+    dep "mcloud-pins: PI_ADVISOR_MODEL, $Z0: accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
+    plain "mcloud-pins: acme/zeta-9000 (PI_ADVISOR_MODEL, $Z0): accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
+    endpoint '{reason: {"acme/zeta-9000": "silent"}}'
+    both 0
+    dep "mcloud-pins: warning: PI_SESSION_MODEL, $Z0: cannot tell whether level xhigh reasons; the endpoint reports no reasoning tokens (reasoning_effort high)"
+    dep "  fix: confirm by hand that this model reasons with reasoning_effort high; if it does not, drop the level from PI_SESSION_MODEL, $S"
+    dep 'mcloud-pins: 3 pins served and answering, 2 image checks, 2 reasoning checks and 3 tool checks passed, 2 warnings above'
+    row "acme/zeta-9000 yes 200 - warn ok $Z"
+    endpoint '{reason: {"acme/zeta-9000": "text"}}'
+    both 0
+    dep "$PASS"
+    endpoint '{reason: {"acme/kappa-7": "empty"}}'
+    both 1
+    dep "mcloud-pins: PI_AGENT_MODEL_CRITIC, $K0: the reasoning check at level high answered with no text (finish_reason length)"
+    dep "  fix: a three-step sum should not need 4096 tokens: lower the level in PI_AGENT_MODEL_CRITIC, or point it at another model, $S"
+    endpoint '{reason: {"acme/zeta-9000": "cut"}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh was cut off at the 4096-token budget (finish_reason length)"
+    endpoint '{reason: {"acme/zeta-9000": "wrong"}}'
+    both 0
+    dep "mcloud-pins: warning: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh answered, but not 17"
+    dep '  fix: rerun mcloud-pins; a model that keeps missing a three-step sum is a poor fit for PI_SESSION_MODEL'
+    plain "mcloud-pins: warning: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the reasoning check at level xhigh answered, but not 17 (it said: 18)"
+    endpoint '{reason: {"acme/zeta-9000": 400}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh answers HTTP 400 to reasoning_effort high"
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 so pi sends what the endpoint takes, or pick another level for PI_SESSION_MODEL, $S"
+    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the reasoning check at level xhigh answers HTTP 400 (the endpoint said: acme/zeta-9000 cannot take this request) to reasoning_effort high"
+    endpoint '{reason: {"acme/kappa-7": 503}}'
+    both 1
+    dep "mcloud-pins: PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 503"
+    dep "  fix: rerun mcloud-pins; if it fails the same way, correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
+
+    # Tools: prose, another tool, garbled or wrong arguments, refusals.
+    endpoint '{tools: {"acme/zeta-9000": "prose"}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check got prose, not a tool call, so the model does not call tools here"
+    dep "  fix: point PI_SESSION_MODEL at a model that calls tools, $S"
+    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the tool check got prose, not a tool call (it said: It is sunny in Paris.), so the model does not call tools here"
+    row "acme/zeta-9000 yes 200 - ok FAIL $Z"
+    endpoint '{tools: {"acme/kappa-7": "name"}}'
+    both 1
+    dep "mcloud-pins: PI_AGENT_MODEL_CRITIC, $K0: the tool check called another tool, not get_weather"
+    dep "  fix: point PI_AGENT_MODEL_CRITIC at a model that calls tools, $S"
+    plain "mcloud-pins: acme/kappa-7 (PI_AGENT_MODEL_CRITIC, $K0): the tool check called get_time, not get_weather"
+    endpoint '{tools: {"acme/zeta-9000": "garbled"}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check called get_weather with arguments that are not a JSON object"
+    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the tool check called get_weather with arguments that are not a JSON object (it said: {city: Paris)"
+    endpoint '{tools: {"acme/zeta-9000": "elsewhere"}}'
+    both 1
+    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check called get_weather without city Paris"
+    endpoint '{tools: {"acme/omega-2": 400}}'
+    both 1
+    dep "mcloud-pins: PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 400, so the endpoint refuses a request with tools"
+    dep "  fix: point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
+    endpoint '{tools: {"acme/omega-2": 503}}'
+    both 1
+    dep "mcloud-pins: PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 503"
+    dep "  fix: rerun mcloud-pins; if it fails the same way, point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
+
+    # Context, only on request: a prompt of 90% of the window less maxTokens
+    # at 4 characters a token, opening with the marker.
+    endpoint
+    run 0 --context
+    cp "$T/out" "$T/plain"
+    plain 'mcloud-pins (context): acme/zeta-9000: about 1600 prompt tokens, contextWindow 2000...'
+    plain 'mcloud-pins (context): acme/omega-2: about 800 prompt tokens, contextWindow 1000...'
+    grep -q '^mcloud-pins (context): acme/zeta-9000: ok in [0-9]*s$' "$T/plain" || fail "no context progress"
+    row "acme/zeta-9000 yes 200 - ok ok ok $Z"
+    row "acme/omega-2 yes 200 ok - ok ok $O"
+    row "acme/kappa-7 yes 200 ok ok ok - $K"
+    plain 'mcloud-pins: 3 pins served and answering, 2 image checks, 4 reasoning checks, 3 tool checks and 2 context checks passed'
+    requests '
+      of("context") | length == 2 and all((keys | length) == 3 and budget == 4096)
+      and (map([.model, (.messages[0].content | length), has("max_tokens")]) | sort)
+        == [["acme/omega-2", 3200, true], ["acme/zeta-9000", 6400, false]]'
+    endpoint '{contextLimit: {"acme/zeta-9000": 1000}, context: {"acme/omega-2": "drop"}}'
+    run 1 --context
+    cp "$T/out" "$T/plain"
+    plain "mcloud-pins: acme/zeta-9000 ($Z0): the endpoint rejects a prompt of about 1600 tokens, under the declared contextWindow 2000: HTTP 400 (the endpoint said: maximum context length is 1000 tokens)"
+    plain "  fix: lower contextWindow in $Z0 to what the endpoint serves, $S"
+    plain "mcloud-pins: acme/omega-2 ($O0): the context check (about 800 tokens, contextWindow 1000) answered without the marker from the prompt's start (it said: There is no marker.), so the endpoint truncates long prompts or the model loses the start"
+    plain "  fix: lower contextWindow in $O0 to what the endpoint serves, $S"
+    row "acme/zeta-9000 yes 200 - ok ok FAIL $Z"
+    grep -q '^mcloud-pins (context): acme/zeta-9000: FAIL in [0-9]*s$' "$T/plain" || fail "no context progress on failure"
+    endpoint '{context: {"acme/zeta-9000": 503}}'
+    run 1 --context
+    cp "$T/out" "$T/plain"
+    plain "mcloud-pins: acme/zeta-9000 ($Z0): the context check (about 1600 tokens) answers HTTP 503 (the endpoint said: acme/zeta-9000 cannot take this request)"
+    plain "  fix: rerun mcloud-pins --context; if it fails the same way, lower contextWindow in $Z0 to what the endpoint serves, $S"
+    run 2 --deploy --context
+    run 2 --context --deploy
 
     # Not listed, and a seat naming a model the catalog lacks.
     endpoint '{served: ["acme/zeta-9000", "acme/omega-2"]}'
-    cp "$HOME/seats" "$T/seats"
     printf '%s\t%s\n' PI_DELEGATE_MODEL mcloud/acme/nope-1:high >>"$HOME/seats"
     both 1
     dep "mcloud-pins: $K: the endpoint does not list this model"
@@ -242,12 +518,13 @@ pkgs.runCommand "mcloud-pins-check"
     dep "  fix: correct the id, or pick a model the endpoint lists, in PI_DELEGATE_MODEL, $S"
     dep 'mcloud-pins: 3 problems across 4 pins, each with its fix above'
     plain "mcloud-pins: acme/kappa-7 ($K): the endpoint does not list this model"
-    row "acme/kappa-7 NO skip skip $K"
-    row "acme/nope-1 NO skip - PI_DELEGATE_MODEL"
-    mv "$T/seats" "$HOME/seats"
+    row "acme/kappa-7 NO skip skip skip skip $K"
+    row "acme/nope-1 NO skip - skip skip PI_DELEGATE_MODEL"
+    cp "$T/seats.good" "$HOME/seats"
 
-    # Listed, not answering; no image check after a failed probe; 429 is
-    # the endpoint's own throttle and passes.
+    # Listed, not answering; no capability check after a failed probe; 429
+    # is the endpoint's own throttle and passes; a 400 points at the token
+    # field.
     endpoint '{text: {"acme/zeta-9000": 503, "acme/omega-2": 500, "acme/kappa-7": 429}}'
     both 1
     dep "mcloud-pins: $Z: listed, but a one-token completion answers HTTP 503, so nothing serves it"
@@ -255,21 +532,27 @@ pkgs.runCommand "mcloud-pins-check"
     dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 500"
     dep "  fix: replace the model in $O, $S"
     dep 'mcloud-pins: 2 problems across 3 pins, each with its fix above'
-    row "acme/omega-2 yes 500 skip $O"
-    row "acme/kappa-7 yes 429 ok $K"
+    row "acme/omega-2 yes 500 skip - skip $O"
+    row "acme/zeta-9000 yes 503 - skip skip $Z"
+    row "acme/kappa-7 yes 429 ok ok ok $K"
     endpoint '{text: {"acme/zeta-9000": "000"}}'
     both 1
     dep "mcloud-pins: $Z: a one-token completion got no answer within 60s"
     dep "  fix: rerun mcloud-pins; if it fails the same way, replace the model in $Z, $S"
+    endpoint '{text: {"acme/omega-2": 400}}'
+    both 1
+    dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 400 to max_tokens, the token field pi sends"
+    dep "  fix: if the endpoint takes another token field, set compat.maxTokensField in $O0 to it; otherwise replace the model in $O, $S"
 
-    # The image check: refused, an outage, the wrong color, nothing.
+    # The image check: refused, an outage, no answer, the wrong color,
+    # nothing.
     endpoint '{image: {"acme/omega-2": 400}}'
     both 1
     dep "mcloud-pins: $O: the image check answers HTTP 400, so the endpoint refuses the image or the request"
     dep "  fix: $SEE"
     dep 'mcloud-pins: 1 problem across 3 pins, each with its fix above'
     plain "mcloud-pins: acme/omega-2 ($O): the image check answers HTTP 400 (the endpoint said: acme/omega-2 cannot take this request), so the endpoint refuses the image or the request"
-    row "acme/omega-2 yes 200 FAIL $O"
+    row "acme/omega-2 yes 200 FAIL - ok $O"
     endpoint '{image: {"acme/kappa-7": 503}}'
     both 1
     dep "mcloud-pins: $K: the image check answers HTTP 503"
@@ -325,12 +608,11 @@ pkgs.runCommand "mcloud-pins-check"
     dep 'mcloud-pins: pi_models_json has no providers.mcloud.baseUrl, so there is no endpoint to check'
     dep "  fix: set providers.mcloud.baseUrl in pi_models_json $S"
     catalog ${noModels}
-    cp "$HOME/seats" "$T/seats"
-    grep -v mcloud/ "$T/seats" >"$HOME/seats"
+    grep -v mcloud/ "$T/seats.good" >"$HOME/seats"
     both 2
     dep 'mcloud-pins: nothing names an mcloud model: pi_models_json has no providers.mcloud.models and no seat starts with mcloud/'
     dep "  fix: list this host's models in pi_models_json providers.mcloud.models and point PI_SESSION_MODEL at one of them, $S"
-    mv "$T/seats" "$HOME/seats"
+    cp "$T/seats.good" "$HOME/seats"
     catalog ${good}
 
     # The listing.
@@ -351,27 +633,27 @@ pkgs.runCommand "mcloud-pins-check"
     endpoint
 
     # pi-seats: a failed list, no sops file to name, absent.
-    mv "$HOME/seats" "$T/seats"
+    rm "$HOME/seats"
     mkdir "$HOME/seats"
     both 2
     dep 'mcloud-pins: pi-seats list failed, so no seat was checked'
     dep '  fix: run pi-seats check --deploy and fix what it reports'
     rmdir "$HOME/seats"
-    mv "$T/seats" "$HOME/seats"
+    cp "$T/seats.good" "$HOME/seats"
     rm "$HOME/source"
     endpoint '{image: {"acme/kappa-7": "red"}}'
     both 1
-    dep "  fix: remove \"image\" from input in $K, in this host's sops file"
+    dep "  fix: remove \"image\" from input in $K0, or point PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL at a model that sees images, in this host's sops file"
     rm "$T/bin/pi-seats"
     endpoint '{image: {"acme/omega-2": "red"}}'
     both 1
-    dep "  fix: remove \"image\" from input in pi_models_json providers.mcloud.models[1], in this host's sops file"
+    dep "  fix: remove \"image\" from input in $O0, in this host's sops file"
     endpoint
     both 0
-    dep 'mcloud-pins: 3 pins served and answering, 2 image checks passed'
+    dep 'mcloud-pins: 3 pins served and answering, 2 image checks, 0 reasoning checks and 0 tool checks passed'
 
     run 2 --verbose
-    grep -qxF 'usage: mcloud-pins [--deploy]' "$T/out" || fail "no usage line"
+    grep -qxF 'usage: mcloud-pins [--deploy | --context]' "$T/out" || fail "no usage line"
 
     touch "$out"
   ''
