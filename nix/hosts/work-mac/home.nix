@@ -28,10 +28,6 @@
     SRC_WORK = "${config.home.homeDirectory}/src/modularml";
     PDM_USE_VENV = "1"; # Configure PDM to use venv instead of __pypackages__
     CC = "/usr/bin/cc"; # Use system clang for C compilation (macOS SDK compatibility)
-    # mcloud-pins, mcloud-rank and advisor-eval run these when the key itself
-    # is unset.
-    MCLOUD_API_KEY_COMMAND = "/usr/bin/security find-generic-password -s work-secrets -a mcloud-inference -w";
-    AA_API_KEY_COMMAND = "/usr/bin/security find-generic-password -s work-secrets -a artificial-analysis -w";
   };
 
   programs.zsh.shellAliases.src = lib.mkForce "cd ${config.home.homeDirectory}/src/modularml";

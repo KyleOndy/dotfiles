@@ -2,6 +2,9 @@
   writers,
   runCommand,
   llm-agents,
+  # A command printing the mcloud key from this host's secret store.
+  # MCLOUD_API_KEY, or MCLOUD_API_KEY_COMMAND, overrides it for one run.
+  keyCommand ? "",
 }:
 let
   # Every model id compiled into the pi this flake installs. leak-guard treats
@@ -18,9 +21,16 @@ let
     fi
   '';
 in
-writers.writePython3Bin "leak-guard" {
-  flakeIgnore = [
-    "E501"
-    "W503"
-  ];
-} (builtins.replaceStrings [ "@builtins@" ] [ "${piBuiltins}" ] (builtins.readFile ./leak-guard.py))
+writers.writePython3Bin "leak-guard"
+  {
+    flakeIgnore = [
+      "E501"
+      "W503"
+    ];
+  }
+  (
+    builtins.replaceStrings
+      [ "@builtins@" ''"@keyCommand@"'' ]
+      [ "${piBuiltins}" (builtins.toJSON keyCommand) ]
+      (builtins.readFile ./leak-guard.py)
+  )

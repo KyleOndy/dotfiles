@@ -31,6 +31,8 @@ DENY = Path.home() / ".local/state/leak-guard/deny"
 MODELS_JSON = Path.home() / ".pi/agent/models.json"
 # Every model id compiled into the installed pi, extracted at build time.
 BUILTINS = Path("@builtins@")
+# This host's command printing the mcloud key, set at build time.
+KEY_COMMAND = "@keyCommand@"
 MAX_AGE_DAYS = 7
 PROTECTED_BRANCHES = re.compile(r"refs/heads/(modular|work-archive)")
 ZERO_SHA = re.compile(r"^0+$")
@@ -200,14 +202,15 @@ def endpoint_hosts(catalog):
 
 def mcloud_key():
     key = os.environ.get("MCLOUD_API_KEY", "")
-    command = os.environ.get("MCLOUD_API_KEY_COMMAND", "")
+    command = os.environ.get("MCLOUD_API_KEY_COMMAND") or KEY_COMMAND
     if not key and command:
         key = subprocess.run(
             ["sh", "-c", command], capture_output=True, text=True
         ).stdout.strip()
     if not key:
         raise Refusal(
-            "set MCLOUD_API_KEY, or MCLOUD_API_KEY_COMMAND to a command that prints it"
+            "no mcloud key: set keyCommand where this host installs leak-guard and deploy; "
+            "MCLOUD_API_KEY or MCLOUD_API_KEY_COMMAND covers a single run"
         )
     return key
 

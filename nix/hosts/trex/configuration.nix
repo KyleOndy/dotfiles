@@ -6,6 +6,12 @@
   config,
   ...
 }:
+let
+  # Baked into the tools that call mcloud, rather than set as a session
+  # variable, which a shell older than the deploy (or any pane of an older
+  # tmux server) never sees.
+  mcloudKeyCommand = "/bin/cat ${config.sops.secrets.mcloud_api_key.path}";
+in
 {
   imports = [ ./wireguard.nix ];
 
@@ -141,8 +147,8 @@
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
     mail-stragglers # who still mails ondy.me or the old gmail, see nix/pkgs/mail-stragglers
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
-    leak-guard # refuses commits and pushes naming a private model id
-    mcloud-pins # checks every pinned mcloud id answers, see nix/pkgs/mcloud-pins
+    (leak-guard.override { keyCommand = mcloudKeyCommand; }) # refuses commits and pushes naming a private model id
+    (mcloud-pins.override { keyCommand = mcloudKeyCommand; }) # checks every pinned mcloud id answers, see nix/pkgs/mcloud-pins
     mpv
   ];
 
@@ -248,7 +254,7 @@
     # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile
     # and seatsFile), secrets rather than store paths because the model ids
     # in them are private. mcloud_api_key is the console.modular.com token
-    # pi, mcloud-pins and leak-guard read through MCLOUD_API_KEY_COMMAND.
+    # pi, mcloud-pins and leak-guard read through mcloudKeyCommand.
     pi_models_json = {
       owner = "kyle";
       mode = "0400";

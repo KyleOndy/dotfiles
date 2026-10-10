@@ -215,6 +215,10 @@ let
   '';
 
   mcloud-pins = pkgs.mcloud-pins.override { inherit curl; };
+  baked = pkgs.mcloud-pins.override {
+    inherit curl;
+    keyCommand = "echo test-key";
+  };
 in
 pkgs.runCommand "mcloud-pins-check"
   {
@@ -575,16 +579,20 @@ pkgs.runCommand "mcloud-pins-check"
     dep "  fix: a model that cannot name one color in 1024 tokens starves an image seat: $SEE"
     endpoint
 
-    # The key.
+    # The key: MCLOUD_API_KEY, else MCLOUD_API_KEY_COMMAND, else the
+    # keyCommand the build baked in.
     MCLOUD_API_KEY= both 2
-    dep 'mcloud-pins: no mcloud key: MCLOUD_API_KEY and MCLOUD_API_KEY_COMMAND are both unset'
-    dep "  fix: set MCLOUD_API_KEY_COMMAND to a command that prints the key (home.sessionVariables in this host's home.nix), or open a new shell if a deploy set it after this one started"
+    dep 'mcloud-pins: no mcloud key: MCLOUD_API_KEY and MCLOUD_API_KEY_COMMAND are unset, and this mcloud-pins was built without a keyCommand'
+    dep "  fix: set keyCommand where this host installs mcloud-pins (nix/hosts/<host>/configuration.nix) and deploy; MCLOUD_API_KEY or MCLOUD_API_KEY_COMMAND covers a single run"
     MCLOUD_API_KEY= MCLOUD_API_KEY_COMMAND=false both 2
-    dep 'mcloud-pins: MCLOUD_API_KEY_COMMAND printed no key (exit 1)'
+    dep 'mcloud-pins: the key command printed no key (exit 1): false'
     MCLOUD_API_KEY= MCLOUD_API_KEY_COMMAND='echo test-key' both 0
+    MCLOUD_API_KEY= PATH=${baked}/bin:$PATH both 0
+    MCLOUD_API_KEY= MCLOUD_API_KEY_COMMAND=false PATH=${baked}/bin:$PATH both 2
+    dep 'mcloud-pins: the key command printed no key (exit 1): false'
     MCLOUD_API_KEY=wrong both 2
     dep 'mcloud-pins: GET /models answered HTTP 401, so the endpoint refuses the key'
-    dep '  fix: check the key MCLOUD_API_KEY_COMMAND prints (or MCLOUD_API_KEY, which wins when set)'
+    dep "  fix: check the key: MCLOUD_API_KEY when set, else what MCLOUD_API_KEY_COMMAND or this host's keyCommand for mcloud-pins prints"
 
     # The catalog link and what it holds.
     cp ${good} "$T/models.json"

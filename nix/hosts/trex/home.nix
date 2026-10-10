@@ -199,10 +199,6 @@ in
   hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;
   hmFoundry.desktop.input.karabiner.pushToTalk.pad.enable = true;
 
-  # mcloud-pins, advisor-eval and leak-guard run this when MCLOUD_API_KEY
-  # itself is unset.
-  home.sessionVariables.MCLOUD_API_KEY_COMMAND = mcloudKeyCommand;
-
   # Add Homebrew to PATH for all managed shells (including Claude Code).
   # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
   # executables) since `uv tool update-shell` can't write the home-manager

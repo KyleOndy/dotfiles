@@ -1,4 +1,5 @@
 {
+  lib,
   writeShellApplication,
   runCommand,
   python3,
@@ -6,6 +7,9 @@
   curl,
   gnugrep,
   jq,
+  # A command printing the mcloud key from this host's secret store.
+  # MCLOUD_API_KEY, or MCLOUD_API_KEY_COMMAND, overrides it for one run.
+  keyCommand ? "",
 }:
 
 let
@@ -38,6 +42,7 @@ writeShellApplication {
   ];
   text = ''
     GREEN_PNG=${greenPng}
+    [ -n "''${MCLOUD_API_KEY_COMMAND:-}" ] || MCLOUD_API_KEY_COMMAND=${lib.escapeShellArg keyCommand}
   ''
   + builtins.readFile ./mcloud-pins.sh;
 }

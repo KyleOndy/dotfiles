@@ -24,7 +24,7 @@ readonly AA_URL="https://artificialanalysis.ai/api/v2/data/llms/models"
 [ -n "${MCLOUD_API_KEY:-}" ] || MCLOUD_API_KEY="$(sh -c "${MCLOUD_API_KEY_COMMAND:-true}")"
 [ -n "${AA_API_KEY:-}" ] || AA_API_KEY="$(sh -c "${AA_API_KEY_COMMAND:-true}")"
 if [ -z "$MCLOUD_API_KEY" ] || [ -z "$AA_API_KEY" ]; then
-	echo "mcloud-rank: set MCLOUD_API_KEY and AA_API_KEY, or MCLOUD_API_KEY_COMMAND and AA_API_KEY_COMMAND to commands that print them" >&2
+	echo "mcloud-rank: no mcloud or Artificial Analysis key: set keyCommand and aaKeyCommand where this host installs mcloud-rank and deploy; MCLOUD_API_KEY and AA_API_KEY, or their _COMMAND forms, cover a single run" >&2
 	exit 2
 fi
 

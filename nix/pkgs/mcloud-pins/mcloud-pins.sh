@@ -19,8 +19,9 @@
 #                          costs about a million prompt tokens per model at
 #                          today's windows, so nothing runs it unasked
 #
-# The key is MCLOUD_API_KEY, or else whatever MCLOUD_API_KEY_COMMAND prints,
-# which each host sets to its own secret store. Every failure says what is
+# The key is MCLOUD_API_KEY, or else what MCLOUD_API_KEY_COMMAND prints,
+# which defaults to the keyCommand this host built mcloud-pins with, reading
+# its own secret store. Every failure says what is
 # wrong, where it is configured and what to change, naming the sops file
 # `pi-seats source` prints for this host. A warning is a check whose answer
 # could not be read either way; it does not fail the run.
@@ -177,13 +178,13 @@ readonly BASE_URL
 
 if [ -z "${MCLOUD_API_KEY:-}" ]; then
 	[ -n "${MCLOUD_API_KEY_COMMAND:-}" ] ||
-		die "no mcloud key: MCLOUD_API_KEY and MCLOUD_API_KEY_COMMAND are both unset" \
-			"set MCLOUD_API_KEY_COMMAND to a command that prints the key (home.sessionVariables in this host's home.nix), or open a new shell if a deploy set it after this one started"
+		die "no mcloud key: MCLOUD_API_KEY and MCLOUD_API_KEY_COMMAND are unset, and this mcloud-pins was built without a keyCommand" \
+			"set keyCommand where this host installs mcloud-pins (nix/hosts/<host>/configuration.nix) and deploy; MCLOUD_API_KEY or MCLOUD_API_KEY_COMMAND covers a single run"
 	rc=0
 	MCLOUD_API_KEY="$(sh -c "$MCLOUD_API_KEY_COMMAND")" || rc=$?
 	[ -n "$MCLOUD_API_KEY" ] ||
-		die "MCLOUD_API_KEY_COMMAND printed no key (exit $rc)" \
-			"run sh -c \"\$MCLOUD_API_KEY_COMMAND\" by hand and fix what it reports, or point MCLOUD_API_KEY_COMMAND (home.sessionVariables in this host's home.nix) at the key's real location"
+		die "the key command printed no key (exit $rc): $MCLOUD_API_KEY_COMMAND" \
+			"run that command by hand and fix what it reports, or point keyCommand, where this host installs mcloud-pins, at the key's real location"
 fi
 
 # api <seconds> <path> [-]: the response body, then the HTTP status on a line
@@ -209,7 +210,7 @@ case "$code" in
 	;;
 401 | 403)
 	die "GET /models answered HTTP $code, so the endpoint refuses the key" \
-		"check the key MCLOUD_API_KEY_COMMAND prints (or MCLOUD_API_KEY, which wins when set)"
+		"check the key: MCLOUD_API_KEY when set, else what MCLOUD_API_KEY_COMMAND or this host's keyCommand for mcloud-pins prints"
 	;;
 404)
 	die "GET /models answered HTTP 404, so the baseUrl is not an OpenAI-compatible API root" \

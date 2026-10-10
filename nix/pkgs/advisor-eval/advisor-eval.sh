@@ -20,9 +20,9 @@
 # its agent dir is a fresh one holding a copy of models.json and nothing
 # else (no settings.json, no auth.json), and advisor.ts is the deployed copy
 # in the store rather than the worktree file sessions load. The mcloud key is
-# MCLOUD_API_KEY, or else whatever MCLOUD_API_KEY_COMMAND prints, which each
-# host sets to its own secret store; models.json reads it as $MCLOUD_API_KEY.
-# Other providers take their keys from this env only.
+# MCLOUD_API_KEY, or else what MCLOUD_API_KEY_COMMAND prints, which defaults
+# to the keyCommand this host built advisor-eval with; models.json reads it as
+# $MCLOUD_API_KEY. Other providers take their keys from this env only.
 #
 # The 2000-token budget in advisor.ts was measured with `max_tokens`. pi sends
 # `max_completion_tokens` unless the model's compat sets maxTokensField, so

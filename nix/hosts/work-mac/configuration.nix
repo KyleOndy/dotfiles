@@ -6,6 +6,12 @@
   pkgs,
   ...
 }:
+let
+  # Baked into the tools that call mcloud, rather than set as session
+  # variables, which a shell older than the deploy (or any pane of an older
+  # tmux server) never sees.
+  mcloudKeyCommand = "/usr/bin/security find-generic-password -s work-secrets -a mcloud-inference -w";
+in
 {
   imports = [ ];
 
@@ -20,16 +26,19 @@
   environment.systemPackages = [
     pkgs.nightlight
     # Checks pinned mcloud model ids against the live endpoint. Wanted here in
-    # particular: this host's models.json comes from work-config, so nothing in
-    # this repo can spot a stale id in it.
-    pkgs.mcloud-pins
+    # particular: this host's models.json is a sops secret, so nothing in this
+    # repo can spot a stale id in it.
+    (pkgs.mcloud-pins.override { keyCommand = mcloudKeyCommand; })
     # Ranks the served models by AA score per reasoning effort.
-    pkgs.mcloud-rank
+    (pkgs.mcloud-rank.override {
+      keyCommand = mcloudKeyCommand;
+      aaKeyCommand = "/usr/bin/security find-generic-password -s work-secrets -a artificial-analysis -w";
+    })
     # Grades candidate reviewer models before PI_ADVISOR_MODEL changes.
-    pkgs.advisor-eval
+    (pkgs.advisor-eval.override { keyCommand = mcloudKeyCommand; })
     # Refuses commits and pushes naming a private model id; `leak-guard
     # install` hooks it into a clone.
-    pkgs.leak-guard
+    (pkgs.leak-guard.override { keyCommand = mcloudKeyCommand; })
   ];
 
   # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile and
