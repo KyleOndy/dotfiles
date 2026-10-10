@@ -12,6 +12,8 @@
 #     sections, and a second extension's section survives in the same run:
 #     sections compose (a return-based delivery drops every other section
 #     from the prompt, and this pins that the sections path does not);
+#   - coordinator.ts names the coordinator and session ids in a section, so
+#     the restart it asks for can name both;
 #   - secret-guard lets jq-style accessor tokens (.key) and regex-escaped
 #     variants (\.key) through in bash commands, while `cat .env` stays
 #     blocked;
@@ -255,6 +257,18 @@ pkgs.runCommand "pi-e2e-check"
         echo "$c" | grep -q -- '- ssh-agent (test ssh-agent grant heading)' \
           || fail "carried run missing ssh-agent in the missing list"
         echo "$c" | grep -q -- '- kagi ' && fail "missing list includes a carried grant"
+        stop_server
+
+        # ---- coordinator.ts: the restart section names both ids ----
+        start_server ""
+        mkdir -p coord/test-1
+        PI_COORD_ROLE=coordinator PI_COORD_DIR="$PWD/coord/test-1" \
+          run_pi coord -e ${extDir}/coordinator.ts
+        c=$(sysp coord)
+        echo "$c" | grep -q '<coordinator_restart>' || fail "coordinator run missing coordinator_restart section"
+        echo "$c" | grep -q -- '--coordinator=test-1' || fail "coordinator section missing its id: $c"
+        echo "$c" | grep -qE -- '--session [0-9A-Za-z_-]{8,}' \
+          || fail "coordinator section missing the session id: $c"
         stop_server
 
         # ---- secret-guard: accessor tokens pass, .env still blocks ----

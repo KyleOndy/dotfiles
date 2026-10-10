@@ -24,7 +24,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { Type } from "typebox";
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth } from "@earendil-works/pi-tui";
@@ -171,6 +171,25 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   });
   pi.on("session_shutdown", () => clearInterval(poll));
 
+  // The wrapper generates the id at launch and the model sees neither it nor
+  // the session id, so without this it can ask for a restart but not say how
+  // to resume. --session rather than -c, which resumes the newest session in
+  // the directory, and that need not be this one.
+  const coordId = basename(dir);
+  pi.on("before_agent_start", (event, ctx) => {
+    const session = ctx.sessionManager.getSessionId();
+    event.systemPromptOptions.sections.coordinator_restart =
+      "# Restarting this coordinator\n\n" +
+      `Coordinator id ${coordId}, session id ${session}. A grant this session ` +
+      "does not carry needs a restart, which keeps the agents running and " +
+      "resumes this conversation. Ask the human to exit and relaunch with " +
+      "every flag this session started with plus the new `--allow-<name>`, " +
+      `\`--coordinator=${coordId}\` in place of \`--coordinator\`, and ` +
+      `\`--session ${session}\` last. The relaunch replaces this session's ` +
+      "grants rather than adding to them, so a command carrying only the new " +
+      "flag drops the rest.";
+  });
+
   // Written under a dot name the broker's *.json glob skips, then renamed,
   // so it never reads half a request.
   const request = async (
@@ -179,7 +198,7 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   ): Promise<{ ok: boolean; message: string }> => {
     if (!existsSync(join(dir, "broker.pid"))) {
       throw new Error(
-        `No broker is running for ${dir}. Restart with 'pi --coordinator=<id>' to reattach.`,
+        `No broker is running for ${dir}. Restart with 'pi --coordinator=${coordId}' to reattach.`,
       );
     }
     const id = randomUUID();
