@@ -201,7 +201,7 @@
     {
       "type": "stat",
       "title": "Calendar Sync",
-      "description": "1 means the last webcal fetch succeeded. A dead iCloud share URL returns 404 and pins this at 0 while the kiosk keeps serving cached events.",
+      "description": "1 means the calendar's last sync succeeded; a failure pins it at 0 while the kiosk keeps serving cached events. iCloud login is the cogs@ondy.org app-specific password, and 0 there means iCloud answers 401, so every iCloud calendar fails too.",
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
@@ -209,6 +209,12 @@
           "refId": "A",
           "expr": "cogsworth_calendar_sync_ok",
           "legendFormat": "{{calendar_id}}",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "cogsworth_caldav_auth_ok",
+          "legendFormat": "iCloud login",
           "instant": true
         }
       ],

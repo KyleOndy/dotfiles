@@ -1534,17 +1534,30 @@ in
 
             # sync_state.last_sync_at is stamped on every outcome including
             # the error branch, so staleness of that timestamp proves
-            # nothing and the status is the only usable signal. Calendars
-            # whose URL was blanked are filtered out by the app, not here.
+            # nothing and the status is the only usable signal. max_over_time
+            # is 0 only when every scrape in the window saw the error, so one
+            # failed pass between good ones stays quiet. Calendars whose URL
+            # was blanked are filtered out by the app, not here.
             - alert: CogsworthCalendarSyncFailing
-              expr: min_over_time(cogsworth_calendar_sync_ok[6h]) == 0
-              for: 15m
+              expr: max_over_time(cogsworth_calendar_sync_ok[30m]) == 0
               labels:
                 severity: warning
                 service: cogsworth
               annotations:
-                summary: "Calendar {{ $labels.calendar_id }} has not synced for 6 hours"
-                description: "Every webcal fetch for {{ $labels.calendar_id }} in the last 6 hours returned an error, so the kiosk is serving cached events that go on quietly aging while the display looks normal. A dead iCloud share URL is the usual cause and returns 404. Run `curl -s localhost:8080/api/admin/sync-states` on cogsworth for the error text, then re-share the calendar and paste the new URL into the admin UI."
+                summary: "Calendar {{ $labels.calendar_id }} has not synced for 30 minutes"
+                description: "Every sync of {{ $labels.calendar_id }} in the last 30 minutes failed, so the kiosk is serving cached events that go on quietly aging while the display looks normal. Run `curl -s localhost:8080/api/admin/sync-states` on cogsworth for the error text. For an iCloud calendar (url under caldav.icloud.com), a 403 or 404 means its owner stopped sharing it with cogs@ondy.org, and a 401 on every calendar at once is CogsworthCalDAVAuthFailed. For a public feed, a 404 means the feed URL is dead."
+
+            # A revoked app-specific password fails every iCloud calendar at
+            # once; this names the cause instead of five CalendarSyncFailing.
+            - alert: CogsworthCalDAVAuthFailed
+              expr: cogsworth_caldav_auth_ok == 0
+              for: 5m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "iCloud rejects Cogsworth's CalDAV password"
+                description: "iCloud answers 401 to the cogs@ondy.org app-specific password, so the family calendars stop syncing and every write to them fails. Apple revokes all app-specific passwords when the account's main password changes. Create a new one at account.apple.com > Sign-In and Security > App-Specific Passwords, store it in pass at apple.com/cogs@ondy.org/app-passwords/cogsworth-pi, then run `pass show apple.com/cogs@ondy.org/app-passwords/cogsworth-pi | head -n1 | jq -R . | sops set --value-stdin nix/secrets/cogsworth.yaml '[\"cogsworth_caldav_password\"]'` in dotfiles and deploy cogsworth."
 
             # Every periodic task records success at one choke point in
             # cogsworth.scheduler/safe-run, which already swallows throws to
@@ -1554,7 +1567,7 @@ in
             # failure surfaces as disk growth, which DiskWillFillSoon covers.
             - alert: CogsworthJobStalled
               expr: |
-                time() - cogsworth_job_last_success_timestamp_seconds{task=~"birds-poll|display-loop|light-loop|mail-poll|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
+                time() - cogsworth_job_last_success_timestamp_seconds{task=~"birds-poll|caldav-sync|display-loop|light-loop|mail-poll|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
                 or
                 time() - cogsworth_job_last_success_timestamp_seconds{task=~"immich-sync|gphotos-sync"} > 86400
               for: 15m
