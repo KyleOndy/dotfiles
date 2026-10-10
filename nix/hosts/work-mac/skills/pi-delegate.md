@@ -5,8 +5,8 @@ description: Hand a well-defined, self-contained job to a cheaper mcloud model t
 
 # Delegating to pi
 
-`pi-delegate` runs a pi session in RPC mode on the model in
-`PI_DELEGATE_MODEL`, which work-config sets.
+`pi-delegate` runs a pi session in RPC mode on the `PI_DELEGATE_MODEL`
+seat, or the session seat when this host's seats leave it unset.
 Every command that waits prints one line per tool call, then the turn's
 outcome. The run's own reading never reaches this context, only what it
 reports.

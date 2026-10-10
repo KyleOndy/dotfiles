@@ -11,11 +11,14 @@ items that leak internal company details.
   belongs in this repo; settings only work-mac wants go in `nix/hosts/work-mac/`.
   work-mac is the only host that installs `forge` (`nix/pkgs/forge/README.md`).
 - **Work repo (private)**: only sensitive items: git work email, internal
-  CLAUDE.md (cluster names, AWS profiles) and pi `AGENTS.md`, pi's
-  `models.json` with its Keychain key resolvers and advisor env, and the
-  linear, helm, gh and forge-phase commands (internal workflow details).
-  Every mcloud model id goes there too, pins and comment examples alike:
-  the org can have access to a model before its public release.
+  CLAUDE.md (cluster names, AWS profiles) and pi `AGENTS.md`, pi's Keychain
+  key resolvers, the internal gateway and loopback provider names it adds to
+  `trustedProviders`, and the linear, helm, gh and forge-phase commands
+  (internal workflow details).
+- **`nix/secrets/work-mac.yaml` (sops)**: pi's `models.json` and seats.
+  Model ids go there or in the work repo, never in plaintext here, pins and
+  comment examples alike: the org can have access to a model before its
+  public release.
 - **`nix/work-config-stub/flake.nix`**: no-op default; documents the required
   flake interface (`darwinModule`, `homeManagerModule`).
 

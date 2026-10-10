@@ -4,6 +4,8 @@ paths:
   - "nix/modules/hm_modules/dev/pi-coding-agent/**"
   - "nix/pkgs/pi-wrapper/**"
   - "nix/pkgs/pi-broker/**"
+  - "nix/pkgs/pi-seats/**"
+  - "nix/pkgs/leak-guard/**"
   - ".pi/**"
 ---
 
@@ -22,28 +24,48 @@ ones into system-prompt sections from `grants/<name>.md` and lists the rest,
 so a session the sandbox blocks knows which flag to ask the human to restart
 with.
 
-Every provider the agent reaches is an internal or account-billed endpoint.
-work-mac takes its ids, base URLs, costs and reasoning maps from the private
-work-config input, which lands as `~/.pi/agent/models.json`. trex uses pi's
-built-in `zai` provider (GLM Coding Plan subscription), so it registers no
-modelsJson of its own and gets the real catalog: costs, context windows and
-reasoning maps come from pi.
+Every provider the agent reaches is an internal or account-billed endpoint,
+and mcloud is the primary on both macs. Model ids are private, since the org
+can reach a model before it is announced, so none appears here in plaintext:
+not in files, commit messages, branch names or fixtures. Each mac's whole
+`models.json` and its seats are sops secrets, `pi_models_json` and `pi_seats`
+in `nix/secrets/<host>.yaml`, which sops-nix decrypts to `/run/secrets` at
+activation. `modelsJsonFile` links `~/.pi/agent/models.json` there, and the
+wrapper grants the sandbox each link on the way plus the file, never the
+directory. leak-guard (`nix/pkgs/leak-guard`) refuses a commit message or a
+push that names an id or a provider endpoint's host; `leak-guard install`
+puts its hooks in a clone.
 
-No key is stored in nix on either mac. work-config resolves one from the
-Keychain through the wrapper's `envFromCommands`; on trex, `/login zai`
-writes it to `~/.pi/agent/auth.json`, which no module owns and the sandbox
-can read because the wrapper re-allows `~/.pi`.
+A seat is one model choice, an env var holding `provider/id[:level]`:
+`PI_SESSION_MODEL`, `PI_ADVISOR_MODEL`, `PI_AGENT_MODEL_<NAME>` per task
+agent, `PI_SPAWN_MODEL` for coordinator children, `PI_DELEGATE_MODEL` and
+`PI_CLASSIFY_MODEL`. The wrapper loads each from the seats file unless the
+caller's env sets it, so `PI_AGENT_MODEL_CRITIC=<value> pi` changes one seat
+for one run. `pi-seats get VAR` prints what a seat resolves to. The level
+suffix is pi's own, and `--thinking` beats it, so no host passes
+`--thinking` in `defaultArgs`.
+
+`trustedProviders` lists the providers allowed to see an id: mcloud, plus
+the internal gateways and loopback providers work-config adds. pi refuses to
+start a session on any other, and task.ts and the advisor refuse an
+untrusted seat through the `PI_TRUSTED_PROVIDERS` the wrapper exports.
+The sandbox reaches each trusted provider's endpoint, the host of its
+`baseUrl`, which the wrapper reads from models.json at start, and only
+through home-manager's link, since a session can write `~/.pi`. Endpoints
+are private too, so this repo lists none in `allowedDomains`.
+
+No key is stored in nix on either mac. trex reads mcloud's from
+`/run/secrets/mcloud_api_key`, and work-config resolves work-mac's from the
+Keychain, both through the wrapper's `envFromCommands`. models.json reads it
+as `$MCLOUD_API_KEY`.
 
 Two seats must not run the session's own model, because self-preference bias
-survives a fresh context: `extensions/advisor.ts` reads `PI_ADVISOR_MODEL`
-and `PI_ADVISOR_BASE_URL` from the wrapper's `sandbox.envVars`, is off
-unless pi starts with `--advisor`, and stays silent when either var or
-`MCLOUD_API_KEY` is missing, which on trex is always. `agents/critic.md`
-carries a `model:` pin in its frontmatter, because `extensions/task.ts` takes
-a named agent's model only from that field and otherwise reuses the
-session's. `PI_AGENT_MODEL_<NAME>` in `sandbox.envVars` overrides that pin
-per host; work-config sets `PI_AGENT_MODEL_CRITIC` to an mcloud model so
-the critic stays off the personal Z.ai plan.
+survives a fresh context: the advisor (`extensions/advisor.ts`, off unless pi
+starts with `--advisor`, and then refusing to start without
+`PI_ADVISOR_MODEL`) and the critic. `pi-seats check` holds both to that, which
+is only a floor: "a different family" is a judgment, written in the seat's
+comment. critic.md and vision.md say `seat: required` in their frontmatter,
+so an unset seat refuses rather than falling back to the session model.
 
 `pi --coordinator` (work-mac and trex, `coordinator.enable`) gives the
 session `spawn_agent` and friends (`extensions/coordinator.ts`). Each agent
@@ -71,15 +93,15 @@ work-mac answers trusted (`@admin` in `nix/modules/darwin_modules/base.nix`),
 so there it is equivalent to `--no-sandbox`.
 Running the verifier yourself is still the cheaper option.
 
-A dead model id fails silently at runtime, so check the pins against their
-endpoints rather than waiting for a seat to go quiet. `mcloud-pins` covers
-work-config's ids (mcloud, work-mac only); the `critic.md` pin is
-`zai/glm-5.3-flash`, checked by listing the zai catalog. The Coding Plan
-serves only glm-5.3 and glm-5.3-flash directly, older ids are silently
-rerouted to glm-5.3, so a pin that looks different can still be the session
-model in disguise:
+A dead model id fails silently at runtime, so the seats are checked before a
+run: `pi-seats check` at every start, and after every `make deploy-trex` or
+`make deploy-mac`, which then runs `mcloud-pins` against the live endpoint.
+Both name the seat var, never the value. A catalog or seat change is
+`sops edit nix/secrets/<host>.yaml` and a deploy; trying a model needs
+neither, since a caller's env override may name an uncatalogued id and only
+warns:
 
 ```bash
-mcloud-pins                  # work-mac only
-pi --list-models | grep zai  # trex
+pi-seats check --start
+mcloud-pins
 ```
