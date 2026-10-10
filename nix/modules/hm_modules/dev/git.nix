@@ -106,6 +106,15 @@ in
           # non-interactively apply the current staged files to a ref
           amend-to = "! f() { git commit --fixup \"$1\" && GIT_SEQUENCE_EDITOR=true git rebase --interactive --autosquash \"$1^\";}; f";
         };
+        # `medium` plus the committer and the signature, so a plain `git show`
+        # says whether `git adopt` vouched for an agent's commit. The committer
+        # alone cannot: any rebase or cherry-pick takes it over. Signed is
+        # %G?, N for none and G for good.
+        pretty.adopted = "format:%C(yellow)commit %H%C(auto)%d%Creset%nAuthor:    %an <%ae>%nCommitter: %cn <%ce>%nSigned:    %G? %GS%nDate:      %ad%n%n%w(0,4,4)%B";
+        # Also the default for `git log`. Not log.showSignature, which prints
+        # gpg's output even into `git log --format=` and so into git-adopt's
+        # own listing.
+        format.pretty = "adopted";
         user = {
           email = cfg.userEmail;
           name = "Kyle Ondy";
