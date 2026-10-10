@@ -1577,6 +1577,20 @@ in
                 summary: "Cogsworth mail {{ $labels.event }} in the last hour"
                 description: "agent-failed has already mailed the sender an apology and is never retried. reply-failed means the sender got nothing back. An ingest-failed message stays unclaimed and fails again on every poll until it ages out of the 2-day lookback, so this keeps firing until it is fixed. Run `journalctl -u cogsworth -g '{{ $labels.event }}'` on cogsworth for the exception."
 
+            # display-loop retries every 250 ms and still records success, so
+            # CogsworthJobStalled misses a stuck panel. sway 1.12 on vc4 fails
+            # one power-on per wake, so the worst 5m rate in 14 days was
+            # 0.0033/s; a stuck panel runs about 4/s.
+            - alert: CogsworthDisplayPowerStuck
+              expr: rate(cogsworth_dpms_apply_failures_total{host="cogsworth"}[5m]) > 0.1
+              for: 5m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth's display is not responding to power commands"
+                description: "cogsworth has failed to switch the panel on or off {{ $value | humanize }} times a second for 5 minutes, so the screen is stuck lit when it should sleep or dark when it should wake. `journalctl -u cogsworth -g dpms` on cogsworth says which: dpms-failed carries swaymsg's error, dpms-not-applied means sway accepted the command but the output did not change, and dpms-no-socket means sway is not running."
+
             # The timer runs every 5 minutes, so 900s is three missed runs.
             # The file survives a reboot, and the first run is 5 minutes after
             # boot, which `for:` rides out.

@@ -461,7 +461,7 @@
     {
       "type": "timeseries",
       "title": "Display Power Failures",
-      "description": "Failed attempts to drive DPMS. A rising count means the panel is not responding to sleep or wake.",
+      "description": "Failed attempts to switch the panel on or off. About one per wake is normal: sway 1.12 on vc4 fails the first power-on after every power-off, and the retry 250 ms later succeeds. A stuck panel fails about four times a second and fires CogsworthDisplayPowerStuck.",
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 21 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
