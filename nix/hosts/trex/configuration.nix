@@ -139,6 +139,7 @@
     winnow
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
     search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
+    mail-stragglers # who still mails ondy.me or the old gmail, see nix/pkgs/mail-stragglers
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
     mpv
   ];

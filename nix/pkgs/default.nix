@@ -30,6 +30,7 @@ self: super: {
   mcloud-pins = super.callPackage ./mcloud-pins { };
   advisor-eval = super.callPackage ./advisor-eval { };
   search-mail = super.callPackage ./search-mail { };
+  mail-stragglers = super.callPackage ./mail-stragglers { };
   mlx = super.callPackage ./mlx { };
   mysides = super.callPackage ./mysides { };
   tmux-status = super.callPackage ./tmux-status { };
