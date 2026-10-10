@@ -67,7 +67,7 @@ slug() {
 # advise <name> <header> <task>
 advise() {
 	local name="$1" header="$2" task="$3"
-	local file work status=0
+	local file work status=0 usage
 	file="$(date -u +%Y%m%dT%H%M%SZ)-${name}.md"
 	# Built outside the reports directory, so the only change the mailer's
 	# path unit sees there is the finished report arriving.
@@ -83,9 +83,10 @@ advise() {
 		fi
 	} >"${work}.tmp"
 
+	usage=$(grep -m 1 '^pi-advisor usage: ' "${work}.err" || true)
 	rm -f "${work}.err"
 	mv "${work}.tmp" "${REPORTS}/${file}"
-	echo "wrote ${REPORTS}/${file} (pi exit ${status})"
+	echo "wrote ${REPORTS}/${file} (pi exit ${status}) ${usage#pi-advisor }"
 }
 
 triage_alerts() {

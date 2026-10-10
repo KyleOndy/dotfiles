@@ -134,5 +134,9 @@ sudo systemctl start pi-advisor-alerts   # triage anything new right now
 journalctl -u pi-advisor-alerts -u pi-advisor-sweep -u pi-advisor-mail
 ```
 
+Each `wrote` line in the journal carries that run's token counts, summed
+over its model requests, plus how many queries, searches and page reads it
+made.
+
 An alert triage takes 4 to 5 minutes. Kagi costs at most $0.08 a run. The
 model runs on the z.ai plan.

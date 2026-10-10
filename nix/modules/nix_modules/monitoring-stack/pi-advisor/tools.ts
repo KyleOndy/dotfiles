@@ -374,6 +374,30 @@ export default function (pi: ExtensionAPI) {
   kagiKey = process.env.KAGI_API_KEY ?? "";
   delete process.env.KAGI_API_KEY;
 
+  // One stderr line per run, which pi-advisor.sh logs: the provider's token
+  // counts, summed over every model request in the run.
+  const usage = {
+    requests: 0,
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+  };
+  pi.on("message_end", (event) => {
+    if (event.message.role !== "assistant") return;
+    const u = event.message.usage;
+    usage.requests += 1;
+    usage.input += u.input;
+    usage.output += u.output;
+    usage.cacheRead += u.cacheRead;
+    usage.cacheWrite += u.cacheWrite;
+  });
+  pi.on("session_shutdown", () => {
+    console.error(
+      `pi-advisor usage: requests=${usage.requests} input=${usage.input} output=${usage.output} cache_read=${usage.cacheRead} cache_write=${usage.cacheWrite} queries=${queriesMade} searches=${searchesMade} reads=${readsMade}`,
+    );
+  });
+
   pi.registerTool({
     name: "promql",
     label: "PromQL",
