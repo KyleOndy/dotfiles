@@ -80,6 +80,6 @@ rerouted to glm-5.3, so a pin that looks different can still be the session
 model in disguise:
 
 ```bash
-MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins  # work-mac only
-pi --list-models | grep zai                                                            # trex
+mcloud-pins                  # work-mac only
+pi --list-models | grep zai  # trex
 ```

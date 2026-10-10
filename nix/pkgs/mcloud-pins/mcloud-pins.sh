@@ -5,7 +5,10 @@
 # Checks that every mcloud model this machine registers or this repo names is
 # actually served, and answers.
 #
-#   MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins
+#   mcloud-pins
+#
+# The key is MCLOUD_API_KEY, or else whatever MCLOUD_API_KEY_COMMAND prints,
+# which each host sets to its own secret store.
 #
 # Two failures this catches, both of which shipped, and both of which fail
 # silently at runtime rather than loudly:
@@ -58,12 +61,9 @@ if [ -z "$BASE_URL" ]; then
 	exit 2
 fi
 
-if [ -z "${MCLOUD_API_KEY:-}" ]; then
-	cat >&2 <<-EOF
-		mcloud-pins: MCLOUD_API_KEY is unset.
-
-		  work-mac: MCLOUD_API_KEY=\$(security find-generic-password -s work-secrets -a mcloud-inference -w) mcloud-pins
-	EOF
+[ -n "${MCLOUD_API_KEY:-}" ] || MCLOUD_API_KEY="$(sh -c "${MCLOUD_API_KEY_COMMAND:-true}")"
+if [ -z "$MCLOUD_API_KEY" ]; then
+	echo "mcloud-pins: set MCLOUD_API_KEY, or MCLOUD_API_KEY_COMMAND to a command that prints it" >&2
 	exit 2
 fi
 

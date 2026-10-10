@@ -6,8 +6,10 @@
 # Grades candidate reviewer models for extensions/advisor.ts against labeled
 # turns, so picking PI_ADVISOR_MODEL is a measurement rather than a guess.
 #
-#   MCLOUD_API_KEY=$(security find-generic-password -s work-secrets -a mcloud-inference -w) \
-#     advisor-eval minimax/minimax-m3 qwen/qwen3.8-27b
+#   advisor-eval MODEL...
+#
+# The key is MCLOUD_API_KEY, or else whatever MCLOUD_API_KEY_COMMAND prints,
+# which each host sets to its own secret store.
 #
 # The system prompt, token budget and timeout are read out of advisor.ts
 # itself, so a model is graded on exactly the request the advisor sends.
@@ -35,12 +37,9 @@ if [ "$#" -eq 0 ]; then
 	exit 2
 fi
 
-if [ -z "${MCLOUD_API_KEY:-}" ]; then
-	cat >&2 <<-EOF
-		advisor-eval: MCLOUD_API_KEY is unset.
-
-		  work-mac: MCLOUD_API_KEY=\$(security find-generic-password -s work-secrets -a mcloud-inference -w) advisor-eval MODEL...
-	EOF
+[ -n "${MCLOUD_API_KEY:-}" ] || MCLOUD_API_KEY="$(sh -c "${MCLOUD_API_KEY_COMMAND:-true}")"
+if [ -z "$MCLOUD_API_KEY" ]; then
+	echo "advisor-eval: set MCLOUD_API_KEY, or MCLOUD_API_KEY_COMMAND to a command that prints it" >&2
 	exit 2
 fi
 
