@@ -365,6 +365,13 @@ handle_spawn() {
 		ticket="${BASH_REMATCH[1]}"
 	fi
 	branch="${ticket:+${ticket}-}${agent}"
+	# A branch left by an earlier agent of this name makes wt-feature-branch
+	# reuse its commits (git-wt-feature-branch's reuse path) instead of cutting
+	# a fresh branch from base. Refuse rather than inherit stale work.
+	if git -C "${REPO_DIR}" show-ref --verify --quiet "refs/heads/${branch}"; then
+		respond "${id}" false "branch ${branch} already exists; delete it or pick another agent name"
+		return
+	fi
 
 	# The state file is written under the lock, since it is what the next
 	# spawn's live_agents counts.
@@ -439,53 +446,93 @@ boot_requested() {
 
 # ─── Teardown ─────────────────────────────────────────────────────────────────
 
-# Never forces the worktree: `git worktree remove` refuses one with changes,
-# and the branch is always kept, since either may hold the only copy of the
-# agent's work.
+# Never forces the worktree: `git worktree remove` refuses one with changes.
+# The branch is kept unless delete_branch is set, and even then `git branch -d`
+# refuses one not merged into the coordinator, since either may hold the only
+# copy of the agent's work. Deleting the branch needs its worktree gone first,
+# so delete_branch implies remove_worktree (handle_teardown sets it).
+#
+# prior is the state before this teardown. A second teardown of an already
+# torn-down agent only cleans up a kept worktree or branch: the window and VM
+# are already gone, and the freed instance number may since have been handed
+# to another agent, so running forge against it again would nuke theirs.
 run_teardown() {
-	local agent="$1" remove_worktree="$2" instance window worktree error="" blog flog
+	local agent="$1" remove_worktree="$2" delete_branch="$3" prior="$4"
+	local instance window worktree branch error="" blog flog
 	blog="$(log_file "${agent}" broker)"
 	flog="$(log_file "${agent}" forge)"
-	instance="$(get_status "${agent}" instance)"
-	window="$(get_status "${agent}" window)"
 	worktree="$(get_status "${agent}" worktree)"
+	branch="$(get_status "${agent}" branch)"
 
-	if window_alive "${window}"; then
-		tmux kill-window -t "${window}" 2>>"${blog}" || true
+	if [[ ${prior} != torn-down ]]; then
+		instance="$(get_status "${agent}" instance)"
+		window="$(get_status "${agent}" window)"
+		if window_alive "${window}"; then
+			tmux kill-window -t "${window}" 2>>"${blog}" || true
+		fi
+		if [[ -n ${instance} ]]; then
+			FORGE_INSTANCE="${instance}" forge nuke >>"${flog}" 2>&1 ||
+				error="forge nuke failed, see ${flog}. "
+			release_slot "${instance}" "${agent}"
+		fi
 	fi
-	if [[ -n ${instance} ]]; then
-		FORGE_INSTANCE="${instance}" forge nuke >>"${flog}" 2>&1 ||
-			error="forge nuke failed, see ${flog}. "
-		release_slot "${instance}" "${agent}"
-	fi
+	# Cleared on success so a repeat teardown does not retry a removed worktree,
+	# which would fail and then wrongly hold back the branch.
 	if [[ ${remove_worktree} == true && -n ${worktree} ]]; then
-		git -C "${REPO_DIR}" worktree remove "${worktree}" 2>>"${blog}" ||
-			error+="worktree kept: git refused to remove ${worktree}, see ${blog}."
+		if git -C "${REPO_DIR}" worktree remove "${worktree}" 2>>"${blog}"; then
+			worktree=""
+		else
+			error+="worktree kept: git refused to remove ${worktree}, see ${blog}. "
+		fi
 	fi
-	set_status "${agent}" state torn-down error "${error}"
+	# git refuses to delete a checked-out branch, so only once its worktree is
+	# gone, and refuses one not merged into REPO_DIR's HEAD, the coordinator.
+	if [[ ${delete_branch} == true && -n ${branch} ]]; then
+		if [[ -n ${worktree} ]]; then
+			error+="branch ${branch} kept: its worktree is still here. "
+		elif git -C "${REPO_DIR}" branch -d "${branch}" >>"${blog}" 2>&1; then
+			branch=""
+		else
+			error+="branch ${branch} kept: not merged into the coordinator, see ${blog}. "
+		fi
+	fi
+	set_status "${agent}" state torn-down error "${error}" worktree "${worktree}" branch "${branch}"
 }
 
 handle_teardown() {
-	local id="$1" file="$2" agent remove_worktree
+	local id="$1" file="$2" agent remove_worktree delete_branch prior
 	agent="$(jq -r '.agent // ""' "${file}")"
+	delete_branch="$(jq -r '.delete_branch == true' "${file}")"
 	remove_worktree="$(jq -r '.remove_worktree == true' "${file}")"
+	# git refuses to delete a branch a worktree has checked out, so the branch
+	# can only go once its worktree does.
+	[[ ${delete_branch} == true ]] && remove_worktree=true
 	if [[ ! ${agent} =~ ${AGENT_RE} || ! -f "$(state_file "${agent}")" ]]; then
 		respond "${id}" false "no agent named '${agent}'"
 		return
 	fi
-	case "$(get_status "${agent}" state)" in
+	prior="$(get_status "${agent}" state)"
+	case "${prior}" in
 	creating | starting-forge)
 		respond "${id}" false "agent ${agent} is still starting; tear it down once it is running or failed"
 		return
 		;;
-	torn-down)
-		respond "${id}" false "agent ${agent} is already torn down"
+	tearing-down)
+		respond "${id}" false "agent ${agent} is already being torn down"
 		return
+		;;
+	torn-down)
+		# Window and VM are already gone; a repeat teardown is only for cleaning
+		# up a kept worktree or branch, so needs one of those asked for.
+		if [[ ${remove_worktree} != true ]]; then
+			respond "${id}" false "agent ${agent} is already torn down; pass remove_worktree or delete_branch to clean up its worktree or branch"
+			return
+		fi
 		;;
 	esac
 	set_status "${agent}" state tearing-down
 	respond "${id}" true "tearing down ${agent}"
-	run_teardown "${agent}" "${remove_worktree}" &
+	run_teardown "${agent}" "${remove_worktree}" "${delete_branch}" "${prior}" &
 }
 
 # ─── Loop ─────────────────────────────────────────────────────────────────────

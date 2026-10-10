@@ -52,7 +52,7 @@ pkgs.runCommand "pi-broker-check"
     case "\$1" in
     has-session) [ -f "$T/session" ] ;;
     new-session) touch "$T/session" ;;
-    new-window) n=\$(( \$(cat "$T/windows" 2>/dev/null | wc -l) + 1 )); echo "@\$n" >>"$T/windows"; echo "@\$n" ;;
+    new-window) n=\$(( \$(cat "$T/winseq" 2>/dev/null || echo 0) + 1 )); echo "\$n" >"$T/winseq"; echo "@\$n" >>"$T/windows"; echo "@\$n" ;;
     list-windows) cat "$T/windows" 2>/dev/null || true ;;
     kill-window) grep -vxF "\$3" "$T/windows" >"$T/w2" || true; mv "$T/w2" "$T/windows" ;;
     esac
@@ -206,6 +206,18 @@ pkgs.runCommand "pi-broker-check"
     git -C "$T/repo" rev-parse --verify --quiet refs/heads/alpha >/dev/null || fail "teardown deleted the branch"
     req r14 '{"op":"teardown","agent":"alpha"}' false "already torn down"
 
+    # A second teardown cleans up a kept branch once it is merged. alpha's
+    # branch is an ancestor of the coordinator's HEAD, so delete_branch (which
+    # implies remove_worktree, already done) deletes it. The wait is on the ref,
+    # not the state, which is torn-down from r13 already.
+    req r14b '{"op":"teardown","agent":"alpha","delete_branch":true}' true "tearing down"
+    for _ in $(seq 100); do
+      git -C "$T/repo" rev-parse --verify --quiet refs/heads/alpha >/dev/null || break
+      sleep 0.1
+    done
+    git -C "$T/repo" rev-parse --verify --quiet refs/heads/alpha >/dev/null \
+      && fail "delete_branch kept a merged branch"
+
     # Changes in a worktree stop its removal, and the teardown says so.
     echo wip >"$T/repo/beta/wip"
     req r15 '{"op":"teardown","agent":"beta","remove_worktree":true}' true "tearing down"
@@ -218,6 +230,26 @@ pkgs.runCommand "pi-broker-check"
     req r16 '{"op":"spawn","agent":"theta","task":"x","size":"small"}' true "instance 1"
     wait_state theta failed
     [ -d "$SLOTS/1" ] && fail "a failed spawn kept its slot"
+
+    # A spawn whose branch already exists is refused, so a leftover branch
+    # never silently seeds a new agent with old commits.
+    git -C "$T/repo" branch precooked main
+    req r16b '{"op":"spawn","agent":"precooked","task":"x"}' false "already exists"
+    [ -e "$COORD/state/precooked.json" ] && fail "a refused spawn left state behind"
+    git -C "$T/repo" branch -D precooked
+
+    # delete_branch keeps an unmerged branch: the agent's commits live only
+    # there. feature gets a commit the coordinator never merges, so its
+    # worktree goes but the branch stays, and the error says why.
+    req r16c '{"op":"spawn","agent":"feature","task":"x"}' true "no VM"
+    wait_state feature running
+    git -C "$T/repo/feature" -c user.name=t -c user.email=t@t commit -q --allow-empty -m work
+    req r16d '{"op":"teardown","agent":"feature","delete_branch":true}' true "tearing down"
+    wait_state feature torn-down
+    [ -d "$T/repo/feature" ] && fail "delete_branch kept the worktree of a committed branch"
+    git -C "$T/repo" rev-parse --verify --quiet refs/heads/feature >/dev/null \
+      || fail "delete_branch deleted an unmerged branch"
+    st feature error | grep -q "not merged" || fail "feature's error does not say the branch was kept: $(st feature error)"
 
     # A coordinator on a ticket branch files its agents under that ticket.
     rm "$T/fail-init"

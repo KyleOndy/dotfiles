@@ -369,14 +369,17 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
     name: "agent_teardown",
     label: "Tear down agent",
     description:
-      "Close an agent's tmux window and delete any forge VM it holds. Keeps its branch, and keeps its worktree unless remove_worktree is set.",
+      "Close an agent's tmux window and delete any forge VM it holds. Keeps its worktree and branch unless remove_worktree or delete_branch is set.",
     promptGuidelines: [
       "Tear an agent down only once its result has been read and acted on, or when the user asks: its window, and any VM, is gone for good.",
-      "remove_worktree fails safe: git refuses to remove a worktree with uncommitted changes, and the branch is always kept.",
+      "remove_worktree fails safe: git refuses to remove a worktree with uncommitted changes.",
+      "delete_branch removes the worktree too and then deletes the branch, but only once you have merged it into your own branch: git refuses to delete an unmerged branch, since the agent's commits live only there. Merge or fast-forward it, not squash, or git will not count it as merged.",
+      "To free a VM before you are ready to merge, tear the agent down keeping the branch, then tear it down again with delete_branch once the branch is merged.",
     ],
     parameters: Type.Object({
       agent: Type.String(),
       remove_worktree: Type.Optional(Type.Boolean()),
+      delete_branch: Type.Optional(Type.Boolean()),
     }),
     async execute(_toolCallId, params, signal) {
       const r = await request({ op: "teardown", ...params }, signal);
@@ -388,10 +391,10 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
   // The human's path to agent_teardown, which needs no model turn, since the
   // model may be what has gone wrong. An agent_wait on a torn-down agent
   // returns, so the model still learns of it.
-  const FLAGS = ["--settled", "--remove-worktree"];
+  const FLAGS = ["--settled", "--remove-worktree", "--delete-branch"];
   pi.registerCommand("teardown", {
     description:
-      "Tear down agents by name, or --settled for every done, exited or failed one. --remove-worktree also removes worktrees git considers clean.",
+      "Tear down agents by name, or --settled for every done, exited or failed one. --remove-worktree also removes worktrees git considers clean; --delete-branch also deletes a branch merged into the coordinator.",
     // pi replaces the whole argument text with the chosen value, so the
     // words before the one being completed are carried over.
     getArgumentCompletions: (prefix) => {
@@ -423,17 +426,23 @@ function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
       if (unknown.length > 0 || agents.size === 0) {
         ctx.ui.notify(
           unknown.length > 0
-            ? `teardown: unknown ${unknown.join(" ")}. Usage: /teardown <agent>... | --settled [--remove-worktree]`
+            ? `teardown: unknown ${unknown.join(" ")}. Usage: /teardown <agent>... | --settled [--remove-worktree] [--delete-branch]`
             : "teardown: no agents to tear down",
           "warning",
         );
         return;
       }
       const remove_worktree = words.includes("--remove-worktree");
+      const delete_branch = words.includes("--delete-branch");
       const lines = await Promise.all(
         [...agents].map(async (agent) => {
           try {
-            const r = await request({ op: "teardown", agent, remove_worktree });
+            const r = await request({
+              op: "teardown",
+              agent,
+              remove_worktree,
+              delete_branch,
+            });
             return { ok: r.ok, line: `${agent}: ${r.message}` };
           } catch (err) {
             return {
