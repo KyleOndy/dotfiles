@@ -85,8 +85,9 @@ nags about. Deliberately not `nix flake check`, which also evaluates the
 Linux hosts and cannot go green on a mac.
 
 It needs the nix daemon socket, which the sandbox denies by default, so the
-agent can only run it under `pi --allow-nix`, plus `--allow-flake` when an
-input is not in the store yet. What that costs depends on the
+agent can only run it under `pi --allow-nix`, or `--allow-flake`, which
+carries `--allow-nix` and adds the hosts for an input not in the store yet.
+What that costs depends on the
 daemon: a trusted client can make it build as root, which is equivalent to
 `--no-sandbox`, and an untrusted one gets a builder running as `_nixbld`,
 still outside the sandbox but not root. The flag asks and says which on

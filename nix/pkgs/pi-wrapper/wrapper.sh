@@ -623,24 +623,27 @@ __pi_scrub_node_options() {
 	fi
 }
 
-# Named bundles for the --allow-<name> CLI flags. Each is a trustd bool plus
-# three space-joined lists: network hosts, read paths and write paths. TSV
-# sidecar comes from default.nix; empty when no bundles are configured. The
-# catch-all --allow-* arg-parser case looks bundles up by name, extends the
-# domain and path lists, and ORs trustd into the wrapper's allow_trustd flag.
+# Named bundles for the --allow-<name> CLI flags. Each is a trustd bool, a nix
+# bool and three space-joined lists: network hosts, read paths and write
+# paths. TSV sidecar comes from default.nix; empty when no bundles are
+# configured. The catch-all --allow-* arg-parser case looks bundles up by
+# name, extends the domain and path lists, and ORs the two bools into
+# allow_trustd and allow_nix.
 #
 # Space-joined means a path containing a space is not representable. No
 # toolchain cache dir has needed one.
 pi_network_bundles_file="@networkBundlesFile@"
 declare -A bundle_domains=()
 declare -A bundle_trustd=()
+declare -A bundle_nix=()
 declare -A bundle_reads=()
 declare -A bundle_writes=()
 if [[ -s $pi_network_bundles_file ]]; then
-	while IFS=$'\t' read -r __bname __btrustd __bdomains __breads __bwrites; do
+	while IFS=$'\t' read -r __bname __btrustd __bnix __bdomains __breads __bwrites; do
 		[[ -n $__bname ]] || continue
 		bundle_domains[$__bname]="$__bdomains"
 		bundle_trustd[$__bname]="$__btrustd"
+		bundle_nix[$__bname]="$__bnix"
 		bundle_reads[$__bname]="$__breads"
 		bundle_writes[$__bname]="$__bwrites"
 	done <"$pi_network_bundles_file"
@@ -780,6 +783,9 @@ while [[ $# -gt 0 ]]; do
 			extra_write_paths+=(${bundle_writes[$bundle_name]})
 			if [[ ${bundle_trustd[$bundle_name]} == "true" ]]; then
 				allow_trustd=true
+			fi
+			if [[ ${bundle_nix[$bundle_name]} == "true" ]]; then
+				allow_nix=true
 			fi
 			grants+=("$bundle_name")
 			shift

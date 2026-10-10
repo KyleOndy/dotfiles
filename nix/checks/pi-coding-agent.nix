@@ -90,6 +90,10 @@ let
         readPaths = [ "~/.toolcache" ];
         writePaths = [ "~/.toolcache" ];
       };
+      nixbundle = {
+        domains = [ "nix.example.com" ];
+        nix = true;
+      };
     };
   };
 
@@ -503,6 +507,8 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--allow-netbundle missing alt.example.com. settings=$settings"
     echo "$settings" | jq -e '.enableWeakerNetworkIsolation == false' >/dev/null \
       || fail "--allow-netbundle should not flip trustd. settings=$settings"
+    echo "$settings" | jq -e '.network.allowUnixSockets == []' >/dev/null \
+      || fail "--allow-netbundle should not grant the nix daemon. settings=$settings"
     # Bundle names reach PI_GRANTS too, not just the exact-match flags.
     echo "$captured" | grep -q "PI_PLAN_GRANTS: netbundle" \
       || fail "--allow-netbundle missing PI_PLAN_GRANTS. captured=$captured"
@@ -516,7 +522,7 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "available grants missing or unsorted. captured=$captured"
     captured=$(${wrapperWithBundles}/bin/pi -- x 2>&1)
     echo "$captured" | grep -q \
-      "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,netbundle,nix,pathbundle,ssh-agent,trustbundle" \
+      "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,netbundle,nix,nixbundle,pathbundle,ssh-agent,trustbundle" \
       || fail "bundles missing from available grants. captured=$captured"
     # Carrying a grant shrinks the missing list, never the catalog.
     captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
@@ -788,6 +794,21 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "--allow-nix missing the eval cache. settings=$settings"
     echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.cache/nix\")" >/dev/null \
       || fail "--allow-nix left the fetcher lock dir read-only. settings=$settings"
+
+    # A bundle with nix = true, as flake is, carries the whole --allow-nix
+    # grant, and the prompt learns its cost through nix in PI_GRANTS.
+    captured=$(${wrapperWithBundles}/bin/pi --allow-nixbundle -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$settings" | jq -e '.network.allowUnixSockets | index("/nix/var/nix/daemon-socket/socket")' >/dev/null \
+      || fail "--allow-nixbundle did not allow the daemon socket. settings=$settings"
+    echo "$settings" | jq -e ".filesystem.allowWrite | index(\"$HOME/.cache/nix\")" >/dev/null \
+      || fail "--allow-nixbundle left the fetcher lock dir read-only. settings=$settings"
+    echo "$settings" | jq -e '.network.allowedDomains | index("nix.example.com")' >/dev/null \
+      || fail "--allow-nixbundle missing nix.example.com. settings=$settings"
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: nix,nixbundle" \
+      || fail "--allow-nixbundle missing nix in PI_PLAN_GRANTS. captured=$captured"
+    echo "$captured" | grep -q "WARNING: --allow-nix" \
+      || fail "--allow-nixbundle granted the socket without warning. captured=$captured"
 
     # The warning has to match what the daemon reports rather than always
     # claiming the worst case, or it trains you to ignore it on the hosts

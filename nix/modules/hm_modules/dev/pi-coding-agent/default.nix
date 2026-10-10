@@ -36,10 +36,9 @@
 #   --allow-kagi           kagi.com, so `kagi search` and `kagi read` work.
 #                          Reading a page goes through Kagi's extractor, so
 #                          this covers research without --web
-#   --allow-flake          github.com, codeload.github.com, gitlab.com and
-#                          flakehub: the hosts flake inputs fetch from.
-#                          Pairs with --allow-nix, since input fetching
-#                          happens in the client, behind the proxy
+#   --allow-flake          --allow-nix, plus github.com, codeload.github.com,
+#                          gitlab.com and flakehub: the hosts flake inputs
+#                          fetch from, in the client, behind the proxy
 #
 # Every --allow-* grant is also recorded in the exported PI_GRANTS var, which
 # extensions/grants.ts turns into per-grant system prompt sections from
@@ -440,6 +439,15 @@ in
                   CA stores and do NOT need this.
                 '';
               };
+              nix = lib.mkOption {
+                type = bool;
+                default = false;
+                description = ''
+                  Whether invoking this bundle also grants everything
+                  `--allow-nix` does, for a bundle whose hosts only the nix
+                  client fetches from.
+                '';
+              };
               readPaths = lib.mkOption {
                 type = listOf str;
                 default = [ ];
@@ -774,8 +782,9 @@ in
         # input: gitlab.com carries NUR's rycee firefox-addons, github and
         # flakehub the rest of flake.lock. Substitution is daemon-side, which
         # --allow-nix already covers, so these five are everything eval
-        # fetches. Not named "nix" because the wrapper's --allow-nix
-        # exact-match case shadows a bundle by that name.
+        # fetches, and no use without the daemon. Not named "nix" because
+        # the wrapper's --allow-nix exact-match case shadows a bundle by that
+        # name.
         flake = {
           domains = [
             "github.com"
@@ -784,6 +793,7 @@ in
             "api.flakehub.com"
             "flakehub.com"
           ];
+          nix = true;
         };
       };
 

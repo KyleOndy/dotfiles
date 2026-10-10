@@ -156,10 +156,11 @@
   # the wrapper's refusals. Empty says "this host's sops file".
   secretsSource ? "",
   # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
-  # { domains = [str]; trustd = bool; readPaths = [str]; writePaths = [str]; }.
-  # domains extend the network allowlist, readPaths and writePaths extend the
-  # filesystem grants (leading ~ expanded like the default*Paths lists), and
-  # trustd ORs into the wrapper's allow_trustd. Default empty so the wrapper
+  # { domains = [str]; trustd = bool; nix = bool; readPaths = [str];
+  # writePaths = [str]; }. domains extend the network allowlist, readPaths and
+  # writePaths extend the filesystem grants (leading ~ expanded like the
+  # default*Paths lists), and trustd and nix OR into the wrapper's
+  # allow_trustd and allow_nix. Default empty so the wrapper
   # itself is self-contained; the hm module ships the standard set
   # (go/rust/node/python/java/clojure).
   networkBundles ? { },
@@ -224,8 +225,8 @@ let
   );
 
   # TSV sidecar for network bundles:
-  # name<TAB>trustd<TAB>domains<TAB>readPaths<TAB>writePaths, each list
-  # space-joined. wrapper.sh reads at runtime and splits into four associative
+  # name<TAB>trustd<TAB>nix<TAB>domains<TAB>readPaths<TAB>writePaths, each list
+  # space-joined. wrapper.sh reads at runtime and splits into five associative
   # arrays. Empty file when networkBundles == {}; wrapper short-circuits on
   # empty so unknown --allow-<x> fails fast with "known: " (empty list) in the
   # diagnostic.
@@ -239,6 +240,7 @@ let
       lib.concatStringsSep "\t" [
         name
         (if b.trustd or false then "true" else "false")
+        (if b.nix or false then "true" else "false")
         (join (b.domains or [ ]))
         (join (b.readPaths or [ ]))
         (join (b.writePaths or [ ]))
@@ -320,7 +322,7 @@ let
     in
     "  '--allow-${name}[network bundle: ${lib.concatStringsSep " " (b.domains or [ ])}${
         lib.optionalString (b.trustd or false) ", trustd"
-      }]' \\\n"
+      }${lib.optionalString (b.nix or false) ", nix daemon"}]' \\\n"
   ) (lib.attrNames networkBundles);
 
   script = writeShellApplication {
