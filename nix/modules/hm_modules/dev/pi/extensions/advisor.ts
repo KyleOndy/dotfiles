@@ -11,8 +11,13 @@
  * search. Self-preference bias tracks a model's ability to recognize its own
  * text, and it reads style rather than memory, so a fresh context does not
  * remove it (Panickssery et al., NeurIPS 2024, arxiv.org/abs/2404.13076).
- * It reaches its reviewer endpoint over the domain the host already allows,
- * with the key the wrapper already injects through envFromCommands.
+ * It calls the reviewer through pi's model registry, the path a session's own
+ * model takes, so any provider in models.json works with that provider's key.
+ * On a host that sets PI_TRUSTED_PROVIDERS, only a provider on that list ever
+ * sees a turn.
+ *
+ * `/advisor ask` sends advisor-eval's cases through the same askAdvisor, so a
+ * candidate is graded on exactly the request the advisor sends.
  *
  * Most of the system prompt below is about what not to say, and the `seen`
  * set is the same rule enforced in code. oh-my-pi needed both after one
@@ -27,25 +32,42 @@
  * session you are reading pays neither the tokens nor the latency.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+import type { Api, AssistantMessage, Model } from "@earendil-works/pi-ai";
+import {
+  type ExtensionAPI,
+  type ExtensionCommandContext,
+  type ExtensionContext,
+  type ModelRegistry,
+  type ModelRuntime,
+  type ResolveCliModelResult,
+  resolveCliModel,
+} from "@earendil-works/pi-coding-agent";
 
-// Host-private, so they arrive through the wrapper's sandbox.envVars rather
-// than living here. Unset means the advisor holds its verdict; it must not
-// fall back to the session's own model, for the reason cited above.
-const ADVISOR_BASE_URL = process.env.PI_ADVISOR_BASE_URL;
-const ADVISOR_MODEL = process.env.PI_ADVISOR_MODEL;
+// A seat, `provider/id[:level]`, from the caller's env or else the host's seats
+// file, which the wrapper exports. Unset means the advisor holds its verdict;
+// it must not fall back to the session's own model, for the reason cited
+// above.
+const ADVISOR_SEAT = process.env.PI_ADVISOR_MODEL;
+// Unset or empty: the host keeps no trust list, so nothing is checked.
+const TRUSTED_PROVIDERS = (process.env.PI_TRUSTED_PROVIDERS ?? "")
+  .split(",")
+  .filter(Boolean);
 // Turns between advisor checks. A verdict on every turn buys nothing on a run
 // measured in hours, and the agent waits on each round trip.
 const COOLDOWN_TURNS = 3;
 const REQUEST_TIMEOUT_MS = 30_000;
-// Every text model on this endpoint reasons, and reasoning spends the
-// completion budget even though it arrives in a separate field, leaving
-// `content` empty when the budget runs out. Measured on the prompt below
-// against a turn that deserved a steer: at 200 the reply was 200 completion
-// tokens of reasoning and an empty content field, so the advisor stayed
-// silent exactly where it was meant to speak. At 2000 the same turn returned
+// Every text model on mcloud reasons, and reasoning spends the completion
+// budget even though it arrives in a separate field, leaving `content` empty
+// when the budget runs out. Measured on the prompt below against a turn that
+// deserved a steer: at 200 the reply was 200 completion tokens of reasoning
+// and an empty content field, so the advisor stayed silent exactly where it
+// was meant to speak. At 2000 the same turn returned
 // `STEER: Do not \`git reset --hard\` and start over` in 488 tokens. The
 // verdict itself is one line; this bounds the thinking in front of it.
+// That measurement sent `max_tokens`. pi sends `max_completion_tokens` unless
+// the model's compat sets `maxTokensField: "max_tokens"`, and advisor-eval is
+// how to check the budget holds on that field.
 const MAX_VERDICT_TOKENS = 2000;
 
 const REVIEWER_SYSTEM_PROMPT = `You are a terse reviewer watching an autonomous coding agent work unattended overnight.
@@ -132,40 +154,146 @@ function summarizeTurn(event: {
   return parts.join("\n\n") || "(no content this turn)";
 }
 
+interface Seat {
+  model: Model<Api>;
+  level: ResolveCliModelResult["thinkingLevel"];
+  uncatalogued: boolean;
+}
+
+// The same parse as `pi --model`, including its custom model for an id the
+// catalog lacks, which is how a new model gets tried without a deploy.
+// resolveCliModel reads only these two methods of its runtime.
+function resolveSeat(registry: ModelRegistry, value: string): Seat | undefined {
+  if (!value.includes("/")) return undefined;
+  const modelRuntime = {
+    getModels: () => registry.getAll(),
+    hasConfiguredAuth: (provider: string) =>
+      registry.hasConfiguredAuth({ provider } as Model<Api>),
+  } as unknown as ModelRuntime;
+  const { model, thinkingLevel, warning } = resolveCliModel({
+    cliModel: value,
+    modelRuntime,
+  });
+  if (!model) return undefined;
+  return { model, level: thinkingLevel, uncatalogued: warning !== undefined };
+}
+
+// Why the advisor holds its verdict, or undefined when it may speak. Each
+// reason names a variable or a provider, never the id.
+function holdReason(
+  ctx: ExtensionContext,
+  seat: Seat | undefined,
+): string | undefined {
+  if (!ADVISOR_SEAT)
+    return "PI_ADVISOR_MODEL is unset; add it to this host's pi_seats";
+  if (!seat)
+    return "PI_ADVISOR_MODEL names no model pi can resolve; write it as provider/id from `pi --list-models`";
+  const { provider, id } = seat.model;
+  if (TRUSTED_PROVIDERS.length > 0 && !TRUSTED_PROVIDERS.includes(provider))
+    return `PI_ADVISOR_MODEL's provider ${provider} is not in PI_TRUSTED_PROVIDERS; pick a model on one of ${TRUSTED_PROVIDERS.join(", ")}`;
+  if (ctx.model?.provider === provider && ctx.model.id === id)
+    return "PI_ADVISOR_MODEL is the session's model; pick another, ideally from another family";
+  return undefined;
+}
+
+interface Verdict {
+  text: string;
+  stopReason: AssistantMessage["stopReason"];
+  usage?: AssistantMessage["usage"];
+  errorMessage?: string;
+}
+
+// A seat without a level, or at off, asks for no reasoning level rather than
+// the session's default (max): a level that thinks past MAX_VERDICT_TOKENS
+// returns an empty verdict.
 async function askAdvisor(
-  apiKey: string,
+  registry: ModelRegistry,
+  seat: Seat,
   turnSummary: string,
-): Promise<string | undefined> {
+): Promise<Verdict> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const res = await fetch(`${ADVISOR_BASE_URL}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: ADVISOR_MODEL,
-        max_tokens: MAX_VERDICT_TOKENS,
-        messages: [
-          { role: "system", content: REVIEWER_SYSTEM_PROMPT },
-          { role: "user", content: turnSummary },
-        ],
-      }),
-    });
-    if (!res.ok) return undefined;
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
+    const reply = await registry
+      .streamSimple(
+        seat.model,
+        {
+          systemPrompt: REVIEWER_SYSTEM_PROMPT,
+          messages: [
+            { role: "user", content: turnSummary, timestamp: Date.now() },
+          ],
+        },
+        {
+          maxTokens: MAX_VERDICT_TOKENS,
+          reasoning: seat.level === "off" ? undefined : seat.level,
+          signal: controller.signal,
+        },
+      )
+      .result();
+    return {
+      text: reply.content
+        .flatMap((part) => (part.type === "text" ? [part.text] : []))
+        .join("")
+        .trim(),
+      stopReason: reply.stopReason,
+      usage: reply.usage,
+      errorMessage: reply.errorMessage,
     };
-    return data.choices?.[0]?.message?.content?.trim();
-  } catch {
-    // Provider unreachable, slow, or refusing -- the advisor is best-effort
-    // supervision, not a dependency the run should die on.
-    return undefined;
+  } catch (err) {
+    // pi reports a failed request through stopReason; this is whatever
+    // escapes that, so it costs one verdict rather than the caller.
+    return {
+      text: "",
+      stopReason: "error",
+      errorMessage: err instanceof Error ? err.message : String(err),
+    };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+// advisor-eval's entry point, run headless through `pi -p`. It skips the
+// trust and same-as-session rules: the cases are public, and no session
+// content goes out. Print mode sends stdout to stderr, hence the results
+// file, and pi only logs a handler's throw, hence process.exitCode.
+async function ask(
+  args: string[],
+  ctx: ExtensionCommandContext,
+): Promise<void> {
+  if (args.length !== 3) {
+    console.error(
+      "usage: /advisor ask <provider/id[:level]> <cases.json> <out.jsonl>",
+    );
+    process.exitCode = 2;
+    return;
+  }
+  const [value, casesPath, outPath] = args;
+  const seat = resolveSeat(ctx.modelRegistry, value);
+  if (!seat) {
+    console.error("advisor ask: the value names no model pi can resolve");
+    process.exitCode = 2;
+    return;
+  }
+  if (seat.uncatalogued)
+    console.error(
+      `advisor ask: the id is not in ${seat.model.provider}'s catalog, so pi gives it the settings of another of that provider's models`,
+    );
+
+  const cases = JSON.parse(readFileSync(casesPath, "utf8")) as Array<{
+    id: string;
+    turn: string;
+  }>;
+  writeFileSync(outPath, "");
+  for (const c of cases) {
+    const started = Date.now();
+    const verdict = await askAdvisor(ctx.modelRegistry, seat, c.turn);
+    const seconds = (Date.now() - started) / 1000;
+    appendFileSync(
+      outPath,
+      `${JSON.stringify({ id: c.id, ...verdict, seconds })}\n`,
+    );
+    if (verdict.stopReason === "error" || verdict.stopReason === "aborted")
+      process.exitCode = 1;
   }
 }
 
@@ -183,11 +311,32 @@ export default function (pi: ExtensionAPI) {
   let suppressed = 0;
   const seen = new Set<string>();
 
+  // Resolved on every check, since /model can move the session onto the
+  // advisor's model mid-run. A hold shows in the footer, since a held advisor
+  // otherwise looks like one that keeps answering OK.
+  function check(ctx: ExtensionContext): Seat | undefined {
+    const seat = ADVISOR_SEAT
+      ? resolveSeat(ctx.modelRegistry, ADVISOR_SEAT)
+      : undefined;
+    const hold = holdReason(ctx, seat);
+    if (ctx.hasUI) {
+      ctx.ui.setStatus(
+        "advisor",
+        hold
+          ? ctx.ui.theme.fg("warning", `advisor held: ${hold}`)
+          : ctx.ui.theme.fg("accent", "advisor"),
+      );
+    }
+    if (hold) {
+      lastVerdict = `held: ${hold}`;
+      return undefined;
+    }
+    return seat;
+  }
+
   pi.on("session_start", (_event, ctx) => {
     enabled = pi.getFlag("advisor") === true;
-    if (enabled && ctx.hasUI) {
-      ctx.ui.setStatus("advisor", ctx.ui.theme.fg("accent", "advisor"));
-    }
+    if (enabled) check(ctx);
   });
 
   pi.on("turn_end", async (event, ctx) => {
@@ -196,23 +345,26 @@ export default function (pi: ExtensionAPI) {
     if (turnsSinceCheck < COOLDOWN_TURNS) return;
     turnsSinceCheck = 0;
 
-    if (!ADVISOR_BASE_URL || !ADVISOR_MODEL) {
-      lastVerdict = "no PI_ADVISOR_BASE_URL/PI_ADVISOR_MODEL configured";
+    const seat = check(ctx);
+    if (!seat) return;
+
+    const verdict = await askAdvisor(
+      ctx.modelRegistry,
+      seat,
+      summarizeTurn(event),
+    );
+    // Provider unreachable, slow, or refusing, or the budget spent on
+    // reasoning: the advisor is best-effort supervision, not a dependency the
+    // run should die on. errorMessage stays out, since a provider's error
+    // can quote the id.
+    if (!verdict.text) {
+      lastVerdict = `(none, stopReason ${verdict.stopReason})`;
       return;
     }
+    lastVerdict = verdict.text;
 
-    const apiKey = process.env.MCLOUD_API_KEY;
-    if (!apiKey) {
-      lastVerdict = "no MCLOUD_API_KEY reached the sandbox";
-      return;
-    }
-
-    const verdict = await askAdvisor(apiKey, summarizeTurn(event));
-    if (!verdict) return;
-    lastVerdict = verdict;
-
-    if (/^STEER:/i.test(verdict)) {
-      const nudge = verdict.replace(/^STEER:/i, "").trim();
+    if (/^STEER:/i.test(verdict.text)) {
+      const nudge = verdict.text.replace(/^STEER:/i, "").trim();
       const key = normalize(nudge);
       if (!key || seen.has(key)) {
         suppressed++;
@@ -232,12 +384,36 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("advisor", {
-    description: "Show the advisor's status and last verdict",
-    handler: (_args, ctx) => {
+    description:
+      "Show the advisor's status and last verdict; `ask <provider/id[:level]> <cases.json> <out.jsonl>` grades a model for advisor-eval",
+    handler: async (args, ctx) => {
+      const [sub, ...rest] = args.trim().split(/\s+/);
+      if (sub === "ask") {
+        try {
+          await ask(rest, ctx);
+        } catch (err) {
+          console.error(
+            `advisor ask: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          process.exitCode = 1;
+        }
+        return;
+      }
+
+      const seat = ADVISOR_SEAT
+        ? resolveSeat(ctx.modelRegistry, ADVISOR_SEAT)
+        : undefined;
+      const hold = holdReason(ctx, seat);
+      const reviewer =
+        hold || !seat
+          ? `held, ${hold}`
+          : `PI_ADVISOR_MODEL on ${seat.model.provider}` +
+            (seat.level ? ` at ${seat.level}` : "") +
+            (seat.uncatalogued ? ", not in the catalog" : "");
       ctx.ui.notify(
         [
           `advisor: ${enabled ? "active" : "disabled (pass --advisor)"}`,
-          `reviewer: ${ADVISOR_MODEL ?? "unconfigured"}, every ${COOLDOWN_TURNS} turns`,
+          `reviewer: ${reviewer}, every ${COOLDOWN_TURNS} turns`,
           `steers delivered: ${seen.size}, dropped as repeats: ${suppressed}`,
           `last verdict: ${lastVerdict}`,
         ].join("\n"),
