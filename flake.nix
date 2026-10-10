@@ -495,6 +495,9 @@
             // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
 
           pi-coding-agent = import ./nix/checks/pi-coding-agent.nix { inherit pkgs; };
+          # Real-pi counterpart: runs the actual binary against a loopback dump
+          # provider, where pi-coding-agent.nix stops at plan-mode stubs.
+          pi-e2e = import ./nix/checks/pi-e2e.nix { inherit pkgs; };
           forge-vm = import ./nix/checks/forge-vm.nix { inherit pkgs; };
           pi-broker = import ./nix/checks/pi-broker.nix { inherit pkgs; };
           pi-delegate = import ./nix/checks/pi-delegate.nix { inherit pkgs; };
