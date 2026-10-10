@@ -63,10 +63,9 @@ in
 
             # up{host="X"} is pushed by X's own vmagent, so an off or
             # unreachable host drops the series rather than setting it to 0,
-            # leaving InstanceDown matching nothing. trex is excluded on
-            # purpose: it is dark about two thirds of the time. One rule per
-            # host with an equality matcher, because a regex matcher fires
-            # only once every host it matches is gone and carries no labels.
+            # leaving InstanceDown matching nothing. One rule per host with an
+            # equality matcher, because a regex matcher fires only once every
+            # host it matches is gone and carries no labels.
             - alert: HostAbsent
               expr: absent(up{host="cogsworth"})
               for: 10m
@@ -84,6 +83,24 @@ in
               annotations:
                 summary: "{{ $labels.host }} has stopped reporting"
                 description: "No up series exists for {{ $labels.host }} at all, so the host is powered off, off the network, or its vmagent is dead. Check power and link first, then `systemctl status vmagent` on the host. A deploy reboot longer than 10 minutes also lands here."
+
+            # trex asleep stays on wifi and pushes a minute or two of samples
+            # on each dark wake, roughly every 15 minutes, so absent() alone
+            # fires all night. 45 minutes with no sample while UniFi still
+            # lists it happened only while its vmagent was dead. The 10m
+            # present_over_time bridges unpoller scrape gaps, which would
+            # otherwise reset `for:`.
+            - alert: HostAbsent
+              expr: |-
+                absent_over_time(up{host="trex"}[45m])
+                and on ()
+                count(present_over_time(unpoller_client_uptime_seconds{name="trex"}[10m])) > 0
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.host }} is on the network but has stopped reporting"
+                description: "UniFi lists trex as a client, yet it has pushed no up series for over an hour, so its vmagent is not running or cannot write. Run `launchctl print system/org.ondy.vmagent | grep -E 'state|exit'` on trex. EX_CONFIG there clears with `sudo launchctl bootout system/org.ondy.vmagent; sudo launchctl bootstrap system /Library/LaunchDaemons/org.ondy.vmagent.plist`."
 
         # Systemd service health
         - name: systemd_health
