@@ -17,7 +17,7 @@ The module is `../pi-advisor.nix`. Prompts and tools live beside this file.
 | Unit                                   | When                | Does                                                                                                                                                     |
 | -------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pi-advisor-alerts.timer` / `.service` | every 2 minutes     | Triages each newly firing, unsilenced alert. At most 3 a run and 20 a day.                                                                               |
-| `pi-advisor-sweep.timer` / `.service`  | 06:00               | The log sweep, then the metrics sweep. One report each.                                                                                                  |
+| `pi-advisor-sweep.timer` / `.service`  | 06:00 to 06:30      | The log sweep, then the metrics sweep. One report each.                                                                                                  |
 | `pi-advisor-mail.path` / `.service`    | when a report lands | Mails each report not yet sent to the monitoring stack's fixed recipients, as Markdown and as HTML, with a footer pointing at the acknowledgements file. |
 | `pi-advisor-mail.timer`                | hourly              | The same, for a report that landed mid-send or failed to send.                                                                                           |
 
