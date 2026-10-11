@@ -59,7 +59,7 @@ in
       # Determinate's module defaults this to false, which leaves a build
       # unconfined as _nixbld with the whole network, including one a pi
       # session started under --allow-nix. Fixed-output builds keep the
-      # network either way.
+      # network either way; docs/darwin-nix-sandbox.md has what this closes.
       sandbox = true;
     };
 

@@ -1067,8 +1067,9 @@ __pi_warn_nix_trust() {
 		echo "pi:          this sandbox as _nixbld." >&2
 		case "$sandbox" in
 		true)
-			echo "pi:          The daemon sandboxes its builds, so a builder stays inside nix's" >&2
-			echo "pi:          own sandbox rather than loose on the host." >&2
+			echo "pi:          The daemon sandboxes its builds: a builder sees its inputs, not" >&2
+			echo "pi:          the host, and gets no network unless it is fixed-output. Those" >&2
+			echo "pi:          keep the network, which is egress past the domain allowlist." >&2
 			;;
 		false | relaxed)
 			echo "pi:          The daemon does not sandbox its builds (sandbox = $sandbox), so a" >&2

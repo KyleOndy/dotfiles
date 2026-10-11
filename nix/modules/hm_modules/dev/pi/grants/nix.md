@@ -11,7 +11,9 @@ that costs is two daemon-owned bits, both named at startup:
 - Whether the daemon sandboxes its builds. With `sandbox = true` a
   builder stays inside nix's own sandbox as `_nixbld`, with no network
   unless it is a fixed-output derivation: those keep the network so they
-  can fetch, and the hash is checked only after the builder ran. With
+  can fetch, and the hash is checked only after the builder ran. It can
+  still write `/tmp`, and reaches 127.0.0.1 when the derivation sets
+  `__darwinAllowLocalNetworking`. With
   `sandbox = false` a builder is unconfined code with the whole network:
   measured on such a daemon, a build launched from inside this sandbox
   wrote a file to `/tmp`, fetched `https://example.com` directly with no
