@@ -100,21 +100,19 @@
       forge.enable = true;
     };
 
-    claude-code = {
-      enable = true;
-      skills = [
-        {
-          name = "forge-debug";
-          source = ./skills/forge-debug.md;
-          isFile = true;
-        }
-        {
-          name = "pi-delegate";
-          source = ./skills/pi-delegate.md;
-          isFile = true;
-        }
-      ];
-    };
+    claude-code.enable = true;
+    agent-context.skills = [
+      {
+        name = "forge-debug";
+        source = ./skills/forge-debug.md;
+        isFile = true;
+      }
+      {
+        name = "pi-delegate";
+        source = ./skills/pi-delegate.md;
+        isFile = true;
+      }
+    ];
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils

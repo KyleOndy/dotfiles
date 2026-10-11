@@ -209,16 +209,14 @@ in
   ];
 
   hmFoundry.dev = {
-    claude-code = {
-      enable = true;
-      skills = [
-        {
-          name = "monitoring";
-          source = ./skills/monitoring.md;
-          isFile = true;
-        }
-      ];
-    };
+    claude-code.enable = true;
+    agent-context.skills = [
+      {
+        name = "monitoring";
+        source = ./skills/monitoring.md;
+        isFile = true;
+      }
+    ];
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils

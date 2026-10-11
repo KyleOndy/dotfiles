@@ -96,7 +96,6 @@
   lib,
   pkgs,
   config,
-  inputs,
   dotfiles-worktree,
   ...
 }:
@@ -167,37 +166,6 @@ let
         pass --impure), or set
         `hmFoundry.dev.pi-coding-agent.sourceDir` explicitly.
       '';
-
-  claudeCfg = config.hmFoundry.dev.claude-code;
-  sharedSkillsDir = ../claude-code/skills;
-
-  # Sourced from the flake input rather than sharedSkillsDir, matching how the
-  # claude-code module installs it.
-  flakeSkills = {
-    ".pi/agent/skills/ponytail/SKILL.md".source =
-      "${inputs.claude-skills-ponytail}/skills/ponytail/SKILL.md";
-    ".pi/agent/skills/ponytail-audit/SKILL.md".source =
-      "${inputs.claude-skills-ponytail}/skills/ponytail-audit/SKILL.md";
-  };
-
-  repoSkills =
-    lib.mapAttrs'
-      (
-        fname: _: lib.nameValuePair ".pi/agent/skills/${fname}" { source = "${sharedSkillsDir}/${fname}"; }
-      )
-      (
-        lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir sharedSkillsDir)
-      );
-
-  hostSkills = lib.listToAttrs (
-    map (
-      skill:
-      if skill.isFile then
-        lib.nameValuePair ".pi/agent/skills/${skill.name}/SKILL.md" { source = skill.source; }
-      else
-        lib.nameValuePair ".pi/agent/skills/${skill.name}" { source = skill.source; }
-    ) claudeCfg.skills
-  );
 in
 {
   options.hmFoundry.dev.pi-coding-agent = {
@@ -821,10 +789,8 @@ in
         run install -D -m 0644 ${settings} "$HOME/.pi/agent/settings.json"
       '';
 
-    # pi reads bare .md files at the root of ~/.pi/agent/skills/ as individual
-    # skills, so claude-code's flat sources need no restructuring. Store
-    # sources, matching claude-code, so /reload cannot see skill edits until
-    # the next home-manager switch.
+    # Skills are store sources, matching claude-code, so /reload cannot see
+    # skill edits until the next home-manager switch.
     home.file = {
       ".pi/agent/extensions".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
       # getAgentDir() is ~/.pi/agent (pi's core/config.ts), so task.ts reads
@@ -859,8 +825,6 @@ in
         })
       ];
     }
-    // repoSkills
-    // flakeSkills
-    // lib.optionalAttrs claudeCfg.enable hostSkills;
+    // config.lib.agentContext.skillFiles ".pi/agent/skills";
   };
 }

@@ -5,7 +5,6 @@
   lib,
   pkgs,
   config,
-  inputs,
   ...
 }:
 with lib;
@@ -48,34 +47,7 @@ let
   ];
 in
 {
-  options.hmFoundry.dev.claude-code = {
-    enable = mkEnableOption "Claude Code configuration";
-
-    skills = mkOption {
-      type = types.listOf (
-        types.submodule {
-          options = {
-            name = mkOption {
-              type = types.str;
-              description = "Skill name (becomes ~/.claude/skills/<name>/ or ~/.claude/skills/<name>.md)";
-            };
-            source = mkOption {
-              type = types.path;
-              description = "Path to the skill directory or file";
-            };
-            isFile = mkOption {
-              type = types.bool;
-              default = false;
-              description = "If true, source is a single .md file installed as ~/.claude/skills/<name>/SKILL.md";
-            };
-          };
-        }
-      );
-      default = [ ];
-      description = "Claude Code skills to install";
-    };
-
-  };
+  options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
 
   config = mkIf cfg.enable {
     # Ensure Claude Code and required tools are installed
@@ -94,7 +66,9 @@ in
     '';
 
     home.file = {
-      ".claude/CLAUDE.md".source = ./CLAUDE.md;
+      # The shared instructions, then the sections that name Claude Code's
+      # own tools.
+      ".claude/CLAUDE.md".text = readFile ../agent-context/instructions.md + "\n" + readFile ./CLAUDE.md;
       ".claude/rules/clojure.md".source = ./rules/clojure.md;
       ".claude/statusline.sh".source = statusline;
 
@@ -115,26 +89,7 @@ in
         source = ./output-styles;
         recursive = true;
       };
-
-      ".claude/skills/code-comments/SKILL.md".source = ./skills/code-comments.md;
-      ".claude/skills/commit-guidelines/SKILL.md".source = ./skills/commit-guidelines.md;
-      ".claude/skills/flake-update-review/SKILL.md".source = ./skills/flake-update-review.md;
-      ".claude/skills/grill-me/SKILL.md".source = ./skills/grill-me.md;
-      ".claude/skills/personal-prose/SKILL.md".source = ./skills/personal-prose.md;
-      ".claude/skills/ponytail/SKILL.md".source =
-        "${inputs.claude-skills-ponytail}/skills/ponytail/SKILL.md";
-      ".claude/skills/ponytail-audit/SKILL.md".source =
-        "${inputs.claude-skills-ponytail}/skills/ponytail-audit/SKILL.md";
     }
-    # Extra skills contributed per-host, e.g. by work-config.
-    // listToAttrs (
-      map (
-        skill:
-        if skill.isFile then
-          nameValuePair ".claude/skills/${skill.name}/SKILL.md" { source = skill.source; }
-        else
-          nameValuePair ".claude/skills/${skill.name}/" { source = skill.source; }
-      ) cfg.skills
-    );
+    // config.lib.agentContext.skillFiles ".claude/skills";
   };
 }

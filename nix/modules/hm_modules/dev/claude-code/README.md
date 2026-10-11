@@ -20,8 +20,11 @@ works on a mac whose hostname matches its flake config.
 ## Options
 
 - **enable**: turn the module on
-- **skills** (default `[]`): extra skills as `{ name, source, isFile }`,
-  for skills only one host needs. pi on that host installs them too
+
+Skills and the shared half of `CLAUDE.md` come from
+[`agent-context`](../agent-context/default.nix), which every agent harness
+reads. A host adds its own skills there, with
+`hmFoundry.dev.agent-context.skills`.
 
 Hooks, commands, skills and the user memory file are not switchable. Every
 host that enables the module wants all of them, so the toggles were dead
@@ -37,18 +40,17 @@ weight.
   ([#52525](https://github.com/anthropics/claude-code/issues/52525)).
   Runtime edits survive until the next switch; durable changes belong in
   the repo copy.
-- `~/.claude/CLAUDE.md`: user-level memory (kept slim; prose rules live
-  in the personal-prose skill)
+- `~/.claude/CLAUDE.md`: user-level memory, kept slim (prose rules live
+  in the personal-prose skill). It is `agent-context/instructions.md`
+  followed by this directory's `CLAUDE.md`, which holds only the sections
+  that name Claude Code's own tools
 - `~/.claude/rules/clojure.md`: path-scoped rules, loaded natively by
   Claude Code when matching files are touched
 - `~/.claude/statusline.sh`: git branch, model and effort, context, rate
   limits, cost, duration, lines changed
 - `~/.claude/hooks/`: hook scripts (below)
 - `~/.claude/output-styles/`: the Direct output style
-- `~/.claude/skills/`: code-comments, commit-guidelines,
-  flake-update-review, grill-me, personal-prose, and ponytail and
-  ponytail-audit (from the `claude-skills-ponytail` flake input, not this
-  directory), plus anything from `cfg.skills`
+- `~/.claude/skills/`: every skill in `agent-context`
 - `~/.claude/commands/`: the git commands (below)
 
 Hook and statusline scripts are packaged with `writeShellApplication`,
