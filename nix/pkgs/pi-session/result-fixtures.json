@@ -1,0 +1,423 @@
+[
+  {
+    "name": "completed",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "success",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "provider error despite exit zero",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "error",
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ],
+          "errorMessage": "fixture failed"
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "error",
+      "text": ""
+    }
+  },
+  {
+    "name": "aborted assistant",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "aborted",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "aborted",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "empty answer",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "empty",
+      "text": ""
+    }
+  },
+  {
+    "name": "tool result is not assistant",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "toolResult",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "tool bytes"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "incomplete",
+      "text": ""
+    }
+  },
+  {
+    "name": "last assistant wins",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "error",
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ],
+          "errorMessage": "later failure"
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "error",
+      "text": ""
+    }
+  },
+  {
+    "name": "retry recovered",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "error",
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ]
+        }
+      },
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "success",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "not settled",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "state": "incomplete",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "stale settled",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      },
+      {
+        "type": "agent_start"
+      },
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      }
+    ],
+    "expected": {
+      "state": "incomplete",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "truncated",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "length",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "incomplete",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "tool call pending",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "toolUse",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "incomplete",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "process failed",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "error",
+      "text": "answer"
+    },
+    "exit_code": 1
+  },
+  {
+    "name": "timeout",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "timeout",
+      "text": "answer"
+    },
+    "timed_out": true
+  },
+  {
+    "name": "cancelled",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "aborted",
+      "text": "answer"
+    },
+    "aborted": true
+  },
+  {
+    "name": "agent end fallback",
+    "events": [
+      {
+        "type": "agent_end",
+        "messages": [
+          {
+            "role": "assistant",
+            "stopReason": "stop",
+            "content": [
+              {
+                "type": "text",
+                "text": "answer"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "agent_settled"
+      }
+    ],
+    "expected": {
+      "state": "success",
+      "text": "answer"
+    }
+  }
+]

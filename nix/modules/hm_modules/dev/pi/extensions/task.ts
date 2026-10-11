@@ -107,7 +107,7 @@ interface TaskResult {
 }
 
 interface ChildOutcome {
-  stdout: string;
+  events: Record<string, unknown>[];
   stderr: string;
   code: number;
   aborted: boolean;
@@ -317,32 +317,70 @@ function stripLevel(id: string): string {
     : id;
 }
 
-// Pull the final assistant message out of `--mode json`'s NDJSON event
-// stream. Falls back to a raw stdout tail if the shape doesn't match --
-// good enough for a personal tool; the raw text is still useful either way.
-function lastAssistantText(stdout: string): string {
-  const lines = stdout.split("\n").filter(Boolean);
-  for (let i = lines.length - 1; i >= 0; i--) {
-    let event: unknown;
-    try {
-      event = JSON.parse(lines[i]);
-    } catch {
-      continue;
+interface AssistantResult {
+  role?: string;
+  stopReason?: string;
+  errorMessage?: string;
+  content?: { type?: string; text?: string }[];
+}
+
+// Keep in sync with pi-session/results.py through the shared result fixtures.
+export function classifyResult(
+  events: Record<string, unknown>[],
+  exitCode = 0,
+  aborted = false,
+  timedOut = false,
+): { state: string; text: string; error: string | null } {
+  let final: AssistantResult | undefined;
+  let settled = false;
+  for (const event of events) {
+    if (!event || typeof event !== "object") continue;
+    if (event.type === "agent_start") {
+      final = undefined;
+      settled = false;
+    } else if (event.type === "message_end") {
+      const message = event.message as AssistantResult | undefined;
+      if (message?.role === "assistant") {
+        final = message;
+        settled = false;
+      }
+    } else if (event.type === "agent_end" && !final) {
+      for (const message of (event.messages ?? []) as AssistantResult[]) {
+        if (message.role === "assistant") final = message;
+      }
+    } else if (event.type === "agent_settled") {
+      settled = true;
     }
-    const e = event as { type?: string; message?: { content?: unknown } };
-    if (e?.type !== "message_end" || !Array.isArray(e.message?.content))
-      continue;
-    const text = (e.message.content as Array<Record<string, unknown>>)
-      .filter((p) => p?.type === "text" && typeof p.text === "string")
-      .map((p) => p.text as string)
-      .join("\n")
-      .trim();
-    if (text) return text;
   }
-  const tail = stdout.trim();
-  return tail
-    ? `(unparsed output, last 500 chars)\n${tail.slice(-500)}`
-    : "(no output)";
+  const text = (Array.isArray(final?.content) ? final.content : [])
+    .filter((block) => block?.type === "text" && typeof block.text === "string")
+    .map((block) => block.text)
+    .join("\n")
+    .trim()
+    .slice(0, 1048576);
+  const reason = final?.stopReason;
+  let state = "success";
+  let error: string | null = null;
+  if (timedOut) {
+    state = "timeout";
+    error = "Agent timed out";
+  } else if (aborted || reason === "aborted") {
+    state = "aborted";
+    error = "Agent was cancelled";
+  } else if (exitCode !== 0) {
+    state = "error";
+    error = `Agent process exited with code ${exitCode}`;
+  } else if (reason === "error") {
+    state = "error";
+    error = final?.errorMessage || "Provider request failed";
+  } else if (!settled || reason !== "stop") {
+    state = "incomplete";
+    error = "Agent did not settle with a completed assistant reply";
+  } else if (!text) {
+    state = "empty";
+    error = "Agent returned an empty assistant reply";
+  }
+  return { state, text, error };
 }
 
 // Tasks are model-authored paragraphs. A collapsed row is a label for one,
@@ -422,11 +460,12 @@ function runChild(
 ): Promise<ChildOutcome> {
   return new Promise((resolve) => {
     const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
+    let events: Record<string, unknown>[] = [];
     let stderr = "";
     let buffer = "";
     let aborted = false;
     let timedOut = false;
+    let oversized = false;
     let killTimer: ReturnType<typeof setTimeout> | undefined;
     let settled = false;
 
@@ -457,20 +496,35 @@ function runChild(
       } catch {
         return;
       }
-      if (event && typeof event === "object")
-        onEvent(event as Record<string, unknown>);
+      if (event && typeof event === "object") {
+        const record = event as Record<string, unknown>;
+        if (record.type === "agent_start") events = [record];
+        if (
+          record.type === "message_end" &&
+          (record.message as AssistantResult | undefined)?.role === "assistant"
+        )
+          events = [record];
+        if (record.type === "agent_settled") events.push(record);
+        onEvent(record);
+      }
     };
 
     proc.stdout.on("data", (chunk) => {
       const text = String(chunk);
-      stdout += text;
       buffer += text;
+      if (buffer.length > 16 * 1024 * 1024) {
+        oversized = true;
+        stderr = "Child event exceeded 16 MiB";
+        buffer = "";
+        kill();
+        return;
+      }
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
       for (const line of lines) readLine(line);
     });
     proc.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
+      stderr = (stderr + String(chunk)).slice(-4096);
     });
 
     const finish = (code: number): void => {
@@ -480,7 +534,13 @@ function runChild(
       if (killTimer) clearTimeout(killTimer);
       signal?.removeEventListener("abort", onAbort);
       if (buffer.trim()) readLine(buffer);
-      resolve({ stdout, stderr, code, aborted, timedOut });
+      resolve({
+        events,
+        stderr,
+        code: oversized ? 1 : code,
+        aborted,
+        timedOut,
+      });
     };
     // A child killed by a signal reports a null code; reading that as 0 would
     // let an OOM kill pass for a clean run.
@@ -718,21 +778,17 @@ export default function (pi: ExtensionAPI) {
             },
           );
 
-          // pi reports a bad model id, a missing key and an extension load
-          // failure on stderr and exits with empty stdout, which reads as
-          // "(no output)" and names no cause.
-          const killed = outcome.aborted || outcome.timedOut;
-          const note = killed
-            ? outcome.aborted
-              ? "(cancelled; anything above is what it had reached)"
-              : `(no result after ${TASK_TIMEOUT_MS / 60_000}m; anything above is what it had reached)`
-            : outcome.code === 0
-              ? ""
-              : outcome.stderr.trim().slice(-500);
-          const text = lastAssistantText(outcome.stdout);
-
-          r.state = outcome.code === 0 && !killed ? "done" : "failed";
-          r.summary = note ? `${text}\n${note}` : text;
+          const result = classifyResult(
+            outcome.events,
+            outcome.code,
+            outcome.aborted,
+            outcome.timedOut,
+          );
+          const note = [result.error, outcome.stderr.trim().slice(-500)]
+            .filter(Boolean)
+            .join("\n");
+          r.state = result.state === "success" ? "done" : "failed";
+          r.summary = [result.text, note].filter(Boolean).join("\n");
           r.activity = undefined;
           r.elapsedMs = Date.now() - r.startedAt;
           // Exit code, stderr and the bill are the parent's knowledge; none of
@@ -742,6 +798,7 @@ export default function (pi: ExtensionAPI) {
             task: index,
             outcome: {
               state: r.state,
+              result: result.state,
               code: outcome.code,
               aborted: outcome.aborted,
               timedOut: outcome.timedOut,

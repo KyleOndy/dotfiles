@@ -561,6 +561,73 @@ class RelayTests(unittest.TestCase):
     @unittest.skipUnless(
         os.environ.get("PI_TEST_BIN"), "PI_TEST_BIN is required for real Pi integration"
     )
+    def test_real_pi_task_marks_provider_failure_despite_zero_exit(self):
+        extension = os.environ.get(
+            "PI_TASK_EXTENSION",
+            str(
+                Path(__file__).parents[2]
+                / "modules/hm_modules/dev/pi/extensions/task.ts"
+            ),
+        )
+        with tempfile.TemporaryDirectory(prefix="pi-task-result-test-") as temporary:
+            root = Path(temporary)
+            agent = root / "agent"
+            agent.mkdir()
+            logs = root / "logs"
+            logs.mkdir()
+            (agent / "models.json").write_text(json.dumps(self.relay.catalog))
+            (agent / "auth.json").write_text("{}")
+            (agent / "settings.json").write_text(
+                json.dumps({"retry": {"enabled": False}})
+            )
+            probe = root / "probe.ts"
+            probe.write_text(
+                "import task from "
+                + json.dumps(extension)
+                + ";\n"
+                + "export default async function () {\n"
+                + "  let tool; task({registerTool: t => tool = t});\n"
+                + '  const result = await tool.execute("fixture", {tasks:["FORCE_PROVIDER_FAILURE"]}, undefined, undefined, {mode:"print", hasUI:false, model:{provider:"openai-completions",id:"fixture"}});\n'
+                + "  console.log(JSON.stringify(result));\n"
+                + '  process.exit(result.details.results[0].state === "failed" ? 0 : 1);\n'
+                + "}\n"
+            )
+            result = subprocess.run(
+                [
+                    os.environ["PI_TEST_BIN"],
+                    "--no-extensions",
+                    "--no-approve",
+                    "-e",
+                    str(probe),
+                    "--mode",
+                    "rpc",
+                ],
+                cwd=root,
+                env={
+                    "HOME": temporary,
+                    "PI_CODING_AGENT_DIR": str(agent),
+                    "PI_REAL_BIN": os.environ["PI_TEST_BIN"],
+                    "PI_TASK_LOG_DIR": str(logs),
+                    "PATH": os.environ["PATH"],
+                },
+                text=True,
+                capture_output=True,
+                timeout=20,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("fixture-provider-failure", result.stdout)
+            events = [
+                json.loads(line)
+                for file in logs.glob("*.jsonl")
+                for line in file.read_text().splitlines()
+            ]
+            outcome = next(event["outcome"] for event in events if "outcome" in event)
+            self.assertEqual(outcome["code"], 0)
+            self.assertEqual(outcome["result"], "error")
+
+    @unittest.skipUnless(
+        os.environ.get("PI_TEST_BIN"), "PI_TEST_BIN is required for real Pi integration"
+    )
     def test_real_pi_tool_roundtrip_all_api_families(self):
         with tempfile.TemporaryDirectory(prefix="pi-relay-test-") as temporary:
             root = Path(temporary)
