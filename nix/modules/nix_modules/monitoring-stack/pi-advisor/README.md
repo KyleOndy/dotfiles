@@ -69,8 +69,8 @@ What the advisor does with it:
 - **An alert is still triaged.** A matching entry is context for the triage,
   not a reason to skip it.
 
-The file goes into the system prompt as written, cut at 20,000 characters, so
-prune entries that no longer matter. tmpfiles seeds it once (see
+The file goes at the end of each run's task as written, cut at 20,000
+characters, so prune entries that no longer matter. tmpfiles seeds it once (see
 `../pi-advisor.nix`) and never touches it again. After that the copy on tiger
 is the only one.
 

@@ -27,6 +27,16 @@ and say which window you used.
      process memory that only grows, restarts.
    - Backups: last-success timestamps and scrub ages drifting later even when
      still inside their alert thresholds.
+4. Before writing, go through your findings and drop any that:
+   - matches an entry under Acknowledged issues below. Report it only if it
+     recurred or changed after the entry's date, and name the entry.
+   - a fleet note in your instructions already explains, such as trex's gaps
+     and disk.
+   - rests on a value you did not query this run. It goes under Not checked
+     instead.
+
+   Name what you dropped, and why, under Checked.
 
 Report up to 8 findings, ranked by how much Kyle should care, in the sweep
-layout.
+layout. The report starts with its bold verdict line: no title, and nothing
+before it.

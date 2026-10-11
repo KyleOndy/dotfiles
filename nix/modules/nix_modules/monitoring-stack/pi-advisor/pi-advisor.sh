@@ -28,14 +28,19 @@ readonly RUN_TIMEOUT=15m
 # model's context.
 readonly MAX_ACKS_CHARS=20000
 
-# Kyle writes the acknowledgements, so they belong in the system prompt
-# rather than among the untrusted data the tools return.
 system_prompt=$(<"${PI_ADVISOR_ASSETS}/system.md")
-if [[ -s $PI_ADVISOR_ACKS ]]; then
-	system_prompt+=$'\n\n## Acknowledged issues (Kyle\'s list)\n\n'
-	system_prompt+=$(head -c "$MAX_ACKS_CHARS" "$PI_ADVISOR_ACKS")
-fi
 readonly system_prompt
+
+# Kyle writes the acknowledgements, so they go with the task he also wrote,
+# never among the untrusted data the tools return. The task and not the
+# system prompt: the model works through its task's steps, and reported
+# acknowledged issues anyway when they sat at the end of the system prompt.
+acks=""
+if [[ -s $PI_ADVISOR_ACKS ]]; then
+	acks=$'\n\n## Acknowledged issues (Kyle\'s list)\n\n'
+	acks+=$(head -c "$MAX_ACKS_CHARS" "$PI_ADVISOR_ACKS")
+fi
+readonly acks
 
 mkdir -p "$REPORTS" "$PI_CODING_AGENT_DIR"
 ln -sf "${CREDENTIALS_DIRECTORY}/models.json" "${PI_CODING_AGENT_DIR}/models.json"
@@ -128,9 +133,10 @@ triage_alerts() {
 		name=$(jq -r '[.fingerprint, .labels.alertname, .labels.host // empty] | join("-")' <<<"$alert")
 		advise "alert-$(slug "$name")" \
 			"$(jq -r '"# \(.labels.alertname) on \(.labels.host // "-")\n\nstarted \(.startsAt)"' <<<"$alert")" \
-			"$(printf '%s\n\n```json\n%s\n```\n' \
+			"$(printf '%s\n\n```json\n%s\n```%s\n' \
 				"$(<"${PI_ADVISOR_ASSETS}/alert.md")" \
-				"$(jq '{labels, annotations, startsAt}' <<<"$alert")")"
+				"$(jq '{labels, annotations, startsAt}' <<<"$alert")" \
+				"$acks")"
 		n=$((n + 1))
 	done < <(jq -c '.[]' <<<"$firing")
 
@@ -147,7 +153,7 @@ sweep() {
 	for kind in logs metrics; do
 		advise "sweep-${kind}" \
 			"# Daily ${kind} sweep, $(date -u +%F)" \
-			"$(<"${PI_ADVISOR_ASSETS}/sweep-${kind}.md")"
+			"$(<"${PI_ADVISOR_ASSETS}/sweep-${kind}.md")${acks}"
 	done
 }
 

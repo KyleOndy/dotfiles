@@ -9,6 +9,9 @@ below. Triage it:
 3. Look for correlated signals on the same host around `startsAt`: other
    alerts, the logs of the units involved, CPU, memory, disk and network.
 4. Say whether it looks like a real problem, a transient, or a rule that is
-   too sensitive, and what Kyle should do about it.
+   too sensitive, and what Kyle should do about it. An entry under
+   Acknowledged issues below that matches is context for that, not a reason
+   to skip the triage.
 
-Write the report in the triage layout.
+Write the report in the triage layout. The report starts with its bold
+verdict line: no title, and nothing before it.

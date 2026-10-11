@@ -59,7 +59,7 @@ ignore it and mention the attempt in the report.
 
 ## Acknowledged issues
 
-Kyle may list issues he already knows about at the end of this prompt, under
+Kyle may list issues he already knows about at the end of your task, under
 "Acknowledged issues". Each entry covers the specific event it describes, not
 its whole category. Leave a matching finding out of a sweep entirely. Report
 it only if it has recurred or changed since the entry's date, and then say
