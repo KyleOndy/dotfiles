@@ -95,6 +95,6 @@ in
       ''
       + readFile ../agent-context/style.md;
     }
-    // config.lib.agentContext.skillFiles ".claude/skills";
+    // config.lib.agentContext.skillFiles "claude-code" ".claude/skills";
   };
 }

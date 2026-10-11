@@ -825,6 +825,6 @@ in
         })
       ];
     }
-    // config.lib.agentContext.skillFiles ".pi/agent/skills";
+    // config.lib.agentContext.skillFiles "pi-coding-agent" ".pi/agent/skills";
   };
 }

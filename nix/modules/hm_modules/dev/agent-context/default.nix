@@ -11,6 +11,11 @@
 with lib;
 let
   cfg = config.hmFoundry.dev.agent-context;
+  harnesses = [
+    "claude-code"
+    "pi-coding-agent"
+    "codex"
+  ];
 in
 {
   options.hmFoundry.dev.agent-context.skills = mkOption {
@@ -29,6 +34,11 @@ in
             type = types.bool;
             default = false;
             description = "If true, source is a single .md file installed as <name>/SKILL.md";
+          };
+          harnesses = mkOption {
+            type = types.listOf (types.enum harnesses);
+            default = harnesses;
+            description = "The harnesses that install this skill, for one written around a single harness's tools";
           };
         };
       }
@@ -58,17 +68,21 @@ in
             "ponytail-audit"
           ];
 
-    # home.file entries for every skill under dir, in the <name>/SKILL.md
-    # layout Claude Code and pi both read.
-    lib.agentContext.skillFiles =
-      dir:
-      listToAttrs (
-        map (
-          skill:
-          nameValuePair (if skill.isFile then "${dir}/${skill.name}/SKILL.md" else "${dir}/${skill.name}") {
-            inherit (skill) source;
-          }
-        ) cfg.skills
-      );
+    lib.agentContext = rec {
+      skillsFor = harness: filter (skill: elem harness skill.harnesses) cfg.skills;
+
+      # home.file entries for harness's skills under dir, in the
+      # <name>/SKILL.md layout Claude Code and pi both read.
+      skillFiles =
+        harness: dir:
+        listToAttrs (
+          map (
+            skill:
+            nameValuePair (if skill.isFile then "${dir}/${skill.name}/SKILL.md" else "${dir}/${skill.name}") {
+              inherit (skill) source;
+            }
+          ) (skillsFor harness)
+        );
+    };
   };
 }

@@ -26,7 +26,7 @@ in
         + "\n"
         + builtins.readFile ../agent-context/style.md;
       skills = lib.listToAttrs (
-        map (skill: lib.nameValuePair skill.name skill.source) config.hmFoundry.dev.agent-context.skills
+        map (skill: lib.nameValuePair skill.name skill.source) (config.lib.agentContext.skillsFor "codex")
       );
     };
   };

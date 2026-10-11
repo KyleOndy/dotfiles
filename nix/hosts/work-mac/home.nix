@@ -112,6 +112,8 @@
         name = "pi-delegate";
         source = ./skills/pi-delegate.md;
         isFile = true;
+        # Written around Claude Code's tools and token budget.
+        harnesses = [ "claude-code" ];
       }
     ];
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
