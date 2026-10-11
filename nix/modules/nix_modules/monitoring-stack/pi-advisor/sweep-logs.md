@@ -10,14 +10,24 @@ outside that range, and say how far.
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
    already firing and what is already watched.
 2. Journal volume and errors by host and unit, e.g.
-   `sum by (host, unit) (count_over_time({job="systemd-journal"} |~ "(?i)(error|fail|panic|denied|refused|timed? ?out)" [24h]))`
-   and the same with `offset 7d`, to find units that are new to the list or
+
+   ```logql
+   sum by (host, unit) (count_over_time({job="systemd-journal"} |~ `(?i)\b(error|fail(s|ed|ure|ing)?|panic|denied|refused|timed? ?out)\b|exception\b` [24h]))
+   ```
+
+   The backtick string keeps `\b` literal. Matching whole words leaves out
+   unit descriptions ("vdev errors"), alert names ("SyncFailing") and empty
+   fields (`"errors":0`), and still counts "Failed to start" and
+   "TimeoutException".
+
+   Run it again with `offset 7d`, to find units that are new to the list or
    went quiet when they normally log. Run `baseline` on each unit whose count
    looks high, one unit at a time. A unit that went quiet is a finding only
    if it stopped running
    (`node_systemd_unit_state{host="<host>",name="<unit>",state="active"}`
    reads 0) or the metrics it feeds stopped. One still running that stopped
    erroring after a deploy was fixed.
+
 3. Caddy access: 5xx counts by host and upstream, 4xx spikes, and request
    patterns that look like scanning or credential stuffing against a public
    app.
