@@ -79,6 +79,10 @@ const DEFAULT_CONFIG: SecretGuardConfig = {
     "id_ed25519",
     "?*.secret",
     "credentials.json",
+    // pi's own credential stores: a stored key outranks the env key, and a
+    // value can be a `!command` pi runs when the credential is first needed.
+    "auth.json",
+    "mcp-auth.json",
     // Not secret material, but the switch that turns this off. Both config
     // paths sit inside the sandbox's write allowlist ($PWD and ~/.pi), and
     // `enabled: false` in either one is read at the start of every later

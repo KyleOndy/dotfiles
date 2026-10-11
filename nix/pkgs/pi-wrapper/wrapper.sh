@@ -190,10 +190,12 @@ pi_log_keep_days=@logKeepDays@
 # secret-bearing. Anything the wrapper injects via envFromCommands/envVars is
 # added dynamically; this is the base set of provider keys that may legitimately
 # arrive from the caller's shell. See __pi_scrub_secret_env.
+# GH_TOKEN and GITHUB_TOKEN are not kept: github.com is allowlisted under
+# the flake bundle, so a kept token would be the secret and the channel in
+# one env. A session that needs one gets it through a gated resolver.
 pi_keep_env=(
 	ANTHROPIC_API_KEY OPENROUTER_API_KEY OPENAI_API_KEY
 	GEMINI_API_KEY GOOGLE_API_KEY GROQ_API_KEY
-	GH_TOKEN GITHUB_TOKEN
 )
 
 # Scope agent commit attribution to a non-human identity. Exported on every
