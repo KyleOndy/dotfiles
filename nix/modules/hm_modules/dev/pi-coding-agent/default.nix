@@ -29,6 +29,14 @@
 #   --allow-clipboard      macOS pasteboard, so ctrl+v pastes images and
 #                          pbcopy/pbpaste work; the agent can read whatever
 #                          is on the clipboard, copied passwords included
+#   --allow-git-crypt      git-crypt key dirs readable, so the clean filter
+#                          runs and filtered files can be committed; the key
+#                          is the repo's master key for its ciphertext, so
+#                          this is read access to everything git-crypt hides
+#   --allow-session-history ~/.pi/agent/sessions readable, so the resume
+#                          picker and cross-project resume work in-session;
+#                          the current project's transcripts stay readable
+#                          without it
 #   --allow-<toolchain>    go / rust / node / python / java / clojure: that
 #                          toolchain's registries, plus for java and clojure
 #                          the package caches under $HOME (~/.m2, ~/.clojure,
@@ -122,6 +130,9 @@ let
         defaultPiArgs = cfg.sandbox.defaultArgs;
         defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
         inherit (cfg.sandbox) logKeepDays;
+        defaultAllowGitCrypt = cfg.sandbox.allowGitCrypt;
+        defaultAllowSessionHistory = cfg.sandbox.allowSessionHistory;
+        inherit (cfg.sandbox) nixDaemonConfigFiles;
         defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
         gitWriteMode = cfg.sandbox.gitWrite;
@@ -397,6 +408,49 @@ in
           Does not open external network egress, srt's domain filter still
           applies, only loopback addresses are unblocked. Runtime
           --allow-loopback extends this per-invocation.
+        '';
+      };
+
+      allowGitCrypt = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Default for the wrapper's --allow-git-crypt. The wrapper denies
+          reading every git-crypt key directory by default -- the key file
+          is the symmetric master key for the repo's ciphertext, so being
+          allowed to run the clean filter is the same capability as being
+          able to steal it. Leave off: a session that must commit
+          ciphertext-bearing files (tf/ here) is restarted with the flag,
+          and `git add` of a filtered file fails loudly without it.
+        '';
+      };
+
+      allowSessionHistory = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = ''
+          Default for the wrapper's --allow-session-history. The wrapper
+          denies reading ~/.pi/agent/sessions by default while keeping the
+          current project's own transcript directory readable, so recording
+          and same-project resume work and every other project's transcripts
+          stay closed. Turn on only if in-sandbox use of the resume picker
+          or cross-project resume matters more than that.
+        '';
+      };
+
+      nixDaemonConfigFiles = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [
+          "/etc/nix/nix.conf"
+          "/etc/nix/nix.custom.conf"
+        ];
+        description = ''
+          The nix daemon's own config files, read for the sandbox setting
+          the --allow-nix warning reports: whether the daemon confines the
+          builds it runs. Determinate on darwin splits its settings between
+          nix.conf and the nix.custom.conf its nix-darwin module owns. A
+          setting the daemon takes some other way reads as unknown and is
+          reported as the worse case.
         '';
       };
 

@@ -39,6 +39,12 @@ coord_id=""
 coord_agent=""
 allow_ssh_agent=@defaultAllowSshAgent@
 allow_clipboard=false
+# The git-crypt key dirs and the session-history tree are denied by default
+# (see the policy-deny construction after __pi_resolve_git_dirs); either
+# flag removes its deny and records the grant, so PI_GRANTS names what the
+# session can do and the prompt can ask for a restart to get it.
+allow_git_crypt=@defaultAllowGitCrypt@
+allow_session_history=@defaultAllowSessionHistory@
 git_write_mode=@gitWriteMode@
 protected_branches=(@protectedBranches@)
 git_write_granted=false
@@ -76,6 +82,16 @@ secrets_source="@secretsSource@"
 # go in, since which one a caller connects through is not ours to pin.
 nix_daemon_socket="/nix/var/nix/daemon-socket/socket"
 nix_daemon_socket_real=$(readlink -f "$nix_daemon_socket" 2>/dev/null || true)
+
+# The daemon's own config files, read to learn whether it sandboxes builds.
+# Not `nix config show`, which answers the client's view, not the daemon's;
+# the daemon reads these files at startup and they are what it runs with.
+# Determinate on darwin splits its settings between nix.conf and the
+# nix.custom.conf its nix-darwin module owns. Settings it takes some other
+# way (a launchd environment, say) are invisible here and read as unknown,
+# and unknown is treated as the worse case. The flake check overrides this
+# to an empty list so its assertions do not depend on the host's daemon.
+nix_daemon_config_files=(@nixDaemonConfigFiles@)
 
 # The docker CLI reaches forge's daemon over its VM's socket, blocked by the
 # same default-deny on unix sockets. Only added to the policy under
@@ -144,6 +160,29 @@ pi_task_log_dir="$HOME/.pi/agent/task-logs"
 # Background bash output (extensions/stall-guard.ts). Unlike task-logs the
 # agent reads these back, since it tails its own jobs.
 pi_job_log_dir="$HOME/.pi/agent/job-logs"
+# Session transcripts (pi's own). Denied for reading below: the task-logs
+# posture applied to transcripts. Writing stays granted so this session
+# still records; reading them is a job for the human, outside the sandbox.
+pi_sessions_dir="$HOME/.pi/agent/sessions"
+# pi names each project's transcript directory after its physical cwd, minus
+# the leading /, with every / \ and : replaced by -, wrapped in -- ... --
+# (getDefaultSessionDirPath, pi 1.0.0). The wrapper cannot know this
+# session's own file name (pi picks it at start), but the directory is
+# deterministic, so the carve-out is per-project: pi's in-session reads and
+# `pi --session <id>` resumed from this cwd keep working, and every other
+# project's transcripts stay denied. If pi changes this encoding, reads fail
+# loudly rather than leaking; update this line then.
+__pi_cwd=$(pwd -P)
+__pi_cwd=${__pi_cwd#/}
+pi_session_project_dir="$pi_sessions_dir/--${__pi_cwd//[\/\\:]/-}--"
+# The loadable surface of ~/.pi/agent: home-manager's symlinks to code and
+# config pi loads at startup. ~/.pi is writable by every session, so without
+# this deny a session could swap a link for a directory it controls and have
+# the next pi session -- including the human's -- execute its contents.
+# keybindings.json is deliberately absent: pi rewrites it when an action id
+# is renamed upstream, and it holds keymaps, not code. settings.json and
+# models-store.json stay writable for the same reason: pi's own state.
+pi_loadable_names=(extensions grants agents skills themes AGENTS.md models.json)
 # Days before both log dirs are pruned; empty keeps everything.
 pi_log_keep_days=@logKeepDays@
 
@@ -741,6 +780,20 @@ while [[ $# -gt 0 ]]; do
 		allow_clipboard=true
 		shift
 		;;
+	--allow-git-crypt)
+		# Exact-match case: it shadows any network bundle named "git-crypt".
+		# Un-does the default denyRead over every git-crypt key dir, so the
+		# session may run the clean filter and commit ciphertext-bearing files.
+		allow_git_crypt=true
+		shift
+		;;
+	--allow-session-history)
+		# Exact-match case: it shadows any network bundle named "session-history".
+		# Un-does the default denyRead over ~/.pi/agent/sessions, so the resume
+		# picker and cross-project resume work inside this session.
+		allow_session_history=true
+		shift
+		;;
 	--allow-forge | --allow-forge=*)
 		# Exact-match case: it shadows any network bundle named "forge".
 		allow_forge=true
@@ -806,7 +859,7 @@ done
 # From the final values rather than the case arms, so a grant a host turns
 # on through defaultAllow* is recorded like one given on the command line.
 flag_grants=()
-for grant in nix ssh-agent forge clipboard; do
+for grant in nix ssh-agent forge clipboard git-crypt session-history; do
 	allowed="allow_${grant//-/_}"
 	if "${!allowed}"; then
 		flag_grants+=("$grant")
@@ -851,7 +904,7 @@ fi
 # Not under --no-sandbox, where no flag is missing and no refusal is the
 # sandbox's.
 if ! "$no_sandbox"; then
-	available_grants=(nix ssh-agent forge clipboard)
+	available_grants=(nix ssh-agent forge clipboard git-crypt session-history)
 	if [[ ${#bundle_domains[@]} -gt 0 ]]; then
 		available_grants+=("${!bundle_domains[@]}")
 	fi
@@ -969,32 +1022,80 @@ __pi_assert_ssh_agent() {
 	fi
 }
 
-# What --allow-nix costs turns on one bit the daemon owns: whether it treats
-# this uid as trusted. Trusted means the build-users-group override above is
-# available and the session is effectively unsandboxed. Untrusted means a
-# builder still escapes this policy, but only as _nixbld. Ask the daemon
-# rather than assume, and read an unanswerable question as the worse case: a
-# missing nix or an older daemon is not reassurance.
+# The daemon's build sandbox, the second bit --allow-nix costs. Trust decides
+# whether a builder can be root; this decides whether a builder is confined
+# at all. With sandbox = false a builder is arbitrary code as _nixbld with no
+# OS sandbox: measured on a daemon so configured, a build launched from
+# inside srt wrote /tmp and reached the network directly, past both the
+# filesystem denyWrite and the domain allowlist, while srt's own proxy saw
+# none of it. Unix permissions on the human's home still hid $HOME from
+# _nixbld, but that is ownership, not policy, and /tmp is world-writable.
+# Read from the daemon's config files, since the daemon is what runs the
+# build; unknown reads as the worse case, same as the trust bit.
+__pi_nix_builder_sandbox() {
+	local f v
+	for f in "${nix_daemon_config_files[@]}"; do
+		[[ -r $f ]] || continue
+		# The value token only, so a trailing comment or a `# ...` line does
+		# not reach the case below. Last match wins, as nix does.
+		v=$(sed -n 's/^[[:space:]]*sandbox[[:space:]]*=[[:space:]]*\([a-z]*\).*/\1/p' "$f" | tail -1)
+		case "$v" in
+		true | false | relaxed) printf '%s' "$v" && return 0 ;;
+		esac
+	done
+	printf 'unknown'
+}
+
+# What --allow-nix costs turns on two bits the daemon owns: whether it treats
+# this uid as trusted, and whether it sandboxes builds. Trusted means the
+# build-users-group override above is available and the session is effectively
+# unsandboxed. Untrusted means a builder still escapes this policy, but only
+# as _nixbld -- and, without the build sandbox, as unconfined _nixbld with the
+# whole network. Ask the daemon rather than assume for both bits, and read an
+# unanswerable question as the worse case: a missing nix or an older daemon is
+# not reassurance.
 __pi_warn_nix_trust() {
-	local trusted
+	local trusted sandbox
 	trusted=$(nix store info --json 2>/dev/null |
 		jq -r 'if has("trusted") then (.trusted | tostring) else "unknown" end' 2>/dev/null) ||
 		trusted="unknown"
+	sandbox=$(__pi_nix_builder_sandbox)
 	case "$trusted" in
 	false | 0)
 		echo "pi: --allow-nix grants the nix daemon socket. The daemon reports this client" >&2
 		echo "pi:          untrusted, so a build cannot become root. It still runs outside" >&2
 		echo "pi:          this sandbox as _nixbld." >&2
+		case "$sandbox" in
+		true)
+			echo "pi:          The daemon sandboxes its builds, so a builder stays inside nix's" >&2
+			echo "pi:          own sandbox rather than loose on the host." >&2
+			;;
+		false | relaxed)
+			echo "pi:          The daemon does not sandbox its builds (sandbox = $sandbox), so a" >&2
+			echo "pi:          builder is unconfined code with the whole network: writes to" >&2
+			echo "pi:          world-writable paths, egress past the domain allowlist." >&2
+			;;
+		*)
+			echo "pi:          This wrapper could not tell whether the daemon sandboxes its" >&2
+			echo "pi:          builds; assume it does not." >&2
+			;;
+		esac
 		;;
 	true | 1)
 		echo "pi: WARNING: --allow-nix grants the nix daemon socket, and the daemon reports" >&2
 		echo "pi:          this client trusted. It can build as root outside this sandbox:" >&2
 		echo "pi:          treat the session as unsandboxed." >&2
+		[[ $sandbox != false && $sandbox != relaxed ]] || {
+			echo "pi:          The daemon also does not sandbox its builds (sandbox = $sandbox)." >&2
+		}
 		;;
 	*)
 		echo "pi: WARNING: --allow-nix grants the nix daemon socket, and the daemon did not" >&2
 		echo "pi:          say whether this client is trusted. A trusted one builds as root" >&2
 		echo "pi:          outside this sandbox: treat the session as unsandboxed." >&2
+		[[ $sandbox != false && $sandbox != relaxed ]] || {
+			echo "pi:          The daemon also does not sandbox its builds (sandbox = $sandbox)." >&2
+		}
 		;;
 	esac
 }
@@ -1076,6 +1177,66 @@ if [[ -n $git_common_dir ]]; then
 		git_write_granted=true
 	fi
 fi
+
+# Session-scoped read/write denies, shared by strict mode and --web's macOS
+# profile so the two cannot drift. Linux's --web needs none of them: bwrap
+# binds an allowlist and grants neither the git dirs nor the sessions tree,
+# so there is nothing to carve out. srt applies a literal deny after every
+# allow it sits under, so each entry wins over the $PWD, git-dir and ~/.pi
+# grants wherever it overlaps them, and nothing more specific re-opens it.
+#
+# The git-dir grant is a whole-directory grant to a directory that is
+# multi-tenant: the common dir holds a git dir per worktree, and each one
+# accumulates state its owner never offered this session -- the human's
+# index and in-progress rebase, and git-crypt's key file, which is the
+# symmetric master key for every ciphertext file in the repo (here: tf/'s
+# *.pem, *.key, *.secret, terraform.tfvars). git cannot work without reading
+# the common dir, so the fix is not to withhold it but to carve out what no
+# session needs: every sibling worktree's admin dir, and the git-crypt key
+# dirs -- the session's own included, since a process that can run the
+# clean filter is a process that holds the key; "may encrypt" and "may
+# steal the key" are one capability. Siblings are enumerated at start,
+# which covers the worktrees that exist now; ones added later are made by
+# the broker outside the sandbox, and the worktrees/*/git-crypt glob covers
+# the one thing about them that outlives their own session.
+pi_policy_deny_reads=()
+pi_policy_deny_writes=()
+if [[ -n $git_common_dir ]]; then
+	if [[ -d $git_common_dir/worktrees ]]; then
+		for __pi_sib in "$git_common_dir"/worktrees/*; do
+			[[ -e $__pi_sib && $__pi_sib != "$git_dir" ]] || continue
+			pi_policy_deny_reads+=("$__pi_sib")
+			pi_policy_deny_writes+=("$__pi_sib")
+		done
+	fi
+	if ! "$allow_git_crypt"; then
+		pi_policy_deny_reads+=(
+			"$git_dir/git-crypt"
+			"$git_common_dir/git-crypt"
+			"$git_common_dir/worktrees/*/git-crypt"
+		)
+	fi
+fi
+if ! "$allow_session_history"; then
+	# A glob, not the directory: srt re-applies a literal deny after every
+	# allow it sits under, and carves allowRead entries out of glob denies
+	# only (macos-sandbox-utils.js lateReadDenyFilters). The glob leaves the
+	# sessions dir itself listable, so other projects' paths show as names.
+	pi_policy_deny_reads+=("$pi_sessions_dir/*")
+	extra_read_paths+=("$pi_session_project_dir")
+	# Writes too, or a session could plant entries in a transcript the human
+	# later resumes. denyWrite beats allowWrite in srt (sandbox-runtime
+	# README, filesystem.denyWrite), so other projects are denied one by one
+	# as they exist at start; a project with no directory yet is not covered.
+	for __pi_proj in "$pi_sessions_dir"/*/; do
+		__pi_proj=${__pi_proj%/}
+		[[ -d $__pi_proj && $__pi_proj != "$pi_session_project_dir" ]] || continue
+		pi_policy_deny_writes+=("$__pi_proj")
+	done
+fi
+for __pi_name in "${pi_loadable_names[@]}"; do
+	pi_policy_deny_writes+=("$HOME/.pi/agent/$__pi_name")
+done
 
 # nix stats the channel search path even for a flake-only evaluation, and
 # ~/.nix-defexpr/channels is a symlink into ~/.local/state/nix, so both the
@@ -1294,7 +1455,8 @@ run_web_linux() {
 }
 
 run_web_macos() {
-	local profile_file
+	local profile_file a
+	local -A ancestors=()
 	profile_file=$(mktemp /tmp/pi-sandbox-XXXXXX.sb)
 	# shellcheck disable=SC2064 # expand $profile_file now, not at trap time
 	trap "rm -f '$profile_file'" EXIT
@@ -1338,6 +1500,58 @@ run_web_macos() {
 		for p in "${resolved_extra_writes[@]}"; do
 			echo "(allow file-write* (subpath \"$p\"))"
 		done
+		# The same session-scoped denies strict mode carries, so --web's wider
+		# network never comes with a narrower memory of what is off limits.
+		# SBPL resolves by last match rather than longest prefix, so order
+		# replaces length: every deny after the allows it carves into, and the
+		# project's own session directory re-allowed after the deny covering
+		# it. Glob entries are skipped -- SBPL subpath matches literally, so a
+		# `*` there is a filename, not a pattern -- leaving future siblings'
+		# git-crypt keys uncovered in --web exactly as in strict mode's
+		# non-srt consumers; the enumerated siblings cover the ones that exist.
+		for p in "${pi_policy_deny_reads[@]}"; do
+			case "$p" in
+			*'*'*) continue ;;
+			esac
+			echo "(deny file-read* (subpath \"$p\"))"
+		done
+		# The sessions deny is a glob for srt's sake, so SBPL gets the
+		# directory instead.
+		if ! "$allow_session_history"; then
+			echo "(deny file-read* (subpath \"$pi_sessions_dir\"))"
+			echo "(allow file-read* (subpath \"$pi_session_project_dir\"))"
+		fi
+		for p in "${pi_policy_deny_writes[@]}"; do
+			case "$p" in
+			*'*'*) continue ;;
+			esac
+			echo "(deny file-write* (subpath \"$p\"))"
+		done
+		# Seatbelt checks a rename against the source's write rules alone, so
+		# a read deny under a write grant is one `mv` from readable, and any
+		# deny is one `mv` of an ancestor from matching nothing. Measured with
+		# this profile's shape: `cat` of a denied transcript refused, `mv` of
+		# it into the project's own directory succeeded, and `cat` there read
+		# it. srt adds the same move-blocking to strict mode's profile
+		# (macos-sandbox-utils.js, generateMoveBlockingRules).
+		for p in "${pi_policy_deny_reads[@]}" "${pi_policy_deny_writes[@]}"; do
+			case "$p" in
+			*'*'*) continue ;;
+			esac
+			echo "(deny file-write-unlink (subpath \"$p\"))"
+			a=${p%/*}
+			while [[ -n $a ]]; do
+				ancestors[$a]=1
+				a=${a%/*}
+			done
+		done
+		for a in "${!ancestors[@]}"; do
+			echo "(deny file-write-unlink (literal \"$a\"))"
+		done
+		if ! "$allow_session_history"; then
+			echo "(deny file-write-unlink (subpath \"$pi_sessions_dir\"))"
+			echo "(allow file-write-unlink (subpath \"$pi_session_project_dir\"))"
+		fi
 	} >"$profile_file"
 
 	if [[ ${PI_DEBUG:-} == "plan" ]]; then
@@ -1373,6 +1587,7 @@ run_strict() {
 		"$PWD/.git/hooks"
 		"$PWD/.git/config"
 		"$PWD/.gitmodules"
+		"${pi_policy_deny_writes[@]}"
 	)
 	# The $PWD/.git entries above match nothing in a worktree layout, where
 	# that path is a pointer file and the hooks and config that actually run
@@ -1411,13 +1626,14 @@ run_strict() {
 	fi
 	deny_write_json=$(printf '%s\n' "${deny_write_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")] | unique')
 
-	# srt names this shape "denyAllExcept". Rules resolve by longest matching
-	# prefix, so allowing "$HOME/.pi" re-opens what denying "/" hid, and denying
-	# the transcript dir under it closes that one back up. Verified against
-	# sandbox-runtime 0.0.73: a sibling file under ~/.pi stayed readable while
-	# the denied subdirectory refused open, stat, rename and readdir.
-	# credential_masks is not consulted here, the root deny subsumes it.
-	deny_read_paths=("/" "$pi_task_log_dir")
+	# srt names this shape "denyAllExcept". Allowing "$HOME/.pi" re-opens what
+	# denying "/" hid, and denying the transcript dir under it closes that one
+	# back up. Verified against sandbox-runtime 0.0.73: a sibling file under
+	# ~/.pi stayed readable while the denied subdirectory refused open, stat,
+	# rename and readdir. credential_masks is not consulted here, the root deny
+	# subsumes it. pi_policy_deny_reads closes the same way over the git-dir
+	# and session state no session needs (see where it is built).
+	deny_read_paths=("/" "$pi_task_log_dir" "${pi_policy_deny_reads[@]}")
 	deny_read_json=$(printf '%s\n' "${deny_read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 	allow_read_json=$(printf '%s\n' "${read_paths[@]}" | jq -Rs '[split("\n")[] | select(. != "")]')
 

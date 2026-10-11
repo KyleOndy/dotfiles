@@ -11,6 +11,31 @@ let
 
   wrapper = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
+    # The daemon's config files are the host's; the check's assertions on
+    # the --allow-nix warning must not depend on whichever daemon happens
+    # to be under the build sandbox, so the posture probe reads nothing and
+    # answers "unknown" here.
+    nixDaemonConfigFiles = [ ];
+  };
+
+  # Posture probes: the daemon-side `sandbox` setting the --allow-nix
+  # warning reads from nixDaemonConfigFiles. Separate fixtures so each
+  # verdict has a deterministic input, independent of the check host.
+  nixConfSandboxOff = pkgs.writeText "nix-custom" ''
+    sandbox = false
+  '';
+  nixConfSandboxOn = pkgs.writeText "nix-custom" ''
+    sandbox = true
+  '';
+
+  wrapperWithSandboxOff = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    nixDaemonConfigFiles = [ "${nixConfSandboxOff}" ];
+  };
+
+  wrapperWithSandboxOn = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    nixDaemonConfigFiles = [ "${nixConfSandboxOn}" ];
   };
 
   wrapperWithResolver = pkgs.pi-wrapper.override {
@@ -213,6 +238,14 @@ pkgs.runCommand "pi-coding-agent-check"
     export PI_DEBUG=plan
 
     fail() { echo "FAIL: $*" >&2; exit 1; }
+    # pi's transcript directory for the cwd (getDefaultSessionDirPath, pi
+    # 1.0.0): the physical path minus its leading /, separators replaced by -.
+    proj_dir() {
+      local p
+      p=$(pwd -P)
+      p=''${p#/}
+      echo "--''${p//[\/\\:]/-}--"
+    }
 
     # --no-sandbox: warning + direct exec of stub pi
     captured=$(pi --no-sandbox foo 2>&1)
@@ -361,6 +394,44 @@ pkgs.runCommand "pi-coding-agent-check"
           fail "--web re-opens $leaky. profile=$profile"
         fi
       done
+      # --web carries the same session-scoped denies strict mode does, so the
+      # wider network never comes with a narrower memory of the surface.
+      # SBPL resolves by last match, so the project carve-out has to follow
+      # the deny rather than sit in the allow list above it.
+      web_deny="(deny file-read* (subpath \"$HOME/.pi/agent/sessions\"))"
+      web_allow="(allow file-read* (subpath \"$HOME/.pi/agent/sessions/$(proj_dir)\"))"
+      case "$profile" in
+        *"$web_deny"*"$web_allow"*) ;;
+        *)
+          fail "--web must deny transcripts, then re-allow the project's own dir after the deny. profile=$profile"
+          ;;
+      esac
+      # Seatbelt checks a rename against write rules alone, so a deny also
+      # needs its subtree and its ancestors unmovable.
+      web_unlink="(deny file-write-unlink (subpath \"$HOME/.pi/agent/sessions\"))"
+      web_unlink_own="(allow file-write-unlink (subpath \"$HOME/.pi/agent/sessions/$(proj_dir)\"))"
+      case "$profile" in
+        *"$web_unlink"*"$web_unlink_own"*) ;;
+        *)
+          fail "--web must block moving transcripts out, except the project's own. profile=$profile"
+          ;;
+      esac
+      echo "$profile" | grep -qF "(deny file-write-unlink (literal \"$HOME/.pi/agent\"))" \
+        || fail "--web lets ~/.pi/agent move out from under its denies. profile=$profile"
+      echo "$profile" | grep -q "(deny file-write\* (subpath \"$HOME/.pi/agent/extensions\"))" \
+        || fail "--web left the extensions link writable. profile=$profile"
+      # SBPL resolves by last match, so the project carve-out is only real if
+      # it follows the deny covering it; the adjacency case above pins that,
+      # and this pins the deny against drifting ahead of the allow list: the
+      # last write-allow is the last line of the allow list, so the deny must
+      # come after it, never before.
+      last_allow="(allow file-write* (subpath \"$HOME/.pi\"))"
+      case "$profile" in
+        *"$last_allow"*"$web_deny"*) ;;
+        *)
+          fail "--web: the sessions deny must come after the allow list, last match wins. profile=$profile"
+          ;;
+      esac
     ''}
 
     # Default envFromCommands={} emits no PI_PLAN_ENV: lines
@@ -518,11 +589,11 @@ pkgs.runCommand "pi-coding-agent-check"
     # what it could ask a restart for. extensions/grants.ts subtracts
     # PI_GRANTS from it for the prompt.
     captured=$(pi -- x 2>&1)
-    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,nix,ssh-agent" \
+    echo "$captured" | grep -q "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,git-crypt,nix,session-history,ssh-agent" \
       || fail "available grants missing or unsorted. captured=$captured"
     captured=$(${wrapperWithBundles}/bin/pi -- x 2>&1)
     echo "$captured" | grep -q \
-      "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,netbundle,nix,nixbundle,pathbundle,ssh-agent,trustbundle" \
+      "PI_PLAN_AVAILABLE_GRANTS: clipboard,forge,git-crypt,netbundle,nix,nixbundle,pathbundle,session-history,ssh-agent,trustbundle" \
       || fail "bundles missing from available grants. captured=$captured"
     # Carrying a grant shrinks the missing list, never the catalog.
     captured=$(${wrapperWithBundles}/bin/pi --allow-netbundle -- x 2>&1)
@@ -678,6 +749,90 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$repo/.git/worktrees/*/config.worktree\")" >/dev/null \
       || fail "worktree: sibling config.worktree glob trap missing. settings=$settings"
 
+    # Sibling worktree admin dirs hold their git-crypt keys, index and
+    # in-progress rebase state: state this session never needs, granted anyway
+    # by the blanket common-dir read. Denied on both axes, and the session's
+    # own git dir must stay readable (asserted above) or git here would be
+    # unusable.
+    sibling="$repo/.git/worktrees/wt-detached"
+    echo "$settings" | jq -e --arg s "$sibling" '.filesystem.denyRead | index($s)' >/dev/null \
+      || fail "sibling worktree git dir readable: $sibling. settings=$settings"
+    echo "$settings" | jq -e --arg s "$sibling" '.filesystem.denyWrite | index($s)' >/dev/null \
+      || fail "sibling worktree git dir writable: $sibling. settings=$settings"
+    # And no allow entry may reach it either: the deny is the carve-out, not
+    # the only mention of the path.
+    echo "$settings" | jq -e --arg s "$sibling" \
+      '[(.filesystem.allowRead // []), (.filesystem.allowWrite // [])]
+        | flatten | map(select(. == $s or startswith($s + "/"))) | length == 0' >/dev/null \
+      || fail "a grant reaches into the sibling worktree dir. settings=$settings"
+
+    # git-crypt's key file is the repo's master key for its ciphertext (tf/'s
+    # *.pem, *.key, *.secret here), so its key dirs are denied by default,
+    # the session's own included: running the clean filter and holding the
+    # key are one capability. The glob covers siblings added after this
+    # session started, which the broker makes outside the sandbox.
+    echo "$settings" | jq -e --arg p "$wt_gitdir/git-crypt" '.filesystem.denyRead | index($p)' >/dev/null \
+      || fail "own git-crypt key dir readable by default. settings=$settings"
+    echo "$settings" | jq -e --arg p "$repo/.git/git-crypt" '.filesystem.denyRead | index($p)' >/dev/null \
+      || fail "common-dir git-crypt key dir readable by default. settings=$settings"
+    echo "$settings" | jq -e --arg p "$repo/.git/worktrees/*/git-crypt" '.filesystem.denyRead | index($p)' >/dev/null \
+      || fail "git-crypt glob missing, later siblings' keys stay readable. settings=$settings"
+
+    # --allow-git-crypt lifts the key denies and records the grant, so a
+    # session that must commit tf/ can ask for a restart by name.
+    captured=$(pi --allow-git-crypt -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: git-crypt" \
+      || fail "--allow-git-crypt missing from PI_PLAN_GRANTS. captured=$captured"
+    echo "$settings" | jq -e --arg p "$wt_gitdir/git-crypt" '.filesystem.denyRead | index($p) | not' >/dev/null \
+      || fail "--allow-git-crypt left the key deny in place. settings=$settings"
+    echo "$settings" | jq -e --arg p "$repo/.git/worktrees/*/git-crypt" '.filesystem.denyRead | index($p) | not' >/dev/null \
+      || fail "--allow-git-crypt left the sibling glob deny in place. settings=$settings"
+
+    # Other projects' transcripts stay unreadable and unwritable, this
+    # project's stay both. The read deny is a glob because srt carves
+    # allowRead entries out of glob denies only.
+    sess="$HOME/.pi/agent/sessions"
+    mkdir -p "$sess/--other--"
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    proj=$(proj_dir)
+    echo "$settings" | jq -e --arg p "$sess/*" '.filesystem.denyRead | index($p)' >/dev/null \
+      || fail "session transcripts readable across projects. settings=$settings"
+    echo "$settings" | jq -e --arg p "$sess/--other--" '.filesystem.denyWrite | index($p)' >/dev/null \
+      || fail "another project's transcripts writable. settings=$settings"
+    echo "$settings" | jq -e --arg p "$sess" '.filesystem.allowRead | index($p) | not' >/dev/null \
+      || fail "the sessions root must not be granted, only the project dir. settings=$settings"
+    echo "$settings" | jq -e --arg p "$sess/$proj" '.filesystem.allowRead | index($p)' >/dev/null \
+      || fail "the project's own transcript dir must stay readable. settings=$settings"
+    echo "$settings" | jq -e --arg p "$sess/$proj" '.filesystem.denyWrite | index($p) | not' >/dev/null \
+      || fail "the project's transcript dir must stay writable, pi records into it. settings=$settings"
+
+    # --allow-session-history lifts the deny and records the grant: that is
+    # what the resume picker and cross-project resume ask a restart for.
+    captured=$(pi --allow-session-history -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    echo "$captured" | grep -q "PI_PLAN_GRANTS: session-history" \
+      || fail "--allow-session-history missing from PI_PLAN_GRANTS. captured=$captured"
+    echo "$settings" | jq -e --arg p "$sess/*" '.filesystem.denyRead | index($p) | not' >/dev/null \
+      || fail "--allow-session-history left the deny in place. settings=$settings"
+    echo "$settings" | jq -e --arg p "$sess/--other--" '.filesystem.denyWrite | index($p) | not' >/dev/null \
+      || fail "--allow-session-history left another project write-denied. settings=$settings"
+
+    # The loadable surface of ~/.pi/agent is home-manager's symlinks to code
+    # and config pi loads at startup; ~/.pi is writable by every session, so
+    # a swapped link is the next session's code execution. Denied for write.
+    # keybindings.json is deliberately absent: pi rewrites it when an action
+    # id is renamed upstream.
+    captured=$(pi -- x 2>&1)
+    settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
+    for name in extensions grants agents skills themes AGENTS.md models.json; do
+      echo "$settings" | jq -e --arg p "$HOME/.pi/agent/$name" '.filesystem.denyWrite | index($p)' >/dev/null \
+        || fail "loadable $name writable: swap-to-code-exec. settings=$settings"
+    done
+    echo "$settings" | jq -e --arg p "$HOME/.pi/agent/keybindings.json" '.filesystem.denyWrite | index($p) | not' >/dev/null \
+      || fail "keybindings.json must stay writable, pi rewrites it. settings=$settings"
+
     # --protect-branch adds a branch to the gate: a sibling's ref and reflog
     # join denyWrite while write on this branch is still granted.
     captured=$(pi --protect-branch=sibling -- x 2>&1)
@@ -830,6 +985,27 @@ pkgs.runCommand "pi-coding-agent-check"
     captured=$(PATH=$TMPDIR/nixstub:$PATH pi --allow-nix -- x 2>&1)
     echo "$captured" | grep -q "unsandboxed" \
       || fail "--allow-nix did not warn on a trusted client. captured=$captured"
+
+    # The builder-sandbox posture is the second bit the grant costs: with
+    # sandbox=false a builder is unconfined code with the whole network, as
+    # measured (writes /tmp, direct egress, no srt proxy). Read from the
+    # daemon's own config files; the base wrapper was built with an empty
+    # list, so its stubbed-trust cases above answer "unknown", which must
+    # say so without borrowing the trusted verdict's word.
+    mk_nix_stub false
+    captured=$(PATH=$TMPDIR/nixstub:$PATH ${wrapperWithSandboxOff}/bin/pi --allow-nix -- x 2>&1)
+    echo "$captured" | grep -q "does not sandbox its builds" \
+      || fail "sandbox=false posture not reported. captured=$captured"
+    echo "$captured" | grep -q "unsandboxed" \
+      && fail "an untrusted client was called unsandboxed, whatever the posture. captured=$captured"
+    captured=$(PATH=$TMPDIR/nixstub:$PATH ${wrapperWithSandboxOn}/bin/pi --allow-nix -- x 2>&1)
+    echo "$captured" | grep -q "sandboxes its builds" \
+      || fail "sandbox=true posture not reported. captured=$captured"
+    echo "$captured" | grep -q "does not sandbox its builds" \
+      && fail "sandbox=true posture contradicts itself. captured=$captured"
+    captured=$(PATH=$TMPDIR/nixstub:$PATH pi --allow-nix -- x 2>&1)
+    echo "$captured" | grep -q "could not tell whether the daemon sandboxes" \
+      || fail "unknown posture not reported as unknown. captured=$captured"
 
     # defaultAllowNix=true does the same without any CLI flag
     captured=$(${wrapperWithNixDefault}/bin/pi -- x 2>&1)

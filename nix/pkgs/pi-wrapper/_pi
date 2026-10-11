@@ -17,6 +17,8 @@ _arguments -S -A "-*" \
   '--allow-trustd[verify TLS through trustd, at a wider egress surface]' \
   '--allow-nix[nix daemon socket, equivalent to --no-sandbox under trusted-users]' \
   '--allow-ssh-agent[ssh-agent socket and public ssh files, never the private keys]' \
+  '--allow-git-crypt[git-crypt key dirs readable, so the session can commit ciphertext-bearing files]' \
+  '--allow-session-history[read past session transcripts, for the resume picker and cross-project resume]' \
   '--allow-forge=-[forge VM socket, kubeconfig and loopback; =N for named instance N]::instance:({1..15})' \
   '--coordinator=-[spawn agents with their own worktree and forge; =ID reattaches]::id:' \
 @bundleFlags@  '(--no-git-write)--allow-git-write[grant git-dir write on any branch, so the agent can commit]' \

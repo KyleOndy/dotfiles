@@ -107,6 +107,31 @@
   # so the escape is scoped to a session you chose it for rather than every
   # session on the host, including ones spent reading someone else's code.
   defaultAllowNix ? false,
+  # Default for --allow-git-crypt (readable git-crypt key dirs). Off because
+  # the key file is the symmetric master key for every ciphertext file in the
+  # repo, so a process that can run the clean filter is a process that can
+  # steal it; a session that must commit ciphertext-bearing files restarts
+  # with the flag rather than every session holding it. Off leaves in-session
+  # `git add` of a filtered file failing loudly, which is the wanted signal.
+  defaultAllowGitCrypt ? false,
+  # Default for --allow-session-history (readable ~/.pi/agent/sessions). Off
+  # because transcripts hold every past session's prompts, the human's
+  # included, across every project on the host. The deny leaves the current
+  # project's own transcript directory readable, so recording and
+  # same-project resume keep working; the resume picker and cross-project
+  # resume are what the flag buys back.
+  defaultAllowSessionHistory ? false,
+  # The daemon's config files, read for the `sandbox` setting the --allow-nix
+  # warning reports: whether the daemon confines the builds it runs, which is
+  # the second thing the grant costs once the client is untrusted. Not `nix
+  # config show`, which answers the client's view. Overridden to an empty list
+  # by the flake check so its assertions do not depend on the host's daemon;
+  # a setting the daemon takes some other way reads as unknown, and unknown
+  # is reported as the worse case.
+  nixDaemonConfigFiles ? [
+    "/etc/nix/nix.conf"
+    "/etc/nix/nix.custom.conf"
+  ],
   # Default for --allow-ssh-agent (the ssh-agent socket, plus the ssh config,
   # known_hosts and public keys ssh needs to use it). Off because it lets the
   # agent authenticate as the human to anything the network allowlist reaches,
@@ -266,6 +291,9 @@ let
         "@logKeepDays@"
         "@defaultAllowTrustd@"
         "@defaultAllowNix@"
+        "@defaultAllowGitCrypt@"
+        "@defaultAllowSessionHistory@"
+        "@nixDaemonConfigFiles@"
         "@defaultAllowForge@"
         "@defaultAllowSshAgent@"
         "@forgeKubeconfig@"
@@ -295,6 +323,9 @@ let
         (if logKeepDays == null then "" else toString logKeepDays)
         (if defaultAllowTrustd then "true" else "false")
         (if defaultAllowNix then "true" else "false")
+        (if defaultAllowGitCrypt then "true" else "false")
+        (if defaultAllowSessionHistory then "true" else "false")
+        (bashArray nixDaemonConfigFiles)
         (if defaultAllowForge then "true" else "false")
         (if defaultAllowSshAgent then "true" else "false")
         forgeKubeconfig
