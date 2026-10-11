@@ -379,11 +379,12 @@
             config = { };
           };
 
-          # The skills feed both Claude Code and pi. Claude Code's frontmatter
+          # The skills feed Claude Code, pi and Codex. Claude Code's frontmatter
           # parser tolerates YAML that pi's rejects outright (an unquoted
-          # description containing ": " is the case that bit us), and pi
-          # silently drops a skill whose description is missing, so validate
-          # against the stricter of the two before the file ships.
+          # description containing ": " is the case that bit us), pi silently
+          # drops a skill whose description is missing, and Codex caps a name
+          # at 64 characters, so validate against the strictest before the
+          # file ships.
           skillFrontmatter = pkgs.writeShellApplication {
             name = "skill-frontmatter";
             runtimeInputs = [
@@ -420,6 +421,9 @@
                   fail=1
                 elif ! printf '%s' "$name" | grep -qE '^[a-z0-9]+(-[a-z0-9]+)*$'; then
                   echo "ERROR: $f: name '$name' is not lowercase a-z0-9 with single hyphens" >&2
+                  fail=1
+                elif [ "''${#name}" -gt 64 ]; then
+                  echo "ERROR: $f: name '$name' is longer than 64 characters" >&2
                   fail=1
                 fi
 

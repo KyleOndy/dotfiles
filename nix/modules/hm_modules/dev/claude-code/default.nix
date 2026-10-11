@@ -85,10 +85,15 @@ in
         recursive = true;
       };
 
-      ".claude/output-styles" = {
-        source = ./output-styles;
-        recursive = true;
-      };
+      ".claude/output-styles/direct.md".text = ''
+        ---
+        name: Direct
+        description: Result first, no preamble. Repo refs become pinned permalinks in authored text.
+        keep-coding-instructions: true
+        ---
+
+      ''
+      + readFile ../agent-context/style.md;
     }
     // config.lib.agentContext.skillFiles ".claude/skills";
   };

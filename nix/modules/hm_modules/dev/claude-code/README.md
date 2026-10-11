@@ -49,7 +49,8 @@ weight.
 - `~/.claude/statusline.sh`: git branch, model and effort, context, rate
   limits, cost, duration, lines changed
 - `~/.claude/hooks/`: hook scripts (below)
-- `~/.claude/output-styles/`: the Direct output style
+- `~/.claude/output-styles/direct.md`: the Direct output style, this
+  module's frontmatter on `agent-context/style.md`
 - `~/.claude/skills/`: every skill in `agent-context`
 - `~/.claude/commands/`: the git commands (below)
 

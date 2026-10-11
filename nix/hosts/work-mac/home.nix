@@ -101,6 +101,7 @@
     };
 
     claude-code.enable = true;
+    codex.enable = true;
     agent-context.skills = [
       {
         name = "forge-debug";

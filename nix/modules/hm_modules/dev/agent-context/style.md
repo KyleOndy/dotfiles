@@ -1,9 +1,3 @@
----
-name: Direct
-description: Result first, no preamble. Repo refs become pinned permalinks in authored text.
-keep-coding-instructions: true
----
-
 # Output style: direct
 
 Terse and dry by default, in every reply and every text you author. Longer
