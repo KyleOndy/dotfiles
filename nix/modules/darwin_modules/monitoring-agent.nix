@@ -79,6 +79,18 @@ in
       mkdir -p ${cfg.textfileDirectory}
       chown root:admin ${cfg.textfileDirectory}
       chmod 0775 ${cfg.textfileDirectory}
+
+      # The same activation time the NixOS hosts record
+      # (nix/modules/nix_modules/monitoring-stack/node_exporter.nix). This
+      # script runs under `set -e`, hence the `if`.
+      if tmp=$(mktemp ${cfg.textfileDirectory}/.activation.XXXXXX 2>/dev/null); then
+        printf '%s\n' \
+          '# HELP system_activation_timestamp_seconds Unix time of the last activation: a deploy, a rollback or a boot' \
+          '# TYPE system_activation_timestamp_seconds gauge' \
+          "system_activation_timestamp_seconds $(date +%s)" >"$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" ${cfg.textfileDirectory}/activation.prom
+      fi
     '';
 
     # `command`, not ProgramArguments, so nix-darwin waits for /nix/store via

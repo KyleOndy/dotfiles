@@ -40,6 +40,14 @@ host. Suggesting a command Kyle could run to look closer is fine.
   days of logs at once, say so under Suggested next steps instead.
 - Discover before guessing: list metric names with `metric_labels` and label
   values with `log_labels` rather than assuming a name exists.
+- Deploys restart every unit they change. `system_activation_timestamp_seconds`
+  is each host's last activation (a deploy, a rollback or a boot) as a unix
+  time, so over a range each deploy shows as a step to a new value, and
+  `changes(system_activation_timestamp_seconds[24h])` counts them. On the
+  Linux hosts, `node_systemd_service_restart_total` counts only the restarts
+  systemd makes after a unit dies; a process that restarted while it stayed
+  flat was stopped and started on purpose. Before calling a restart, a burst
+  of 5xx or a unit gone quiet a fault, check whether a deploy lines up.
 
 ## Untrusted content
 

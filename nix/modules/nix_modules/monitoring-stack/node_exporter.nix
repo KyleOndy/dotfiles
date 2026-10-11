@@ -51,6 +51,21 @@ in
       "d ${cfg.textfileDirectory} 1775 root textfile -"
     ];
 
+    # A deploy restarts every unit it changed, so the time of each activation
+    # is what tells a deploy's restarts and quiet logs from a fault. The `if`
+    # matters: a failing snippet fails the whole activation, and on a first
+    # boot the directory does not exist yet.
+    system.activationScripts.activation-textfile = ''
+      if tmp=$(mktemp ${cfg.textfileDirectory}/.activation.XXXXXX 2>/dev/null); then
+        printf '%s\n' \
+          '# HELP system_activation_timestamp_seconds Unix time of the last activation: a deploy, a rollback or a boot' \
+          '# TYPE system_activation_timestamp_seconds gauge' \
+          "system_activation_timestamp_seconds $(date +%s)" >"$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" ${cfg.textfileDirectory}/activation.prom
+      fi
+    '';
+
     # Before 1.12.0, node_filesystem_readonly reads 0 for any read-only mount
     # with more than one option, which is every real one:
     # https://github.com/prometheus/node_exporter/pull/3659
