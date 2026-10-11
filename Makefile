@@ -197,8 +197,9 @@ build-mac-dry: ## Dry-run build of work-mac darwin configuration
 	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system --dry-run
 
 .PHONY: deploy-mac
+deploy-mac: NIX_DAEMON_LABEL := org.nixos.nix-daemon
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch
+	$(NIX_DAEMON_BEFORE); $(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch && $(NIX_DAEMON_RESTART)
 	$(PI_SEATS_CHECK)
 
 .PHONY: build-trex
@@ -209,14 +210,16 @@ build-trex: ## Build trex darwin configuration
 build-trex-dry: ## Dry-run build of trex darwin configuration
 	nix build $(IMPURE) .#darwinConfigurations.trex.system --dry-run
 
-# Activation rewrites these without restarting Determinate's nix daemon,
-# which reads them only at start. A change to either restarts it, which
-# kills any build in flight.
-NIX_DAEMON_SUM := cat /etc/nix/nix.custom.conf /etc/nix/machines 2>/dev/null | shasum
+# Activation rewrites these without restarting the nix daemon, which reads
+# them only at start. A change to any of them restarts it, which kills any
+# build in flight. The label is the daemon's launchd name, set per target:
+# Determinate's on trex, nix-darwin's on work-mac.
+NIX_DAEMON_SUM := cat /etc/nix/nix.conf /etc/nix/nix.custom.conf /etc/nix/machines 2>/dev/null | shasum
 NIX_DAEMON_BEFORE := before=$$($(NIX_DAEMON_SUM))
-NIX_DAEMON_RESTART := { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchctl kickstart -k system/systems.determinate.nix-daemon; }
+NIX_DAEMON_RESTART = { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchctl kickstart -k system/$(NIX_DAEMON_LABEL); }
 
 .PHONY: deploy-trex
+deploy-trex: NIX_DAEMON_LABEL := systems.determinate.nix-daemon
 deploy-trex: ## Deploy trex darwin configuration
 	$(NIX_DAEMON_BEFORE); $(SWITCH) --flake .#trex switch && $(NIX_DAEMON_RESTART)
 	$(PI_SEATS_CHECK)

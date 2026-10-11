@@ -91,11 +91,11 @@ What that costs depends on the
 daemon: a trusted client can make it build as root, which is equivalent to
 `--no-sandbox`, and an untrusted one gets a builder running as `_nixbld`,
 still outside the sandbox but not root. The flag asks and says which on
-startup. trex answers untrusted (`nix store info --json` reports
-`"trusted":false`, from `trusted-users = root` in `/etc/nix/nix.custom.conf`).
-work-mac answers trusted (`@admin` in `nix/modules/darwin_modules/base.nix`),
-so there it is equivalent to `--no-sandbox`.
-Running the verifier yourself is still the cheaper option.
+startup. Both macs answer untrusted (`nix store info --json` reports
+`"trusted":false`): trex from `trusted-users = root` in
+`/etc/nix/nix.custom.conf`, work-mac from the same list in
+`nix/modules/darwin_modules/base.nix`, which also turns the daemon's build
+sandbox on. Running the verifier yourself is still the cheaper option.
 
 A dead model id fails silently at runtime, so the seats are checked before a
 run: `pi-seats check` at every start, and after every `make deploy-trex` or

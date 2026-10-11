@@ -30,10 +30,19 @@
         "nix-command"
         "flakes"
       ];
-      trusted-users = [
-        "root"
-        "@admin"
-      ];
+      # root alone: a trusted client can override build-users-group and
+      # have the daemon build as root, and a pi session under --allow-nix
+      # is a client. The daemon answers `trusted: false` to the human too;
+      # darwin-rebuild runs under sudo, so switching is unaffected, and a
+      # per-invocation --option on a restricted setting is refused.
+      trusted-users = [ "root" ];
+      # nix defaults this to false on darwin, which leaves a build
+      # unconfined as _nixbld with the whole network, including one a pi
+      # session started under --allow-nix. Fixed-output builds keep the
+      # network either way; docs/darwin-nix-sandbox.md has what this closes and
+      # what it costs (derivations carrying their own sandboxProfile do not
+      # build locally, so a cache miss on one of them fails).
+      sandbox = true;
 
       # pi and sandbox-runtime come from the llm-agents input, which Hydra
       # never sees; numtide's CI is the only thing that prebuilds them.

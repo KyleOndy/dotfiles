@@ -6,7 +6,8 @@ client runs in. What the build can reach is a daemon-owned bit:
 ([local-settings.hh](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/include/nix/store/local-settings.hh#L361-L393)),
 and so does Determinate's nix-darwin module
 ([default.nix](https://github.com/DeterminateSystems/determinate/blob/68e51a34285ceb664e74d078bcd46a15f984dfe4/modules/nix-darwin/default.nix#L594-L605)). trex sets it to `true` in
-`determinateNix.customSettings`; work-mac does not set it.
+`determinateNix.customSettings`, work-mac in
+`nix/modules/darwin_modules/base.nix`.
 
 Measured on trex with `sandbox = false` (2026-10-10): a derivation built
 from inside the srt sandbox ran as `uid=351(_nixbld1)`, wrote a marker to `/tmp` (a write srt
@@ -122,5 +123,6 @@ The daemon reads the setting when it starts. A deploy rewrites
 restarts the daemon, and the probe kept fetching until
 `sudo launchctl kickstart -k system/systems.determinate.nix-daemon`.
 `make deploy-trex` runs that restart when the switch changed
-`/etc/nix/nix.custom.conf` or `/etc/nix/machines`; a bare
+`/etc/nix/nix.conf`, `/etc/nix/nix.custom.conf` or `/etc/nix/machines`,
+and `make deploy-mac` does the same for work-mac's daemon; a bare
 `darwin-rebuild switch` leaves the old settings running.
