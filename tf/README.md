@@ -7,17 +7,16 @@ Infrastructure code for resources outside of what Nix manages, mostly AWS.
   `docs/backup-strategy.md`. pika is the only host that writes to it.
 - `video-scratch.tf`: the holding bucket for raw video during a project,
   pushed from trex by `backup-resolve-projects --s3`.
+- `state.tf`: the bucket this directory's state lives in, locked with S3
+  lockfiles. Its comment has the bootstrap order for a fresh setup.
 
-`terraform.tfstate` is committed. One developer, so there is no concurrency
-problem, and `.gitattributes` runs `tf/*.tfstate` through [git-crypt], so the
-contents are not public.
-
-[git-crypt]: https://github.com/AGWA/git-crypt
+State is not in git. Reading it takes the AWS keys below, so a checkout of
+this repo, or anything that can read one, never holds it. Git history keeps
+the versions from before the move, as git-crypt ciphertext.
 
 ## Run Locally
 
 ```
-git-crypt unlock
 make plan
 make apply
 ```

@@ -17,8 +17,9 @@ apply: init
 env:
 	printenv | rg AWS_ | sort
 
-# Minted here rather than by an aws_iam_access_key resource, because
-# terraform.tfstate is tracked in git and would carry the secret with it.
+# Minted here rather than by an aws_iam_access_key resource, because the
+# state would carry the secret in plaintext to anything that can read the
+# state bucket.
 # IAM_USER rather than USER, which the shell already exports.
 #   make access-key IAM_USER=svc.archive-push
 .PHONY: access-key
