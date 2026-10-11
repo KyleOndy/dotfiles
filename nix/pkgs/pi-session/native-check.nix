@@ -19,8 +19,10 @@ pkgs.writeShellApplication {
     export PI_SANDBOX_RUNNER_SOURCE=${./sandbox.mjs}
     export PI_BROKER_BIN=${pkgs.lib.getExe (pkgs.pi-broker.override { withForge = false; })}
     export PI_COORDINATOR_EXTENSION=${../../modules/hm_modules/dev/pi/extensions/coordinator.ts}
+    export PI_SOFTNET_INSTALLER=${pkgs.lib.getExe pkgs.pi-builder.softnetInstaller}
     export PYTHONPATH=${pkgs.pi-session}/libexec/pi-session
     python3 ${./.}/test_session.py
+    python3 ${../pi-builder}/test_softnet_install.py
     exec python3 ${./.}/test_build_service.py
   '';
 }

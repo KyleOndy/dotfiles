@@ -4,6 +4,8 @@
   python3,
   git,
   makeWrapper,
+  writeShellApplication,
+  coreutils,
   tart,
   softnet,
   fetchurl,
@@ -26,6 +28,11 @@ let
       license = lib.licenses.fsl11Asl20;
     };
   });
+  softnetInstaller = writeShellApplication {
+    name = "pi-install-softnet";
+    runtimeInputs = [ coreutils ];
+    text = builtins.readFile ./install-softnet.sh;
+  };
 in
 runCommand "pi-builder"
   {
@@ -35,6 +42,7 @@ runCommand "pi-builder"
       makeWrapper
     ];
     passthru = {
+      inherit softnetInstaller;
       tart = reviewedTart;
       softnet = reviewedSoftnet;
     };

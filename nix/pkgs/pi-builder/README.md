@@ -14,11 +14,24 @@ Mac before use.
 Use Tart's executable inside `Applications/tart.app/Contents/MacOS/tart`;
 its app bundle carries the provisioning profile required by macOS.
 
-Provision Softnet into a root-owned directory, owned by root with mode
-`4755`. Do not set SUID on a writable development binary. This is an explicit
-host privilege grant. Softnet changes host DHCP preferences, creates its
-vmnet interface, then drops privilege. The runner refuses an unprovisioned
-helper instead of invoking Tart's interactive SUID setup.
+The Darwin module manages the privileged copy:
+
+```nix
+systemFoundry.piBuilder.enable = true;
+```
+
+Both Darwin hosts enable it. Apply through `make deploy-mac` or
+`make deploy-trex`. Root activation copies the pinned package atomically to
+`/Library/PrivilegedHelperTools/pi-builder/softnet`, owned by root:wheel with
+mode `4755`. The Nix store copy stays unprivileged. Redeployment repairs the
+copy; disabling the option and deploying removes it. Upgrades replace the
+same path, and the builder's pinned hash must match the deployed version.
+
+This is an explicit host privilege grant. Softnet changes host DHCP
+preferences, creates its vmnet interface, then drops privilege. The runner
+refuses an unprovisioned helper instead of invoking Tart's interactive SUID
+setup. The module manages only the helper; guest provisioning and live
+acceptance remain separate. See the [Darwin module](../../modules/darwin_modules/pi-builder.nix).
 
 Create a credential-free standalone macOS 26 guest with Tart Guest Agent,
 Python 3.12 or later, Git, git-crypt, make, Nix with flakes enabled, and the

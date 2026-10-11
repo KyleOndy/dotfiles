@@ -15,6 +15,8 @@ in
 {
   imports = [ ];
 
+  systemFoundry.piBuilder.enable = true;
+
   # Upstream sets the builder's maxJobs to its cores, and on trex 8 jobs
   # each taking all 8 cores thrashed 12 GiB. Four jobs at 3 GiB each, out of
   # 48 GiB and held only while the VM is up.

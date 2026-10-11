@@ -12,8 +12,8 @@ private temporary directory. Each check has a bounded log; `report.json`
 records commands, durations, outcomes, selected checks and coverage.
 Nix may reuse check results for identical sources. Native probes always run.
 
-A full run includes Nix checks, native Seatbelt and coordinator tests, and
-native builder probes. The builder needs a provisioned VM and a trusted
+A full run includes Nix checks, native Seatbelt, coordinator and helper
+installation tests, and native builder probes. The builder needs a provisioned VM and a trusted
 configuration outside agent-writable state:
 
 ```sh

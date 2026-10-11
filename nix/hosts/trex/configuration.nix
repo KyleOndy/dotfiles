@@ -15,6 +15,8 @@ in
 {
   imports = [ ./wireguard.nix ];
 
+  systemFoundry.piBuilder.enable = true;
+
   networking.hostName = "trex";
 
   # lan.1ella.com and dmz.1ella.com live only in the UDM's split-horizon
