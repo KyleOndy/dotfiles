@@ -42,10 +42,9 @@ in
     enable = true; # also forces nix.enable = false for us
 
     # base.nix's nix.settings are never written here, so the numtide cache
-    # it adds for the llm-agents packages has to be restated. The running
-    # daemon keeps the settings it started with, so a change here takes
-    # `sudo launchctl kickstart -k system/systems.determinate.nix-daemon`
-    # after the deploy.
+    # it adds for the llm-agents packages has to be restated. The daemon
+    # reads these only at start: `make deploy-trex` restarts it when they
+    # change, and a bare `darwin-rebuild switch` leaves the old ones running.
     customSettings = {
       extra-substituters = [ "https://cache.numtide.com" ];
       extra-trusted-public-keys = [

@@ -209,9 +209,16 @@ build-trex: ## Build trex darwin configuration
 build-trex-dry: ## Dry-run build of trex darwin configuration
 	nix build $(IMPURE) .#darwinConfigurations.trex.system --dry-run
 
+# Activation rewrites these without restarting Determinate's nix daemon,
+# which reads them only at start. A change to either restarts it, which
+# kills any build in flight.
+NIX_DAEMON_SUM := cat /etc/nix/nix.custom.conf /etc/nix/machines 2>/dev/null | shasum
+NIX_DAEMON_BEFORE := before=$$($(NIX_DAEMON_SUM))
+NIX_DAEMON_RESTART := { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchctl kickstart -k system/systems.determinate.nix-daemon; }
+
 .PHONY: deploy-trex
 deploy-trex: ## Deploy trex darwin configuration
-	$(SWITCH) --flake .#trex switch
+	$(NIX_DAEMON_BEFORE); $(SWITCH) --flake .#trex switch && $(NIX_DAEMON_RESTART)
 	$(PI_SEATS_CHECK)
 
 .PHONY: flash-ergodox
