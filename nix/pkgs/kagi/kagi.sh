@@ -2,7 +2,7 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/kagi/default.nix).
 
-readonly api="https://kagi.com/api/v1"
+readonly api="${KAGI_API_URL:-https://kagi.com/api/v1}"
 
 # https://kagi.com/api/pricing: search is $12/1k requests, extract is $4/1k
 # pages. Search bills per request whatever `limit` asks for; extract bills per
@@ -37,11 +37,11 @@ post() {
 	# `if !` rather than a bare assignment: errexit would abort the script at
 	# a failing assignment and never reach the handler.
 	if ! out=$(
-		curl -sS --fail-with-body -m 60 \
+		curl -sS --fail-with-body -m 60 --proto "=http,https" \
+			--url "$api/$path" \
 			--data-binary "@$body" \
 			-H "Content-Type: application/json" \
 			--config - <<-EOF
-				url = "$api/$path"
 				header = "Authorization: Bearer $KAGI_API_KEY"
 			EOF
 	); then
