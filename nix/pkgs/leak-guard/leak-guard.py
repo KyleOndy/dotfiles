@@ -347,10 +347,12 @@ def cmd_install():
     hooks = Path(git("rev-parse", "--git-path", "hooks").strip())
     hooks.mkdir(parents=True, exist_ok=True)
     for hook, mode in HOOKS.items():
+        # /bin/sh, not /usr/bin/env: the check runs these hooks inside the
+        # darwin build sandbox, which has the one and not the other.
         body = (
-            "#!/usr/bin/env bash\n"
+            "#!/bin/sh\n"
             "# Written by `leak-guard install`. Fails closed when leak-guard is\n"
-            "# not on PATH: bash exits 127 and git refuses.\n"
+            "# not on PATH: sh exits 127 and git refuses.\n"
             "set -euo pipefail\n"
             f'exec leak-guard {mode} "$@"\n'
         )
