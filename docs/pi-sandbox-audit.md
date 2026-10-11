@@ -99,6 +99,12 @@ denyWrite `auth.json` and `mcp-auth.json`, and add `auth.json` to
 secret-guard's denyPatterns. Check per host first that nothing depends on a
 stored credential or an OAuth login.
 
+The deny needs the file to exist: pi's credential store writes `{}` to
+`auth.json` before its first read (`FileAuthStorageBackend.ensureFileExists`
+in `dist/core/auth-storage.js`), so with the file absent and the deny in
+place every session dies at start with EPERM on `auth.json`. Create the
+empty store (mode 600) outside the sandbox when it is missing.
+
 ### 4. mcp.json: user-level MCP servers spawn at startup (high)
 
 Agent-dir `mcp.json` is read with no trust decision (project `.pi/mcp.json`

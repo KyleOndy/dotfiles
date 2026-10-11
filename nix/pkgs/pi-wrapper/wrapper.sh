@@ -178,14 +178,32 @@ pi_sessions_dir="$HOME/.pi/agent/sessions"
 __pi_cwd=$(pwd -P)
 __pi_cwd=${__pi_cwd#/}
 pi_session_project_dir="$pi_sessions_dir/--${__pi_cwd//[\/\\:]/-}--"
-# The loadable surface of ~/.pi/agent: home-manager's symlinks to code and
-# config pi loads at startup. ~/.pi is writable by every session, so without
-# this deny a session could swap a link for a directory it controls and have
-# the next pi session -- including the human's -- execute its contents.
+# The loadable surface of ~/.pi/agent: everything a later pi process trusts
+# at startup. ~/.pi is writable by every session, so without this deny a
+# session could plant here and have the next pi session -- including the
+# human's -- act on it. The symlinked code and config (extensions, grants,
+# agents, skills, themes, AGENTS.md, models.json) can be swapped for a
+# directory the session controls. bin/ is checked before PATH by pi's own
+# tools and npm/ holds packages pi loads. mcp.json spawns its servers at
+# startup with no trust prompt. trust.json holds the trust decisions that
+# let a project's .pi/settings.json name extensions. auth.json outranks the
+# env key and runs a `!command` value. models-store.json merges into the
+# model registry, baseUrl included. Each of those was planted and executed
+# in docs/pi-sandbox-audit.md.
+#
+# What the deny moves outside the sandbox: /login, the first trust grant
+# for a project, `pi install`, pi's managed fd/rg downloads and
+# `pi update --models` are `pi --no-sandbox` acts.
+#
 # keybindings.json is deliberately absent: pi rewrites it when an action id
-# is renamed upstream, and it holds keymaps, not code. settings.json and
-# models-store.json stay writable for the same reason: pi's own state.
-pi_loadable_names=(extensions grants agents skills themes AGENTS.md models.json)
+# is renamed upstream, and it holds keymaps, not code. settings.json stays
+# writable because pi stamps it on every start; the deployed copy is
+# written over it before dispatch (pi_settings_file), so a planted
+# shellPath or shellCommandPrefix never reaches a later wrapper-started pi.
+pi_loadable_names=(
+	extensions grants agents skills themes AGENTS.md models.json
+	bin npm mcp.json mcp-auth.json trust.json auth.json models-store.json
+)
 # Days before both log dirs are pruned; empty keeps everything.
 pi_log_keep_days=@logKeepDays@
 
@@ -1589,10 +1607,13 @@ run_strict() {
 	# otherwise writable. srt's denyWrite takes precedence over allowWrite, so
 	# these win inside the project dir. (.git/hooks scripts, a .git/config that
 	# injects core.hooksPath/sshCommand, .gitmodules pointing at hostile URLs.)
+	# .direnv/bin goes first on the PATH direnv exports to the human's shell,
+	# and direnv's allow hash covers .envrc alone, not that directory.
 	deny_write_paths=(
 		"$PWD/.git/hooks"
 		"$PWD/.git/config"
 		"$PWD/.gitmodules"
+		"$PWD/.direnv"
 		"${pi_policy_deny_writes[@]}"
 	)
 	# The $PWD/.git entries above match nothing in a worktree layout, where
@@ -1715,10 +1736,19 @@ run_strict() {
 # start, under --no-sandbox too, so an in-session edit lives for that session
 # only. rm first: a symlink planted at the path would otherwise be written
 # through, and a read-only target would abort the start.
+mkdir -p "$HOME/.pi/agent"
 if [[ -n $pi_settings_file ]]; then
-	mkdir -p "$HOME/.pi/agent"
 	rm -f "$HOME/.pi/agent/settings.json"
 	cat "$pi_settings_file" >"$HOME/.pi/agent/settings.json"
+fi
+
+# pi's credential store writes "{}" to auth.json before its first read
+# (FileAuthStorageBackend.ensureFileExists in dist/core/auth-storage.js), and
+# the denyWrite on that name turns the create into EPERM, which fails the
+# session before the env key is tried. An empty store created here, outside
+# the sandbox, keeps both the deny and the start.
+if [[ ! -e $HOME/.pi/agent/auth.json ]]; then
+	(umask 077 && printf '{}\n' >"$HOME/.pi/agent/auth.json")
 fi
 
 if "$no_sandbox"; then

@@ -314,6 +314,10 @@ pkgs.runCommand "pi-coding-agent-check"
       || fail "denyWrite missing \$PWD/.git/hooks. settings=$settings"
     echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$PWD/.git/config\")" >/dev/null \
       || fail "denyWrite missing \$PWD/.git/config. settings=$settings"
+    # .direnv/bin leads the PATH direnv exports to the human's shell, and the
+    # allow hash covers .envrc alone.
+    echo "$settings" | jq -e ".filesystem.denyWrite | index(\"$PWD/.direnv\")" >/dev/null \
+      || fail "denyWrite missing \$PWD/.direnv. settings=$settings"
 
     # Git config hardening: gpgsign off + hooksPath neutered (item 2)
     captured=$(pi -- hello 2>&1)
@@ -490,6 +494,22 @@ pkgs.runCommand "pi-coding-agent-check"
     grep -q kept "$HOME/.pi/agent/settings.json" \
       || fail "empty settingsFile touched settings.json"
     rm -f "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/planted.json"
+
+    # A missing auth.json is created empty (mode 600) before dispatch: pi's
+    # credential store writes "{}" there before its first read, and the
+    # denyWrite on the name would turn that into EPERM and fail the start.
+    rm -f "$HOME/.pi/agent/auth.json"
+    pi -- x >/dev/null 2>&1
+    [ "$(cat "$HOME/.pi/agent/auth.json")" = "{}" ] \
+      || fail "missing auth.json not created empty. got=$(cat "$HOME/.pi/agent/auth.json" 2>&1)"
+    [ "$(stat -c %a "$HOME/.pi/agent/auth.json" 2>/dev/null || stat -f %Lp "$HOME/.pi/agent/auth.json")" = 600 ] \
+      || fail "auth.json not mode 600"
+    # An existing auth.json is left alone
+    echo '{"p":{"type":"api_key","key":"kept"}}' >"$HOME/.pi/agent/auth.json"
+    pi -- x >/dev/null 2>&1
+    grep -q kept "$HOME/.pi/agent/auth.json" \
+      || fail "existing auth.json overwritten"
+    rm -f "$HOME/.pi/agent/auth.json"
 
     # envVars expansion: $PWD resolves at wrapper runtime
     cd "$TMPDIR"
@@ -844,14 +864,16 @@ pkgs.runCommand "pi-coding-agent-check"
     echo "$settings" | jq -e --arg p "$sess/--other--" '.filesystem.denyWrite | index($p) | not' >/dev/null \
       || fail "--allow-session-history left another project write-denied. settings=$settings"
 
-    # The loadable surface of ~/.pi/agent is home-manager's symlinks to code
-    # and config pi loads at startup; ~/.pi is writable by every session, so
-    # a swapped link is the next session's code execution. Denied for write.
-    # keybindings.json is deliberately absent: pi rewrites it when an action
-    # id is renamed upstream.
+    # The loadable surface of ~/.pi/agent: what a later pi process trusts at
+    # start. ~/.pi is writable by every session, so a swapped link or a
+    # planted file is the next session's code execution. Denied for write;
+    # each name past models.json was planted and executed in
+    # docs/pi-sandbox-audit.md. keybindings.json is deliberately absent: pi
+    # rewrites it when an action id is renamed upstream.
     captured=$(pi -- x 2>&1)
     settings=$(echo "$captured" | sed -n 's/^PI_PLAN_SETTINGS: //p')
-    for name in extensions grants agents skills themes AGENTS.md models.json; do
+    for name in extensions grants agents skills themes AGENTS.md models.json \
+                bin npm mcp.json mcp-auth.json trust.json auth.json models-store.json; do
       echo "$settings" | jq -e --arg p "$HOME/.pi/agent/$name" '.filesystem.denyWrite | index($p)' >/dev/null \
         || fail "loadable $name writable: swap-to-code-exec. settings=$settings"
     done
