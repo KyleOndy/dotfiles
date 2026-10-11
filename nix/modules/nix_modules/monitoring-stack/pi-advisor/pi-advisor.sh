@@ -18,9 +18,9 @@ readonly REPORTS="${STATE_DIRECTORY}/reports"
 # "<fingerprint> <startsAt>" per line: an alert that resolves and fires again
 # gets a new startsAt, and with it a new triage.
 readonly SEEN="${STATE_DIRECTORY}/seen-alerts"
-# An alert storm is one report per alert, so these bound what one costs. An
-# alert past the per-run cap waits for the next run; past the daily cap it is
-# marked seen and never triaged.
+# An alert storm is one report per group (see triage_alerts), so these bound
+# what one costs. A group past the per-run cap waits for the next run; past
+# the daily cap it is marked seen and never triaged.
 readonly MAX_ALERTS_PER_RUN=3
 readonly MAX_ALERT_REPORTS_PER_DAY=20
 readonly RUN_TIMEOUT=15m
@@ -106,39 +106,44 @@ advise() {
 }
 
 triage_alerts() {
-	local firing alert key name today count n=0
+	local firing group name today count n=0
 	firing=$(curl -fsS --max-time 30 \
 		"${PI_ADVISOR_AM_URL}/api/v2/alerts?active=true&silenced=false&inhibited=false")
 	today=$(date -u +%Y%m%d)
 	touch "$SEEN"
 
-	while IFS= read -r alert; do
-		key=$(jq -r '"\(.fingerprint) \(.startsAt)"' <<<"$alert")
-		grep -qxF "$key" "$SEEN" && continue
+	# One triage per group of unseen alerts from one rule on one host that
+	# started in the same evaluation. Those most likely share a cause: four
+	# calendars failing at once, for one, were four identical triages.
+	while IFS= read -r group; do
 		((n < MAX_ALERTS_PER_RUN)) || continue
 
 		# Marked before the run, so one that fails or times out is not retried
 		# every two minutes at the provider's expense.
-		echo "$key" >>"$SEEN"
+		jq -r '.[] | "\(.fingerprint) \(.startsAt)"' <<<"$group" >>"$SEEN"
 
 		count=$(find "$REPORTS" -name "${today}T*-alert-*.md" | wc -l)
 		if ((count >= MAX_ALERT_REPORTS_PER_DAY)); then
-			echo "daily cap reached, not triaging ${key}"
+			echo "daily cap reached, not triaging $(jq -r '[.[].fingerprint] | join(" ")' <<<"$group")"
 			continue
 		fi
 
-		# The fingerprint keeps apart two alerts of one name on one host, such as
-		# two failed units, triaged in the same second. It goes first so that
-		# slug's cut never reaches it.
-		name=$(jq -r '[.fingerprint, .labels.alertname, .labels.host // empty] | join("-")' <<<"$alert")
+		# The first fingerprint keeps apart two groups of one name on one host,
+		# such as two units that failed minutes apart, triaged in the same
+		# second. It goes first so that slug's cut never reaches it.
+		name=$(jq -r '.[0] | [.fingerprint, .labels.alertname, .labels.host // empty] | join("-")' <<<"$group")
 		advise "alert-$(slug "$name")" \
-			"$(jq -r '"# \(.labels.alertname) on \(.labels.host // "-")\n\nstarted \(.startsAt)"' <<<"$alert")" \
+			"$(jq -r '"# \(.[0].labels.alertname) on \(.[0].labels.host // "-")\(if length > 1 then " (\(length) alerts)" else "" end)\n\nstarted \(.[0].startsAt)"' <<<"$group")" \
 			"$(printf '%s\n\n```json\n%s\n```%s\n' \
 				"$(<"${PI_ADVISOR_ASSETS}/alert.md")" \
-				"$(jq '{labels, annotations, startsAt}' <<<"$alert")" \
+				"$(jq 'map({labels, annotations, startsAt})' <<<"$group")" \
 				"$acks")"
 		n=$((n + 1))
-	done < <(jq -c '.[]' <<<"$firing")
+	done < <(jq -c --rawfile seen "$SEEN" '
+		($seen | split("\n") | map({(.): true}) | add // {}) as $s
+		| map(select($s["\(.fingerprint) \(.startsAt)"] | not))
+		| group_by([.labels.alertname, .labels.host, .startsAt])
+		| .[]' <<<"$firing")
 
 	# The file keeps only what is firing now, so it stays the size of the
 	# current alert set. An alert that is silenced and then unsilenced is

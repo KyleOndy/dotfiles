@@ -1,5 +1,10 @@
-An alert has just started firing. Its labels, annotations and start time are
-below. Triage it:
+An alert has just started firing. The JSON below lists its labels,
+annotations and start time. More than one entry means one rule fired for
+several series on one host in the same evaluation, such as several
+calendars: triage them together, and say so if they turn out to have
+different causes.
+
+Triage it:
 
 1. Read the rule behind it with `alert_rules`, filtering on the alertname, so
    you know exactly what condition fired.
