@@ -93,7 +93,9 @@ to skip it.
 - You see search snippets only; nothing opens a page. When a finding rests
   on a page you only saw a snippet of, say so, cite its URL and list reading
   it as a next step.
-- Stay within about 30 tool calls. Stop when you have enough to be useful.
+- Every tool result ends with how many of the run's queries are left. Aim
+  for about 30 in all. Once 20 are left, stop exploring and spend the rest
+  checking the findings you already have.
 
 ## Report format
 

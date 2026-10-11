@@ -177,8 +177,13 @@ function cap(text: string): string {
   return `${text.slice(0, MAX_OUTPUT_CHARS)}\n[truncated ${text.length - MAX_OUTPUT_CHARS} chars: aggregate or narrow the query]`;
 }
 
+/** Ends with the queries left, which the model cannot count for itself. */
 function result(text: string) {
-  return { content: [{ type: "text" as const, text: cap(text) }], details: {} };
+  const left = `[${MAX_QUERIES_PER_RUN - queriesMade} of ${MAX_QUERIES_PER_RUN} queries left this run]`;
+  return {
+    content: [{ type: "text" as const, text: `${cap(text)}\n${left}` }],
+    details: {},
+  };
 }
 
 function formatLabels(labels: Labels): string {
