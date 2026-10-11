@@ -12,7 +12,8 @@
  * the built-in's. Other modes keep the built-in behavior, since print and
  * json runs exit when the turn ends and pi-delegate counts turns over RPC.
  * pi builds its own bash with the shellCommandPrefix and shellPath
- * settings; this repo sets neither, so the defaults here match.
+ * settings, so every definition built here carries them too; a bare
+ * rebuild would drop the deployed shellPath in every session.
  *
  * While jobs run, a heartbeat updates the status line and asks the model
  * about a job that has printed nothing new, on a doubling schedule. A job
@@ -37,7 +38,7 @@ import {
   renameSync,
   rmSync,
 } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type BashOperations,
@@ -56,6 +57,29 @@ const REPEATS_FINISHED = 4;
 const REPEATS_TIMED_OUT = 2;
 
 const TIMED_OUT = /(?:\n\n)?Command timed out after \d+ seconds$/;
+
+// The two settings.json keys pi's own bash is built with. Global settings
+// only: pi merges a trusted project's .pi/settings.json on top, and this
+// repo sets neither key there.
+function shellOptions(): { shellPath?: string; commandPrefix?: string } {
+  try {
+    const s = JSON.parse(
+      readFileSync(join(getAgentDir(), "settings.json"), "utf8"),
+    );
+    return {
+      shellPath:
+        typeof s.shellPath === "string"
+          ? s.shellPath.replace(/^~(?=$|\/)/, homedir())
+          : undefined,
+      commandPrefix:
+        typeof s.shellCommandPrefix === "string"
+          ? s.shellCommandPrefix
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 const FULL_OUTPUT_PATH = /Full output: [^\]]+\]/g;
 
 const CHECK = [
@@ -210,7 +234,8 @@ export default function (pi: ExtensionAPI) {
     );
   };
 
-  const base = createBashToolDefinition(process.cwd());
+  const shell = shellOptions();
+  const base = createBashToolDefinition(process.cwd(), shell);
   pi.registerTool({
     ...base,
     description:
@@ -222,7 +247,7 @@ export default function (pi: ExtensionAPI) {
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const cwd = ctx?.cwd ?? process.cwd();
       if (ctx?.mode !== "tui") {
-        return createBashToolDefinition(cwd).execute(
+        return createBashToolDefinition(cwd, shell).execute(
           toolCallId,
           params,
           signal,
@@ -251,7 +276,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       let detached: Job | undefined;
-      const local = createLocalBashOperations();
+      const local = createLocalBashOperations(shell);
       const operations: BashOperations = {
         exec: (command, execCwd, options) =>
           new Promise((resolve, reject) => {
@@ -339,6 +364,7 @@ export default function (pi: ExtensionAPI) {
       };
 
       const result = await createBashToolDefinition(cwd, {
+        ...shell,
         operations,
       }).execute(toolCallId, params, signal, onUpdate, ctx);
       if (detached === undefined) return result;
