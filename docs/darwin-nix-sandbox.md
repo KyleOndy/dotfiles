@@ -58,18 +58,29 @@ warning: ignoring the client-specified setting 'sandbox', because it is a restri
   `__darwinAllowLocalNetworking` opens every port on 127.0.0.1
   ([sandbox-defaults.sb](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/sandbox-defaults.sb#L49-L54)).
 - **What stays open.** `/private/tmp` and `/private/var/tmp` stay
-  writable. They are in darwin's default `sandbox-paths`
+  readable and writable. They are in darwin's default `sandbox-paths`
   ([globals.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/globals.cc#L94-L107)), and every one of those is
   granted read and write
   ([darwin-derivation-builder.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/darwin-derivation-builder.cc#L104-L135)).
-  A unix socket in `/private/tmp` is reachable too: the profile lets a
-  build connect to sockets in the daemon's temp dir
+  A build reads any file there that others may read, and a fixed-output
+  one can send it on. A unix socket in `/private/tmp` is reachable too,
+  through a separate rule for the daemon's temp dir
   ([sandbox-defaults.sb](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/sandbox-defaults.sb#L32-L39)),
   which is its `TMPDIR` with symlinks resolved, so `/private/tmp` on trex
   ([darwin-derivation-builder.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/darwin-derivation-builder.cc#L156)).
+  Measured, with a world-writable socket in each: a build connected to
+  the one in `/private/tmp` and not to the one in `/private/var/tmp`.
   Every socket under `/private/tmp` on trex today sits in a directory
   only its owner can enter, so unix permissions keep `_nixbld` out, and
-  a session cannot add one there, since srt denies it `/tmp`.
+  a session cannot add one there, since srt denies it `/tmp`. Closing the
+  socket rule takes a different `TMPDIR` for the daemon, which no setting
+  reaches: it comes from the launchd plist Determinate's installer
+  writes, and the module's `envVars` go to the shell's environment, not
+  the daemon's
+  ([default.nix](https://github.com/DeterminateSystems/determinate/blob/68e51a34285ceb664e74d078bcd46a15f984dfe4/modules/nix-darwin/default.nix#L309-L316),
+  [L846-L847](https://github.com/DeterminateSystems/determinate/blob/68e51a34285ceb664e74d078bcd46a15f984dfe4/modules/nix-darwin/default.nix#L846-L847)).
+  Closing the files also takes `sandbox-paths` restated without the two
+  dirs.
 
 `relaxed` would not do. It runs fixed-output derivations and any
 `__noChroot` one outside the sandbox
