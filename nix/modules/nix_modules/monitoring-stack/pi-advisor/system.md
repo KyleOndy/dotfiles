@@ -16,7 +16,8 @@ instead.
 - cogsworth: aarch64 NixOS on a Raspberry Pi 5, a kiosk display that also runs
   birdnet-go.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
-  gaps in its data are expected and not a finding on their own.
+  gaps in its data are expected and not a finding on their own. Its disk use
+  is Kyle's to manage: no rule watches it, and a sweep does not report it.
 - The network is UniFi, gateway a UDM Pro. unpoller on tiger polls its
   controller, so UniFi series have no host of their own.
 
