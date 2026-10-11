@@ -17,8 +17,8 @@ accessibility basics, or anything explicitly requested.
 Delete old code completely rather than commenting it out. When uncertain
 about an architecture decision, ask before committing to it.
 
-Full ruleset: the ponytail skill. `/ponytail lite|full|ultra` sets
-intensity.
+Full ruleset: the ponytail skill. Invoking it with `lite`, `full` or
+`ultra` sets intensity.
 
 ## Code Comments (code-comments, always-on)
 

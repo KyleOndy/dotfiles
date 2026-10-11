@@ -21,9 +21,9 @@ works on a mac whose hostname matches its flake config.
 
 - **enable**: turn the module on
 
-Skills and the shared half of `CLAUDE.md` come from
-[`agent-context`](../agent-context/default.nix), which every agent harness
-reads. A host adds its own skills there, with
+Skills, the shared half of `CLAUDE.md` and the Direct style come from
+[`agent-context`](../agent-context/default.nix). pi installs the same
+skills and Codex all three. A host adds its own skills there, with
 `hmFoundry.dev.agent-context.skills`.
 
 Hooks, commands, skills and the user memory file are not switchable. Every

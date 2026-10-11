@@ -1,6 +1,6 @@
-# What every coding agent is told, whichever harness runs it: the skills in
-# this module and instructions.md. claude-code, pi-coding-agent and codex each
-# install them in their own layout.
+# What the agent harnesses share. claude-code, pi-coding-agent and codex each
+# install the skills in their own layout. instructions.md and style.md reach
+# only claude-code and codex: pi's global AGENTS.md is its own (dev/pi).
 
 {
   lib,

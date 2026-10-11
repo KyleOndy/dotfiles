@@ -67,6 +67,6 @@ https://github.com/KyleOndy/dotfiles/blob/<sha>/nix/hosts/tiger/configuration.ni
   `Permalinks pin <short-sha>, not pushed yet.`
 - Untracked file, or a path outside the repo: bare path, no link.
 - Claims about tools, libraries, APIs or language behavior follow the
-  References and Citations section of CLAUDE.md.
+  References and Citations section of the global instructions.
 - Do not permalink this repo's own code from inside this repo's comments or
   docs. A relative path is shorter and survives a history rewrite.
