@@ -60,6 +60,12 @@ let
     ];
   };
 
+  settingsFixture = pkgs.writeText "pi-settings.json" ''{"shellPath":"/deployed/bash"}'';
+  wrapperWithSettingsFile = pkgs.pi-wrapper.override {
+    realPiBin = "${stubPi}/bin/pi";
+    settingsFile = "${settingsFixture}";
+  };
+
   wrapperWithEnvVars = pkgs.pi-wrapper.override {
     realPiBin = "${stubPi}/bin/pi";
     defaultEnvVars = {
@@ -465,6 +471,25 @@ pkgs.runCommand "pi-coding-agent-check"
     if echo "$captured" | grep -q "PI_PLAN_EXEC.*pi --model"; then
       fail "empty defaultPiArgs should not inject --model. captured=$captured"
     fi
+
+    # settingsFile is written over ~/.pi/agent/settings.json before dispatch,
+    # replacing a symlink planted at the path rather than writing through it.
+    mkdir -p "$HOME/.pi/agent"
+    echo '{"shellPath":"/planted/sh"}' >"$HOME/.pi/agent/planted.json"
+    ln -sf "$HOME/.pi/agent/planted.json" "$HOME/.pi/agent/settings.json"
+    ${wrapperWithSettingsFile}/bin/pi -- x >/dev/null 2>&1
+    [ ! -L "$HOME/.pi/agent/settings.json" ] \
+      || fail "settingsFile wrote through a planted symlink"
+    grep -q /deployed/bash "$HOME/.pi/agent/settings.json" \
+      || fail "settingsFile did not replace settings.json. got=$(cat "$HOME/.pi/agent/settings.json")"
+    grep -q /planted/sh "$HOME/.pi/agent/planted.json" \
+      || fail "settingsFile clobbered the symlink's target"
+    # An empty settingsFile leaves the file alone
+    echo '{"theme":"kept"}' >"$HOME/.pi/agent/settings.json"
+    pi -- x >/dev/null 2>&1
+    grep -q kept "$HOME/.pi/agent/settings.json" \
+      || fail "empty settingsFile touched settings.json"
+    rm -f "$HOME/.pi/agent/settings.json" "$HOME/.pi/agent/planted.json"
 
     # envVars expansion: $PWD resolves at wrapper runtime
     cd "$TMPDIR"

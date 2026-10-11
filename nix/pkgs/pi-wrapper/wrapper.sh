@@ -51,6 +51,9 @@ git_write_granted=false
 # Empty seats file and trust list: no seat is loaded and no provider refused.
 seats_file="@seatsFile@"
 seats_file="${seats_file/#\~/$HOME}"
+# The deployed settings.json, written over ~/.pi/agent/settings.json before
+# every dispatch. Empty writes nothing.
+pi_settings_file="@settingsFile@"
 trusted_providers=(@trustedProviders@)
 seats_check="@seatsCheck@"
 # Repo path of the sops file the seats and catalog are edited in, for the
@@ -1705,6 +1708,18 @@ run_strict() {
 	fi
 	dispatch srt --settings "$settings_file" -- "$real_pi" "$@"
 }
+
+# pi reads settings.json at start, every session can write it, and shellPath
+# and shellCommandPrefix name code the next session runs; pi 1.0 has no env
+# var or flag that overrides a settings key. The deployed copy wins on every
+# start, under --no-sandbox too, so an in-session edit lives for that session
+# only. rm first: a symlink planted at the path would otherwise be written
+# through, and a read-only target would abort the start.
+if [[ -n $pi_settings_file ]]; then
+	mkdir -p "$HOME/.pi/agent"
+	rm -f "$HOME/.pi/agent/settings.json"
+	cat "$pi_settings_file" >"$HOME/.pi/agent/settings.json"
+fi
 
 if "$no_sandbox"; then
 	run_no_sandbox "$@"

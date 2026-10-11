@@ -13,8 +13,9 @@ paths:
 
 Agents, extensions, grants, themes, `keybindings.json` and `AGENTS.md` live
 in `nix/modules/hm_modules/dev/pi/`, symlinked into `~/.pi/agent/` so
-`/reload` sees edits without a rebuild. `settings.json` is the exception: it
-is copied from `dev/pi-coding-agent/` on each switch. The sandbox wrapper is `nix/pkgs/pi-wrapper`,
+`/reload` sees edits without a rebuild. `settings.json` is the exception: the
+wrapper writes the deployed copy from `dev/pi-coding-agent/` over it on every
+start, so a `/settings` edit lasts one session. The sandbox wrapper is `nix/pkgs/pi-wrapper`,
 which records the named grants it carries (`--allow-nix`, `-ssh-agent`,
 `-forge`, `-clipboard`, each network bundle, and `--coordinator`) in
 `PI_GRANTS` and the full catalog in `PI_AVAILABLE_GRANTS`. `--allow <host>`

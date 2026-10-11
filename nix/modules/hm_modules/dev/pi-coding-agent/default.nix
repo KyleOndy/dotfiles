@@ -143,6 +143,7 @@ let
         gitAuthorName = cfg.sandbox.gitIdentity.name;
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
         seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
+        settingsFile = "${settingsFile}";
         inherit (cfg) trustedProviders;
         seatsCheck = lib.optionalString seatsEnabled (lib.getExe seatsPackage);
         secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
@@ -158,6 +159,27 @@ let
       }
     else
       pkgs.llm-agents.pi;
+
+  # ~/.pi/agent/settings.json is a real writable file, not a store symlink:
+  # pi writes it itself (it stamps lastChangelogVersion on first start, and
+  # /settings and `pi install` persist here). The wrapper writes this copy
+  # over it before every start, so a runtime edit lives for one session and
+  # a value a session planted (shellPath and shellCommandPrefix are exec
+  # primitives) never reaches the next. A dropped lastChangelogVersion is
+  # read as a fresh install, stamped silently rather than replaying the
+  # changelog.
+  #
+  # retry.maxRetries 6 against the default 2s base: pi's agent-level backoff
+  # is baseDelayMs * 2^(attempt-1) with no jitter and no ceiling, so the
+  # budget is 126s and the longest single sleep is 64s. The default 3 gives up
+  # after 14s, which mcloud outranks on a routine overload; past 6 the
+  # doubling buys minutes of silent sleep that reads as a hang, with nothing
+  # on screen to say the session is only waiting. shellPath replaces macOS's
+  # /bin/bash 3.2, which cannot parse `"$(cat <<'EOF'` with an apostrophe
+  # in the heredoc body, the usual commit-message shape.
+  settingsFile = pkgs.writeText "pi-settings.json" (
+    builtins.toJSON (lib.importJSON ./settings.json // { shellPath = lib.getExe pkgs.bashInteractive; })
+  );
 
   seatsEnabled = cfg.seatsFile != null || cfg.trustedProviders != [ ];
   seatsPackage = pkgs.pi-seats.override {
@@ -850,31 +872,6 @@ in
           nix = true;
         };
       };
-
-    # A real writable file, not the usual store symlink: pi writes this file
-    # itself (it stamps lastChangelogVersion on first start, and /settings and
-    # `pi install` persist here). The repo copy is the source of truth, so
-    # runtime edits to it survive only until the next home-manager switch. A
-    # dropped lastChangelogVersion is read as a fresh install, stamped silently
-    # rather than replaying the changelog.
-    #
-    # retry.maxRetries 6 against the default 2s base: pi's agent-level backoff
-    # is baseDelayMs * 2^(attempt-1) with no jitter and no ceiling, so the
-    # budget is 126s and the longest single sleep is 64s. The default 3 gives up
-    # after 14s, which mcloud outranks on a routine overload; past 6 the
-    # doubling buys minutes of silent sleep that reads as a hang, with nothing
-    # on screen to say the session is only waiting. shellPath replaces macOS's
-    # /bin/bash 3.2, which cannot parse `"$(cat <<'EOF'` with an apostrophe
-    # in the heredoc body, the usual commit-message shape.
-    home.activation.piSettings =
-      let
-        settings = pkgs.writeText "pi-settings.json" (
-          builtins.toJSON (lib.importJSON ./settings.json // { shellPath = lib.getExe pkgs.bashInteractive; })
-        );
-      in
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        run install -D -m 0644 ${settings} "$HOME/.pi/agent/settings.json"
-      '';
 
     # Skills are store sources, matching claude-code, so /reload cannot see
     # skill edits until the next home-manager switch.

@@ -170,6 +170,12 @@
   # lines, loaded for every seat the caller's env leaves empty. A leading ~ is
   # expanded at runtime. Empty loads nothing.
   seatsFile ? "",
+  # The deployed settings.json. Non-empty is written over
+  # ~/.pi/agent/settings.json before every dispatch, so a value a session
+  # planted there (shellPath and shellCommandPrefix are exec primitives, and
+  # pi has no env var or flag that overrides a settings key) never reaches
+  # the next wrapper-started pi. Empty leaves the file alone.
+  settingsFile ? "",
   # Providers a session may run on. Non-empty refuses any other at start and
   # exports the list as PI_TRUSTED_PROVIDERS for task.ts and the advisor.
   # Empty refuses nothing.
@@ -304,6 +310,7 @@ let
         "@gitAuthorName@"
         "@gitAuthorEmail@"
         "@seatsFile@"
+        "@settingsFile@"
         "@trustedProviders@"
         "@seatsCheck@"
         "@secretsSource@"
@@ -336,6 +343,7 @@ let
         (lib.escapeShellArg gitAuthorName)
         (lib.escapeShellArg gitAuthorEmail)
         seatsFile
+        settingsFile
         (bashArray trustedProviders)
         seatsCheck
         secretsSource
