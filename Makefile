@@ -17,6 +17,9 @@ export DOTFILES_WORKTREE := $(shell git rev-parse --show-toplevel 2>/dev/null)
 # vars, but the --impure flag itself is always on.
 IMPURE := --impure
 
+# Builder guests use path flakes to include explicitly authorized protected files.
+PI_BUILD_FLAKE ?= .
+
 # GC roots for builds no substituter serves, so a garbage collection on
 # this machine does not force a rebuild. Each build replaces its own root.
 DEPLOY_GC := $(HOME)/.local/state/deploy-rs/gcroots
@@ -190,11 +193,11 @@ cleanup: ## Cleanup and reduce diskspace of current system
 PI_SEATS_CHECK := pi-seats check --deploy && mcloud-pins --deploy
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(PI_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
 
 .PHONY: build-mac-dry
 build-mac-dry: ## Dry-run build of work-mac darwin configuration
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) .#darwinConfigurations.work-mac.system --dry-run
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(PI_BUILD_FLAKE)#darwinConfigurations.work-mac.system" --dry-run
 
 .PHONY: deploy-mac
 deploy-mac: NIX_DAEMON_LABEL := org.nixos.nix-daemon
@@ -204,11 +207,11 @@ deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/wo
 
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
-	nix build $(IMPURE) .#darwinConfigurations.trex.system
+	nix build $(IMPURE) "$(PI_BUILD_FLAKE)#darwinConfigurations.trex.system"
 
 .PHONY: build-trex-dry
 build-trex-dry: ## Dry-run build of trex darwin configuration
-	nix build $(IMPURE) .#darwinConfigurations.trex.system --dry-run
+	nix build $(IMPURE) "$(PI_BUILD_FLAKE)#darwinConfigurations.trex.system" --dry-run
 
 # Activation rewrites these without restarting the nix daemon, which reads
 # them only at start. A change to any of them restarts it, which kills any
