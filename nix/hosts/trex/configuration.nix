@@ -42,12 +42,20 @@ in
     enable = true; # also forces nix.enable = false for us
 
     # base.nix's nix.settings are never written here, so the numtide cache
-    # it adds for the llm-agents packages has to be restated.
+    # it adds for the llm-agents packages has to be restated. The running
+    # daemon keeps the settings it started with, so a change here takes
+    # `sudo launchctl kickstart -k system/systems.determinate.nix-daemon`
+    # after the deploy.
     customSettings = {
       extra-substituters = [ "https://cache.numtide.com" ];
       extra-trusted-public-keys = [
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       ];
+      # Determinate's module defaults this to false, which leaves a build
+      # unconfined as _nixbld with the whole network, including one a pi
+      # session started under --allow-nix. Fixed-output builds keep the
+      # network either way.
+      sandbox = true;
     };
 
     # Local NixOS VM (QEMU with hvf acceleration, so native aarch64 speed)
