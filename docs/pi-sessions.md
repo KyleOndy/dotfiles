@@ -58,3 +58,8 @@ replayed automatically.
 Forge is optional. Ordinary children and the Nix builder work without it.
 `pi-delegate` uses the same coordinator service; `pi-delegate --help` lists
 its standalone commands.
+
+## Verification
+
+Run the [regression suite](pi-sandbox-tests.md) after runtime or policy changes.
+Linux is deferred.

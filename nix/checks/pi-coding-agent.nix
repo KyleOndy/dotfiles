@@ -31,6 +31,9 @@ pkgs.runCommand "pi-coding-agent-check"
     python3 tests/test_workspace.py
     python3 tests/test_results.py
     PYTHONPATH=${../pkgs/pi-session}:${../pkgs/pi-broker} python3 ${../pkgs/pi-session}/test_build_service.py
+    cp ${../../scripts/test-pi-sandbox.py} tests/test-pi-sandbox.py
+    cp ${../../scripts/test_pi_sandbox.py} tests/test_pi_sandbox.py
+    python3 tests/test_pi_sandbox.py
     ${pkgs.pi-wrapper}/bin/pi --session-help > help.txt
     grep -q 'resume-session' help.txt
     touch "$out"
