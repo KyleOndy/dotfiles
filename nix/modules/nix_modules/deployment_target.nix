@@ -96,6 +96,12 @@ in
     nixpkgs.config.allowUnfree = true;
     nix = {
       package = pkgs.nixVersions.latest;
+      gc = {
+        automatic = true;
+        dates = "weekly";
+        options = "--delete-older-than 35d";
+      };
+      optimise.automatic = true;
       settings = {
         # Narrowed from [ "root" "@wheel" ]: every wheel user (e.g. kyle) was
         # an implicit trusted Nix user, able to influence store/build

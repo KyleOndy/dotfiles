@@ -126,13 +126,46 @@ in
     ];
   };
 
-  # nix-darwin's own nix.linux-builder and nix.optimise.automatic (both
-  # turned on for all darwin hosts in nix/modules/darwin_modules/base.nix)
-  # are separate from determinateNix.nixosVmBasedLinuxBuilder above and
-  # still assert `requires nix.enable` on their own. Store optimisation is
-  # Determinate's job now.
+  # nix-darwin's own nix.linux-builder, nix.gc and nix.optimise (all turned
+  # on for every darwin host in nix/modules/darwin_modules/base.nix) are
+  # separate from determinateNix.nixosVmBasedLinuxBuilder above and assert
+  # `requires nix.enable` on their own.
   nix.linux-builder.enable = lib.mkForce false;
+  nix.gc.automatic = lib.mkForce false;
   nix.optimise.automatic = lib.mkForce false;
+
+  # determinate-nixd collects unreferenced paths by its own capacity rubric,
+  # but it never deletes a generation, so every old system generation stays
+  # a GC root, and it never optimises the store. These are nix-darwin's
+  # nix-gc and nix-optimise daemons, run with Determinate's own nix.
+  launchd.daemons = {
+    nix-gc = {
+      command = "/nix/var/nix/profiles/default/bin/nix-collect-garbage --delete-older-than 35d";
+      serviceConfig = {
+        RunAtLoad = false;
+        StartCalendarInterval = [
+          {
+            Weekday = 7;
+            Hour = 3;
+            Minute = 15;
+          }
+        ];
+      };
+    };
+    nix-optimise = {
+      command = "/nix/var/nix/profiles/default/bin/nix-store --optimise";
+      serviceConfig = {
+        RunAtLoad = false;
+        StartCalendarInterval = [
+          {
+            Weekday = 7;
+            Hour = 4;
+            Minute = 15;
+          }
+        ];
+      };
+    };
+  };
 
   # Photo import front door, a role dino filled before it was sold. The working
   # set is deliberately sparse: tiger holds 321G of _provisional against 340G

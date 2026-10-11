@@ -21,6 +21,10 @@
 
   nix = {
     package = pkgs.nixVersions.latest;
+    gc = {
+      automatic = true;
+      options = lib.mkDefault "--delete-older-than 35d";
+    };
     optimise.automatic = true;
     settings = {
       experimental-features = [
