@@ -216,6 +216,11 @@ in
         source = ./skills/monitoring.md;
         isFile = true;
       }
+      {
+        name = "mail-review";
+        source = ./skills/mail-review.md;
+        isFile = true;
+      }
     ];
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index

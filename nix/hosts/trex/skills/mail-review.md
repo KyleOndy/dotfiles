@@ -5,6 +5,9 @@ description: Review what landed in Junk for kyle@ondy.org and tune mail/ondy.org
 
 # Mail review
 
+Run every command from the dotfiles repo, `~/src/dotfiles/main`, which
+the paths below are relative to.
+
 ondy.org is on MXroute. Filtering has two layers:
 
 - MXroute's SpamAssassin scores every message. At `required=8.0` it is
