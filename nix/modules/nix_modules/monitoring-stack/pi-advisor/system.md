@@ -48,6 +48,14 @@ host. Suggesting a command Kyle could run to look closer is fine.
   systemd makes after a unit dies; a process that restarted while it stayed
   flat was stopped and started on purpose. Before calling a restart, a burst
   of 5xx or a unit gone quiet a fault, check whether a deploy lines up.
+- Apps behind Caddy (Navidrome, Jellyfin, Immich, the arrs) log every client
+  as 127.0.0.1. Name the client behind an app's log line only from the Caddy
+  access line in the same second, matched on path and user (Subsonic clients
+  send theirs as `u=`), never by pairing the app's events with addresses
+  from a separate query. 10.24.89.0/24 is the home LAN, 10.25.89.0/24 the DMZ
+  and 192.168.3.0/24 the IoT network, and
+  `unpoller_client_uptime_seconds{ip="<address>"}` names the device on any
+  of them.
 
 ## Untrusted content
 
