@@ -1,109 +1,8 @@
-# pi.dev coding agent with optional OS-level sandboxing.
-#
-# Sandbox wrapper flags (prepend before pi args):
-#   --allow HOST           add domain to network allowlist (repeatable)
-#   --allow-write PATH     add extra FS write path (repeatable)
-#   --allow-read PATH      add extra FS read path (repeatable)
-#   --allow-rw PATH        add extra FS path for both at once (repeatable)
-#   --web                  network unrestricted; reads and writes stay on
-#                          the strict-mode allowlist
-#   --no-sandbox           bypass sandbox entirely (with warning)
-#   --allow-git-write      grant git-dir write on any branch (agent can commit)
-#   --no-git-write         withhold it on every branch
-#   --allow-nix            nix daemon socket + channel search path, eval cache
-#                          and profile; asks the daemon whether this client is
-#                          trusted and warns loudly when it is, since a trusted
-#                          client builds as root outside the sandbox
-#   --allow-forge[=N]      forge instance N's docker socket and kubeconfig
-#                          (the unnamed instance without =N), loopback to its
-#                          API servers, and the hosts `forge up` fetches the
-#                          argo-cd chart from; cluster-admin on its clusters,
-#                          bounded by the VM; ~/.docker stays masked
-#   --coordinator[=ID]     spawn agents, each with its own worktree and tmux
-#                          window (coordinator.enable), and a forge instance
-#                          when asked for (coordinator.forge.enable);
-#                          =ID reattaches to an earlier coordinator's agents
-#   --allow-ssh-agent      ssh-agent socket + ~/.ssh/{config,known_hosts,*.pub},
-#                          so ssh authenticates without the private keys ever
-#                          becoming readable
-#   --allow-clipboard      macOS pasteboard, so ctrl+v pastes images and
-#                          pbcopy/pbpaste work; the agent can read whatever
-#                          is on the clipboard, copied passwords included
-#   --allow-git-crypt      git-crypt key dirs readable, so the clean filter
-#                          runs and filtered files can be committed; the key
-#                          is the repo's master key for its ciphertext, so
-#                          this is read access to everything git-crypt hides
-#   --allow-session-history ~/.pi/agent/sessions readable, so the resume
-#                          picker and cross-project resume work in-session;
-#                          the current project's transcripts stay readable
-#                          without it
-#   --allow-<toolchain>    go / rust / node / python / java / clojure: that
-#                          toolchain's registries, plus for java and clojure
-#                          the package caches under $HOME (~/.m2, ~/.clojure,
-#                          ~/.gitlibs) that default-deny would otherwise hide
-#   --allow-kagi           kagi.com, so `kagi search` and `kagi read` work.
-#                          Reading a page goes through Kagi's extractor, so
-#                          this covers research without --web
-#   --allow-flake          --allow-nix, plus github.com, codeload.github.com,
-#                          gitlab.com and flakehub: the hosts flake inputs
-#                          fetch from, in the client, behind the proxy
-#
-# Every --allow-* grant is also recorded in the exported PI_GRANTS var, which
-# extensions/grants.ts turns into per-grant system prompt sections from
-# sourceDir/grants/<name>.md, so the agent learns what a grant costs at the
-# moment it gains it. PI_AVAILABLE_GRANTS carries the wrapper's full catalog
-# (built-ins plus bundles); grants.ts lists the ones not carried, so a session
-# the sandbox blocks asks for a restart flag rather than working around it.
-#
-# Strict mode uses pkgs.llm-agents.sandbox-runtime (srt) on both platforms:
-# bwrap on Linux, sandbox-exec on macOS; proxy-based network allowlist.
-# Both network AND filesystem reads are default-deny: the allowlist starts
-# empty, and reads are denied from "/" down, leaving CWD, ~/.pi, the per-platform
-# system paths in pi-wrapper's defaultSystemReadPaths, and
-# sandbox.allowedReadPaths / --allow-read. That covers the temp trees a $HOME-only
-# deny leaves open (/private/tmp, /private/var/folders, /Volumes), which carry
-# $HOME content often enough to matter. Add toolchain read paths (~/.gitconfig,
-# ~/.cargo, ...) as needed.
-#
-# Hardening defaults applied in every mode (see wrapper.sh), all overridable
-# via sandbox.envVars:
-#   - git: commit/tag signing off, core.hooksPath=/dev/null, fsmonitor/sshCommand
-#     off (a hostile repo's hooks/config can't run code under the agent's git).
-#     denyWrite also traps hooks, config and .gitmodules in strict mode, on the
-#     git dirs as `git rev-parse` resolves them, so the traps still land in a
-#     worktree layout where $PWD/.git is only a pointer file. Those dirs are
-#     always readable (git is unusable otherwise) and writable only per
-#     `sandbox.gitWrite`.
-#   - supply chain: npm/yarn lifecycle scripts blocked (npm_config_ignore_scripts);
-#     NODE_OPTIONS stripped of code-injection flags (--require/--import/...).
-#   - secrets: env vars whose names look secret-bearing (*_TOKEN/_SECRET/...) are
-#     scrubbed unless injected via the wrapper's envFromCommands, sandbox.envVars,
-#     or a known provider key.
-#   - caches: GOCACHE/CARGO_HOME/npm_config_cache/... redirected under
-#     ~/.pi/sandbox-cache so default-deny FS doesn't break compilers (cold caches
-#     are the tradeoff; for warm caches add the real dir to the wrapper's
-#     default{Read,Write}Paths).
-#
-# Web mode (no domain restriction) bypasses srt, since srt forbids wildcard domains.
-# Linux: bwrap directly (FS isolation, no --unshare-net).
-# macOS: sandbox-exec FS profile (network unrestricted).
-#
-# Wrapper implementation lives in nix/pkgs/pi-wrapper so it can be reused by
-# the flake check at nix/checks/pi-coding-agent.nix.
-#
-# Extension, agent, theme, keybinding and AGENTS.md sources at
-# nix/modules/hm_modules/dev/pi/ are symlinked via mkOutOfStoreSymlink into
-# ~/.pi/agent/, not copied into the nix store. Pi's /reload hot-swaps extensions/skills/keybindings at runtime, it
-# reloads the active theme file on write, and any file pi writes round-trips
-# back into git. sourceDir defaults to the worktree you ran `make` from. See
-# DOTFILES_WORKTREE in Makefile and the dotfilesWorktree binding in flake.nix.
-# Each worktree symlinks to its own tree, so branch-based edits surface
-# immediately without colliding.
+# Private Pi sessions with immutable runtime configuration and a credential relay.
 {
   lib,
   pkgs,
   config,
-  dotfiles-worktree,
   ...
 }:
 let
@@ -111,32 +10,15 @@ let
 
   piPackage =
     if cfg.sandbox.enable then
-      # The knobs a host actually turns; the wrapper's own defaults cover
-      # the rest. trustd stays off, as do --allow-nix and --allow-forge.
-      # Widen those at nix/pkgs/pi-wrapper/default.nix, or per-invocation
-      # with the wrapper's --allow-trustd / --allow-nix / --allow-forge.
-      #
-      # sourceDir is always readable: srt checks a symlink's resolved
-      # target, and the extension and theme links below resolve into a
-      # worktree that the blanket $HOME deny would otherwise hide.
       pkgs.pi-wrapper.override {
         defaultDomains = cfg.sandbox.allowedDomains;
-        # extensions/coordinator.ts offers spawn_agent's size only with this.
-        defaultEnvVars =
-          cfg.sandbox.envVars
-          // lib.optionalAttrs (cfg.coordinator.enable && cfg.coordinator.forge.enable) {
-            PI_COORD_FORGE = "1";
-          };
+        defaultEnvVars = cfg.sandbox.envVars;
         defaultPiArgs = cfg.sandbox.defaultArgs;
-        defaultAllowLoopback = cfg.sandbox.allowLocalBinding;
-        inherit (cfg.sandbox) logKeepDays;
-        defaultAllowGitCrypt = cfg.sandbox.allowGitCrypt;
-        defaultAllowSessionHistory = cfg.sandbox.allowSessionHistory;
-        inherit (cfg.sandbox) nixDaemonConfigFiles;
-        defaultReadPaths = cfg.sandbox.allowedReadPaths ++ [ cfg.sourceDir ];
+        defaultListenPorts = cfg.sandbox.listenPorts;
+        defaultReadPaths = cfg.sandbox.allowedReadPaths;
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
-        gitWriteMode = cfg.sandbox.gitWrite;
-        protectedBranches = cfg.sandbox.protectedBranches;
+        defaultGitWrite = cfg.sandbox.gitWrite;
+        builder = lib.optionalString (cfg.sandbox.builderConfig != null) cfg.sandbox.builderConfig;
         networkBundles = cfg.sandbox.networkBundles;
         envFromCommands = cfg.sandbox.envFromCommands;
         envGrantGates = cfg.sandbox.envGrantGates;
@@ -144,13 +26,20 @@ let
         gitAuthorEmail = cfg.sandbox.gitIdentity.email;
         seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
         settingsFile = "${settingsFile}";
+        catalogFile =
+          if cfg.modelsJsonFile != null then
+            cfg.modelsJsonFile
+          else if cfg.modelsJson != { } then
+            toString (pkgs.writeText "pi-models.json" (builtins.toJSON cfg.modelsJson))
+          else
+            "";
+        runtimeSource = toString runtimeSource;
+        privateProviderHosts = cfg.sandbox.privateProviderHosts;
         inherit (cfg) trustedProviders;
-        seatsCheck = lib.optionalString seatsEnabled (lib.getExe seatsPackage);
-        secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
         coordinatorBroker = lib.optionalString cfg.coordinator.enable (
           lib.getExe (
             pkgs.pi-broker.override {
-              inherit (cfg.coordinator) maxAgents;
+              inherit (cfg.coordinator) maxAgents maxRetainedWorkers;
               withForge = cfg.coordinator.forge.enable;
               inherit (cfg.coordinator.forge) memoryBudgetGib;
             }
@@ -160,15 +49,6 @@ let
     else
       pkgs.llm-agents.pi;
 
-  # ~/.pi/agent/settings.json is a real writable file, not a store symlink:
-  # pi writes it itself (it stamps lastChangelogVersion on first start, and
-  # /settings and `pi install` persist here). The wrapper writes this copy
-  # over it before every start, so a runtime edit lives for one session and
-  # a value a session planted (shellPath and shellCommandPrefix are exec
-  # primitives) never reaches the next. A dropped lastChangelogVersion is
-  # read as a fresh install, stamped silently rather than replaying the
-  # changelog.
-  #
   # retry.maxRetries 6 against the default 2s base: pi's agent-level backoff
   # is baseDelayMs * 2^(attempt-1) with no jitter and no ceiling, so the
   # budget is 126s and the longest single sleep is 64s. The default 3 gives up
@@ -182,23 +62,31 @@ let
   );
 
   seatsEnabled = cfg.seatsFile != null || cfg.trustedProviders != [ ];
+  runtimeSource = pkgs.runCommand "pi-runtime-config" { } ''
+    cp -R ${
+      builtins.path {
+        path = /. + cfg.sourceDir;
+        name = "pi-runtime-source";
+      }
+    } "$out"
+    chmod -R u+w "$out"
+    ${lib.concatMapStrings (skill: ''
+      mkdir -p "$out/skills/${skill.name}"
+      ${
+        if skill.isFile then
+          ''cp ${skill.source} "$out/skills/${skill.name}/SKILL.md"''
+        else
+          ''cp -R ${skill.source}/. "$out/skills/${skill.name}/"''
+      }
+    '') (config.lib.agentContext.skillsFor "pi-coding-agent")}
+  '';
   seatsPackage = pkgs.pi-seats.override {
     seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
     inherit (cfg) trustedProviders;
     secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
   };
 
-  defaultSourceDir =
-    if dotfiles-worktree != null then
-      "${dotfiles-worktree}/nix/modules/hm_modules/dev/pi"
-    else
-      throw ''
-        hmFoundry.dev.pi-coding-agent: cannot resolve sourceDir.
-        DOTFILES_WORKTREE is unset (or the flake is being evaluated in
-        pure mode). Build via the Makefile targets (which export it and
-        pass --impure), or set
-        `hmFoundry.dev.pi-coding-agent.sourceDir` explicitly.
-      '';
+  defaultSourceDir = toString ../pi;
 in
 {
   options.hmFoundry.dev.pi-coding-agent = {
@@ -207,22 +95,29 @@ in
     sourceDir = lib.mkOption {
       type = lib.types.str;
       default = defaultSourceDir;
-      defaultText = lib.literalExpression "\${dotfiles-worktree}/nix/modules/hm_modules/dev/pi";
+      defaultText = lib.literalExpression "../pi";
       description = ''
-        Absolute path in the dotfiles working tree containing pi's
-        symlinked config (extensions/, agents/, themes/,
-        keybindings.json). mkOutOfStoreSymlink points ~/.pi/agent/extensions,
-        ~/.pi/agent/agents, ~/.pi/agent/themes and
-        ~/.pi/agent/keybindings.json at the matching entries, so /reload
-        picks up extension, agent and keybinding edits and pi's own theme
-        hot-reload picks up palette edits, all without a
-        home-manager rebuild. Defaults to the worktree captured at
-        make-time via DOTFILES_WORKTREE; override per-host if you need a
-        different path.
+        Runtime configuration copied into the Nix store at build time.
+        Sessions receive private settings and load extensions from this
+        immutable source. Rebuild to deploy extension changes.
       '';
     };
 
     sandbox = {
+      builderConfig = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+        description = ''
+          Trusted native Darwin builder JSON file. --allow-nix exposes a
+          scoped build service using this configuration. Keep it outside
+          agent-writable paths. See nix/pkgs/pi-builder/README.md.
+        '';
+      };
+      privateProviderHosts = lib.mkOption {
+        type = with lib.types; listOf str;
+        default = [ ];
+        description = "Exact private or loopback provider hostnames the trusted inference relay may contact.";
+      };
       enable = lib.mkEnableOption "sandbox pi via OS-level primitives" // {
         default = true;
       };
@@ -235,19 +130,9 @@ in
           GOMODCACHE = "$PWD/.gomodcache";
         };
         description = ''
-          Static env vars exported into pi's environment by the wrapper
-          before sandbox dispatch. Values are bash double-quote-expanded at
-          runtime, so $PWD / $HOME resolve to the user's CWD-at-invocation
-          and home directory.
-
-          Use this to redirect tool caches (Go, Rust, npm) into CWD-relative
-          paths the sandbox's allowWrite already covers, instead of
-          broadening allowWrite to $HOME/Library/Caches/* directories.
-
-          Distinct from the wrapper's own envFromCommands: envVars are
-          literal strings (only bash double-quote expansion runs), where
-          envFromCommands resolves a command's stdout. Secrets belong in
-          envFromCommands, plain config here.
+          Nonsecret environment values for the workload. Literal $HOME and
+          $PWD expand to the private session home and workspace. No shell
+          expansion runs. Credentials belong in envFromCommands.
         '';
       };
 
@@ -258,27 +143,11 @@ in
           OPENROUTER_API_KEY = "/usr/bin/security find-generic-password -s pi -a openrouter -w";
         };
         description = ''
-          Env vars resolved by the wrapper outside the sandbox before pi
-          execs. Each value is a shell command; its stdout (trailing newline
-          stripped by command substitution) becomes the env var, exported
-          into pi's environment.
-
-          Use this to inject API keys from macOS Keychain, pass, sops, etc.,
-          so pi's models.json can reference them via "!printenv VAR" without
-          granting the sandbox read access to credential paths or network
-          access to a secrets backend.
-
-          Name the binary by absolute path. Resolvers run as you, unsandboxed,
-          with the PATH pi was started from, and a project's .envrc can put
-          a directory the sandbox writes at the front of it.
-
-          Resolver failure (non-zero exit) aborts pi startup with a
-          diagnostic on stderr. Resolvers are not cached; keep them cheap
-          (Keychain lookups are sub-10ms; avoid kubectl-per-run).
-
-          Note: macOS Keychain "Always Allow" entries are keyed to the
-          caller binary path, which changes on every pi-wrapper rebuild, so
-          a fresh allow-prompt fires once after each rebuild.
+          Trusted host commands that resolve credentials for the provider
+          and tool relays. Their output never enters the workload environment.
+          The model catalog can reference these values through !printenv VAR.
+          Commands run outside containment with the configured tool PATH;
+          use absolute executable paths. Failure aborts session startup.
         '';
       };
 
@@ -289,18 +158,9 @@ in
           KAGI_API_KEY = "kagi";
         };
         description = ''
-          Grants a resolver's env var must be gated on, keyed like
-          envFromCommands: { VAR_NAME = "grant"; }. A session that does not
-          carry the grant never resolves the var and never exports it, and
-          a same-named var from the caller's shell is scrubbed rather than
-          kept, so the secret does not exist for ungranted sessions at all
-          instead of existing but being unusable.
-
-          The gate must name a grant in the wrapper's catalog (the
-          --allow-<name> built-ins and networkBundles); anything else
-          aborts startup. Gates are ignored under --no-sandbox. Gate only
-          secrets a grant scopes: the provider key the session itself runs
-          on stays ungated, or pi cannot start.
+          Required networkBundles grant for each credential resolver.
+          Ungranted values are neither resolved nor inherited from the host.
+          Unknown grant names abort startup. Leave inference keys ungated.
         '';
       };
 
@@ -312,25 +172,10 @@ in
           "/Users/me/private-config/files"
         ];
         description = ''
-          Paths re-allowed for reading in strict mode, which denies all of
-          $HOME. $PWD, ~/.pi and `sourceDir` are always readable; this list
-          adds more. Leading `~` expands to $HOME. Runtime --allow-read
-          and --allow-rw extend it.
-
-          srt matches the path as written, not its target, so a symlink
-          under $HOME needs its target listed here too. That covers
-          out-of-store symlinks placed in ~/.pi by another module: AGENTS.md
-          pointing into a working tree resolves to a path outside the
-          allowlist, and pi reports the file as missing rather than as
-          denied. models.json is the exception, since the wrapper grants
-          every link on its way:
-
-          ```
-          Error: Model "provider/some-model" not found.
-          ```
-
-          A home-manager symlink into /nix/store hits the same rule, since
-          the link itself sits under $HOME.
+          Additional host paths readable in strict and web sessions. Paths
+          resolve symlinks at admission; ~ expands to the human home.
+          Runtime --allow-read and --allow-rw extend the list. Trusted
+          session records and host service socket directories are rejected.
         '';
       };
 
@@ -339,141 +184,26 @@ in
         default = [ ];
         example = [ "~/.kube/configs" ];
         description = ''
-          Paths added to allowWrite in strict mode, which otherwise grants
-          only $PWD and ~/.pi. Leading `~` expands to $HOME. Runtime
-          --allow-write and --allow-rw extend it.
-
-          A path listed here is not automatically readable; add it to
-          `allowedReadPaths` too if the tool reads back what it wrote
-          (`--allow-rw <path>` is that pair's one-flag runtime spelling).
-
-          Prefer redirecting a tool at a directory already inside the grant
-          (the wrapper does this for GOCACHE, CARGO_HOME and friends) over
-          opening its default location, which is usually somewhere broad
-          like ~/Library/Caches.
+          Additional host paths readable and writable by the workload.
+          Runtime --allow-write and --allow-rw extend the list. Prefer the
+          private session caches to granting shared host cache directories.
         '';
       };
 
       gitWrite = lib.mkOption {
-        type = lib.types.enum [
-          "branch-gated"
-          "always"
-          "off"
-        ];
-        default = "branch-gated";
-        description = ''
-          Whether the agent may write the repo's git directories, which is
-          what lets it `git commit`. Reading them is unconditional and not a
-          knob: in a worktree layout `$PWD/.git` is a pointer file into a
-          `.bare` directory, so without the read grant every git command in
-          the workspace fails with `not a git repository`.
-
-          - `branch-gated` grants write when HEAD is a branch outside
-            `protectedBranches`. A detached HEAD counts as protected.
-          - `always` grants it on every branch.
-          - `off` never grants it, and denies the git dir even where it sits
-            inside the writable workspace.
-
-          Per-invocation `--allow-git-write` / `--no-git-write` override.
-
-          The grant is the whole git common directory, so an agent that can
-          commit can also move refs other than its own; `protectedBranches`
-          fences off the ones that matter. There is no narrower srt grant:
-          a commit touches the index in the per-worktree dir, new objects and
-          the branch ref in the common dir.
-        '';
+        type = lib.types.bool;
+        default = true;
+        description = "Allow commits in private session Git storage. The human repository is never writable by default.";
       };
 
-      protectedBranches = lib.mkOption {
-        type = with lib.types; listOf str;
-        default = [
-          "main"
-          "master"
-        ];
+      listenPorts = lib.mkOption {
+        type = with lib.types; listOf (ints.between 1 65535);
+        default = [ ];
         example = [
-          "main"
-          "release"
+          3000
+          8080
         ];
-        description = ''
-          Branches `gitWrite = "branch-gated"` refuses to grant write for.
-          Their refs and reflogs (`refs/heads/<branch>`,
-          `logs/refs/heads/<branch>`) also stay in srt's denyWrite once write
-          is granted for some other branch, so an agent committing on its own
-          branch cannot move these. A `git pack-refs` or `git gc` rewrite of
-          the packed-refs file still can; treat this as a guardrail, not a
-          boundary.
-        '';
-      };
-
-      logKeepDays = lib.mkOption {
-        type = lib.types.nullOr lib.types.ints.positive;
-        default = null;
-        description = ''
-          Days the wrapper keeps files in ~/.pi/agent/task-logs (subagent
-          transcripts) and ~/.pi/agent/job-logs (background bash output)
-          before deleting them at startup. null keeps them forever, so
-          every run stays available for analysis and the two directories
-          grow without bound.
-        '';
-      };
-
-      allowLocalBinding = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = ''
-          Permit TCP/UDP bind() and listen() on 127.0.0.1 / ::1 inside the
-          strict sandbox by setting srt's network.allowLocalBinding=true.
-          Required for httptest.NewServer, local dev servers (vite, air,
-          rails s, etc.), and integration tests that stand up an in-process
-          server.
-
-          Does not open external network egress, srt's domain filter still
-          applies, only loopback addresses are unblocked. Runtime
-          --allow-loopback extends this per-invocation.
-        '';
-      };
-
-      allowGitCrypt = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = ''
-          Default for the wrapper's --allow-git-crypt. The wrapper denies
-          reading every git-crypt key directory by default -- the key file
-          is the symmetric master key for the repo's ciphertext, so being
-          allowed to run the clean filter is the same capability as being
-          able to steal it. Leave off: a session that must commit
-          ciphertext-bearing files (tf/ here) is restarted with the flag,
-          and `git add` of a filtered file fails loudly without it.
-        '';
-      };
-
-      allowSessionHistory = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = ''
-          Default for the wrapper's --allow-session-history. The wrapper
-          denies reading ~/.pi/agent/sessions by default while keeping the
-          current project's own transcript directory readable, so recording
-          and same-project resume work and every other project's transcripts
-          stay closed. Turn on only if in-sandbox use of the resume picker
-          or cross-project resume matters more than that.
-        '';
-      };
-
-      nixDaemonConfigFiles = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [
-          "/etc/nix/nix.conf"
-          "/etc/nix/nix.custom.conf"
-        ];
-        description = ''
-          The nix daemon's own config files, read for the sandbox setting
-          the --allow-nix warning reports: whether the daemon confines the
-          builds it runs. Determinate on darwin splits its settings between
-          nix.conf and the nix.custom.conf its nix-darwin module owns. A
-          setting the daemon takes some other way reads as unknown and is
-          reported as the worse case.
-        '';
+        description = "Loopback ports sessions may bind and contact. --listen PORT adds a port at admission.";
       };
 
       allowedDomains = lib.mkOption {
@@ -485,11 +215,10 @@ in
           "github.com"
         ];
         description = ''
-          Base network allowlist. Empty by default. The wrapper adds each
-          trustedProviders endpoint, the host of its baseUrl in models.json,
-          at start, so a host lists only what else pi needs. Runtime --allow
-          extends this. srt passes these through its filtering proxy; programs not
-          respecting HTTP_PROXY/HTTPS_PROXY can bypass the filter.
+          Workload network allowlist. Empty by default; inference uses a
+          separate authenticated relay. Runtime --allow adds a destination.
+          --web permits public web destinations through the same proxy and
+          filesystem boundary.
         '';
       };
 
@@ -562,8 +291,10 @@ in
           in the default would instead have discarded all four the moment
           a host added a fifth.
 
-          Unknown `--allow-<name>` at the CLI fails fast with the
-          known-bundles list on stderr.
+          An unknown `--allow-<name>` at the CLI is refused before anything
+          starts. A name the session uses for a built-in grant (`nix`,
+          `forge`, `trustd`, `clipboard`, `read`, `write`, `rw`, `git-write`)
+          is refused when the wrapper is built.
 
           A bundle also carries `readPaths` / `writePaths`, so a toolchain
           whose caches live under the denied `$HOME` is one flag rather than
@@ -600,7 +331,7 @@ in
             touched. Default is intentionally non-human so agent commits
             stand out in `git log`; override per-host if you want a
             different label. Signing is unconditionally disabled on agent
-            commits (see wrapper.sh), that's not a knob.
+            commits (see pi-session/session.py), that's not a knob.
           '';
         };
         email = lib.mkOption {
@@ -617,14 +348,22 @@ in
 
     coordinator = {
       enable = lib.mkEnableOption ''
-        `pi --coordinator`, whose agents each get a worktree and a tmux
-        window from pi-broker (nix/pkgs/pi-broker). Needs tmux, and the
-        sandbox, since the broker starts children through the wrapper
+        `pi --coordinator`, a persistent service with independently
+        supervised RPC workers and private Git storage. Forge is optional.
       '';
       maxAgents = lib.mkOption {
         type = lib.types.ints.between 1 15;
         default = 8;
         description = "Agents running at once across every coordinator on the host.";
+      };
+      maxRetainedWorkers = lib.mkOption {
+        type = lib.types.ints.between 1 4096;
+        default = 8 * cfg.coordinator.maxAgents;
+        defaultText = lib.literalExpression "8 * coordinator.maxAgents";
+        description = ''
+          Retained child records per coordinator, including closed and failed
+          children. Further spawns are refused without deleting preserved work.
+        '';
       };
       forge = {
         enable = lib.mkEnableOption ''
@@ -653,9 +392,8 @@ in
         lines, one per model choice (session, advisor, each task agent,
         coordinator children, pi-delegate, domestique's classifier), with
         comments saying what each is for. The ids are private, so the file is
-        a sops secret and never a store path. The wrapper loads each seat the
-        caller's env leaves empty, and `pi-seats check` validates them at
-        every start and after each deploy.
+        a sops secret and never a store path. Session admission records the
+        configured seats. `pi-seats check` validates the deployed catalog.
       '';
     };
 
@@ -686,12 +424,10 @@ in
       default = null;
       example = "/run/secrets/pi_models_json";
       description = ''
-        A file outside the store that ~/.pi/agent/models.json links to, for a
-        catalog that must not be world-readable in /nix/store. The wrapper
-        grants the sandbox a read on every link along the way and the file,
-        and nothing else in its directory. Exclusive with `modelsJson`. A
-        lower priority than a plain definition, so another module's link to
-        the same path still wins.
+        Host-only model catalog, normally a sops secret. The trusted relay
+        resolves credentials and creates a private catalog containing scoped
+        relay tokens. The workload cannot read this source file.
+        Exclusive with modelsJson.
       '';
     };
 
@@ -725,24 +461,16 @@ in
         }
       '';
       description = ''
-        Contents of ~/.pi/agent/models.json, rendered verbatim via
-        builtins.toJSON. Empty by default (pi ships built-in providers;
-        this option only exists to register additional ones, custom
-        OpenAI-compatible endpoints such as a local mlx-openai-server,
-        Ollama, vLLM, or a proxy).
+        Public model catalog copied into the Nix store. Credentials must be
+        references to trusted resolvers. Use modelsJsonFile for private model
+        identifiers or endpoints. Each permitted model must be explicit.
+        Supported APIs are openai-completions, openai-responses and
+        anthropic-messages. Local providers require privateProviderHosts.
 
-        See pi's custom-provider docs:
-        https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/custom-provider.md
+        Catalog format:
+        https://github.com/earendil-works/pi/blob/a13d35a742c6ef8462812a28fbe1d8c8b7431c32/packages/coding-agent/docs/models.md
 
-        This option owns the whole file, home-manager overwrites
-        ~/.pi/agent/models.json on every activation, so a manually edited
-        file (e.g. providers added by hand before this option existed) will
-        be clobbered. Fold any such providers into this option's value
-        first.
-
-        Select a configured model per-invocation with `pi --model
-        <provider>/<model-id>`, or pin one host-wide with the wrapper's
-        defaultPiArgs.
+        Select a model with pi --model provider/model, or configure a seat.
       '';
     };
 
@@ -858,9 +586,9 @@ in
         # input: gitlab.com carries NUR's rycee firefox-addons, github and
         # flakehub the rest of flake.lock. Substitution is daemon-side, which
         # --allow-nix already covers, so these five are everything eval
-        # fetches, and no use without the daemon. Not named "nix" because
-        # the wrapper's --allow-nix exact-match case shadows a bundle by that
-        # name.
+        # fetches, and no use without the daemon. Not named "nix": the
+        # wrapper refuses a bundle named after one of the session's own
+        # grants.
         flake = {
           domains = [
             "github.com"
@@ -873,34 +601,13 @@ in
         };
       };
 
-    # Skills are store sources, matching claude-code, so /reload cannot see
-    # skill edits until the next home-manager switch.
     home.file = {
-      ".pi/agent/extensions".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/extensions";
-      # getAgentDir() is ~/.pi/agent (pi's core/config.ts), so task.ts reads
-      # its roster from this directory.
-      ".pi/agent/agents".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/agents";
-      ".pi/agent/themes".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/themes";
-      # Per-grant prompt guidance, read by extensions/grants.ts off
-      # PI_GRANTS the wrapper exports. Out-of-store like the extensions so
-      # grant prose is hot-reloadable rather than baked into a store path.
-      ".pi/agent/grants".source = config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/grants";
-
-      # Out-of-store because pi does write this file: startup's
-      # migrateKeybindingsConfigFile() rewrites it whenever an action id it
-      # holds has been renamed upstream. Namespaced ids do not trigger that,
-      # but if a future pi renames one, the rewrite lands in the worktree
-      # instead of failing against a read-only store path.
-      ".pi/agent/keybindings.json".source =
-        config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/keybindings.json";
-
-      # Phase discipline and the Assert rule, out-of-store like the extensions
-      # so an edit lands without a rebuild. mkDefault yields to a host or a
-      # private module shipping its own AGENTS.md, which would otherwise
-      # collide on this path rather than override it.
-      ".pi/agent/AGENTS.md".source = lib.mkDefault (
-        config.lib.file.mkOutOfStoreSymlink "${cfg.sourceDir}/AGENTS.md"
-      );
+      ".pi/agent/extensions".source = "${runtimeSource}/extensions";
+      ".pi/agent/agents".source = "${runtimeSource}/agents";
+      ".pi/agent/themes".source = "${runtimeSource}/themes";
+      ".pi/agent/grants".source = "${runtimeSource}/grants";
+      ".pi/agent/keybindings.json".source = "${runtimeSource}/keybindings.json";
+      ".pi/agent/AGENTS.md".source = lib.mkDefault "${runtimeSource}/AGENTS.md";
 
       ".pi/agent/models.json" = lib.mkMerge [
         (lib.mkIf (cfg.modelsJson != { }) { text = builtins.toJSON cfg.modelsJson; })

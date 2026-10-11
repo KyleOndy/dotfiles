@@ -1,7 +1,7 @@
 # Pi development requirements
 
-Desired end state for pi, its launcher, and the coordinator. Implementation
-changes have not been authorized by this draft.
+Desired end state for pi, its launcher, and the coordinator. Acceptance
+requires recorded test evidence.
 
 Pi should be our primary interface for daily development. We should be able
 to choose models, run real workloads, and delegate work without managing a
@@ -26,9 +26,8 @@ The current implementation is not an architectural constraint.
 - **Durable design:** substantial refactoring is allowed. Passing the
   requirements matters more than preserving existing scripts and flags.
 
-The security and operational requirements below are a proposed baseline for
-these goals. Open decisions remain at the end. No proposed mechanism is an
-approved architecture.
+The security and operational requirements below define the baseline for
+these goals. Implementation choices follow the acceptance scenarios.
 
 ## Threat model and scope
 
@@ -48,9 +47,9 @@ well behaved. Kernel, hypervisor, and trusted service vulnerabilities remain
 outside that guarantee. Data deliberately supplied to a selected model goes
 to its approved provider; we cannot promise that this provider never sees it.
 
-Proposed initial acceptance targets are work-mac and trex. Any Linux backend
-advertised as supported must pass equivalent behavior and containment tests
-on Linux. An untested backend must not silently substitute for a tested one.
+Acceptance targets are work-mac and trex on Darwin. Linux is deferred.
+Any future Linux backend must pass equivalent behavior and containment tests
+before it is advertised as supported.
 
 ## Requirements
 
@@ -213,15 +212,24 @@ the current branch.
 Tests use synthetic credentials and disposable resources. Live provider
 checks use approved endpoints and bounded workloads. Model IDs remain private.
 
-## Open decisions
+## Implementation choices
 
-| Decision                                | Choices                                                                                                                                   | Proposed direction                                                                                                                             |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Coordinator scope                       | One persistent coordinator per repository, or one entrypoint managing several repositories.                                               | Preserve repository ownership boundaries either way. Decide the human-facing scope before choosing service layout.                             |
-| Git storage                             | Independent child repositories, mediated writes to shared storage, or another design that passes DEV-3.                                   | Favor independent storage if shared worktrees cannot provide the required integrity without extensive mediation.                               |
-| Build execution and egress              | Hardened local builds or dedicated builders; restricted destinations or approved general internet access.                                 | Require BUILD-2 under every profile. Choose egress deliberately and test it at the builder, including temporary paths and local services.      |
-| Session configuration and project trust | Private per-session writable preferences or immutable deployed settings; ignore project executable configuration or approve it centrally. | Favor private session preferences with trusted policy and credential state kept separate. Surface project trust decisions in the main session. |
-| Operational defaults                    | Supported OS rollout, active/idle limits, time and cost budgets, artifact retention, and offline behavior.                                | Establish defaults from representative workloads on both Macs. Numeric limits remain unset until those workloads are agreed.                   |
+- **Coordinator:** one persistent service per coordinator session, with a
+  repository snapshot and supervised children. Forge is an optional grant.
+- **Git:** independent repositories and private branches. Export and child
+  integration validate bundles outside worker-controlled Git metadata.
+- **Builds:** disposable native Darwin VMs with explicit public IPv4 CIDRs,
+  no host shares, and no host daemon access. Protected files require
+  individual materialized-input grants; Git encryption keys stay outside.
+- **Configuration:** immutable deployed runtime and policy, private writable
+  session preferences, and host-side provider credential mediation.
+- **Limits:** defaults of 8 active turns and 16 live workers across
+  coordinators, 64 retained children per coordinator, and 8 retained build
+  VMs. Admission preserves existing work when a limit is reached.
+
+See [session operation](pi-sessions.md), [builder configuration](../nix/pkgs/pi-builder/README.md),
+and the [regression suite](pi-sandbox-tests.md) for the implementation and
+runnable checks.
 
 ## Design constraints and evidence
 
@@ -229,7 +237,7 @@ Pi already exposes steering, follow-up, abort, and session events. Its
 `agent_settled` event identifies when automatic work has settled; an accepted
 prompt alone does not establish completion. Any child-control design should
 account for these semantics ([Pi 1.0.0 RPC][pi-rpc]). Reuse the existing
-control work in [pi-delegate](../nix/pkgs/pi-delegate/pi-delegate.sh) where it
+control work in [pi-delegate](../nix/pkgs/pi-delegate/pi-delegate.py) where it
 meets the requirements. RPC is a candidate mechanism, not a security boundary.
 
 Nix client trust and builder confinement are separate controls. Trusted

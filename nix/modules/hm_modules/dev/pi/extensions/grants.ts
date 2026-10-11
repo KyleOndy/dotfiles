@@ -71,22 +71,22 @@ export default function (pi: ExtensionAPI) {
     if (missing.length > 0) {
       const lines = missing.map(
         (name) =>
-          `- ${name}${headings.has(name) ? ` (${headings.get(name)})` : ""}`,
+          `- ${name === "web" ? "--web" : `--allow-${name}`}${headings.has(name) ? ` (${headings.get(name)})` : ""}`,
       );
       sections.missing_grants =
         "# Grants this session does not carry\n\n" +
-        "Each of these is one `--allow-<name>` flag on the wrapper away, " +
-        "and none was given to this invocation. Flags are read at launch, " +
+        "These flags were not given to this invocation. Flags are read at launch, " +
         "so the sandbox cannot widen mid-session: when work needs one, or a " +
         "command fails the way the sandbox refusing something looks, name " +
-        "the flag and ask the human to restart the session with it. Do not " +
+        "the flag and ask the human to start a new session with it. Resume " +
+        "preserves the existing grants. Do not " +
         "retry the refused command or work around it.\n\n" +
         lines.join("\n") +
         "\n\nWider than any name: `--allow <host>` adds one network host, " +
         "`--allow-read <path>` and `--allow-write <path>` add filesystem " +
-        "paths one direction each, `--allow-rw <path>` adds both at once, " +
-        "`--allow-loopback` permits local binds, and `--web` lifts " +
-        "the network restriction entirely while keeping reads allowlisted.";
+        "read access or read/write access, `--allow-rw <path>` also adds both, " +
+        "`--listen <port>` permits one loopback listener, and `--web` permits " +
+        "public web destinations without changing filesystem permissions.";
     }
   });
 }

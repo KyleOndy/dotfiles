@@ -328,12 +328,12 @@ ensure_cache() {
 			config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
 			render_cache_config >"${config}"
 			info "Creating VM '${CACHE_VM}' (${CACHE_CPUS} CPUs, ${CACHE_MEMORY}, ports from ${CACHE_PORT_BASE})"
-			limactl start --name="${CACHE_VM}" --tty=false --timeout="${VM_TIMEOUT}" "${config}" 9>&-
+			limactl start --name="${CACHE_VM}" --tty=false --timeout="${VM_TIMEOUT}" "${config}" 7>&- 8>&- 9>&-
 			rm -f "${config}"
 			;;
 		*)
 			info "VM '${CACHE_VM}' is ${status}, starting it"
-			limactl start --tty=false --timeout="${VM_TIMEOUT}" "${CACHE_VM}" 9>&-
+			limactl start --tty=false --timeout="${VM_TIMEOUT}" "${CACHE_VM}" 7>&- 8>&- 9>&-
 			;;
 		esac
 		local i
@@ -425,13 +425,13 @@ ensure_vm() {
 		config="$(mktemp --tmpdir forge-lima-XXXXXX.json)"
 		render_instance_config "$(size_cpus "${size}")" "$(size_memory "${size}")" >"${config}"
 		info "Creating at size ${size}, API ports ${API_PORT_BASE}-${API_PORT_LAST}"
-		limactl start --name="${VM_NAME}" --tty=false --timeout="${VM_TIMEOUT}" "${config}"
+		limactl start --name="${VM_NAME}" --tty=false --timeout="${VM_TIMEOUT}" "${config}" 7>&- 8>&-
 		rm -f "${config}"
 		ok "Created, and its docker socket is at ${VM_SOCKET}"
 		;;
 	*)
 		info "Status is ${status}, starting it"
-		limactl start --tty=false --timeout="${VM_TIMEOUT}" "${VM_NAME}"
+		limactl start --tty=false --timeout="${VM_TIMEOUT}" "${VM_NAME}" 7>&- 8>&-
 		ok "Started"
 		;;
 	esac
@@ -454,7 +454,7 @@ resize_vm() {
 	log "Resizing VM '${VM_NAME}' to ${size} (${cpus} CPUs, ${memory})"
 	[[ ${status} == Stopped ]] || limactl stop "${VM_NAME}"
 	limactl edit --tty=false --set ".cpus = ${cpus} | .memory = \"${memory}\"" "${VM_NAME}"
-	limactl start --tty=false --timeout="${VM_TIMEOUT}" "${VM_NAME}"
+	limactl start --tty=false --timeout="${VM_TIMEOUT}" "${VM_NAME}" 7>&- 8>&-
 	ok "Resized and started"
 }
 
@@ -877,34 +877,39 @@ cmd_status() {
 	echo ""
 }
 
-# pi-broker's record of which agent holds each instance
-# (nix/pkgs/pi-broker/pi-broker.sh): slots/<n>/owner names the agent's state
-# file, <coordinator>/state/<agent>.json.
-readonly PI_SLOTS_DIR="${HOME}/.local/state/pi-coord/slots"
-
 # FORGE_INSTANCE takes only a number, so a caller that wants a name claims one:
 # the label is recorded in the instance's directory, where `forge ls` shows it
-# and `forge nuke` removes it. Claiming holds pi-broker's slot lock and skips
-# its slots, and pi-broker skips a labelled number, so neither hands out a
-# number the other holds. Claiming a label again prints the same number.
+# and `forge nuke` removes it. Claims and destruction hold the same ownership
+# lock. Claiming a label again prints the same number.
 readonly LABEL_RE='^[a-z0-9][a-z0-9._-]{0,63}$'
 
-# pi-broker's lock protocol (lock_slots in nix/pkgs/pi-broker/pi-broker.sh),
-# down to breaking a lock held past 30s.
-lock_pi_slots() {
-	local tries=0
-	mkdir -p "${PI_SLOTS_DIR}"
-	until mkdir "${PI_SLOTS_DIR}/.lock" 2>/dev/null; do
-		((++tries < 300)) || rm -rf "${PI_SLOTS_DIR}/.lock"
-		sleep 0.1
-	done
-	trap 'rm -rf "${PI_SLOTS_DIR}/.lock"' EXIT
+OWNERSHIP_LOCKED=false
+INSTANCE_LOCKED=false
+
+lock_ownership() {
+	"${OWNERSHIP_LOCKED}" && return
+	mkdir -p "${HOME}/.local/state/forge"
+	exec 8>"${HOME}/.local/state/forge/.ownership.lock"
+	flock -w 900 8 || die "waited 15m for forge ownership lock"
+	OWNERSHIP_LOCKED=true
+}
+
+lock_instance() {
+	"${INSTANCE_LOCKED}" && return
+	mkdir -p "${HOME}/.local/state/forge"
+	exec 7>"${HOME}/.local/state/forge/.instance-${INSTANCE:-unnamed}.lock"
+	flock -w 900 7 || die "waited 15m for forge instance lock"
+	INSTANCE_LOCKED=true
+	if [[ -n ${FORGE_LEASE_LABEL:-} ]]; then
+		[[ -n ${INSTANCE_DIR} && -f ${INSTANCE_DIR}/label && ! -L ${INSTANCE_DIR}/label && $(<"${INSTANCE_DIR}/label") == "${FORGE_LEASE_LABEL}" ]] ||
+			die "forge lease changed; refusing to operate on instance ${INSTANCE}"
+	fi
 }
 
 cmd_claim() {
 	local label="$1" n dir
 	[[ ${label} =~ ${LABEL_RE} ]] || die "label must match ${LABEL_RE}, got '${label}'"
-	lock_pi_slots
+	lock_ownership
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
 		if [[ "$(cat "${HOME}/.local/state/forge/${n}/label" 2>/dev/null)" == "${label}" ]]; then
 			echo "${n}"
@@ -913,7 +918,7 @@ cmd_claim() {
 	done
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
 		dir="${HOME}/.local/state/forge/${n}"
-		[[ -e ${dir}/label || -d ${PI_SLOTS_DIR}/${n} || -d ${LIMA_HOME:-${HOME}/.lima}/forge-${n} ]] && continue
+		[[ -e ${dir}/label || -d ${LIMA_HOME:-${HOME}/.lima}/forge-${n} ]] && continue
 		mkdir -p "${dir}"
 		echo "${label}" >"${dir}/label"
 		echo "${n}"
@@ -997,14 +1002,8 @@ cmd_ls() {
 			phase=partial
 		fi
 
-		local owner_file="${PI_SLOTS_DIR}/${inst}/owner"
 		if [[ ${inst} =~ ^[0-9]+$ && -f ${HOME}/.local/state/forge/${inst}/label ]]; then
 			owner="$(<"${HOME}/.local/state/forge/${inst}/label")"
-		elif [[ ${inst} =~ ^[0-9]+$ && -f ${owner_file} ]]; then
-			owner="$(<"${owner_file}")"
-			owner="${owner%.json}"
-			owner="${owner%/state/*}/${owner##*/}"
-			owner="${owner##*/pi-coord/}"
 		fi
 
 		ls_row "${inst}" "${name}" "${status}" "${cpus}" "$(numfmt --to=iec "${memory}")" \
@@ -1211,12 +1210,21 @@ cmd_down() {
 # A named instance's directory goes too: it holds nothing but this VM's
 # kubeconfig and config, and whoever takes the number next starts clean.
 cmd_nuke() {
+	lock_ownership
+	lock_instance
 	remove_vm
 	if [[ -n ${INSTANCE_DIR} ]]; then
 		rm -rf "${INSTANCE_DIR}"
 		ok "Removed ${INSTANCE_DIR}"
 	fi
 	log "Everything removed."
+}
+
+cmd_release() {
+	[[ -n ${INSTANCE_DIR} ]] || die "forge release requires FORGE_INSTANCE"
+	[[ $1 =~ ${LABEL_RE} ]] || die "invalid lease label"
+	export FORGE_LEASE_LABEL="$1"
+	cmd_nuke
 }
 
 descendants() {
@@ -1350,6 +1358,7 @@ Commands:
                  for it, or the number already holding <label>. Use it as
                  FORGE_INSTANCE. 'forge ls' shows the label as OWNER, and
                  'forge nuke' on that instance releases it.
+  release <label> Remove FORGE_INSTANCE only while it still owns this label.
   nuke [--all [--force]]
                  Delete the VM, and with it every cluster and network. --all
                  does that to every named instance, never the unnamed one,
@@ -1442,6 +1451,8 @@ nuke)
 	fi
 	;&
 init | start | up | down | status)
+	if [[ ${1} == nuke ]]; then lock_ownership; fi
+	if [[ ${1} != status ]]; then lock_instance; fi
 	[[ ${1} != init && ${1} != up ]] || parse_size_flag "${@:2}"
 	[[ -f ${CONFIG} ]] || die "no config at ${CONFIG} (override with FORGE_CONFIG)"
 	check_api_port_window
@@ -1468,6 +1479,10 @@ claim)
 	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: forge claim <label>"
 	cmd_claim "$2"
 	;;
+release)
+	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: FORGE_INSTANCE=N forge release <label>"
+	cmd_release "$2"
+	;;
 cache)
 	[[ -z ${3:-} ]] || die "usage: forge cache up|nuke|vm-config"
 	cmd_cache "${2:-}"
@@ -1475,6 +1490,7 @@ cache)
 resize)
 	[[ -n ${2:-} ]] || die "usage: forge resize small|large|xlarge"
 	size_cpus "$2" >/dev/null
+	lock_instance
 	cmd_resize "$2"
 	;;
 vm-config)

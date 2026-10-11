@@ -115,6 +115,39 @@ class WorkspaceTests(unittest.TestCase):
         }
         self.assertFalse(source_inodes & child_inodes)
 
+    def test_empty_workspace_commits_and_admits_without_importing_nearby_files(self):
+        external = self.root / "external-private-fixture"
+        external.write_text("synthetic private file outside workspace\n")
+        record = self.root / "empty-record"
+        manifest = workspace.create_empty(
+            self.root / "empty-session", "agent", record_root=record
+        )
+        work = Path(manifest["workspace"])
+        self.assertIsNone(manifest["source"])
+        self.assertEqual(manifest["source_base"], manifest["snapshot_commit"])
+        self.assertEqual(manifest["record_root"], str(record))
+        self.assertEqual(manifest["protected_paths"], [])
+        self.assertEqual(self.git(work, "ls-files").stdout, "")
+        self.assertEqual({path.name for path in work.iterdir()}, {".git"})
+        self.assertEqual(
+            self.git(work, "rev-list", "--count", "HEAD").stdout.strip(), "1"
+        )
+        tip, bundle = self.proposal(manifest)
+        admitted = workspace.admit_bundle(
+            manifest, bundle, self.root / "empty-quarantine", tip, "empty-proposal"
+        )
+        child = workspace.create_from_admitted(
+            admitted, self.root / "empty-child", "child"
+        )
+        self.assertEqual(child["snapshot_commit"], tip)
+        self.assertEqual(
+            self.git(Path(child["workspace"]), "ls-files").stdout, "plain.txt\n"
+        )
+        self.assertFalse((work / external.name).exists())
+        self.assertEqual(
+            external.read_text(), "synthetic private file outside workspace\n"
+        )
+
     def test_dirty_snapshot_does_not_execute_source_configuration(self):
         marker = self.root / "executed"
         monitor = self.root / "monitor"

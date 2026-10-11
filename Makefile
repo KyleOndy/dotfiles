@@ -191,9 +191,14 @@ cleanup: ## Cleanup and reduce diskspace of current system
 # not answer at all only warns, since an outage says nothing about this
 # host's config.
 PI_SEATS_CHECK := pi-seats check --deploy && mcloud-pins --deploy
+# The built wrapper parses its baked session config on every start, so a
+# conflict only the real work config carries fails the build instead of
+# the first pi start after a deploy. The glob is the host's one user.
+PI_SMOKE := ./result/etc/profiles/per-user/*/bin/pi --session-help >/dev/null
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
 	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(PI_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
+	$(PI_SMOKE)
 
 .PHONY: build-mac-dry
 build-mac-dry: ## Dry-run build of work-mac darwin configuration
@@ -208,6 +213,7 @@ deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/wo
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
 	nix build $(IMPURE) "$(PI_BUILD_FLAKE)#darwinConfigurations.trex.system"
+	$(PI_SMOKE)
 
 .PHONY: build-trex-dry
 build-trex-dry: ## Dry-run build of trex darwin configuration

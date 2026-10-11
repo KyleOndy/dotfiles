@@ -1,7 +1,3 @@
-# Sandbox-wrapped `pi` binary. See default.nix in
-# hm_modules/dev/pi-coding-agent for the home-manager module that consumes
-# this. The flake check at nix/checks/pi-coding-agent.nix uses .override to
-# inject a stub `pi` binary and exercise the wrapper's decisions.
 {
   lib,
   stdenv,
@@ -9,34 +5,25 @@
   writeText,
   writeTextFile,
   symlinkJoin,
-  bubblewrap,
+  bashInteractive,
+  python3,
+  nodejs,
+  git,
+  git-crypt,
+  coreutils,
+  ripgrep,
   jq,
-  vips,
   yq-go,
+  vips,
+  bubblewrap,
   llm-agents,
+  pi-session,
+  pi-provider-relay,
+  pi-builder,
   realPiBin ? lib.getExe llm-agents.pi,
   defaultDomains ? [ ],
   defaultWritePaths ? [ ],
-  # Paths re-allowed for READING in strict mode, which denies "/" and re-allows
-  # an explicit set. $PWD, ~/.pi and defaultSystemReadPaths are always readable;
-  # this list adds more, typically the toolchain config/caches an agent's
-  # commands read (e.g. ~/.gitconfig, ~/.cargo, ~/.rustup, ~/go, ~/.npmrc).
-  # Runtime --allow-read and --allow-rw extend this. Supports ~ expansion.
   defaultReadPaths ? [ ],
-  # System paths re-allowed under that root deny, measured against this
-  # toolchain rather than guessed: git, ripgrep, node, python3, jq, pi itself,
-  # xcrun, sw_vers and TLS through srt's proxy all work with these and nothing
-  # more. The two lists differ in kind. On darwin they are deny carve-outs, and
-  # short because dyld maps the shared cache instead of reading it as a file.
-  # On linux srt binds each entry into a fresh mount namespace, so the list has
-  # to carry what /bin/sh needs to exist at all.
-  #
-  # /var is the symlink node, not /private/var: reaching the zoneinfo database
-  # through /etc/localtime and /usr/share/zoneinfo traverses it, and naming it
-  # does not re-open /private/var/folders. Omit it and the sandbox reports UTC,
-  # with no error to say so.
-  #
-  # /bin because macOS's default $SHELL is /bin/zsh, and $EDITOR spawns it.
   defaultSystemReadPaths ?
     if stdenv.isDarwin then
       [
@@ -44,11 +31,10 @@
         "/etc"
         "/private/etc"
         "/dev"
-        "/private/var/select"
         "/System"
         "/bin"
         "/usr"
-        "/var"
+        "/private/var/select"
         "/private/var/db/timezone"
       ]
     else
@@ -60,340 +46,118 @@
         "/proc"
         "/sys"
         "/dev"
-        "/run"
-        "/var"
       ],
-  # Args prepended to every `pi` invocation, before user args. Useful for
-  # pinning a default model/provider so the user doesn't have to type
-  # `--model …` each time. User args still win on duplicates (pi takes the
-  # last occurrence of repeated flags like --model).
   defaultPiArgs ? [ ],
-  # Static env vars exported before sandbox dispatch. Values are bash
-  # double-quote-expanded at wrapper runtime, so `$PWD` and `$HOME` resolve
-  # against the user's CWD-at-invocation. Use for tool-cache redirects
-  # (GOCACHE/GOMODCACHE/etc.) so writes land under $PWD instead of broadening
-  # allowWrite to $HOME/Library/Caches.
   defaultEnvVars ? { },
-  # Default for srt's network.allowLocalBinding setting. When true (or when
-  # --allow-loopback is passed), srt's macOS profile permits bind/listen on
-  # loopback only, external network is still gated by the domain allowlist.
-  defaultAllowLoopback ? false,
-  # Days to keep ~/.pi/agent/task-logs and job-logs files; null keeps them.
-  logKeepDays ? null,
-  # Default for srt's enableWeakerNetworkIsolation setting. When true (or when
-  # --allow-trustd is passed, or when an invoked bundle declares trustd=true),
-  # the macOS sandbox profile permits com.apple.trustd.agent mach lookups so
-  # Go on macOS can verify TLS certificates through Security framework. The
-  # tradeoff is a wider egress surface (trustd resolves LDAP / OCSP responder
-  # URLs); off by default.
   defaultAllowTrustd ? false,
-  # Write access to the repo's git dirs, which is what lets the agent commit.
-  # "branch-gated" grants it off a non-protected branch only, "always" and
-  # "off" are unconditional; --allow-git-write / --no-git-write override per
-  # invocation. Reading those dirs is not a knob: without it git reports the
-  # workspace as "not a git repository" in any worktree layout.
-  gitWriteMode ? "branch-gated",
-  # Refs and reflogs kept in denyWrite even once write is granted for another
-  # branch, so an agent commit cannot move these.
-  protectedBranches ? [
-    "main"
-    "master"
-  ],
-  # Default for --allow-nix (nix's channel search path plus the daemon socket).
-  # Off because the grant is equivalent to --no-sandbox wherever the invoking
-  # user is in nix's trusted-users: such a client can build as root, outside
-  # srt, and read what denyRead covers. See the nix_daemon_socket comment in
-  # wrapper.sh for the measurement. Leave this false and grant per-invocation,
-  # so the escape is scoped to a session you chose it for rather than every
-  # session on the host, including ones spent reading someone else's code.
   defaultAllowNix ? false,
-  # Default for --allow-git-crypt (readable git-crypt key dirs). Off because
-  # the key file is the symmetric master key for every ciphertext file in the
-  # repo, so a process that can run the clean filter is a process that can
-  # steal it; a session that must commit ciphertext-bearing files restarts
-  # with the flag rather than every session holding it. Off leaves in-session
-  # `git add` of a filtered file failing loudly, which is the wanted signal.
-  defaultAllowGitCrypt ? false,
-  # Default for --allow-session-history (readable ~/.pi/agent/sessions). Off
-  # because transcripts hold every past session's prompts, the human's
-  # included, across every project on the host. The deny leaves the current
-  # project's own transcript directory readable, so recording and
-  # same-project resume keep working; the resume picker and cross-project
-  # resume are what the flag buys back.
-  defaultAllowSessionHistory ? false,
-  # The daemon's config files, read for the `sandbox` setting the --allow-nix
-  # warning reports: whether the daemon confines the builds it runs, which is
-  # the second thing the grant costs once the client is untrusted. Not `nix
-  # config show`, which answers the client's view. Overridden to an empty list
-  # by the flake check so its assertions do not depend on the host's daemon;
-  # a setting the daemon takes some other way reads as unknown, and unknown
-  # is reported as the worse case.
-  nixDaemonConfigFiles ? [
-    "/etc/nix/nix.conf"
-    "/etc/nix/nix.custom.conf"
-  ],
-  # Default for --allow-ssh-agent (the ssh-agent socket, plus the ssh config,
-  # known_hosts and public keys ssh needs to use it). Off because it lets the
-  # agent authenticate as the human to anything the network allowlist reaches,
-  # so it belongs to a session chosen for it. Unlike the other two socket
-  # grants this one narrows what a working ssh costs: without it the only way
-  # to sign is re-allowing ~/.ssh, which exposes the private keys and still
-  # fails on a passphrase-protected one.
-  defaultAllowSshAgent ? false,
-  # Default for --allow-forge (the unnamed forge instance's docker socket and
-  # kubeconfig, plus loopback so the API servers it names are reachable). Off
-  # because a caller that reaches the socket can start a privileged container,
-  # and the kubeconfig is cluster-admin on every cluster in the VM, a
-  # privileged pod away from the same thing, so the real boundary becomes
-  # whatever the VM mounts rather than this policy. forge's VM
-  # (nix/pkgs/forge/vm.nix) declares no mounts and denies the port forwards it
-  # does not name, and the wrapper refuses the grant unless the instance still
-  # does, which keeps the failure mode a refusal rather than a silent widening;
-  # leaving this false still scopes the grant to sessions chosen for it.
-  defaultAllowForge ? false,
-  # The unnamed instance's kubeconfig, matching `kubeconfig` in
-  # nix/pkgs/forge/forge.yaml. Deliberately not read from FORGE_KUBECONFIG or
-  # the forge config: this becomes an allowRead entry, so taking it from the
-  # environment would let a checkout's .envrc pick what the sandbox grants.
-  forgeKubeconfig ? "~/.local/state/forge/kubeconfig.yaml",
-  # Where `forge up` fetches the argo-cd chart: the index from the chart repo,
-  # the tarball from a GitHub release, which redirects to release-assets
-  # (measured on argo-cd-9.4.7).
-  forgeDomains ? [
-    "argoproj.github.io"
-    "github.com"
-    "release-assets.githubusercontent.com"
-  ],
-  # The pi-broker executable --coordinator starts. Empty refuses --coordinator.
+  defaultGitWrite ? true,
+  defaultListenPorts ? [ ],
   coordinatorBroker ? "",
-  # The host's seats file, an env file of `PI_*_MODEL=provider/id[:level]`
-  # lines, loaded for every seat the caller's env leaves empty. A leading ~ is
-  # expanded at runtime. Empty loads nothing.
   seatsFile ? "",
-  # The deployed settings.json. Non-empty is written over
-  # ~/.pi/agent/settings.json before every dispatch, so a value a session
-  # planted there (shellPath and shellCommandPrefix are exec primitives, and
-  # pi has no env var or flag that overrides a settings key) never reaches
-  # the next wrapper-started pi. Empty leaves the file alone.
   settingsFile ? "",
-  # Providers a session may run on. Non-empty refuses any other at start and
-  # exports the list as PI_TRUSTED_PROVIDERS for task.ts and the advisor.
-  # Empty refuses nothing.
+  catalogFile ? "",
+  runtimeSource ? "",
+  privateProviderHosts ? [ ],
+  builder ? "",
   trustedProviders ? [ ],
-  # The pi-seats executable, run as `check --start` before every start that
-  # has seats or a trust list. Empty skips the check.
-  seatsCheck ? "",
-  # Repo path of the sops file the seats and catalog are edited in, named in
-  # the wrapper's refusals. Empty says "this host's sops file".
-  secretsSource ? "",
-  # Named bundles enabling per-invocation `--allow-<name>` CLI flags. Each is
-  # { domains = [str]; trustd = bool; nix = bool; readPaths = [str];
-  # writePaths = [str]; }. domains extend the network allowlist, readPaths and
-  # writePaths extend the filesystem grants (leading ~ expanded like the
-  # default*Paths lists), and trustd and nix OR into the wrapper's
-  # allow_trustd and allow_nix. Default empty so the wrapper
-  # itself is self-contained; the hm module ships the standard set
-  # (go/rust/node/python/java/clojure).
   networkBundles ? { },
-  # Secrets resolved outside the sandbox and exported as env vars before exec.
-  # { VAR_NAME = "shell command that prints the secret on stdout"; ... }
-  # Each command runs in the wrapper's parent shell, so it has full access to
-  # the host (Keychain, pass, sops, kubectl). Resolved values flow through to
-  # pi via process env; non-zero exit on any resolver aborts pi startup.
   envFromCommands ? { },
-  # Grants a resolver's var must be gated on: { VAR_NAME = "grant"; ... }.
-  # A var whose gate this invocation does not carry (--allow-<grant> absent)
-  # is never resolved and never exported, and a same-named var from the
-  # caller's shell is scrubbed instead of kept: an ungranted session cannot
-  # see the secret at all, rather than holding it uselessly. Gates are
-  # ignored under --no-sandbox, where no grant can be missing. A gate naming
-  # a grant the wrapper does not know aborts startup, so a typo surfaces
-  # once instead of resolving nothing forever.
   envGrantGates ? { },
-  # Identity stamped on any git commit pi makes. Exported as GIT_AUTHOR_* /
-  # GIT_COMMITTER_* in the wrapper process so it overrides repo & global
-  # config without mutating either. Defaults are deliberately non-human,
-  # agent commits should be obvious in `git log` so a human auditor can
-  # tell them apart at a glance. Signing is hardcoded off in wrapper.sh
-  # (not a knob) for the same reason.
   gitAuthorName ? "Kyle's Daemon",
   gitAuthorEmail ? "ai-daemon@noreply.ondy.org",
-  credentialMasks ? [
-    ".ssh"
-    ".gnupg"
-    ".config/sops"
-    ".aws"
-    ".azure"
-    ".gcloud"
-    ".kube"
-    ".docker"
-    ".netrc"
-    ".git-credentials"
-  ],
 }:
-
 let
-  bashArray = xs: lib.concatStringsSep " " (map (x: ''"${x}"'') xs);
-
-  # Tab-separated VAR<TAB>cmd<TAB>gate lines, one per resolver entry; the
-  # gate column is empty for ungated vars. Empty file for {}.
-  # The wrapper reads this file at runtime and calls __pi_resolve per line.
-  # Keeping the resolver list out of wrapper.sh, and substituting a single
-  # file path instead of a code block, means the wrapper is byte-stable
-  # across overrides and there's no token-in-comment hazard for code.
-  envResolversFile = writeText "pi-env-resolvers" (
-    lib.concatMapStrings (
-      name: "${name}\t${envFromCommands.${name}}\t${envGrantGates.${name} or ""}\n"
-    ) (lib.attrNames envFromCommands)
-  );
-
-  # Tab-separated VAR<TAB>value lines for static env vars. Same sidecar
-  # pattern as envResolversFile: wrapper reads at runtime, bash-expands
-  # each value with double-quote semantics so $PWD/$HOME resolve, then
-  # exports.
-  envVarsFile = writeText "pi-env-vars" (
-    lib.concatMapStrings (name: "${name}\t${defaultEnvVars.${name}}\n") (lib.attrNames defaultEnvVars)
-  );
-
-  # TSV sidecar for network bundles:
-  # name<TAB>trustd<TAB>nix<TAB>domains<TAB>readPaths<TAB>writePaths, each list
-  # space-joined. wrapper.sh reads at runtime and splits into five associative
-  # arrays. Empty file when networkBundles == {}; wrapper short-circuits on
-  # empty so unknown --allow-<x> fails fast with "known: " (empty list) in the
-  # diagnostic.
-  networkBundlesFile = writeText "pi-network-bundles" (
-    lib.concatMapStrings (
-      name:
-      let
-        b = networkBundles.${name};
-        join = lib.concatStringsSep " ";
-      in
-      lib.concatStringsSep "\t" [
-        name
-        (if b.trustd or false then "true" else "false")
-        (if b.nix or false then "true" else "false")
-        (join (b.domains or [ ]))
-        (join (b.readPaths or [ ]))
-        (join (b.writePaths or [ ]))
-      ]
-      + "\n"
-    ) (lib.attrNames networkBundles)
-  );
-
-  body =
-    builtins.replaceStrings
-      [
-        "@realPiBin@"
-        "@credentialMasks@"
-        "@defaultDomains@"
-        "@defaultWritePaths@"
-        "@defaultReadPaths@"
-        "@systemReadPaths@"
-        "@defaultPiArgs@"
-        "@envResolversFile@"
-        "@envVarsFile@"
-        "@networkBundlesFile@"
-        "@defaultAllowLoopback@"
-        "@logKeepDays@"
-        "@defaultAllowTrustd@"
-        "@defaultAllowNix@"
-        "@defaultAllowGitCrypt@"
-        "@defaultAllowSessionHistory@"
-        "@nixDaemonConfigFiles@"
-        "@defaultAllowForge@"
-        "@defaultAllowSshAgent@"
-        "@forgeKubeconfig@"
-        "@forgeDomains@"
-        "@coordinatorBroker@"
-        "@gitWriteMode@"
-        "@protectedBranches@"
-        "@gitAuthorName@"
-        "@gitAuthorEmail@"
-        "@seatsFile@"
-        "@settingsFile@"
-        "@trustedProviders@"
-        "@seatsCheck@"
-        "@secretsSource@"
-      ]
-      [
-        realPiBin
-        (bashArray credentialMasks)
-        (bashArray defaultDomains)
-        (bashArray defaultWritePaths)
-        (bashArray defaultReadPaths)
-        (bashArray defaultSystemReadPaths)
-        (lib.escapeShellArgs defaultPiArgs)
-        "${envResolversFile}"
-        "${envVarsFile}"
-        "${networkBundlesFile}"
-        (if defaultAllowLoopback then "true" else "false")
-        (if logKeepDays == null then "" else toString logKeepDays)
-        (if defaultAllowTrustd then "true" else "false")
-        (if defaultAllowNix then "true" else "false")
-        (if defaultAllowGitCrypt then "true" else "false")
-        (if defaultAllowSessionHistory then "true" else "false")
-        (bashArray nixDaemonConfigFiles)
-        (if defaultAllowForge then "true" else "false")
-        (if defaultAllowSshAgent then "true" else "false")
-        forgeKubeconfig
-        (bashArray forgeDomains)
-        coordinatorBroker
-        (lib.escapeShellArg gitWriteMode)
-        (bashArray protectedBranches)
-        (lib.escapeShellArg gitAuthorName)
-        (lib.escapeShellArg gitAuthorEmail)
+  runtime = "${pi-session}/libexec/pi-session";
+  tools = [
+    bashInteractive
+    python3
+    nodejs
+    git
+    git-crypt
+    coreutils
+    ripgrep
+    jq
+    yq-go
+    vips
+    llm-agents.sandbox-runtime
+  ]
+  ++ lib.optionals stdenv.isLinux [ bubblewrap ];
+  configuration = writeText "pi-session-config.json" (
+    builtins.toJSON {
+      pi = realPiBin;
+      shell = lib.getExe bashInteractive;
+      node = lib.getExe nodejs;
+      path = "${lib.makeBinPath tools}:/run/current-system/sw/bin:/usr/bin:/bin";
+      sandboxRunner = "${runtime}/sandbox.mjs";
+      buildClient = "${pi-session}/bin/nix";
+      builderModule = "${pi-builder}/libexec/pi-builder/builder.py";
+      relayModule = "${pi-provider-relay}/libexec/pi-provider-relay/relay.py";
+      domains = defaultDomains;
+      readPaths = defaultReadPaths;
+      writePaths = defaultWritePaths;
+      systemReadPaths = defaultSystemReadPaths;
+      piArgs = defaultPiArgs;
+      env = defaultEnvVars;
+      allowTrustd = defaultAllowTrustd;
+      allowNix = defaultAllowNix;
+      gitWrite = defaultGitWrite;
+      listenPorts = defaultListenPorts;
+      broker = coordinatorBroker;
+      inherit
         seatsFile
         settingsFile
-        (bashArray trustedProviders)
-        seatsCheck
-        secretsSource
-      ]
-      (builtins.readFile ./wrapper.sh);
-
-  # One `_arguments` line per bundle, since which --allow-<name> flags exist is
-  # a property of this call rather than of the wrapper. Each line carries its
-  # own continuation, so an empty networkBundles leaves the template's list
-  # intact.
-  bundleFlags = lib.concatMapStrings (
-    name:
-    let
-      b = networkBundles.${name};
-    in
-    "  '--allow-${name}[network bundle: ${lib.concatStringsSep " " (b.domains or [ ])}${
-        lib.optionalString (b.trustd or false) ", trustd"
-      }${lib.optionalString (b.nix or false) ", nix daemon"}]' \\\n"
-  ) (lib.attrNames networkBundles);
-
+        catalogFile
+        runtimeSource
+        trustedProviders
+        privateProviderHosts
+        builder
+        ;
+      resolvers = envFromCommands;
+      resolverGates = envGrantGates;
+      bundles = networkBundles;
+      gitName = gitAuthorName;
+      gitEmail = gitAuthorEmail;
+    }
+  );
   script = writeShellApplication {
     name = "pi";
-    runtimeInputs = [
-      llm-agents.sandbox-runtime
-      jq
-      yq-go
-      # extensions/vision-paste.ts converts HEIC/AVIF/TIFF with it. macOS sips
-      # cannot run here: it writes scratch files to /var/folders regardless
-      # of TMPDIR, and the sandbox denies writes there.
-      vips
-    ]
-    ++ lib.optionals stdenv.isLinux [ bubblewrap ];
-    # SC2088: a leading ~ in default{Read,Write}Paths is expanded by wrapper.sh
-    # (${p/#\~/$HOME}) rather than by the shell, so the quoted tilde is correct.
-    excludeShellChecks = [
-      "SC2064"
-      "SC2088"
-    ];
-    text = body;
+    text =
+      builtins.replaceStrings
+        [ "@python@" "@runtime@" "@configuration@" ]
+        [ (lib.getExe python3) runtime (toString configuration) ]
+        (builtins.readFile ./wrapper.sh);
   };
-
-  # writeShellApplication builds through writeTextFile, whose buildCommand ends
-  # at `eval "$checkPhase"` and never runs postInstall, so the completion has to
-  # be joined in from its own derivation rather than appended to that one.
   completion = writeTextFile {
     name = "pi-completion";
     destination = "/share/zsh/site-functions/_pi";
-    text = builtins.replaceStrings [ "@bundleFlags@" ] [ bundleFlags ] (builtins.readFile ./_pi);
+    text =
+      builtins.replaceStrings
+        [ "@bundleFlags@" ]
+        [
+          (lib.concatMapStrings (name: "  '--allow-${name}[grant ${name} package registries]' \\\n") (
+            lib.attrNames networkBundles
+          ))
+        ]
+        (builtins.readFile ./_pi);
   };
+  # Names whose --allow-<name> flag session.py's parse() defines itself. A
+  # bundle by one of these names makes argparse refuse every pi invocation.
+  reservedBundleNames = [
+    "read"
+    "write"
+    "rw"
+    "git-write"
+    "trustd"
+    "nix"
+    "forge"
+    "clipboard"
+  ];
+  reservedBundles = lib.intersectLists reservedBundleNames (lib.attrNames networkBundles);
 in
+assert lib.assertMsg (reservedBundles == [ ]) (
+  "pi-wrapper: networkBundles ${lib.concatStringsSep ", " reservedBundles} shadow the session's own --allow-<name> grants; rename them"
+);
 symlinkJoin {
   name = "pi";
   paths = [

@@ -501,6 +501,7 @@
           forge-vm = import ./nix/checks/forge-vm.nix { inherit pkgs; };
           pi-broker = import ./nix/checks/pi-broker.nix { inherit pkgs; };
           pi-delegate = import ./nix/checks/pi-delegate.nix { inherit pkgs; };
+          pi-builder = pkgs.pi-builder;
           leak-guard = import ./nix/checks/leak-guard.nix { inherit pkgs; };
           pi-seats = import ./nix/checks/pi-seats.nix { inherit pkgs; };
           mcloud-pins = import ./nix/checks/mcloud-pins.nix { inherit pkgs; };
@@ -611,6 +612,16 @@
           pad-firmware = pkgs.callPackage ./keyboard/domestique-pad { };
           # `make secrets-status`
           inherit (pkgs) secrets-check;
+          inherit (pkgs)
+            pi-wrapper
+            pi-session
+            pi-provider-relay
+            pi-broker
+            pi-delegate
+            ;
+          inherit (pkgs) pi-builder;
+          pi-check-native = import ./nix/pkgs/pi-session/native-check.nix { inherit pkgs; };
+          pi-check-builder = pkgs.pi-builder;
         }
         // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           # keyboard/ergodox/default.nix:73 sets meta.platforms =

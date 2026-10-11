@@ -248,25 +248,8 @@ in
       secretsSource = "nix/secrets/trex.yaml";
       trustedProviders = [ "mcloud" ];
 
-      # Loopback egress for local dev servers and httptest; see
-      # nix/pkgs/pi-wrapper/wrapper.sh.
-      sandbox.allowLocalBinding = true;
-
-      # No allowedDomains: the wrapper allows mcloud's endpoint from the
-      # catalog's baseUrl, and nothing else, so a session cannot reach a
-      # provider outside trustedProviders even by switching models mid-run.
-
-      # Resolvers run in the wrapper before it execs srt (`__pi_resolve_all`
-      # ahead of `run_strict`'s dispatch), so these reach the Keychain and
-      # /run/secrets from outside the sandbox and only the resolved value
-      # crosses in. The wrapper hard-fails on a resolver error, so a missing
-      # entry surfaces here rather than as a 401 mid-session. models.json
-      # reads the mcloud key as `$MCLOUD_API_KEY`.
-      #
-      # The Kagi key is gated on --allow-kagi: a session without the grant
-      # never resolves it (the Keychain entry need not even exist there),
-      # and a copy from the caller's shell is scrubbed. The mcloud key stays
-      # ungated because the session itself runs on it.
+      # Host relays resolve the keys; workloads receive scoped relay tokens.
+      # Kagi resolution requires --allow-kagi. Inference is always admitted.
       sandbox.envFromCommands = {
         KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
         MCLOUD_API_KEY = mcloudKeyCommand;

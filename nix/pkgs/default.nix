@@ -24,9 +24,19 @@ self: super: {
   winnow = super.callPackage ./winnow { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
-  pi-wrapper = super.callPackage ./pi-wrapper { inherit (self) llm-agents; };
-  pi-broker = super.callPackage ./pi-broker { inherit (self) forge my-scripts; };
-  pi-delegate = super.callPackage ./pi-delegate { inherit (self) my-scripts; };
+  pi-session = super.callPackage ./pi-session { inherit (self) llm-agents; };
+  pi-provider-relay = super.callPackage ./pi-provider-relay { };
+  pi-builder = super.callPackage ./pi-builder { };
+  pi-wrapper = super.callPackage ./pi-wrapper {
+    inherit (self)
+      llm-agents
+      pi-session
+      pi-provider-relay
+      pi-builder
+      ;
+  };
+  pi-broker = super.callPackage ./pi-broker { inherit (self) forge; };
+  pi-delegate = super.callPackage ./pi-delegate { };
   mcloud-pins = super.callPackage ./mcloud-pins { };
   mcloud-rank = super.callPackage ./mcloud-rank { };
   leak-guard = super.callPackage ./leak-guard { inherit (self) llm-agents; };

@@ -1,558 +1,527 @@
-/**
- * coordinator: spawn, watch and tear down agents that each get their own
- * worktree, and a forge VM when the spawn names a size.
- *
- * The sandbox cannot make a worktree beside its own, start a VM or start a pi
- * wider than itself, so none of that happens here. The coordinator writes a
- * request, and pi-broker (nix/pkgs/pi-broker), which the wrapper starts
- * outside the sandbox for `pi --coordinator`, does the work and records state
- * this reads back. A child started by the broker gets report_result, which is
- * the only thing it can write that the coordinator reads, and, when it holds
- * a VM, forge_boot, which asks the broker to boot it.
- *
- * Silent unless the wrapper exported PI_COORD_ROLE and PI_COORD_DIR, which it
- * does only for --coordinator and --coord-child. PI_COORD_FORGE is set when
- * the broker can give out VMs, and FORGE_INSTANCE when this child holds one.
- */
-
 import { randomUUID } from "node:crypto";
-import {
-  existsSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { basename, join } from "node:path";
+import { createConnection } from "node:net";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Type } from "typebox";
-import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-// The broker polls every 2s, so this is several of its rounds.
-const RESPONSE_TIMEOUT_MS = 20_000;
-const WAIT_POLL_MS = 5_000;
-// The broker polls every 2s, so rereading state/ faster shows nothing new.
-const WIDGET_POLL_MS = 2_000;
-const MAX_WAIT_MINUTES = 120;
-// forge's own VM_TIMEOUT is 10m, and the cache may need booting first.
-const BOOT_TIMEOUT_MS = 15 * 60_000;
-// States after which an agent will not change again without a new request.
-const SETTLED = new Set(["failed", "exited", "done", "torn-down"]);
-// pi's --thinking levels, which pi-broker checks against the same list.
-const LEVELS = [
-  "off",
-  "minimal",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-] as const;
+const LIMIT = 2 * 1024 * 1024;
+const SETTLED = new Set(["idle", "closed", "lost", "failed", "waiting_input"]);
 
-interface AgentState {
+interface Agent {
   agent: string;
   state: string;
-  instance?: string;
-  size?: string;
-  base?: string;
-  branch?: string;
-  worktree?: string;
-  window?: string;
-  vm?: string;
+  workspace?: string;
+  outcome?: { state: string; text: string; error?: string };
   error?: string;
-  updated?: string;
-  result: boolean;
+  dialogs?: Record<
+    string,
+    { method: string; title: string; options?: string[] }
+  >;
+  report?: { text: string };
+  question?: { text: string };
 }
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+function request(
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+): Promise<any> {
+  const socket = process.env.PI_COORD_SOCKET;
+  const token = process.env.PI_COORD_TOKEN;
+  if (!socket || !token)
+    throw new Error("Coordinator credentials are unavailable");
+  const operation = { id: randomUUID(), ...body, token };
+  const wire = JSON.stringify(operation) + "\n";
+  if (Buffer.byteLength(wire) > LIMIT) throw new Error("Request exceeds 2 MiB");
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) return reject(new Error("cancelled"));
-    const timer = setTimeout(resolve, ms);
-    signal?.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(new Error("cancelled"));
-      },
-      { once: true },
-    );
-  });
-}
-
-function text(value: string) {
-  return { content: [{ type: "text" as const, text: value }], details: {} };
-}
-
-function coordinatorTools(pi: ExtensionAPI, dir: string, forge: boolean) {
-  const readState = (agent: string): AgentState | undefined => {
-    const file = join(dir, "state", `${agent}.json`);
-    if (!existsSync(file)) return undefined;
-    const state = JSON.parse(readFileSync(file, "utf8")) as AgentState;
-    state.result = existsSync(join(dir, "agents", agent, "result.md"));
-    return state;
-  };
-
-  const allStates = (): AgentState[] => {
-    const stateDir = join(dir, "state");
-    if (!existsSync(stateDir)) return [];
-    // APFS lists in no fixed order, and the pinned rows would reshuffle.
-    return readdirSync(stateDir)
-      .filter((f) => f.endsWith(".json"))
-      .sort()
-      .map((f) => readState(f.slice(0, -5)))
-      .filter((s): s is AgentState => s !== undefined);
-  };
-
-  const describe = (s: AgentState): string =>
-    [
-      `${s.agent}: ${s.state}${s.result ? ", result reported" : ""}`,
-      s.instance &&
-        `  forge instance ${s.instance} (${s.size})${s.vm ? `, VM ${s.vm}` : ""}`,
-      s.worktree && `  worktree ${s.worktree}, branch ${s.branch}`,
-      s.error && `  error: ${s.error}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-  const row = (s: AgentState, theme: Theme): string => {
-    const color =
-      s.state === "failed" || s.state === "exited"
-        ? "error"
-        : s.result || s.state === "done"
-          ? "success"
-          : "warning";
-    return [
-      theme.fg("accent", s.agent),
-      theme.fg(color, s.state),
-      s.result && theme.fg("success", "result reported"),
-      s.error && theme.fg("dim", s.error),
-    ]
-      .filter(Boolean)
-      .join("  ");
-  };
-
-  // agent_status answers only when the model asks, and its answer scrolls
-  // away, so every agent not yet torn down stays pinned above the editor.
-  // Polled, since state/ is the broker's only channel. Component factories
-  // are terminal-only (docs/rpc-extension-ui.md), hence the mode.
-  let poll: ReturnType<typeof setInterval> | undefined;
-  pi.on("session_start", (_event, ctx) => {
-    if (ctx.mode !== "tui") return;
-    let shown = "";
-    const refresh = (): void => {
-      // This runs outside any tool call, so nothing would report a throw. A
-      // state file that does not parse shows up through agent_status.
-      let states: AgentState[];
-      try {
-        states = allStates().filter((s) => s.state !== "torn-down");
-      } catch {
-        return;
-      }
-      const key = JSON.stringify(states);
-      if (key === shown) return;
-      shown = key;
-      ctx.ui.setWidget(
-        "coordinator",
-        states.length === 0
-          ? undefined
-          : (_tui, theme) => ({
-              invalidate: () => {},
-              render: (width: number) =>
-                states.map((s) =>
-                  truncateToWidth(row(s, theme), width, theme.fg("dim", "...")),
-                ),
-            }),
-      );
+    const client = createConnection(socket);
+    let response = Buffer.alloc(0);
+    let finished = false;
+    const finish = (error?: Error, value?: unknown) => {
+      if (finished) return;
+      finished = true;
+      signal?.removeEventListener("abort", cancelled);
+      client.destroy();
+      if (error) reject(error);
+      else resolve(value);
     };
-    clearInterval(poll);
-    refresh();
-    poll = setInterval(refresh, WIDGET_POLL_MS);
-  });
-  pi.on("session_shutdown", () => clearInterval(poll));
-
-  // The wrapper generates the id at launch and the model sees neither it nor
-  // the session id, so without this it can ask for a restart but not say how
-  // to resume. --session rather than -c, which resumes the newest session in
-  // the directory, and that need not be this one.
-  const coordId = basename(dir);
-  pi.on("before_agent_start", (event, ctx) => {
-    const session = ctx.sessionManager.getSessionId();
-    event.systemPromptOptions.sections.coordinator_restart =
-      "# Restarting this coordinator\n\n" +
-      `Coordinator id ${coordId}, session id ${session}. A grant this session ` +
-      "does not carry needs a restart, which keeps the agents running and " +
-      "resumes this conversation. Ask the human to exit and relaunch with " +
-      "every flag this session started with plus the new `--allow-<name>`, " +
-      `\`--coordinator=${coordId}\` in place of \`--coordinator\`, and ` +
-      `\`--session ${session}\` last. The relaunch replaces this session's ` +
-      "grants rather than adding to them, so a command carrying only the new " +
-      "flag drops the rest.";
-  });
-
-  // Written under a dot name the broker's *.json glob skips, then renamed,
-  // so it never reads half a request.
-  const request = async (
-    body: Record<string, unknown>,
-    signal?: AbortSignal,
-  ): Promise<{ ok: boolean; message: string }> => {
-    if (!existsSync(join(dir, "broker.pid"))) {
-      throw new Error(
-        `No broker is running for ${dir}. Restart with 'pi --coordinator=${coordId}' to reattach.`,
+    const cancelled = () =>
+      finish(
+        new Error(
+          `Stopped waiting for operation ${operation.id}; the operation may still be running`,
+        ),
       );
-    }
-    const id = randomUUID();
-    const tmp = join(dir, "requests", `.${id}.tmp`);
-    writeFileSync(tmp, JSON.stringify(body));
-    renameSync(tmp, join(dir, "requests", `${id}.json`));
-
-    const response = join(dir, "responses", `${id}.json`);
-    const deadline = Date.now() + RESPONSE_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      if (existsSync(response)) {
-        return JSON.parse(readFileSync(response, "utf8"));
-      }
-      await sleep(250, signal);
-    }
-    throw new Error(
-      `The broker did not answer within ${RESPONSE_TIMEOUT_MS / 1000}s; see ${join(dir, "broker.log")}.`,
+    signal?.addEventListener("abort", cancelled, { once: true });
+    if (signal?.aborted) return cancelled();
+    client.setTimeout(body.op === "forge_boot" ? 16 * 60_000 : 35_000, () =>
+      finish(
+        new Error(
+          `Operation ${operation.id} timed out; inspect agent_status before sending new work`,
+        ),
+      ),
     );
-  };
+    client.on("connect", () => client.write(wire));
+    client.on("error", (error) => finish(error));
+    client.on("end", () =>
+      finish(
+        new Error(
+          `Broker disconnected during operation ${operation.id}; inspect status before retrying`,
+        ),
+      ),
+    );
+    client.on("data", (part) => {
+      response = Buffer.concat([response, part]);
+      if (response.length > LIMIT)
+        return finish(new Error("Broker response exceeds 2 MiB"));
+      const newline = response.indexOf(10);
+      if (newline < 0) return;
+      try {
+        const reply = JSON.parse(response.subarray(0, newline).toString());
+        if (!reply.ok || reply.data?.receipt === "failed") {
+          finish(new Error(reply.error || reply.data.error));
+        } else finish(undefined, reply.data);
+      } catch (error) {
+        finish(error as Error);
+      }
+    });
+  });
+}
 
-  const size = Type.Optional(
-    Type.Union(
-      [Type.Literal("small"), Type.Literal("large"), Type.Literal("xlarge")],
+function text(value: unknown) {
+  return {
+    content: [
       {
-        description:
-          "The agent's forge VM; none when omitted. small: 2 CPUs, 4GiB, one workload cluster. large: 4 CPUs, 8GiB, two workload clusters. xlarge: 8 CPUs, 16GiB, three or more workload clusters.",
+        type: "text" as const,
+        text:
+          typeof value === "string" ? value : JSON.stringify(value, null, 2),
       },
-    ),
+    ],
+    details: {},
+  };
+}
+
+function describe(agent: Agent): string {
+  return (
+    `${agent.agent}: ${agent.state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
+    (agent.question ? `\nQuestion: ${agent.question.text}` : "") +
+    (agent.error ? `\n${agent.error}` : "") +
+    (Object.keys(agent.dialogs || {}).length
+      ? `\nDialogs: ${JSON.stringify(agent.dialogs)}`
+      : "")
   );
+}
+
+function delay(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cancel = () => {
+      clearTimeout(timer);
+      reject(new Error("Wait cancelled; the agent continues running"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", cancel);
+      resolve();
+    }, milliseconds);
+    if (signal?.aborted) cancel();
+    else signal?.addEventListener("abort", cancel, { once: true });
+  });
+}
+
+export default function coordinator(pi: ExtensionAPI) {
+  const role = process.env.PI_COORD_ROLE;
+  if (!process.env.PI_COORD_SOCKET || !process.env.PI_COORD_TOKEN) return;
+  if (role === "child") {
+    pi.registerTool({
+      name: "export_commits",
+      label: "Export commits",
+      description:
+        "Offer committed work to the coordinator for validated import. Commit changes first. This preserves the child branch and does not modify the coordinator.",
+      parameters: Type.Object({}),
+      async execute(_id, _params, signal) {
+        const status = await pi.exec("git", ["status", "--porcelain"], {
+          signal,
+        });
+        if (status.code !== 0 || status.stdout.trim())
+          throw new Error(
+            "Commit changes before exporting; the workspace must be clean",
+          );
+        const head = await pi.exec("git", ["rev-parse", "HEAD"], { signal });
+        if (head.code !== 0) throw new Error(head.stderr);
+        const directory = mkdtempSync(join(tmpdir(), "pi-export-"));
+        try {
+          const bundle = join(directory, "proposal.bundle");
+          const result = await pi.exec(
+            "git",
+            ["bundle", "create", bundle, "HEAD"],
+            { signal },
+          );
+          if (result.code !== 0) throw new Error(result.stderr);
+          return text(
+            await request(
+              { op: "offer", bundle, tip: head.stdout.trim() },
+              signal,
+            ),
+          );
+        } finally {
+          rmSync(directory, { recursive: true, force: true });
+        }
+      },
+    });
+    if (process.env.FORGE_INSTANCE)
+      pi.registerTool({
+        name: "forge_boot",
+        label: "Boot Forge resource",
+        description:
+          "Ask the broker to boot this agent's assigned Forge VM, then run forge up in this workspace.",
+        parameters: Type.Object({}),
+        async execute(_id, _params, signal) {
+          return text(await request({ op: "forge_boot" }, signal));
+        },
+      });
+    for (const [name, op, description] of [
+      [
+        "report_result",
+        "report",
+        "Report findings to the coordinator. This report is separate from runtime completion and verification.",
+      ],
+      [
+        "ask_coordinator",
+        "question",
+        "Ask the coordinator a question. The coordinator can send a follow-up instruction.",
+      ],
+    ]) {
+      pi.registerTool({
+        name,
+        label: name,
+        description,
+        parameters: Type.Object({ message: Type.String() }),
+        async execute(_id, params, signal) {
+          return text(await request({ op, message: params.message }, signal));
+        },
+      });
+    }
+    return;
+  }
+  if (role !== "coordinator" && role !== "main") return;
 
   pi.registerTool({
     name: "spawn_agent",
     label: "Spawn agent",
-    description: forge
-      ? "Start an agent in its own git worktree and branch, in a new tmux window, with its own forge VM when given a size. The VM starts stopped: the agent boots it with forge_boot, then runs 'forge up' itself. Returns once the request is accepted."
-      : "Start an agent in its own git worktree and branch, in a new tmux window. Returns once the request is accepted.",
-    promptSnippet: "Spawn an agent with its own worktree and branch",
-    promptGuidelines: [
-      "The agent name becomes the branch and worktree name, prefixed with the ticket id when your own branch starts with one (DEV-123-), so make it short and descriptive: lowercase letters, digits, '.', '_' and '-'.",
-      "The task is the agent's whole brief. It sees none of this conversation, so say what to do, what done looks like, and what to leave alone.",
-      "After spawning, use agent_wait rather than polling agent_status in a loop.",
-      ...(forge
-        ? [
-            "Give a size only when the task needs kind clusters or the forge docker daemon: an agent spawned without one can never get a VM. small covers one workload cluster, large two or heavy workloads, xlarge three or more each running a full stack.",
-            "You hold no forge VM yourself, so work that needs kind clusters goes to an agent spawned with a size.",
-            "Agents holding a VM share one memory budget, so a spawn naming a size can be refused for room.",
-          ]
-        : []),
-    ],
+    description:
+      "Start an independent session and Git branch. Defaults to the coordinator launch snapshot. include_commits exports the coordinator's current committed HEAD inside its sandbox. Uncommitted changes require a commit first. Forge is optional and separate.",
     parameters: Type.Object({
-      agent: Type.String({
-        description:
-          "Agent name, which is also its branch and worktree name, after any ticket prefix.",
-      }),
-      task: Type.String({
-        description: "The agent's full brief, sent as its first message.",
-      }),
-      ...(forge ? { size } : {}),
-      base: Type.Optional(
-        Type.String({
-          description:
-            "Commit or branch to start from. Defaults to the coordinator's HEAD.",
-        }),
-      ),
-      model: Type.Optional(
-        Type.String({
-          description:
-            "The agent's model as provider/id, optionally with a :level suffix taking one of the thinking levels. Defaults to this host's spawn seat, else your own model.",
-        }),
+      agent: Type.String(),
+      task: Type.String(),
+      include_commits: Type.Optional(Type.Boolean()),
+      model: Type.Optional(Type.String()),
+      size: Type.Optional(
+        Type.Union([
+          Type.Literal("small"),
+          Type.Literal("large"),
+          Type.Literal("xlarge"),
+        ]),
       ),
       thinking: Type.Optional(
         Type.Union(
-          LEVELS.map((level) => Type.Literal(level)),
-          {
-            description:
-              "How hard the agent reasons, from off (none) through minimal, low, medium, high and xhigh to max (the most the model allows). Beats a :level suffix on the model. Defaults to that suffix, else pi's default level.",
-          },
+          ["off", "minimal", "low", "medium", "high", "xhigh", "max"].map(
+            (level) => Type.Literal(level),
+          ),
         ),
       ),
     }),
-    async execute(_toolCallId, params, signal) {
-      const r = await request({ op: "spawn", ...params }, signal);
-      if (!r.ok) throw new Error(r.message);
-      return text(r.message);
+    async execute(_id, params, signal) {
+      const body: Record<string, unknown> = { op: "spawn", ...params };
+      let temporary: string | undefined;
+      try {
+        if (params.include_commits) {
+          const status = await pi.exec("git", ["status", "--porcelain"], {
+            signal,
+          });
+          if (status.code !== 0 || status.stdout.trim())
+            throw new Error(
+              "Commit coordinator changes before include_commits; the workspace must be clean",
+            );
+          const head = await pi.exec("git", ["rev-parse", "HEAD"], { signal });
+          if (head.code !== 0) throw new Error(head.stderr);
+          temporary = mkdtempSync(join(tmpdir(), "pi-child-"));
+          const bundle = join(temporary, "source.bundle");
+          const result = await pi.exec(
+            "git",
+            ["bundle", "create", bundle, "HEAD"],
+            { signal },
+          );
+          if (result.code !== 0) throw new Error(result.stderr);
+          body.bundle = bundle;
+          body.tip = head.stdout.trim();
+        }
+        return text(await request(body, signal));
+      } finally {
+        if (temporary) rmSync(temporary, { recursive: true, force: true });
+      }
     },
   });
 
+  for (const [name, op, description] of [
+    [
+      "agent_status",
+      "status",
+      "Read agent lifecycle, pending dialogs, reports and runtime outcomes.",
+    ],
+    [
+      "agent_result",
+      "result",
+      "Read the runtime outcome and the agent's separate report. Verification is independent.",
+    ],
+    [
+      "agent_interrupt",
+      "interrupt",
+      "Cancel active work, queued messages and dialogs. Preserve session and Git work.",
+    ],
+    [
+      "agent_resume",
+      "resume",
+      "Reconnect or restart a lost or closed runtime using its existing session. No previous prompt is replayed.",
+    ],
+    [
+      "agent_teardown",
+      "teardown",
+      "Close the runtime and release active capacity. Preserve the workspace and session.",
+    ],
+  ]) {
+    pi.registerTool({
+      name,
+      label: name,
+      description,
+      parameters: Type.Object({
+        agent: op === "status" ? Type.Optional(Type.String()) : Type.String(),
+      }),
+      async execute(_id, params, signal) {
+        return text(await request({ op, agent: params.agent }, signal));
+      },
+    });
+  }
   pi.registerTool({
-    name: "agent_status",
-    label: "Agent status",
-    description: forge
-      ? "Show each spawned agent's state, worktree, any forge instance, and whether it has reported a result."
-      : "Show each spawned agent's state, worktree, and whether it has reported a result.",
+    name: "agent_send",
+    label: "Send agent instruction",
+    description:
+      "Send work to an idle agent, steer active work, or queue a follow-up. Answer pending dialogs first.",
     parameters: Type.Object({
-      agent: Type.Optional(
-        Type.String({ description: "One agent; all of them when omitted." }),
+      agent: Type.String(),
+      message: Type.String(),
+      mode: Type.Optional(
+        Type.Union([Type.Literal("steer"), Type.Literal("follow_up")]),
       ),
     }),
-    async execute(_toolCallId, params) {
-      const states = params.agent
-        ? [readState(params.agent)].filter(
-            (s): s is AgentState => s !== undefined,
-          )
-        : allStates();
-      if (states.length === 0) {
-        return text(params.agent ? `No agent ${params.agent}.` : "No agents.");
-      }
-      return text(states.map(describe).join("\n\n"));
+    async execute(_id, params, signal) {
+      return text(await request({ op: "send", ...params }, signal));
     },
   });
-
+  pi.registerTool({
+    name: "agent_integrate",
+    label: "Integrate agent commits",
+    description:
+      "Import a child's exported, validated commits into this private coordinator branch. Requires a clean workspace. Conflicts remain available for resolution; the human source is unchanged.",
+    parameters: Type.Object({ agent: Type.String() }),
+    async execute(_id, params, signal) {
+      const status = await pi.exec("git", ["status", "--porcelain"], {
+        signal,
+      });
+      if (status.code !== 0 || status.stdout.trim())
+        throw new Error(
+          "Commit coordinator changes before integration; the workspace must be clean",
+        );
+      const admitted = await request(
+        { op: "admit", agent: params.agent },
+        signal,
+      );
+      const reference = `refs/pi/admitted/${randomUUID()}`;
+      const fetched = await pi.exec(
+        "git",
+        [
+          "fetch",
+          "--no-tags",
+          "--no-auto-maintenance",
+          admitted.bundle,
+          `HEAD:${reference}`,
+        ],
+        { signal },
+      );
+      if (fetched.code !== 0) throw new Error(fetched.stderr);
+      const tip = await pi.exec("git", ["rev-parse", reference], { signal });
+      if (tip.code !== 0 || tip.stdout.trim() !== admitted.tip)
+        throw new Error("Fetched proposal does not match the admitted commit");
+      const integrated = await pi.exec(
+        "git",
+        ["cherry-pick", `${admitted.base}..${admitted.tip}`],
+        { signal },
+      );
+      if (integrated.code !== 0)
+        throw new Error(
+          `Integration stopped; resolve or abort the cherry-pick in this workspace.\\n${integrated.stderr}`,
+        );
+      return text({
+        tip: admitted.tip,
+        commits: admitted.commits,
+        output: integrated.stdout,
+      });
+    },
+  });
+  pi.registerTool({
+    name: "agent_answer",
+    label: "Answer agent dialog",
+    description:
+      "Answer or cancel a pending runtime dialog. confirm requires a boolean; other dialogs require text.",
+    parameters: Type.Object({
+      agent: Type.String(),
+      dialog: Type.String(),
+      value: Type.Optional(Type.Union([Type.String(), Type.Boolean()])),
+      cancelled: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_id, params, signal) {
+      return text(await request({ op: "answer", ...params }, signal));
+    },
+  });
   pi.registerTool({
     name: "agent_wait",
-    label: "Wait for agents",
+    label: "Wait for agent",
     description:
-      "Block until one of the given agents reports a result or stops (failed, exited, torn down), or the timeout passes.",
+      "Wait for completed work, a pending question, a dialog, or a lost runtime. Cancelling this wait does not interrupt the agent.",
     parameters: Type.Object({
-      agents: Type.Optional(
-        Type.Array(Type.String(), {
-          description:
-            "Agents to wait on. Defaults to every agent that has neither reported nor stopped.",
-        }),
-      ),
-      timeout_minutes: Type.Optional(
-        Type.Number({
-          minimum: 1,
-          maximum: MAX_WAIT_MINUTES,
-          description: "Default 30.",
-        }),
-      ),
+      agent: Type.String(),
+      minutes: Type.Optional(Type.Number({ minimum: 0, maximum: 120 })),
     }),
-    async execute(_toolCallId, params, signal, onUpdate) {
-      const settled = (s: AgentState | undefined) =>
-        s === undefined || s.result || SETTLED.has(s.state);
-      const names =
-        params.agents ??
-        allStates()
-          .filter((s) => !settled(s))
-          .map((s) => s.agent);
-      if (names.length === 0) return text("No agent is still working.");
+    async execute(_id, params, signal) {
+      const deadline = Date.now() + (params.minutes ?? 10) * 60_000;
+      while (true) {
+        const state: Agent = await request(
+          { op: "status", agent: params.agent },
+          signal,
+        );
+        if (
+          SETTLED.has(state.state) ||
+          state.question ||
+          Date.now() >= deadline
+        )
+          return text(state);
+        await delay(1000, signal);
+      }
+    },
+  });
 
-      const deadline = Date.now() + (params.timeout_minutes ?? 30) * 60_000;
-      while (Date.now() < deadline) {
-        const states = names.map((n) => ({ name: n, state: readState(n) }));
-        const ready = states.filter((s) => settled(s.state));
-        if (ready.length > 0) {
-          return text(
-            ready
-              .map((s) => (s.state ? describe(s.state) : `${s.name}: unknown`))
-              .join("\n\n"),
+  pi.registerCommand("agents", {
+    description: "Show agents, outcomes and pending questions",
+    async handler(_args, ctx) {
+      try {
+        const state = await request({ op: "status" });
+        ctx.ui.notify(state.agents.map(describe).join("\n") || "No agents");
+      } catch (error) {
+        ctx.ui.notify(String(error), "error");
+      }
+    },
+  });
+  pi.registerCommand("agent", {
+    description:
+      "Control a child: <name> send|steer|interrupt|resume|answer|close [message]",
+    async handler(args, ctx) {
+      try {
+        const [agent, action, ...words] = args.trim().split(/\s+/);
+        if (!agent || !action)
+          throw new Error(
+            "Usage: /agent <name> send|steer|interrupt|resume|answer|close [message]",
           );
-        }
-        onUpdate?.({
-          content: [
-            {
-              type: "text",
-              text: states
-                .map((s) => `${s.name}: ${s.state?.state}`)
-                .join(", "),
-            },
-          ],
-          details: {},
-        });
-        await sleep(WAIT_POLL_MS, signal);
+        let body: Record<string, unknown> = { agent };
+        if (action === "send" || action === "steer")
+          body = {
+            ...body,
+            op: "send",
+            mode: action === "steer" ? "steer" : "follow_up",
+            message: words.join(" "),
+          };
+        else if (["interrupt", "resume", "close"].includes(action))
+          body.op = action;
+        else if (action === "answer") {
+          const state: Agent = await request({ op: "status", agent });
+          const entries = Object.entries(state.dialogs || {});
+          if (!entries.length) throw new Error("No pending dialogs");
+          const [dialog, question] = entries[0];
+          const value =
+            question.method === "confirm"
+              ? await ctx.ui.confirm(question.title, "")
+              : question.method === "select"
+                ? await ctx.ui.select(question.title, question.options || [])
+                : await ctx.ui.input(question.title);
+          body = {
+            ...body,
+            op: "answer",
+            dialog,
+            value,
+            cancelled: value === undefined,
+          };
+        } else throw new Error("Unknown agent action");
+        ctx.ui.notify(JSON.stringify(await request(body)));
+      } catch (error) {
+        ctx.ui.notify(String(error), "error");
       }
-      return text(
-        `Still working after ${params.timeout_minutes ?? 30}m: ${names.join(", ")}.`,
-      );
     },
   });
-
-  pi.registerTool({
-    name: "agent_result",
-    label: "Agent result",
-    description: "Read the result an agent reported with report_result.",
-    parameters: Type.Object({
-      agent: Type.String(),
-    }),
-    async execute(_toolCallId, params) {
-      const file = join(dir, "agents", params.agent, "result.md");
-      if (!existsSync(file)) {
-        throw new Error(`${params.agent} has not reported a result.`);
-      }
-      return text(readFileSync(file, "utf8"));
-    },
-  });
-
-  pi.registerTool({
-    name: "agent_teardown",
-    label: "Tear down agent",
-    description: forge
-      ? "Close an agent's tmux window and delete any forge VM it holds. Keeps its worktree and branch unless remove_worktree or delete_branch is set."
-      : "Close an agent's tmux window. Keeps its worktree and branch unless remove_worktree or delete_branch is set.",
-    promptGuidelines: [
-      forge
-        ? "Tear an agent down only once its result has been read and acted on, or when the user asks: its window, and any VM, is gone for good."
-        : "Tear an agent down only once its result has been read and acted on, or when the user asks: its window is gone for good.",
-      "remove_worktree fails safe: git refuses to remove a worktree with uncommitted changes.",
-      "delete_branch removes the worktree too and then deletes the branch, but only once you have merged it into your own branch: git refuses to delete an unmerged branch, since the agent's commits live only there. Merge or fast-forward it, not squash, or git will not count it as merged.",
-      ...(forge
-        ? [
-            "To free a VM before you are ready to merge, tear the agent down keeping the branch, then tear it down again with delete_branch once the branch is merged.",
-          ]
-        : []),
-    ],
-    parameters: Type.Object({
-      agent: Type.String(),
-      remove_worktree: Type.Optional(Type.Boolean()),
-      delete_branch: Type.Optional(Type.Boolean()),
-    }),
-    async execute(_toolCallId, params, signal) {
-      const r = await request({ op: "teardown", ...params }, signal);
-      if (!r.ok) throw new Error(r.message);
-      return text(r.message);
-    },
-  });
-
-  // The human's path to agent_teardown, which needs no model turn, since the
-  // model may be what has gone wrong. An agent_wait on a torn-down agent
-  // returns, so the model still learns of it.
-  const FLAGS = ["--settled", "--remove-worktree", "--delete-branch"];
   pi.registerCommand("teardown", {
     description:
-      "Tear down agents by name, or --settled for every done, exited or failed one. --remove-worktree also removes worktrees git considers clean; --delete-branch also deletes a branch merged into the coordinator.",
-    // pi replaces the whole argument text with the chosen value, so the
-    // words before the one being completed are carried over.
-    getArgumentCompletions: (prefix) => {
-      const before = prefix.slice(0, prefix.lastIndexOf(" ") + 1);
-      const word = prefix.slice(before.length);
-      let names: string[];
+      "Close agents while preserving their work; --settled closes only idle agents",
+    async handler(args, ctx) {
       try {
-        names = allStates()
-          .filter((s) => s.state !== "torn-down")
-          .map((s) => s.agent);
-      } catch {
-        names = [];
-      }
-      const items = [...names, ...FLAGS]
-        .filter((n) => n.startsWith(word))
-        .map((n) => ({ value: before + n, label: n }));
-      return items.length > 0 ? items : null;
-    },
-    handler: async (args, ctx) => {
-      const words = args.trim().split(/\s+/).filter(Boolean);
-      const unknown = words.filter(
-        (w) => w.startsWith("-") && !FLAGS.includes(w),
-      );
-      const agents = new Set(words.filter((w) => !w.startsWith("-")));
-      if (words.includes("--settled"))
-        for (const s of allStates())
-          if (SETTLED.has(s.state) && s.state !== "torn-down")
-            agents.add(s.agent);
-      if (unknown.length > 0 || agents.size === 0) {
-        ctx.ui.notify(
-          unknown.length > 0
-            ? `teardown: unknown ${unknown.join(" ")}. Usage: /teardown <agent>... | --settled [--remove-worktree] [--delete-branch]`
-            : "teardown: no agents to tear down",
-          "warning",
-        );
-        return;
-      }
-      const remove_worktree = words.includes("--remove-worktree");
-      const delete_branch = words.includes("--delete-branch");
-      const lines = await Promise.all(
-        [...agents].map(async (agent) => {
-          try {
-            const r = await request({
-              op: "teardown",
-              agent,
-              remove_worktree,
-              delete_branch,
-            });
-            return { ok: r.ok, line: `${agent}: ${r.message}` };
-          } catch (err) {
-            return {
-              ok: false,
-              line: `${agent}: ${err instanceof Error ? err.message : String(err)}`,
-            };
-          }
-        }),
-      );
-      ctx.ui.notify(
-        lines.map((l) => l.line).join("\n"),
-        lines.every((l) => l.ok) ? "info" : "error",
-      );
-    },
-  });
-}
-
-function forgeBoot(pi: ExtensionAPI, dir: string) {
-  pi.registerTool({
-    name: "forge_boot",
-    label: "Boot forge VM",
-    description:
-      "Boot your own forge VM, which starts stopped. The sandbox cannot boot it, so the broker does. Returns once it is running or has failed; takes a few minutes.",
-    promptSnippet: "Boot your forge VM, then run 'forge up' for clusters",
-    promptGuidelines: [
-      "Call forge_boot only when the task needs kind clusters or the forge docker daemon; a task that does not leaves the VM stopped.",
-      "forge_boot starts the VM and nothing else. Run 'forge up' afterwards to build the clusters; forge down, status and up all work from inside the sandbox.",
-    ],
-    parameters: Type.Object({}),
-    async execute(_toolCallId, _params, signal) {
-      const reply = join(dir, "boot.json");
-      rmSync(reply, { force: true });
-      writeFileSync(join(dir, "boot.request"), "");
-      const deadline = Date.now() + BOOT_TIMEOUT_MS;
-      while (Date.now() < deadline) {
-        if (existsSync(reply)) {
-          const r = JSON.parse(readFileSync(reply, "utf8"));
-          if (!r.ok) throw new Error(r.message);
-          return text(r.message);
+        if (args.trim() && args.trim() !== "--settled")
+          throw new Error("Usage: /teardown [--settled]");
+        const state = await request({ op: "status" });
+        for (const agent of state.agents as Agent[]) {
+          if (
+            agent.state === "closed" ||
+            (args.trim() === "--settled" && agent.state !== "idle")
+          )
+            continue;
+          await request({ op: "teardown", agent: agent.agent });
         }
-        await sleep(WAIT_POLL_MS, signal);
+        ctx.ui.notify(
+          "Agent runtimes closed. Workspaces and sessions preserved.",
+        );
+      } catch (error) {
+        ctx.ui.notify(String(error), "error");
       }
-      throw new Error(
-        `No answer from the broker after ${BOOT_TIMEOUT_MS / 60_000}m. Report it with report_result; the coordinator's agent_status shows the VM state.`,
-      );
     },
   });
-}
 
-function childTools(pi: ExtensionAPI, dir: string, forge: boolean) {
-  if (forge) forgeBoot(pi, dir);
-
-  pi.registerTool({
-    name: "report_result",
-    label: "Report result",
-    description:
-      "Hand your result to the coordinator that spawned you. Call it once the task is done or cannot be done; calling again replaces the earlier report.",
-    promptSnippet: "Report your result to the coordinator",
-    promptGuidelines: [
-      "The coordinator sees only what report_result carries, not this conversation.",
-    ],
-    parameters: Type.Object({
-      summary: Type.String({
-        description:
-          "Markdown: what was done, what was verified and how, commits on your branch, and anything left open.",
-      }),
-    }),
-    async execute(_toolCallId, params) {
-      const file = join(dir, "result.md");
-      writeFileSync(`${file}.tmp`, params.summary);
-      renameSync(`${file}.tmp`, file);
-      return text("Reported. The coordinator can read it now.");
-    },
+  let polling: ReturnType<typeof setInterval> | undefined;
+  let refreshing = false;
+  pi.on("session_start", (_event, ctx) => {
+    clearInterval(polling);
+    if (ctx.mode !== "tui") return;
+    const refresh = async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const state = await request({ op: "status" });
+        const agents = (state.agents as Agent[]).filter(
+          (agent) => agent.state !== "closed",
+        );
+        ctx.ui.setWidget(
+          "coordinator",
+          agents.length ? agents.map(describe) : undefined,
+        );
+      } catch (error) {
+        ctx.ui.setWidget("coordinator", [String(error)]);
+      } finally {
+        refreshing = false;
+      }
+    };
+    void refresh();
+    polling = setInterval(() => void refresh(), 2000);
   });
-}
-
-export default function (pi: ExtensionAPI) {
-  const role = process.env.PI_COORD_ROLE;
-  const dir = process.env.PI_COORD_DIR;
-  if (!dir) return;
-  if (role === "coordinator")
-    coordinatorTools(pi, dir, process.env.PI_COORD_FORGE === "1");
-  else if (role === "child")
-    childTools(pi, dir, Boolean(process.env.FORGE_INSTANCE));
+  pi.on("session_shutdown", () => clearInterval(polling));
+  pi.on("before_agent_start", (event) => {
+    event.systemPromptOptions.sections.coordinator =
+      "# Coordinator\n\n" +
+      "Child sessions survive this UI closing. Use agent_status to reconcile before spawning replacements. " +
+      "A runtime outcome, an agent report and independent verification are separate facts. " +
+      "Resume never replays interrupted work. Send an explicit instruction after examining the preserved state. " +
+      "Grant changes require the human's trusted session launcher. Child tools cannot widen grants.";
+  });
 }

@@ -1,22 +1,25 @@
 # coordinator
 
-This session coordinates agents. `spawn_agent` starts one in its own git
-worktree and branch, based on this session's HEAD unless told otherwise, in
-a new tmux window the human can watch or type into. The work happens outside
-this sandbox, in pi-broker; the tools here only queue requests and read back
-what it and the agents record.
+`spawn_agent` starts a sandboxed Pi session with its own repository and
+branch. Give it a complete brief; it cannot read this conversation.
+Children inherit this session's grants and cannot widen them. Forge is
+optional and requires the human's `--allow-forge` grant.
 
-An agent sees none of this conversation. Its task is its whole brief, and
-what it hands back is whatever it passes to `report_result`, read with
-`agent_result`. Wait with `agent_wait`, not a loop over `agent_status`.
+Children start from this session's recorded snapshot. Set `include_commits`
+to include the current committed HEAD; the worktree must be clean.
+`agent_integrate` admits a child's exported commits and cherry-picks them
+inside this session. The human's original checkout stays untouched.
 
-An agent's branch is where its work survives; you integrate it by merging that
-branch into your own, which is why the agent's model refuses an untrusted seat
-and commits as it goes. Merge or fast-forward, not squash.
+Use `agent_wait` for completion, `agent_result` for the outcome, and
+`agent_send` to steer or follow up. `agent_answer` resolves a pending dialog.
+`report_result` is the child's account of its work; successful verification
+requires evidence from the checks it ran.
 
-Agents running at once are capped across every coordinator on the host, so a
-spawn can be refused for room. `agent_teardown` closes the agent's window for
-good. It keeps the worktree and branch unless you pass `remove_worktree` or
-`delete_branch`; `delete_branch` removes the worktree too and then deletes the
-branch, which git allows only once you have merged it. If this session exits,
-the agents keep running, and `pi --coordinator=<id>` picks them back up.
+Active work and retained worker processes have separate host-wide caps.
+`agent_interrupt` cancels the turn and queued messages. `agent_teardown`
+closes the worker while preserving its session, repository and branch.
+`agent_resume` reopens preserved work without replaying the last task.
+
+Children survive the main TUI exiting. `pi --coordinator=<id>` reconnects
+the original main session. Use `/agents` and `/agent` to inspect and drive
+children from the stock TUI. No separate child terminal is required.

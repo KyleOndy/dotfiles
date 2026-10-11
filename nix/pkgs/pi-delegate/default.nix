@@ -1,25 +1,12 @@
-# Hands jobs to a headless pi run in RPC mode and streams its progress; see
-# pi-delegate.sh for the interface.
 {
   writeShellApplication,
-  coreutils,
-  git,
-  jq,
-  my-scripts,
-  ripgrep,
-  tmux,
+  python3,
 }:
-
 writeShellApplication {
   name = "pi-delegate";
-  runtimeInputs = [
-    coreutils
-    git
-    jq
-    my-scripts
-    # my-scripts' lib/common.sh finds the .bare root with rg.
-    ripgrep
-    tmux
-  ];
-  text = builtins.readFile ./pi-delegate.sh;
+  runtimeInputs = [ python3 ];
+  text = ''
+    export PYTHONPATH=${../pi-broker}
+    exec ${python3}/bin/python3 ${./pi-delegate.py} "$@"
+  '';
 }

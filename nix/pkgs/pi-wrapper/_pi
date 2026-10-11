@@ -1,28 +1,22 @@
 #compdef pi
-# vi: ft=zsh
-#
-# Only the wrapper's own flags, which it consumes before the first non-flag
-# word and never forwards. pi's flags are deliberately absent: they come from
-# the llm-agents flake input, so a copy here would go stale on an input bump
-# with nothing to catch it. `-A "-*"` stops offering these past the first
-# non-flag word, which is where wrapper.sh's parse loop breaks. The trailing
-# `=` on the four value-taking flags is what makes `--allow-read=PATH`
-# complete as well as `--allow-read PATH`; the parse loop takes either.
-_arguments -S -A "-*" \
-  '*--allow=[add a domain to the network allowlist]:domain:' \
-  '*--allow-write=[add a writable path]:path:_files' \
-  '*--allow-read=[add a readable path]:path:_files' \
-  '*--allow-rw=[add a readable and writable path]:path:_files' \
-  '--allow-loopback[permit bind and listen on loopback]' \
-  '--allow-trustd[verify TLS through trustd, at a wider egress surface]' \
-  '--allow-nix[nix daemon socket, equivalent to --no-sandbox under trusted-users]' \
-  '--allow-ssh-agent[ssh-agent socket and public ssh files, never the private keys]' \
-  '--allow-git-crypt[git-crypt key dirs readable, so the session can commit ciphertext-bearing files]' \
-  '--allow-session-history[read past session transcripts, for the resume picker and cross-project resume]' \
-  '--allow-forge=-[forge VM socket, kubeconfig and loopback; =N for named instance N]::instance:({1..15})' \
-  '--coordinator=-[spawn agents with their own worktree and forge; =ID reattaches]::id:' \
-@bundleFlags@  '(--no-git-write)--allow-git-write[grant git-dir write on any branch, so the agent can commit]' \
-  '(--allow-git-write)--no-git-write[withhold git-dir write on every branch]' \
-  '--web[confine writes to CWD and ~/.pi, leave the network unrestricted]' \
-  '--no-sandbox[run pi outside the sandbox]' \
-  '*:pi args:_files'
+_arguments -s \
+  '--session-help[show session and grant options]' \
+  '--resume-session[resume with recorded authority]:session ID:' \
+  '--export-session[verify and export committed changes]:session ID:' \
+  '--inspect-session[show recorded authority]:session ID:' \
+  '--list-sessions[list retained sessions]' \
+  '--coordinator[start or reconnect a persistent coordinator]::coordinator ID:' \
+  '--start-coordinator[start the coordinator without opening the UI]' \
+  '--web[allow public internet destinations]' \
+  '*--allow[allow one network destination]:host:' \
+  '*--listen[allow one local preview port]:port:' \
+  '*--allow-read[grant filesystem read]:path:_files' \
+  '*--allow-write[grant filesystem write]:path:_files' \
+  '*--allow-rw[grant filesystem read and write]:path:_files' \
+  '--allow-nix[use the configured isolated Nix builder]' \
+  '--allow-git-write[allow commits in private Git storage]' \
+  '--no-git-write[deny changes to private Git storage]' \
+  '--allow-trustd[permit Apple certificate validation services]' \
+  '--allow-forge[authorize optional Forge resources for children]' \
+  '--allow-clipboard[permit clipboard access]' \
+@bundleFlags@  '*:pi argument:_files'

@@ -1,42 +1,10 @@
-# Real-pi end-to-end check for the extension layer the grants design leans on.
-#
-# pi-coding-agent.nix exercises the wrapper's decisions with a stubbed `pi`
-# under PI_DEBUG=plan: it can prove what the wrapper would export, but never
-# that anything reaches a model. This check runs the real binary against a
-# loopback dump provider and asserts on the requests pi actually sends, which
-# is the layer where grants guidance can vanish: the wrapper can export
-# PI_GRANTS correctly while the guidance never reaches the prompt.
-#
-# Covered, each as a request the dump provider captures:
-#   - grants.ts delivers carried docs and the missing-grants menu as prompt
-#     sections, and a second extension's section survives in the same run:
-#     sections compose (a return-based delivery drops every other section
-#     from the prompt, and this pins that the sections path does not);
-#   - coordinator.ts names the coordinator and session ids in a section, so
-#     the restart it asks for can name both;
-#   - coordinator.ts gates every mention of forge on PI_COORD_FORGE, so a
-#     host that gives agents no VMs (trex) never offers one: its request says
-#     nothing of forge, while one with it carries spawn_agent's size and the
-#     memory-budget guideline. The grant prose every coordinator and child
-#     reads verbatim says nothing of VMs either way.
-#   - secret-guard lets jq-style accessor tokens (.key) and regex-escaped
-#     variants (\.key) through in bash commands, while `cat .env` stays
-#     blocked;
-#   - refusal-guard appends its ask-don't-work-around note to a bash result
-#     carrying a sandbox refusal signature.
-# Plus the wrapper's envGrantGates decisions, asserted in plan mode like the
-# rest of pi-coding-agent.nix's coverage: skip when the grant is not carried,
-# resolve when it is, scrub a caller-shell copy of a gated var, and refuse an
-# unknown gate name.
-#
-# The real binary also means this check is heavier than the plan-mode ones and
-# inherits the platform: on linux, pi inside the nix build sandbox may need
-# nested user namespaces for the wrapper legs, which most kernels allow but
-# not all. The darwin hosts are the primary audience.
+# Real Pi and synthetic providers exercise extension registration, shared result
+# classification, scoped credentials, and the tools Pi exposes to each role.
 { pkgs }:
 let
   inherit (pkgs) lib;
   realPi = lib.getExe pkgs.llm-agents.pi;
+  kagi = pkgs.callPackage ../pkgs/kagi { };
 
   extDir = ../modules/hm_modules/dev/pi/extensions;
 
@@ -133,6 +101,85 @@ let
     }
   '';
 
+  runtimeProbe = pkgs.writeText "pi-runtime-probe.ts" ''
+    import assert from "node:assert/strict";
+    import { readFileSync } from "node:fs";
+    import { classifyResult } from "${extDir}/task.ts";
+    import stallGuard from "${extDir}/stall-guard.ts";
+    import refusalGuard from "${extDir}/refusal-guard.ts";
+    import resumeHint from "${extDir}/resume-hint.ts";
+    import coordinator from "${extDir}/coordinator.ts";
+
+    export default async function () {
+      const cases = JSON.parse(readFileSync("${../pkgs/pi-session/result-fixtures.json}", "utf8"));
+      for (const c of cases) {
+        const result = classifyResult(c.events, c.exit_code ?? 0, c.aborted ?? false, c.timed_out ?? false);
+        assert.equal(result.state, c.expected.state, c.name);
+        assert.equal(result.text, c.expected.text, c.name);
+      }
+      const hooks: Record<string, Function> = {};
+      let tool: any;
+      const api = {
+        on: (name: string, fn: Function) => hooks[name] = fn,
+        registerTool: (value: any) => tool = value,
+        registerCommand: () => {}, events: { emit: () => {} }, sendMessage: () => {},
+      };
+      const ctx = {
+        cwd: process.cwd(), mode: "tui", hasUI: false,
+        sessionManager: { getSessionId: () => "fixture", getSessionFile: () => undefined },
+      };
+      stallGuard(api as any);
+      const command = "test -n \"$SHELL_PREFIX_FIXTURE\" && printf '%s' \"$BASH_VERSION\"";
+      for (const mode of ["tui", "print"]) {
+        const result = await tool.execute("fixture", { command }, undefined, undefined, { ...ctx, mode });
+        assert.match(result.content[0].text, /^5\./, "Configured Bash and command prefix in " + mode);
+      }
+      refusalGuard(api as any);
+      const success = { toolName: "bash", isError: false, content: [{ type: "text", text: "Operation not permitted" }] };
+      hooks.tool_result(success, ctx);
+      assert.equal(success.content.length, 1);
+      const failure = { ...success, isError: true, content: [...success.content] };
+      hooks.tool_result(failure, ctx);
+      assert.equal(failure.content.length, 2, "Successful quoted text must not consume the failure hint");
+      resumeHint(api as any);
+      let hint = "";
+      const write = process.stdout.write;
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      process.stdout.write = ((text: string) => { hint += text; return true; }) as any;
+      process.env.PI_SESSION_ID = "trusted-session-123";
+      hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
+      assert.match(hint, /pi --resume-session trusted-session-123/);
+      hint = "";
+      process.env.PI_SESSION_ID = "untrusted;command";
+      hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
+      assert.equal(hint, "");
+      process.stdout.write = write;
+      const tools: any[] = [];
+      const coordApi = { ...api, registerTool: (value: any) => tools.push(value) };
+      delete process.env.PI_COORD_SOCKET;
+      delete process.env.PI_COORD_TOKEN;
+      process.env.PI_COORD_ROLE = "main";
+      coordinator(coordApi as any);
+      assert.equal(tools.length, 0, "No tools without broker authority");
+      process.env.PI_COORD_SOCKET = "/nonexistent/synthetic-broker.sock";
+      process.env.PI_COORD_TOKEN = "synthetic-capability";
+      coordinator(coordApi as any);
+      const spawn = tools.find((entry) => entry.name === "spawn_agent");
+      assert.ok(spawn, "Main role registers spawn_agent");
+      assert.deepEqual(spawn.parameters.properties.thinking.anyOf.map((entry: any) => entry.const), ["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+      tools.length = 0;
+      process.env.PI_COORD_ROLE = "child";
+      coordinator(coordApi as any);
+      assert.deepEqual(tools.map((entry) => entry.name).sort(), ["ask_coordinator", "export_commits", "report_result"]);
+      tools.length = 0;
+      process.env.FORGE_INSTANCE = "1";
+      coordinator(coordApi as any);
+      assert.ok(tools.some((entry) => entry.name === "forge_boot"));
+      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards");
+      process.exit(0);
+    }
+  '';
+
   modelsJson = pkgs.writeText "pi-e2e-models.json" (
     builtins.toJSON {
       providers.dump = {
@@ -151,28 +198,6 @@ let
     }
   );
 
-  wrapperGated = pkgs.pi-wrapper.override {
-    realPiBin = realPi;
-    envFromCommands = {
-      KAGI_API_KEY = "echo gated-secret-value";
-      TEST_PLAIN = "echo plain-value";
-    };
-    envGrantGates = {
-      KAGI_API_KEY = "kagi";
-    };
-    networkBundles = {
-      kagi.domains = [ "kagi.com" ];
-    };
-  };
-  wrapperBadGate = pkgs.pi-wrapper.override {
-    realPiBin = realPi;
-    envFromCommands = {
-      BAD_GATE_VAR = "echo x";
-    };
-    envGrantGates = {
-      BAD_GATE_VAR = "nonexistent-grant";
-    };
-  };
 in
 pkgs.runCommand "pi-e2e-check"
   {
@@ -197,6 +222,18 @@ pkgs.runCommand "pi-e2e-check"
         cp ${grantSsh} agent/grants/ssh-agent.md
         cp ${modelsJson} agent/models.json
         mkdir -p captures
+
+        PI_TEST_BIN=${realPi} PI_RELAY_MODULE=${../pkgs/pi-provider-relay/relay.py} PI_TASK_EXTENSION=${extDir}/task.ts PI_KAGI_BIN=${kagi}/bin/kagi \
+          python3 ${../pkgs/pi-provider-relay/test_relay.py}
+        mkdir -p results
+        cp ${../pkgs/pi-session/results.py} results/results.py
+        cp ${../pkgs/pi-session/test_results.py} results/test_results.py
+        cp ${../pkgs/pi-session/result-fixtures.json} results/result-fixtures.json
+        python3 results/test_results.py
+        echo '{"shellPath":"${pkgs.bash}/bin/bash","shellCommandPrefix":"export SHELL_PREFIX_FIXTURE=1"}' > agent/settings.json
+        PI_CODING_AGENT_DIR="$PWD/agent" ${realPi} --no-extensions --no-approve \
+          -e ${runtimeProbe} --mode rpc > runtime-probe.log 2>&1
+        grep -q 'PASS: result fixtures' runtime-probe.log || fail "runtime probe failed: $(cat runtime-probe.log)"
 
         sysp() { jq -r '.messages[0].content' "captures/$1.jsonl"; }
         toolres() {
@@ -259,45 +296,21 @@ pkgs.runCommand "pi-e2e-check"
           || fail "carried run dropped a second extension's section; sections do not compose"
         echo "$c" | grep -q 'test kagi grant heading' || fail "carried run missing kagi grant doc"
         echo "$c" | grep -q '<missing_grants>' || fail "carried run missing missing_grants section"
-        echo "$c" | grep -q -- '- ssh-agent (test ssh-agent grant heading)' \
+        echo "$c" | grep -q -- '- --allow-ssh-agent (test ssh-agent grant heading)' \
           || fail "carried run missing ssh-agent in the missing list"
-        echo "$c" | grep -q -- '- kagi ' && fail "missing list includes a carried grant"
+        echo "$c" | grep -q -- '- --allow-kagi ' && fail "missing list includes a carried grant"
         stop_server
 
-        # ---- coordinator.ts: the restart section names both ids ----
         start_server ""
-        mkdir -p coord/test-1
-        PI_COORD_ROLE=coordinator PI_COORD_DIR="$PWD/coord/test-1" \
+        PI_COORD_ROLE=main PI_COORD_SOCKET="$PWD/synthetic-broker.sock" PI_COORD_TOKEN=synthetic \
           run_pi coord -e ${extDir}/coordinator.ts
+        jq -e '.tools | any(.function.name == "spawn_agent")' captures/coord.jsonl >/dev/null \
+          || fail "coordinator tool registration missing spawn_agent"
+        jq -e '.tools | any(.function.name == "agent_answer")' captures/coord.jsonl >/dev/null \
+          || fail "coordinator tool registration missing dialog answers"
         c=$(sysp coord)
-        echo "$c" | grep -q '<coordinator_restart>' || fail "coordinator run missing coordinator_restart section"
-        echo "$c" | grep -q -- '--coordinator=test-1' || fail "coordinator section missing its id: $c"
-        echo "$c" | grep -qE -- '--session [0-9A-Za-z_-]{8,}' \
-          || fail "coordinator section missing the session id: $c"
-        stop_server
-
-        # ---- coordinator.ts: forge content rides PI_COORD_FORGE ----
-        # A coordinator whose host gives agents no VMs (trex) must say nothing
-        # of forge anywhere in its request: no size parameter on spawn_agent,
-        # no VM prose in a description or guideline. pi's own base prompt and
-        # built-in tools never mention it, so the whole request is fair game.
-        grep -q forge captures/coord.jsonl \
-          && fail "a forge-less coordinator's request mentions forge: $(grep -o 'forge[^\"]*' captures/coord.jsonl | head -3)"
-
-        # The grant prose reaches every coordinator and child verbatim
-        # (grants.ts reads it from PI_GRANTS), so a host's VM costs may live
-        # only where the extension can gate them: not in these two files.
-        grep -qE "forge|VM" ${extDir}/../grants/coordinator.md ${extDir}/../grants/coord-child.md \
-          && fail "coordinator grant prose mentions forge or VMs"
-
-        start_server ""
-        mkdir -p coord/test-2
-        PI_COORD_ROLE=coordinator PI_COORD_DIR="$PWD/coord/test-2" PI_COORD_FORGE=1 \
-          run_pi coord-forge -e ${extDir}/coordinator.ts
-        grep -q xlarge captures/coord-forge.jsonl \
-          || fail "a forge coordinator's spawn_agent lacks the size parameter"
-        grep -q "memory budget" captures/coord-forge.jsonl \
-          || fail "a forge coordinator's request lacks the VM budget guideline"
+        echo "$c" | grep -q 'Resume never replays interrupted work' \
+          || fail "coordinator guidance missing resume policy"
         stop_server
 
         # ---- secret-guard: accessor tokens pass, .env still blocks ----
@@ -338,29 +351,6 @@ pkgs.runCommand "pi-e2e-check"
         r=$(toolres rg-clean)
         echo "$r" | grep -q 'refusal-guard' && fail "refusal-guard fired on a clean result: $r"
         stop_server
-
-        # ---- wrapper: envGrantGates (plan mode, like pi-coding-agent.nix) ----
-        captured=$(PI_DEBUG=plan KAGI_API_KEY=leaked-from-shell ${wrapperGated}/bin/pi -- x 2>&1)
-        echo "$captured" | grep -q 'PI_PLAN_ENV_SKIPPED: KAGI_API_KEY (gate: kagi, not carried)' \
-          || fail "ungated run resolved gated var. captured=$captured"
-        echo "$captured" | grep -q 'PI_PLAN_ENV: KAGI_API_KEY' \
-          && fail "ungated run resolved the gated KAGI_API_KEY. captured=$captured"
-        echo "$captured" | grep -q 'PI_PLAN_ENV: TEST_PLAIN' \
-          || fail "ungated run skipped an ungated resolver. captured=$captured"
-        echo "$captured" | grep -q 'PI_PLAN_SCRUBBED: KAGI_API_KEY' \
-          || fail "caller-shell copy of a gated var survived the scrub. captured=$captured"
-
-        captured=$(PI_DEBUG=plan KAGI_API_KEY=leaked-from-shell ${wrapperGated}/bin/pi --allow-kagi -- x 2>&1)
-        echo "$captured" | grep -q 'PI_PLAN_ENV: KAGI_API_KEY=echo gated-secret-value' \
-          || fail "granted run did not resolve the gated var. captured=$captured"
-        echo "$captured" | grep -q 'PI_PLAN_SCRUBBED: KAGI_API_KEY' \
-          && fail "granted run scrubbed the resolver's own var. captured=$captured"
-
-        if captured=$(PI_DEBUG=plan ${wrapperBadGate}/bin/pi -- x 2>&1); then
-          fail "unknown gate name did not abort startup. captured=$captured"
-        fi
-        echo "$captured" | grep -q "envGrantGates names 'nonexistent-grant'" \
-          || fail "unknown gate refusal lacks the gate name. captured=$captured"
 
         touch "$out"
   ''

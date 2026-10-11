@@ -200,14 +200,14 @@ def _source_head(own, common):
     raise WorkspaceError("Source HEAD must resolve to an existing commit")
 
 
-def _init_bare(directory, base):
+def _init_bare(directory, base=None):
     directory.mkdir(mode=0o700)
     _git(
         directory,
         "init",
         "--bare",
         "--quiet",
-        "--object-format=" + ("sha256" if len(base) == 64 else "sha1"),
+        "--object-format=" + ("sha256" if base and len(base) == 64 else "sha1"),
     )
 
 
@@ -355,7 +355,7 @@ def _snapshot(directory, source, base, own, common):
     return commit, sorted(protected), skipped
 
 
-def _allocate(session_root, record_root, branch, base):
+def _allocate(session_root, record_root, branch, base=None):
     session_root = Path(session_root).absolute()
     record_root = (
         Path(record_root).absolute()
@@ -366,7 +366,7 @@ def _allocate(session_root, record_root, branch, base):
         raise WorkspaceError(
             "Trusted records must be outside the writable session root"
         )
-    if not OID.fullmatch(base):
+    if base is not None and not OID.fullmatch(base):
         raise WorkspaceError("base must be a full commit object ID")
     session_root.mkdir(mode=0o700)
     record_root.mkdir(mode=0o700)
@@ -449,7 +449,7 @@ def _finish_workspace(
         "git_dir": str(git_dir),
         "common_dir": str(bare),
         "branch": branch,
-        "source": str(source),
+        "source": str(source) if source is not None else None,
         "source_base": base,
         "snapshot_commit": snapshot,
         "base_bundle": str(base_bundle),
@@ -479,6 +479,17 @@ def create(source, session_root, branch, base=None, *, record_root=None):
         snapshot,
         protected,
         skipped,
+    )
+
+
+def create_empty(session_root, branch, *, record_root=None):
+    """Create an isolated workspace without importing any human files."""
+    session_root, record_root, bare = _allocate(session_root, record_root, branch)
+    _git(bare, "read-tree", "--empty")
+    tree = _text(bare, "write-tree")
+    base = _text(bare, "commit-tree", tree, data=b"Initialize empty Pi workspace\n")
+    return _finish_workspace(
+        session_root, record_root, bare, branch, None, base, base, [], []
     )
 
 

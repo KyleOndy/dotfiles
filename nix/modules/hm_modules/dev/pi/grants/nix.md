@@ -1,28 +1,17 @@
-# nix daemon access
+# Isolated Nix builds
 
-The nix daemon socket is granted, so `nix build`, `nix eval` and friends
-work against what the store holds; fetching an input the store lacks also
-needs `--allow-flake`. Builds do not run inside this sandbox, and what
-that costs is two daemon-owned bits, both named at startup:
+`nix build` and `nix eval` submit the current workspace to the trusted build
+service. Dirty files are snapshotted without changing your branch or index.
+Each request passes Git admission before a fresh Darwin VM executes it.
 
-- Whether this client is trusted. A trusted client can override
-  `build-users-group` and build as root; the daemon answers untrusted on
-  hosts whose `trusted-users` does not cover the invoking user.
-- Whether the daemon sandboxes its builds. With `sandbox = true` a
-  builder stays inside nix's own sandbox as `_nixbld`, with no network
-  unless it is a fixed-output derivation: those keep the network so they
-  can fetch, and the hash is checked only after the builder ran. It can
-  still write `/tmp`, and reaches 127.0.0.1 when the derivation sets
-  `__darwinAllowLocalNetworking`. With
-  `sandbox = false` a builder is unconfined code with the whole network:
-  measured on such a daemon, a build launched from inside this sandbox
-  wrote a file to `/tmp`, fetched `https://example.com` directly with no
-  srt proxy or domain allowlist in between, and was kept out of `$HOME`
-  by unix permissions alone, not by any policy.
+The VM has its own Nix daemon, disk and enforced network policy. Host daemon
+sockets, credentials and directories remain unavailable. Package-fetching
+permission is part of the recorded builder configuration; `--web` and
+toolchain grants do not change it.
 
-Treat every derivation you build as code running outside this sandbox,
-confined by whatever those two bits said and by nothing here.
+Output streams to the terminal. Ctrl-C cancels the build. The printed build
+record retains logs and the VM for inspection; Nix outputs stay in that VM.
+No build output is imported into the host store automatically.
 
-The flake reads the git tree, so a file that is not `git add`ed is
-invisible to `nix eval` and `nix build`. On main, master or a detached
-HEAD the git dirs are read-only and `git add` fails.
+Only `build` and `eval` are supported by the session's `nix` command. A
+missing prerequisite or failed containment probe stops the request.
