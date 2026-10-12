@@ -21,6 +21,9 @@ interface Agent {
   >;
   report?: { text: string };
   question?: { text: string };
+  // The tool the child last started, or "thinking"; meaningful only while
+  // executing. supervisor.py strips control and format characters from it.
+  activity?: string | null;
 }
 
 function request(
@@ -88,13 +91,21 @@ function request(
   });
 }
 
+// Every tool result reaches the model through here. Activity is the child's
+// own text and is for the human's rows, so it never does.
 function text(value: unknown) {
   return {
     content: [
       {
         type: "text" as const,
         text:
-          typeof value === "string" ? value : JSON.stringify(value, null, 2),
+          typeof value === "string"
+            ? value
+            : JSON.stringify(
+                value,
+                (key, field) => (key === "activity" ? undefined : field),
+                2,
+              ),
       },
     ],
     details: {},
@@ -104,6 +115,9 @@ function text(value: unknown) {
 function describe(agent: Agent): string {
   return (
     `${agent.agent}: ${agent.state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
+    (agent.state === "executing" && agent.activity
+      ? `  ${agent.activity}`
+      : "") +
     (agent.question ? `\nQuestion: ${agent.question.text}` : "") +
     (agent.error ? `\n${agent.error}` : "") +
     (Object.keys(agent.dialogs || {}).length

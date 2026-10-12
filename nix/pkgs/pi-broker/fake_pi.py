@@ -31,6 +31,14 @@ def run(message):
     emit({"type": "agent_start"})
     with session.open("a") as stream:
         stream.write(json.dumps({"role": "user", "text": message}) + "\n")
+    if "tool" in message:
+        emit(
+            {
+                "type": "tool_execution_start",
+                "toolName": "bash",
+                "args": {"command": "ls \x1b]0;pwned\x07 -la\n‮rm"},
+            }
+        )
     aborted.wait(30.0 if "hold" in message else 1.0 if "slow" in message else 0.04)
     reason = "aborted" if aborted.is_set() else "error" if "fail" in message else "stop"
     emit(

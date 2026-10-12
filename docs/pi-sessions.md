@@ -50,7 +50,10 @@ verified, standalone bundle and ref. Review that bundle before integrating
 it into the human repository. Export never changes the human branch.
 
 The coordinator's tools handle questions, steering, interruption, follow-up,
-result inspection and child integration. Closing the UI leaves children
+result inspection and child integration. The rows above the editor show each
+child's state and, while it executes, the tool it last started. Those tool
+names and targets are the child's text, so they stay on the human's screen and
+never reach the coordinator's model. Closing the UI leaves children
 running. Reconnect with the printed coordinator ID. Closing a child preserves
 its work. A lost worker requires explicit resume; interrupted work is not
 replayed automatically.

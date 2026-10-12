@@ -6,10 +6,35 @@ import signal
 import subprocess
 import threading
 import time
+import unicodedata
 import uuid
 
 from common import LIMIT, OutcomeUnknown, Pool, Server, Store, lock_file
 from results import classify_result
+
+# Characters; the coordinator draws it as one row.
+ACTIVITY_LIMIT = 120
+
+
+# The child authors every byte of its tool calls, and the row is drawn into
+# the human's terminal, where a control or format character is a command.
+def activity(event):
+    args = event.get("args")
+    args = args if isinstance(args, dict) else {}
+    target = next(
+        (
+            args[key]
+            for key in ("path", "pattern", "command", "query")
+            if isinstance(args.get(key), str)
+        ),
+        "",
+    )
+    tool = event.get("toolName")
+    text = f"{tool if isinstance(tool, str) else '?'} {target}"
+    text = "".join(
+        " " if unicodedata.category(char) in ("Cc", "Cf") else char for char in text
+    )
+    return " ".join(text.split())[:ACTIVITY_LIMIT]
 
 
 class Supervisor:
@@ -31,6 +56,7 @@ class Supervisor:
             **previous,
             "state": "lost" if previous else "starting",
             "dialogs": {},
+            "activity": None,
         }
         self.save()
 
@@ -69,7 +95,9 @@ class Supervisor:
             except Exception:
                 self.workers.release()
                 raise
-            self.state.update(state="idle", dialogs={}, error=None, closing=False)
+            self.state.update(
+                state="idle", dialogs={}, error=None, closing=False, activity=None
+            )
             self.save()
             threading.Thread(
                 target=self.read, args=(self.process,), daemon=True
@@ -170,6 +198,13 @@ class Supervisor:
                 self.run_events = [event]
                 self.state["state"] = "executing"
                 self.state["outcome"] = None
+                self.state["activity"] = "thinking"
+            elif kind == "tool_execution_start":
+                self.state["activity"] = activity(event)
+                # Status only: a tool call is not an outcome, and one per
+                # call would crowd the run's events out of the capped log.
+                self.save()
+                return
             elif (
                 kind == "message_end"
                 and event.get("message", {}).get("role") == "assistant"
@@ -183,6 +218,7 @@ class Supervisor:
                     self.run_events, aborted=self.aborted
                 )
                 self.state["state"] = "idle"
+                self.state["activity"] = None
                 self.active.release()
                 self.state["dialogs"] = {}
             elif kind == "extension_ui_request" and event.get("method") in (

@@ -190,6 +190,24 @@ class BrokerTests(unittest.TestCase):
         self.call("interrupt", agent="alpha")
         self.assertEqual(self.settled()["dialogs"], {})
 
+    def test_activity_names_the_running_tool_inertly(self):
+        self.call("spawn", agent="alpha", task="slow tool")
+        deadline = time.monotonic() + 8
+        while self.call("status", agent="alpha").get("activity") in (None, "thinking"):
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.03)
+        self.assertEqual(
+            self.call("status")["agents"][0]["activity"], "bash ls ]0;pwned -la rm"
+        )
+        self.assertNotIn(
+            "tool_execution_start",
+            [
+                item["event"]["type"]
+                for item in self.call("events", agent="alpha", after=0)["events"]
+            ],
+        )
+        self.assertIsNone(self.settled()["activity"])
+
     def test_retention_cap_counts_closed_and_failed_workers_without_allocating(self):
         self.assertEqual(self.call("status")["limits"]["retained_workers"], 12)
         self.broker.terminate()
