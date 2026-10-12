@@ -1577,11 +1577,15 @@ in
             # with no exception and no log, and this is the only thing that
             # sees it. The 24h cleanups are deliberately unalerted: their
             # failure surfaces as disk growth, which DiskWillFillSoon covers.
+            # bird-art-sync is daily too, and gets two days because one
+            # missed run only leaves yesterday's art up.
             - alert: CogsworthJobStalled
               expr: |
                 time() - cogsworth_job_last_success_timestamp_seconds{task=~"birds-poll|caldav-sync|display-loop|light-loop|mail-poll|presence-broadcast|scheduled-reboot|sms-poll|weather-poll|webcal-sync"} > 3600
                 or
                 time() - cogsworth_job_last_success_timestamp_seconds{task=~"immich-sync|gphotos-sync"} > 86400
+                or
+                time() - cogsworth_job_last_success_timestamp_seconds{task="bird-art-sync"} > 2 * 86400
               for: 15m
               labels:
                 severity: warning
