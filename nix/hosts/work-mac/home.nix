@@ -96,6 +96,9 @@
     pi-coding-agent.seatsFile = osConfig.sops.secrets.pi_seats.path;
     pi-coding-agent.secretsSource = "nix/secrets/work-mac.yaml";
     pi-coding-agent.trustedProviders = [ "mcloud" ];
+    # Hand-kept: pins the provisioned guest image and the deployed Softnet
+    # helper. See nix/pkgs/pi-builder/README.md.
+    pi-coding-agent.sandbox.builderConfig = "~/.local/share/pi-builder/builder.json";
     pi-coding-agent.coordinator = {
       enable = true;
       # The one host with forge.
