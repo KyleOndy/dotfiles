@@ -48,6 +48,24 @@ let
       tmux switch-client -t "=$session"
     '';
   };
+  # Takes the name from read inside a popup rather than from command-prompt,
+  # so no character in it reaches tmux's or sh's parser. Targets go by id
+  # because tmux rewrites ':' and '.' in a session name to '_'.
+  breakToSession = pkgs.writeShellApplication {
+    name = "tmux-break-to-session";
+    runtimeInputs = [ pkgs.tmux ];
+    text = ''
+      win=$1
+      read -rp 'break to session: ' name
+      [ -n "$name" ] || exit 0
+      read -r session placeholder < <(tmux new-session -d -P -F '#{session_id} #{window_id}' -s "$name")
+      # Before the move: moving a session's last window destroys it, and
+      # detach-on-destroy would detach the client before it could follow.
+      if [ "''${2:-}" = follow ]; then tmux switch-client -t "$session"; fi
+      tmux move-window -s "$win" -t "$session:"
+      tmux kill-window -t "$placeholder"
+    '';
+  };
   agentIconSuffix = optionalString (
     claudeCfg.enable || piCfg.enable
   ) "#(${getExe agentIcons} '#{window_id}')";
@@ -181,6 +199,11 @@ in
         # move windows left/right (no default for this)
         bind-key < swap-window -t -1 \; select-window -t -1
         bind-key > swap-window -t +1 \; select-window -t +1
+
+        # break the window out into a new session: S follows it, M-s stays.
+        # -EE keeps the popup open on failure, e.g. a duplicate name.
+        bind-key S display-popup -EE -w 50 -h 3 "${getExe breakToSession} #{window_id} follow"
+        bind-key M-s display-popup -EE -w 50 -h 3 "${getExe breakToSession} #{window_id}"
 
         # resize panes with prefix + arrow (repeatable)
         bind-key -r Left resize-pane -L 5
