@@ -17,15 +17,13 @@ so `/reload` sees edits without a rebuild. `settings.json` is the exception:
 the wrapper writes the deployed copy from `dev/alamode/` over it on every
 start, so a `/settings` edit lasts one session. The sandbox wrapper is
 `nix/pkgs/alamode` (the runtime is `nix/pkgs/alamode-runtime`),
-which records the named grants it carries (`--allow-nix`, `-ssh-agent`, `-forge`, `-clipboard`, each bundle, and the
-coordinator) in `ALAMODE_GRANTS` and the full catalog in
-`ALAMODE_AVAILABLE_GRANTS`. `--allow <host>`
-would go in `ALAMODE_ALLOWED_HOSTS`, which nothing exports today. Path grants,
-`--allow-loopback`, `--allow-trustd` and `--allow-git-write` are not
-recorded; `extensions/grants.ts` turns the carried
-ones into system-prompt sections from `grants/<name>.md` and lists the rest,
-so a session the sandbox blocks knows which flag to ask the human to restart
-with.
+which records the grants it carries (`--web`, `--allow-nix`, `-forge`,
+`-clipboard`, `-trustd`, `-git-write`, each bundle, and the coordinator) in
+`ALAMODE_GRANTS` and the ones it could carry in `ALAMODE_AVAILABLE_GRANTS`.
+`--allow <host>`, `--listen` and path grants are not recorded.
+`extensions/grants.ts` turns the carried ones into system-prompt sections
+from `grants/<name>.md` and lists the rest, so a session the sandbox blocks
+knows which flag to ask the human to restart with.
 
 Every provider the agent reaches is an internal or account-billed endpoint,
 and mcloud is the primary on both macs. Model ids are private, since the org
@@ -87,18 +85,14 @@ write the coordinator's requests.
 nags about. Deliberately not `nix flake check`, which also evaluates the
 Linux hosts and cannot go green on a mac.
 
-It needs the nix daemon socket, which the sandbox denies by default, so the
-agent can only run it under `alamode --allow-nix`, or `--allow-flake`, which
-carries `--allow-nix` and adds the hosts for an input not in the store yet.
-What that costs depends on the
-daemon: a trusted client can make it build as root, which is equivalent to
-`--no-sandbox`, and an untrusted one gets a builder running as `_nixbld`,
-still outside the sandbox but not root. The flag asks and says which on
-startup. Both macs answer untrusted (`nix store info --json` reports
-`"trusted":false`): trex from `trusted-users = root` in
-`/etc/nix/nix.custom.conf`, work-mac from the same list in
-`nix/modules/darwin_modules/base.nix`, which also turns the daemon's build
-sandbox on. Running the verifier yourself is still the cheaper option.
+No session can run it on trex. `--allow-nix` never grants the host daemon
+socket: the daemon gives a fixed-output derivation the network outside srt's
+proxy, so a session with the web off could still send out what it reads.
+Under the flag the session's `nix` is a client that submits `build` and
+`eval` to a fresh Tart VM (`nix/pkgs/alamode-builder/README.md`), and the
+wrapper refuses it on a host without `sandbox.builderConfig`. Only work-mac
+sets that, and whether its VM can run the whole verifier is untested; the
+README says why trex has none. Run the verifier yourself.
 
 A dead model id fails silently at runtime, so the seats are checked before a
 run: `alamode-seats check` at every start, and after every `make deploy-trex`
