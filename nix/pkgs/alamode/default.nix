@@ -140,7 +140,7 @@ let
   };
   completionText =
     builtins.replaceStrings
-      [ "@bundleFlags@" "@bundleFlagWords@" "@profileNames@" ]
+      [ "@bundleFlags@" "@bundleFlagWords@" "@providerFlags@" "@providerFlagWords@" "@profileNames@" ]
       [
         # _arguments option specs for the grant_flags array
         (lib.concatMapStrings (name: "'--allow-${name}[grant ${name} package registries]' ") (
@@ -150,6 +150,12 @@ let
         (lib.concatMapStrings (name: "'--allow-${name}:grant ${name} package registries' ") (
           lib.attrNames bundles
         ))
+        (lib.concatMapStrings (
+          name: "'--no-${name}[exclude ${name} and every model on its endpoints]' "
+        ) trustedProviders)
+        (lib.concatMapStrings (
+          name: "'--no-${name}:exclude ${name} and every model on its endpoints' "
+        ) trustedProviders)
         # --profile choices
         (lib.concatMapStrings (name: "'${name}' ") (lib.attrNames profiles))
       ]
@@ -173,6 +179,8 @@ let
     "clipboard"
   ];
   reservedBundles = lib.intersectLists reservedBundleNames (lib.attrNames bundles);
+  # Same for the --no-<name> flags parse() defines itself.
+  reservedProviders = lib.intersectLists [ "git-write" ] trustedProviders;
   # A profile may only name bundles the wrapper actually knows, so a typo
   # fails the build instead of the first launch that uses the profile.
   knownBundles = lib.attrNames bundles;
@@ -186,6 +194,9 @@ let
 in
 assert lib.assertMsg (reservedBundles == [ ]) (
   "alamode: bundles ${lib.concatStringsSep ", " reservedBundles} shadow the session's own --allow-<name> grants; rename them"
+);
+assert lib.assertMsg (reservedProviders == [ ]) (
+  "alamode: trustedProviders ${lib.concatStringsSep ", " reservedProviders} shadow the session's own --no-<name> flags; rename them"
 );
 assert lib.assertMsg (profileUnknown == "") (
   "alamode: profiles name unknown bundles (${profileUnknown})"

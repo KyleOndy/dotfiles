@@ -182,7 +182,7 @@ HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
         [--allow-nix] [--allow-git-write] [--no-git-write]
         [--allow-trustd] [--allow-forge] [--allow-clipboard]
-        [--allow-BUNDLE] [--local] [-- PI ARGS]
+        [--allow-BUNDLE] [--local] [--no-PROVIDER] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
@@ -194,6 +194,7 @@ Grants persist on resume. Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
 --allow-nix requires a configured isolated builder.
 --local admits only loopback models and refuses every network grant.
+--no-PROVIDER drops that provider and every model on its endpoints.
 coord start prints JSON credentials without opening the UI."""
 
 
@@ -256,6 +257,8 @@ def parse(args, config):
         parser.add_argument(
             "--allow-" + name, action="store_true", dest="bundle_" + name
         )
+    for name in config["trustedProviders"]:
+        parser.add_argument("--no-" + name, action="store_true", dest="exclude_" + name)
     for arg in args:
         if arg in ("--no-sandbox", "--resume", "--continue", "-r", "-c"):
             raise SessionError(
@@ -264,6 +267,14 @@ def parse(args, config):
     options = parser.parse_args(args)
     apply_profiles(options, config)
     return options
+
+
+def excluded_providers(options, config):
+    return [
+        name
+        for name in config["trustedProviders"]
+        if getattr(options, "exclude_" + name)
+    ]
 
 
 def requested_grants(options, config):
@@ -279,6 +290,7 @@ def requested_grants(options, config):
         or options.allow_trustd
         or options.allow_clipboard
         or options.local
+        or excluded_providers(options, config)
         or options.no_git_write
         or options.allow_git_write
         or options.profile
@@ -340,6 +352,7 @@ def policy(options, config, home):
     defaults = not options.local
     result = {
         "local": options.local,
+        "excluded_providers": excluded_providers(options, config),
         "web": options.web,
         "domains": (list(config["domains"]) if defaults else []) + options.allow,
         "read": list(config["readPaths"]) + options.allow_read + options.allow_rw,
@@ -388,40 +401,65 @@ def loopback(url):
         return False
 
 
-def catalog_scope(catalog, config, local=False):
-    models = []
+def endpoint(url):
+    parts = urlsplit(url or "")
+    if not parts.hostname:
+        return None
+    return parts.hostname, parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+
+
+def catalog_scope(catalog, config, local=False, excluded=()):
     providers = config["trustedProviders"]
-    for provider, data in catalog.get("providers", {}).items():
-        if providers and provider not in providers:
-            continue
-        for model in data.get("models", []):
-            effective = {
+    entries = [
+        (
+            provider,
+            model["id"],
+            {
                 **data,
                 **model,
                 **data.get("modelOverrides", {}).get(model["id"], {}),
-            }
-            # The relay routes to this same effective baseUrl, so a cloud
-            # model never gets a route in a local session.
-            if local and not loopback(effective.get("baseUrl")):
-                continue
-            models.append(
-                {
-                    "model": provider + "/" + model["id"],
-                    "api": effective.get("api"),
-                    "baseUrl": effective.get("baseUrl"),
-                }
-            )
+            },
+        )
+        for provider, data in catalog.get("providers", {}).items()
+        if not providers or provider in providers
+        for model in data.get("models", [])
+    ]
+    # An excluded provider's endpoints are closed to every provider, so a
+    # second catalog entry on the same host:port cannot reach it.
+    closed = {
+        endpoint(effective.get("baseUrl"))
+        for provider, _, effective in entries
+        if provider in excluded
+    } - {None}
+    models = [
+        {
+            "model": provider + "/" + model_id,
+            "api": effective.get("api"),
+            "baseUrl": effective.get("baseUrl"),
+        }
+        for provider, model_id, effective in entries
+        # The relay routes to this same effective baseUrl, so a cloud
+        # model never gets a route in a local session.
+        if not (local and not loopback(effective.get("baseUrl")))
+        and provider not in excluded
+        and endpoint(effective.get("baseUrl")) not in closed
+    ]
     wire = json.dumps(models, sort_keys=True, separators=(",", ":")).encode()
     return [model["model"] for model in models], hashlib.sha256(wire).hexdigest()
 
 
-def local_providers(grant):
+def scoped(grant):
+    return grant.get("local") or grant.get("excluded_providers")
+
+
+def scoped_providers(grant):
     return list(dict.fromkeys(model.split("/")[0] for model in grant["allowed_models"]))
 
 
-def local_seats(values, grant):
+def scoped_seats(values, grant):
     # A seat is provider/id[:level]. Matched by model, not provider: one
-    # provider can override a single model's baseUrl to loopback.
+    # provider can override a single model's baseUrl, which --local and an
+    # excluded endpoint both judge per model.
     allowed = set(grant["allowed_models"])
     kept = {
         key: value
@@ -495,16 +533,29 @@ def credentials(config, manifest, home, *, include_tools=False):
             "Configure modelsJson or modelsJsonFile with explicit model definitions before starting alamode"
         )
     catalog = read_json(expand(catalog_path, home))
-    _, digest = catalog_scope(catalog, config, manifest["policy"].get("local", False))
+    _, digest = catalog_scope(
+        catalog,
+        config,
+        manifest["policy"].get("local", False),
+        manifest["policy"].get("excluded_providers", []),
+    )
     if manifest["policy"].get("catalog_scope") not in (None, digest):
         raise SessionError(
             "Provider endpoints or model scope changed. Start a new session to authorize the new catalog."
         )
     allowed_providers = config.get("trustedProviders", [])
+    # A provider with no model in scope gets no key resolved, so the relay
+    # never holds a credential it has no route for.
+    in_scope = (
+        None
+        if manifest["policy"].get("allowed_models") is None
+        else set(scoped_providers(manifest["policy"]))
+    )
     catalog["providers"] = {
         name: data
         for name, data in catalog.get("providers", {}).items()
-        if not allowed_providers or name in allowed_providers
+        if (not allowed_providers or name in allowed_providers)
+        and (in_scope is None or name in in_scope)
     }
     environment = {
         key: value
@@ -766,8 +817,8 @@ def child_environment(config, manifest, home, runtime):
                 ]
             ),
             "ALAMODE_TRUSTED_PROVIDERS": ",".join(
-                local_providers(manifest["policy"])
-                if manifest["policy"].get("local")
+                scoped_providers(manifest["policy"])
+                if scoped(manifest["policy"])
                 else config["trustedProviders"]
             ),
             "GIT_CONFIG_NOSYSTEM": "1",
@@ -1583,17 +1634,33 @@ def main(argv=None):
         identity = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(4)
         grants = policy(options, config, home)
         if config["catalogFile"]:
+            catalog = read_json(expand(config["catalogFile"], home))
+            before, _ = catalog_scope(catalog, config, grants["local"])
             grants["allowed_models"], grants["catalog_scope"] = catalog_scope(
-                read_json(expand(config["catalogFile"], home)), config, grants["local"]
+                catalog, config, grants["local"], grants["excluded_providers"]
             )
+            shared = [
+                model
+                for model in before
+                if model not in grants["allowed_models"]
+                and model.split("/")[0] not in grants["excluded_providers"]
+            ]
+            if shared:
+                print(
+                    "alamode: dropped models on an excluded provider's endpoint: "
+                    + ", ".join(shared),
+                    file=sys.stderr,
+                )
         held = seats(config, home)
-        if grants["local"]:
+        if scoped(grants):
             if not grants.get("allowed_models"):
-                raise SessionError("--local found no model with a loopback baseUrl")
-            held, dropped = local_seats(held, grants)
+                flags = ["--local"] if grants["local"] else []
+                flags += ["--no-" + name for name in grants["excluded_providers"]]
+                raise SessionError(" and ".join(flags) + " left no model to run on")
+            held, dropped = scoped_seats(held, grants)
             if dropped:
                 print(
-                    "alamode: --local dropped seats on a non-local model: "
+                    "alamode: dropped seats on a model this session excludes: "
                     + ", ".join(dropped),
                     file=sys.stderr,
                 )

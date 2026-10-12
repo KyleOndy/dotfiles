@@ -396,8 +396,9 @@ class PolicyTests(unittest.TestCase):
             local=True, allowed_models=models, catalog_scope=digest
         )
         Path(self.config["catalogFile"]).write_text(json.dumps(catalog))
-        session.credentials(self.config, self.manifest, self.root)
-        kept, dropped = session.local_seats(
+        _, auth = session.credentials(self.config, self.manifest, self.root)
+        self.assertEqual(sorted(auth), ["cloud", "loop"])
+        kept, dropped = session.scoped_seats(
             {
                 "ALAMODE_SESSION_MODEL": "loop/near:off",
                 "ALAMODE_ADVISOR_MODEL": "cloud/far",
@@ -412,6 +413,72 @@ class PolicyTests(unittest.TestCase):
             self.config, self.manifest, self.root, self.work / "runtime"
         )
         self.assertEqual(environment["ALAMODE_TRUSTED_PROVIDERS"], "cloud,loop")
+
+    def test_no_provider_excludes_it_and_every_model_on_its_endpoints(self):
+        catalog = {
+            "providers": {
+                "cloud": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://provider.example.invalid/v1",
+                    "apiKey": "$CLOUD_KEY_NEVER_RESOLVED",
+                    "models": [{"id": "far"}, {"id": "tunnel"}],
+                    "modelOverrides": {"tunnel": {"baseUrl": "http://localhost:9/v1"}},
+                },
+                "alias": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://PROVIDER.example.invalid:443/v2",
+                    "apiKey": "$ALIAS_KEY_NEVER_RESOLVED",
+                    "models": [{"id": "same"}],
+                },
+                "other": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://other.example.invalid/v1",
+                    "models": [{"id": "kept"}, {"id": "tunnelled"}],
+                    "modelOverrides": {
+                        "tunnelled": {"baseUrl": "http://localhost:9/v1"}
+                    },
+                },
+                "loop": {
+                    "api": "openai-completions",
+                    "baseUrl": "http://127.0.0.1:8080/v1",
+                    "models": [{"id": "near"}],
+                },
+            }
+        }
+        self.config["trustedProviders"] = ["cloud", "alias", "other", "loop"]
+        with self.assertRaises(session.SessionError):
+            session.parse(["--no-unknown"], self.config)
+        options = session.parse(["--no-cloud"], self.config)
+        self.assertTrue(session.requested_grants(options, self.config))
+        with self.assertRaises(session.SessionError):
+            session.refuse_grant_changes(options, self.config)
+        grants = session.policy(options, self.config, self.root)
+        self.assertEqual(grants["excluded_providers"], ["cloud"])
+        models, digest = session.catalog_scope(
+            catalog, self.config, excluded=grants["excluded_providers"]
+        )
+        self.assertEqual(models, ["other/kept", "loop/near"])
+        self.manifest["policy"].update(
+            excluded_providers=["cloud"], allowed_models=models, catalog_scope=digest
+        )
+        Path(self.config["catalogFile"]).write_text(json.dumps(catalog))
+        relay_catalog, auth = session.credentials(self.config, self.manifest, self.root)
+        self.assertEqual(sorted(relay_catalog["providers"]), ["loop", "other"])
+        self.assertEqual(sorted(auth), ["loop", "other"])
+        kept, dropped = session.scoped_seats(
+            {
+                "ALAMODE_SESSION_MODEL": "cloud/far:high",
+                "ALAMODE_ADVISOR_MODEL": "alias/same",
+                "ALAMODE_SPAWN_MODEL": "other/kept:high",
+            },
+            self.manifest["policy"],
+        )
+        self.assertEqual(kept, {"ALAMODE_SPAWN_MODEL": "other/kept:high"})
+        self.assertEqual(dropped, ["ALAMODE_ADVISOR_MODEL", "ALAMODE_SESSION_MODEL"])
+        environment = session.child_environment(
+            self.config, self.manifest, self.root, self.work / "runtime"
+        )
+        self.assertEqual(environment["ALAMODE_TRUSTED_PROVIDERS"], "other,loop")
 
     def test_catalog_scope_tracks_effective_override_routes(self):
         catalog = {

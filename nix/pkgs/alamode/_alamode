@@ -42,6 +42,7 @@ grant_flags=(
   '--local[admit only loopback models, refuse network grants]'
   '*--profile[apply a named grant preset]:profile:(@profileNames@)'
   @bundleFlags@
+  @providerFlags@
 )
 
 # Flat flag names with descriptions, offered beside verbs on a fresh word.
@@ -62,6 +63,7 @@ grant_flag_words=(
   '--local:admit only loopback models, refuse network grants'
   '--profile:apply a named grant preset'
   @bundleFlagWords@
+  @providerFlagWords@
 )
 
 local -a seat_vars

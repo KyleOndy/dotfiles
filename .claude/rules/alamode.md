@@ -68,6 +68,18 @@ resume and coordinator children keep it. It does not cover
 `alamode-delegate` or domestique's classifier, which run on the host, or a
 granted path that syncs, such as iCloud Drive.
 
+`alamode --no-PROVIDER`, one flag per trusted provider, drops that
+provider's models and every other model whose effective `baseUrl` shares a
+`host:port` with one of them, with one line naming those. It does not see
+through a gateway on another host that forwards to the provider. Seats on a
+dropped model go the way `--local` drops them, the session seat included,
+so pi falls back to what is left. The policy records it like `--local`, and
+`alamode-delegate --grant=--no-PROVIDER` passes it to a standalone
+coordinator. Under either flag a provider left with no model gets no catalog
+block, so the relay never holds its key. Neither covers domestique's
+classifier, leak-guard's `/models` call or `mcloud-pins`, which run on the
+host.
+
 No key is stored in nix on either mac. trex reads mcloud's from
 `/run/secrets/mcloud_api_key`, and work-config resolves work-mac's from the
 Keychain, both through the wrapper's `envFromCommands`. models.json reads it
