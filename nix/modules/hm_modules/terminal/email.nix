@@ -45,7 +45,19 @@ in
       # filename, and mbsync pushes it over every other client.
       new.tags = [ ];
       hooks = {
-        preNew = "mbsync --all";
+        # One mbsync per channel, not --all. isync 1.5.1 resolves each server
+        # in a forked child (src/socket.c), and on macOS that child can
+        # segfault in getaddrinfo once the process has synced a channel,
+        # which ends the whole run.
+        preNew = ''
+          rc=0
+          for channel in ${
+            escapeShellArgs (attrNames (filterAttrs (_: a: a.mbsync.enable) config.accounts.email.accounts))
+          }; do
+            mbsync "$channel" || rc=$?
+          done
+          exit "$rc"
+        '';
         postNew = concatStrings (
           mapAttrsToList (
             tag: folders:
