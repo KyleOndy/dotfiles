@@ -45,9 +45,15 @@ in
     # it adds for the llm-agents packages has to be restated. The daemon
     # reads these only at start: `make deploy-trex` restarts it when they
     # change, and a bare `darwin-rebuild switch` leaves the old ones running.
+    #
+    # Plain settings, not extra-: nixosVmBasedLinuxBuilder below adds plain
+    # `substituters` and `trusted-public-keys` for cache.nixos.org, the file
+    # is written with sorted keys, and a plain line after an extra- one
+    # replaces it. Those module entries are also what keep cache.nixos.org
+    # in both lists.
     customSettings = {
-      extra-substituters = [ "https://cache.numtide.com" ];
-      extra-trusted-public-keys = [
+      substituters = [ "https://cache.numtide.com" ];
+      trusted-public-keys = [
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
       ];
       # Determinate's module defaults this to false, which leaves a build
