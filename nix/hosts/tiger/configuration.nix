@@ -1965,6 +1965,15 @@ in
                   };
                 }
               ];
+              # `status` is the site's health, so every health flip starts new
+              # series, and increase() counts a new counter's small first value
+              # as growth from 0: one WAN drop read as the lifetime total.
+              metric_relabel_configs = [
+                {
+                  regex = "status";
+                  action = "labeldrop";
+                }
+              ];
             }
             # The monitoring stack scraping itself. Without these, a stalled
             # ingest or a Loki rejecting pushes is invisible: `up` only proves
