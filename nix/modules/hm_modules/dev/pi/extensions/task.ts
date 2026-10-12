@@ -31,8 +31,12 @@
  *     real money N-at-a-time from a session whose whole point was that it
  *     cost nothing.
  *   - The child's NDJSON is read line by line while it runs, so the tool row
- *     reports what each subagent is doing now rather than only what it
- *     concluded ten minutes later. Every event also goes to its own file under
+ *     and the rows pinned above the editor report what each subagent is doing
+ *     while it runs, not only what it concluded at the end. Every 10s the
+ *     PI_CLASSIFY_MODEL seat turns the prose and tool calls since the last
+ *     status into a phrase; without that seat the row samples the tool in
+ *     flight or the tail of the prose. Bulk
+ *     events are not logged; the rest go to its own file under
  *     ~/.pi/agent/task-logs. Those are the only durable record a subagent
  *     leaves: they run --no-session, so their stdout is otherwise discarded
  *     once the final message has been scraped out of it. The sandbox denies
@@ -47,9 +51,11 @@ import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import {
   type ExtensionAPI,
   type ExtensionContext,
+  type ModelRegistry,
   type Theme,
   getAgentDir,
   parseFrontmatter,
@@ -71,6 +77,26 @@ const KILL_GRACE_MS = 5_000;
 // The trail is a tail, not a transcript: a subagent that runs a hundred greps
 // must not grow the tool row without bound. The full sequence is in the log.
 const MAX_TRAIL = 12;
+// How much of the prose a subagent is streaming right now to keep per task.
+// Json-mode message_update events are delta-only, so the tail is assembled
+// from deltas; capped so a long monologue costs a bounded string.
+const LIVE_TAIL = 240;
+// The rows redraw on every spinner frame and prose arrives per token, so a
+// row that tracked it live would be unreadable.
+const STATUS_MS = 10_000;
+// Under STATUS_MS, so a task never has two status calls in flight.
+const STATUS_TIMEOUT_MS = 8_000;
+// Characters, from the end.
+const STATUS_WINDOW = 2_000;
+// A seat that reasons spends this too, and an empty reply falls back to the
+// raw sample.
+const STATUS_TOKENS = 100;
+const STATUS_PROMPT =
+  "You write the status line for a coding subagent. Reply with one present-tense phrase of at most 8 words saying what it is doing right now. No preamble, no quotes, no trailing period.";
+// Unset or empty: the host has no trust list, so nothing is checked.
+const TRUSTED_PROVIDERS = (process.env.PI_TRUSTED_PROVIDERS ?? "")
+  .split(",")
+  .filter(Boolean);
 
 interface Agent {
   name: string;
@@ -98,6 +124,17 @@ interface TaskResult {
   summary: string;
   // The tool call in flight right now, absent while the subagent is thinking.
   activity?: string;
+  // Tail of the thinking or text block the subagent is streaming: the only
+  // narration there is between tool calls, and what a raw sample shows in
+  // place of a bare "thinking". Empty while a tool runs, before the first
+  // block starts, and once the task settles.
+  live: string;
+  // What a running row shows, replaced every STATUS_MS: the PI_CLASSIFY_MODEL
+  // seat's summary of the window, or without a usable seat a raw sample.
+  // Absent before the first.
+  status?: string;
+  // Prose and tool calls since the last status was taken.
+  window: string;
   trail: string[];
   tools: number;
   startedAt: number;
@@ -269,18 +306,14 @@ function resolveModel(
   const slash = model ? model.indexOf("/") : -1;
   const provider = model && slash > 0 ? model.slice(0, slash) : undefined;
 
-  // Unset or empty: the host has no trust list, so nothing is checked.
-  const trusted = (process.env.PI_TRUSTED_PROVIDERS ?? "")
-    .split(",")
-    .filter(Boolean);
-  if (model && trusted.length > 0) {
+  if (model && TRUSTED_PROVIDERS.length > 0) {
     if (!provider)
       throw new Error(
         `task: ${who} names no provider, so it cannot be checked against PI_TRUSTED_PROVIDERS. Write the seat as provider/id.`,
       );
-    if (!trusted.includes(provider))
+    if (!TRUSTED_PROVIDERS.includes(provider))
       throw new Error(
-        `task: ${who} is on provider ${provider}, which is not in PI_TRUSTED_PROVIDERS (${trusted.join(", ")}). Point it at a model on one of those.`,
+        `task: ${who} is on provider ${provider}, which is not in PI_TRUSTED_PROVIDERS (${TRUSTED_PROVIDERS.join(", ")}). Point it at a model on one of those.`,
       );
   }
 
@@ -315,6 +348,68 @@ function stripLevel(id: string): string {
   return colon >= 0 && LEVELS.has(id.slice(colon + 1))
     ? id.slice(0, colon)
     : id;
+}
+
+type Reasoning = NonNullable<
+  Parameters<ModelRegistry["streamSimple"]>[2]
+>["reasoning"];
+
+interface StatusSeat {
+  model: Model<Api>;
+  reasoning: Reasoning;
+}
+
+// Undefined, so rows are sampled raw, when PI_CLASSIFY_MODEL is unset, on a
+// provider outside PI_TRUSTED_PROVIDERS, or an id the catalog lacks.
+function statusSeat(registry: ModelRegistry): StatusSeat | undefined {
+  const value = process.env.PI_CLASSIFY_MODEL ?? "";
+  const slash = value.indexOf("/");
+  if (slash <= 0) return undefined;
+  const provider = value.slice(0, slash);
+  if (TRUSTED_PROVIDERS.length > 0 && !TRUSTED_PROVIDERS.includes(provider))
+    return undefined;
+  const id = value.slice(slash + 1);
+  const bare = stripLevel(id);
+  const model = registry.find(provider, bare);
+  if (!model) return undefined;
+  // No level, or off, asks for no reasoning rather than the session default.
+  const level = id.slice(bare.length + 1);
+  return {
+    model,
+    reasoning: (level && level !== "off" ? level : undefined) as Reasoning,
+  };
+}
+
+// A failed request comes back as an empty reply, not a throw, so undefined
+// covers both.
+async function summarize(
+  registry: ModelRegistry,
+  seat: StatusSeat,
+  task: string,
+  window: string,
+  signal: AbortSignal,
+): Promise<string | undefined> {
+  const reply = await registry
+    .streamSimple(
+      seat.model,
+      {
+        systemPrompt: STATUS_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: `Task: ${oneLine(task, 300)}\n\nSince the last status:\n${window}`,
+            timestamp: Date.now(),
+          },
+        ],
+      },
+      { maxTokens: STATUS_TOKENS, reasoning: seat.reasoning, signal },
+    )
+    .result();
+  const text = reply.content
+    .flatMap((part) => (part.type === "text" ? [part.text] : []))
+    .join("");
+  // Drawn straight into the terminal, where a control character is a command.
+  return oneLine(text.replace(/[\p{Cc}\p{Cf}]/gu, " "), 60) || undefined;
 }
 
 interface AssistantResult {
@@ -390,6 +485,24 @@ function oneLine(text: string, limit = 80): string {
   return flat.length > limit ? `${flat.slice(0, limit - 3)}...` : flat;
 }
 
+// The freshest words of a stream sit at its end, so a live tail shows its
+// last line's worth, not its first -- unlike oneLine, which labels from the
+// front. Callers prefix "\u2026" to mark a join mid-sentence.
+function liveTail(text: string, limit = 56): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > limit ? flat.slice(flat.length - limit) : flat;
+}
+
+// Between tool calls, the prose the subagent is streaming, `…` marking a
+// join mid-sentence.
+function rawStatus(r: TaskResult): string {
+  return r.activity ?? (r.live ? `…${liveTail(r.live)}` : "thinking");
+}
+
+function addToWindow(r: TaskResult, text: string): void {
+  r.window = (r.window + text).slice(-STATUS_WINDOW);
+}
+
 // Tool argument objects have no shape in common, so name the target from the
 // arguments the built-in read-only tools actually use, and fall back to the
 // first string in the object for anything else.
@@ -435,7 +548,7 @@ function taskRow(r: TaskResult, theme: Theme): string {
         : theme.fg("error", "FAILED");
   const subject =
     r.state === "running"
-      ? theme.fg("muted", r.activity ?? "thinking")
+      ? theme.fg("muted", r.status ?? "starting")
       : theme.fg("muted", oneLine(r.task));
   const trailing =
     r.state === "running"
@@ -673,6 +786,8 @@ export default function (pi: ExtensionAPI) {
         task,
         state: "running",
         summary: "",
+        live: "",
+        window: "",
         trail: [],
         tools: 0,
         startedAt,
@@ -689,7 +804,7 @@ export default function (pi: ExtensionAPI) {
               text: results
                 .map(
                   (r) =>
-                    `[${r.index + 1}] ${r.state}${r.activity ? ` ${r.activity}` : ""}`,
+                    `[${r.index + 1}] ${r.state === "running" ? (r.status ?? "starting") : r.state}`,
                 )
                 .join("\n"),
             },
@@ -698,6 +813,44 @@ export default function (pi: ExtensionAPI) {
         });
       };
       emit();
+
+      // Each status emits, which is what moves the rows on a host without
+      // the spinner.
+      const seat = statusSeat(ctx.modelRegistry);
+      const statusCalls = new AbortController();
+      const inFlight = new Set<number>();
+      const tick = setInterval(() => {
+        for (const r of results) {
+          if (r.state !== "running" || !r.window || inFlight.has(r.index))
+            continue;
+          const raw = rawStatus(r);
+          const window = r.window;
+          r.window = "";
+          if (!seat) {
+            r.status = raw;
+            continue;
+          }
+          inFlight.add(r.index);
+          summarize(
+            ctx.modelRegistry,
+            seat,
+            r.task,
+            window,
+            AbortSignal.any([
+              statusCalls.signal,
+              AbortSignal.timeout(STATUS_TIMEOUT_MS),
+            ]),
+          )
+            .catch(() => undefined)
+            .then((status) => {
+              inFlight.delete(r.index);
+              if (r.state !== "running") return;
+              r.status = status ?? raw;
+              emit();
+            });
+        }
+        if (!seat) emit();
+      }, STATUS_MS);
 
       // The tool row scrolls away once anything prints below it, so the same
       // rows stay pinned above the editor until the batch returns. Keyed by
@@ -735,13 +888,35 @@ export default function (pi: ExtensionAPI) {
               // message_update is one event per token, tool_execution_update
               // repeats the whole accumulated result on every tick (pi
               // 0.84.3 docs/rpc.md), and agent_end repeats every message
-              // already logged. All three are bulk, none of them says
-              // anything the rest of the stream has not.
-              if (
-                type === "message_update" ||
-                type === "tool_execution_update" ||
-                type === "agent_end"
-              )
+              // already logged. All three are bulk and none is logged; the
+              // first is still the only live window into a subagent's
+              // reasoning between tool calls, so its deltas feed the live
+              // tail the pinned rows narrate from.
+              if (type === "message_update") {
+                const block = event.assistantMessageEvent as
+                  | { type?: string; delta?: string }
+                  | undefined;
+                // toolcall deltas stream argument JSON, not prose; the
+                // trail's tool_execution_start row covers the call they
+                // assemble.
+                if (
+                  block?.type === "thinking_start" ||
+                  block?.type === "text_start"
+                ) {
+                  // A new content block replaces the last one's tail.
+                  r.live = "";
+                  addToWindow(r, "\n");
+                } else if (
+                  (block?.type === "thinking_delta" ||
+                    block?.type === "text_delta") &&
+                  typeof block.delta === "string"
+                ) {
+                  r.live = (r.live + block.delta).slice(-LIVE_TAIL);
+                  addToWindow(r, block.delta);
+                }
+                return;
+              }
+              if (type === "tool_execution_update" || type === "agent_end")
                 return;
               logEvent(logFile, { batch: toolCallId, task: index, event });
 
@@ -753,6 +928,11 @@ export default function (pi: ExtensionAPI) {
                 );
                 r.trail.push(r.activity);
                 if (r.trail.length > MAX_TRAIL) r.trail.shift();
+                addToWindow(r, `\ntool: ${r.activity}\n`);
+                // Whatever the subagent reasoned to reach this call is spent
+                // the moment the call runs; left in place it would pass stale
+                // prose off as current once the call ends.
+                r.live = "";
                 emit();
               } else if (type === "tool_execution_end") {
                 r.activity = undefined;
@@ -790,6 +970,11 @@ export default function (pi: ExtensionAPI) {
           r.state = result.state === "success" ? "done" : "failed";
           r.summary = [result.text, note].filter(Boolean).join("\n");
           r.activity = undefined;
+          // The details outlive the batch in the returned result, where done
+          // rows show the summary; the spent tail has no place there.
+          r.live = "";
+          r.window = "";
+          r.status = undefined;
           r.elapsedMs = Date.now() - r.startedAt;
           // Exit code, stderr and the bill are the parent's knowledge; none of
           // them appear in the child's own stream.
@@ -811,6 +996,8 @@ export default function (pi: ExtensionAPI) {
           emit();
         },
       ).finally(() => {
+        clearInterval(tick);
+        statusCalls.abort();
         if (pinned) ctx.ui.setWidget(widget, undefined);
       });
 
