@@ -20,8 +20,11 @@ The Darwin module manages the privileged copy:
 systemFoundry.alamodeBuilder.enable = true;
 ```
 
-Both Darwin hosts enable it. Apply through `make deploy-mac` or
-`make deploy-trex`. Root activation copies the pinned package atomically to
+Only work-mac enables it; apply through `make deploy-mac`. trex does not:
+every job starts from the base image's store, and a cold build of trex's
+system fetches 4.5 GiB and unpacks 18.7 GiB, so retained job VMs would
+fill its disk within a few runs. Root activation
+copies the pinned package atomically to
 `/Library/PrivilegedHelperTools/alamode-builder/softnet`, owned by root:wheel with
 mode `4755`. The Nix store copy stays unprivileged. Redeployment repairs the
 copy; disabling the option and deploying removes it. Upgrades replace the
