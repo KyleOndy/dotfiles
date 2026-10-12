@@ -23,7 +23,7 @@ let
   # shared with nobody, and the exporter reports the never-ran sentinel.
   windowsBackupDirs = {
     kristen-data = {
-      device = null;
+      device = "C2O4NX4-FQJE36F-WTSKM6P-UM52YYS-3DUXEN5-KJHKOKG-GNOZ3SB-NLRZYQ4";
       folders = [
         "Desktop"
         "Documents"
