@@ -1,7 +1,9 @@
 # Windows backups into storage/backups
 
-Kristen's Windows laptop mirrors `Desktop`, `Documents`, `Dropbox` and
-`Pictures` to tiger with Syncthing. Once the files land in `/mnt/backups`,
+Kristen's Windows laptop mirrors her whole profile, `C:\Users\krist`, to
+tiger with Syncthing, less `AppData` and a few temp patterns. That was
+448 GB in 68,000 files on 2026-10-11, two thirds of it Dropbox and most of
+the rest a 2023 Google Photos Takeout in Downloads. Once the files land in `/mnt/backups`,
 they are backed up by the rule in [backup-strategy.md](backup-strategy.md):
 tiger snapshots them, pika pulls a second copy, pika pushes an offsite one to
 Deep Archive. None of that needs teaching about Windows.
@@ -57,6 +59,13 @@ All in `nix/hosts/tiger/configuration.nix`:
   at `/mnt/backups/<dir>/<Folder>`, with folder ID `<dir>-<folder>`. Global
   discovery, local discovery, relays and NAT traversal are off, so it only
   ever talks to the laptop, and only on the LAN. 22000 is open on `enp10s0`.
+- **`windowsBackupIgnores`** - what stays on the laptop: `AppData`, the
+  registry hive, `OneDrive`, Dropbox's and Cricut's caches, Cricut's
+  installer, and lock and temp files. The
+  laptop's `.stignore` must hold the same lines. `.stignore` never syncs
+  ([ignoring](https://docs.syncthing.net/v2.0.0/users/ignoring.html#description)),
+  and a send-only folder sends whatever its own ignores allow, so tiger's
+  copy only stops tiger storing them.
 - **`win-backup-exporter`** - every 15 minutes, asks tiger's Syncthing
   whether the laptop is connected and sharing every one of its folders, and
   whether tiger has nothing left to pull. On a yes it touches
@@ -138,7 +147,9 @@ one-user laptop.
 ### 4. Turn off everything that is not tiger
 
 Open **Syncthing Configuration Page** from the Start menu. Decline usage
-reporting if it asks. Under **Actions > Settings > Connections**, untick:
+reporting if it asks. Under **Actions > Settings > GUI**, set a user and
+password, since anything that can reach loopback could otherwise share her
+folders with a new device. Under **Connections**, untick:
 
 - Global Discovery
 - Local Discovery
@@ -165,18 +176,23 @@ ssh tiger 'sudo -u syncthing syncthing device-id --home=/var/lib/syncthing/.conf
 
 On the laptop, **Add Remote Device**. Paste tiger's ID, name it `tiger`, and
 on the **Advanced** tab set Addresses to `tcp://tiger.dmz.1ella.com:22000`.
-Save.
+Save. With discovery off, an address left at `dynamic` gives the laptop
+nothing to dial, and tiger sits at **Disconnected (Unused)** forever.
 
-### 6. Accept the folders
+### 6. Add the home folder
 
-Within a minute the laptop shows an offer from tiger for each folder. For
-each one:
+Within a minute the laptop shows tiger offering `Home`. Click **Add**, then:
 
-- **Add**, and check the folder path is the real one,
-  `C:\Users\<her>\Documents` and so on. It defaults to the folder's label
-  under her home directory, which is right unless Dropbox was moved.
+- **General > Folder Path:** her profile, `C:\Users\krist`. The default,
+  `~\Home`, is wrong.
 - **Advanced > Folder Type: Send Only.**
-- Save.
+- **Ignore Patterns:** tick **Add ignore patterns**.
+- Save. A second dialog asks for the patterns. Paste
+  `windowsBackupIgnores` from `nix/hosts/tiger/configuration.nix`, one per
+  line, without the quotes, and save again.
+
+The folder stays paused until the patterns are saved, so the first scan
+never reads `AppData`.
 
 Pointing a send-only folder at the wrong path is harmless: tiger gets the
 wrong directory, and nothing on the laptop is touched.
@@ -188,7 +204,7 @@ The directory belongs to `syncthing` and is mode 0750, so reading it takes
 
 ```bash
 # the files landed
-ssh tiger 'sudo ls /mnt/backups/kristen-data/Documents | head'
+ssh tiger 'sudo ls /mnt/backups/kristen-data/Home/Documents | head'
 
 # tiger counts it as a success (wait for the next 15-minute run)
 ssh tiger 'curl -s "http://127.0.0.1:8428/api/v1/query?query=windows_backup_last_success_timestamp_seconds" | jq .'
@@ -230,7 +246,7 @@ tiger's folders are receive-only, so copy it to trex and hand it over.
 
 **The laptop died.** This is a plan, not a drill anyone has run. On the new
 laptop, install as above, swap the new device ID into `windowsBackupDirs`,
-and accept each folder as **Receive Only** first. tiger offers everything it
+and accept the folder as **Receive Only** first, ignore patterns included. tiger offers everything it
 holds, so the new laptop pulls the lot. Once every folder reads Up to Date,
 switch each to **Send Only**.
 

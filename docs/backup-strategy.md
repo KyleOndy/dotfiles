@@ -99,9 +99,9 @@ push is declared per dataset. "How many copies does this have?" is still
 
 ### Writers into storage/backups
 
-Kristen's Windows laptop mirrors `Desktop`, `Documents`, `Dropbox` and
-`Pictures` into `/mnt/backups/kristen-data` with Syncthing, whenever it is
-at home and awake. See [windows-backup.md](windows-backup.md).
+Kristen's Windows laptop mirrors her profile, less `AppData` and temp
+files, into `/mnt/backups/kristen-data` with Syncthing, whenever it is at
+home and awake. See [windows-backup.md](windows-backup.md).
 
 Its freshness alert works differently from the others. Every other writer
 here runs on a timer on a host we control and reports its own success

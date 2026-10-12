@@ -24,12 +24,8 @@ let
   windowsBackupDirs = {
     kristen-data = {
       device = "C2O4NX4-FQJE36F-WTSKM6P-UM52YYS-3DUXEN5-KJHKOKG-GNOZ3SB-NLRZYQ4";
-      folders = [
-        "Desktop"
-        "Documents"
-        "Dropbox"
-        "Pictures"
-      ];
+      # Her whole profile, C:\Users\krist, less windowsBackupIgnores.
+      folders = [ "Home" ];
     };
   };
   # id is the Syncthing folder ID, which the laptop accepts tiger's offer under.
@@ -43,6 +39,28 @@ let
       }) m.folders
     ) windowsBackupDirs
   );
+  # The laptop's .stignore must hold the same lines, since .stignore never
+  # syncs and a send-only folder sends whatever its own ignores allow. (?i)
+  # because tiger matches case-sensitively and Windows does not.
+  windowsBackupIgnores = [
+    # Caches and app state, and the registry hive, locked while she is logged in.
+    "(?i)/AppData"
+    "(?i)/NTUSER.DAT*"
+    "(?i)/ntuser.ini"
+    # Cloud placeholders: reading one downloads it, or fails while OneDrive
+    # is not running.
+    "(?i)/OneDrive"
+    "(?i)/Dropbox/.dropbox.cache"
+    # Cricut's Electron cache, rewritten constantly, and its downloaded installer.
+    "(?i)/.cricut-design-space/UserData/Cache"
+    "(?i)/.cricut-design-space/Update"
+    # Office lock files
+    "~$*"
+    "(?i)*.tmp"
+    "(?i)*.crdownload"
+    "(?i)*.partial"
+    "(?i)Thumbs.db"
+  ];
 
   # Local Alertmanager endpoint; NUT pushes UPS events here so they email out
   # the same way as every other monitoring alert.
@@ -817,8 +835,6 @@ in
       devices = lib.mapAttrs (_: m: { id = m.device; }) (
         lib.filterAttrs (_: m: m.device != null) windowsBackupDirs
       );
-      # The label is what the laptop's accept dialog appends to its home
-      # directory for the default path, so "Documents" proposes the real one.
       folders = lib.listToAttrs (
         map (
           f:
@@ -827,8 +843,7 @@ in
             label = f.folder;
             type = "receiveonly";
             devices = lib.optional (f.device != null) f.dir;
-            # Dropbox's own trash and staging area, not her files.
-            ignorePatterns = [ "/.dropbox.cache" ];
+            ignorePatterns = windowsBackupIgnores;
           }
         ) windowsBackupFolders
       );
