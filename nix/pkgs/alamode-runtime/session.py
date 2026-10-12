@@ -1161,7 +1161,8 @@ def run(config, manifest, args, home):
                 "runtime/build.json",
                 (json.dumps(build.client) + "\n").encode(),
             )
-            # bin/nix reads this name (build_client.py).
+            # bin/nix reads this name (build_client.py); the producer and
+            # consumer are pinned together in test_session.py.
             environment["ALAMODE_BUILD_CLIENT"] = str(runtime / "build.json")
             environment["PATH"] = (
                 str(Path(config["buildClient"]).parent) + ":" + environment["PATH"]

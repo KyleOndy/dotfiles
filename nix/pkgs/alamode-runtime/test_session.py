@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import types
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -244,6 +245,80 @@ class PolicyTests(unittest.TestCase):
             )
         self.assertEqual(
             popen.call_args.kwargs["env"]["CLAUDE_CODE_TMPDIR"], str(runtime / "tmp")
+        )
+
+    def test_run_hands_the_build_client_to_the_child_under_its_own_name(self):
+        # bin/nix reads ALAMODE_BUILD_CLIENT at its first read, so a child
+        # handed the build client under any other name has a nix that dies at
+        # the shim. The producer and consumer are pinned to one name here,
+        # where no sandbox is needed to see it.
+        self.config["buildClient"] = str(self.root / "tools" / "nix")
+        self.config["builderModule"] = str(self.root / "builder-module.py")
+        relay_source = self.root / "relay-fixture.py"
+        relay_source.write_text(
+            "class Relay:\n"
+            "    catalog = {'providers': {}}\n"
+            "    tool_env = {}\n"
+            "    port = 0\n"
+            "    def __enter__(self):\n"
+            "        return self\n"
+            "    def __exit__(self, *exc):\n"
+            "        return False\n"
+            "def start_relay(*args, **kwargs):\n"
+            "    return Relay()\n"
+        )
+        self.config["relayModule"] = str(relay_source)
+        Path(self.config["catalogFile"]).write_text(
+            json.dumps(
+                {
+                    "providers": {
+                        "fixture": {
+                            "api": "openai-completions",
+                            "baseUrl": "https://provider.example.invalid/v1",
+                            "apiKey": "fixture-key",
+                            "models": [{"id": "probe", "maxTokens": 128}],
+                        }
+                    }
+                }
+            )
+        )
+        manifest = {
+            **self.manifest,
+            "policy": {**self.manifest["policy"], "nix": True},
+            "builder": {"record_root": str(self.root / "builder")},
+        }
+
+        class FakeBuildService:
+            client = {"socket": "fixture-socket"}
+            socket = "fixture-socket"
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        build_service = types.ModuleType("build_service")
+        build_service.BuildService = FakeBuildService
+        captured = {}
+
+        def record(config, manifest, arguments, environment, runtime, relay_port=0):
+            captured.update(environment)
+            return 0
+
+        with (
+            patch.dict(sys.modules, {"build_service": build_service}),
+            patch.object(session, "execute", record),
+        ):
+            self.assertEqual(session.run(self.config, manifest, [], self.root), 0)
+        # The trusted side wrote runtime/build.json; the child gets its path
+        # under the one name the shim reads.
+        self.assertEqual(
+            captured["ALAMODE_BUILD_CLIENT"],
+            str(self.work / "runtime" / "build.json"),
         )
 
     def test_nix_is_offered_only_with_a_builder(self):
