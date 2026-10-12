@@ -39,6 +39,7 @@ grant_flags=(
   '--allow-trustd[permit Apple certificate validation services]'
   '--allow-forge[authorize optional Forge resources for children]'
   '--allow-clipboard[permit clipboard access]'
+  '--local[admit only loopback models, refuse network grants]'
   '*--profile[apply a named grant preset]:profile:(@profileNames@)'
   @bundleFlags@
 )
@@ -58,6 +59,7 @@ grant_flag_words=(
   '--allow-trustd:permit Apple certificate validation services'
   '--allow-forge:authorize optional Forge resources for children'
   '--allow-clipboard:permit clipboard access'
+  '--local:admit only loopback models, refuse network grants'
   '--profile:apply a named grant preset'
   @bundleFlagWords@
 )

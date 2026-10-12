@@ -105,7 +105,7 @@ alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
         [--allow-nix] [--allow-git-write] [--no-git-write]
         [--allow-trustd] [--allow-forge] [--allow-clipboard]
-        [--allow-BUNDLE] [-- PI ARGS]
+        [--allow-BUNDLE] [--local] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
@@ -116,6 +116,7 @@ Outside a repository, launches use an empty private scratch workspace.
 Grants persist on resume. Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
 --allow-nix requires a configured isolated builder.
+--local admits only loopback models and refuses every network grant.
 coord start prints JSON credentials without opening the UI.
 ```
 

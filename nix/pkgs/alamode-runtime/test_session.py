@@ -259,6 +259,81 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("nix", available())
         self.assertIn("flake", available())
 
+    def test_local_refuses_the_network_and_drops_host_defaults(self):
+        self.config["domains"] = ["default.example.invalid"]
+        self.config["allowTrustd"] = True
+        self.config["bundles"]["paths"] = {"readPaths": ["/approved"]}
+        for args in (
+            ["--web"],
+            ["--allow", "host.example.invalid"],
+            ["--allow-registry"],
+            ["--allow-nix"],
+            ["--allow-forge"],
+            ["--allow-trustd"],
+            ["--allow-clipboard"],
+        ):
+            with (
+                self.subTest(args=args),
+                self.assertRaisesRegex(session.SessionError, "--local refuses"),
+            ):
+                session.policy(
+                    session.parse(["--local", *args], self.config),
+                    self.config,
+                    self.root,
+                )
+        options = session.parse(
+            ["--local", "--allow-paths", "--listen", "3000"], self.config
+        )
+        self.assertTrue(session.requested_grants(options, self.config))
+        grants = session.policy(options, self.config, self.root)
+        self.assertEqual(grants["domains"], ["127.0.0.1:3000"])
+        self.assertFalse(grants["trustd"])
+        self.assertIn("/approved", grants["read"])
+
+    def test_local_scope_admits_only_loopback_models(self):
+        catalog = {
+            "providers": {
+                "cloud": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://provider.example.invalid/v1",
+                    "models": [{"id": "far"}, {"id": "tunnel"}],
+                    "modelOverrides": {"tunnel": {"baseUrl": "http://localhost:9/v1"}},
+                },
+                "loop": {
+                    "api": "openai-completions",
+                    "baseUrl": "http://127.0.0.1:8080/v1",
+                    "models": [{"id": "near"}],
+                },
+                "lookalike": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://127.0.0.1.example.invalid/v1",
+                    "models": [{"id": "far"}],
+                },
+            }
+        }
+        models, digest = session.catalog_scope(catalog, self.config, local=True)
+        self.assertEqual(models, ["cloud/tunnel", "loop/near"])
+        self.manifest["policy"].update(
+            local=True, allowed_models=models, catalog_scope=digest
+        )
+        Path(self.config["catalogFile"]).write_text(json.dumps(catalog))
+        session.credentials(self.config, self.manifest, self.root)
+        kept, dropped = session.local_seats(
+            {
+                "ALAMODE_SESSION_MODEL": "loop/near:off",
+                "ALAMODE_ADVISOR_MODEL": "cloud/far",
+                "ALAMODE_SPAWN_MODEL": "lookalike/far",
+            },
+            self.manifest["policy"],
+        )
+        self.assertEqual(kept, {"ALAMODE_SESSION_MODEL": "loop/near:off"})
+        self.assertEqual(dropped, ["ALAMODE_ADVISOR_MODEL", "ALAMODE_SPAWN_MODEL"])
+        self.config["trustedProviders"] = ["cloud", "loop", "lookalike"]
+        environment = session.child_environment(
+            self.config, self.manifest, self.root, self.work / "runtime"
+        )
+        self.assertEqual(environment["ALAMODE_TRUSTED_PROVIDERS"], "cloud,loop")
+
     def test_catalog_scope_tracks_effective_override_routes(self):
         catalog = {
             "providers": {

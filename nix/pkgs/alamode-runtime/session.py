@@ -5,6 +5,7 @@ from contextlib import ExitStack
 import fcntl
 import hashlib
 import importlib.util
+import ipaddress
 import json
 import os
 import pwd
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).parent))
 from common import request, socket_directory
@@ -99,7 +101,7 @@ HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
         [--allow-nix] [--allow-git-write] [--no-git-write]
         [--allow-trustd] [--allow-forge] [--allow-clipboard]
-        [--allow-BUNDLE] [-- PI ARGS]
+        [--allow-BUNDLE] [--local] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
@@ -110,6 +112,7 @@ Outside a repository, launches use an empty private scratch workspace.
 Grants persist on resume. Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
 --allow-nix requires a configured isolated builder.
+--local admits only loopback models and refuses every network grant.
 coord start prints JSON credentials without opening the UI."""
 
 
@@ -166,6 +169,7 @@ def parse(args, config):
     parser.add_argument("--allow-nix", action="store_true")
     parser.add_argument("--allow-forge", action="store_true")
     parser.add_argument("--allow-clipboard", action="store_true")
+    parser.add_argument("--local", action="store_true")
     parser.add_argument("--profile", action="append", default=[])
     for name in config["bundles"]:
         parser.add_argument(
@@ -193,6 +197,7 @@ def requested_grants(options, config):
         or options.allow_forge
         or options.allow_trustd
         or options.allow_clipboard
+        or options.local
         or options.no_git_write
         or options.allow_git_write
         or options.profile
@@ -208,17 +213,47 @@ def refuse_grant_changes(options, config):
 
 
 def policy(options, config, home):
+    # --local drops the host's network defaults, which nobody asked for at
+    # this launch, and refuses a flag that asks for the network alongside
+    # it. Clipboard counts: Universal Clipboard copies it to other devices.
+    if options.local:
+        refused = [
+            flag
+            for flag, held in (
+                ("--web", options.web),
+                ("--allow", options.allow),
+                ("--allow-nix", options.allow_nix),
+                ("--allow-forge", options.allow_forge),
+                ("--allow-trustd", options.allow_trustd),
+                ("--allow-clipboard", options.allow_clipboard),
+                *(
+                    ("--allow-" + name, getattr(options, "bundle_" + name))
+                    for name, bundle in config["bundles"].items()
+                    if bundle.get("domains")
+                    or bundle.get("nix")
+                    or bundle.get("trustd")
+                ),
+            )
+            if held
+        ]
+        if refused:
+            raise SessionError(
+                "--local refuses grants that reach off this Mac, set directly or by a profile: "
+                + ", ".join(refused)
+            )
+    defaults = not options.local
     result = {
+        "local": options.local,
         "web": options.web,
-        "domains": list(config["domains"]) + options.allow,
+        "domains": (list(config["domains"]) if defaults else []) + options.allow,
         "read": list(config["readPaths"]) + options.allow_read + options.allow_rw,
         "write": list(config["writePaths"]) + options.allow_write + options.allow_rw,
         "listen": list(config.get("listenPorts", [])) + options.listen,
-        "trustd": options.allow_trustd or config["allowTrustd"],
+        "trustd": options.allow_trustd or (defaults and config["allowTrustd"]),
         "clipboard": options.allow_clipboard,
         "git_write": not options.no_git_write
         and (options.allow_git_write or config.get("gitWrite", True)),
-        "nix": options.allow_nix or config["allowNix"],
+        "nix": options.allow_nix or (defaults and config["allowNix"]),
         "grants": [],
         "forge": options.allow_forge,
         "forge_sizes": ["small", "large", "xlarge"] if options.allow_forge else [],
@@ -247,7 +282,17 @@ def policy(options, config, home):
     return result
 
 
-def catalog_scope(catalog, config):
+def loopback(url):
+    host = urlsplit(url or "").hostname or ""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def catalog_scope(catalog, config, local=False):
     models = []
     providers = config["trustedProviders"]
     for provider, data in catalog.get("providers", {}).items():
@@ -259,6 +304,10 @@ def catalog_scope(catalog, config):
                 **model,
                 **data.get("modelOverrides", {}).get(model["id"], {}),
             }
+            # The relay routes to this same effective baseUrl, so a cloud
+            # model never gets a route in a local session.
+            if local and not loopback(effective.get("baseUrl")):
+                continue
             models.append(
                 {
                     "model": provider + "/" + model["id"],
@@ -268,6 +317,22 @@ def catalog_scope(catalog, config):
             )
     wire = json.dumps(models, sort_keys=True, separators=(",", ":")).encode()
     return [model["model"] for model in models], hashlib.sha256(wire).hexdigest()
+
+
+def local_providers(grant):
+    return list(dict.fromkeys(model.split("/")[0] for model in grant["allowed_models"]))
+
+
+def local_seats(values, grant):
+    # A seat is provider/id[:level]. Matched by model, not provider: one
+    # provider can override a single model's baseUrl to loopback.
+    allowed = set(grant["allowed_models"])
+    kept = {
+        key: value
+        for key, value in values.items()
+        if value in allowed or value.rpartition(":")[0] in allowed
+    }
+    return kept, sorted(values.keys() - kept.keys())
 
 
 def seats(config, home):
@@ -334,7 +399,7 @@ def credentials(config, manifest, home, *, include_tools=False):
             "Configure modelsJson or modelsJsonFile with explicit model definitions before starting alamode"
         )
     catalog = read_json(expand(catalog_path, home))
-    _, digest = catalog_scope(catalog, config)
+    _, digest = catalog_scope(catalog, config, manifest["policy"].get("local", False))
     if manifest["policy"].get("catalog_scope") not in (None, digest):
         raise SessionError(
             "Provider endpoints or model scope changed. Start a new session to authorize the new catalog."
@@ -586,7 +651,11 @@ def child_environment(config, manifest, home, runtime):
                     "git-write",
                 ]
             ),
-            "ALAMODE_TRUSTED_PROVIDERS": ",".join(config["trustedProviders"]),
+            "ALAMODE_TRUSTED_PROVIDERS": ",".join(
+                local_providers(manifest["policy"])
+                if manifest["policy"].get("local")
+                else config["trustedProviders"]
+            ),
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_CONFIG_GLOBAL": "/dev/null",
             "GIT_TERMINAL_PROMPT": "0",
@@ -1312,13 +1381,24 @@ def main(argv=None):
         grants = policy(options, config, home)
         if config["catalogFile"]:
             grants["allowed_models"], grants["catalog_scope"] = catalog_scope(
-                read_json(expand(config["catalogFile"], home)), config
+                read_json(expand(config["catalogFile"], home)), config, grants["local"]
             )
+        held = seats(config, home)
+        if grants["local"]:
+            if not grants.get("allowed_models"):
+                raise SessionError("--local found no model with a loopback baseUrl")
+            held, dropped = local_seats(held, grants)
+            if dropped:
+                print(
+                    "alamode: --local dropped seats on a non-local model: "
+                    + ", ".join(dropped),
+                    file=sys.stderr,
+                )
         manifest = {
             "version": 1,
             "id": identity,
             "policy": grants,
-            "seats": seats(config, home),
+            "seats": held,
             "configuration": configuration_path,
             "launcher": executable,
         }

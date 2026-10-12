@@ -56,6 +56,18 @@ The sandbox reaches each trusted provider's endpoint, the host of its
 through home-manager's link, since a session can write `~/.pi`. Endpoints
 are private too, so this repo lists none in `allowedDomains`.
 
+`alamode --local` keeps a session on the mac. Its `allowed_models` holds
+only models whose effective `baseUrl` is loopback, so the relay builds no
+route to anything else and pi's `/model` lists nothing else. Seats on any
+other model are dropped from the manifest, with one line naming them. It
+drops the host's `allowedDomains`, `allowTrustd` and `allowNix` defaults
+and refuses `--web`, `--allow`, `--allow-nix`, `--allow-forge`,
+`--allow-trustd`, `--allow-clipboard` (Universal Clipboard) and any bundle
+with domains, alongside it or through a profile. The policy records it, so
+resume and coordinator children keep it. It does not cover
+`alamode-delegate` or domestique's classifier, which run on the host, or a
+granted path that syncs, such as iCloud Drive.
+
 No key is stored in nix on either mac. trex reads mcloud's from
 `/run/secrets/mcloud_api_key`, and work-config resolves work-mac's from the
 Keychain, both through the wrapper's `envFromCommands`. models.json reads it
