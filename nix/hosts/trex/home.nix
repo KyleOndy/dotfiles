@@ -239,14 +239,19 @@ in
     # this file names no model. `sops edit nix/secrets/trex.yaml` shows each
     # seat next to the comment saying what it is for.
     #
-    # trex's local mlx models are absent. search-mail
-    # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
-    # only workload that needs mail to stay off the network.
+    # `local` is mlx-openai-server (./mlx-models.yaml), catalogued in the same
+    # sops file. Its entries pin thinking off (every other thinkingLevelMap
+    # level null, thinkingFormat "qwen-chat-template"): with thinking on, these
+    # models emit no tool calls. Run `mlx start` before selecting one.
     alamode = {
       modelsJsonFile = osConfig.sops.secrets.alamode_models_json.path;
       seatsFile = osConfig.sops.secrets.alamode_seats.path;
       secretsSource = "nix/secrets/trex.yaml";
-      trustedProviders = [ "mcloud" ];
+      trustedProviders = [
+        "mcloud"
+        "local"
+      ];
+      sandbox.privateProviderHosts = [ "127.0.0.1" ];
 
       # Host relays resolve the keys; workloads receive scoped relay tokens.
       # Kagi resolution requires --allow-kagi. Inference is always admitted.
