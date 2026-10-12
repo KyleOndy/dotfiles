@@ -2,11 +2,13 @@
   writeShellApplication,
   runCommand,
   symlinkJoin,
+  mlx,
 }:
 
 let
   ask = writeShellApplication {
     name = "ask";
+    runtimeInputs = [ mlx ];
     text = builtins.readFile ./ask.sh;
   };
 

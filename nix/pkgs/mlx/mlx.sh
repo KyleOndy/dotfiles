@@ -7,7 +7,17 @@
 # carried three copies of the launchd label and two of the state probe.
 
 readonly LABEL="org.ondy.mlx-openai-server"
-readonly BASE_URL="http://127.0.0.1:8770"
+readonly PORT=8770
+readonly BASE_URL="http://127.0.0.1:$PORT"
+
+# PyPI's mlx wheels, because nixpkgs builds mlx without Metal. Outside ~/.pi,
+# which every alamode session can write: a .pth file dropped into
+# site-packages would run unsandboxed in the server.
+readonly VENV="$HOME/.local/state/mlx/venv"
+readonly STAMP="$VENV/.requirements"
+# Keyed on both: a collected python312 leaves the interpreter link dangling
+# without changing the requirements.
+readonly VENV_KEY="$REQUIREMENTS $PYTHON"
 
 # Empty when the job is loaded but not running, and when launchctl cannot find
 # it at all. Neither case is an error worth distinguishing here.
@@ -16,7 +26,40 @@ state() {
 		awk '/state = /{print $3; exit}'
 }
 
+# Empty when the job is not running.
+server_pid() {
+	launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null |
+		awk '$1 == "pid" && $2 == "=" {print $3; exit}'
+}
+
+ensure_venv() {
+	if [ -x "$VENV/bin/python" ] && [ "$(cat "$STAMP" 2>/dev/null)" = "$VENV_KEY" ]; then
+		return 0
+	fi
+	# launchd starts the server through `mlx run`, so the job's own pid may
+	# rebuild; any other running server would lose its venv underneath it.
+	local pid
+	pid=$(server_pid)
+	if [ -n "$pid" ] && [ "$pid" != "$$" ]; then
+		echo "mlx: the venv needs rebuilding, but the server (pid $pid) runs from it. Run 'mlx stop' first." >&2
+		exit 1
+	fi
+	echo "mlx: building the venv, this runs once per requirements change" >&2
+	rm -rf "$VENV"
+	uv venv --quiet --python "$PYTHON" "$VENV" >&2
+	VIRTUAL_ENV="$VENV" uv pip sync --quiet --require-hashes "$REQUIREMENTS" >&2
+	printf '%s\n' "$VENV_KEY" >"$STAMP"
+}
+
+run() {
+	ensure_venv
+	# A leaked PYTHONPATH shadows the venv.
+	unset PYTHONPATH
+	exec "$VENV/bin/$1" "${@:2}"
+}
+
 start() {
+	ensure_venv
 	# Does not wait for the model to finish loading. Check with `mlx status`,
 	# or just run search-mail, which waits for it itself.
 	launchctl kickstart -k "gui/$(id -u)/$LABEL"
@@ -57,12 +100,19 @@ status() {
 	fi
 }
 
+usage() {
+	echo "usage: mlx [start|stop|status] | run PROGRAM [ARGS...]" >&2
+	exit 2
+}
+
 case "${1-}" in
 start) start ;;
 stop) stop ;;
 status | "") status ;;
-*)
-	echo "usage: mlx [start|stop|status]" >&2
-	exit 2
+run)
+	[ $# -ge 2 ] || usage
+	shift
+	run "$@"
 	;;
+*) usage ;;
 esac

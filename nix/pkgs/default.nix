@@ -1,5 +1,5 @@
 self: super: {
-  ask = super.callPackage ./ask { };
+  ask = super.callPackage ./ask { inherit (self) mlx; };
   audio-language-check = super.callPackage ./audio-language-check { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
   backup-git-repos = super.callPackage ./backup-git-repos { };

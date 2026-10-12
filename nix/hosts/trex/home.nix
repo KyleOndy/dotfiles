@@ -200,9 +200,8 @@ in
   hmFoundry.desktop.input.karabiner.pushToTalk.pad.enable = true;
 
   # Add Homebrew to PATH for all managed shells (including Claude Code).
-  # Also add uv's tool install dir (~/.local/bin, e.g. mlx-lm's mlx_lm.*
-  # executables) since `uv tool update-shell` can't write the home-manager
-  # managed .zshenv symlink.
+  # Also add uv's tool install dir (~/.local/bin) since `uv tool update-shell`
+  # can't write the home-manager managed .zshenv symlink.
   home.sessionPath = [
     "/opt/homebrew/bin"
     "$HOME/.local/bin"
@@ -275,9 +274,8 @@ in
     };
   };
 
-  # mlx-openai-server, uv-installed like mlx-lm (see ask's sessionPath note
-  # above) -- Metal wheels don't package cleanly through nixpkgs on darwin.
-  # Install once with: uv tool install mlx-openai-server
+  # mlx-openai-server, from the venv `mlx run` builds on first use
+  # (nix/pkgs/mlx), since nixpkgs builds mlx without Metal.
   #
   # RunAtLoad/KeepAlive both false: on-demand rather than always-resident, to
   # avoid holding a model's RAM footprint when not in use. Start with:
@@ -296,7 +294,9 @@ in
     config = {
       Label = "org.ondy.mlx-openai-server";
       ProgramArguments = [
-        "${config.home.homeDirectory}/.local/bin/mlx-openai-server"
+        (lib.getExe pkgs.mlx)
+        "run"
+        "mlx-openai-server"
         "launch"
         "--config"
         "${mlxModelsConfig}"

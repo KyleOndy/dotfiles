@@ -2,12 +2,10 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/ask/default.nix).
 #
-# Local LLM one-off questions and chat. Currently shells out to mlx-lm
-# (installed imperatively via `uv tool install mlx-lm` -- Metal-backed
-# wheels don't package cleanly through nixpkgs on darwin, see
-# nix/hosts/trex/home.nix sessionPath). The backend is an implementation
-# detail behind this interface -- swap the mlx_lm.* calls below if it ever
-# changes (e.g. Ollama, llama.cpp, MAX) without touching callers.
+# Local LLM one-off questions and chat. Shells out to mlx-lm in the venv
+# `mlx run` keeps (nix/pkgs/mlx). The backend is an implementation detail
+# behind this interface -- swap the mlx_lm.* calls below if it ever changes
+# (e.g. Ollama, llama.cpp, MAX) without touching callers.
 #
 #   ask [--fast|--smart|--model ID] question words...
 #   ask [--fast|--smart|--model ID]
@@ -39,11 +37,6 @@ Anything not already in ~/.cache/huggingface is downloaded on first use.
 EOF
 	exit "${1:-1}"
 }
-
-if ! command -v mlx_lm.generate >/dev/null 2>&1; then
-	echo "mlx_lm not found on PATH. Install with: uv tool install mlx-lm" >&2
-	exit 1
-fi
 
 model="$FAST_MODEL"
 
@@ -82,11 +75,11 @@ done
 # mlx_lm.chat loads the model before it reads any stdin, so without a
 # terminal to chat with, that is 5-11GB of load spent to reach EOF.
 if [ $# -eq 0 ] && [ -t 0 ]; then
-	exec mlx_lm.chat --model "$model" --max-tokens "$MAX_TOKENS"
+	exec mlx run mlx_lm.chat --model "$model" --max-tokens "$MAX_TOKENS"
 fi
 
 [ $# -ge 1 ] || usage
 # --prompt="..." rather than two words: argparse binds a value across the
 # = regardless of leading dashes, but reads a separate `--foo` as the next
 # option and reports "--prompt: expected one argument".
-exec mlx_lm.generate --model "$model" --prompt="$*" --max-tokens "$MAX_TOKENS"
+exec mlx run mlx_lm.generate --model "$model" --prompt="$*" --max-tokens "$MAX_TOKENS"

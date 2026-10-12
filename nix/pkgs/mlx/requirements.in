@@ -1,0 +1,11 @@
+# Input to requirements.txt, which is what the venv installs:
+#
+#   MACOSX_DEPLOYMENT_TARGET=14.0 uv pip compile --no-header --no-annotate \
+#     --generate-hashes --python-version 3.12 \
+#     --python-platform aarch64-apple-darwin requirements.in -o requirements.txt
+#
+# uv resolves aarch64-apple-darwin as macOS 13 unless told otherwise, and mlx
+# publishes no macosx_13 wheel past 0.31.1.
+#
+# mlx-openai-server brings mlx-lm, whose mlx_lm.* commands ask runs.
+mlx-openai-server==1.8.1

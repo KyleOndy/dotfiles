@@ -62,8 +62,8 @@ models:
     on_demand_idle_timeout: 600
 
   # tool_call_parser is qwen3_coder, not qwen3_5: checked against the
-  # installed package (~/.local/share/uv/tools/mlx-openai-server/lib/
-  # python3.13/site-packages/app/parsers/__init__.py, v1.8.1) --
+  # installed package (~/.local/state/mlx/venv/lib/python3.12/
+  # site-packages/app/parsers/__init__.py, v1.8.1) --
   # TOOL_PARSER_MAP has no "qwen3_5" key at all (it would silently resolve
   # to no tool parsing), qwen3_5 is registered only in REASONING_PARSER_MAP.
   # Qwen's own Qwen3.5-4B model card recommends vLLM's `--tool-call-parser
