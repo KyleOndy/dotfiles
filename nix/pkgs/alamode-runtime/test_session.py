@@ -414,6 +414,88 @@ class PolicyTests(unittest.TestCase):
         )
         self.assertEqual(environment["ALAMODE_TRUSTED_PROVIDERS"], "cloud,loop")
 
+    def test_local_model_admits_an_uncatalogued_loopback_model(self):
+        catalog = {
+            "providers": {
+                "cloud": {
+                    "api": "openai-completions",
+                    "baseUrl": "https://provider.example.invalid/v1",
+                    "models": [{"id": "far"}, {"id": "tunnel"}],
+                    "modelOverrides": {"tunnel": {"baseUrl": "http://localhost:9/v1"}},
+                },
+                "loop": {
+                    "api": "openai-completions",
+                    "baseUrl": "http://127.0.0.1:8080/v1",
+                    "models": [
+                        {"id": "near", "name": "near (local)", "contextWindow": 4096}
+                    ],
+                },
+            }
+        }
+        self.config["trustedProviders"] = ["cloud", "loop"]
+        for value in ("cloud/new", "loop", "missing/new", "loop/"):
+            options = session.parse(["--local-model", value], self.config)
+            grants = session.policy(options, self.config, self.root)
+            with self.assertRaises(session.SessionError):
+                session.admit_local_models(
+                    json.loads(json.dumps(catalog)),
+                    self.config,
+                    grants["local_models"],
+                )
+        options = session.parse(
+            ["--local-model", "loop/fresh", "--local-model", "loop/near"],
+            self.config,
+        )
+        self.assertTrue(session.requested_grants(options, self.config))
+        with self.assertRaises(session.SessionError):
+            session.refuse_grant_changes(options, self.config)
+        grants = session.policy(options, self.config, self.root)
+        self.assertEqual(grants["local_models"], ["loop/fresh", "loop/near"])
+        models, digest = session.catalog_scope(
+            session.admit_local_models(
+                json.loads(json.dumps(catalog)), self.config, grants["local_models"]
+            ),
+            self.config,
+        )
+        self.assertEqual(
+            models, ["cloud/far", "cloud/tunnel", "loop/near", "loop/fresh"]
+        )
+        self.manifest["policy"].update(
+            local_models=grants["local_models"],
+            allowed_models=models,
+            catalog_scope=digest,
+        )
+        Path(self.config["catalogFile"]).write_text(json.dumps(catalog))
+        relay_catalog, _ = session.credentials(self.config, self.manifest, self.root)
+        self.assertEqual(
+            relay_catalog["providers"]["loop"]["models"][-1],
+            {"id": "fresh", "name": "fresh", "contextWindow": 4096},
+        )
+        # A model borrowed from a cloud provider's loopback override is
+        # loopback too, and lands on that override's endpoint.
+        borrowed = session.admit_local_models(
+            {
+                "providers": {
+                    "cloud": {
+                        **catalog["providers"]["cloud"],
+                        "models": [{"id": "tunnel"}],
+                    }
+                }
+            },
+            self.config,
+            ["cloud/fresh"],
+        )
+        self.assertEqual(
+            borrowed["providers"]["cloud"]["models"][-1]["baseUrl"],
+            "http://localhost:9/v1",
+        )
+        # credentials() reapplies the grant from the manifest, and the
+        # admitted digest covers the granted model, so a manifest missing the
+        # grant fails the scope check.
+        del self.manifest["policy"]["local_models"]
+        with self.assertRaises(session.SessionError):
+            session.credentials(self.config, self.manifest, self.root)
+
     def test_no_provider_excludes_it_and_every_model_on_its_endpoints(self):
         catalog = {
             "providers": {

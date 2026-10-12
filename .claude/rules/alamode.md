@@ -80,6 +80,13 @@ block, so the relay never holds its key. Neither covers domestique's
 classifier, leak-guard's `/models` call or `mcloud-pins`, which run on the
 host.
 
+`alamode --local-model PROVIDER/ID` adds a model the catalog lacks, so a
+loopback model runs without a sops edit. The provider must be trusted and
+the new entry copies the effective fields of the provider's first model,
+which must be on a loopback `baseUrl`. The policy records it, so resume
+and coordinator children re-add it before checking the scope digest.
+Select it with `-- --model PROVIDER/ID` or a seat.
+
 No key is stored in nix on either mac. trex reads mcloud's from
 `/run/secrets/mcloud_api_key`, and work-config resolves work-mac's from the
 Keychain, both through the wrapper's `envFromCommands`. models.json reads it
@@ -132,9 +139,10 @@ catalog entry does not support at the nearest one it does (no
 `"reasoning": true` supports only off; xhigh and max need a
 `thinkingLevelMap` entry), so `alamode-seats check` fails a seat whose level
 would move. A catalog or seat change is
-`sops edit nix/secrets/<host>.yaml` and a deploy; trying a model needs
-neither, since a caller's env override may name an uncatalogued id and only
-warns:
+`sops edit nix/secrets/<host>.yaml` and a deploy. A caller's env override
+may name an uncatalogued id and `alamode-seats` only warns, but the relay
+refuses it with `403 Model is outside this capability`; on a loopback
+provider, `--local-model` admits it. The checks by hand:
 
 ```bash
 alamode-seats check --start

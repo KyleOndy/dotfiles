@@ -182,7 +182,8 @@ HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
         [--allow-nix] [--allow-git-write] [--no-git-write]
         [--allow-trustd] [--allow-forge] [--allow-clipboard]
-        [--allow-BUNDLE] [--local] [--no-PROVIDER] [-- PI ARGS]
+        [--allow-BUNDLE] [--local] [--no-PROVIDER]
+        [--local-model PROVIDER/ID] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
@@ -195,6 +196,7 @@ Flags after -- reach pi verbatim; alamode flags never follow it.
 --allow-nix requires a configured isolated builder.
 --local admits only loopback models and refuses every network grant.
 --no-PROVIDER drops that provider and every model on its endpoints.
+--local-model admits a model the catalog lacks on a loopback provider.
 coord start prints JSON credentials without opening the UI."""
 
 
@@ -252,6 +254,7 @@ def parse(args, config):
     parser.add_argument("--allow-forge", action="store_true")
     parser.add_argument("--allow-clipboard", action="store_true")
     parser.add_argument("--local", action="store_true")
+    parser.add_argument("--local-model", action="append", default=[])
     parser.add_argument("--profile", action="append", default=[])
     for name in config["bundles"]:
         parser.add_argument(
@@ -290,6 +293,7 @@ def requested_grants(options, config):
         or options.allow_trustd
         or options.allow_clipboard
         or options.local
+        or options.local_model
         or excluded_providers(options, config)
         or options.no_git_write
         or options.allow_git_write
@@ -353,6 +357,7 @@ def policy(options, config, home):
     result = {
         "local": options.local,
         "excluded_providers": excluded_providers(options, config),
+        "local_models": options.local_model,
         "web": options.web,
         "domains": (list(config["domains"]) if defaults else []) + options.allow,
         "read": list(config["readPaths"]) + options.allow_read + options.allow_rw,
@@ -406,6 +411,34 @@ def endpoint(url):
     if not parts.hostname:
         return None
     return parts.hostname, parts.port or {"http": 80, "https": 443}.get(parts.scheme)
+
+
+def admit_local_models(catalog, config, requested):
+    # A loopback model sends nothing off this Mac, so a launch may name one
+    # the catalog lacks. It takes the effective fields of its provider's
+    # first model, which is how it inherits the endpoint and compat.
+    trusted = config["trustedProviders"]
+    for value in requested:
+        provider, _, model_id = value.partition("/")
+        data = catalog.get("providers", {}).get(provider)
+        if not model_id or data is None or (trusted and provider not in trusted):
+            raise SessionError(
+                f"--local-model {value}: name a model as provider/id on a trusted provider in the catalog"
+            )
+        models = data.setdefault("models", [])
+        if any(model["id"] == model_id for model in models):
+            continue
+        template = (
+            {**models[0], **data.get("modelOverrides", {}).get(models[0]["id"], {})}
+            if models
+            else {}
+        )
+        if not loopback(template.get("baseUrl", data.get("baseUrl"))):
+            raise SessionError(
+                f"--local-model {value}: {provider} does not serve from a loopback endpoint"
+            )
+        models.append({**template, "id": model_id, "name": model_id})
+    return catalog
 
 
 def catalog_scope(catalog, config, local=False, excluded=()):
@@ -532,7 +565,11 @@ def credentials(config, manifest, home, *, include_tools=False):
         raise SessionError(
             "Configure modelsJson or modelsJsonFile with explicit model definitions before starting alamode"
         )
-    catalog = read_json(expand(catalog_path, home))
+    catalog = admit_local_models(
+        read_json(expand(catalog_path, home)),
+        config,
+        manifest["policy"].get("local_models", []),
+    )
     _, digest = catalog_scope(
         catalog,
         config,
@@ -1634,7 +1671,11 @@ def main(argv=None):
         identity = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(4)
         grants = policy(options, config, home)
         if config["catalogFile"]:
-            catalog = read_json(expand(config["catalogFile"], home))
+            catalog = admit_local_models(
+                read_json(expand(config["catalogFile"], home)),
+                config,
+                grants["local_models"],
+            )
             before, _ = catalog_scope(catalog, config, grants["local"])
             grants["allowed_models"], grants["catalog_scope"] = catalog_scope(
                 catalog, config, grants["local"], grants["excluded_providers"]
