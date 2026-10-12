@@ -292,6 +292,12 @@ in
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
+    # z.ai Coding Plan key, resolved as ZAI_API_KEY for alamode_models_json's
+    # zai provider. Goes with that provider when the plan lapses.
+    zai_api_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   # Password script for mbsync, one case per account in
