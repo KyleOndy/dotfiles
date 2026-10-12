@@ -677,7 +677,8 @@ def safe_clear(root, relative):
 # State under the per-session agent directory that a previous run of this
 # same session could have planted for its own resume: pi loads mcp.json,
 # mcp-auth.json, trust.json and models-store.json with no trust decision, and
-# its in-process guards load secret-guard.json (docs/pi-sandbox-audit.md,
+# its in-process guards load secret-guard.json and verify.json, merging the
+# agent directory's copy first on every operation (docs/pi-sandbox-audit.md,
 # findings 1-6). SYSTEM.md, APPEND_SYSTEM.md and the AGENTS.md/CLAUDE.md
 # alternates replace or extend the system prompt and user instructions the
 # same way, prompts/ adds slash commands a human can run from a resumed TUI,
@@ -698,6 +699,7 @@ PLANTED_AGENT_NAMES = (
     "trust.json",
     "models-store.json",
     "secret-guard.json",
+    "verify.json",
     "extensions",
     "agents",
     "themes",
@@ -881,6 +883,16 @@ def sandbox_policy(config, manifest, runtime, relay_port):
     workspace = Path(manifest["workspace"]["workspace"])
     write_denied += [
         cased_deny(root, workspace / ".pi" / name)
+        for name in ("secret-guard.json", "verify.json")
+    ]
+    # The same guards merge agentDir()/secret-guard.json and verify.json
+    # ahead of the workspace copies, re-reading them on every operation, so
+    # a live write to the agent directory's copy switches a guard off in the
+    # same session; the bash scanner that also refuses these names is
+    # bypassable by design (runtime-assembled filenames, non-bash writers),
+    # so the OS deny is the boundary.
+    write_denied += [
+        cased_deny(root, runtime / "agent" / name)
         for name in ("secret-guard.json", "verify.json")
     ]
     # pi prepends the agent bin dir to every child PATH and checks it before

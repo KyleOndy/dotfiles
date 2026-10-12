@@ -801,6 +801,12 @@ class PolicyTests(unittest.TestCase):
         expected = {
             session.cased_deny(self.work, workspace / ".pi" / "secret-guard.json"),
             session.cased_deny(self.work, workspace / ".pi" / "verify.json"),
+            session.cased_deny(
+                self.work, self.work / "runtime" / "agent" / "secret-guard.json"
+            ),
+            session.cased_deny(
+                self.work, self.work / "runtime" / "agent" / "verify.json"
+            ),
             session.cased_deny(self.work, self.work / "runtime" / "agent" / "bin"),
             session.cased_deny(self.work, self.work / "runtime" / "agent" / "npm"),
         }
@@ -816,6 +822,10 @@ class PolicyTests(unittest.TestCase):
             for dot_pi in (".pi", ".PI", ".Pi"):
                 for worktree in ("worktree", "Worktree"):
                     variants.append(self.work / worktree / dot_pi / name)
+        for name in ("secret-guard.json", "verify.json"):
+            for runtime in ("runtime", "Runtime"):
+                for agent in ("agent", "Agent"):
+                    variants.append(self.work / runtime / agent / name)
         for agent_bin in ("bin", "BIN", "Bin"):
             for runtime in ("runtime", "Runtime"):
                 for agent in ("agent", "Agent"):
@@ -987,6 +997,7 @@ class PolicyTests(unittest.TestCase):
             "trust.json",
             "models-store.json",
             "secret-guard.json",
+            "verify.json",
         ):
             (agent / name).write_text("{}")
         # Prompt and instruction files pi loads with no trust decision.
@@ -1034,6 +1045,7 @@ class PolicyTests(unittest.TestCase):
             "trust.json",
             "models-store.json",
             "secret-guard.json",
+            "verify.json",
             "extensions",
             "themes",
             "bin",
@@ -1506,6 +1518,7 @@ agent=os.environ["PI_CODING_AGENT_DIR"]
 pathlib.Path(".pi").mkdir(exist_ok=True)
 r["agent_guard"]=writable(os.path.join(agent,"secret-guard.json"))
 r["agent_guard_variant"]=writable(os.path.join(agent,"SECRET-GUARD.json"))
+r["agent_verify"]=writable(os.path.join(agent,"verify.json"))
 r["agent_bin"]=writable(os.path.join(agent,"bin","probe"))
 r["agent_bin_variant"]=writable(os.path.join(agent,"BIN","probe"))
 r["project_guard"]=writable(".pi/secret-guard.json")
@@ -1557,6 +1570,7 @@ print(json.dumps(r))
                     {
                         "agent_guard": False,
                         "agent_guard_variant": False,
+                        "agent_verify": False,
                         "agent_bin": False,
                         "agent_bin_variant": False,
                         "project_guard": False,
