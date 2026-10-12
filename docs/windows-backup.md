@@ -59,9 +59,9 @@ All in `nix/hosts/tiger/configuration.nix`:
   at `/mnt/backups/<dir>/<Folder>`, with folder ID `<dir>-<folder>`. Global
   discovery, local discovery, relays and NAT traversal are off, so it only
   ever talks to the laptop, and only on the LAN. 22000 is open on `enp10s0`.
-- **`windowsBackupIgnores`** - what stays on the laptop: `AppData`, the
-  registry hive, `OneDrive`, Dropbox's and Cricut's caches, Cricut's
-  installer, and lock and temp files. The
+- **`windowsBackupIgnores`** - what stays on the laptop: `AppData` except
+  the browser state below, the registry hive, `OneDrive`, Dropbox's and
+  Cricut's caches, Cricut's installer, and lock and temp files. The
   laptop's `.stignore` must hold the same lines. `.stignore` never syncs
   ([ignoring](https://docs.syncthing.net/v2.0.0/users/ignoring.html#description)),
   and a send-only folder sends whatever its own ignores allow, so tiger's
@@ -71,6 +71,19 @@ All in `nix/hosts/tiger/configuration.nix`:
   whether tiger has nothing left to pull. On a yes it touches
   `/var/lib/win-backup-exporter/<dir>`, and it publishes that file's mtime as
   `windows_backup_last_success_timestamp_seconds`.
+
+The browser state that does sync, out of `AppData`: for Chrome and Edge,
+`Local State` and per profile the bookmarks, history, favicons, saved
+logins, preferences, shortcuts, top sites and web data; for Firefox, the
+whole profile. About 0.3 GB. Caches and Chrome's 4 GB on-device model stay
+on the laptop. Chrome and Edge hold some of those files open while running,
+so a scan can fail on one until the browser closes. Saved logins are
+encrypted to her Windows account, so a restore on another machine gets the
+file but not the passwords. The first matching line wins and a negated line
+also frees everything below its path
+([ignoring](https://docs.syncthing.net/v2.0.0/users/ignoring.html#description)),
+so `nix/hosts/tiger/configuration.nix` writes the `AppData` rules deepest
+directory first: free the kept children, then ignore the rest of that level.
 
 Receive-only is the guarantee that nothing flows back. A receive-only folder
 never sends its own changes

@@ -39,12 +39,70 @@ let
       }) m.folders
     ) windowsBackupDirs
   );
+  # Browser state kept out of AppData, as paths below it: bookmarks, history,
+  # saved logins, settings. Caches and the browsers' downloaded models stay
+  # on the laptop. Chrome and Edge hold some of these open while running, so
+  # a scan can fail on one until the browser closes.
+  chromiumProfileFiles = [
+    "Bookmarks"
+    "Favicons"
+    "History"
+    "Login Data"
+    "Preferences"
+    "Secure Preferences"
+    "Shortcuts"
+    "Top Sites"
+    "Web Data"
+  ];
+  chromiumKeep =
+    base:
+    [ "${base}/Local State" ]
+    ++ lib.concatMap (profile: map (file: "${base}/${profile}/${file}") chromiumProfileFiles) [
+      "Default"
+      "Profile *"
+    ];
+  appDataKeepFiles =
+    chromiumKeep "Local/Google/Chrome/User Data"
+    ++ chromiumKeep "Local/Microsoft/Edge/User Data"
+    ++ [ "Roaming/Mozilla/Firefox/profiles.ini" ];
+  appDataKeepDirs = [ "Roaming/Mozilla/Firefox/Profiles" ];
+  # A negated line un-ignores its path and everything below it, and the first
+  # matching line wins. So the rules run deepest directory first: at each
+  # level, un-ignore the kept children, then ignore the rest of that level.
+  # Every ancestor of a kept path is a child of the level above and stays
+  # un-ignored there. Verified against Syncthing's matcher at v2.1.6.
+  appDataKeepAll = appDataKeepFiles ++ appDataKeepDirs;
+  ancestors =
+    path:
+    let
+      parts = lib.splitString "/" path;
+    in
+    map (n: lib.concatStringsSep "/" (lib.take n parts)) (lib.range 1 (lib.length parts - 1));
+  parentOf = path: lib.concatStringsSep "/" (lib.init (lib.splitString "/" path));
+  depthOf = path: lib.length (lib.splitString "/" path);
+  appDataLevels =
+    lib.sort (a: b: depthOf a > depthOf b) (lib.unique (lib.concatMap ancestors appDataKeepAll))
+    ++ [ "" ];
+  appDataRules =
+    level:
+    let
+      at = if level == "" then "/AppData" else "/AppData/${level}";
+    in
+    map (child: "(?i)!/AppData/${child}") (
+      lib.unique (
+        lib.filter (child: parentOf child == level) (
+          appDataKeepAll ++ lib.concatMap ancestors appDataKeepAll
+        )
+      )
+    )
+    ++ [ "(?i)${at}/*" ];
+  appDataIgnores = lib.concatMap appDataRules appDataLevels;
+
   # The laptop's .stignore must hold the same lines, since .stignore never
   # syncs and a send-only folder sends whatever its own ignores allow. (?i)
   # because tiger matches case-sensitively and Windows does not.
   windowsBackupIgnores = [
-    # Caches and app state, and the registry hive, locked while she is logged in.
-    "(?i)/AppData"
+    # The registry hive, locked while she is logged in.
     "(?i)/NTUSER.DAT*"
     "(?i)/ntuser.ini"
     # Cloud placeholders: reading one downloads it, or fails while OneDrive
@@ -60,7 +118,9 @@ let
     "(?i)*.crdownload"
     "(?i)*.partial"
     "(?i)Thumbs.db"
-  ];
+  ]
+  # Caches and app state, less the browser state above.
+  ++ appDataIgnores;
 
   # Local Alertmanager endpoint; NUT pushes UPS events here so they email out
   # the same way as every other monitoring alert.
