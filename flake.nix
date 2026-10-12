@@ -35,6 +35,12 @@
       # packages installed via nix-darwin use my nixpkgs
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # The darwin hosts' Linux builder. Its VM image is an aarch64-linux
+    # build, so a host with no Linux builder yet cannot build it.
+    nix-rosetta-builder = {
+      url = "github:cpick/nix-rosetta-builder";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     pre-commit-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -329,6 +335,7 @@
               inputs.home-manager.darwinModules.home-manager
               inputs.work-config.darwinModule
               inputs.sops-nix.darwinModules.sops
+              inputs.nix-rosetta-builder.darwinModules.default
             ]
             ++ includeModules
             ++ [

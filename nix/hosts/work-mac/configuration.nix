@@ -15,6 +15,14 @@ in
 {
   imports = [ ];
 
+  # Upstream sets the builder's maxJobs to its cores, and on trex 8 jobs
+  # each taking all 8 cores thrashed 12 GiB. Four jobs at 3 GiB each, out of
+  # 48 GiB and held only while the VM is up.
+  nix-rosetta-builder = {
+    cores = 4;
+    memory = "12GiB";
+  };
+
   # Covers the system profile only. home-manager generations live in
   # ~/.local/state/nix/profiles, which home.nix collects on its own.
   nix.gc = {

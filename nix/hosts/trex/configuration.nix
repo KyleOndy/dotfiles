@@ -34,9 +34,7 @@ in
   # conflicts with nix-darwin's native Nix management:
   #   error: Determinate detected, aborting activation
   # Adopt Determinate's own nix-darwin module (flake input `determinate`)
-  # rather than a bare `nix.enable = false;`, so we also get its
-  # Determinate-compatible local Linux builder below -- nix-darwin's own
-  # nix.linux-builder doesn't work once nix-darwin stops managing Nix.
+  # rather than a bare `nix.enable = false;`.
   # https://docs.determinate.systems/guides/nix-darwin/
   determinateNix = {
     enable = true; # also forces nix.enable = false for us
@@ -46,16 +44,18 @@ in
     # reads these only at start: `make deploy-trex` restarts it when they
     # change, and a bare `darwin-rebuild switch` leaves the old ones running.
     #
-    # Plain settings, not extra-: nixosVmBasedLinuxBuilder below adds plain
-    # `substituters` and `trusted-public-keys` for cache.nixos.org, the file
-    # is written with sorted keys, and a plain line after an extra- one
-    # replaces it. Those module entries are also what keep cache.nixos.org
-    # in both lists.
+    # A plain `substituters` replaces Nix's built-in cache.nixos.org, so
+    # both lists carry it too.
     customSettings = {
-      substituters = [ "https://cache.numtide.com" ];
+      substituters = [
+        "https://cache.numtide.com"
+        "https://cache.nixos.org/"
+      ];
       trusted-public-keys = [
         "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
+        "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
       ];
+      builders-use-substitutes = true;
       # Determinate's module defaults this to false, which leaves a build
       # unconfined as _nixbld with the whole network, including one a pi
       # session started under --allow-nix. Fixed-output builds keep the
@@ -63,58 +63,34 @@ in
       sandbox = true;
     };
 
-    # Local NixOS VM (QEMU with hvf acceleration, so native aarch64 speed)
-    # that builds Linux derivations. Determinate's replacement for
-    # nix-darwin's own nix.linux-builder, which asserts `requires nix.enable`
-    # once Determinate owns Nix (nix-darwin/nix-darwin#1505).
-    nixosVmBasedLinuxBuilder = {
-      enable = true;
+    distributedBuilds = true;
 
-      # Upstream defaults are 1 vCPU, 3 GiB RAM and a 20 GiB disk, which
-      # leaves 9 of trex's 10 cores idle during a Linux build. trex has 32
-      # GiB; leave macOS the rest.
-      #
-      # The qcow2 is attached without discard, so it only ever grows toward
-      # diskSize and never shrinks. 40 GiB is the cap on real disk this can
-      # cost. The GC thresholds are raised off their 1/3 GiB defaults to
-      # match: reclaim below 8 GiB free, stop at 20 GiB, which keeps a
-      # closure build from wedging and holds the high-water mark down.
-      config = {
-        virtualisation.cores = 8;
-        virtualisation.darwin-builder = {
-          memorySize = 12 * 1024;
-          diskSize = 40 * 1024;
-          min-free = 8 * 1024 * 1024 * 1024;
-          max-free = 20 * 1024 * 1024 * 1024;
-        };
-      };
-
-      # maxJobs defaults to virtualisation.cores, and 8 derivations each
-      # taking all 8 cores thrashes 12 GiB. Four at a time, all cores each.
-      maxJobs = 4;
-
-      # Outrank tiger for aarch64-linux. Same zstd derivation, both boxes
-      # idle: 21s here, 284s on tiger, which has to emulate aarch64 through
-      # binfmt qemu. speedFactor only orders machines that can build a given
-      # system, so this decides aarch64 and leaves x86_64 alone.
-      speedFactor = 10;
-
-      # The VM's store is a read-only store.img of its own closure, rebuilt
-      # on every start, under the qcow2 that holds the Nix DB. Once the
-      # closure changes, the DB still lists paths the new image lacks, and
-      # any build that needs one fails:
-      #   getting attributes of path "/nix/store/...-attr-2.5.2": No such
-      #   file or directory
-      # Wiping the qcow2 on every start costs the VM's build cache.
-      ephemeral = true;
-    };
-
-    # tiger is the only x86_64-linux builder, and at 23s for that same zstd
-    # it is not the slow one: emulation is, costing it 12.3x. It keeps
-    # aarch64-linux only as a fallback for when the local VM is down, at a
-    # speedFactor the VM always beats. The short ConnectTimeout in
-    # root-ssh-config.nix keeps that failover fast instead of hanging.
     buildMachines = [
+      # nix-rosetta-builder's own entry is in nix.buildMachines, which
+      # nix-darwin writes only while it manages Nix. Its ssh_config.d entry
+      # supplies the user, key and host key. aarch64-linux only: the VM
+      # could take x86_64-linux under Rosetta, but tiger builds that
+      # natively, without booting the VM.
+      {
+        hostName = "rosetta-builder";
+        protocol = "ssh-ng";
+        systems = [ "aarch64-linux" ];
+        # 8 derivations each taking all 8 cores thrashes 12 GiB.
+        maxJobs = 4;
+        # Outrank tiger, which emulates aarch64 at 12.3x the cost.
+        speedFactor = 10;
+        supportedFeatures = [
+          "benchmark"
+          "big-parallel"
+          "kvm"
+          "nixos-test"
+        ];
+      }
+      # tiger is the only x86_64-linux builder, and at 23s for that same
+      # zstd it is not the slow one: emulation is, costing it 12.3x. It
+      # keeps aarch64-linux only as a fallback for when the local VM is
+      # down, at a speedFactor the VM always beats. The short ConnectTimeout
+      # in root-ssh-config.nix keeps that failover fast instead of hanging.
       {
         hostName = "tiger.dmz.1ella.com";
         sshUser = "svc.nixbuild";
@@ -132,11 +108,12 @@ in
     ];
   };
 
-  # nix-darwin's own nix.linux-builder, nix.gc and nix.optimise (all turned
-  # on for every darwin host in nix/modules/darwin_modules/base.nix) are
-  # separate from determinateNix.nixosVmBasedLinuxBuilder above and assert
-  # `requires nix.enable` on their own.
-  nix.linux-builder.enable = lib.mkForce false;
+  # Of trex's 32 GiB, held only while the builder VM is up.
+  nix-rosetta-builder.memory = "12GiB";
+
+  # nix-darwin's nix.gc and nix.optimise (both turned on for every darwin
+  # host in nix/modules/darwin_modules/base.nix) assert `requires
+  # nix.enable`.
   nix.gc.automatic = lib.mkForce false;
   nix.optimise.automatic = lib.mkForce false;
 

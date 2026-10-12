@@ -5,18 +5,17 @@
   ...
 }:
 {
-  # trex replaces this with its own builder (nix/hosts/trex/configuration.nix)
-  # and sizes it the same way.
-  nix.linux-builder = {
-    enable = true;
-    # The stock 20 GiB disk with GC between 1 and 3 GiB free cannot fit
-    # forge's disk image build. The qcow2 only grows toward diskSize and is
-    # sized once, when missing, so a new diskSize needs it deleted.
-    config.virtualisation.darwin-builder = {
-      diskSize = 40 * 1024;
-      min-free = 8 * 1024 * 1024 * 1024;
-      max-free = 20 * 1024 * 1024 * 1024;
-    };
+  # The Linux builder VM. launchd holds its ssh port and boots it on the
+  # first build; it powers off after onDemandLingerMinutes without one, so
+  # it holds no RAM between builds. A changed setting here recreates the VM,
+  # store included. trex registers it with Determinate's daemon itself
+  # (nix/hosts/trex/configuration.nix).
+  nix-rosetta-builder = {
+    onDemand = true;
+    onDemandLingerMinutes = 5;
+    # Sparse, so this caps the real disk the guest store can take. The
+    # guest collects garbage below 5 GiB free.
+    diskSize = "40GiB";
   };
 
   nix = {

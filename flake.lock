@@ -497,6 +497,26 @@
         "type": "github"
       }
     },
+    "nix-rosetta-builder": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1770491098,
+        "narHash": "sha256-ZfhynJqgV3A9hEivcgOEZa+TZnJPc26lIUjzKsSchgI=",
+        "owner": "cpick",
+        "repo": "nix-rosetta-builder",
+        "rev": "50e6070082e0b4fbaf67dd8f346892a1a9ed685c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cpick",
+        "repo": "nix-rosetta-builder",
+        "type": "github"
+      }
+    },
     "nixCats": {
       "locked": {
         "lastModified": 1787720571,
@@ -819,6 +839,7 @@
         "home-manager": "home-manager",
         "llm-agents": "llm-agents",
         "nix-darwin": "nix-darwin",
+        "nix-rosetta-builder": "nix-rosetta-builder",
         "nixCats": "nixCats",
         "nixos-lima": "nixos-lima",
         "nixos-raspberrypi": "nixos-raspberrypi",
