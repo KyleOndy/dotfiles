@@ -334,6 +334,44 @@ class WorkspaceTests(unittest.TestCase):
             [".agents/skills/y.md", ".claude/rules/x.md", "AGENTS.md", "CLAUDE.md"],
         )
 
+    def test_source_head_refuses_planted_symlinks(self):
+        # _source_head also resolves a session's private storage on export,
+        # a directory the session itself can write. A planted symlink must
+        # be refused rather than followed: reading through it would turn a
+        # host-side read into a read of an arbitrary file outside the root.
+        elsewhere = self.root / "elsewhere"
+        elsewhere.write_text("not a ref\n")
+        own = self.source / ".git"
+
+        head = own / "HEAD"
+        head.unlink()
+        head.symlink_to(elsewhere)
+        with self.assertRaisesRegex(workspace.WorkspaceError, "symlink"):
+            workspace._source_head(own, own)
+        head.unlink()
+        head.write_text("ref: refs/heads/main\n")
+
+        ref = own / "refs" / "heads" / "main"
+        ref.unlink()
+        ref.symlink_to(elsewhere)
+        with self.assertRaisesRegex(workspace.WorkspaceError, "symlink"):
+            workspace._source_head(own, own)
+        ref.unlink()
+        ref.write_text(self.base + "\n")
+
+        # A missing loose ref falls back to packed-refs, which is refused as
+        # a symlink too, not read through.
+        subprocess.run(
+            [workspace.GIT, "-C", str(self.source), "pack-refs", "--all"],
+            env=self.env,
+            check=True,
+        )
+        packed = own / "packed-refs"
+        packed.unlink()
+        packed.symlink_to(elsewhere)
+        with self.assertRaisesRegex(workspace.WorkspaceError, "symlink"):
+            workspace._source_head(own, own)
+
     def test_intermediate_protected_change_is_rejected(self):
         manifest = self.create()
         work = Path(manifest["workspace"])

@@ -50,12 +50,17 @@ alamode sessions export ID  # a verified review bundle
 ```
 
 Resume restores the recorded grants and workspace. Start a new session to
-change authority. Runtime or provider-route changes require a new session;
-the error identifies the mismatch. Provider credentials may rotate.
+change authority. Resume also needs the runtime build that recorded the
+session: a rebuild invalidates it, and the error names the recorded build
+and the export command that still works. Provider credentials may rotate.
 
-Export requires committed changes and a stopped session. It prints a
-verified, standalone bundle and ref. Review that bundle before integrating
-it into the human repository. Export never changes the human branch.
+Export requires committed changes and a stopped session. It is data-only:
+the session's private Git storage is sealed host-side through the same
+admission that reviews every proposal, nothing in the session executes,
+and no runtime build is consulted, so a rebuild between launches cannot
+strand committed work. It prints a verified, standalone bundle and ref.
+Review that bundle before integrating it into the human repository. Export
+never changes the human branch.
 
 ## The coordinator
 

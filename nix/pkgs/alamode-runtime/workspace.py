@@ -195,8 +195,19 @@ def _source_metadata(source):
     return own, common, objects
 
 
+def _read_ref(root, relative, limit=1024):
+    # Refs are read with O_NOFOLLOW and symlinks are refused: the same
+    # reader resolves a session's private storage on export, a directory
+    # the session itself can write, and a followed symlink there would turn
+    # a host-side read into a read of an arbitrary file outside it.
+    mode, content = _read_entry(root, relative, limit)
+    if mode == "120000":
+        raise WorkspaceError(f"Ref must not be a symlink: {relative}")
+    return content.decode(errors="replace").strip()
+
+
 def _source_head(own, common):
-    value = (own / "HEAD").read_text().strip()
+    value = _read_ref(own, "HEAD")
     for _ in range(8):
         if OID.fullmatch(value):
             return value
@@ -205,12 +216,13 @@ def _source_head(own, common):
         ref = value[5:]
         _parts(ref)
         try:
-            _, content = _read_entry(common, ref, 1024)
-            value = content.decode().strip()
+            value = _read_ref(common, ref)
         except FileNotFoundError:
             packed = common / "packed-refs"
             if packed.exists():
-                for line in packed.read_text().splitlines():
+                for line in _read_ref(
+                    common, "packed-refs", MAX_FILE_BYTES
+                ).splitlines():
                     if line.endswith(" " + ref) and OID.fullmatch(
                         line.split(" ", 1)[0]
                     ):

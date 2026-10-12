@@ -293,6 +293,21 @@ def refuse_grant_changes(options, config):
         )
 
 
+def require_recorded_runtime(manifest, configuration_path):
+    # Resume re-admits the session through this build: grants, admission and
+    # the sandbox all come from the running wrapper, so a session recorded
+    # by another runtime must not be re-admitted by this one. Export is
+    # data-only (see export_session) and never consults the recorded
+    # configuration, which is why the message names the way out rather
+    # than the dead end.
+    if manifest["configuration"] != configuration_path:
+        raise SessionError(
+            "Session was created by a different runtime; resume needs its recorded "
+            f"build ({manifest['configuration']}). Export the commits with "
+            f"`alamode sessions export {manifest['id']}` and start a new session."
+        )
+
+
 def policy(options, config, home):
     # --local drops the host's network defaults, which nobody asked for at
     # this launch, and refuses a flag that asks for the network alongside
@@ -1216,34 +1231,63 @@ def execute(config, manifest, arguments, environment, runtime, relay_port=0):
                     process.wait()
 
 
-def export_session(config, manifest, home):
-    root = Path(manifest["workspace"]["session_root"])
-    runtime = root / "runtime"
+def export_session(manifest):
+    """Seal a session's committed work out of private storage, host-side.
+
+    Extraction is data-only, so it cannot depend on the runtime that
+    recorded the session: the wrapper is rebuilt between launches as a
+    matter of course, and a rebuild must never strand committed work.
+    Nothing from the session executes on the way out either: the
+    session's HEAD is read by the no-symlink ref reader, a fresh staging
+    repo with its own trusted config reaches the session's objects only
+    through the alternate-object environment, the sealed bundle lands in
+    the session root through the no-symlink writer, and admission
+    re-verifies it (ancestry from the recorded base, commit bounds,
+    protected and trust-gated content) exactly as it reviews every other
+    proposal.
+    """
+    root = trusted_layout(manifest)
+    session_workspace = manifest["workspace"]
+    base = session_workspace["snapshot_commit"]
+    bare = Path(session_workspace["common_dir"])
+    tip = workspace._source_head(bare, bare)
     identity = secrets.token_hex(12)
-    bundle = runtime / ("export-" + identity + ".bundle")
-    tip_file = "runtime/export-" + identity + ".tip"
-    base = manifest["workspace"]["snapshot_commit"]
-    command = (
-        "git bundle create "
-        + shlex.quote(str(bundle))
-        + " HEAD ^"
-        + base
-        + " && git rev-parse HEAD > "
-        + shlex.quote(str(root / tip_file))
-    )
-    environment = child_environment(config, manifest, home, runtime)
-    code = execute(
-        config, manifest, [config["shell"], "-c", command], environment, runtime
-    )
-    if code:
-        raise SessionError(
-            "Export failed; commit changes inside the session before exporting"
+    exports = directory(Path(session_workspace["record_root"]) / "exports")
+    staging = exports / (identity + "-staging.git")
+    try:
+        workspace._init_bare(staging, base)
+        alternates = {"GIT_ALTERNATE_OBJECT_DIRECTORIES": str(bare / "objects")}
+        workspace._git(
+            staging, "update-ref", "refs/heads/alamode-export", tip, extra=alternates
         )
-    tip = safe_read(root, tip_file, limit=128).decode().strip()
-    exports = directory(Path(manifest["workspace"]["record_root"]) / "exports")
-    admitted = workspace.admit_bundle(
-        manifest["workspace"], bundle, exports / identity, tip, identity
-    )
+        workspace._git(staging, "symbolic-ref", "HEAD", "refs/heads/alamode-export")
+        sealed = staging / "sealed.bundle"
+        try:
+            workspace._git(
+                staging,
+                "bundle",
+                "create",
+                str(sealed),
+                "HEAD",
+                "^" + base,
+                extra=alternates,
+            )
+        except workspace.WorkspaceError as error:
+            # The git detail goes to stderr as the sandboxed child's output
+            # once did; the refusal the caller sees stays the same words.
+            print(f"alamode: {error}", file=sys.stderr)
+            raise SessionError(
+                "Export failed; commit changes inside the session before exporting"
+            ) from None
+        if sealed.stat().st_size > workspace.MAX_BUNDLE_BYTES:
+            raise SessionError("Exported history exceeds the bundle size limit")
+        bundle = root / "runtime" / ("export-" + identity + ".bundle")
+        safe_write(root, "runtime/export-" + identity + ".bundle", sealed.read_bytes())
+        admitted = workspace.admit_bundle(
+            session_workspace, bundle, exports / identity, tip, identity
+        )
+    finally:
+        shutil.rmtree(staging, ignore_errors=True)
     reference = "refs/review/" + identity
     exported = Path(admitted["quarantine"]) / "export.bundle"
     workspace._git(
@@ -1518,10 +1562,10 @@ def main(argv=None):
             raise SessionError("Invalid session ID")
         manifest_path = records / identity / "manifest.json"
         manifest = read_json(manifest_path)
-        if manifest["configuration"] != configuration_path:
-            raise SessionError(
-                "Session was created by a different runtime; use its recorded launcher or start a new session"
-            )
+        if resume_id:
+            # Resume re-admits this session through the current build; export
+            # is data-only and takes the same manifest from any build.
+            require_recorded_runtime(manifest, configuration_path)
     else:
         identity = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(4)
         grants = policy(options, config, home)
@@ -1577,7 +1621,7 @@ def main(argv=None):
         except BlockingIOError as error:
             raise SessionError("This session is already running") from error
         if export_id:
-            return export_session(config, manifest, home)
+            return export_session(manifest)
         if manifest.get("coordinator_id"):
             coordinator(config, manifest, control, executable)
             write_json(manifest_path, manifest)

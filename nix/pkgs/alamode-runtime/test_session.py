@@ -367,8 +367,6 @@ class PolicyTests(unittest.TestCase):
             session.credentials(self.config, self.manifest, self.root)
 
     def test_export_admits_repeated_self_contained_bundles(self):
-        import shlex
-
         source = self.root / "source"
         source.mkdir()
         git_env = session.workspace._environment()
@@ -403,10 +401,14 @@ class PolicyTests(unittest.TestCase):
             "fixture",
             record_root=self.records / "export-fixture",
         )
-        manifest = {**self.manifest, "workspace": metadata}
-        runtime = session.prepare(
-            self.config, manifest, type("Relay", (), {"catalog": {"providers": {}}})()
-        )
+        # A rebuilt runtime is the normal reason an old session needs
+        # exporting, so the manifest names a configuration path that never
+        # exists: extraction must not consult the runtime that recorded it.
+        manifest = {
+            **self.manifest,
+            "workspace": metadata,
+            "configuration": str(self.root / "a-rebuilt-runtime.json"),
+        }
         work = Path(metadata["workspace"])
         (work / "agent").write_text("agent change")
         git(work, "add", "agent")
@@ -421,44 +423,27 @@ class PolicyTests(unittest.TestCase):
             "Agent fixture",
         )
         tip = git(work, "rev-parse", "HEAD").stdout.strip()
-        proposal = self.root / "proposal.bundle"
-        git(
-            work,
-            "bundle",
-            "create",
-            str(proposal),
-            "HEAD",
-            "^" + metadata["snapshot_commit"],
-        )
         canary = self.root / "outside-git-executed"
         with (Path(metadata["common_dir"]) / "config").open("a") as stream:
             stream.write(f"\n[core]\n fsmonitor = touch {canary}\n")
 
-        def contained(_config, _manifest, arguments, environment, _runtime):
-            self.assertEqual(_runtime, runtime)
-            self.assertEqual(environment["GIT_CONFIG_VALUE_0"], "/dev/null")
-            command = shlex.split(arguments[-1])
-            shutil.copyfile(proposal, command[3])
-            Path(command[-1]).write_text(tip + "\n")
-            return 0
-
         original_git = session.workspace._git
 
         def trusted_git(directory, *args, **kwargs):
+            # Sealing and admission run trusted git only on fresh repos under
+            # the record root; the session's own Git storage is read by the
+            # no-symlink ref reader and never executed. The neutralizations
+            # travel inside _git itself; the fsmonitor canary below is the
+            # behavioral proof no session config is ever honored.
             self.assertNotIn(Path(metadata["session_root"]), Path(directory).parents)
             return original_git(directory, *args, **kwargs)
 
         exports = []
-        with (
-            patch.object(session, "execute", side_effect=contained),
-            patch.object(session.workspace, "_git", side_effect=trusted_git),
-        ):
+        with patch.object(session.workspace, "_git", side_effect=trusted_git):
             for _ in range(2):
                 output = io.StringIO()
                 with redirect_stdout(output):
-                    self.assertEqual(
-                        session.export_session(self.config, manifest, self.root), 0
-                    )
+                    self.assertEqual(session.export_session(manifest), 0)
                 exports.append(json.loads(output.getvalue()))
         self.assertNotEqual(exports[0]["bundle"], exports[1]["bundle"])
         # Context files ride admission as a recorded warning, not a refusal.
@@ -479,6 +464,109 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(git(source, "rev-parse", "HEAD").stdout.strip(), source_head)
         self.assertEqual((source / "initial").read_text(), "authorized dirty snapshot")
         self.assertFalse(canary.exists())
+
+    def sealed_session(self, name):
+        """A session workspace with one agent commit on top of its snapshot."""
+        source = self.root / (name + "-source")
+        source.mkdir()
+        git_env = session.workspace._environment()
+
+        def git(where, *args):
+            return subprocess.run(
+                [session.workspace.GIT, "-C", str(where), *args],
+                env=git_env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+        git(source, "init", "-q", "-b", "main")
+        (source / "file").write_text("base\n")
+        git(source, "add", ".")
+        git(
+            source,
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "Base",
+        )
+        metadata = session.workspace.create(
+            source,
+            self.root / (name + "-session"),
+            "fixture",
+            record_root=self.records / (name + "-records"),
+        )
+        work = Path(metadata["workspace"])
+        (work / "file").write_text("agent change\n")
+        git(work, "add", ".")
+        git(
+            work,
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "Agent change",
+        )
+        manifest = {
+            **self.manifest,
+            "workspace": metadata,
+            "configuration": str(self.root / "a-rebuilt-runtime.json"),
+        }
+        return manifest, git(work, "rev-parse", "HEAD").stdout.strip()
+
+    def test_resume_names_the_recorded_runtime_and_export_does_not(self):
+        manifest = {
+            **self.manifest,
+            "id": "fixture-runtime",
+            "configuration": str(self.root / "old-runtime.json"),
+        }
+        # A matching build re-admits the session without comment.
+        session.require_recorded_runtime(manifest, str(self.root / "old-runtime.json"))
+        with self.assertRaisesRegex(
+            session.SessionError, "different runtime"
+        ) as raised:
+            session.require_recorded_runtime(
+                manifest, str(self.root / "new-runtime.json")
+            )
+        # The refusal names the recorded build and the export that still
+        # works, so the dead end carries its own way out.
+        message = str(raised.exception)
+        self.assertIn("old-runtime.json", message)
+        self.assertIn("sessions export fixture-runtime", message)
+
+    def test_export_refuses_when_nothing_is_committed(self):
+        manifest, _tip = self.sealed_session("export-empty")
+        work = Path(manifest["workspace"]["workspace"])
+        subprocess.run(
+            [
+                session.workspace.GIT,
+                "-C",
+                str(work),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "reset",
+                "--hard",
+                "-q",
+                manifest["workspace"]["snapshot_commit"],
+            ],
+            env=session.workspace._environment(),
+            check=True,
+        )
+        with self.assertRaisesRegex(session.SessionError, "commit changes"):
+            session.export_session(manifest)
+
+    def test_export_refuses_a_replaced_session_root(self):
+        manifest, _tip = self.sealed_session("export-replaced")
+        session_root = Path(manifest["workspace"]["session_root"])
+        session_root.rename(self.root / "stolen-session")
+        session_root.mkdir(mode=0o700)
+        with self.assertRaisesRegex(session.SessionError, "replaced"):
+            session.export_session(manifest)
 
     def test_admission_refuses_planted_guard_config_casings(self):
         source = self.root / "guard-source"
