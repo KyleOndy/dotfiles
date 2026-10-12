@@ -257,8 +257,10 @@ let
       fi
 
       # In the namespace for the same reason getSignature is: bindPort only
-      # authorizes callers arriving through the tunnel.
-      resp=$(ip netns exec "${cfg.namespace}" curl -Gs -m 5 \
+      # authorizes callers arriving through the tunnel. The retries absorb a
+      # single slow answer, which otherwise fails the unit until the next
+      # timer run.
+      resp=$(ip netns exec "${cfg.namespace}" curl -Gs -m 5 --retry 2 \
         --connect-to "$hostname::$gateway:" \
         --cacert "${piaCaCert}" \
         --data-urlencode "payload=$payload" \
