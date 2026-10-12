@@ -15,11 +15,12 @@ filtered file fails loudly, which is the intended signal: committing
 ciphertext-bearing files is a decision for the human, outside the
 sandbox.
 
-The deny keeps the key, not today's secrets. The checkout is decrypted,
-so every filtered file in this worktree (`mail/ondy.org.sieve` among
-them) is plaintext on disk and readable either way. What the key adds is
-every past version, and every commit pushed after this session ends,
-since git-crypt has no way to rotate it.
+The deny keeps the key, not today's secrets. The session checkout omits
+protected paths entirely (sparse checkout), so neither their plaintext nor
+their ciphertext is present in this worktree; today's untracked secrets are
+secret-guard's business, not the key's. What the key adds is every past
+version, and every commit pushed after this session ends, since git-crypt
+has no way to rotate it.
 
 With this grant, treat the key as read. Anything that runs in this
 session, and anything it writes anywhere, may already hold the master

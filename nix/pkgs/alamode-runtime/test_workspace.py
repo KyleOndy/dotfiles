@@ -254,6 +254,86 @@ class WorkspaceTests(unittest.TestCase):
         self.assertFalse(marker.exists())
         self.assertTrue(Path(admitted["bundle"]).is_file())
 
+    def test_admission_refuses_trust_gated_agent_configuration(self):
+        # Configuration the human's own unsandboxed agents load as executable
+        # must never ride a bundle into trusted storage, in any casing and at
+        # any depth, because project trust covers the human's checkout once
+        # merged.
+        for index, path in enumerate(
+            (
+                ".pi/mcp.json",
+                ".PI/settings.json",
+                ".Pi/extensions/evil.ts",
+                "deep/.pi/nested.txt",
+                ".mcp.json",
+                ".MCP.Json",
+                ".claude/settings.json",
+                ".CLAUDE/Settings.local.json",
+            )
+        ):
+            with self.subTest(path=path):
+                manifest = self.create(f"gate-session-{index}")
+                work = Path(manifest["workspace"])
+                target = work / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("{}\n")
+                self.git(work, "add", ".")
+                self.git(work, "commit", "-qm", "Plant")
+                tip = self.git(work, "rev-parse", "HEAD").stdout.strip()
+                bundle = work / "result.bundle"
+                self.git(
+                    work,
+                    "bundle",
+                    "create",
+                    str(bundle),
+                    manifest["snapshot_commit"] + "..HEAD",
+                )
+                with self.assertRaisesRegex(
+                    workspace.WorkspaceError, "protected content"
+                ):
+                    workspace.admit_bundle(
+                        manifest,
+                        bundle,
+                        self.root / f"gate-quarantine-{index}",
+                        tip,
+                        "gate-proposal",
+                    )
+
+    def test_admission_records_context_files(self):
+        # Steering-only files ride admission as a recorded warning: pi loads
+        # AGENTS.md and CLAUDE.md with no trust decision, and the human's
+        # other agents read .claude and .agents the same way, so a merge that
+        # carries them must say which paths are model-authored.
+        manifest = self.create("context-session")
+        work = Path(manifest["workspace"])
+        for path in (
+            "AGENTS.md",
+            "CLAUDE.md",
+            ".claude/rules/x.md",
+            ".agents/skills/y.md",
+        ):
+            target = work / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("planted guidance\n")
+        self.git(work, "add", ".")
+        self.git(work, "commit", "-qm", "Agent change")
+        tip = self.git(work, "rev-parse", "HEAD").stdout.strip()
+        bundle = work / "result.bundle"
+        self.git(
+            work,
+            "bundle",
+            "create",
+            str(bundle),
+            manifest["snapshot_commit"] + "..HEAD",
+        )
+        admitted = workspace.admit_bundle(
+            manifest, bundle, self.root / "context-quarantine", tip, "ctx-1"
+        )
+        self.assertEqual(
+            admitted["context_files"],
+            [".agents/skills/y.md", ".claude/rules/x.md", "AGENTS.md", "CLAUDE.md"],
+        )
+
     def test_intermediate_protected_change_is_rejected(self):
         manifest = self.create()
         work = Path(manifest["workspace"])

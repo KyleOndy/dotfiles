@@ -13,6 +13,7 @@ from pathlib import Path
 import re
 import secrets
 import shlex
+import shutil
 import signal
 import stat
 import subprocess
@@ -93,6 +94,86 @@ def expand(value, home):
     if not os.path.isabs(value):
         raise SessionError(f"Grant must name an absolute path: {value}")
     return str(Path(value).resolve())
+
+
+def pin_store_roots(config, directories=None, control=None, store_tool=None):
+    """Pin the deployment's store packages as Nix garbage-collector roots.
+
+    A `nix store gc` between deploys, `make cleanup` mid-session included,
+    deletes a live session's interpreter out of the store, and every exec
+    of $ALAMODE_REAL_BIN fails until the identical path is rebuilt, because
+    pi, the runtime and the sandbox libraries reach the wrapper through
+    string-interpolated paths rather than closure edges the home-manager
+    profile already pins. Where a scanned gcroots directory is
+    writable the pin is a plain symlink; where it is not (this host's
+    /nix/var/nix/gcroots/per-user is root-owned), `nix-store --add-root`
+    registers the same symlink as an indirect root and the daemon writes
+    gcroots/auto itself, so the pin lands under the private control directory
+    instead. Roots are named for the store path they pin, so a redeploy
+    retargets the same name and roots from older deployments are left in
+    place: deleting one is exactly the race this exists to close, and they
+    are visible in `nix store gc --list-roots` for the human to prune between
+    sessions. Best effort throughout, because a gcroots directory that can
+    take no pin must leave today's behavior unchanged.
+    """
+    roots = set()
+    for value in config.values():
+        if not isinstance(value, str) or os.pathsep in value:
+            continue  # The PATH list is colon-joined and never a store path.
+        parts = Path(value).parts
+        if len(parts) >= 4 and parts[:3] == ("/", "nix", "store"):
+            roots.add(str(Path(*parts[:4])))
+    user = pwd.getpwuid(os.getuid()).pw_name
+    pinned = set()
+    for directory in (
+        directories
+        if directories is not None
+        else [
+            Path("/nix/var/nix/gcroots/per-user") / user,
+            Path("/nix/var/nix/gcroots"),
+        ]
+    ):
+        try:
+            directory.mkdir(mode=0o755, parents=True, exist_ok=True)
+        except OSError:
+            continue
+        if not os.access(directory, os.W_OK):
+            continue
+        for root in sorted(roots):
+            link = directory / ("alamode-" + Path(root).name)
+            try:
+                if link.is_symlink() and os.readlink(link) == root:
+                    pinned.add(root)
+                    continue
+                temporary = directory / ("alamode-tmp-" + secrets.token_hex(6))
+                os.symlink(root, temporary)
+                os.replace(temporary, link)
+                pinned.add(root)
+            except OSError:
+                continue
+    if control is None or pinned == roots:
+        return
+    tool = store_tool or shutil.which("nix-store") or "nix-store"
+    links = control / "gcroots"
+    try:
+        links.mkdir(mode=0o700, parents=True, exist_ok=True)
+    except OSError:
+        return
+    for root in sorted(roots - pinned):
+        link = links / ("alamode-" + Path(root).name)
+        try:
+            if link.is_symlink() and os.readlink(link) == root:
+                continue
+            if link.is_symlink():
+                link.unlink()
+            subprocess.run(
+                [tool, "--add-root", str(link), "--realise", root],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            continue
 
 
 VERBS = {"resume", "sessions", "coord", "delegate", "seats"}
@@ -582,13 +663,20 @@ def safe_clear(root, relative):
 # same session could have planted for its own resume: pi loads mcp.json,
 # mcp-auth.json, trust.json and models-store.json with no trust decision, and
 # its in-process guards load secret-guard.json (docs/pi-sandbox-audit.md,
-# findings 1-6). bin and npm shadow the tools pi and its extensions run
-# (getToolPath checks bin before PATH). extensions, agents, themes, grants and
-# skills are recopied from the store below, so clearing them first also drops
-# planted extras a plain recopy would leave beside the deployed files.
-# Everything pi may legitimately write for itself survives: settings.json,
-# models.json and auth.json are rewritten, and secret-guard-violations.log,
-# sessions, task-logs and job-logs are pi's own records.
+# findings 1-6). SYSTEM.md, APPEND_SYSTEM.md and the AGENTS.md/CLAUDE.md
+# alternates replace or extend the system prompt and user instructions the
+# same way, prompts/ adds slash commands a human can run from a resumed TUI,
+# and keybindings.json rebinds its keys, so they are reclaimed too (pi 1.0.0
+# docs/configuration.md names every file the agent directory contributes, and
+# docs/security.md which of them load without a trust decision). bin and npm
+# shadow the tools pi and its extensions run (getToolPath checks bin before
+# PATH). extensions, agents, themes, grants, skills, AGENTS.md and
+# keybindings.json are recopied from the store below, so clearing them first
+# also drops planted extras a plain recopy would leave beside the deployed
+# files. Everything pi may legitimately write for itself survives:
+# settings.json, models.json and auth.json are rewritten, and
+# secret-guard-violations.log, sessions, task-logs and job-logs are pi's own
+# records.
 PLANTED_AGENT_NAMES = (
     "mcp.json",
     "mcp-auth.json",
@@ -602,6 +690,15 @@ PLANTED_AGENT_NAMES = (
     "skills",
     "bin",
     "npm",
+    "SYSTEM.md",
+    "APPEND_SYSTEM.md",
+    "AGENTS.md",
+    "AGENTS.override.md",
+    "AGENTS.MD",
+    "CLAUDE.md",
+    "CLAUDE.MD",
+    "prompts",
+    "keybindings.json",
 )
 
 
@@ -750,6 +847,15 @@ def sandbox_policy(config, manifest, runtime, relay_port):
     for key in ("record_root", "tart_home"):
         if manifest.get("builder", {}).get(key):
             denied.append(manifest["builder"][key])
+    # task.ts records every subagent fan-out under the agent directory's
+    # task-logs and documents that directory as one the session can write but
+    # never read back; the read deny makes that true of the session's own
+    # later probes too. srt's deny filters cover the subtree beneath the
+    # entry, and APFS resolves names case-insensitively while its regexes do
+    # not, so the entry is case-classed like the write denies below.
+    # job-logs stays readable: stall-guard points the model at `tail <job
+    # log>` for live job output.
+    denied.append(cased_deny(root, runtime / "agent" / "task-logs"))
     write_denied = [str(path) for path in transport_directories(manifest)]
     # In-process guards load <workspace>/.pi/secret-guard.json and verify.json
     # with no trust decision, and a planted file reaches the human's
@@ -864,8 +970,39 @@ def workspace_root(manifest):
     return root
 
 
-def prepare(config, manifest, relay):
+def trusted_layout(manifest):
+    # Seatbelt write denies match resolved paths, so a parent directory a
+    # previous run of this session replaced with a symlink lets it plant
+    # files under a spelling no deny covers, such as a swapped `.PI` or
+    # `runtime/agent`. The reclaim in prepare() walks the agent directory
+    # with O_NOFOLLOW and already refuses a swapped runtime/agent as a bare
+    # OSError; this names every directory pi loads trusted material from
+    # and refuses a swap of any of them before pi starts. A first launch
+    # passes with none of the optional directories present.
     root = workspace_root(manifest)
+    workspace = Path(manifest["workspace"]["workspace"])
+    for label, path, required in (
+        ("workspace", workspace, True),
+        ("private Git storage", Path(manifest["workspace"]["common_dir"]), True),
+        ("project configuration", workspace / ".pi", False),
+        ("session runtime", root / "runtime", False),
+        ("agent state", root / "runtime" / "agent", False),
+    ):
+        try:
+            info = path.lstat()
+        except FileNotFoundError:
+            if required:
+                raise SessionError(
+                    f"Session {label} directory is missing: {path}"
+                ) from None
+            continue
+        if not stat.S_ISDIR(info.st_mode):
+            raise SessionError(f"Session {label} directory was replaced: {path}")
+    return root
+
+
+def prepare(config, manifest, relay):
+    root = trusted_layout(manifest)
     runtime = root / "runtime"
     for name in PLANTED_AGENT_NAMES:
         safe_clear(root, "runtime/agent/" + name)
@@ -1124,6 +1261,10 @@ def export_session(config, manifest, home):
                 "ref": reference,
                 "base": base,
                 "tip": tip,
+                # Context files load in the human's own pi with no trust
+                # decision, so a merge that carries them must be reviewed as
+                # model-authored instructions, not documentation.
+                "context_files": admitted.get("context_files", []),
                 "source": manifest["workspace"]["source"],
                 "branch": manifest["workspace"]["branch"],
             },
@@ -1308,6 +1449,11 @@ def main(argv=None):
     control = directory(home / ".local/state/alamode")
     records = directory(control / "records")
     sessions = directory(control / "workspaces")
+    try:
+        # After the argument checks, so --help and --version stay read-only.
+        pin_store_roots(config, control=control)
+    except (OSError, KeyError):
+        pass  # A best-effort root never stops a launch.
     options = parse(grant_part, config)
     if verb == "resume" and resume_id is None:
         candidates = sorted(

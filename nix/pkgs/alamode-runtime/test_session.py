@@ -78,6 +78,10 @@ class PolicyTests(unittest.TestCase):
         self.config = configuration(self.root)
         self.work = self.root / "session"
         self.work.mkdir(mode=0o700)
+        # prepare() validates the trusted layout before pi starts, so the
+        # fixture workspace carries the directories a real one has.
+        (self.work / "worktree").mkdir(mode=0o700)
+        (self.work / ".bare").mkdir(mode=0o700)
         self.records = self.root / "control"
         self.records.mkdir(mode=0o700)
         options = session.parse([], self.config)
@@ -457,6 +461,9 @@ class PolicyTests(unittest.TestCase):
                     )
                 exports.append(json.loads(output.getvalue()))
         self.assertNotEqual(exports[0]["bundle"], exports[1]["bundle"])
+        # Context files ride admission as a recorded warning, not a refusal.
+        self.assertEqual(exports[0]["context_files"], [])
+        self.assertEqual(exports[1]["context_files"], [])
         empty = self.root / "receiver"
         empty.mkdir()
         git(empty, "init", "-q", "--bare")
@@ -656,9 +663,47 @@ class PolicyTests(unittest.TestCase):
         self.assertFalse(models.is_symlink())
         shutil.rmtree(runtime / "agent")
         (runtime / "agent").symlink_to(self.root, target_is_directory=True)
-        with self.assertRaises(OSError):
+        with self.assertRaisesRegex(session.SessionError, "agent state"):
             session.prepare(self.config, self.manifest, Relay())
         self.assertFalse((self.root / "settings.json").exists())
+
+    def test_prepare_refuses_replaced_trusted_directories(self):
+        class Relay:
+            catalog = {"providers": {}}
+
+        worktree = Path(self.manifest["workspace"]["workspace"])
+        dot_pi = worktree / ".pi"
+        dot_pi.mkdir()
+        (self.work / "runtime" / "agent").mkdir(parents=True)
+        storage = Path(self.manifest["workspace"]["common_dir"])
+
+        def swap(path):
+            moved = path.with_name(path.name + "-swapped")
+            path.rename(moved)
+            path.symlink_to(moved, target_is_directory=True)
+
+        def restore(path):
+            path.unlink()
+            path.with_name(path.name + "-swapped").rename(path)
+
+        # Seatbelt write denies match resolved paths, so a symlinked parent
+        # is the spelling a plant hides under; every directory pi loads
+        # trusted material from must refuse the swap by name.
+        for label, path in (
+            ("workspace", worktree),
+            ("project configuration", dot_pi),
+            ("session runtime", self.work / "runtime"),
+            ("agent state", self.work / "runtime" / "agent"),
+            ("private Git storage", storage),
+        ):
+            with self.subTest(replaced=label):
+                swap(path)
+                with self.assertRaisesRegex(session.SessionError, label):
+                    session.prepare(self.config, self.manifest, Relay())
+                restore(path)
+
+        # Real directories, a repository's own .pi included, must pass.
+        session.prepare(self.config, self.manifest, Relay())
 
     def test_sandbox_denies_plantable_guard_and_agent_bin_paths(self):
         rules = session.sandbox_policy(
@@ -696,6 +741,125 @@ class PolicyTests(unittest.TestCase):
                     ),
                     f"{path} slips every denyWrite entry",
                 )
+
+    def test_sandbox_denies_session_task_logs(self):
+        rules = session.sandbox_policy(
+            self.config, self.manifest, self.work / "runtime", 0
+        )
+        self.assertIn(
+            session.cased_deny(
+                self.work, self.work / "runtime" / "agent" / "task-logs"
+            ),
+            rules["filesystem"]["denyRead"],
+        )
+        # Every casing variant must match some deny entry, and the job logs
+        # stall-guard points the model at must stay readable.
+        variants = []
+        for task in ("task-logs", "TASK-LOGS", "Task-Logs"):
+            for runtime in ("runtime", "Runtime"):
+                for agent in ("agent", "Agent"):
+                    variants.append(self.work / runtime / agent / task)
+        for path in variants:
+            with self.subTest(path=path):
+                self.assertTrue(
+                    any(
+                        self._glob_matches(entry, str(path))
+                        for entry in rules["filesystem"]["denyRead"]
+                    ),
+                    f"{path} slips every denyRead entry",
+                )
+        self.assertFalse(
+            any(
+                "job-logs" in entry.lower() for entry in rules["filesystem"]["denyRead"]
+            )
+        )
+
+    def test_pin_store_roots_registers_deployment_packages(self):
+        gcroots = self.root / "gcroots"
+        config = {
+            "pi": "/nix/store/" + "h0" * 16 + "-pi-1.0.0/bin/pi",
+            "node": "/nix/store/" + "b1" * 16 + "-nodejs-24.21.0/bin/node",
+            "sandboxRunner": "/nix/store/"
+            + "c2" * 16
+            + "-sandbox-runtime-0.0.78/libexec/x/sandbox.mjs",
+            # The colon-joined PATH list is not a store path and pins nothing.
+            "path": "/nix/store/" + "d3" * 16 + "-fd-10.4.2/bin:/usr/bin",
+            "settingsFile": str(self.root / "settings.json"),
+            "builder": "",
+        }
+        session.pin_store_roots(config, directories=[gcroots])
+        self.assertEqual(
+            sorted(path.name for path in gcroots.iterdir()),
+            [
+                "alamode-" + "b1" * 16 + "-nodejs-24.21.0",
+                "alamode-" + "c2" * 16 + "-sandbox-runtime-0.0.78",
+                "alamode-" + "h0" * 16 + "-pi-1.0.0",
+            ],
+        )
+        self.assertEqual(
+            os.readlink(gcroots / ("alamode-" + "h0" * 16 + "-pi-1.0.0")),
+            "/nix/store/" + "h0" * 16 + "-pi-1.0.0",
+        )
+        # Re-pinning an unchanged deployment replaces nothing, and a newer
+        # deployment adds its own name while leaving the old one for
+        # sessions still running on it.
+        session.pin_store_roots(config, directories=[gcroots])
+        config["pi"] = "/nix/store/" + "e4" * 16 + "-pi-1.1.0/bin/pi"
+        session.pin_store_roots(config, directories=[gcroots])
+        self.assertTrue((gcroots / ("alamode-" + "e4" * 16 + "-pi-1.1.0")).is_symlink())
+        self.assertTrue((gcroots / ("alamode-" + "h0" * 16 + "-pi-1.0.0")).is_symlink())
+        self.assertFalse(
+            any(path.name.startswith("alamode-tmp-") for path in gcroots.iterdir())
+        )
+        # A gcroots directory that cannot be created changes nothing.
+        barrier = self.root / "barrier"
+        barrier.write_text("a file blocks the directory path")
+        session.pin_store_roots(config, directories=[barrier / "gcroots"])
+        self.assertFalse((barrier / "gcroots").exists())
+
+        # Where no scanned gcroots directory is writable, the same roots are
+        # registered as indirect roots under the private control directory,
+        # and the daemon owns the gcroots/auto link. A stub stands in for
+        # nix-store and creates the root like the real one does.
+        control = self.root / "pin-control"
+        control.mkdir(mode=0o700)
+        calls = []
+
+        def stub(command, **_keywords):
+            calls.append(command)
+            link = Path(command[command.index("--add-root") + 1])
+            link.symlink_to(command[-1])
+            return subprocess.CompletedProcess(command, 0)
+
+        with patch.object(session.subprocess, "run", side_effect=stub):
+            session.pin_store_roots(
+                config, directories=[], control=control, store_tool="nix-store"
+            )
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(
+            sorted(path.name for path in (control / "gcroots").iterdir()),
+            [
+                "alamode-" + "b1" * 16 + "-nodejs-24.21.0",
+                "alamode-" + "c2" * 16 + "-sandbox-runtime-0.0.78",
+                "alamode-" + "e4" * 16 + "-pi-1.1.0",
+            ],
+        )
+        # Roots already pinned as indirect roots register nothing further.
+        with patch.object(session.subprocess, "run", side_effect=stub):
+            session.pin_store_roots(
+                config, directories=[], control=control, store_tool="nix-store"
+            )
+        self.assertEqual(len(calls), 3)
+        # Roots a writable gcroots directory took need no indirect root at all.
+        writable = self.root / "writable-gcroots"
+        with patch.object(session.subprocess, "run", side_effect=stub):
+            session.pin_store_roots(
+                config, directories=[writable], control=control, store_tool="nix-store"
+            )
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(
+            (writable / ("alamode-" + "e4" * 16 + "-pi-1.1.0")).is_symlink()
+        )
 
     @staticmethod
     def _glob_matches(pattern, path):
@@ -737,6 +901,14 @@ class PolicyTests(unittest.TestCase):
             "secret-guard.json",
         ):
             (agent / name).write_text("{}")
+        # Prompt and instruction files pi loads with no trust decision.
+        (agent / "SYSTEM.md").write_text("planted system prompt")
+        (agent / "APPEND_SYSTEM.md").write_text("planted append")
+        (agent / "AGENTS.md").write_text("planted instructions")
+        (agent / "AGENTS.override.md").write_text("planted override")
+        (agent / "prompts").mkdir()
+        (agent / "prompts" / "evil.md").write_text("planted slash command")
+        (agent / "keybindings.json").write_text("{}")
         # Tool shadowing trees, with nested content.
         planted_bin = agent / "bin"
         planted_bin.mkdir()
@@ -778,6 +950,15 @@ class PolicyTests(unittest.TestCase):
             "themes",
             "bin",
             "npm",
+            "SYSTEM.md",
+            "APPEND_SYSTEM.md",
+            "AGENTS.md",
+            "AGENTS.override.md",
+            "AGENTS.MD",
+            "CLAUDE.md",
+            "CLAUDE.MD",
+            "prompts",
+            "keybindings.json",
         ):
             self.assertFalse((agent / name).exists(), name)
         self.assertTrue((agent / "agents").is_dir())

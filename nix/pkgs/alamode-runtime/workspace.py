@@ -15,6 +15,25 @@ MAX_BUNDLE_BYTES = 256 * 1024 * 1024
 MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_COMMITS = 1000
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
+# Context files pi loads from a repository with no trust decision (pi 1.0.0
+# docs/security.md: "Context-file discovery does not require project trust").
+# Admission records them instead of refusing them: documentation work
+# legitimately edits them, and the record tells the human which paths in a
+# merge are model-authored steering rather than code.
+CONTEXT_FILES = ("agents.md", "agents.override.md", "claude.md")
+# Configuration the human's own unsandboxed agents treat as executable. pi's
+# project trust covers everything under .pi/ (mcp.json spawns servers,
+# extensions run in-process, settings change tools); Claude Code runs hooks
+# from project .claude/settings*.json without a prompt and loads .mcp.json as
+# project MCP servers; srt denies .mcp.json and .claude/commands itself, but
+# anchored at the launch directory rather than the session worktree, so
+# admission is the only gate that covers a session checkout. A session must
+# never author these for the human's checkout: an edit is a decision for the
+# human, outside the sandbox. APFS resolves names case-insensitively, so every
+# comparison below is lowercased.
+TRUST_GATED_DIRECTORIES = (".pi",)
+TRUST_GATED_FILES = (".mcp.json",)
+CLAUDE_SETTINGS = ("settings.json", "settings.local.json")
 
 
 class WorkspaceError(RuntimeError):
@@ -640,6 +659,7 @@ def admit_bundle(
         )
     _git(bare, "read-tree", base)
     protected = set(manifest["protected_paths"])
+    context = set()
     for commit in commits:
         changed = {
             os.fsdecode(path)
@@ -670,10 +690,29 @@ def admit_bundle(
             for path in changed
             if Path(path).name.lower() in ("secret-guard.json", "verify.json")
         )
+        # The same class, for the human's other agents: trust-gated project
+        # configuration (see TRUST_GATED_* above) never rides a bundle into
+        # trusted storage, at any depth and in any casing.
+        forbidden.update(
+            path
+            for path in changed
+            if any(part.lower() in TRUST_GATED_DIRECTORIES for part in Path(path).parts)
+            or Path(path).name.lower() in TRUST_GATED_FILES
+            or (
+                Path(path).name.lower() in CLAUDE_SETTINGS
+                and ".claude" in {part.lower() for part in Path(path).parts}
+            )
+        )
+        context.update(
+            path
+            for path in changed
+            if Path(path).name.lower() in CONTEXT_FILES
+            or {part.lower() for part in Path(path).parts} & {".agents", ".claude"}
+        )
         if forbidden:
             raise WorkspaceError(
-                "Proposal changes protected content or attributes: "
-                + ", ".join(sorted(forbidden))
+                "Proposal changes protected content, attributes or agent "
+                "configuration: " + ", ".join(sorted(forbidden))
             )
     admitted = {
         "tip": expected_tip,
@@ -683,6 +722,7 @@ def admit_bundle(
         "quarantine": str(quarantine),
         "request_id": request_id,
         "commits": len(commits),
+        "context_files": sorted(context),
     }
     (quarantine / "admitted.json").write_text(json.dumps(admitted, indent=2) + "\n")
     return admitted
