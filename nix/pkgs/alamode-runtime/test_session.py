@@ -226,6 +226,22 @@ class PolicyTests(unittest.TestCase):
                 self.config, self.manifest, ["false"], {}, self.work / "runtime"
             )
 
+    def test_runner_keeps_the_session_tmpdir(self):
+        runtime = self.work / "runtime"
+        with patch.object(session.subprocess, "Popen") as popen:
+            popen.return_value.wait.return_value = 0
+            popen.return_value.poll.return_value = 0
+            session.execute(
+                self.config,
+                self.manifest,
+                ["true"],
+                {"PATH": "/usr/bin", "TMPDIR": str(runtime / "tmp")},
+                runtime,
+            )
+        self.assertEqual(
+            popen.call_args.kwargs["env"]["CLAUDE_CODE_TMPDIR"], str(runtime / "tmp")
+        )
+
     def test_catalog_scope_tracks_effective_override_routes(self):
         catalog = {
             "providers": {

@@ -980,6 +980,11 @@ def execute(config, manifest, arguments, environment, runtime, relay_port=0):
             if key in SAFE_ENV or key in ("PATH", "HOME", "TMPDIR")
         }
         runner_env["TMPDIR"] = proxy_directory
+        # srt replaces the child's TMPDIR with this process's
+        # CLAUDE_CODE_TMPDIR, or else /tmp/claude, which the read policy
+        # denies (sandbox-runtime 0.0.78 sandbox-utils.js,
+        # generateProxyEnvVars).
+        runner_env["CLAUDE_CODE_TMPDIR"] = environment["TMPDIR"]
         process = subprocess.Popen(
             [config["node"], config["sandboxRunner"], str(stream.fileno())],
             pass_fds=(stream.fileno(),),
