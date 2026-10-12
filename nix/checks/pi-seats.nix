@@ -6,10 +6,14 @@
 # othercloud is not.
 { pkgs }:
 let
+  relayModule = "${pkgs.pi-provider-relay}/libexec/pi-provider-relay/relay.py";
   pi-seats = pkgs.pi-seats.override {
     seatsFile = "~/seats";
     trustedProviders = [ "fakecloud" ];
+    inherit relayModule;
   };
+  # The same host with fakecloud's plain-HTTP host approved for the relay.
+  pi-seats-local = pi-seats.override { privateProviderHosts = [ "localhost" ]; };
 in
 pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   set -euo pipefail
@@ -57,7 +61,7 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   agent scout scout
   cat >"$A/models.json" <<'EOF'
   {"providers": {
-    "fakecloud": {"models": [
+    "fakecloud": {"baseUrl": "https://fakecloud.invalid/v1", "api": "openai-completions", "models": [
       {"id": "acme/zeta-9000", "input": ["text"], "reasoning": true,
        "thinkingLevelMap": {"max": null, "xhigh": "high", "high": "high"}},
       {"id": "acme/omega-2", "input": ["text", "image"], "reasoning": true},
@@ -226,6 +230,20 @@ pkgs.runCommand "pi-seats-check" { nativeBuildInputs = [ pi-seats ]; } ''
   run 0 env PI_SESSION_MODEL= pi-seats check --start
   quiet
   run 0 env PI_AGENT_MODEL_NOAGENT=x pi-seats check --start
+
+  # deploy runs the relay's route planning over each trusted provider, so a
+  # catalog the relay refuses at session start fails the deploy instead. A
+  # plain-HTTP baseUrl needs its host in privateProviderHosts. start leaves
+  # it to the relay.
+  seats "''${good[@]}"
+  sed -i 's|https://fakecloud.invalid/v1|http://localhost:11434/v1|' "$A/models.json"
+  run 1 pi-seats check --deploy
+  has 'pi-seats: fakecloud: the inference relay refuses this provider (Plain HTTP provider requires explicit host approval)'
+  has 'name its plain-HTTP host in sandbox.privateProviderHosts'
+  run 0 pi-seats check --start
+  quiet
+  run 0 ${pi-seats-local}/bin/pi-seats check --deploy
+  sed -i 's|http://localhost:11434/v1|https://fakecloud.invalid/v1|' "$A/models.json"
 
   # get: env, else file, else nothing.
   seats "''${good[@]}" PI_SPAWN_MODEL=fakecloud/acme/omega-2:low

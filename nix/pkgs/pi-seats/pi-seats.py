@@ -19,6 +19,7 @@ a provider, never a value, because they land in deploy logs and agent
 transcripts, and each one says what to change.
 """
 
+import importlib.util
 import json
 import os
 import re
@@ -33,6 +34,10 @@ TRUSTED = [p for p in "@trustedProviders@".split(",") if p]
 # Repo path of the sops file holding pi_seats and pi_models_json, for the
 # fix-it lines. Empty when the host didn't name one.
 SOURCE = "@secretsSource@"
+# The inference relay's module and the plain-HTTP hosts it may contact, so a
+# deploy check refuses the same catalog the relay would at session start.
+RELAY_MODULE = "@relayModule@"
+PRIVATE_HOSTS = [h for h in "@privateProviderHosts@".split(",") if h]
 AGENT_DIR = Path(os.environ.get("PI_CODING_AGENT_DIR", Path.home() / ".pi/agent"))
 
 LEVELS = ("off", "minimal", "low", "medium", "high", "xhigh", "max")
@@ -164,6 +169,26 @@ def load_catalog(errors, needed):
 
 def where():
     return f"`sops edit {SOURCE}`" if SOURCE else "this host's sops file"
+
+
+def relay_refusals(catalog):
+    """(provider, error) for each trusted provider the inference relay
+    refuses. The relay's route planning validates endpoints, APIs and
+    limits without a server, and runs here with no credential resolved."""
+    if not RELAY_MODULE:
+        return
+    spec = importlib.util.spec_from_file_location("relay", RELAY_MODULE)
+    relay = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(relay)
+    for name, data in catalog.get("providers", {}).items():
+        if TRUSTED and name not in TRUSTED:
+            continue
+        try:
+            relay.provider_routes(
+                {"providers": {name: data}}, {}, allow_private_hosts=PRIVATE_HOSTS
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            yield name, e
 
 
 def lookup(catalog, provider, model):
@@ -347,6 +372,14 @@ def cmd_check(deploy, requires):
                 var,
                 f'{var}: the model\'s catalog entry has no "image" in input, and its agent says `needs: image`, so every image would be dropped. '
                 f"Point the seat at a model whose entry declares image input and passes mcloud-pins' image check.",
+            )
+
+    if deploy:
+        for name, e in relay_refusals(catalog):
+            problem(
+                None,
+                f"{name}: the inference relay refuses this provider ({e}), so every session fails before pi starts. "
+                f"Fix its entry in pi_models_json with {where()}, or name its plain-HTTP host in sandbox.privateProviderHosts in this host's config.",
             )
 
     session = parsed.get("PI_SESSION_MODEL")

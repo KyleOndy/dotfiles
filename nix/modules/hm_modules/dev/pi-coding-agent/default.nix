@@ -84,6 +84,8 @@ let
     seatsFile = lib.optionalString (cfg.seatsFile != null) cfg.seatsFile;
     inherit (cfg) trustedProviders;
     secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
+    relayModule = "${pkgs.pi-provider-relay}/libexec/pi-provider-relay/relay.py";
+    inherit (cfg.sandbox) privateProviderHosts;
   };
 
   defaultSourceDir = toString ../pi;

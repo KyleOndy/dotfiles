@@ -476,6 +476,81 @@ class _Handler(BaseHTTPRequestHandler):
             connection.close()
 
 
+def provider_routes(
+    catalog, credentials, *, allowed_models=None, allow_private_hosts=(), token=""
+):
+    """Relay routes for every permitted model, and the providers pi sees with
+    each model's baseUrl as a relay path. Raises ValueError for anything the
+    relay refuses, and opens nothing, so a deploy check runs it as is."""
+    allow_private_hosts = frozenset(allow_private_hosts)
+    routes, providers = {}, {}
+    scope = None if allowed_models is None else frozenset(allowed_models)
+    for provider, config in catalog.get("providers", {}).items():
+        models = []
+        for definition in config.get("models", []):
+            model_id = definition["id"]
+            identity = f"{provider}/{model_id}"
+            if scope is not None and identity not in scope:
+                continue
+            model = {
+                **definition,
+                **config.get("modelOverrides", {}).get(model_id, {}),
+                "id": model_id,
+            }
+            api = model.get("api", config.get("api"))
+            if api not in API_PATHS or model.get("type", "chat") != "chat":
+                raise ValueError("Provider API is not supported by the inference relay")
+            auth = credentials.get(identity, credentials.get(provider, {}))
+            endpoint = _endpoint(
+                auth.get("baseUrl", model.get("baseUrl", config.get("baseUrl"))),
+                allow_private_hosts,
+            )
+            headers = {
+                "content-type": "application/json",
+                "accept": "text/event-stream",
+            }
+            if api == "anthropic-messages":
+                headers["anthropic-version"] = "2023-06-01"
+            key = auth.get("apiKey")
+            if key:
+                headers[
+                    "x-api-key" if api == "anthropic-messages" else "authorization"
+                ] = key if api == "anthropic-messages" else f"Bearer {key}"
+            headers.update(_headers(auth.get("headers", {})))
+            headers.update(_headers(auth.get("modelHeaders", {}).get(model_id, {})))
+            headers = _headers(headers)
+            max_tokens = model.get("maxTokens", 16384)
+            if type(max_tokens) is not int or max_tokens <= 0:
+                raise ValueError("Model maxTokens must be a positive integer")
+            prefix = f"/model/{len(models)}-{len(routes)}"
+            path = prefix + API_PATHS[api]
+            route = {
+                "api": api,
+                "model": model_id,
+                "endpoint": endpoint,
+                "upstream_path": endpoint.path.rstrip("/") + API_PATHS[api],
+                "headers": headers,
+                "max_tokens": max_tokens,
+            }
+            routes[path] = route
+            if api == "anthropic-messages":
+                routes[path + "?beta=true"] = route
+            clean = {
+                key: copy.deepcopy(value)
+                for key, value in model.items()
+                if key in MODEL_FIELDS
+            }
+            clean.update(api=api, baseUrl=prefix)
+            clean["compat"] = {
+                **config.get("compat", {}),
+                **model.get("compat", {}),
+            }
+            models.append(clean)
+        if models:
+            providers[provider] = {"apiKey": token, "models": models}
+    return routes, providers
+
+
 class Relay:
     def __init__(
         self,
@@ -519,78 +594,15 @@ class Relay:
         self.slots = threading.BoundedSemaphore(max_concurrency)
         self.closed = threading.Event()
         self.active = {}
-        self.routes = {}
-        self.catalog = {"providers": {}}
         self.tool_env = {}
-        scope = None if allowed_models is None else frozenset(allowed_models)
-        for provider, config in catalog.get("providers", {}).items():
-            models = []
-            for definition in config.get("models", []):
-                model_id = definition["id"]
-                identity = f"{provider}/{model_id}"
-                if scope is not None and identity not in scope:
-                    continue
-                model = {
-                    **definition,
-                    **config.get("modelOverrides", {}).get(model_id, {}),
-                    "id": model_id,
-                }
-                api = model.get("api", config.get("api"))
-                if api not in API_PATHS or model.get("type", "chat") != "chat":
-                    raise ValueError(
-                        "Provider API is not supported by the inference relay"
-                    )
-                auth = credentials.get(identity, credentials.get(provider, {}))
-                endpoint = _endpoint(
-                    auth.get("baseUrl", model.get("baseUrl", config.get("baseUrl"))),
-                    self.allow_private_hosts,
-                )
-                headers = {
-                    "content-type": "application/json",
-                    "accept": "text/event-stream",
-                }
-                if api == "anthropic-messages":
-                    headers["anthropic-version"] = "2023-06-01"
-                key = auth.get("apiKey")
-                if key:
-                    headers[
-                        "x-api-key" if api == "anthropic-messages" else "authorization"
-                    ] = key if api == "anthropic-messages" else f"Bearer {key}"
-                headers.update(_headers(auth.get("headers", {})))
-                headers.update(_headers(auth.get("modelHeaders", {}).get(model_id, {})))
-                headers = _headers(headers)
-                max_tokens = model.get("maxTokens", 16384)
-                if type(max_tokens) is not int or max_tokens <= 0:
-                    raise ValueError("Model maxTokens must be a positive integer")
-                prefix = f"/model/{len(models)}-{len(self.routes)}"
-                path = prefix + API_PATHS[api]
-                route = {
-                    "api": api,
-                    "model": model_id,
-                    "endpoint": endpoint,
-                    "upstream_path": endpoint.path.rstrip("/") + API_PATHS[api],
-                    "headers": headers,
-                    "max_tokens": max_tokens,
-                }
-                self.routes[path] = route
-                if api == "anthropic-messages":
-                    self.routes[path + "?beta=true"] = route
-                clean = {
-                    key: copy.deepcopy(value)
-                    for key, value in model.items()
-                    if key in MODEL_FIELDS
-                }
-                clean.update(api=api, baseUrl=prefix)
-                clean["compat"] = {
-                    **config.get("compat", {}),
-                    **model.get("compat", {}),
-                }
-                models.append(clean)
-            if models:
-                self.catalog["providers"][provider] = {
-                    "apiKey": self.token,
-                    "models": models,
-                }
+        self.routes, providers = provider_routes(
+            catalog,
+            credentials,
+            allowed_models=allowed_models,
+            allow_private_hosts=self.allow_private_hosts,
+            token=self.token,
+        )
+        self.catalog = {"providers": providers}
         tool_credentials = tool_credentials or {}
         if set(tool_credentials) - {"kagi"}:
             raise ValueError("Unsupported relay tool capability")

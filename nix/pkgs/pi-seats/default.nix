@@ -3,6 +3,8 @@
   seatsFile ? "",
   trustedProviders ? [ ],
   secretsSource ? "",
+  relayModule ? "",
+  privateProviderHosts ? [ ],
 }:
 writers.writePython3Bin "pi-seats"
   {
@@ -13,7 +15,19 @@ writers.writePython3Bin "pi-seats"
   }
   (
     builtins.replaceStrings
-      [ "@seatsFile@" "@trustedProviders@" "@secretsSource@" ]
-      [ seatsFile (builtins.concatStringsSep "," trustedProviders) secretsSource ]
+      [
+        "@seatsFile@"
+        "@trustedProviders@"
+        "@secretsSource@"
+        "@relayModule@"
+        "@privateProviderHosts@"
+      ]
+      [
+        seatsFile
+        (builtins.concatStringsSep "," trustedProviders)
+        secretsSource
+        relayModule
+        (builtins.concatStringsSep "," privateProviderHosts)
+      ]
       (builtins.readFile ./pi-seats.py)
   )
