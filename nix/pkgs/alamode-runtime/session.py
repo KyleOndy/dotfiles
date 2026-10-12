@@ -569,11 +569,17 @@ def child_environment(config, manifest, home, runtime):
             "PI_SKIP_VERSION_CHECK": "1",
             "PI_TELEMETRY": "0",
             "ALAMODE_GRANTS": ",".join(grants),
+            # policy() refuses nix on a host without a builder, so a session
+            # there must not be told to ask for it.
             "ALAMODE_AVAILABLE_GRANTS": ",".join(
                 [
-                    *config["bundles"],
+                    *(
+                        name
+                        for name, bundle in config["bundles"].items()
+                        if config.get("builder") or not bundle.get("nix")
+                    ),
                     "web",
-                    "nix",
+                    *(["nix"] if config.get("builder") else []),
                     "forge",
                     "clipboard",
                     "trustd",

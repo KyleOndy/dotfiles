@@ -242,6 +242,23 @@ class PolicyTests(unittest.TestCase):
             popen.call_args.kwargs["env"]["CLAUDE_CODE_TMPDIR"], str(runtime / "tmp")
         )
 
+    def test_nix_is_offered_only_with_a_builder(self):
+        runtime = self.work / "runtime"
+        self.config["bundles"]["flake"] = {"domains": [], "nix": True}
+
+        def available():
+            environment = session.child_environment(
+                self.config, self.manifest, self.root, runtime
+            )
+            return environment["ALAMODE_AVAILABLE_GRANTS"].split(",")
+
+        self.assertNotIn("nix", available())
+        self.assertNotIn("flake", available())
+        self.assertIn("registry", available())
+        self.config["builder"] = str(self.root / "builder.json")
+        self.assertIn("nix", available())
+        self.assertIn("flake", available())
+
     def test_catalog_scope_tracks_effective_override_routes(self):
         catalog = {
             "providers": {
