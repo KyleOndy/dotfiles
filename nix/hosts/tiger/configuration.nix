@@ -685,8 +685,8 @@ in
   ) (lib.attrNames windowsBackupDirs);
   # Allow svc.deploy to write to the website directory (rsync content push).
   users.users."svc.deploy".extraGroups = [ "caddy" ];
-  # Read pi-advisor's reports in /var/lib/pi-advisor/reports.
-  users.users.kyle.extraGroups = [ "pi-advisor" ];
+  # Read alamode-advisor's reports in /var/lib/alamode-advisor/reports.
+  users.users.kyle.extraGroups = [ "alamode-advisor" ];
 
   # media is jellyfin's primary group (set below), so only the GPU groups
   # need adding here.
@@ -1839,12 +1839,12 @@ in
           passwordFile = config.sops.secrets.unpoller_password.path;
         };
 
-        piAdvisor = {
+        alamodeAdvisor = {
           enable = true;
           apiKeyFile = config.sops.secrets.mcloud_api_key.path;
-          modelsJsonFile = config.sops.secrets.pi_models_json.path;
-          seatsFile = config.sops.secrets.pi_seats.path;
-          kagiApiKeyFile = config.sops.secrets.pi_advisor_kagi_api_key.path;
+          modelsJsonFile = config.sops.secrets.alamode_models_json.path;
+          seatsFile = config.sops.secrets.alamode_seats.path;
+          kagiApiKeyFile = config.sops.secrets.alamode_advisor_kagi_api_key.path;
         };
 
         # Scrape local exporters into the now-local VictoriaMetrics instance.
@@ -2258,12 +2258,12 @@ in
     prowlarr_api_key.mode = "0400";
     bazarr_api_key.mode = "0400";
     sabnzbd_api_key.mode = "0400";
-    # pi-advisor's catalog, seat and Kagi key, read through LoadCredential,
-    # as is mcloud_api_key below. The catalog and seat are secrets because
-    # the model ids in them are private.
-    pi_models_json.mode = "0400";
-    pi_seats.mode = "0400";
-    pi_advisor_kagi_api_key.mode = "0400";
+    # alamode's catalog and seats, and alamode-advisor's Kagi key, read
+    # through LoadCredential, as is mcloud_api_key below. The catalog and
+    # seat are secrets because the model ids in them are private.
+    alamode_models_json.mode = "0400";
+    alamode_seats.mode = "0400";
+    alamode_advisor_kagi_api_key.mode = "0400";
     # Read by syncthing-init, which bcrypts it into Syncthing's config.
     syncthing_gui_password.owner = config.services.syncthing.user;
     bazarr_ui_password.owner = "bazarr";
@@ -2310,7 +2310,7 @@ in
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
-    # The mcloud token trex's pi also uses.
+    # The mcloud token trex's alamode also uses.
     mcloud_api_key = {
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;

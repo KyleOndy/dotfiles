@@ -225,16 +225,16 @@ in
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
     sysadmin.enable = true; # htop, lsof, nmap, mosh, dnsutils
 
-    # Ride mode for pi, enabled by default on every darwin host. Only the
+    # Ride mode for alamode, enabled by default on every darwin host. Only the
     # working directory is host-specific: the default ~/work/rides is a
     # work-mac shape, and trex has no ~/work.
-    domestique.rideDir = "${config.home.homeDirectory}/pi-ride";
+    domestique.rideDir = "${config.home.homeDirectory}/alamode-ride";
 
     # Colima background service. Defaults (4 CPU / 8GB / 100GB) are
     # conservative starting points - tune once trex's actual RAM is known.
     docker.service.enable = true;
 
-    # pi runs on mcloud. The catalog and the seats are sops secrets
+    # Sessions run on mcloud. The catalog and the seats are sops secrets
     # (nix/secrets/trex.yaml) because the model ids in them are private, so
     # this file names no model. `sops edit nix/secrets/trex.yaml` shows each
     # seat next to the comment saying what it is for.
@@ -242,9 +242,9 @@ in
     # trex's local mlx models are absent. search-mail
     # (nix/pkgs/search-mail/search-mail.sh) drives them directly, which is the
     # only workload that needs mail to stay off the network.
-    pi-coding-agent = {
-      modelsJsonFile = osConfig.sops.secrets.pi_models_json.path;
-      seatsFile = osConfig.sops.secrets.pi_seats.path;
+    alamode = {
+      modelsJsonFile = osConfig.sops.secrets.alamode_models_json.path;
+      seatsFile = osConfig.sops.secrets.alamode_seats.path;
       secretsSource = "nix/secrets/trex.yaml";
       trustedProviders = [ "mcloud" ];
 
@@ -260,7 +260,7 @@ in
       # stays off (only work-mac has forge), so the broker is built without
       # it, spawn_agent takes no size here, and nothing forge-shaped reaches
       # a coordinator's prompt (extensions/coordinator.ts gates its VM prose
-      # on PI_COORD_FORGE, which this build does not export).
+      # on ALAMODE_COORD_FORGE, which this build does not export).
       coordinator.enable = true;
     };
   };

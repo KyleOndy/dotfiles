@@ -1,6 +1,6 @@
 ---
 name: forge-debug
-description: Introspect a forge instance that looks broken, stuck or slow (lima VM, kind clusters, the shared pull-through cache, ArgoCD), including ones a pi coordinator agent owns. Use when forge up hangs or fails, an agent sits in starting-forge, a cluster is missing, or someone asks what a forge instance is doing.
+description: Introspect a forge instance that looks broken, stuck or slow (lima VM, kind clusters, the shared pull-through cache, ArgoCD), including ones an alamode coordinator agent owns. Use when forge up hangs or fails, a coordinator agent's forge never comes up, a cluster is missing, or someone asks what a forge instance is doing.
 ---
 
 # Debugging a forge instance
@@ -10,8 +10,8 @@ state you are trying to read. On an instance someone else owns, ask before
 running any of them. On your own `forge claim` instance, read first, then act
 on what you find, and report what you ran.
 
-Work outside pi's sandbox: `forge ls` and `limactl` need `~/.lima`, which it
-denies.
+Work outside alamode's sandbox: `forge ls` and `limactl` need `~/.lima`, which
+it denies.
 
 ## 1. Find the instance and its phase
 
@@ -27,9 +27,10 @@ One row per VM: `-` is the unnamed `forge`, `<n>` is `forge-<n>`, `cache` is
   cache, all three mirrors answer.
 - `partial` or `empty`: VM up, some or no clusters. Nothing is converging it.
 - STATE `Broken` or a VM missing from the list entirely: see step 5.
-- OWNER `<coordinator>/<agent>`: pi-broker holds the instance for that agent.
-- OWNER without a `/`: a `forge claim` label, usually a Claude `forge`
-  subagent's task.
+- OWNER `alamode-<hex>`: a coordinator's lease for one of its agents; step 2
+  maps it to the agent.
+- Any other OWNER: a `forge claim` label, usually a Claude `forge` subagent's
+  task.
 
 Then, for the one instance:
 
@@ -39,19 +40,39 @@ FORGE_INSTANCE=<n> forge status   # omit FORGE_INSTANCE for the unnamed one
 
 ## 2. Find the log for where it stopped
 
-A coordinator's agent logs to `~/.local/state/pi-coord/<coordinator>/`:
-
-| File                      | Holds                                                                |
-| ------------------------- | -------------------------------------------------------------------- |
-| `logs/<agent>.forge.log`  | full `forge up` output; the last `>>>` line is the stuck step        |
-| `logs/<agent>.broker.log` | worktree creation, tmux window                                       |
-| `state/<agent>.json`      | `state` (`creating`, `starting-forge`, `running`, `failed`), `error` |
-| `broker.log`              | every request the coordinator made and its answer                    |
-
 For a hand-run `forge up`, the terminal is the log.
 
-pi-broker runs `forge nuke` when `forge up` fails, so a `failed` agent has no
-VM left. Everything to know about it is in `<agent>.forge.log`.
+A coordinator's agent runs `forge up` itself, from its own session, so the
+output is a bash tool result in its transcript once the call returns. While it
+runs, `forge ls` shows PHASE `up` and `/agents` in the coordinator session
+(`alamode coord attach <coordinator>`) shows the agent `executing`
+`bash forge up`. The coordinator runs only `forge claim`, `init`, `start` and
+`release` for it, and keeps a failed one's stderr, last 4000 characters, as
+`error` on the lease.
+
+With `c=~/.local/state/alamode/coordinators/<coordinator>` (`alamode coord ls`
+lists them):
+
+| File                                                                      | Holds                                                                                                   |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `~/.local/state/alamode/workspaces/<session>/runtime/sessions/main.jsonl` | the agent's transcript; `forge up` output is a bash tool result, the last `>>>` line the stuck step     |
+| `$c/broker.sqlite`                                                        | per agent: setup `state` (`creating`, `starting`, `failed`), `error`, `session`, and `forge`, its lease |
+| `$c/agents/<agent>/agent.sqlite`                                          | `status`: `state` (`idle`, `executing`, `waiting_input`, `uncertain`, `lost`, `closed`), `activity`     |
+| `$c/agents/<agent>/runtime.log`                                           | the agent process's stderr                                                                              |
+| `$c/broker.log`, `$c/agents/<agent>/supervisor.log`                       | daemon tracebacks only                                                                                  |
+| `~/.local/state/alamode/coordinators/pool/forge.sqlite`                   | every coordinator's leases by label: `instance`, `state`, `owner` (the agent's directory), `error`      |
+
+Each is a `state(name, value)` table of JSON. An agent's row also holds its
+tokens, so select fields:
+
+```bash
+sqlite3 $c/broker.sqlite "select name, value->>'state', value->>'session', value->'forge' from state"
+sqlite3 $c/agents/<agent>/agent.sqlite "select value->>'state', value->>'activity' from state where name = 'status'"
+sqlite3 ~/.local/state/alamode/coordinators/pool/forge.sqlite "select name, value->>'instance', value->>'state', value->>'owner' from state"
+```
+
+A failed `forge up` leaves the VM as it stopped: the coordinator neither
+retries nor nukes it, and the lease holds until the agent is torn down.
 
 ## 3. Look inside it
 
@@ -78,7 +99,9 @@ curl -s http://127.0.0.1:6420/v2/_catalog  # what docker.io has cached
 ```
 
 The unnamed instance's kubeconfig is the `kubeconfig` in
-`~/.config/forge/forge.yaml`, which `forge status` prints.
+`~/.config/forge/forge.yaml`, which `forge status` prints. A coordinator
+agent's `forge up` writes its kubeconfig under the agent's own home:
+`~/.local/state/alamode/workspaces/<session>/runtime/home/.local/state/forge/<n>/kubeconfig.yaml`.
 
 ## 4. Match the stuck step
 
@@ -96,13 +119,15 @@ Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
 
 ## 5. VM missing or Broken
 
-- Missing, with an agent whose `state/<agent>.json` reads `failed`: pi-broker
-  nuked it after a failed `up` and released the slot, so `forge ls` no
-  longer shows an OWNER. Read the agent's `forge.log`.
 - `Broken`: `limactl list --json $vm`, then `~/.lima/$vm/ha.stderr.log`.
-- A slot in `~/.local/state/pi-coord/slots/<n>/` with no VM behind it is
-  reclaimed by the next spawn once its agent is not starting. Do not delete
-  it by hand while a coordinator is running.
+- A `~/.local/state/forge/<n>/label` reading `alamode-<hex>` with no VM
+  behind it is a lease whose `forge init` failed: `forge.sqlite` shows it
+  `uncertain` and its agent reads `failed`. `forge claim` skips `<n>` until
+  the agent is torn down (`/teardown` or `agent_teardown` in the coordinator
+  session), which runs `forge release <label>`. Do not `forge nuke` a
+  coordinator's instance or delete its directory by hand: `forge release`
+  then refuses, and the lease stays counted against the coordinator's memory
+  budget.
 
 ## Reporting back
 

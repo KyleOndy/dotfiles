@@ -5,7 +5,7 @@ ALLOW_UNSUPPORTED=false
 ALLOW_UNFREE=false
 
 # Captured at make-time so home-manager modules using mkOutOfStoreSymlink
-# (currently: pi-coding-agent) symlink into the worktree you actually
+# (currently: alamode) symlink into the worktree you actually
 # `make`d from, not a hardcoded path. Threaded into the flake via the
 # DOTFILES_WORKTREE env var; consumed in flake.nix and read with
 # builtins.getEnv. Empty when run outside a git worktree — the consuming
@@ -18,7 +18,7 @@ export DOTFILES_WORKTREE := $(shell git rev-parse --show-toplevel 2>/dev/null)
 IMPURE := --impure
 
 # Builder guests use path flakes to include explicitly authorized protected files.
-PI_BUILD_FLAKE ?= .
+ALAMODE_BUILD_FLAKE ?= .
 
 # GC roots for builds no substituter serves, so a garbage collection on
 # this machine does not force a rebuild. Each build replaces its own root.
@@ -90,7 +90,7 @@ build: ## Buld single host
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
-	$(if $(filter work-mac trex,$(HOSTNAME)),$(PI_SEATS_CHECK))
+	$(if $(filter work-mac trex,$(HOSTNAME)),$(ALAMODE_SEATS_CHECK))
 
 .PHONY: deploy-rs-gcroots
 deploy-rs-gcroots:
@@ -140,8 +140,8 @@ update/nur: ## Update just the nur source
 update/claude-code: ## Update just claude-code source
 	nix flake update claude-code-nix
 
-.PHONY: update/pi-coding-agent
-update/pi-coding-agent: ## Update pi.dev coding agent (via numtide/llm-agents.nix)
+.PHONY: update/alamode
+update/alamode: ## Update the pi.dev engine (via numtide/llm-agents.nix)
 	nix flake update llm-agents
 
 .PHONY: check
@@ -182,7 +182,7 @@ cleanup: ## Cleanup and reduce diskspace of current system
 # Cache push targets
 # macOS-specific targets
 
-# pi's seats and catalog are sops secrets, which nix cannot see at eval, so
+# The seats and catalog are sops secrets, which nix cannot see at eval, so
 # they are checked here against what the switch just decrypted to
 # /run/secrets, then each pinned mcloud id against the live endpoint,
 # images included where the catalog declares them. The new generation is
@@ -190,34 +190,34 @@ cleanup: ## Cleanup and reduce diskspace of current system
 # catalog entry and what to change, never a model id. An endpoint that does
 # not answer at all only warns, since an outage says nothing about this
 # host's config.
-PI_SEATS_CHECK := pi-seats check --deploy && mcloud-pins --deploy
+ALAMODE_SEATS_CHECK := alamode-seats check --deploy && mcloud-pins --deploy
 # The built wrapper parses its baked session config on every start, so a
 # conflict only the real work config carries fails the build instead of
-# the first pi start after a deploy. The glob is the host's one user.
-PI_SMOKE := ./result/etc/profiles/per-user/*/bin/pi --session-help >/dev/null
+# the first session start after a deploy. The glob is the host's one user.
+ALAMODE_SMOKE := ./result/etc/profiles/per-user/*/bin/alamode --help >/dev/null
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(PI_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
-	$(PI_SMOKE)
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
+	$(ALAMODE_SMOKE)
 
 .PHONY: build-mac-dry
 build-mac-dry: ## Dry-run build of work-mac darwin configuration
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(PI_BUILD_FLAKE)#darwinConfigurations.work-mac.system" --dry-run
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system" --dry-run
 
 .PHONY: deploy-mac
 deploy-mac: NIX_DAEMON_LABEL := org.nixos.nix-daemon
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
 	$(NIX_DAEMON_BEFORE); $(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch && $(NIX_DAEMON_RESTART)
-	$(PI_SEATS_CHECK)
+	$(ALAMODE_SEATS_CHECK)
 
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
-	nix build $(IMPURE) "$(PI_BUILD_FLAKE)#darwinConfigurations.trex.system"
-	$(PI_SMOKE)
+	nix build $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system"
+	$(ALAMODE_SMOKE)
 
 .PHONY: build-trex-dry
 build-trex-dry: ## Dry-run build of trex darwin configuration
-	nix build $(IMPURE) "$(PI_BUILD_FLAKE)#darwinConfigurations.trex.system" --dry-run
+	nix build $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system" --dry-run
 
 # Activation rewrites these without restarting the nix daemon, which reads
 # them only at start. A change to any of them restarts it, which kills any
@@ -231,7 +231,7 @@ NIX_DAEMON_RESTART = { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchct
 deploy-trex: NIX_DAEMON_LABEL := systems.determinate.nix-daemon
 deploy-trex: ## Deploy trex darwin configuration
 	$(NIX_DAEMON_BEFORE); $(SWITCH) --flake .#trex switch && $(NIX_DAEMON_RESTART)
-	$(PI_SEATS_CHECK)
+	$(ALAMODE_SEATS_CHECK)
 
 .PHONY: flash-ergodox
 flash-ergodox:

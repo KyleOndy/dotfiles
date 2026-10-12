@@ -356,9 +356,9 @@ checkout_worktree() {
 	# The checkout writes the files and the index in the same second, so git
 	# holds every entry as racily clean and re-hashes it on the next index
 	# write. For a git-crypt file that runs the clean filter, which needs the
-	# key, and a pi session is denied the key, so its first git status or add
-	# died on an unrelated file. Refresh once here, where the key is readable,
-	# a second later so the index outdates the files.
+	# key, and an alamode session is denied the key, so its first git status
+	# or add died on an unrelated file. Refresh once here, where the key is
+	# readable, a second later so the index outdates the files.
 	sleep 1
 	git -C "$worktree_path" update-index -q --refresh || true
 }

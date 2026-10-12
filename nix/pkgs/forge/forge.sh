@@ -67,10 +67,10 @@ yq_get() {
 # Unset is the one instance forge has always managed: VM "forge", the base
 # port window, and the kubeconfig the config names. A named instance is VM
 # "forge-<n>" with its own window, and keeps its kubeconfig and a copy of its
-# config under ~/.local/state/forge/<n>. The pi wrapper grants exactly that
-# directory (nix/pkgs/pi-wrapper/wrapper.sh), so the path is fixed rather than
-# configurable, and neither the config's kubeconfig nor FORGE_KUBECONFIG moves
-# it.
+# config under ~/.local/state/forge/<n>. The alamode wrapper grants exactly
+# that directory (nix/pkgs/alamode/wrapper.sh), so the path is fixed rather
+# than configurable, and neither the config's kubeconfig nor FORGE_KUBECONFIG
+# moves it.
 INSTANCE="${FORGE_INSTANCE:-}"
 if [[ -n ${INSTANCE} ]]; then
 	if [[ ! ${INSTANCE} =~ ^[1-9][0-9]*$ ]] || ((INSTANCE > MAX_INSTANCE)); then
@@ -300,10 +300,10 @@ ensure_cache_mirror() {
 	esac
 }
 
-# Every `forge up` passes through here, several at once when pi-broker spawns
-# agents, so bringing the cache up is serialized: the rest wait on the lock and
-# then find it answering. A sandboxed caller gets no further than
-# cache_healthy, since starting a VM needs ~/.lima.
+# Every `forge up` passes through here, several at once when a coordinator's
+# agents each run one, so bringing the cache up is serialized: the rest wait
+# on the lock and then find it answering. A sandboxed caller gets no further
+# than cache_healthy, since starting a VM needs ~/.lima.
 #
 # limactl start daemonizes lima's host agent, which would inherit the lock's
 # fd and hold the lock for the life of the VM, so it starts with fd 9 closed.
@@ -315,7 +315,7 @@ ensure_cache() {
 	fi
 	local lock="${HOME}/.local/state/forge/cache.lock"
 	{ mkdir -p "${lock%/*}" && touch "${lock}"; } 2>/dev/null ||
-		die "the cache is not answering on port ${CACHE_PORT_BASE}, and starting it needs 'forge cache up' outside pi's sandbox"
+		die "the cache is not answering on port ${CACHE_PORT_BASE}, and starting it needs 'forge cache up' outside alamode's sandbox"
 	exec 9>"${lock}"
 	flock -w 900 9 || die "waited 15m for another forge to bring the cache up"
 
@@ -355,8 +355,9 @@ ensure_cache() {
 # Empty for an instance that does not exist: limactl exits 1 and logs
 # "unmatched instances" for a name it does not know.
 #
-# Under pi's --allow-forge the socket is granted and the instance directory is
-# not, so limactl sees nothing there; a daemon that answers is a running VM.
+# Under alamode's --allow-forge the socket is granted and the instance
+# directory is not, so limactl sees nothing there; a daemon that answers is
+# a running VM.
 vm_status() {
 	if docker info &>/dev/null; then
 		echo Running
@@ -1162,8 +1163,9 @@ cmd_events() {
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
-# Defines the VM without booting it. pi's --allow-forge checks the instance's
-# lima.yaml, not whether it runs, and ensure_vm starts a Stopped instance.
+# Defines the VM without booting it. alamode's --allow-forge checks the
+# instance's lima.yaml, not whether it runs, and ensure_vm starts a Stopped
+# instance.
 cmd_init() {
 	if [[ -f ${VM_LIVE_CONFIG} ]]; then
 		ok "VM '${VM_NAME}' already exists"
@@ -1261,9 +1263,9 @@ stop_forge() {
 # vanishes under it fails or creates it again, unless $1 is true, which stops
 # those commands first.
 #
-# A stopped `up` that pi-broker started makes the broker nuke that VM itself,
-# so a VM can vanish while this loop runs; a nuke that fails is reported and
-# the rest still go.
+# A coordinator's teardown runs `forge release`, which nukes that VM, so a VM
+# can vanish while this loop runs; a nuke that fails is reported and the rest
+# still go.
 cmd_nuke_all() {
 	local force="$1"
 	local -A busy=()
@@ -1324,9 +1326,9 @@ Usage:
 
 Commands:
   init [--size S]
-                 Create the VM if absent, without starting it. Enough for pi's
-                 --allow-forge, which checks the VM's definition; 'forge up'
-                 boots it later.
+                 Create the VM if absent, without starting it. Enough for
+                 alamode's --allow-forge, which checks the VM's definition;
+                 'forge up' boots it later.
   start          Create the VM if absent, and boot it if stopped. Clusters
                  are left alone.
   up [--size S]  Create the VM if absent, then converge to the config: Docker
@@ -1341,9 +1343,9 @@ Commands:
   ls             One line per VM on this host, the cache included: state and
                  size, the forge command in progress (up, down, nuke, resize)
                  or else ready, partial or empty, clusters running of those
-                 declared, the guest's load, memory and disk, and the pi
+                 declared, the guest's load, memory and disk, and the
                  agent holding it. Reads state, changes nothing, and needs
-                 ~/.lima, so run it outside pi's sandbox.
+                 ~/.lima, so run it outside alamode's sandbox.
   pods [-r]      Every pod in every namespace of every cluster on every
                  running VM, in one table sorted oldest first, or newest
                  first with -r.

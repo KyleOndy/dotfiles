@@ -1,7 +1,7 @@
 # Flake check for mcloud-pins (nix/pkgs/mcloud-pins) against a stub
 # endpoint: the listing and one-token probes, the image, reasoning, tool and
 # context checks and the requests they send (the token field and the
-# reasoning_effort pi would send per entry and level), every early failure,
+# reasoning_effort the engine would send per entry and level), every early failure,
 # a fix line under every failure and warning, and that --deploy output names
 # no fixture id.
 #
@@ -206,7 +206,7 @@ let
     esac
   '';
 
-  piSeats = pkgs.writeShellScript "pi-seats" ''
+  alamodeSeats = pkgs.writeShellScript "alamode-seats" ''
     case "$*" in
     list) cat "$HOME/seats" ;;
     source) cat "$HOME/source" 2>/dev/null || true ;;
@@ -298,29 +298,29 @@ pkgs.runCommand "mcloud-pins-check"
     export HOME=$T/home
     A=$HOME/.pi/agent
     mkdir -p "$A" "$T/bin"
-    ln -s ${piSeats} "$T/bin/pi-seats"
+    ln -s ${alamodeSeats} "$T/bin/alamode-seats"
     export PATH=$T/bin:$PATH
     export MCLOUD_API_KEY=test-key
     unset MCLOUD_API_KEY_COMMAND
     printf '%s\n' nix/secrets/fake.yaml >"$HOME/source"
     printf '%s\t%s\n' \
-      PI_SESSION_MODEL mcloud/acme/zeta-9000:xhigh \
-      PI_ADVISOR_MODEL mcloud/acme/zeta-9000:low \
-      PI_AGENT_MODEL_VISION mcloud/acme/omega-2 \
-      PI_AGENT_MODEL_CRITIC mcloud/acme/kappa-7:high \
-      PI_CLASSIFY_MODEL mcloud/acme/kappa-7:off \
-      PI_SPAWN_MODEL othercloud/acme/sigma-3 >"$HOME/seats"
+      ALAMODE_SESSION_MODEL mcloud/acme/zeta-9000:xhigh \
+      ALAMODE_ADVISOR_MODEL mcloud/acme/zeta-9000:low \
+      ALAMODE_AGENT_MODEL_VISION mcloud/acme/omega-2 \
+      ALAMODE_AGENT_MODEL_CRITIC mcloud/acme/kappa-7:high \
+      ALAMODE_CLASSIFY_MODEL mcloud/acme/kappa-7:off \
+      ALAMODE_SPAWN_MODEL othercloud/acme/sigma-3 >"$HOME/seats"
     cp "$HOME/seats" "$T/seats.good"
     catalog ${good}
     S='in nix/secrets/fake.yaml'
-    Z0='pi_models_json providers.mcloud.models[0]'
-    O0='pi_models_json providers.mcloud.models[1]'
-    K0='pi_models_json providers.mcloud.models[2]'
-    Z="PI_SESSION_MODEL, PI_ADVISOR_MODEL, $Z0"
-    O="PI_AGENT_MODEL_VISION, $O0"
-    K="PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL, $K0"
-    SEE="remove \"image\" from input in $O0, or point PI_AGENT_MODEL_VISION at a model that sees images, $S"
-    SEE_K="remove \"image\" from input in $K0, or point PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL at a model that sees images, $S"
+    Z0='alamode_models_json providers.mcloud.models[0]'
+    O0='alamode_models_json providers.mcloud.models[1]'
+    K0='alamode_models_json providers.mcloud.models[2]'
+    Z="ALAMODE_SESSION_MODEL, ALAMODE_ADVISOR_MODEL, $Z0"
+    O="ALAMODE_AGENT_MODEL_VISION, $O0"
+    K="ALAMODE_AGENT_MODEL_CRITIC, ALAMODE_CLASSIFY_MODEL, $K0"
+    SEE="remove \"image\" from input in $O0, or point ALAMODE_AGENT_MODEL_VISION at a model that sees images, $S"
+    SEE_K="remove \"image\" from input in $K0, or point ALAMODE_AGENT_MODEL_CRITIC, ALAMODE_CLASSIFY_MODEL at a model that sees images, $S"
     PASS='mcloud-pins: 3 pins served and answering, 2 image checks, 4 reasoning checks and 3 tool checks passed'
 
     # All pass: one line at deploy, the table otherwise.
@@ -371,11 +371,11 @@ pkgs.runCommand "mcloud-pins-check"
     # its level is ignored.
     catalog ${fields}
     printf '%s\t%s\n' \
-      PI_DELEGATE_MODEL mcloud/acme/zeta-9000:off \
-      PI_AGENT_MODEL_PLANNER mcloud/acme/zeta-9000:max \
-      PI_AGENT_MODEL_SCOUT mcloud/acme/omega-2:high \
-      PI_AGENT_MODEL_SCRIBE mcloud/acme/kappa-7:xhigh \
-      PI_AGENT_MODEL_NOEFFORT mcloud/acme/lambda-4:high >>"$HOME/seats"
+      ALAMODE_DELEGATE_MODEL mcloud/acme/zeta-9000:off \
+      ALAMODE_AGENT_MODEL_PLANNER mcloud/acme/zeta-9000:max \
+      ALAMODE_AGENT_MODEL_SCOUT mcloud/acme/omega-2:high \
+      ALAMODE_AGENT_MODEL_SCRIBE mcloud/acme/kappa-7:xhigh \
+      ALAMODE_AGENT_MODEL_NOEFFORT mcloud/acme/lambda-4:high >>"$HOME/seats"
     endpoint
     both 1
     requests '
@@ -385,19 +385,19 @@ pkgs.runCommand "mcloud-pins-check"
           ["acme/zeta-9000", "none", 4096]]
       and (of("reason") | length == 18)
       and (of("tools") | map(.model) | unique == ["acme/kappa-7", "acme/lambda-4", "acme/omega-2", "acme/zeta-9000"])'
-    dep 'mcloud-pins: PI_AGENT_MODEL_NOEFFORT, pi_models_json providers.mcloud.models[3]: accepted level high and did no reasoning, so the level is ignored (0 reasoning tokens with no reasoning_effort)'
-    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in pi_models_json providers.mcloud.models[3] to what this model honours, or drop the level from PI_AGENT_MODEL_NOEFFORT, $S"
+    dep 'mcloud-pins: ALAMODE_AGENT_MODEL_NOEFFORT, alamode_models_json providers.mcloud.models[3]: accepted level high and did no reasoning, so the level is ignored (0 reasoning tokens with no reasoning_effort)'
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in alamode_models_json providers.mcloud.models[3] to what this model honours, or drop the level from ALAMODE_AGENT_MODEL_NOEFFORT, $S"
     dep 'mcloud-pins: 1 problem across 4 pins, each with its fix above'
     endpoint '{reason: {"acme/zeta-9000": "never", "acme/omega-2": "always"}}'
     both 1
-    dep "mcloud-pins: PI_AGENT_MODEL_PLANNER, $Z0: accepted level max (pi clamps it to xhigh) and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
-    dep "mcloud-pins: PI_AGENT_MODEL_SCOUT, $O0: reasons at level high (pi clamps it to off): the seat still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
-    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $O0 (pi sends it at off), or point PI_AGENT_MODEL_SCOUT at a model that answers without reasoning, $S"
-    row "acme/zeta-9000 yes 200 - FAIL ok PI_SESSION_MODEL, PI_ADVISOR_MODEL, PI_DELEGATE_MODEL, PI_AGENT_MODEL_PLANNER, $Z0"
-    if grep -q '^mcloud-pins: PI_DELEGATE_MODEL,' "$T/deploy"; then fail "zeta at off failed on no reasoning"; fi
+    dep "mcloud-pins: ALAMODE_AGENT_MODEL_PLANNER, $Z0: accepted level max (the engine clamps it to xhigh) and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
+    dep "mcloud-pins: ALAMODE_AGENT_MODEL_SCOUT, $O0: reasons at level high (the engine clamps it to off): the seat still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
+    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $O0 (the engine sends it at off), or point ALAMODE_AGENT_MODEL_SCOUT at a model that answers without reasoning, $S"
+    row "acme/zeta-9000 yes 200 - FAIL ok ALAMODE_SESSION_MODEL, ALAMODE_ADVISOR_MODEL, ALAMODE_DELEGATE_MODEL, ALAMODE_AGENT_MODEL_PLANNER, $Z0"
+    if grep -q '^mcloud-pins: ALAMODE_DELEGATE_MODEL,' "$T/deploy"; then fail "zeta at off failed on no reasoning"; fi
     cp "$T/seats.good" "$HOME/seats"
 
-    # pi merges the provider's compat into each entry, the entry's winning.
+    # the engine merges the provider's compat into each entry, the entry's winning.
     catalog ${providerCompat}
     endpoint
     both 0
@@ -406,7 +406,7 @@ pkgs.runCommand "mcloud-pins-check"
         else has("max_tokens") and (has("max_completion_tokens") | not) end)
       and (map(.model) | index("acme/lambda-4") != null)'
 
-    # A thinkingFormat changes what pi sends for reasoning, so the check
+    # A thinkingFormat changes what the engine sends for reasoning, so the check
     # stands aside for entries that reason.
     catalog ${formatted}
     endpoint
@@ -421,20 +421,20 @@ pkgs.runCommand "mcloud-pins-check"
     # cut-off and a wrong answer, and refusals.
     endpoint '{reason: {"acme/kappa-7": "always"}}'
     both 1
-    dep "mcloud-pins: PI_CLASSIFY_MODEL, $K0: reasons at off: a seat at :off still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
-    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $K0 (pi sends it at off), or point PI_CLASSIFY_MODEL at a model that answers without reasoning, $S"
+    dep "mcloud-pins: ALAMODE_CLASSIFY_MODEL, $K0: reasons at off: a seat at :off still spends its budget thinking (64 reasoning tokens with no reasoning_effort)"
+    dep "  fix: set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $K0 (the engine sends it at off), or point ALAMODE_CLASSIFY_MODEL at a model that answers without reasoning, $S"
     dep 'mcloud-pins: 1 problem across 3 pins, each with its fix above'
     row "acme/kappa-7 yes 200 ok FAIL ok $K"
     endpoint '{reason: {"acme/zeta-9000": "never"}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: accepted level xhigh and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
-    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 to what this model honours, or drop the level from PI_SESSION_MODEL, $S"
-    dep "mcloud-pins: PI_ADVISOR_MODEL, $Z0: accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
-    plain "mcloud-pins: acme/zeta-9000 (PI_ADVISOR_MODEL, $Z0): accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: accepted level xhigh and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort high)"
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 to what this model honours, or drop the level from ALAMODE_SESSION_MODEL, $S"
+    dep "mcloud-pins: ALAMODE_ADVISOR_MODEL, $Z0: accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
+    plain "mcloud-pins: acme/zeta-9000 (ALAMODE_ADVISOR_MODEL, $Z0): accepted level low and did no reasoning, so the level is ignored (0 reasoning tokens with reasoning_effort low)"
     endpoint '{reason: {"acme/zeta-9000": "silent"}}'
     both 0
-    dep "mcloud-pins: warning: PI_SESSION_MODEL, $Z0: cannot tell whether level xhigh reasons; the endpoint reports no reasoning tokens (reasoning_effort high)"
-    dep "  fix: confirm by hand that this model reasons with reasoning_effort high; if it does not, drop the level from PI_SESSION_MODEL, $S"
+    dep "mcloud-pins: warning: ALAMODE_SESSION_MODEL, $Z0: cannot tell whether level xhigh reasons; the endpoint reports no reasoning tokens (reasoning_effort high)"
+    dep "  fix: confirm by hand that this model reasons with reasoning_effort high; if it does not, drop the level from ALAMODE_SESSION_MODEL, $S"
     dep 'mcloud-pins: 3 pins served and answering, 2 image checks, 2 reasoning checks and 3 tool checks passed, 2 warnings above'
     row "acme/zeta-9000 yes 200 - warn ok $Z"
     endpoint '{reason: {"acme/zeta-9000": "text"}}'
@@ -442,53 +442,53 @@ pkgs.runCommand "mcloud-pins-check"
     dep "$PASS"
     endpoint '{reason: {"acme/kappa-7": "empty"}}'
     both 1
-    dep "mcloud-pins: PI_AGENT_MODEL_CRITIC, $K0: the reasoning check at level high answered with no text (finish_reason length)"
-    dep "  fix: a three-step sum should not need 4096 tokens: lower the level in PI_AGENT_MODEL_CRITIC, or point it at another model, $S"
+    dep "mcloud-pins: ALAMODE_AGENT_MODEL_CRITIC, $K0: the reasoning check at level high answered with no text (finish_reason length)"
+    dep "  fix: a three-step sum should not need 4096 tokens: lower the level in ALAMODE_AGENT_MODEL_CRITIC, or point it at another model, $S"
     endpoint '{reason: {"acme/zeta-9000": "cut"}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh was cut off at the 4096-token budget (finish_reason length)"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: the reasoning check at level xhigh was cut off at the 4096-token budget (finish_reason length)"
     endpoint '{reason: {"acme/zeta-9000": "wrong"}}'
     both 0
-    dep "mcloud-pins: warning: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh answered, but not 17"
-    dep '  fix: rerun mcloud-pins; a model that keeps missing a three-step sum is a poor fit for PI_SESSION_MODEL'
-    plain "mcloud-pins: warning: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the reasoning check at level xhigh answered, but not 17 (it said: 18)"
+    dep "mcloud-pins: warning: ALAMODE_SESSION_MODEL, $Z0: the reasoning check at level xhigh answered, but not 17"
+    dep '  fix: rerun mcloud-pins; a model that keeps missing a three-step sum is a poor fit for ALAMODE_SESSION_MODEL'
+    plain "mcloud-pins: warning: acme/zeta-9000 (ALAMODE_SESSION_MODEL, $Z0): the reasoning check at level xhigh answered, but not 17 (it said: 18)"
     endpoint '{reason: {"acme/zeta-9000": 400}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the reasoning check at level xhigh answers HTTP 400 to reasoning_effort high"
-    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 so pi sends what the endpoint takes, or pick another level for PI_SESSION_MODEL, $S"
-    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the reasoning check at level xhigh answers HTTP 400 (the endpoint said: acme/zeta-9000 cannot take this request) to reasoning_effort high"
-    unanswered '{reason: {"acme/kappa-7": 503}}' "PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 503" \
-      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
-    unanswered '{reason: {"acme/kappa-7": 429}}' "PI_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 429" \
-      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so pi sends what the endpoint takes, or pick another level for PI_CLASSIFY_MODEL, $S"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: the reasoning check at level xhigh answers HTTP 400 to reasoning_effort high"
+    dep "  fix: correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $Z0 so the engine sends what the endpoint takes, or pick another level for ALAMODE_SESSION_MODEL, $S"
+    plain "mcloud-pins: acme/zeta-9000 (ALAMODE_SESSION_MODEL, $Z0): the reasoning check at level xhigh answers HTTP 400 (the endpoint said: acme/zeta-9000 cannot take this request) to reasoning_effort high"
+    unanswered '{reason: {"acme/kappa-7": 503}}' "ALAMODE_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 503" \
+      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so the engine sends what the endpoint takes, or pick another level for ALAMODE_CLASSIFY_MODEL, $S"
+    unanswered '{reason: {"acme/kappa-7": 429}}' "ALAMODE_CLASSIFY_MODEL, $K0: the reasoning check at level off answers HTTP 429" \
+      "correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $K0 so the engine sends what the endpoint takes, or pick another level for ALAMODE_CLASSIFY_MODEL, $S"
 
     # Tools: prose, another tool, garbled or wrong arguments, refusals.
     endpoint '{tools: {"acme/zeta-9000": "prose"}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check got prose, not a tool call, so the model does not call tools here"
-    dep "  fix: point PI_SESSION_MODEL at a model that calls tools, $S"
-    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the tool check got prose, not a tool call (it said: It is sunny in Paris.), so the model does not call tools here"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: the tool check got prose, not a tool call, so the model does not call tools here"
+    dep "  fix: point ALAMODE_SESSION_MODEL at a model that calls tools, $S"
+    plain "mcloud-pins: acme/zeta-9000 (ALAMODE_SESSION_MODEL, $Z0): the tool check got prose, not a tool call (it said: It is sunny in Paris.), so the model does not call tools here"
     row "acme/zeta-9000 yes 200 - ok FAIL $Z"
     endpoint '{tools: {"acme/kappa-7": "name"}}'
     both 1
-    dep "mcloud-pins: PI_AGENT_MODEL_CRITIC, $K0: the tool check called another tool, not get_weather"
-    dep "  fix: point PI_AGENT_MODEL_CRITIC at a model that calls tools, $S"
-    plain "mcloud-pins: acme/kappa-7 (PI_AGENT_MODEL_CRITIC, $K0): the tool check called get_time, not get_weather"
+    dep "mcloud-pins: ALAMODE_AGENT_MODEL_CRITIC, $K0: the tool check called another tool, not get_weather"
+    dep "  fix: point ALAMODE_AGENT_MODEL_CRITIC at a model that calls tools, $S"
+    plain "mcloud-pins: acme/kappa-7 (ALAMODE_AGENT_MODEL_CRITIC, $K0): the tool check called get_time, not get_weather"
     endpoint '{tools: {"acme/zeta-9000": "garbled"}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check called get_weather with arguments that are not a JSON object"
-    plain "mcloud-pins: acme/zeta-9000 (PI_SESSION_MODEL, $Z0): the tool check called get_weather with arguments that are not a JSON object (it said: {city: Paris)"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: the tool check called get_weather with arguments that are not a JSON object"
+    plain "mcloud-pins: acme/zeta-9000 (ALAMODE_SESSION_MODEL, $Z0): the tool check called get_weather with arguments that are not a JSON object (it said: {city: Paris)"
     endpoint '{tools: {"acme/zeta-9000": "elsewhere"}}'
     both 1
-    dep "mcloud-pins: PI_SESSION_MODEL, $Z0: the tool check called get_weather without city Paris"
+    dep "mcloud-pins: ALAMODE_SESSION_MODEL, $Z0: the tool check called get_weather without city Paris"
     endpoint '{tools: {"acme/omega-2": 400}}'
     both 1
-    dep "mcloud-pins: PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 400, so the endpoint refuses a request with tools"
-    dep "  fix: point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
-    unanswered '{tools: {"acme/omega-2": 503}}' "PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 503" \
-      "point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
-    unanswered '{tools: {"acme/omega-2": 429}}' "PI_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 429" \
-      "point PI_AGENT_MODEL_VISION at a model that calls tools, $S"
+    dep "mcloud-pins: ALAMODE_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 400, so the endpoint refuses a request with tools"
+    dep "  fix: point ALAMODE_AGENT_MODEL_VISION at a model that calls tools, $S"
+    unanswered '{tools: {"acme/omega-2": 503}}' "ALAMODE_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 503" \
+      "point ALAMODE_AGENT_MODEL_VISION at a model that calls tools, $S"
+    unanswered '{tools: {"acme/omega-2": 429}}' "ALAMODE_AGENT_MODEL_VISION, $O0: the tool check answers HTTP 429" \
+      "point ALAMODE_AGENT_MODEL_VISION at a model that calls tools, $S"
 
     # Context, only on request: a prompt of 90% of the window less maxTokens
     # at 4 characters a token, opening with the marker.
@@ -525,18 +525,18 @@ pkgs.runCommand "mcloud-pins-check"
 
     # Not listed, and a seat naming a model the catalog lacks.
     endpoint '{served: ["acme/zeta-9000", "acme/omega-2"]}'
-    printf '%s\t%s\n' PI_DELEGATE_MODEL mcloud/acme/nope-1:high >>"$HOME/seats"
+    printf '%s\t%s\n' ALAMODE_DELEGATE_MODEL mcloud/acme/nope-1:high >>"$HOME/seats"
     both 1
     dep "mcloud-pins: $K: the endpoint does not list this model"
     dep "  fix: correct the id, or pick a model the endpoint lists, in $K, $S"
-    dep 'mcloud-pins: PI_DELEGATE_MODEL: a seat names this mcloud model, but pi_models_json has no entry for it, so pi cannot select it'
-    dep "  fix: add an entry for it to pi_models_json providers.mcloud.models, or point PI_DELEGATE_MODEL at a catalogued model, $S"
-    dep 'mcloud-pins: PI_DELEGATE_MODEL: the endpoint does not list this model'
-    dep "  fix: correct the id, or pick a model the endpoint lists, in PI_DELEGATE_MODEL, $S"
+    dep 'mcloud-pins: ALAMODE_DELEGATE_MODEL: a seat names this mcloud model, but alamode_models_json has no entry for it, so the engine cannot select it'
+    dep "  fix: add an entry for it to alamode_models_json providers.mcloud.models, or point ALAMODE_DELEGATE_MODEL at a catalogued model, $S"
+    dep 'mcloud-pins: ALAMODE_DELEGATE_MODEL: the endpoint does not list this model'
+    dep "  fix: correct the id, or pick a model the endpoint lists, in ALAMODE_DELEGATE_MODEL, $S"
     dep 'mcloud-pins: 3 problems across 4 pins, each with its fix above'
     plain "mcloud-pins: acme/kappa-7 ($K): the endpoint does not list this model"
     row "acme/kappa-7 NO skip skip skip skip $K"
-    row "acme/nope-1 NO skip - skip skip PI_DELEGATE_MODEL"
+    row "acme/nope-1 NO skip - skip skip ALAMODE_DELEGATE_MODEL"
     cp "$T/seats.good" "$HOME/seats"
 
     # Listed, not answering; no capability check after a failed probe; 429
@@ -558,7 +558,7 @@ pkgs.runCommand "mcloud-pins-check"
     dep "  fix: rerun mcloud-pins; if it fails the same way, replace the model in $Z, $S"
     endpoint '{text: {"acme/omega-2": 400}}'
     both 1
-    dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 400 to max_tokens, the token field pi sends"
+    dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 400 to max_tokens, the token field the engine sends"
     dep "  fix: if the endpoint takes another token field, set compat.maxTokensField in $O0 to it; otherwise replace the model in $O, $S"
 
     # The image check: refused, an outage, no answer, the wrong color,
@@ -607,7 +607,7 @@ pkgs.runCommand "mcloud-pins-check"
     catalog "$T/models.json"
     both 2
     dep "mcloud-pins: $A/models.json is a link to $T/models.json, not a link into /nix/store, so home-manager did not write it and its baseUrl is not trusted with the key"
-    dep '  fix: set hmFoundry.dev.pi-coding-agent.modelsJsonFile (or modelsJson) for this host and deploy, after moving aside anything else at that path'
+    dep '  fix: set hmFoundry.dev.alamode.modelsJsonFile (or modelsJson) for this host and deploy, after moving aside anything else at that path'
     rm "$A/models.json"
     cp ${good} "$A/models.json"
     both 2
@@ -618,16 +618,16 @@ pkgs.runCommand "mcloud-pins-check"
     catalog ${dangling}
     both 2
     dep "mcloud-pins: $A/models.json links to ${dangling}, which is not readable JSON"
-    dep "  fix: add pi_models_json, holding the catalog as JSON, $S and deploy, so sops-nix writes the file it points at"
+    dep "  fix: add alamode_models_json, holding the catalog as JSON, $S and deploy, so sops-nix writes the file it points at"
     catalog ${noBaseUrl}
     both 2
-    dep 'mcloud-pins: pi_models_json has no providers.mcloud.baseUrl, so there is no endpoint to check'
-    dep "  fix: set providers.mcloud.baseUrl in pi_models_json $S"
+    dep 'mcloud-pins: alamode_models_json has no providers.mcloud.baseUrl, so there is no endpoint to check'
+    dep "  fix: set providers.mcloud.baseUrl in alamode_models_json $S"
     catalog ${noModels}
     grep -v mcloud/ "$T/seats.good" >"$HOME/seats"
     both 2
-    dep 'mcloud-pins: nothing names an mcloud model: pi_models_json has no providers.mcloud.models and no seat starts with mcloud/'
-    dep "  fix: list this host's models in pi_models_json providers.mcloud.models and point PI_SESSION_MODEL at one of them, $S"
+    dep 'mcloud-pins: nothing names an mcloud model: alamode_models_json has no providers.mcloud.models and no seat starts with mcloud/'
+    dep "  fix: list this host's models in alamode_models_json providers.mcloud.models and point ALAMODE_SESSION_MODEL at one of them, $S"
     cp "$T/seats.good" "$HOME/seats"
     catalog ${good}
 
@@ -635,7 +635,7 @@ pkgs.runCommand "mcloud-pins-check"
     endpoint '{served: []}'
     both 2
     dep 'mcloud-pins: GET /models answered 200 with no model ids'
-    dep "  fix: check that providers.mcloud.baseUrl in pi_models_json $S is the mcloud API root"
+    dep "  fix: check that providers.mcloud.baseUrl in alamode_models_json $S is the mcloud API root"
     endpoint '{listing: 404}'
     both 2
     dep 'mcloud-pins: GET /models answered HTTP 404, so the baseUrl is not an OpenAI-compatible API root'
@@ -652,9 +652,9 @@ pkgs.runCommand "mcloud-pins-check"
       run 2
       cp "$T/out" "$T/plain"
       dep "mcloud-pins: warning: $2, so no pin was checked"
-      dep "  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in pi_models_json $S"
+      dep "  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in alamode_models_json $S"
       plain "mcloud-pins: $2"
-      plain "  fix: rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in pi_models_json $S"
+      plain "  fix: rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in alamode_models_json $S"
       if grep -q 'served and answering' "$T/deploy"; then fail "outage $1: --deploy claimed a pass"; fi
     }
     outage 502 'GET /models answered HTTP 502'
@@ -662,19 +662,19 @@ pkgs.runCommand "mcloud-pins-check"
     outage '"000"' 'GET /models at the mcloud baseUrl got no answer within 30s'
     endpoint
 
-    # pi-seats: a failed list, no sops file to name, absent.
+    # alamode-seats: a failed list, no sops file to name, absent.
     rm "$HOME/seats"
     mkdir "$HOME/seats"
     both 2
-    dep 'mcloud-pins: pi-seats list failed, so no seat was checked'
-    dep '  fix: run pi-seats check --deploy and fix what it reports'
+    dep 'mcloud-pins: alamode-seats list failed, so no seat was checked'
+    dep '  fix: run alamode-seats check --deploy and fix what it reports'
     rmdir "$HOME/seats"
     cp "$T/seats.good" "$HOME/seats"
     rm "$HOME/source"
     endpoint '{image: {"acme/kappa-7": "red"}}'
     both 1
-    dep "  fix: remove \"image\" from input in $K0, or point PI_AGENT_MODEL_CRITIC, PI_CLASSIFY_MODEL at a model that sees images, in this host's sops file"
-    rm "$T/bin/pi-seats"
+    dep "  fix: remove \"image\" from input in $K0, or point ALAMODE_AGENT_MODEL_CRITIC, ALAMODE_CLASSIFY_MODEL at a model that sees images, in this host's sops file"
+    rm "$T/bin/alamode-seats"
     endpoint '{image: {"acme/omega-2": "red"}}'
     both 1
     dep "  fix: remove \"image\" from input in $O0, in this host's sops file"

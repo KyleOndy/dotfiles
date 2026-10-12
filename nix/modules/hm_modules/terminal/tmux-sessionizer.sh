@@ -7,7 +7,7 @@ set -euo pipefail
 #
 # A worktree in a ticket directory ({repo}/DEV-123/<name>, git
 # wt-feature-branch's work mode) joins session DEV-123 as a window of its own,
-# so every repo and pi agent on a ticket shares one session. Any other
+# so every repo and alamode agent on a ticket shares one session. Any other
 # worktree gets session <repo>/<name>.
 
 readonly SRC_DIR="${HOME}/src"

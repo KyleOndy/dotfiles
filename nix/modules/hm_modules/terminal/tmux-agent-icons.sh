@@ -7,9 +7,9 @@ set -euo pipefail
 #
 # Two agents, two channels, because they publish from opposite sides of a
 # sandbox boundary. Claude Code's hooks run unsandboxed and set a pane
-# option (@claude_state, claude-code/hooks/tmux-indicator.sh). pi runs
+# option (@claude_state, claude-code/hooks/tmux-indicator.sh). alamode runs
 # inside srt, which denies the tmux socket, so it fronts the terminal title
-# with a `[pi:STATE]` token (pi/extensions/terminal-title.ts) and tmux
+# with a `[alamode:STATE]` token (alamode/source/extensions/terminal-title.ts) and tmux
 # records that as pane_title.
 
 WINDOW_ID="${1:-}"
@@ -27,9 +27,9 @@ add() {
 while IFS='|' read -r claude_state pane_title; do
 	[ -n "$claude_state" ] && add "cc:${claude_state}"
 	case "$pane_title" in
-	"[pi:"*"]"*)
-		state=${pane_title#"[pi:"}
-		add "pi:${state%%"]"*}"
+	"[alamode:"*"]"*)
+		state=${pane_title#"[alamode:"}
+		add "am:${state%%"]"*}"
 		;;
 	esac
 done < <(tmux list-panes -t "$WINDOW_ID" -F '#{@claude_state}|#{pane_title}' 2>/dev/null)

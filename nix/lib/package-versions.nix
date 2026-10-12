@@ -29,8 +29,11 @@ let
     (if on (s.prometheus.alertmanager or { }) then s.prometheus.alertmanager.package else null)
     (c.boot.kernelPackages.kernel or null)
     (c.boot.zfs.package or null)
-    # pi is installed through a versionless sandbox wrapper named `pi`.
-    (if builtins.any (p: (p.name or "") == "pi") home then sys.pkgs.llm-agents.pi or null else null)
+    # The engine is installed through a versionless sandbox wrapper named
+    # `alamode`; report the engine's version for it.
+    (
+      if builtins.any (p: (p.name or "") == "alamode") home then sys.pkgs.llm-agents.pi or null else null
+    )
   ];
 
   entry =

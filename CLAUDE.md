@@ -17,7 +17,7 @@ The flake reads the git tree, so a new file is invisible to `nix eval` and
 `nix build` until it is `git add`ed.
 
 Build and deploy through `make`. It exports `DOTFILES_WORKTREE` and passes
-`--impure`, and without both, pi-coding-agent's `sourceDir` throws on every
+`--impure`, and without both, alamode's `sourceDir` throws on every
 host that enables it (all but pika and cogsworth).
 
 Verify with the command in `.pi/verify.json`. Not `nix flake check`, which

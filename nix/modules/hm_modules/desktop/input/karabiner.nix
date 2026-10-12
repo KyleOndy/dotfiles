@@ -258,7 +258,7 @@ in
           which accumulates one byte per replay tap. The domestique watchers
           poll for them; nothing else reads them.
 
-          Outside ~/.pi because every sandboxed pi session can write there,
+          Outside ~/.pi because every sandboxed alamode session can write there,
           and a forged `listening` would open the microphone.
         '';
       };

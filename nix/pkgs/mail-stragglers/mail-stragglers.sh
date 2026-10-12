@@ -2,11 +2,11 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/mail-stragglers/default.nix).
 #
-# Lists who still mails ondy.me and kyleondy@gmail.com, then opens pi with
+# Lists who still mails ondy.me and kyleondy@gmail.com, then opens alamode with
 # Kagi search to find how to move each one to ondy.org. Trex-only: the
 # maildirs live here. Delete this package once the list comes back empty.
 #
-#   mail-stragglers [--days N]          list, then work through it in pi
+#   mail-stragglers [--days N]          list, then work through it interactively
 #   mail-stragglers --list [--days N]   list only
 
 list_only=no
@@ -71,6 +71,6 @@ EOF
 )
 readonly instructions
 
-# --allow-kagi must come first: the pi wrapper only parses its own flags
-# ahead of pi's.
-exec pi --allow-kagi --append-system-prompt "$instructions" -- "$report"
+# --allow-kagi is an alamode flag, the rest belong to the engine and go
+# after the hard -- boundary.
+exec alamode --allow-kagi -- --append-system-prompt "$instructions" -- "$report"

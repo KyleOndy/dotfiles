@@ -34,7 +34,7 @@
         IdentityFile = "~/.ssh/id_ed25519";
       };
       # The FQDN is not cosmetic. sandbox-runtime refuses a single-label name
-      # as a domain pattern, so "cogsworth" can never appear in the pi
+      # as a domain pattern, so "cogsworth" can never appear in the alamode
       # sandbox's network allowlist; mapping it here is what lets `ssh
       # cogsworth` and cogsworth's own `make HOST=cogsworth` keep working
       # inside that sandbox. HostKeyAlias keeps the short-name known_hosts
@@ -43,11 +43,11 @@
         HostName = "cogsworth.lan.1ella.com";
         HostKeyAlias = "cogsworth";
       };
-      # Inside the pi sandbox every outbound TCP connection has to go through
-      # sandbox-runtime's proxy mux; a direct connect() is refused by seatbelt,
-      # which surfaces as an unresolvable hostname. srt does inject an ssh
-      # ProxyCommand of its own via GIT_SSH_COMMAND, but it is built around BSD
-      # `nc -X 5`, which speaks no SOCKS5 auth, and srt always mints a proxy
+      # Inside the alamode sandbox every outbound TCP connection has to go
+      # through sandbox-runtime's proxy mux; a direct connect() is refused by
+      # seatbelt, which surfaces as an unresolvable hostname. srt does inject an
+      # ssh ProxyCommand of its own via GIT_SSH_COMMAND, but it is built around
+      # BSD `nc -X 5`, which speaks no SOCKS5 auth, and srt always mints a proxy
       # credential -- so that path dies at the SOCKS handshake. ncat carries the
       # credential; CLOUDSDK_PROXY_* holds it already decoded, where the
       # userinfo in ALL_PROXY is percent-encoded and its %3D trips ssh's own
@@ -62,7 +62,7 @@
       # The header is spelled out rather than carried by the attribute name,
       # which orders the blocks: a name starting with "Match " would sort this
       # one ahead of the cogsworth block.
-      "pi-sandbox-proxy" = {
+      "alamode-sandbox-proxy" = {
         header = ''Match exec "test -n \"$RSYNC_PROXY\""'';
         ProxyCommand =
           "ncat -4 --proxy 127.0.0.1:\${RSYNC_PROXY##*:} --proxy-type socks5"

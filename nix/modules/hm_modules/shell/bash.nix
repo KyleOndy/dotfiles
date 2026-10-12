@@ -15,8 +15,8 @@ let
   # Kept in the store rather than inline in .bashrc because BASH_ENV below
   # points at it, and BASH_ENV fires for every non-interactive bash. A path
   # under $HOME breaks the moment bash runs somewhere $HOME is not readable:
-  # pi's sandbox denies reads outside $PWD and ~/.pi, so pointing BASH_ENV at
-  # ~/.bashrc printed "Operation not permitted" twice on every pi startup and
+  # alamode's sandbox denies reads outside $PWD and ~/.pi, so pointing BASH_ENV
+  # at ~/.bashrc printed "Operation not permitted" twice on every pi startup and
   # once at the head of every bash tool result the agent read. /nix/store
   # stays readable in that sandbox, so a store path just works.
   #

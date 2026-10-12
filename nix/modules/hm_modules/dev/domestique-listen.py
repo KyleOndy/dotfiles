@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Record while a push-to-talk key is held, transcribe, route by which key.
 
-The microphone is denied inside pi's strict sandbox for the same reason the
+The microphone is denied inside alamode's strict sandbox for the same reason the
 speaker is, so this runs beside the speech watcher rather than inside pi, and
-the two halves meet in ~/.local/state/domestique. No pi session can write
+the two halves meet in ~/.local/state/domestique. No alamode session can write
 there, where a forged key file would open the microphone and a forged
 transcript would put words in the rider's mouth. Karabiner creates a file on
 key down and removes it on key up
@@ -12,7 +12,7 @@ two edges becomes one utterance.
 
 Two channels, told apart by which file exists:
 
-  listening   goes to the pi session, as a message the agent answers.
+  listening   goes to the alamode session, as a message the agent answers.
   outofband   never reaches pi's context. It lands in notes.md in the ride
               directory, and a classifier then decides whether it was also a
               request to change topic.
@@ -113,7 +113,7 @@ INPUT_DEVICE = env("DOMESTIQUE_INPUT_DEVICE", "")
 POLL_SECONDS = seconds("DOMESTIQUE_POLL_SECONDS", "0.1", 0.01)
 
 # provider/id[:level], resolved once per ride by the launcher
-# (dev/domestique.nix) from the PI_CLASSIFY_MODEL seat. Empty means off.
+# (dev/domestique.nix) from the ALAMODE_CLASSIFY_MODEL seat. Empty means off.
 CLASSIFY_MODEL = env("DOMESTIQUE_CLASSIFY_MODEL", "")
 CLASSIFY_PROMPT = env("DOMESTIQUE_CLASSIFY_PROMPT", "")
 CLASSIFY_TIMEOUT = seconds("DOMESTIQUE_CLASSIFY_TIMEOUT", "20", 1.0)
@@ -208,7 +208,8 @@ def classify(text: str) -> str:
         prompt = Path(CLASSIFY_PROMPT).read_text()
         done = subprocess.run(
             [
-                "pi",
+                "alamode",
+                "--",
                 "--print",
                 "--no-session",
                 "--no-tools",

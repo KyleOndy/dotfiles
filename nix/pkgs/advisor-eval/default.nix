@@ -12,7 +12,7 @@
 
 writeShellApplication {
   name = "advisor-eval";
-  # pi's real binary, not the sandbox wrapper also named pi.
+  # pi's real binary. alamode wraps it in the sandbox; this grader does not.
   runtimeInputs = [
     llm-agents.pi
     coreutils
@@ -21,7 +21,7 @@ writeShellApplication {
   ];
   text = ''
     CASES="''${CASES:-${./cases.json}}"
-    ADVISOR_TS="''${ADVISOR_TS:-${../../modules/hm_modules/dev/pi/extensions/advisor.ts}}"
+    ADVISOR_TS="''${ADVISOR_TS:-${../../modules/hm_modules/dev/alamode/source/extensions/advisor.ts}}"
     [ -n "''${MCLOUD_API_KEY_COMMAND:-}" ] || MCLOUD_API_KEY_COMMAND=${lib.escapeShellArg keyCommand}
   ''
   + builtins.readFile ./advisor-eval.sh;

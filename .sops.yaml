@@ -85,7 +85,7 @@ creation_rules:
         pgp:
           - *kyle
   # smb_kyle_password: tiger's smbd and trex's smb-tiger-mount
-  # mcloud_api_key: trex's pi and tiger's pi-advisor
+  # mcloud_api_key: trex's alamode and tiger's alamode-advisor
   - path_regex: nix/secrets/shared-tiger-trex\.yaml$
     key_groups:
       - age:

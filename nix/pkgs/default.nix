@@ -24,23 +24,23 @@ self: super: {
   winnow = super.callPackage ./winnow { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };
-  pi-session = super.callPackage ./pi-session { inherit (self) llm-agents; };
-  pi-provider-relay = super.callPackage ./pi-provider-relay { };
-  pi-builder = super.callPackage ./pi-builder { };
-  pi-wrapper = super.callPackage ./pi-wrapper {
+  alamode-runtime = super.callPackage ./alamode-runtime { inherit (self) llm-agents; };
+  alamode-relay = super.callPackage ./alamode-relay { };
+  alamode-builder = super.callPackage ./alamode-builder { };
+  alamode = super.callPackage ./alamode {
     inherit (self)
       llm-agents
-      pi-session
-      pi-provider-relay
-      pi-builder
+      alamode-runtime
+      alamode-relay
+      alamode-builder
       ;
   };
-  pi-broker = super.callPackage ./pi-broker { inherit (self) forge; };
-  pi-delegate = super.callPackage ./pi-delegate { };
+  alamode-coordinator = super.callPackage ./alamode-coordinator { inherit (self) forge; };
+  alamode-delegate = super.callPackage ./alamode-delegate { };
   mcloud-pins = super.callPackage ./mcloud-pins { };
   mcloud-rank = super.callPackage ./mcloud-rank { };
   leak-guard = super.callPackage ./leak-guard { inherit (self) llm-agents; };
-  pi-seats = super.callPackage ./pi-seats { };
+  alamode-seats = super.callPackage ./alamode-seats { };
   advisor-eval = super.callPackage ./advisor-eval { inherit (self) llm-agents; };
   search-mail = super.callPackage ./search-mail { };
   mail-stragglers = super.callPackage ./mail-stragglers { };

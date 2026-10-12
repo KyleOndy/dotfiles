@@ -494,16 +494,16 @@
             # https://github.com/serokell/deploy-rs/blob/aa07eb05537d4cd025e2310397a6adcedfe72c76/flake.nix#L128
             // builtins.mapAttrs (_: deployLib: deployLib.deployChecks self.deploy) inputs.deploy-rs.lib;
 
-          pi-coding-agent = import ./nix/checks/pi-coding-agent.nix { inherit pkgs; };
-          # Real-pi counterpart: runs the actual binary against a loopback dump
-          # provider, where pi-coding-agent.nix stops at plan-mode stubs.
-          pi-e2e = import ./nix/checks/pi-e2e.nix { inherit pkgs; };
+          alamode = import ./nix/checks/alamode.nix { inherit pkgs; };
+          # Real-engine counterpart: runs the actual pi binary against a
+          # loopback dump provider, where alamode.nix stops at plan-mode stubs.
+          alamode-e2e = import ./nix/checks/alamode-e2e.nix { inherit pkgs; };
           forge-vm = import ./nix/checks/forge-vm.nix { inherit pkgs; };
-          pi-broker = import ./nix/checks/pi-broker.nix { inherit pkgs; };
-          pi-delegate = import ./nix/checks/pi-delegate.nix { inherit pkgs; };
-          pi-builder = pkgs.pi-builder;
+          alamode-coordinator = import ./nix/checks/alamode-coordinator.nix { inherit pkgs; };
+          alamode-delegate = import ./nix/checks/alamode-delegate.nix { inherit pkgs; };
+          alamode-builder = pkgs.alamode-builder;
           leak-guard = import ./nix/checks/leak-guard.nix { inherit pkgs; };
-          pi-seats = import ./nix/checks/pi-seats.nix { inherit pkgs; };
+          alamode-seats = import ./nix/checks/alamode-seats.nix { inherit pkgs; };
           mcloud-pins = import ./nix/checks/mcloud-pins.nix { inherit pkgs; };
         }
       );
@@ -613,15 +613,15 @@
           # `make secrets-status`
           inherit (pkgs) secrets-check;
           inherit (pkgs)
-            pi-wrapper
-            pi-session
-            pi-provider-relay
-            pi-broker
-            pi-delegate
+            alamode
+            alamode-runtime
+            alamode-relay
+            alamode-coordinator
+            alamode-delegate
             ;
-          inherit (pkgs) pi-builder;
-          pi-check-native = import ./nix/pkgs/pi-session/native-check.nix { inherit pkgs; };
-          pi-check-builder = pkgs.pi-builder;
+          inherit (pkgs) alamode-builder;
+          alamode-check-native = import ./nix/pkgs/alamode-runtime/native-check.nix { inherit pkgs; };
+          alamode-check-builder = pkgs.alamode-builder;
         }
         // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
           # keyboard/ergodox/default.nix:73 sets meta.platforms =

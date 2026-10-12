@@ -23,7 +23,7 @@
 # which defaults to the keyCommand this host built mcloud-pins with, reading
 # its own secret store. Every failure says what is
 # wrong, where it is configured and what to change, naming the sops file
-# `pi-seats source` prints for this host. A warning is a check whose answer
+# `alamode-seats source` prints for this host. A warning is a check whose answer
 # could not be read either way; it does not fail the run.
 #
 # Two failures this catches, both of which shipped, and both of which fail
@@ -36,7 +36,7 @@
 #     nothing. Each id gets a one-token completion.
 #
 # The capability checks run on each id that answers and has a catalog entry.
-# Every request carries the token field pi sends: max_completion_tokens,
+# Every request carries the token field the engine sends: max_completion_tokens,
 # unless the entry's compat.maxTokensField is max_tokens, since pi 1.0.0
 # detects max_tokens only for a fixed list of vendors and mcloud is not on
 # it. Each check asks something with a known answer, so the reply is
@@ -47,7 +47,7 @@
 #              parts still answers 200, with a guess. 1024 tokens, no
 #              reasoning parameter.
 #   reasoning  each level a seat names: a three-step sum with 4096 tokens and
-#              the reasoning_effort pi would send for that seat (pi_effort
+#              the reasoning_effort the engine would send for that seat
 #              below). Above off it passes on reasoning tokens or reasoning
 #              text, fails when the endpoint reports none, and warns when it
 #              reports nothing either way. At off any reasoning fails. An
@@ -60,18 +60,18 @@
 #              token, which opens with a marker the reply has to repeat.
 #
 # Sources checked, so a pin in either is covered:
-#   ~/.pi/agent/models.json   the mcloud provider's models, what pi can select
-#   pi-seats list             every seat in the host's seats file whose
+#   ~/.pi/agent/models.json   the mcloud provider's models, what the engine can select
+#   alamode-seats list         every seat in the host's seats file whose
 #                             provider is mcloud, its :level split off.
-#                             Skipped on a host without pi-seats.
+#                             Skipped on a host without alamode-seats.
 #
 # The live check is not a flake check: it needs the network and a
 # credential, and `nix flake check` has neither (nix/checks/mcloud-pins.nix
 # runs this against a stub endpoint). Not a models.json generator either.
 # `GET /v1/models` returns only id/object/created/owned_by, so contextWindow,
 # maxTokens, cost, thinkingLevelMap and the modality list, which is
-# everything deciding how pi drives a model, would have to be invented
-# rather than fetched. The pi module owns that file declaratively and
+# everything deciding how the engine drives a model, would have to be invented
+# rather than fetched. The alamode module owns that file declaratively and
 # overwrites it on every activation.
 
 : "${GREEN_PNG:?path to the known image}"
@@ -89,10 +89,10 @@ readonly BUDGET=4096
 # level: getSupportedThinkingLevels, clampThinkingLevel and the default
 # thinkingFormat branch of its request builder. A level mapped to null, and
 # xhigh or max without a mapping, is unsupported and clamps to the nearest
-# supported one, searching up first. effort($l) is "<level pi runs><TAB><what
+# supported one, searching up first. effort($l) is "<level the engine runs><TAB><what
 # goes in reasoning_effort, empty for nothing>".
 # shellcheck disable=SC2016 # a jq program
-readonly PI_EFFORT='
+readonly ALAMODE_EFFORT='
 def all_levels: ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 def supported:
   (.thinkingLevelMap // {}) as $m
@@ -129,7 +129,7 @@ case "$#:${1:-}" in
 esac
 readonly DEPLOY CONTEXT
 
-SOPS_FILE="$(pi-seats source 2>/dev/null || true)"
+SOPS_FILE="$(alamode-seats source 2>/dev/null || true)"
 [ -n "$SOPS_FILE" ] || SOPS_FILE="this host's sops file"
 readonly IN_SOPS="in $SOPS_FILE"
 
@@ -144,9 +144,9 @@ die() {
 # says nothing about this host's config, so there it warns and exits 0.
 down() {
 	if [ -z "$DEPLOY" ]; then
-		die "$1" "rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+		die "$1" "rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 	fi
-	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in pi_models_json %s\n' "$1" "$IN_SOPS" >&2
+	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in alamode_models_json %s\n' "$1" "$IN_SOPS" >&2
 	exit 0
 }
 
@@ -154,10 +154,10 @@ plural() {
 	if [ "$1" = 1 ]; then echo "1 $2"; else echo "$1 $2s"; fi
 }
 
-# The key goes to whatever baseUrl this file names, and every sandboxed pi
+# The key goes to whatever baseUrl this file names, and every sandboxed alamode
 # session can write ~/.pi, so the link must be home-manager's. Only the first
 # hop is checked: that store link is an mkOutOfStoreSymlink on to
-# /run/secrets/pi_models_json, which sops-nix writes at activation.
+# /run/secrets/alamode_models_json, which sops-nix writes at activation.
 MODELS_JSON="$(readlink "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
 readonly MODELS_JSON
 case "$MODELS_JSON" in
@@ -171,21 +171,21 @@ case "$MODELS_JSON" in
 		state="missing"
 	fi
 	die "$HOME/.pi/agent/models.json is $state, not a link into /nix/store, so home-manager did not write it and its baseUrl is not trusted with the key" \
-		"set hmFoundry.dev.pi-coding-agent.modelsJsonFile (or modelsJson) for this host and deploy, after moving aside anything else at that path"
+		"set hmFoundry.dev.alamode.modelsJsonFile (or modelsJson) for this host and deploy, after moving aside anything else at that path"
 	;;
 esac
 
 jq empty "$MODELS_JSON" 2>/dev/null ||
 	die "$HOME/.pi/agent/models.json links to $MODELS_JSON, which is not readable JSON" \
-		"add pi_models_json, holding the catalog as JSON, $IN_SOPS and deploy, so sops-nix writes the file it points at"
+		"add alamode_models_json, holding the catalog as JSON, $IN_SOPS and deploy, so sops-nix writes the file it points at"
 
 # The endpoint belongs with the provider definition: this repo names no model
 # ids and no base URLs, both arrive in models.json from the host's sops secret.
 BASE_URL="$(jq -r '(.providers.mcloud.baseUrl)? // empty' "$MODELS_JSON")"
 readonly BASE_URL
 [ -n "$BASE_URL" ] ||
-	die "pi_models_json has no providers.mcloud.baseUrl, so there is no endpoint to check" \
-		"set providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+	die "alamode_models_json has no providers.mcloud.baseUrl, so there is no endpoint to check" \
+		"set providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 
 if [ -z "${MCLOUD_API_KEY:-}" ]; then
 	[ -n "${MCLOUD_API_KEY_COMMAND:-}" ] ||
@@ -227,17 +227,17 @@ case "$code" in
 	;;
 404)
 	die "GET /models answered HTTP 404, so the baseUrl is not an OpenAI-compatible API root" \
-		"correct providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+		"correct providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 	;;
 *)
 	die "GET /models answered HTTP $code" \
-		"rerun mcloud-pins; if it fails the same way, check providers.mcloud.baseUrl in pi_models_json $IN_SOPS"
+		"rerun mcloud-pins; if it fails the same way, check providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 	;;
 esac
 served="$(jq -r '.data[]?.id // empty' <<<"${resp%$'\n'*}" 2>/dev/null | sort -u || true)"
 [ -n "$served" ] ||
 	die "GET /models answered 200 with no model ids" \
-		"check that providers.mcloud.baseUrl in pi_models_json $IN_SOPS is the mcloud API root"
+		"check that providers.mcloud.baseUrl in alamode_models_json $IN_SOPS is the mcloud API root"
 
 # Per id: the seat vars naming it, its catalog positions, whether its entry
 # declares image input. seat_list holds "id<TAB>var<TAB>level" lines, the
@@ -245,15 +245,15 @@ served="$(jq -r '.data[]?.id // empty' <<<"${resp%$'\n'*}" 2>/dev/null | sort -u
 declare -A seat_vars=() entries=() image=()
 seat_list=""
 while IFS=$'\t' read -r n id sees; do
-	entries[$id]+="${entries[$id]:+, }pi_models_json providers.mcloud.models[$n]"
+	entries[$id]+="${entries[$id]:+, }alamode_models_json providers.mcloud.models[$n]"
 	if [ "$sees" = true ]; then image[$id]=1; fi
 done < <(jq -r '(.providers.mcloud.models)? // [] | to_entries[]
 	| select(.value.id | type == "string" and . != "")
 	| [.key, .value.id, ((.value.input // []) | any(. == "image"))] | @tsv' "$MODELS_JSON")
-if command -v pi-seats >/dev/null; then
-	seats="$(pi-seats list)" ||
-		die "pi-seats list failed, so no seat was checked" \
-			"run pi-seats check --deploy and fix what it reports"
+if command -v alamode-seats >/dev/null; then
+	seats="$(alamode-seats list)" ||
+		die "alamode-seats list failed, so no seat was checked" \
+			"run alamode-seats check --deploy and fix what it reports"
 	while IFS=$'\t' read -r var value; do
 		[[ $value == mcloud/* ]] || continue
 		id="${value#mcloud/}"
@@ -269,8 +269,8 @@ if command -v pi-seats >/dev/null; then
 	done <<<"$seats"
 fi
 [ ${#entries[@]} -gt 0 ] || [ ${#seat_vars[@]} -gt 0 ] ||
-	die "nothing names an mcloud model: pi_models_json has no providers.mcloud.models and no seat starts with mcloud/" \
-		"list this host's models in pi_models_json providers.mcloud.models and point PI_SESSION_MODEL at one of them, $IN_SOPS"
+	die "nothing names an mcloud model: alamode_models_json has no providers.mcloud.models and no seat starts with mcloud/" \
+		"list this host's models in alamode_models_json providers.mcloud.models and point ALAMODE_SESSION_MODEL at one of them, $IN_SOPS"
 ids="$(printf '%s\n' "${!entries[@]}" "${!seat_vars[@]}" | sort -u)"
 
 IMAGE_URL="data:image/png;base64,$(base64 -w0 "$GREEN_PNG")"
@@ -381,19 +381,19 @@ check_reason() {
 	local level=$1 who=$2 runs effort lv sent req tokens thought what r f fix
 	about "$who, $at"
 	if jq -e '.reasoning == true and .compat.thinkingFormat != null' <<<"$entry" >/dev/null; then
-		warning "the reasoning check at level $level was skipped: compat.thinkingFormat is set, and pi sends reasoning in that format's shape, which mcloud-pins does not mirror" \
+		warning "the reasoning check at level $level was skipped: compat.thinkingFormat is set, and the engine sends reasoning in that format's shape, which mcloud-pins does not mirror" \
 			"confirm by hand that this model reasons at level $level, or drop compat.thinkingFormat from $at if the endpoint takes reasoning_effort, $IN_SOPS"
 		return
 	fi
-	IFS=$'\t' read -r runs effort < <(jq -r --arg l "$level" "$PI_EFFORT effort(\$l)" <<<"$entry")
+	IFS=$'\t' read -r runs effort < <(jq -r --arg l "$level" "$ALAMODE_EFFORT effort(\$l)" <<<"$entry")
 	lv="level $level"
-	[ "$runs" = "$level" ] || lv+=" (pi clamps it to $runs)"
+	[ "$runs" = "$level" ] || lv+=" (the engine clamps it to $runs)"
 	if [ -n "$effort" ]; then sent="reasoning_effort $effort"; else sent="no reasoning_effort"; fi
 	req="$(jq -nc --arg model "$id" --arg tf "$tf" --argjson n "$BUDGET" --arg text "$SUM_PROMPT" --arg effort "$effort" \
 		'{model: $model, ($tf): $n, messages: [{role: "user", content: $text}]}
 		+ (if $effort == "" then {} else {reasoning_effort: $effort} end)')"
 	chat 300 <<<"$req"
-	fix="correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $at so pi sends what the endpoint takes, or pick another level for $who, $IN_SOPS"
+	fix="correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $at so the engine sends what the endpoint takes, or pick another level for $who, $IN_SOPS"
 	case "$code" in
 	200) ;;
 	000)
@@ -426,7 +426,7 @@ check_reason() {
 				what="reasons at $lv: the seat still spends its budget thinking"
 			fi
 			problem "$what ($thought with $sent)" \
-				"set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $at (pi sends it at off), or point $who at a model that answers without reasoning, $IN_SOPS"
+				"set \"reasoning\": true and a thinkingLevelMap.off that turns reasoning off in $at (the engine sends it at off), or point $who at a model that answers without reasoning, $IN_SOPS"
 		fi
 	elif [ -z "$thought" ] && [ -n "$tokens" ]; then
 		problem "accepted $lv and did no reasoning, so the level is ignored (0 reasoning tokens with $sent)" \
@@ -563,7 +563,7 @@ while read -r id; do
 		[ "$sid" = "$id" ] || continue
 		if [ -n "$level" ]; then lvars[$level]+="${lvars[$level]:+, }$var"; fi
 		case "$var" in
-		PI_SESSION_MODEL | PI_SPAWN_MODEL | PI_DELEGATE_MODEL | PI_AGENT_MODEL_*) tvars+="${tvars:+, }$var" ;;
+		ALAMODE_SESSION_MODEL | ALAMODE_SPAWN_MODEL | ALAMODE_DELEGATE_MODEL | ALAMODE_AGENT_MODEL_*) tvars+="${tvars:+, }$var" ;;
 		esac
 	done <<<"$seat_list"
 
@@ -579,8 +579,8 @@ while read -r id; do
 	if [ -n "$CONTEXT" ] && jq -e '.contextWindow | numbers' <<<"$entry" >/dev/null 2>&1; then ctx=skip; fi
 
 	if [ -z "$at" ]; then
-		problem "a seat names this mcloud model, but pi_models_json has no entry for it, so pi cannot select it" \
-			"add an entry for it to pi_models_json providers.mcloud.models, or point $vars at a catalogued model, $IN_SOPS"
+		problem "a seat names this mcloud model, but alamode_models_json has no entry for it, so the engine cannot select it" \
+			"add an entry for it to alamode_models_json providers.mcloud.models, or point $vars at a catalogued model, $IN_SOPS"
 	fi
 
 	if printf '%s\n' "$served" | grep -qxF -- "$id"; then
@@ -597,7 +597,7 @@ while read -r id; do
 				"rerun mcloud-pins; if it fails the same way, replace the model in $where, $IN_SOPS"
 			;;
 		400)
-			problem "listed, but a one-token completion answers HTTP 400$(said) to $tf, the token field pi sends" \
+			problem "listed, but a one-token completion answers HTTP 400$(said) to $tf, the token field the engine sends" \
 				"${at:+if the endpoint takes another token field, set compat.maxTokensField in $at to it; otherwise }replace the model in $where, $IN_SOPS"
 			;;
 		503)

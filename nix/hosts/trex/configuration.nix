@@ -15,7 +15,7 @@ in
 {
   imports = [ ./wireguard.nix ];
 
-  systemFoundry.piBuilder.enable = true;
+  systemFoundry.alamodeBuilder.enable = true;
 
   networking.hostName = "trex";
 
@@ -169,7 +169,7 @@ in
     photos-promote
     winnow
     ask # local LLM one-off questions and chat, see nix/pkgs/ask
-    search-mail # local-only notmuch search via pi, see nix/pkgs/search-mail
+    search-mail # local-only notmuch search via alamode, see nix/pkgs/search-mail
     mail-stragglers # who still mails ondy.me or the old gmail, see nix/pkgs/mail-stragglers
     mlx # start, stop, or check the local model server, see nix/pkgs/mlx
     (leak-guard.override { keyCommand = mcloudKeyCommand; }) # refuses commits and pushes naming a private model id
@@ -276,19 +276,19 @@ in
       owner = "kyle";
       mode = "0400";
     };
-    # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile
-    # and seatsFile), secrets rather than store paths because the model ids
-    # in them are private. mcloud_api_key is the console.modular.com token
-    # pi, mcloud-pins and leak-guard read through mcloudKeyCommand.
-    pi_models_json = {
+    # The catalog and seats (alamode's modelsJsonFile and seatsFile),
+    # secrets rather than store paths because the model ids in them are
+    # private. mcloud_api_key is the console.modular.com token alamode,
+    # mcloud-pins and leak-guard read through mcloudKeyCommand.
+    alamode_models_json = {
       owner = "kyle";
       mode = "0400";
     };
-    pi_seats = {
+    alamode_seats = {
       owner = "kyle";
       mode = "0400";
     };
-    # Shared with tiger's pi-advisor.
+    # Shared with tiger's alamode-advisor.
     mcloud_api_key = {
       owner = "kyle";
       mode = "0400";

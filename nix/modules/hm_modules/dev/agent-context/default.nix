@@ -1,6 +1,7 @@
-# What the agent harnesses share. claude-code, pi-coding-agent and codex each
+# What the agent harnesses share. claude-code, alamode and codex each
 # install the skills in their own layout. instructions.md and style.md reach
-# only claude-code and codex: pi's global AGENTS.md is its own (dev/pi).
+# only claude-code and codex: alamode's global AGENTS.md is its own
+# (dev/alamode/source).
 
 {
   lib,
@@ -13,7 +14,7 @@ let
   cfg = config.hmFoundry.dev.agent-context;
   harnesses = [
     "claude-code"
-    "pi-coding-agent"
+    "alamode"
     "codex"
   ];
 in

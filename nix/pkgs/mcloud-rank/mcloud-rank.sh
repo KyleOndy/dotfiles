@@ -28,9 +28,9 @@ if [ -z "$MCLOUD_API_KEY" ] || [ -z "$AA_API_KEY" ]; then
 	exit 2
 fi
 
-# The key goes to whatever baseUrl the catalog names, and every sandboxed pi
-# session can write ~/.pi, so the link must be home-manager's. This repo names
-# no base URL; it arrives in models.json from the host's sops secret.
+# The key goes to whatever baseUrl the catalog names, and every sandboxed
+# alamode session can write ~/.pi, so the link must be home-manager's. This
+# repo names no base URL; it arrives in models.json from the host's sops secret.
 MODELS_JSON="$(readlink "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
 readonly MODELS_JSON
 if [[ $MODELS_JSON != /nix/store/* ]]; then

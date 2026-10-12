@@ -1,0 +1,144 @@
+#compdef alamode
+# alamode: verb-first management, grant flags, and a hard -- boundary.
+# Everything after -- belongs to the engine and completes as files only.
+# IDs complete from pure globs over the state layout, so TAB never pings a
+# socket.
+
+local -a verbs coord_actions
+verbs=(
+  'resume:resume the most recent or a named session'
+  'sessions:list, show or export retained sessions'
+  'coord:start or manage a coordinator'
+  'delegate:run or control a durable delegated agent'
+  'seats:inspect and check model seats'
+)
+coord_actions=(
+  'attach:reconnect to a coordinator by ID'
+  'start:print headless JSON credentials and exit'
+  'ls:list coordinators, their repos and agents'
+  'stop:stop a coordinator daemon; agents keep running'
+)
+
+local -a records coordinators delegates
+records=( "$HOME"/.local/state/alamode/records/*(/N:t) )
+coordinators=( "$HOME"/.local/state/alamode/coordinators/*(/N:t) )
+delegates=( "$HOME"/.local/state/alamode/delegates/*.json(N:t:r) )
+
+# Full option specs, used by _arguments wherever flag completion takes over.
+local -a grant_flags
+grant_flags=(
+  '--web[allow public internet destinations]'
+  '*--allow[allow one network destination]:host:'
+  '*--listen[allow one local preview port]:port:'
+  '*--allow-read[grant filesystem read]:path:_files'
+  '*--allow-write[grant filesystem write]:path:_files'
+  '*--allow-rw[grant filesystem read and write]:path:_files'
+  '--allow-nix[use the configured isolated Nix builder]'
+  '--allow-git-write[allow commits in private Git storage]'
+  '--no-git-write[deny changes to private Git storage]'
+  '--allow-trustd[permit Apple certificate validation services]'
+  '--allow-forge[authorize optional Forge resources for children]'
+  '--allow-clipboard[permit clipboard access]'
+  '*--profile[apply a named grant preset]:profile:(@profileNames@)'
+  @bundleFlags@
+)
+
+# Flat flag names with descriptions, offered beside verbs on a fresh word.
+local -a grant_flag_words
+grant_flag_words=(
+  '--web:allow public internet destinations'
+  '--allow:allow one network destination'
+  '--listen:allow one local preview port'
+  '--allow-read:grant filesystem read'
+  '--allow-write:grant filesystem write'
+  '--allow-rw:grant filesystem read and write'
+  '--allow-nix:use the configured isolated Nix builder'
+  '--allow-git-write:allow commits in private Git storage'
+  '--no-git-write:deny changes to private Git storage'
+  '--allow-trustd:permit Apple certificate validation services'
+  '--allow-forge:authorize optional Forge resources for children'
+  '--allow-clipboard:permit clipboard access'
+  '--profile:apply a named grant preset'
+  @bundleFlagWords@
+)
+
+local -a seat_vars
+seat_vars=(
+  'ALAMODE_SESSION_MODEL'
+  'ALAMODE_ADVISOR_MODEL'
+  'ALAMODE_SPAWN_MODEL'
+  'ALAMODE_DELEGATE_MODEL'
+  'ALAMODE_CLASSIFY_MODEL'
+)
+
+# Past the -- boundary everything is an engine argument.
+local boundary=${words[(i)--]}
+if (( boundary < CURRENT )); then
+  _files
+  return
+fi
+
+local verb=${words[2]}
+case $verb in
+  resume)
+    _arguments \
+      '1:session id:compadd -a records' \
+      '(-)--[engine arguments]' \
+      '*:engine argument:_files'
+    ;;
+  sessions)
+    _arguments \
+      '1:action:(show export)' \
+      '2:session id:compadd -a records'
+    ;;
+  coord)
+    _arguments -C \
+      '1:coordinator action:->action' \
+      '2:coordinator id:->coord-id' \
+      "${grant_flags[@]}" \
+      '(-)--[engine arguments]' \
+      '*:engine argument:_files'
+    case $state in
+      action)
+        _describe -t coordinator-actions 'coordinator action' coord_actions
+        ;;
+      coord-id)
+        case $line[1] in
+          attach | stop) _describe -t coordinators 'coordinator id' coordinators ;;
+          *) _message 'no further arguments' ;;
+        esac
+        ;;
+    esac
+    ;;
+  delegate)
+    _arguments \
+      '1:action:(send steer follow stop interrupt resume close status result answer ls)' \
+      '2:agent:compadd -a delegates' \
+      '--name[name the agent]:name:' \
+      '--edit[enable mutation tools inside the private workspace]' \
+      '*--grant[bootstrap grant flag, for example --grant=--allow-nix]:grant:(--allow-nix --allow-git-write --allow-forge --allow-clipboard --allow-trustd --web)' \
+      '--model[model]:model:' \
+      '--thinking[thinking level]:level:(off minimal low medium high xhigh max)' \
+      '*:brief:'
+    ;;
+  seats)
+    _arguments \
+      '1:subcommand:(get list check source)' \
+      '2:seat variable:compadd -a seat_vars' \
+      '*--require[seat that must resolve]:seat:compadd -a seat_vars' \
+      '*: :'
+    ;;
+  *)
+    # Launch form: verbs at the first word, grant flags anywhere before --.
+    if (( CURRENT == 2 )); then
+      _alternative \
+        'verbs:verb:_describe -t verbs command verbs' \
+        'grant-flags:grant:_describe -t grants "grant flag" grant_flag_words'
+    else
+      _arguments \
+        "${grant_flags[@]}" \
+        '(-)--[engine arguments]' \
+        '*:engine argument:_files'
+    fi
+    ;;
+esac

@@ -97,7 +97,7 @@ The flip can also break derivations that read outside their build dir
 or bind loopback, which the darwin sandbox allows only to a derivation
 that sets `__darwinAllowLocalNetworking`
 ([darwin-derivation-builder.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/darwin-derivation-builder.cc#L169-L172)).
-pi-e2e's dump server binds 127.0.0.1, so it sets the attribute; built
+alamode-e2e's dump server binds 127.0.0.1, so it sets the attribute; built
 without it, the check fails at the bind:
 
 ```
@@ -109,7 +109,7 @@ store is rebuilt, and verify after the flip re-runs only a check whose
 hash changed. Testing the flip takes `--rebuild`. Rebuilt that way once
 the daemon had restarted (below), on 2026-10-10:
 
-- The verify checks and pi-e2e all passed except leak-guard's: git could
+- The verify checks and alamode-e2e all passed except leak-guard's: git could
   not exec a hook whose first line was `#!/usr/bin/env bash`, since
   `/usr/bin/env` is not in the sandbox, so its hooks use `#!/bin/sh`.
 - Of the 269 derivations in trex's closure that trex built itself rather

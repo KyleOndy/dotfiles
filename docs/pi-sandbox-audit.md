@@ -1,3 +1,5 @@
+> Historical record. Names in it predate the alamode rename.
+
 # Pi sandbox audit: what held, what didn't
 
 Status: audit report, 2026-10-11. Run from inside the sandbox the way a

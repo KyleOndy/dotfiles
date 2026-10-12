@@ -14,7 +14,7 @@ let
   # when an agent module is enabled; otherwise every status refresh would
   # spawn a script with nothing to report.
   claudeCfg = config.hmFoundry.dev.claude-code;
-  piCfg = config.hmFoundry.dev.pi-coding-agent;
+  alamodeCfg = config.hmFoundry.dev.alamode;
   agentIcons = pkgs.writeShellApplication {
     name = "tmux-agent-icons";
     runtimeInputs = [ pkgs.tmux ];
@@ -31,7 +31,7 @@ let
     text = removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./tmux-sessionizer.sh);
   };
   # tmux-fzf's session list is in tmux's own order, which it has no knob to
-  # change. session_last_attached, not session_activity, because a pi agent
+  # change. session_last_attached, not session_activity, because an agent
   # printing in a background session would otherwise float it to the top.
   sessionSwitcher = pkgs.writeShellApplication {
     name = "tmux-session-switcher";
@@ -67,7 +67,7 @@ let
     '';
   };
   agentIconSuffix = optionalString (
-    claudeCfg.enable || piCfg.enable
+    claudeCfg.enable || alamodeCfg.enable
   ) "#(${getExe agentIcons} '#{window_id}')";
   mkTabFmt =
     { bg, fg }:

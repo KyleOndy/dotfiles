@@ -2,7 +2,7 @@
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
 # file is only the body (nix/pkgs/search-mail/default.nix).
 #
-# Drives the `pi` coding agent against trex's local MLX model server (see
+# Drives the alamode session agent against trex's local MLX model server (see
 # nix/hosts/trex/home.nix) to search Kyle's email, so mail search stays fully
 # private and offline -- no cloud model call. Trex-only: it's the only host
 # with both the maildir and a local model server (work-mac has neither), so
@@ -141,7 +141,7 @@ readonly READY_TIMEOUT_S=60
 
 # Which of the models in nix/hosts/trex/mlx-models.yaml to use. --model, if
 # given, must be the first argument (everything after it is the query, same
-# rule as pi's own --allow-*/--model flags below). Falls back to
+# rule as the --allow-*/--model flags below). Falls back to
 # $SEARCH_MAIL_MODEL, then to the default below.
 readonly DEFAULT_MODEL_ID="qwen3.6-35b-a3b"
 model_id="${SEARCH_MAIL_MODEL:-$DEFAULT_MODEL_ID}"
@@ -153,9 +153,9 @@ readonly model_id
 readonly MODEL="local/${model_id}"
 readonly SERVED_MODEL_NAME="$model_id"
 
-# pi's strict sandbox makes $PWD writable, so cd'ing to $HOME (as the cloud
+# The strict sandbox makes $PWD writable, so cd'ing to $HOME (as the cloud
 # version did) would make the whole home directory writable. ~/.pi is already
-# allow-write by the wrapper (nix/pkgs/pi-wrapper/wrapper.sh), so run from a
+# allow-write by the wrapper (nix/pkgs/alamode), so run from a
 # disposable subdirectory of it instead.
 readonly workdir="$HOME/.pi/search-mail-cwd"
 mkdir -p "$workdir"
@@ -168,7 +168,7 @@ cd "$workdir" || exit
 # right server/config is bound to the port -- e.g. that some stray
 # manually-started single-model instance isn't squatting on 8770, which
 # would otherwise make requests silently run against the wrong model until
-# pi's completion call fails deep inside the sandbox with an opaque 404. It
+# The engine's completion call fails deep inside the sandbox with an opaque 404. It
 # does NOT mean $SERVED_MODEL_NAME is warm: a cold on-demand model instead
 # pays its weight-load cost on the first real request below.
 #
@@ -208,40 +208,39 @@ if ! served_model_ready; then
 	fi
 fi
 
-# --allow-read must come before --model/--append-system-prompt: the pi
-# wrapper's arg parser only recognizes its own --allow-*/--web/--no-sandbox
-# flags and stops at the first argument it doesn't recognize, passing
-# everything from that point on straight through to the real `pi` binary
-# unparsed (see nix/pkgs/pi-wrapper/wrapper.sh). Putting --model first would
-# skip --allow-read parsing entirely.
+# Grant flags belong to alamode, --model/--append-system-prompt to the
+# engine, and the -- boundary is hard (nix/pkgs/alamode-runtime/session.py):
+# anything before it that is not an alamode flag is an error, and everything
+# after it reaches the engine verbatim.
 #
 # No --allowedTools equivalent is needed: granting read-only access to
 # ~/mail (which covers the maildir and the Xapian db under ~/mail/.notmuch)
 # and ~/.config/notmuch (notmuch's config) is enough for notmuch
-# search/show/count/address to work, and pi's default-deny-write sandbox
+# search/show/count/address to work, and alamode's default-deny-write sandbox
 # means any attempted `notmuch tag`/`notmuch new` is blocked at the OS level
 # rather than relying on a tool allowlist.
 args=(
 	--allow-read "$HOME/mail"
 	--allow-read "$HOME/.config/notmuch"
+	--
 	--model "$MODEL"
 	--append-system-prompt "$instructions"
 )
 
 # Any arguments become the initial query (joined into one prompt) and are
-# auto-submitted; pi then stays interactive. With no arguments, land in an
+# auto-submitted; the session then stays interactive. With no arguments, land in an
 # empty prompt with the notmuch context already loaded.
 if [ "$#" -gt 0 ]; then
 	args+=("$*")
 fi
 
-# Pins pi's changelog cursor past any real version, so its "What's New"
+# Pins the engine's changelog cursor past any real version, so its "What's New"
 # banner (which can be several screens of release notes) never prints for
 # this scripted invocation -- it should read like a plain CLI tool, not an
 # interactive coding session. ~/.pi/agent/settings.json is reinstalled from
-# the repo copy by home-manager activation (dev/pi-coding-agent/default.nix),
+# the repo copy by home-manager activation (dev/alamode/default.nix),
 # so this runtime mutation only survives until the next switch; it preserves
-# every other key, including the packages list. This is shared with interactive `pi` sessions, so it also means Kyle
+# every other key, including the packages list. This is shared with interactive sessions, so it also means Kyle
 # won't see the same changelog a second time interactively after search-mail
 # has already pinned past it -- an acceptable tradeoff against dumping
 # release notes into what should look like a plain search tool. Best effort:
@@ -262,6 +261,6 @@ pin_changelog_cursor() {
 	fi
 	mv "$tmp" "$settings"
 }
-pin_changelog_cursor || echo "search-mail: warning: could not pin pi's changelog cursor, continuing anyway" >&2
+pin_changelog_cursor || echo "search-mail: warning: could not pin the changelog cursor, continuing anyway" >&2
 
-exec pi "${args[@]}"
+exec alamode "${args[@]}"

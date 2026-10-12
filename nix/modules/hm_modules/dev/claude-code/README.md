@@ -111,7 +111,7 @@ been read.
   ls -la result/home-files/.claude/
   ```
 
-  The pi module reads `DOTFILES_WORKTREE` and throws without it, which is
+  The alamode module reads `DOTFILES_WORKTREE` and throws without it, which is
   why the Makefile targets export it and pass `--impure`. Only trex and
   work-mac enable this module, so building tiger shows nothing.
 

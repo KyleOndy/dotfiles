@@ -46,12 +46,14 @@
 
   # `pic CLIN-1008`, or `pic` from a worktree under a ticket directory, also
   # grants write on that ticket's notes dir. The coordinator's $PWD has to be
-  # the repo the broker cuts worktrees from, so the notes dir never gets the
-  # wrapper's implicit $PWD write grant.
+  # the repo the coordinator cuts worktrees from, so the notes dir never gets
+  # the wrapper's implicit $PWD write grant.
   programs.zsh.initContent = ''
     pic() {
-      # No --allow-forge: agents get their own instance from spawn_agent.
-      local -a grants=(--allow-read ~/work --allow-linear --allow-kagi)
+      # The work profile carries the everyday grants; only the per-ticket
+      # write is dynamic. No --allow-forge: agents get their own instance
+      # from spawn_agent.
+      local -a grants=()
       local ticket
       if [[ $1 =~ '^[A-Z]+-[0-9]+$' ]]; then
         ticket=$1
@@ -64,7 +66,7 @@
         mkdir -p ~/work/tickets/$ticket
         grants+=(--allow-write ~/work/tickets/$ticket)
       fi
-      pi --coordinator $grants "$@"
+      alamode coord --profile work $grants "$@"
     }
   '';
 
@@ -86,20 +88,29 @@
     # machine too: the wrapper hard-fails a resolver rather than starting
     # without the value (once granted: the gate below keeps an ungranted
     # session from resolving it at all).
-    pi-coding-agent.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
-    pi-coding-agent.sandbox.envGrantGates.KAGI_API_KEY = "kagi";
+    alamode.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
+    alamode.sandbox.envGrantGates.KAGI_API_KEY = "kagi";
     # The catalog and the seats are sops secrets (nix/secrets/work-mac.yaml),
     # since the model ids in them are private. work-config appends its
     # gateway and loopback providers to trustedProviders, whose names are
     # private too.
-    pi-coding-agent.modelsJsonFile = osConfig.sops.secrets.pi_models_json.path;
-    pi-coding-agent.seatsFile = osConfig.sops.secrets.pi_seats.path;
-    pi-coding-agent.secretsSource = "nix/secrets/work-mac.yaml";
-    pi-coding-agent.trustedProviders = [ "mcloud" ];
+    alamode.modelsJsonFile = osConfig.sops.secrets.alamode_models_json.path;
+    alamode.seatsFile = osConfig.sops.secrets.alamode_seats.path;
+    alamode.secretsSource = "nix/secrets/work-mac.yaml";
+    alamode.trustedProviders = [ "mcloud" ];
     # Hand-kept: pins the provisioned guest image and the deployed Softnet
-    # helper. See nix/pkgs/pi-builder/README.md.
-    pi-coding-agent.sandbox.builderConfig = "~/.local/share/pi-builder/builder.json";
-    pi-coding-agent.coordinator = {
+    # helper. See nix/pkgs/alamode-builder/README.md.
+    alamode.sandbox.builderConfig = "~/.local/share/alamode-builder/builder.json";
+    # What `pic` launches with: the everyday grants as one flag. linear is
+    # work-config's bundle.
+    alamode.sandbox.profiles.work = {
+      readPaths = [ "~/work" ];
+      bundles = [
+        "kagi"
+        "linear"
+      ];
+    };
+    alamode.coordinator = {
       enable = true;
       # The one host with forge.
       forge.enable = true;
@@ -114,8 +125,8 @@
         isFile = true;
       }
       {
-        name = "pi-delegate";
-        source = ./skills/pi-delegate.md;
+        name = "alamode-delegate";
+        source = ./skills/alamode-delegate.md;
         isFile = true;
         # Written around Claude Code's tools and token budget.
         harnesses = [ "claude-code" ];
@@ -146,7 +157,7 @@
       # VM mounts, so this is the only place the question gets decided. The
       # cost is bind mounts in unrelated `docker run` invocations.
       #
-      # pi's --allow-forge does not rest on this setting: it grants forge's VM
+      # --allow-forge does not rest on this setting: it grants forge's VM
       # (nix/pkgs/forge/vm.nix) and refuses unless that instance declares the
       # same property, which is checked against the instance at grant time.
       mounts = [ "none" ];
@@ -169,7 +180,7 @@
   # past the end of it, and guest.nix sizes the guest's inotify limits for this
   # many kind nodes.
   xdg.configFile."forge/forge.yaml".source = ../../pkgs/forge/forge.yaml;
-  # pi-broker brings a small instance up with this one instead.
+  # The coordinator brings a small instance up with this one instead.
   xdg.configFile."forge/forge-small.yaml".source = ../../pkgs/forge/forge-small.yaml;
 
   # Coder remote development SSH config

@@ -15,7 +15,7 @@ in
 {
   imports = [ ];
 
-  systemFoundry.piBuilder.enable = true;
+  systemFoundry.alamodeBuilder.enable = true;
 
   # Upstream sets the builder's maxJobs to its cores, and on trex 8 jobs
   # each taking all 8 cores thrashed 12 GiB. Four jobs at 3 GiB each, out of
@@ -44,23 +44,23 @@ in
       keyCommand = mcloudKeyCommand;
       aaKeyCommand = "/usr/bin/security find-generic-password -s work-secrets -a artificial-analysis -w";
     })
-    # Grades candidate reviewer models before PI_ADVISOR_MODEL changes.
+    # Grades candidate reviewer models before ALAMODE_ADVISOR_MODEL changes.
     (pkgs.advisor-eval.override { keyCommand = mcloudKeyCommand; })
     # Refuses commits and pushes naming a private model id; `leak-guard
     # install` hooks it into a clone.
     (pkgs.leak-guard.override { keyCommand = mcloudKeyCommand; })
   ];
 
-  # pi's catalog and seats (hmFoundry.dev.pi-coding-agent's modelsJsonFile and
-  # seatsFile), secrets rather than store paths because the model ids in them
-  # are private. The provider keys stay in the Keychain, read through
-  # work-config's envFromCommands.
+  # The catalog and seats (alamode's modelsJsonFile and seatsFile), secrets
+  # rather than store paths because the model ids in them are private. The
+  # provider keys stay in the Keychain, read through work-config's
+  # envFromCommands.
   sops.secrets = {
-    pi_models_json = {
+    alamode_models_json = {
       owner = "kondy";
       mode = "0400";
     };
-    pi_seats = {
+    alamode_seats = {
       owner = "kondy";
       mode = "0400";
     };

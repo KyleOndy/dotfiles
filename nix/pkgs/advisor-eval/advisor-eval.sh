@@ -5,7 +5,7 @@
 # paths unless the caller already has.
 #
 # Grades candidate reviewer models for extensions/advisor.ts against labeled
-# turns, so picking PI_ADVISOR_MODEL is a measurement rather than a guess.
+# turns, so picking ALAMODE_ADVISOR_MODEL is a measurement rather than a guess.
 #
 #   advisor-eval MODEL...
 #
@@ -63,10 +63,10 @@ fi
 [ -z "$MCLOUD_API_KEY" ] || export MCLOUD_API_KEY
 
 # The key goes to whatever baseUrl this file names, an apiKey there can be a
-# `!command`, and pi runs here unsandboxed while every sandboxed pi session
-# can write ~/.pi, so the link must be home-manager's. Only the first hop is
-# checked: a catalog kept outside the store is a store link that points on
-# through mkOutOfStoreSymlink, which is home-manager's doing too.
+# `!command`, and pi runs here unsandboxed while every sandboxed alamode
+# session can write ~/.pi, so the link must be home-manager's. Only the first
+# hop is checked: a catalog kept outside the store is a store link that points
+# on through mkOutOfStoreSymlink, which is home-manager's doing too.
 MODELS_JSON="$(readlink "$HOME/.pi/agent/models.json" 2>/dev/null || true)"
 readonly MODELS_JSON
 case "$MODELS_JSON" in

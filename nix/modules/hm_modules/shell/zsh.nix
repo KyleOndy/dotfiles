@@ -634,13 +634,13 @@ in
             # flag says what happens there afterwards:
             #   (none)  stay in this shell
             #   -s      switch to the worktree's tmux session
-            #   -p      run pi there; -c run claude there (the wtp/wtc aliases)
+            #   -p      run alamode there; -c run claude there (wtp/wtc)
             _wt_usage() {
               echo "usage: wt [-s|-p|-c] <name> | <ticket> <name> [-- <agent args>]" >&2
               echo "  makes or reuses the worktree, direnv-allows it when it matches" >&2
               echo "  its base, and cds into it; then" >&2
               echo "  -s  switches to its tmux session" >&2
-              echo "  -p  runs pi, -c runs claude; args after -- are the agent's" >&2
+              echo "  -p  runs alamode, -c runs claude; args after -- are the agent's" >&2
             }
 
             wt() {
@@ -665,9 +665,9 @@ in
               esac
 
               # `--` separates the worktree's arguments from the agent's, and
-              # is consumed here rather than forwarded: pi's sandbox wrapper
-              # reads `--` as its own end-of-flags and would hand --allow-read
-              # to the real pi binary, which rejects it. A grant before the
+              # is consumed here rather than forwarded: alamode reads `--` as
+              # its own end-of-flags and would hand --allow-read to the real
+              # pi binary, which rejects it. A grant before the
               # separator reaches git wt-feature-branch, which takes unknown
               # flags as positionals, so --allow-kagi there is read as a base
               # ref and fails there instead.
@@ -721,7 +721,7 @@ in
                 tmux-sessionizer "$PWD"
                 ;;
               -p | -c)
-                if [[ $mode == -p ]]; then cmd=pi; else cmd=claude; fi
+                if [[ $mode == -p ]]; then cmd=alamode; else cmd=claude; fi
                 # The agent can write flake.nix, whose shellHook direnv would
                 # run unsandboxed in any shell here once it reloads. deny
                 # leaves this shell's already-loaded env for the agent and
@@ -732,8 +732,8 @@ in
                 fi
                 # The agent's commits stay unsigned, so `git log
                 # --show-signature` tells you what it wrote and `git adopt`
-                # is what claims it. pi exports the same keys itself
-                # (pi-wrapper/wrapper.sh); this covers the agents that do
+                # is what claims it. alamode exports the same keys itself
+                # (nix/pkgs/alamode); this covers the agents that do
                 # not. Scoped to $cmd, so your own commits in the worktree
                 # afterwards follow your usual signing config.
                 GIT_CONFIG_COUNT=2 \

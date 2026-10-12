@@ -1,0 +1,85 @@
+# alamode sessions on Darwin
+
+Start in a repository with `alamode`, or use `alamode coord` to manage durable
+agents from the main conversation. A launch snapshots the repository into
+private Git storage. Commits stay there until explicitly exported or
+integrated. Outside Git, alamode starts with an empty private workspace.
+
+`alamode` wraps the upstream pi coding agent: pi is the engine, alamode is
+the product. Flags after `--` reach the engine verbatim; alamode's own flags
+never follow it.
+
+## Grants
+
+Choose grants when creating a session:
+
+```sh
+alamode --allow-kagi --allow-node --listen 3000
+alamode coord --profile work
+alamode coord --allow-nix
+```
+
+`--web` permits public web destinations. `--allow HOST` adds one destination.
+`--allow-read PATH` grants host reads; `--allow-rw PATH` grants reads and
+writes. Use private `$TMPDIR` for scratch files. Broad writes overlapping
+trusted service sockets or session records are rejected.
+
+`--listen PORT` admits one loopback listener and connections to that port.
+It also authorizes any existing host service on that port; choose deliberately.
+Provider and Kagi credentials stay in host relays. Workloads receive scoped
+tokens. The host model catalog must explicitly list each permitted model.
+
+`--profile NAME` applies a grant preset defined by the host's
+`hmFoundry.dev.alamode.sandbox.profiles`; it expands into the same fields
+the flags set and merges with any flags given alongside it.
+
+`--allow-nix` requires `sandbox.builderConfig` in the alamode Home Manager
+module and a provisioned [Darwin builder](../nix/pkgs/alamode-builder/README.md).
+`nix build` and `nix eval` snapshot dirty files, submit them to that service,
+and preserve stdout, stderr and exit status. Outputs stay in the retained VM.
+The host daemon socket is never granted.
+
+## Resume and results
+
+```sh
+alamode resume              # the most recent session
+alamode resume ID
+alamode sessions            # list retained sessions
+alamode sessions show ID    # a session's recorded authority
+alamode sessions export ID  # a verified review bundle
+```
+
+Resume restores the recorded grants and workspace. Start a new session to
+change authority. Runtime or provider-route changes require a new session;
+the error identifies the mismatch. Provider credentials may rotate.
+
+Export requires committed changes and a stopped session. It prints a
+verified, standalone bundle and ref. Review that bundle before integrating
+it into the human repository. Export never changes the human branch.
+
+## The coordinator
+
+```sh
+alamode coord            # start a coordinator for this repo
+alamode coord ls         # every coordinator, live or stopped, with agents
+alamode coord attach ID  # reconnect; also revives a stopped daemon
+alamode coord stop ID    # stop the daemon; agents keep running
+alamode coord start      # print headless JSON credentials and exit
+```
+
+The coordinator's tools handle questions, steering, interruption, follow-up,
+result inspection and child integration. The rows above the editor show each
+agent's state and, while it executes, the tool it last started. Those tool
+names and targets are the agent's text, so they stay on the human's screen
+and never reach the coordinator's model. Closing the UI leaves agents
+running; `coord ls` finds them and `coord attach` reconnects. Stopping the
+daemon preserves every agent and its work; a later attach restarts it from
+its recorded configuration. A lost agent requires explicit resume;
+interrupted work is not replayed automatically.
+
+`alamode-delegate` (or `alamode delegate`) uses the same coordinator service;
+`alamode-delegate --help` lists its actions. Headless consumers consume
+`coord start`'s JSON credentials.
+
+Run the [regression suite](alamode-sandbox-tests.md) after runtime or policy
+changes.

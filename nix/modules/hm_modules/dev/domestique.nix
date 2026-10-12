@@ -1,19 +1,19 @@
-# domestique: voice-driven pi for Zone 2 trainer rides.
+# domestique: voice-driven alamode for Zone 2 trainer rides.
 #
-# This module is the audio-out half. `domestique-speak` runs OUTSIDE pi's
+# This module is the audio-out half. `domestique-speak` runs OUTSIDE the sandbox
 # sandbox and owns playback, because inside strict mode the CoreAudio mach
-# lookup is denied and srt's settings schema (nix/pkgs/pi-wrapper/wrapper.sh)
-# has no mach knob. The pi-side half is extensions/domestique.ts, which writes
+# lookup is denied and srt's settings schema (nix/pkgs/alamode/wrapper.sh)
+# has no mach knob. The session-side half is extensions/domestique.ts, which writes
 # one file per utterance into ~/.pi/domestique/spool and the control files
 # beside it, and never touches the audio device.
 #
 # Speech is Kokoro, not macOS `say`; domestique-tts.py explains why, and it is
 # the reason `lexicon` can exist.
 #
-# Usage: `domestique` starts the watchers and pi together, in a dated
+# Usage: `domestique` starts the watchers and a session together, in a dated
 # directory under `rideDir` that is the only place the agent can write.
 # `domestique-review` reopens the newest one afterwards, without speech.
-# `domestique-speak` alone is the two-pane form, and prints the matching pi
+# `domestique-speak` alone is the two-pane form, and prints the matching alamode
 # invocation.
 {
   lib,
@@ -105,15 +105,15 @@ let
     b: " ${lib.escapeShellArg "--allow-${b}"}"
   ) cfg.allowBundles;
 
-  piFlags = allowReadFlags + allowBundleFlags;
+  alamodeFlags = allowReadFlags + allowBundleFlags;
 
   # What only the watchers and the keys write: the venv, pids, the lock, the
-  # Karabiner key files, and `heard`, the rider's words on their way to pi. A
-  # ride reads it and nothing in any pi session can write it, which is the
+  # Karabiner key files, and `heard`, the rider's words on their way to the session. A
+  # ride reads it and nothing in any session can write it, which is the
   # whole difference from ~/.pi/domestique, where the extension has to write.
   stateDir = "${config.home.homeDirectory}/.local/state/domestique";
 
-  rideFlags = piFlags + " --allow-read ${lib.escapeShellArg stateDir}";
+  rideFlags = alamodeFlags + " --allow-read ${lib.escapeShellArg stateDir}";
 
   # Kokoro and misaki are not packaged for darwin in nixpkgs:
   # python3Packages.kokoro depends on dlinfo, which carries
@@ -121,7 +121,7 @@ let
   # on first run, keyed on the requirements store path so a change to the list
   # rebuilds it. Needs network once.
   #
-  # Under $STATE, not ~/.pi: every sandboxed pi session can write ~/.pi, and a
+  # Under $STATE, not ~/.pi: every sandboxed session can write ~/.pi, and a
   # .pth file dropped into site-packages would run unsandboxed on the next
   # ride. The same holds for every pidfile and the lock, which the driver
   # kills by.
@@ -212,12 +212,12 @@ let
       export DOMESTIQUE_POLL_SECONDS="${dq cfg.pollSeconds}"
 
       # The classifier seat, resolved once per ride: the caller's env, else the
-      # host's seats file, else classifyModel. pi-seats is installed only on
+      # host's seats file, else classifyModel. alamode-seats is installed only on
       # hosts that have seats.
-      classify_model="''${PI_CLASSIFY_MODEL:-}"
-      if [ -z "$classify_model" ] && command -v pi-seats >/dev/null; then
-        classify_model="$(pi-seats get PI_CLASSIFY_MODEL)" ||
-          echo "domestique-listen: pi-seats get PI_CLASSIFY_MODEL failed" >&2
+      classify_model="''${ALAMODE_CLASSIFY_MODEL:-}"
+      if [ -z "$classify_model" ] && command -v alamode-seats >/dev/null; then
+        classify_model="$(alamode-seats get ALAMODE_CLASSIFY_MODEL)" ||
+          echo "domestique-listen: alamode-seats get ALAMODE_CLASSIFY_MODEL failed" >&2
       fi
       export DOMESTIQUE_CLASSIFY_MODEL="''${classify_model:-${dq cfg.classifyModel}}"
       export DOMESTIQUE_CLASSIFY_PROMPT="${classifyPromptFile}"
@@ -241,13 +241,13 @@ let
       mkdir -p "$ROOT" "$STATE"
 
       # srt's read allowlist is checked against the path as written, so a
-      # store symlink resolves outside the allowlist and pi reports the prompt
+      # store symlink resolves outside the allowlist and the session reports the prompt
       # as missing. Copy it in as a regular file.
       install -m 0644 "${ridePromptFile}" "$PROMPT"
 
       ${ensureVenv}
 
-      printf 'domestique: run pi with\n  pi%s --domestique --append-system-prompt %s\n' \
+      printf 'domestique: run alamode with\n  alamode%s -- --domestique --append-system-prompt %s\n' \
         "${rideFlags}" "$PROMPT"
 
       export DOMESTIQUE_ROOT="$ROOT"
@@ -282,7 +282,7 @@ let
 
   # The --allow-read flags are the reason this exists. Every configured repo is
   # a bare checkout whose worktrees carry a .git file pointing at a sibling
-  # .bare, so granting pi the worktree alone leaves git unable to reach its own
+  # .bare, so granting the worktree alone leaves git unable to reach its own
   # object store, and every history command fails on the gitdir instead.
   domestique = pkgs.writeShellApplication {
     name = "domestique";
@@ -380,11 +380,11 @@ let
       if ! claim; then
         held=$(head -n 1 "$LOCK" 2>/dev/null) || held=""
         if [ -n "$held" ] && ours "$held"; then
-          # Not `kill`: bash defers a trapped signal until the foreground pi
+          # Not `kill`: bash defers a trapped signal until the foreground session
           # exits, so the ride would only notice once quit by hand anyway.
           printf 'domestique: a ride is already running\n' >&2
           tail -n +2 "$LOCK" >&2
-          printf '  stop it by quitting pi in that window\n' >&2
+          printf '  stop it by quitting alamode in that window\n' >&2
           printf '  or review it:  domestique-review\n' >&2
           exit 1
         fi
@@ -436,8 +436,8 @@ let
 
       mkdir -p "$RIDE/.sessions"
 
-      # pi's sandbox allows writes to $PWD and ~/.pi and nowhere else
-      # (nix/pkgs/pi-wrapper/wrapper.sh, write_paths), so the launch directory
+      # The sandbox allows writes to $PWD and ~/.pi and nowhere else
+      # (nix/pkgs/alamode-runtime/session.py), so the launch directory
       # is the whole of what the agent can take notes in. Left to the caller it
       # is wherever the terminal happened to be.
       cd "$RIDE"
@@ -517,11 +517,11 @@ let
       launch listening "${domestique-listen}/bin/domestique-listen" \
         "$STATE/listen.pid" "$STATE/listen.ready" "$STATE/listen.log"
 
-      # --allow-read and --allow-<bundle> belong to the pi wrapper, --domestique
-      # to pi, and the wrapper's arg loop breaks at the first flag it does not
-      # own (nix/pkgs/pi-wrapper/wrapper.sh). Anything after --domestique reaches
-      # pi verbatim, which rejects --allow-read outright, so wrapper flags go
-      # first.
+      # --allow-read and --allow-<bundle> belong to alamode, --domestique and
+      # everything after -- to the engine. The boundary is hard
+      # (nix/pkgs/alamode-runtime/session.py): an engine flag before -- is an
+      # error, an alamode flag after it never applies, so grant flags go first
+      # and -- separates the engine's own flags from them.
       #
       # A spoken "new topic" leaves RESTART behind and ends the session, so a
       # ride is one pi process per topic. The watchers outlive all of them,
@@ -535,7 +535,7 @@ let
       # one from outside this ride must not get to hold the rider back.
       rm -f "$RESTART" "$TOPIC" "$CURSOR"
       while true; do
-        pi${rideFlags} --domestique \
+        alamode${rideFlags} -- --domestique \
           --session-dir "$RIDE/.sessions" \
           --append-system-prompt "$STATE/ride-prompt.md" \
           "''${model[@]}" "$@" || true
@@ -576,7 +576,7 @@ let
   };
 
   # A ride writes into its own directory and reads the repos, so the pass that
-  # turns it into actions is an ordinary pi session with the same read grants,
+  # turns it into actions is an ordinary session with the same read grants,
   # started where the ride left its notes.
   domestique-review = pkgs.writeShellApplication {
     name = "domestique-review";
@@ -619,7 +619,7 @@ let
 
       printf 'domestique-review: %s\n' "$ride"
       cd "$ride"
-      exec pi${piFlags} "$@"
+      exec alamode${alamodeFlags} -- "$@"
     '';
   };
 
@@ -642,7 +642,7 @@ let
 in
 {
   options.hmFoundry.dev.domestique = {
-    enable = lib.mkEnableOption "domestique ride-mode speech for pi";
+    enable = lib.mkEnableOption "domestique ride-mode speech for alamode";
 
     voice = lib.mkOption {
       type = lib.types.str;
@@ -898,9 +898,9 @@ in
       defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/work/rides"'';
       description = ''
         Parent of the per-ride working directories. A ride runs in
-        `<rideDir>/<YYYY-MM-DD>`, which becomes pi's $PWD and is therefore the
+        `<rideDir>/<YYYY-MM-DD>`, which becomes the session's $PWD and is therefore the
         only place outside ~/.pi the sandbox lets the agent write
-        (`nix/pkgs/pi-wrapper/wrapper.sh`, write_paths). Notes taken during a
+        (`nix/pkgs/alamode-runtime/session.py`, write_paths). Notes taken during a
         ride land there, `transcript.md` records everything said aloud,
         `.sessions` holds one session file per topic, and `bundles/` holds
         each clone's commits as `git fetch <bundle>` takes them.
@@ -909,7 +909,7 @@ in
         the same transcript, under its own timestamped headings, and the whole
         day reads as one document.
 
-        `domestique-review` opens the newest of these in an ordinary pi
+        `domestique-review` opens the newest of these in an ordinary alamode
         session with the same `--allow-read` grants and no speech, which is
         the pass that turns a ride into actions.
       '';
@@ -928,12 +928,12 @@ in
         `git status` all work against a repo the sandbox can only read, so the
         agent needs no write access to reason about code. Granting writes so it
         could pull itself would reopen the `.git/hooks` persistence trap the
-        wrapper closes for $PWD (see nix/pkgs/pi-wrapper/wrapper.sh), across
+        wrapper closes for $PWD (see nix/pkgs/alamode-runtime/session.py), across
         every repo listed here, and a pull into a worktree holding uncommitted
         work is destructive on its own.
 
         These become `--allow-read` arguments, not
-        `pi-coding-agent.sandbox.allowedReadPaths`, so ordinary pi sessions
+        `alamode.sandbox.allowedReadPaths`, so ordinary sessions
         keep the narrower default-deny posture and only a ride widens it.
 
         Host-specific by nature: set this where the paths belong rather than in
@@ -946,12 +946,12 @@ in
       default = [ ];
       example = [ "linear" ];
       description = ''
-        Network bundles opened for every ride, passed as the pi wrapper's
+        Network bundles opened for every ride, passed as alamode's
         `--allow-<name>` flags. Each name must exist in
-        `pi-coding-agent.sandbox.networkBundles`, since the wrapper hard-fails
+        `alamode.sandbox.bundles`, since the wrapper hard-fails
         on an unknown bundle rather than ignoring it.
 
-        This is how a ride reaches a vendor API that ordinary pi sessions
+        This is how a ride reaches a vendor API that ordinary alamode sessions
         cannot. `linear` is the case it was built for: the credential arrives
         through the wrapper's envFromCommands and is therefore present in every
         session on the host, so egress is the only control left that a single
@@ -1054,16 +1054,16 @@ in
       description = ''
         Last fallback for the classifier, the model that sorts an out-of-band
         utterance into a note or a topic change. Each ride's listener takes
-        the first non-empty of `PI_CLASSIFY_MODEL` in its environment, the
-        host's seats file through `pi-seats get PI_CLASSIFY_MODEL`, and this.
+        the first non-empty of `ALAMODE_CLASSIFY_MODEL` in its environment, the
+        host's seats file through `alamode-seats get ALAMODE_CLASSIFY_MODEL`, and this.
         A value here is a literal in the Nix store, so a private model id
         belongs in the seats file instead.
 
-        The value is `provider/id[:level]` and goes to `pi --model` as is.
+        The value is `provider/id[:level]` and goes to the engine's --model as is.
         The level also goes to `--thinking`, `off` when the value names none,
         so a `--thinking` in the wrapper's defaultArgs cannot override it.
 
-        Invoked as a one-shot `pi --print` with no tools and no session, so
+        Invoked as a one-shot engine run with no tools and no session, so
         it can act on nothing and the provider credential stays with the
         wrapper rather than reaching this watcher.
 
@@ -1224,7 +1224,7 @@ in
         Text appended to pi's system prompt in ride mode, via
         `--append-system-prompt`. Written to
         ~/.local/state/domestique/ride-prompt.md by the watcher, outside ~/.pi
-        so no pi session can rewrite what the next ride is told.
+        so no alamode session can rewrite what the next ride is told.
 
         This is what keeps responses short enough to stream. Compressing a
         long response after the fact is not an option: streaming means there
@@ -1244,17 +1244,17 @@ in
       }
       {
         assertion = lib.all (
-          b: builtins.hasAttr b config.hmFoundry.dev.pi-coding-agent.sandbox.networkBundles
+          b: builtins.hasAttr b config.hmFoundry.dev.alamode.sandbox.bundles
         ) cfg.allowBundles;
         message =
           let
             unknown = lib.filter (
-              b: !builtins.hasAttr b config.hmFoundry.dev.pi-coding-agent.sandbox.networkBundles
+              b: !builtins.hasAttr b config.hmFoundry.dev.alamode.sandbox.bundles
             ) cfg.allowBundles;
           in
           ''
             hmFoundry.dev.domestique.allowBundles names ${lib.concatStringsSep ", " unknown},
-            which pi-coding-agent.sandbox.networkBundles does not define. The
+            which alamode.sandbox.bundles does not define. The
             wrapper exits on an unknown bundle, so this would otherwise surface
             at the start of a ride, after the venv and model load.
           '';

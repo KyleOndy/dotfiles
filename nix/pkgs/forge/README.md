@@ -74,13 +74,13 @@ config.
 ## Instances and sizes
 
 `FORGE_INSTANCE=<n>` (1-15) selects one of several VMs that run side by side,
-which is how pi's coordinator gives each agent that asks for one its own
-(`nix/pkgs/pi-broker`). Unset is the instance described above.
+which is how alamode's coordinator gives each agent that asks for one its own
+(`nix/pkgs/alamode-coordinator`). Unset is the instance described above.
 
 `forge claim <label>` hands out a number for everyone else: it prints the first
-one with no VM, no pi-broker slot and no label, and records `<label>` in
+one with no VM, no coordinator slot and no label, and records `<label>` in
 `~/.local/state/forge/<n>/label`, or prints the number already holding that
-label. It takes pi-broker's slot lock and pi-broker skips a labelled number,
+label. It takes the coordinator's slot lock and it skips a labelled number,
 so the two never hand out the same one. `forge ls` shows the label as OWNER,
 and `forge nuke` on the instance removes it with the rest of the directory.
 The Claude `forge` subagent claims one per task this way.
@@ -100,9 +100,9 @@ small is 2 CPUs and 4GiB, large 4 CPUs and 8GiB, xlarge 8 CPUs and 16GiB.
 existing one; `forge resize S` stops
 the VM, edits its CPUs and memory, and starts it again. `forge-small.yaml`
 declares the management cluster and one single-node workload cluster, which is
-what pi-broker brings a small instance up with.
+what alamode-coordinator brings a small instance up with.
 
-A named instance's directory is the only path pi's `--allow-forge=<n>`
+A named instance's directory is the only path alamode's `--allow-forge=<n>`
 grants besides the socket. From inside that sandbox `forge down` and
 `forge up` work against the instance; creating or deleting the VM does not,
 since lima's instance directory is not granted.
@@ -133,9 +133,10 @@ others.
 
 `forge up` runs `forge cache up` first, which checks the three ports answer
 and otherwise creates or starts the VM and its mirrors, under a lock in
-`~/.local/state/forge/cache.lock` because pi-broker starts several `up`s at
-once. A sandboxed agent's `up` gets as far as that check, which is enough
-once the cache is running, since `--allow-forge` grants loopback egress.
+`~/.local/state/forge/cache.lock` because a coordinator's agents run several
+`up`s at once. A sandboxed agent's `up` gets as far as that check, which is
+enough once the cache is running, since `--allow-forge` grants loopback
+egress.
 `forge cache nuke` deletes it and everything it cached.
 
 Two pulls go through it:
@@ -239,7 +240,7 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge resize`     | restart | -        | -       | -      |
 
 `forge init` writes the VM's lima definition and leaves it stopped, which is
-all pi's `--allow-forge` checks for, so a session can hold the grant before
+all alamode's `--allow-forge` checks for, so a session can hold the grant before
 the first `forge up`.
 
 `forge up` creates what is declared and missing, starts a stopped VM, and
@@ -267,8 +268,8 @@ cluster's context and API port.
 `forge ls` is read-only too, and covers every VM on the host at once, the
 cache included:
 VM state and size, the forge command running against it if any, clusters
-running of those declared, the guest's load, memory and disk, and the pi
-agent holding it. It reads `~/.lima`, so it works only outside pi's sandbox.
+running of those declared, the guest's load, memory and disk, and the agent
+holding it. It reads `~/.lima`, so it works only outside alamode's sandbox.
 
 `forge pods` lists every pod in every namespace of every cluster on every
 running VM in one table, oldest first (`-r` for newest first), with a `<vm>/kind-<cluster>` context
@@ -300,7 +301,7 @@ kubectl --context kind-forge-1 get nodes
 so nothing under `~/.kube` is read or written and `~/.kube/config` is never
 created. Two things depend on that. `~/.kube/config` is not forge's file to
 create, and `.kube` is one of the `credentialMasks` entries in
-`nix/pkgs/pi-wrapper/default.nix`, so anything forge left there would be
+`nix/pkgs/alamode/default.nix`, so anything forge left there would be
 unreadable to a sandboxed agent. `wrapper.sh` states the rule this follows:
 the paths a container orchestrator writes belong to whoever configures the
 tool.
@@ -308,7 +309,7 @@ tool.
 `forge up` also re-exports the context of every cluster that already exists, so
 deleting the file loses nothing the next `up` cannot restore.
 
-The default still sits under `$HOME`, which the sandbox denies wholesale. pi's
-`--allow-forge` grants that one path, plus the loopback egress its API servers
-need. `FORGE_KUBECONFIG` overrides the config for a caller that would rather
-place the file itself, but `--allow-forge` grants only the default path.
+The default still sits under `$HOME`, which the sandbox denies wholesale.
+alamode's `--allow-forge` grants that one path, plus the loopback egress its API
+servers need. `FORGE_KUBECONFIG` overrides the config for a caller that would
+rather place the file itself, but `--allow-forge` grants only the default path.

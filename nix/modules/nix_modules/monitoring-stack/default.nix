@@ -16,7 +16,7 @@ with lib;
     ./audio-language.nix
     ./jellyfin-exporter.nix
     ./unpoller.nix
-    ./pi-advisor.nix
+    ./alamode-advisor.nix
   ];
 
   options.systemFoundry.monitoringStack = {

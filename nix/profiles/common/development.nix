@@ -25,16 +25,16 @@ with lib;
         git.enable = lib.mkDefault true;
         go.enable = lib.mkDefault true;
         rust.enable = lib.mkDefault true;
-        # Ride-mode speech for pi. macOS-only: the watcher drives `say`.
+        # Ride-mode speech for alamode. macOS-only: the watcher drives `say`.
         domestique.enable = lib.mkDefault pkgs.stdenv.hostPlatform.isDarwin;
-        pi-coding-agent = {
+        alamode = {
           enable = lib.mkDefault true;
           # pi 0.80.5's startup tmux keyboard probe (checkTmuxKeyboardSetup)
           # calls spawn("tmux") when $TMUX is set; the strict srt sandbox
-          # denies that exec and pi does not catch the synchronous spawn
-          # EPERM, so it crashes on launch inside tmux. Forcing TMUX empty
-          # makes pi skip the probe. TMUX is read in exactly one place in
-          # pi (the probe), and empty is harmless outside tmux.
+          # denies that exec and the engine does not catch the synchronous
+          # spawn EPERM, so it crashes on launch inside tmux. Forcing TMUX
+          # empty makes it skip the probe. TMUX is read in exactly one
+          # place (the probe), and empty is harmless outside tmux.
           sandbox.envVars.TMUX = "";
         };
       };

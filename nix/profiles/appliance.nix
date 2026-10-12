@@ -3,8 +3,8 @@
 # server.nix is the wrong shape for these. It imports common/development.nix,
 # which does two things an appliance cannot accept:
 #
-#   1. turns on pi-coding-agent, whose sourceDir throws unless
-#      DOTFILES_WORKTREE is set (hm_modules/dev/pi-coding-agent:74-83)
+#   1. turns on alamode, whose sourceDir throws unless DOTFILES_WORKTREE
+#      is set (hm_modules/dev/alamode/default.nix)
 #   2. sets hmFoundry.dev.enable, which is the flag tools.nix gates on, and
 #      tools.nix carries berkeley-mono and pragmata-pro. Both are git-crypt
 #      encrypted, and the font derivation asserts on decrypted content, so

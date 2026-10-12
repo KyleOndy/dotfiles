@@ -5,7 +5,7 @@
 #define COMBO_TERM 60
 
 // Both keys together open the out-of-band channel, and an utterance there can
-// end the pi session. A brush across both while reaching for one must not reach
-// that, so the chord is a hold rather than a press.
+// end the alamode session. A brush across both while reaching for one must not
+// reach that, so the chord is a hold rather than a press.
 #define COMBO_MUST_HOLD_PER_COMBO
 #define COMBO_HOLD_TERM 200

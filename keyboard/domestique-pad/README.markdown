@@ -6,11 +6,11 @@ file under `~/.local/state/domestique`, and the domestique watchers read those.
 
 ## Signals
 
-| gesture      | keycode | file        | what happens                                        |
-| ------------ | ------- | ----------- | --------------------------------------------------- |
-| key 1 held   | F13     | `listening` | microphone opens, transcript goes to the pi session |
-| key 2 tapped | F16     | `replay`    | re-speak the last reply; N taps replays N replies   |
-| both held    | F17     | `outofband` | transcript goes to `notes.md`, never into context   |
+| gesture      | keycode | file        | what happens                                             |
+| ------------ | ------- | ----------- | -------------------------------------------------------- |
+| key 1 held   | F13     | `listening` | microphone opens, transcript goes to the alamode session |
+| key 2 tapped | F16     | `replay`    | re-speak the last reply; N taps replays N replies        |
+| both held    | F17     | `outofband` | transcript goes to `notes.md`, never into context        |
 
 F16 and F17 rather than F14 and F15: macOS binds F14 and F15 to display
 brightness, and that binding only appears in System Settings once a keyboard
@@ -20,7 +20,7 @@ The chord is resolved in firmware with a QMK combo rather than in Karabiner.
 Karabiner's `simultaneous` has a detection window that lets a sloppy press open
 channel 1 _and_ channel 2; a combo emits a third keycode and suppresses both
 singles, so Karabiner sees three unambiguous keys. The chord is a hold rather
-than a press, because an out-of-band utterance can end the pi session:
+than a press, because an out-of-band utterance can end the alamode session:
 `COMBO_MUST_HOLD_PER_COMBO` is on, `get_combo_must_hold()` returns true, and
 `COMBO_HOLD_TERM` is 200 ms.
 
