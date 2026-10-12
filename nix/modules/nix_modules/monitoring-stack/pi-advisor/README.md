@@ -106,7 +106,8 @@ reached the same verdict on "URLs ... returned in search results" and on
 domain allowlists, which open redirects defeat. Its fix needs a crawler
 index of our own.
 
-A run gets at most 60 queries.
+A run gets at most 60 queries, and none after 10 minutes, which leaves the
+last 5 of its 15 for writing the report.
 
 The units add their own limits, for the case where pi or one of its npm
 dependencies runs code of its own:

@@ -33,6 +33,10 @@ const REQUEST_TIMEOUT_MS = 60_000;
 // a loop asks for more.
 const MAX_QUERIES_PER_RUN = 60;
 let queriesMade = 0;
+// pi-advisor.sh kills a run at RUN_TIMEOUT, 15 minutes, and pi --print
+// prints nothing before the model's last turn, so a run still querying then
+// loses its whole report. Refusing queries from 10 minutes leaves 5 to write.
+const QUERY_DEADLINE_MS = Date.now() + 10 * 60_000;
 
 const KAGI_API = "https://kagi.com/api/v1";
 // $0.012 a search whatever the result count
@@ -146,6 +150,11 @@ async function get(
       `All ${MAX_QUERIES_PER_RUN} queries for this run are spent. Write the report with what you have.`,
     );
   }
+  if (Date.now() >= QUERY_DEADLINE_MS) {
+    throw new Error(
+      "This run's time for queries is spent. Write the report with what you have.",
+    );
+  }
   queriesMade += 1;
   const url = new URL(path, base);
   for (const [key, value] of Object.entries(params)) {
@@ -177,9 +186,13 @@ function cap(text: string): string {
   return `${text.slice(0, MAX_OUTPUT_CHARS)}\n[truncated ${text.length - MAX_OUTPUT_CHARS} chars: aggregate or narrow the query]`;
 }
 
-/** Ends with the queries left, which the model cannot count for itself. */
+/** Ends with the queries and time left, which the model cannot count for itself. */
 function result(text: string) {
-  const left = `[${MAX_QUERIES_PER_RUN - queriesMade} of ${MAX_QUERIES_PER_RUN} queries left this run]`;
+  const minutes = Math.max(
+    0,
+    Math.floor((QUERY_DEADLINE_MS - Date.now()) / 60_000),
+  );
+  const left = `[${MAX_QUERIES_PER_RUN - queriesMade} of ${MAX_QUERIES_PER_RUN} queries left this run, and ${minutes} minutes to make them]`;
   return {
     content: [{ type: "text" as const, text: `${cap(text)}\n${left}` }],
     details: {},
