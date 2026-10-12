@@ -26,13 +26,19 @@ in
             "exec ${getExe config.programs.tmux.package} new-session -A -s scratch"
           ];
         };
-        # Unbinds the default vi mode toggle: one Shift away from the tmux
-        # prefix, and tmux copy-mode covers the same ground with full history.
         keyboard.bindings = [
+          # Unbinds the default vi mode toggle: one Shift away from the tmux
+          # prefix, and tmux copy-mode covers the same ground with full history.
           {
             key = "Space";
             mods = "Control|Shift";
             action = "ReceiveChar";
+          }
+          # The default is Quit, which closes the window without asking.
+          {
+            key = "W";
+            mods = "Command";
+            action = "None";
           }
         ];
         window = {
