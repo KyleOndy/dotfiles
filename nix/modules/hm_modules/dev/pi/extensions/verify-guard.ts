@@ -37,6 +37,7 @@
  * fingerprint and the guard is inert.
  */
 
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { lstat, readFile, readlink } from "node:fs/promises";
@@ -56,6 +57,83 @@ const DEFAULT_CONFIG: VerifyGuardConfig = { enabled: true, command: null };
 // Lines of verifier output returned to the model. The head of a nix or make
 // run is progress noise; the failure is at the tail.
 const OUTPUT_TAIL_LINES = 60;
+
+// How long an aborted verifier gets between SIGTERM and SIGKILL.
+const KILL_GRACE_MS = 5_000;
+
+interface VerifierRun {
+  output: string;
+  code: number;
+  killed: boolean;
+}
+
+// Not pi.exec: it hands output back only at exit, so a long run shows nothing
+// but a clock, and its abort signals bash alone, leaving make and nix running
+// under it. Here each chunk goes to onOutput as it arrives, and the command
+// runs in its own process group so an abort reaches every stage.
+function runVerifier(
+  command: string,
+  cwd: string,
+  signal: AbortSignal | undefined,
+  onOutput: (text: string) => void,
+): Promise<VerifierRun> {
+  return new Promise((resolve) => {
+    // exec 2>&1 before the command, not after it, so every stage of an
+    // `a && b` chain lands in one ordered stream.
+    const proc = spawn("bash", ["-c", `exec 2>&1\n${command}`], {
+      cwd,
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let output = "";
+    let killed = false;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+
+    const killGroup = (sig: "SIGTERM" | "SIGKILL"): void => {
+      try {
+        if (proc.pid !== undefined) process.kill(-proc.pid, sig);
+      } catch {
+        // ESRCH: the group is already gone.
+      }
+    };
+    const onAbort = (): void => {
+      killed = true;
+      killGroup("SIGTERM");
+      killTimer = setTimeout(() => killGroup("SIGKILL"), KILL_GRACE_MS);
+    };
+    if (signal?.aborted) onAbort();
+    else signal?.addEventListener("abort", onAbort, { once: true });
+
+    const onData = (chunk: Buffer): void => {
+      const text = String(chunk);
+      output += text;
+      onOutput(text);
+    };
+    proc.stdout.on("data", onData);
+    proc.stderr.on("data", onData);
+
+    const finish = (code: number): void => {
+      if (settled) return;
+      settled = true;
+      if (killTimer) clearTimeout(killTimer);
+      signal?.removeEventListener("abort", onAbort);
+      resolve({ output, code, killed });
+    };
+    // Whatever bash leaves behind in its group still holds the pipe, and
+    // close waits on it.
+    proc.on("exit", () => killGroup("SIGTERM"));
+    // A child killed by a signal reports a null code; reading that as 0 would
+    // let an OOM kill pass for a clean run.
+    proc.on("close", (code, signalName) =>
+      finish(code ?? (signalName ? 1 : 0)),
+    );
+    proc.on("error", (err) => {
+      output += `${err.message}\n`;
+      finish(1);
+    });
+  });
+}
 
 function agentDir(): string {
   return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
@@ -215,29 +293,39 @@ export default function (pi: ExtensionAPI) {
         const started = Date.now();
         const elapsed = (): string =>
           `${Math.round((Date.now() - started) / 1000)}s`;
+        // The newest non-blank line, so a run that sits on one build says
+        // which. Escape sequences and control characters are dropped: the
+        // text lands in the TUI as is.
+        let latest = "";
         const tick = setInterval(
           () =>
             onUpdate?.({
               content: [
-                { type: "text", text: `running ${elapsed()}: ${cfg.command}` },
+                {
+                  type: "text",
+                  text: `running ${elapsed()}: ${cfg.command}${latest && `\n${latest}`}`,
+                },
               ],
               details: undefined,
             }),
           1000,
         );
-        let result: Awaited<ReturnType<typeof pi.exec>>;
+        let result: VerifierRun;
         try {
-          // exec 2>&1 before the command, not after it, so every stage of an
-          // `a && b` chain lands in one ordered stream.
-          result = await pi.exec("bash", ["-c", `exec 2>&1\n${cfg.command}`], {
-            cwd: runDir,
-            signal,
+          result = await runVerifier(cfg.command, runDir, signal, (text) => {
+            const line = text
+              .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "")
+              .split(/[\r\n]/)
+              .map((l) => l.replace(/[\p{Cc}\p{Cf}]/gu, "").trim())
+              .filter(Boolean)
+              .pop();
+            if (line) latest = line;
           });
         } finally {
           clearInterval(tick);
         }
 
-        const lines = result.stdout.trimEnd().split("\n");
+        const lines = result.output.trimEnd().split("\n");
         const tail = lines.slice(-OUTPUT_TAIL_LINES).join("\n");
         const cut =
           lines.length > OUTPUT_TAIL_LINES
