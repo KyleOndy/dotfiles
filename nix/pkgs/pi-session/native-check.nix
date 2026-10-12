@@ -7,6 +7,11 @@ pkgs.writeShellApplication {
     pkgs.coreutils
     pkgs.nodejs
     pkgs.bashInteractive
+    # Parity with the deployed wrapper's PATH: the native probes assert
+    # pi's structured find falls back to these when its agent bin dir is
+    # write-denied.
+    pkgs.fd
+    pkgs.ripgrep
   ];
   text = ''
     export PI_NATIVE_TESTS=1

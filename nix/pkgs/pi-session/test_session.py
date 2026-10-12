@@ -318,6 +318,86 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual((source / "initial").read_text(), "authorized dirty snapshot")
         self.assertFalse(canary.exists())
 
+    def test_admission_refuses_planted_guard_config_casings(self):
+        source = self.root / "guard-source"
+        source.mkdir()
+        git_env = session.workspace._environment()
+
+        def git(where, *args):
+            return subprocess.run(
+                [session.workspace.GIT, "-C", str(where), *args],
+                env=git_env,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+        git(source, "init", "-q", "-b", "main")
+        (source / "initial").write_text("initial")
+        git(source, "add", ".")
+        git(
+            source,
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "Fixture",
+        )
+        # APFS is case-insensitive, so a variant-cased plant that slips a
+        # literal path deny still aliases the name the guards load. Export
+        # admission must refuse every casing.
+        for index, (folder, name) in enumerate(
+            (
+                (".PI", "Secret-Guard.JSON"),
+                (".pi", "secret-guard.json"),
+                (".Pi", "Verify.JSON"),
+                (".pi", "verify.json"),
+            )
+        ):
+            with self.subTest(casing=(folder, name)):
+                metadata = session.workspace.create(
+                    source,
+                    self.root / f"guard-session-{index}",
+                    "fixture",
+                    record_root=self.records / f"guard-fixture-{index}",
+                )
+                work = Path(metadata["workspace"])
+                (work / folder).mkdir()
+                (work / folder / name).write_text('{"enabled": false}')
+                git(work, "add", ".")
+                git(
+                    work,
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "-c",
+                    "commit.gpgsign=false",
+                    "commit",
+                    "-qm",
+                    "Plant",
+                )
+                tip = git(work, "rev-parse", "HEAD").stdout.strip()
+                bundle = Path(metadata["session_root"]) / "proposal.bundle"
+                git(
+                    work,
+                    "bundle",
+                    "create",
+                    str(bundle),
+                    "HEAD",
+                    "^" + metadata["snapshot_commit"],
+                )
+                with self.assertRaisesRegex(
+                    session.workspace.WorkspaceError, "protected content"
+                ):
+                    session.workspace.admit_bundle(
+                        metadata,
+                        bundle,
+                        self.root / f"guard-quarantine-{index}",
+                        tip,
+                        "guardcase",
+                    )
+
     def test_environment_and_web_filesystem_parity(self):
         runtime = self.work / "runtime"
         with patch.dict(
@@ -424,6 +504,150 @@ class PolicyTests(unittest.TestCase):
         with self.assertRaises(OSError):
             session.prepare(self.config, self.manifest, Relay())
         self.assertFalse((self.root / "settings.json").exists())
+
+    def test_sandbox_denies_plantable_guard_and_agent_bin_paths(self):
+        rules = session.sandbox_policy(
+            self.config, self.manifest, self.work / "runtime", 0
+        )
+        workspace = Path(self.manifest["workspace"]["workspace"])
+        expected = {
+            session.cased_deny(self.work, workspace / ".pi" / "secret-guard.json"),
+            session.cased_deny(self.work, workspace / ".pi" / "verify.json"),
+            session.cased_deny(self.work, self.work / "runtime" / "agent" / "bin"),
+            session.cased_deny(self.work, self.work / "runtime" / "agent" / "npm"),
+        }
+        self.assertTrue(
+            expected.issubset(set(rules["filesystem"]["denyWrite"])),
+            rules["filesystem"]["denyWrite"],
+        )
+        # APFS resolves names case-insensitively while Seatbelt regexes are
+        # case-sensitive, so every variant spelling of every plantable path
+        # must still match some deny entry; the character classes guarantee it.
+        variants = []
+        for name in ("secret-guard.json", "verify.json"):
+            for dot_pi in (".pi", ".PI", ".Pi"):
+                for worktree in ("worktree", "Worktree"):
+                    variants.append(self.work / worktree / dot_pi / name)
+        for agent_bin in ("bin", "BIN", "Bin"):
+            for runtime in ("runtime", "Runtime"):
+                for agent in ("agent", "Agent"):
+                    variants.append(self.work / runtime / agent / agent_bin)
+        for path in variants:
+            with self.subTest(path=path):
+                self.assertTrue(
+                    any(
+                        self._glob_matches(entry, str(path))
+                        for entry in rules["filesystem"]["denyWrite"]
+                    ),
+                    f"{path} slips every denyWrite entry",
+                )
+
+    @staticmethod
+    def _glob_matches(pattern, path):
+        # Translate a cased deny entry (a shell-style glob whose only glob
+        # syntax is [aA] character classes) into a regex and match `path`.
+        import re
+
+        result = ""
+        index = 0
+        while index < len(pattern):
+            character = pattern[index]
+            if character == "[":
+                end = pattern.index("]", index)
+                result += "[" + re.escape(pattern[index + 1 : end]) + "]"
+                index = end + 1
+            else:
+                result += re.escape(character)
+                index += 1
+        return re.fullmatch(result, path) is not None
+
+    def test_prepare_reclaims_planted_agent_state(self):
+        class Relay:
+            catalog = {"providers": {}}
+
+        source = self.root / "deployed"
+        (source / "agents").mkdir(parents=True)
+        (source / "agents" / "scout.md").write_text("deployed agent")
+        (source / "skills").mkdir()
+        (source / "skills" / "probe.md").write_text("deployed skill")
+        self.config["runtimeSource"] = str(source)
+        runtime = session.prepare(self.config, self.manifest, Relay())
+        agent = runtime / "agent"
+        # Files pi and its guards load with no trust decision.
+        for name in (
+            "mcp.json",
+            "mcp-auth.json",
+            "trust.json",
+            "models-store.json",
+            "secret-guard.json",
+        ):
+            (agent / name).write_text("{}")
+        # Tool shadowing trees, with nested content.
+        planted_bin = agent / "bin"
+        planted_bin.mkdir()
+        (planted_bin / "fd").write_text("#!/bin/sh")
+        (planted_bin / "nested").mkdir()
+        (planted_bin / "nested" / "rg").write_text("#!/bin/sh")
+        planted_npm = agent / "npm"
+        (planted_npm / "package").mkdir(parents=True)
+        (planted_npm / "package" / "index.js").write_text("module.exports = 1")
+        # Extras planted beside files the recopy overwrites.
+        (agent / "extensions").mkdir()
+        (agent / "extensions" / "planted.js").write_text("throw 1")
+        (agent / "agents" / "planted.md").write_text("planted agent")
+        (agent / "skills" / "planted.md").write_text("planted skill")
+        # Symlinks must be removed without following them.
+        sentinel = self.root / "sentinel"
+        sentinel.mkdir()
+        (sentinel / "keep").write_text("sentinel")
+        (agent / "trust.json").unlink()
+        (agent / "trust.json").symlink_to(self.root / "elsewhere")
+        (agent / "themes").symlink_to(sentinel, target_is_directory=True)
+        # pi's own writable state must survive the reclaim.
+        (agent / "secret-guard-violations.log").write_text("{}\n")
+        for name in ("task-logs", "job-logs", "sessions"):
+            (agent / name).mkdir()
+            (agent / name / "probe.log").write_text(name)
+
+        session.prepare(self.config, self.manifest, Relay())
+
+        # Reclaimed names the store recopy does not restore are gone;
+        # agents and skills come back holding exactly the deployed files.
+        for name in (
+            "mcp.json",
+            "mcp-auth.json",
+            "trust.json",
+            "models-store.json",
+            "secret-guard.json",
+            "extensions",
+            "themes",
+            "bin",
+            "npm",
+        ):
+            self.assertFalse((agent / name).exists(), name)
+        self.assertTrue((agent / "agents").is_dir())
+        self.assertTrue((agent / "skills").is_dir())
+        self.assertEqual((sentinel / "keep").read_text(), "sentinel")
+        for path in (
+            agent / "secret-guard-violations.log",
+            agent / "task-logs" / "probe.log",
+            agent / "job-logs" / "probe.log",
+            agent / "sessions" / "probe.log",
+        ):
+            self.assertTrue(path.exists(), str(path))
+        self.assertEqual((agent / "agents" / "scout.md").read_text(), "deployed agent")
+        self.assertFalse((agent / "agents" / "planted.md").exists())
+        self.assertEqual((agent / "skills" / "probe.md").read_text(), "deployed skill")
+        self.assertFalse((agent / "skills" / "planted.md").exists())
+
+    def test_safe_clear_bounds_planted_depth(self):
+        deep = self.work / "runtime" / "agent" / "bin"
+        current = deep
+        for _ in range(40):
+            current = current / "nested"
+        current.mkdir(parents=True)
+        with self.assertRaisesRegex(session.SessionError, "deeper than 32"):
+            session.safe_clear(self.work, "runtime/agent/bin")
 
 
 class Provider(BaseHTTPRequestHandler):
@@ -750,6 +974,165 @@ class NativeSessionTests(unittest.TestCase):
                             Path(json.loads(config_path.read_text())["socket"]).unlink(
                                 missing_ok=True
                             )
+                provider.shutdown()
+                provider.server_close()
+
+    def test_real_pi_denies_planted_guard_configs_and_agent_bin(self):
+        """Live Seatbelt probe for the plantable-path denies.
+
+        The wrapper ships fd and rg on PATH, so pi's find tool never needs its
+        session-denied agent bin dir; the guard configurations must be
+        unwritable in every casing, because APFS resolves names
+        case-insensitively and a variant-cased plant would otherwise slip a
+        literal path deny on the next session start.
+        """
+        import shlex
+
+        with tempfile.TemporaryDirectory(
+            prefix="pi-session-native-", dir="/private/tmp"
+        ) as temporary:
+            root = Path(temporary)
+            home = root / "home"
+            home.mkdir()
+            source = root / "source"
+            source.mkdir()
+            config = configuration(root)
+            environment = {
+                "HOME": str(home),
+                "PATH": config["path"],
+                "PI_PROVIDER_SECRET": KEY,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+                "GIT_AUTHOR_NAME": "Fixture",
+                "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                "GIT_COMMITTER_NAME": "Fixture",
+                "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+            }
+            subprocess.run(
+                ["git", "init", "-q", "-b", "main", str(source)],
+                env=environment,
+                check=True,
+            )
+            (source / "original.txt").write_text("fixture\n")
+            subprocess.run(
+                ["git", "-C", str(source), "add", "."], env=environment, check=True
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source),
+                    "-c",
+                    "commit.gpgsign=false",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "commit",
+                    "-qm",
+                    "Fixture",
+                ],
+                env=environment,
+                check=True,
+            )
+            sandbox_source = Path(
+                os.environ.get(
+                    "PI_SANDBOX_RUNNER_SOURCE", MODULE.with_name("sandbox.mjs")
+                )
+            ).read_text()
+            sandbox_source = sandbox_source.replace(
+                "@sandboxRuntime@", os.environ["PI_SANDBOX_RUNTIME"]
+            )
+            Path(config["sandboxRunner"]).write_text(sandbox_source)
+            provider = ThreadingHTTPServer(("127.0.0.1", 0), Provider)
+            provider.daemon_threads = True
+            provider.calls = []
+            threading.Thread(target=provider.serve_forever, daemon=True).start()
+            try:
+                catalog = {
+                    "providers": {
+                        "fixture": {
+                            "api": "openai-completions",
+                            "baseUrl": f"http://127.0.0.1:{provider.server_port}/v1",
+                            "apiKey": "$PI_PROVIDER_SECRET",
+                            "models": [{"id": "probe", "maxTokens": 1024}],
+                        }
+                    }
+                }
+                Path(config["catalogFile"]).write_text(json.dumps(catalog))
+                config_file = root / "config.json"
+                config_file.write_text(json.dumps(config))
+                probe = """import json, os, pathlib, shutil
+r={}
+def writable(p):
+    try: pathlib.Path(p).write_text("planted"); return True
+    except OSError: return False
+agent=os.environ["PI_CODING_AGENT_DIR"]
+pathlib.Path(".pi").mkdir(exist_ok=True)
+r["agent_guard"]=writable(os.path.join(agent,"secret-guard.json"))
+r["agent_guard_variant"]=writable(os.path.join(agent,"SECRET-GUARD.json"))
+r["agent_bin"]=writable(os.path.join(agent,"bin","probe"))
+r["agent_bin_variant"]=writable(os.path.join(agent,"BIN","probe"))
+r["project_guard"]=writable(".pi/secret-guard.json")
+r["project_guard_variant"]=writable(".PI/secret-guard.json")
+r["project_verify"]=writable(".pi/verify.json")
+r["project_verify_variant"]=writable(".PI/Verify.json")
+r["dot_pi_other"]=writable(".pi/other.json")
+r["agent_other"]=writable(os.path.join(agent,"other.json"))
+r["fd_on_path"]=shutil.which("fd") is not None
+r["rg_on_path"]=shutil.which("rg") is not None
+print(json.dumps(r))
+"""
+                provider.command = (
+                    shlex.quote(sys.executable) + " -c " + shlex.quote(probe)
+                )
+                command = [
+                    sys.executable,
+                    str(MODULE),
+                    str(config_file),
+                    "/fixture/pi",
+                    "--model",
+                    "fixture/probe",
+                    "--no-session",
+                    "--mode",
+                    "json",
+                    "Run the fixture",
+                ]
+                result = subprocess.run(
+                    command,
+                    cwd=source,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertGreaterEqual(
+                    len(provider.calls), 2, result.stdout + result.stderr
+                )
+                tools = [
+                    message
+                    for message in provider.calls[-1][1]["messages"]
+                    if message["role"] == "tool"
+                ]
+                report = json.loads(tools[-1]["content"])
+                self.assertEqual(
+                    report,
+                    {
+                        "agent_guard": False,
+                        "agent_guard_variant": False,
+                        "agent_bin": False,
+                        "agent_bin_variant": False,
+                        "project_guard": False,
+                        "project_guard_variant": False,
+                        "project_verify": False,
+                        "project_verify_variant": False,
+                        "dot_pi_other": True,
+                        "agent_other": True,
+                        "fd_on_path": True,
+                        "rg_on_path": True,
+                    },
+                    report,
+                )
+            finally:
                 provider.shutdown()
                 provider.server_close()
 

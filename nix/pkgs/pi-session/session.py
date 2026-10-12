@@ -408,6 +408,88 @@ def safe_read(root, relative, limit=65536):
         os.close(descriptor)
 
 
+def _clear_entry(parent, name, depth):
+    try:
+        info = os.lstat(name, dir_fd=parent)
+    except FileNotFoundError:
+        return
+    if not stat.S_ISDIR(info.st_mode):
+        os.unlink(name, dir_fd=parent)
+        return
+    if depth >= 32:
+        raise SessionError("Planted runtime directory is deeper than 32 levels")
+    descriptor = os.open(
+        name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent
+    )
+    try:
+        with os.scandir(descriptor) as entries:
+            children = [
+                (entry.name, entry.is_dir(follow_symlinks=False)) for entry in entries
+            ]
+        for child_name, is_directory in children:
+            if is_directory:
+                _clear_entry(descriptor, child_name, depth + 1)
+            else:
+                os.unlink(child_name, dir_fd=descriptor)
+    finally:
+        os.close(descriptor)
+    os.rmdir(name, dir_fd=parent)
+
+
+def safe_clear(root, relative):
+    # Runtime paths are writable by previous sessions. Never follow their
+    # symlinks while removing planted state outside containment.
+    parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    parts = Path(relative).parts
+    if (
+        Path(relative).is_absolute()
+        or not parts
+        or any(part in (".", "..") for part in parts)
+    ):
+        os.close(parent)
+        raise SessionError("Runtime clears require a relative path inside the session")
+    try:
+        for part in parts[:-1]:
+            try:
+                child = os.open(
+                    part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent
+                )
+            except FileNotFoundError:
+                return
+            os.close(parent)
+            parent = child
+        _clear_entry(parent, parts[-1], 0)
+    finally:
+        os.close(parent)
+
+
+# State under the per-session agent directory that a previous run of this
+# same session could have planted for its own resume: pi loads mcp.json,
+# mcp-auth.json, trust.json and models-store.json with no trust decision, and
+# its in-process guards load secret-guard.json (docs/pi-sandbox-audit.md,
+# findings 1-6). bin and npm shadow the tools pi and its extensions run
+# (getToolPath checks bin before PATH). extensions, agents, themes, grants and
+# skills are recopied from the store below, so clearing them first also drops
+# planted extras a plain recopy would leave beside the deployed files.
+# Everything pi may legitimately write for itself survives: settings.json,
+# models.json and auth.json are rewritten, and secret-guard-violations.log,
+# sessions, task-logs and job-logs are pi's own records.
+PLANTED_AGENT_NAMES = (
+    "mcp.json",
+    "mcp-auth.json",
+    "trust.json",
+    "models-store.json",
+    "secret-guard.json",
+    "extensions",
+    "agents",
+    "themes",
+    "grants",
+    "skills",
+    "bin",
+    "npm",
+)
+
+
 def child_environment(config, manifest, home, runtime):
     grants = list(manifest["policy"]["grants"])
     for key, name in (
@@ -499,6 +581,30 @@ def child_environment(config, manifest, home, runtime):
     return env
 
 
+def cased_deny(root, path):
+    # A deny entry whose every component below the writable root is a glob
+    # character class. APFS resolves names case-insensitively while Seatbelt
+    # regexes are case-sensitive, so a variant-cased plant (`.PI/…`, `BIN/`)
+    # can slip a literal deny; the class matches both spellings, and if the
+    # deny never matches nothing changes. Components at or above the writable
+    # root are left literal: the session cannot alias a directory it cannot
+    # write, and paths outside the write roots are denied outright anyway.
+    try:
+        relative = Path(path).relative_to(root)
+    except ValueError:
+        return str(path)
+
+    def cased(name):
+        return "".join(
+            f"[{character.lower()}{character.upper()}]"
+            if character.isalpha()
+            else character
+            for character in name
+        )
+
+    return str(Path(root).joinpath(*(cased(part) for part in relative.parts)))
+
+
 def sandbox_policy(config, manifest, runtime, relay_port):
     grant = manifest["policy"]
     root = manifest["workspace"]["session_root"]
@@ -520,8 +626,27 @@ def sandbox_policy(config, manifest, runtime, relay_port):
         if manifest.get("builder", {}).get(key):
             denied.append(manifest["builder"][key])
     write_denied = [str(path) for path in transport_directories(manifest)]
+    # In-process guards load <workspace>/.pi/secret-guard.json and verify.json
+    # with no trust decision, and a planted file reaches the human's
+    # unsandboxed pi through an exported bundle, so a session must not author
+    # them (admit_bundle refuses the same names host-side, case-insensitively,
+    # because APFS is). srt emits deny rules after the allow rules and Seatbelt
+    # resolves last-match-wins, so these carve inside the write grants.
+    workspace = Path(manifest["workspace"]["workspace"])
+    write_denied += [
+        cased_deny(root, workspace / ".pi" / name)
+        for name in ("secret-guard.json", "verify.json")
+    ]
+    # pi prepends the agent bin dir to every child PATH and checks it before
+    # PATH (getToolPath), so a session-writable binary shadows the wrapper's
+    # own tools; npm is where installed extensions load from. The wrapper
+    # ships fd and rg instead, and a download pi attempts anyway fails as a
+    # caught warning, never a crash (ensureTool), so find falls back to PATH.
+    write_denied += [
+        cased_deny(root, runtime / "agent" / name) for name in ("bin", "npm")
+    ]
     if not grant["git_write"]:
-        write_denied.append(manifest["workspace"]["common_dir"])
+        write_denied.append(cased_deny(root, manifest["workspace"]["common_dir"]))
     return {
         "network": {
             "allowedDomains": list(
@@ -612,6 +737,8 @@ def workspace_root(manifest):
 def prepare(config, manifest, relay):
     root = workspace_root(manifest)
     runtime = root / "runtime"
+    for name in PLANTED_AGENT_NAMES:
+        safe_clear(root, "runtime/agent/" + name)
     for name in ("home", "tmp", "cache", "state", "sessions"):
         safe_write(root, f"runtime/{name}/.pi-runtime", b"")
     settings = read_json(config["settingsFile"]) if config["settingsFile"] else {}

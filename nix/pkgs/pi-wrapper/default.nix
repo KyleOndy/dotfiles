@@ -11,6 +11,7 @@
   git,
   git-crypt,
   coreutils,
+  fd,
   ripgrep,
   jq,
   yq-go,
@@ -77,6 +78,10 @@ let
     git-crypt
     coreutils
     ripgrep
+    # pi's structured find tool runs fd, resolving it from PATH before it
+    # ever downloads into the session-denied agent bin dir (getToolPath), so
+    # shipping it here keeps find working while bin stays unwritable.
+    fd
     jq
     yq-go
     vips

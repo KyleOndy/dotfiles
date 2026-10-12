@@ -658,6 +658,16 @@ def admit_bundle(
         forbidden.update(
             path for path in changed if Path(path).name == ".gitattributes"
         )
+        # Guard configurations pi and its extensions load without a trust
+        # decision. The sandbox refuses to write them in-session; the refusal
+        # here covers the export path, and compares case-insensitively
+        # because APFS is: a variant-cased plant that slips a literal path
+        # deny still cannot ride a bundle into trusted storage.
+        forbidden.update(
+            path
+            for path in changed
+            if Path(path).name.lower() in ("secret-guard.json", "verify.json")
+        )
         if forbidden:
             raise WorkspaceError(
                 "Proposal changes protected content or attributes: "
