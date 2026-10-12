@@ -81,11 +81,12 @@ classifier, leak-guard's `/models` call or `mcloud-pins`, which run on the
 host.
 
 `alamode --local-model PROVIDER/ID` adds a model the catalog lacks, so a
-loopback model runs without a sops edit. The provider must be trusted and
-the new entry copies the effective fields of the provider's first model,
-which must be on a loopback `baseUrl`. The policy records it, so resume
-and coordinator children re-add it before checking the scope digest.
-Select it with `-- --model PROVIDER/ID` or a seat.
+model on trex's mlx server runs without a sops edit or a deploy (`mlx serve
+HF_ID` puts it there). The provider must be trusted and the new entry
+copies the effective fields of the provider's first model, which must be
+on a loopback `baseUrl`. The policy records it, so resume and coordinator
+children re-add it before checking the scope digest. Select it with
+`-- --model PROVIDER/ID` or a seat.
 
 No key is stored in nix on either mac. trex reads mcloud's from
 `/run/secrets/mcloud_api_key`, and work-config resolves work-mac's from the

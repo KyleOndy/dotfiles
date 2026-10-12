@@ -100,8 +100,26 @@ status() {
 	fi
 }
 
+# Runs one model in the foreground on the server's port, in place of the
+# launchd job, so a model outside mlx-models.yaml needs no deploy. alamode
+# reaches it through --local-model.
+serve() {
+	local model=$1 name=${2:-${1##*/}}
+	stop
+	# stop only signals; the port stays bound until the process exits.
+	local waited=0
+	while [ "$(state)" = "running" ] && [ "$waited" -lt 50 ]; do
+		sleep 0.2
+		waited=$((waited + 1))
+	done
+	echo "mlx: serving $model as $name; alamode --local-model local/$name -- --model local/$name" >&2
+	run mlx-openai-server launch --model-type lm --model-path "$model" \
+		--served-model-name "$name" --enable-auto-tool-choice \
+		--host 127.0.0.1 --port "$PORT" --no-log-file
+}
+
 usage() {
-	echo "usage: mlx [start|stop|status] | run PROGRAM [ARGS...]" >&2
+	echo "usage: mlx [start|stop|status] | serve HF_ID [NAME] | run PROGRAM [ARGS...]" >&2
 	exit 2
 }
 
@@ -109,6 +127,11 @@ case "${1-}" in
 start) start ;;
 stop) stop ;;
 status | "") status ;;
+serve)
+	[ $# -ge 2 ] || usage
+	shift
+	serve "$@"
+	;;
 run)
 	[ $# -ge 2 ] || usage
 	shift
