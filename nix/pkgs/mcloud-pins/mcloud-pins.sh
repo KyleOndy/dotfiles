@@ -33,7 +33,8 @@
 #     reads an empty reply as no verdict, so the watchdog simply goes quiet.
 #   - A listed id that does not answer: it appears in `GET /v1/models` and
 #     returns 503 on every completion, so listing membership alone proves
-#     nothing. Each id gets a one-token completion.
+#     nothing. Each id gets a one-token completion, retried once on a 401,
+#     a 403, a 5xx or no answer.
 #
 # The capability checks run on each id that answers and has a catalog entry.
 # Every request carries the token field the engine sends: max_completion_tokens,
@@ -139,14 +140,15 @@ die() {
 	exit 2
 }
 
-# down <what>: the endpoint as a whole is unreachable or failing. By hand that
-# fails the run. --deploy runs after the switch has landed, and an outage
-# says nothing about this host's config, so there it warns and exits 0.
+# down <what> <if it keeps failing>: the endpoint as a whole is unreachable or
+# failing. By hand that fails the run. --deploy runs after the switch has
+# landed, and an outage says nothing about this host's config, so there it
+# warns and exits 0.
 down() {
 	if [ -z "$DEPLOY" ]; then
-		die "$1" "rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
+		die "$1" "rerun mcloud-pins; if it fails the same way, $2"
 	fi
-	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in alamode_models_json %s\n' "$1" "$IN_SOPS" >&2
+	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, %s\n' "$1" "$2" >&2
 	exit 0
 }
 
@@ -216,10 +218,12 @@ code="${resp##*$'\n'}"
 case "$code" in
 200) ;;
 000)
-	down "GET /models at the mcloud baseUrl got no answer within 30s"
+	down "GET /models at the mcloud baseUrl got no answer within 30s" \
+		"check the network, then providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 	;;
 429 | 5[0-9][0-9])
-	down "GET /models answered HTTP $code"
+	down "GET /models answered HTTP $code" \
+		"check the network, then providers.mcloud.baseUrl in alamode_models_json $IN_SOPS"
 	;;
 401 | 403)
 	die "GET /models answered HTTP $code, so the endpoint refuses the key" \
@@ -340,6 +344,16 @@ it_said() {
 	if [ -n "$DEPLOY" ] || [ -z "$1" ]; then return 0; fi
 	local r="${1//[[:space:]]/ }"
 	printf ' (it said: %s)' "${r:0:80}"
+}
+# load: $id's catalog entry into entry, empty when it has none, and the token
+# field the engine sends for it into tf.
+load() {
+	# pi 1.0.0's modelFromJson: the provider's compat with the entry's over it.
+	entry="$(jq -c --arg id "$id" '(.providers.mcloud.compat // {}) as $pc
+		| [(.providers.mcloud.models)?[]? | select(.id? == $id)][0] // empty
+		| .compat = $pc + (.compat // {})' "$MODELS_JSON")"
+	tf="$(jq -r 'if .compat.maxTokensField == "max_tokens" then "max_tokens" else empty end' <<<"$entry")"
+	tf="${tf:-max_completion_tokens}"
 }
 
 # Each check reads the id the loop is on: id, at, vars, entry, tf.
@@ -537,6 +551,43 @@ row() {
 	fi
 }
 
+# Every listed pin is probed before any is reported. When none answers, each
+# getting no answer or a 5xx, the endpoint is failing completions rather than
+# this host's pins, which is an outage the same as GET /models failing. One
+# answer of any other kind, a 429 included, makes the rest per-pin problems.
+declare -A probed=() heard=()
+answered=""
+while read -r id; do
+	printf '%s\n' "$served" | grep -qxF -- "$id" || continue
+	load
+	req="$(jq -nc --arg model "$id" --arg tf "$tf" '{model: $model, ($tf): 1, messages: [{role: "user", content: "hi"}]}')"
+	chat 60 <<<"$req"
+	# One failed request says little about a pin: mcloud has refused a
+	# sound id with a 401 after GET /models took the key, and let a probe
+	# that usually takes under a second hang to the timeout. A dead pin
+	# fails every time, so only a second failure counts. A 429 already
+	# shows the id routes.
+	case "$code" in
+	000 | 401 | 403 | 5??)
+		sleep 5
+		chat 60 <<<"$req"
+		;;
+	esac
+	probed[$id]=$code
+	heard[$id]="$(said)"
+	case "$code" in
+	000 | 5??) ;;
+	*) answered=1 ;;
+	esac
+done <<<"$ids"
+if [ ${#probed[@]} -gt 0 ] && [ -z "$answered" ]; then
+	got="$(printf '%s\n' "${probed[@]}" | grep -vx 000 | sort -u | paste -sd/ - || true)"
+	got="${got:+HTTP $got}"
+	if printf '%s\n' "${probed[@]}" | grep -qx 000; then got+="${got:+ or }no answer within 60s"; fi
+	down "GET /models answers, but a one-token completion to every listed pin got $got" \
+		"the endpoint is failing completions while GET /models accepts the key at this baseUrl, so wait it out rather than change this host's config"
+fi
+
 npins=0
 ok_image=0
 ok_reason=0
@@ -549,12 +600,7 @@ while read -r id; do
 	at="${entries[$id]:-}"
 	where="$vars${vars:+${at:+, }}$at"
 	about "$where"
-	# pi 1.0.0's modelFromJson: the provider's compat with the entry's over it.
-	entry="$(jq -c --arg id "$id" '(.providers.mcloud.compat // {}) as $pc
-		| [(.providers.mcloud.models)?[]? | select(.id? == $id)][0] // empty
-		| .compat = $pc + (.compat // {})' "$MODELS_JSON")"
-	tf="$(jq -r 'if .compat.maxTokensField == "max_tokens" then "max_tokens" else empty end' <<<"$entry")"
-	tf="${tf:-max_completion_tokens}"
+	load
 
 	# Seats: the vars per level, and the vars whose consumer hands out tools.
 	declare -A lvars=()
@@ -585,9 +631,7 @@ while read -r id; do
 
 	if printf '%s\n' "$served" | grep -qxF -- "$id"; then
 		listed=yes
-		req="$(jq -nc --arg model "$id" --arg tf "$tf" '{model: $model, ($tf): 1, messages: [{role: "user", content: "hi"}]}')"
-		chat 60 <<<"$req"
-		probe="$code"
+		probe="${probed[$id]}"
 		# 429 came from the model's own endpoint, so the id routes and the
 		# pin is sound; the throttle is this script's own fault for asking.
 		case "$probe" in
@@ -597,7 +641,7 @@ while read -r id; do
 				"rerun mcloud-pins; if it fails the same way, replace the model in $where, $IN_SOPS"
 			;;
 		400)
-			problem "listed, but a one-token completion answers HTTP 400$(said) to $tf, the token field the engine sends" \
+			problem "listed, but a one-token completion answers HTTP 400${heard[$id]} to $tf, the token field the engine sends" \
 				"${at:+if the endpoint takes another token field, set compat.maxTokensField in $at to it; otherwise }replace the model in $where, $IN_SOPS"
 			;;
 		503)

@@ -175,6 +175,12 @@ let
       answer "$mode" "$($jq -nc --arg m "$model" '{error: {message: ($m + " cannot take this request")}}')"
       ;;
     text:ok) say h length ;;
+    text:flaky*) # refuses every odd-numbered probe of this id
+      if [ "$($jq -s --arg m "$model" 'map(select(.model == $m and .messages[0].content == "hi")) | length % 2' "$HOME/requests")" = 1 ]; then
+        answer "''${mode#flaky}" '{"error": {"message": "refused"}}'
+      fi
+      say h length
+      ;;
     image:ok) say Green. ;;
     image:greenish) say greenish ;;
     image:red) say $'The image is\nred.' ;;
@@ -214,9 +220,19 @@ let
     esac
   '';
 
-  mcloud-pins = pkgs.mcloud-pins.override { inherit curl; };
+  # The probe's retry pause is wall time the stub endpoint has no use for.
+  # symlinkJoin keeps the first path's file on a conflict.
+  coreutils = pkgs.symlinkJoin {
+    name = "coreutils-nosleep";
+    paths = [
+      (pkgs.writeShellScriptBin "sleep" ":")
+      pkgs.coreutils
+    ];
+  };
+
+  mcloud-pins = pkgs.mcloud-pins.override { inherit curl coreutils; };
   baked = pkgs.mcloud-pins.override {
-    inherit curl;
+    inherit curl coreutils;
     keyCommand = "echo test-key";
   };
 in
@@ -539,11 +555,14 @@ pkgs.runCommand "mcloud-pins-check"
     row "acme/nope-1 NO skip - skip skip ALAMODE_DELEGATE_MODEL"
     cp "$T/seats.good" "$HOME/seats"
 
-    # Listed, not answering; no capability check after a failed probe; 429
-    # is the endpoint's own throttle and passes; a 400 points at the token
-    # field.
+    # Listed, not answering after a retry; no capability check after a
+    # failed probe; 429 is the endpoint's own throttle, passes without a
+    # retry, and keeps the 5xx probes per-pin problems rather than an
+    # outage; a 400 points at the token field.
     endpoint '{text: {"acme/zeta-9000": 503, "acme/omega-2": 500, "acme/kappa-7": 429}}'
     both 1
+    requests 'of("text") | group_by(.model) | map([.[0].model, length])
+      == [["acme/kappa-7", 2], ["acme/omega-2", 4], ["acme/zeta-9000", 4]]'
     dep "mcloud-pins: $Z: listed, but a one-token completion answers HTTP 503, so nothing serves it"
     dep "  fix: replace the model in $Z, $S, or rerun mcloud-pins once the endpoint serves it"
     dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 500"
@@ -556,6 +575,17 @@ pkgs.runCommand "mcloud-pins-check"
     both 1
     dep "mcloud-pins: $Z: a one-token completion got no answer within 60s"
     dep "  fix: rerun mcloud-pins; if it fails the same way, replace the model in $Z, $S"
+    # A 401, a 403, a 5xx or no answer is retried once: a failure that
+    # clears passes, one that does not fails.
+    endpoint '{text: {"acme/zeta-9000": "flaky000", "acme/omega-2": "flaky401", "acme/kappa-7": "flaky503"}}'
+    both 0
+    [ "$(cat "$T/deploy")" = "$PASS" ] || fail "a probe failed once did not pass on its retry"
+    requests 'of("text") | length == 12'
+    endpoint '{text: {"acme/omega-2": 401}}'
+    both 1
+    dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 401"
+    dep "  fix: replace the model in $O, $S"
+    requests 'of("text") | map(select(.model == "acme/omega-2")) | length == 4'
     endpoint '{text: {"acme/omega-2": 400}}'
     both 1
     dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 400 to max_tokens, the token field the engine sends"
@@ -645,21 +675,40 @@ pkgs.runCommand "mcloud-pins-check"
 
     # An endpoint that does not answer at all fails a run by hand, and only
     # warns under --deploy, which runs after the switch has landed.
-    outage() { # <listing status> <what>
-      endpoint "{listing: $1}"
+    outage() { # <endpoint> <what> <if it keeps failing>
+      endpoint "$1"
       run 0 --deploy
+      if grep -qiE 'acme|zeta|omega|kappa|lambda|sigma|tau|nope' "$T/out"; then fail "--deploy printed a fixture id"; fi
       cp "$T/out" "$T/deploy"
       run 2
       cp "$T/out" "$T/plain"
       dep "mcloud-pins: warning: $2, so no pin was checked"
-      dep "  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, check the network, then providers.mcloud.baseUrl in alamode_models_json $S"
+      dep "  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, $3"
       plain "mcloud-pins: $2"
-      plain "  fix: rerun mcloud-pins; if it fails the same way, check the network, then providers.mcloud.baseUrl in alamode_models_json $S"
+      plain "  fix: rerun mcloud-pins; if it fails the same way, $3"
       if grep -q 'served and answering' "$T/deploy"; then fail "outage $1: --deploy claimed a pass"; fi
     }
-    outage 502 'GET /models answered HTTP 502'
-    outage 429 'GET /models answered HTTP 429'
-    outage '"000"' 'GET /models at the mcloud baseUrl got no answer within 30s'
+    NET="check the network, then providers.mcloud.baseUrl in alamode_models_json $S"
+    outage '{listing: 502}' 'GET /models answered HTTP 502' "$NET"
+    outage '{listing: 429}' 'GET /models answered HTTP 429' "$NET"
+    outage '{listing: "000"}' 'GET /models at the mcloud baseUrl got no answer within 30s' "$NET"
+    # So is every listed pin's probe getting no answer or a 5xx while
+    # GET /models answers. A probe and its retry per pin is all a run sends.
+    # One answer of any other kind keeps them per-pin problems: a 429 (the
+    # probe case above) or a 401.
+    COMPLETIONS="the endpoint is failing completions while GET /models accepts the key at this baseUrl, so wait it out rather than change this host's config"
+    outage '{text: {"acme/zeta-9000": 500, "acme/omega-2": 500, "acme/kappa-7": 500}}' \
+      'GET /models answers, but a one-token completion to every listed pin got HTTP 500' "$COMPLETIONS"
+    requests 'length == 12 and all(kind == "text")'
+    outage '{text: {"acme/zeta-9000": "000", "acme/omega-2": "000", "acme/kappa-7": "000"}}' \
+      'GET /models answers, but a one-token completion to every listed pin got no answer within 60s' "$COMPLETIONS"
+    outage '{text: {"acme/zeta-9000": 503, "acme/omega-2": 500, "acme/kappa-7": "000"}}' \
+      'GET /models answers, but a one-token completion to every listed pin got HTTP 500/503 or no answer within 60s' "$COMPLETIONS"
+    endpoint '{text: {"acme/zeta-9000": 500, "acme/omega-2": 500, "acme/kappa-7": 401}}'
+    both 1
+    dep "mcloud-pins: $K: listed, but a one-token completion answers HTTP 401"
+    dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 500"
+    dep 'mcloud-pins: 3 problems across 3 pins, each with its fix above'
     endpoint
 
     # alamode-seats: a failed list, no sops file to name, absent.
