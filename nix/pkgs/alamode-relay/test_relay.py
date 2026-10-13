@@ -463,6 +463,46 @@ class RelayTests(unittest.TestCase):
                     self.assertIn(expected, result.stdout)
                     self.assertNotIn(KEY, result.stdout + result.stderr)
 
+    def test_bell_route(self):
+        self.assertEqual(self.request(path="/tool/bell")[0], 403)
+        self.assertNotIn("ALAMODE_BELL_URL", self.relay.tool_env)
+        rings = []
+        with start_relay(
+            self.catalog,
+            self.credentials,
+            bell=lambda: rings.append(time.monotonic()),
+            allow_private_hosts=["127.0.0.1"],
+        ) as relay:
+            self.assertEqual(relay.tool_env["ALAMODE_BELL_TOKEN"], relay.token)
+            url = relay.tool_env["ALAMODE_BELL_URL"]
+            self.assertEqual(url, f"http://127.0.0.1:{relay.port}/tool/bell")
+
+            def send(payload, token=None):
+                connection = http.client.HTTPConnection(
+                    "127.0.0.1", relay.port, timeout=2
+                )
+                connection.request(
+                    "POST",
+                    "/tool/bell",
+                    json.dumps(payload),
+                    {"Authorization": "Bearer " + (token or relay.token)},
+                )
+                response = connection.getresponse()
+                result = response.status, response.read()
+                connection.close()
+                return result
+
+            self.assertEqual(send({}, "wrong")[0], 403)
+            self.assertEqual(send({"sound": "/etc/passwd"})[0], 400)
+            self.assertEqual(rings, [])
+            self.assertEqual(send({}), (204, b""))
+            self.assertEqual(send({}), (204, b""))
+            self.assertEqual(len(rings), 1)
+            relay.rung_at -= relay_module.BELL_INTERVAL
+            self.assertEqual(send({})[0], 204)
+            self.assertEqual(len(rings), 2)
+            self.assertEqual(relay.requests, 0)
+
     def test_streams_before_upstream_finishes_and_disconnects(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.relay.port, timeout=2)
         connection.request(

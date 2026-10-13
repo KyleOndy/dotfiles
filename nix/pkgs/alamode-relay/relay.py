@@ -18,6 +18,9 @@ from urllib.parse import urlsplit
 
 KAGI_BASE_URL = "https://kagi.com/api/v1"
 KAGI_MAX_REQUEST_BYTES = 128 * 1024
+# Seconds. A request inside this window after a ring is answered but silent,
+# so an agent looping on the route cannot hold the host's speaker.
+BELL_INTERVAL = 10
 
 API_PATHS = {
     "openai-completions": "/chat/completions",
@@ -364,6 +367,20 @@ class _Handler(BaseHTTPRequestHandler):
         except (ValueError, RecursionError):
             self._error(400, "Invalid JSON request")
             return
+        if route["api"] == "bell":
+            if payload != {}:
+                self._error(400, "Invalid bell request")
+                return
+            now = time.monotonic()
+            with relay.lock:
+                ring = now - relay.rung_at >= BELL_INTERVAL
+                if ring:
+                    relay.rung_at = now
+            if ring:
+                relay.bell()
+            self.send_response(204)
+            self.end_headers()
+            return
         if route["api"] == "kagi":
             if not _kagi_payload(payload, route["operation"]):
                 self._error(400, "Invalid scoped Kagi request")
@@ -559,6 +576,7 @@ class Relay:
         *,
         allowed_models=None,
         tool_credentials=None,
+        bell=None,
         allow_private_hosts=(),
         request_limit=1000,
         max_concurrency=8,
@@ -628,14 +646,25 @@ class Relay:
                 }
         if not self.routes:
             raise ValueError("No permitted provider models")
+        # bell plays the host's notification sound, which the sandbox cannot
+        # reach. It takes no arguments and must not block the handler.
+        self.bell = bell
+        self.rung_at = -math.inf
+        if bell is not None:
+            self.routes["/tool/bell"] = {"api": "bell"}
         self.server = _Server(("127.0.0.1", 0), _Handler)
         self.server.relay = self
         self.port = self.server.server_port
         if "kagi" in tool_credentials:
-            self.tool_env = {
-                "KAGI_API_KEY": self.token,
-                "KAGI_API_URL": f"http://127.0.0.1:{self.port}/tool/kagi",
-            }
+            self.tool_env.update(
+                KAGI_API_KEY=self.token,
+                KAGI_API_URL=f"http://127.0.0.1:{self.port}/tool/kagi",
+            )
+        if bell is not None:
+            self.tool_env.update(
+                ALAMODE_BELL_TOKEN=self.token,
+                ALAMODE_BELL_URL=f"http://127.0.0.1:{self.port}/tool/bell",
+            )
         for config in self.catalog["providers"].values():
             for model in config["models"]:
                 model["baseUrl"] = f"http://127.0.0.1:{self.port}" + model["baseUrl"]

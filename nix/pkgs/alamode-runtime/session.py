@@ -1219,6 +1219,29 @@ def coordinator(config, manifest, control, executable):
     }
 
 
+def bell(config):
+    """The relay's bell, or None without a player configured, which leaves
+    the route out. The player runs here because the sandbox denies the audio
+    device, and its output is dropped because the terminal belongs to pi."""
+    player = config.get("bell")
+    if not player:
+        return None
+
+    def ring():
+        try:
+            subprocess.Popen(
+                [player],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError:
+            pass
+
+    return ring
+
+
 def run(config, manifest, args, home):
     catalog, auth, tool_credentials = credentials(
         config, manifest, home, include_tools=True
@@ -1235,6 +1258,7 @@ def run(config, manifest, args, home):
                 allowed_models=manifest["policy"].get("allowed_models"),
                 allow_private_hosts=config.get("privateProviderHosts", []),
                 tool_credentials=tool_credentials,
+                bell=bell(config),
             )
         )
         runtime = prepare(config, manifest, relay)

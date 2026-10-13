@@ -38,6 +38,7 @@ let
         runtimeSource = toString runtimeSource;
         privateProviderHosts = cfg.sandbox.privateProviderHosts;
         delegateBin = lib.getExe pkgs.alamode-delegate;
+        bell = lib.getExe pkgs.notification-bell;
         seatsBin = lib.optionalString seatsEnabled (lib.getExe seatsPackage);
         inherit (cfg) trustedProviders;
         coordinatorDaemon = lib.optionalString cfg.coordinator.enable (

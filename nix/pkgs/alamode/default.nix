@@ -63,6 +63,8 @@
   runtimeSource ? "",
   privateProviderHosts ? [ ],
   builder ? "",
+  # Program the relay runs for the bell extension; empty leaves it off.
+  bell ? "",
   trustedProviders ? [ ],
   bundles ? { },
   profiles ? { },
@@ -122,6 +124,7 @@ let
         trustedProviders
         privateProviderHosts
         builder
+        bell
         ;
       resolvers = envFromCommands;
       resolverGates = envGrantGates;

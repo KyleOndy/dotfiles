@@ -197,7 +197,7 @@ export default function (pi: ExtensionAPI) {
   };
 
   // terminal-title.ts reads this to keep a session with a running job out of
-  // IDL after its turn settles.
+  // IDL after its turn settles, and bell.ts to keep it from ringing.
   const announce = (): void => pi.events.emit("stall-guard:jobs", jobs.size);
 
   const track = (job: Job): void => {
