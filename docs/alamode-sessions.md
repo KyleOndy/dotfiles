@@ -56,6 +56,10 @@ the same admission as export:
   is NOT moved. After a launch with uncommitted changes, the adopt command
   leaves out the commit holding them.
 
+pi says which of the two to expect as it starts, so a launch from
+uncommitted changes or a detached HEAD is flagged before the work rather
+than at quit.
+
 Every outcome ends with what happened and the commands for what comes
 next:
 

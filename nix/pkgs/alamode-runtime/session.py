@@ -906,6 +906,9 @@ def child_environment(config, manifest, home, runtime):
             env["ALAMODE_COORD_AGENT"] = coordinator["agent"]
         if manifest["policy"].get("forge"):
             env["ALAMODE_COORD_FORGE"] = "1"
+    notice = landing_notice(manifest)
+    if notice:
+        env["ALAMODE_LANDING_LEVEL"], env["ALAMODE_LANDING"] = notice
     resources = manifest.get("resources", {}).get("forge")
     if resources:
         env.update(resources["env"])
@@ -1639,6 +1642,53 @@ def land(manifest):
             *unwip,
             ("discard", f"git branch -D {branch}"),
         ],
+    )
+
+
+def landing_notice(manifest):
+    """Where quitting will put the session's commits, as (level, text).
+
+    pi shows it at startup (extensions/landing-notice.ts): its fullscreen TUI
+    covers anything the wrapper prints first. Only the conditions fixed at
+    launch, so a session that can never fast-forward says so before the work
+    rather than after it; context files and a checkout that moves are left to
+    land(). None for a child, which never lands.
+    """
+    record = manifest["workspace"]
+    if manifest.get("coordinator", {}).get("role") == "child":
+        return None
+    branch = "alamode/" + manifest["id"]
+    launched = (record.get("source_ref") or "")[len("refs/heads/") :]
+    if not record.get("source"):
+        return (
+            "info",
+            "This session is outside a repository, so its commits stay in the"
+            " session. Quitting prints how to export them.",
+        )
+    if record["snapshot_commit"] != record["source_base"]:
+        bare = Path(record["common_dir"])
+        text = (
+            "The session started from uncommitted changes in your checkout, so"
+            f" quitting will NOT move {launched or 'it'}: the commits will wait"
+            f" on {branch}."
+        )
+        if workspace._source_head(bare, bare) == record["snapshot_commit"]:
+            text += (
+                f" To have quitting fast-forward {launched or 'a branch'}, quit"
+                " now, commit or set aside your changes, and launch again."
+            )
+        return "warning", text
+    if not launched:
+        return (
+            "warning",
+            "The session did not start on a branch, so quitting will NOT move"
+            f" one: the commits will wait on {branch}.",
+        )
+    return (
+        "info",
+        f"Quitting fast-forwards {launched} with this session's commits."
+        " Commits that change files your agents read as instructions wait on"
+        f" {branch} instead.",
     )
 
 

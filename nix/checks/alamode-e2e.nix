@@ -113,6 +113,7 @@ let
     import refusalGuard from "${extDir}/refusal-guard.ts";
     import resumeHint from "${extDir}/resume-hint.ts";
     import wipOnExit from "${extDir}/wip-on-exit.ts";
+    import landingNotice from "${extDir}/landing-notice.ts";
     import coordinator from "${extDir}/coordinator.ts";
 
     export default async function () {
@@ -183,6 +184,15 @@ let
       await hooks.session_shutdown({ reason: "quit" }, { ...ctx, cwd: repo });
       assert.equal(subject(), "wip: uncommitted at exit");
       assert.equal(run(["status", "--porcelain"]).stdout, "");
+      landingNotice(api as any);
+      const notices: string[][] = [];
+      const noticeCtx = { ...ctx, hasUI: true, ui: { notify: (text: string, level: string) => notices.push([level, text]) } };
+      process.env.ALAMODE_LANDING = "The commits will wait on alamode/fixture.";
+      process.env.ALAMODE_LANDING_LEVEL = "warning";
+      hooks.session_start({ reason: "reload" }, noticeCtx);
+      assert.equal(notices.length, 0, "A reload is not a launch");
+      hooks.session_start({ reason: "startup" }, noticeCtx);
+      assert.deepEqual(notices, [["warning", "The commits will wait on alamode/fixture."]]);
       const tools: any[] = [];
       const coordApi = { ...api, registerTool: (value: any) => tools.push(value) };
       delete process.env.ALAMODE_COORD_SOCKET;
@@ -204,7 +214,7 @@ let
       process.env.FORGE_INSTANCE = "1";
       coordinator(coordApi as any);
       assert.ok(tools.some((entry) => entry.name === "forge_boot"));
-      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards, wip on exit");
+      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards, wip on exit, landing notice");
       process.exit(0);
     }
   '';
