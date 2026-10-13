@@ -112,9 +112,11 @@ function text(value: unknown) {
   };
 }
 
-function describe(agent: Agent): string {
+// width is the longest agent name among the rows shown. Names match broker.py's
+// NAME, so length is display width.
+function describe(agent: Agent, width = 0): string {
   return (
-    `${agent.agent}: ${agent.state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
+    `${`${agent.agent}:`.padEnd(width + 1)} ${agent.state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
     (agent.state === "executing" && agent.activity
       ? `  ${agent.activity}`
       : "") +
@@ -428,7 +430,12 @@ export default function coordinator(pi: ExtensionAPI) {
     async handler(_args, ctx) {
       try {
         const state = await request({ op: "status" });
-        ctx.ui.notify(state.agents.map(describe).join("\n") || "No agents");
+        const agents = state.agents as Agent[];
+        const width = Math.max(0, ...agents.map((agent) => agent.agent.length));
+        ctx.ui.notify(
+          agents.map((agent) => describe(agent, width)).join("\n") ||
+            "No agents",
+        );
       } catch (error) {
         ctx.ui.notify(String(error), "error");
       }
@@ -517,9 +524,12 @@ export default function coordinator(pi: ExtensionAPI) {
         const agents = (state.agents as Agent[]).filter(
           (agent) => agent.state !== "closed",
         );
+        const width = Math.max(0, ...agents.map((agent) => agent.agent.length));
         ctx.ui.setWidget(
           "coordinator",
-          agents.length ? agents.map(describe) : undefined,
+          agents.length
+            ? agents.map((agent) => describe(agent, width))
+            : undefined,
         );
       } catch (error) {
         ctx.ui.setWidget("coordinator", [String(error)]);
