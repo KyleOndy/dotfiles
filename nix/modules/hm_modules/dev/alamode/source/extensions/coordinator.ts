@@ -113,10 +113,14 @@ function text(value: unknown) {
 }
 
 // width is the longest agent name among the rows shown. Names match broker.py's
-// NAME, so length is display width.
+// NAME, so length is display width. An idle agent with a report reads as
+// "reported"; the broker keeps the report across follow-ups, and agent_status
+// gives the model the broker's own state.
 function describe(agent: Agent, width = 0): string {
+  const state =
+    agent.state === "idle" && agent.report ? "reported" : agent.state;
   return (
-    `${`${agent.agent}:`.padEnd(width + 1)} ${agent.state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
+    `${`${agent.agent}:`.padEnd(width + 1)} ${state}${agent.outcome ? ` (${agent.outcome.state})` : ""}` +
     (agent.state === "executing" && agent.activity
       ? `  ${agent.activity}`
       : "") +
