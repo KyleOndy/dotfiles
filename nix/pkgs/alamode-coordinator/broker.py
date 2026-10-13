@@ -313,9 +313,23 @@ class Broker:
     def teardown(self, agent, identifier):
         state = self.status(agent)
         if state["state"] != "closed" and Path(agent["config"]).exists():
-            closed = self.worker(agent, {"op": "close", "id": identifier + ":close"})
-            if closed.get("receipt") in ("failed", "uncertain"):
-                return closed
+            try:
+                closed = self.worker(
+                    agent, {"op": "close", "id": identifier + ":close"}
+                )
+            except OSError:
+                # A supervisor that has exited closed the agent's stdin with
+                # it, and pi shuts down when its stdin closes (pi's rpc.md).
+                ownership = lock_file(Path(agent["config"]).parent / "supervisor.lock")
+                if ownership is None:
+                    raise ValueError(
+                        "Supervisor still owns this worker but is unreachable; "
+                        "nothing was released"
+                    )
+                ownership.close()
+            else:
+                if closed.get("receipt") in ("failed", "uncertain"):
+                    return closed
         if agent.get("forge"):
             self.forge_action(agent, "release")
         return self.status(self.agent(agent["agent"]))

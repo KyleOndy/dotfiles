@@ -13,7 +13,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "alamode-runtime"))
 import workspace
 from broker import Broker
-from common import Store, atomic_json, request, socket_path, wait_socket
+from common import Store, atomic_json, lock_file, request, socket_path, wait_socket
 
 ROOT = Path(__file__).resolve().parent
 
@@ -527,6 +527,34 @@ if sys.argv[1]=='claim':
             )
         self.call("close", agent="beta")
         self.assertFalse(resumed("beta"))
+
+    def test_teardown_releases_a_lost_agents_lease(self):
+        self.serve_forge(f"""
+from pathlib import Path
+import sys
+if sys.argv[1]=='claim':
+ print('1')
+elif sys.argv[1]=='release':
+ (Path({str(self.root)!r})/'forge-removed').touch()
+""")
+        self.call("spawn", agent="alpha", task="hi", size="small")
+        self.settled()
+        Path(Broker(self.config).agent("alpha")["socket"]).unlink()
+        self.settled(desired="lost")
+        refused = self.call("teardown", agent="alpha")
+        self.assertIn("still owns", refused["error"])
+        self.assertFalse((self.root / "forge-removed").exists())
+        directory = self.directory / "agents/alpha"
+        os.kill(int((directory / "supervisor.pid").read_text()), signal.SIGKILL)
+        deadline = time.monotonic() + 5
+        while (ownership := lock_file(directory / "supervisor.lock")) is None:
+            self.assertLess(time.monotonic(), deadline)
+            time.sleep(0.02)
+        ownership.close()
+        released = self.call("teardown", agent="alpha")
+        self.assertNotEqual(released.get("receipt"), "failed", released)
+        self.assertEqual(released["forge"]["state"], "released")
+        self.assertTrue((self.root / "forge-removed").exists())
 
     def test_child_export_admission_and_parent_inbox_symlink(self):
         first = self.call("spawn", agent="alpha", task="hi")
