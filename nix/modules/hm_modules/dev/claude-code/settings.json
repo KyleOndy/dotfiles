@@ -104,6 +104,7 @@
     ],
     "Notification": [
       {
+        "matcher": "permission_prompt|worker_permission_prompt|idle_prompt|elicitation_dialog|elicitation_url_dialog|agent_needs_input",
         "hooks": [
           {
             "type": "command",

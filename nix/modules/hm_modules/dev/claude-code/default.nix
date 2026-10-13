@@ -36,6 +36,8 @@ let
   ];
   notificationBell = mkScript "notification-bell" ./hooks/notification-bell.sh [
     pkgs.ffmpeg # ffplay
+    pkgs.jq
+    pkgs.tmux
   ];
   # GNU grep and sed: the script relies on -E alternation and \b, which BSD
   # userland on darwin handles differently.

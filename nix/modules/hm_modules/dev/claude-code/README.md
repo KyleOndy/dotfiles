@@ -65,8 +65,10 @@ time.
   `@claude_state` (RUN, EXE, ASK, IDL, ...); `tmux.nix` renders it in
   window titles via its own `tmux-agent-icons.sh`, which reports pi's
   state alongside
-- **notification-bell.sh** (Notification): plays `notification.wav`,
-  ducks volume during active Zoom calls (macOS)
+- **notification-bell.sh** (Notification, the types that wait on you):
+  plays `notification.wav`, ducks volume during active Zoom calls
+  (macOS). Under tmux it skips `idle_prompt` while background work is
+  in flight, so a status update between Monitor ticks stays quiet
 - **comment-lint.sh** (PostToolUse on Edit, Write, MultiEdit and
   NotebookEdit): flags comments that narrate the edit instead of
   describing the code. It runs after the write lands, so it cannot block;
