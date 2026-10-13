@@ -630,7 +630,7 @@ in
             # lives here.
             #
             # One worktree substrate, four destinations. The worktree step
-            # below -- make-or-reuse, direnv allow, cd -- is shared; the mode
+            # below (make-or-reuse, direnv allow, cd) is shared; the mode
             # flag says what happens there afterwards:
             #   (none)  stay in this shell
             #   -s      switch to the worktree's tmux session

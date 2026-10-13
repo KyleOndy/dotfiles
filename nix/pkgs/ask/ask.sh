@@ -4,7 +4,7 @@
 #
 # Local LLM one-off questions and chat. Shells out to mlx-lm in the venv
 # `mlx run` keeps (nix/pkgs/mlx). The backend is an implementation detail
-# behind this interface -- swap the mlx_lm.* calls below if it ever changes
+# behind this interface: swap the mlx_lm.* calls below if it ever changes
 # (e.g. Ollama, llama.cpp, MAX) without touching callers.
 #
 #   ask [--fast|--smart|--model ID] question words...

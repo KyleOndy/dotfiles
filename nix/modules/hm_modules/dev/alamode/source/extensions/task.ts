@@ -11,7 +11,7 @@
  * Subagent mechanics:
  *   - Each task runs as `$ALAMODE_REAL_BIN --tools ... --model ... --mode json
  *     --no-session <task>`. ALAMODE_REAL_BIN is exported by
- *     nix/pkgs/alamode-runtime/session.py -- it points at the real, unwrapped pi
+ *     nix/pkgs/alamode-runtime/session.py and points at the real, unwrapped pi
  *     binary. Spawning that directly (instead of re-invoking the `alamode`
  *     sandbox wrapper) means a subagent does NOT open a second, redundant
  *     srt/bwrap/sandbox-exec layer: OS-level sandboxes confine the whole
@@ -487,8 +487,8 @@ function oneLine(text: string, limit = 80): string {
 }
 
 // The freshest words of a stream sit at its end, so a live tail shows its
-// last line's worth, not its first -- unlike oneLine, which labels from the
-// front. Callers prefix "\u2026" to mark a join mid-sentence.
+// last line's worth, not its first, where oneLine labels from the front.
+// Callers prefix "\u2026" to mark a join mid-sentence.
 function liveTail(text: string, limit = 56): string {
   const flat = text.replace(/\s+/g, " ").trim();
   return flat.length > limit ? flat.slice(flat.length - limit) : flat;
@@ -564,8 +564,8 @@ function taskRow(r: TaskResult, theme: Theme): string {
 }
 
 // pi.exec would be the shorter call, but it buffers: it resolves once, after
-// the child has exited, which is exactly the ten minutes of silence this tool
-// used to report nothing during. spawn hands back the NDJSON as it is written.
+// the child has exited, so a ten-minute task would show nothing until it
+// ended. spawn hands back the NDJSON as it is written.
 function runChild(
   bin: string,
   args: string[],
