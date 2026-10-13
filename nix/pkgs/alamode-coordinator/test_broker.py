@@ -468,8 +468,32 @@ if sys.argv[1]=='claim':
         failed = self.call("spawn", agent="alpha", task="hi", size="small")
         self.assertEqual(failed["receipt"], "failed")
         self.assertIn("no forge instance", failed["error"])
+        refused = self.call("forge_boot", agent="alpha")
+        self.assertIn("Tear the agent down", refused["error"])
         retried = self.call("spawn", agent="beta", task="hi", size="small")
         self.assertNotEqual(retried.get("receipt"), "failed", retried)
+
+    def test_failed_forge_init_keeps_its_lease_and_never_boots(self):
+        self.serve_forge(f"""
+from pathlib import Path
+import sys
+with (Path({str(self.root)!r})/'forge-log').open('a') as log:
+ log.write(sys.argv[1]+'\\n')
+if sys.argv[1]=='claim':
+ print('1')
+elif sys.argv[1]=='init':
+ print('limactl create failed',file=sys.stderr);sys.exit(1)
+""")
+        failed = self.call("spawn", agent="alpha", task="hi", size="small")
+        self.assertIn("limactl create failed", failed["error"])
+        refused = self.call("forge_boot", agent="alpha")
+        self.assertEqual(refused.get("receipt"), "failed", refused)
+        self.assertIn("Tear the agent down", refused["error"])
+        self.assertEqual(
+            (self.root / "forge-log").read_text().split(), ["claim", "init"]
+        )
+        no_room = self.call("spawn", agent="beta", task="hi", size="small")
+        self.assertIn("budget", no_room["error"])
 
     def test_child_export_admission_and_parent_inbox_symlink(self):
         first = self.call("spawn", agent="alpha", task="hi")

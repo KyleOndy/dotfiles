@@ -86,10 +86,15 @@ class Forge:
         current = self.store.get(lease["label"])
         if (
             not current
-            or current.get("instance") != lease["instance"]
+            or current.get("instance") != lease.get("instance")
             or current["state"] == "released"
         ):
             raise ValueError("Forge lease is no longer owned by this agent")
+        if current["state"] == "uncertain":
+            raise ValueError(
+                "Forge setup for this agent failed, so its VM does not boot. "
+                "Tear the agent down to release the lease."
+            )
         self.command(["start"], current)
         current["state"] = "running"
         self.store.put(current["label"], current)

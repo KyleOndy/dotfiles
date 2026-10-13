@@ -126,7 +126,8 @@ Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
 - `Broken`: `limactl list --json $vm`, then `~/.lima/$vm/ha.stderr.log`.
 - A `~/.local/state/forge/<n>/label` reading `alamode-<hex>` with no VM
   behind it is a lease whose `forge init` failed: `forge.sqlite` shows it
-  `uncertain` and its agent reads `failed`. `forge claim` skips `<n>` until
+  `uncertain` and its agent reads `failed`. The coordinator refuses to boot an
+  `uncertain` lease. It stays counted, and `forge claim` skips `<n>`, until
   the agent is torn down (`/teardown` or `agent_teardown` in the coordinator
   session), which runs `forge release <label>`. Tear the agent down rather
   than `forge nuke` its instance by hand. A release after a hand nuke still
