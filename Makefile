@@ -152,17 +152,26 @@ deploy-rs-gcroots:
 
 .PHONY: deploy-rs
 deploy-rs: $(if $(filter cogsworth,$(HOST)),deploy-rs-gcroots)
+deploy-rs: ## Deploy to the deploy-rs host HOST selects (tiger, pika, cogsworth)
 	$(call WITH_NOM,deploy .#$(HOST) -- $(IMPURE))
 
 .PHONY: deploy-rs-all
 deploy-rs-all: deploy-rs-gcroots
+deploy-rs-all: ## flake check, then deploy tiger, pika and cogsworth
 	$(call WITH_NOM,nix flake check $(IMPURE) -L)
 	$(call WITH_NOM,deploy --skip-checks . -- $(IMPURE))
 
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry: deploy-rs-gcroots
+deploy-rs-all-dry: ## flake check, then dry-activate tiger, pika and cogsworth
 	$(call WITH_NOM,nix flake check $(IMPURE) -L)
 	$(call WITH_NOM,deploy --skip-checks --dry-activate . -- $(IMPURE))
+
+# This host first (its sudo prompt happens while you are watching), then
+# every deploy-rs host. make stops at the first failure; -k deploys on.
+.PHONY: deploy-all
+deploy-all: deploy deploy-rs-all
+deploy-all: ## Switch this host, then every deploy-rs host (-k continues past a failure)
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color

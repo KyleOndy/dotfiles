@@ -36,8 +36,10 @@ also evaluates the Linux hosts and cannot go green on a mac.
 `make deploy-rs HOST=<host>` lets deploy-rs run its own `nix flake check`
 first, which fetches the private cogsworth input, so it needs that ssh key.
 `make deploy-rs-all-dry` runs `nix flake check`, then dry-activates tiger,
-pika and cogsworth. `make help` lists only the targets marked `##`, which
-leaves out the `deploy-rs*` ones.
+pika and cogsworth. `make deploy-all` switches this machine and then
+deploys every deploy-rs host; `make -k deploy-all` continues past a failed
+one. `make help` lists only the targets marked `##`, which leaves out just
+`deploy-rs-gcroots`, an internal helper.
 
 pika holds tier 2 of `docs/backup-strategy.md` and opens every connection
 itself: tiger holds no credential for it and cannot initiate anything toward
