@@ -77,8 +77,6 @@ in
         systems = [ "aarch64-linux" ];
         # 8 derivations each taking all 8 cores thrashes 12 GiB.
         maxJobs = 4;
-        # Outrank tiger, which emulates aarch64 at 12.3x the cost.
-        speedFactor = 10;
         supportedFeatures = [
           "benchmark"
           "big-parallel"
@@ -86,18 +84,16 @@ in
           "nixos-test"
         ];
       }
-      # tiger is the only x86_64-linux builder, and at 23s for that same
-      # zstd it is not the slow one: emulation is, costing it 12.3x. It
-      # keeps aarch64-linux only as a fallback for when the local VM is
-      # down, at a speedFactor the VM always beats. The short ConnectTimeout
-      # in root-ssh-config.nix keeps that failover fast instead of hanging.
+      # tiger is the only x86_64-linux builder. It does not take
+      # aarch64-linux, which it emulates at 12.3x the cost: Nix has no
+      # fallback-only machine, and speedFactor only divides each machine's
+      # current load, so an idle tiger outranks the VM as soon as the VM has
+      # one job. Without it, aarch64 jobs wait for a VM slot, and fail while
+      # the VM is down.
       {
         hostName = "tiger.dmz.1ella.com";
         sshUser = "svc.nixbuild";
-        systems = [
-          "x86_64-linux"
-          "aarch64-linux"
-        ];
+        systems = [ "x86_64-linux" ];
         maxJobs = 8;
         speedFactor = 1;
         supportedFeatures = [
