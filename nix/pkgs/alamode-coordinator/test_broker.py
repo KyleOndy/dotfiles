@@ -556,6 +556,36 @@ elif sys.argv[1]=='release':
         self.assertEqual(released["forge"]["state"], "released")
         self.assertTrue((self.root / "forge-removed").exists())
 
+    def test_teardown_releases_a_lease_whose_claim_failed(self):
+        self.serve_forge(f"""
+from pathlib import Path
+import os,sys
+root=Path({str(self.root)!r})
+label=root/'forge-label'
+if sys.argv[1]=='claim':
+ if not (root/'forge-claimed').exists():
+  (root/'forge-claimed').touch();label.write_text(sys.argv[2])
+ print('killed at the timeout',file=sys.stderr);sys.exit(1)
+if sys.argv[1]=='which' and label.exists() and label.read_text()==sys.argv[2]:
+ print('1')
+if sys.argv[1]=='release':
+ assert os.environ['FORGE_INSTANCE']=='1'
+ assert label.read_text()==os.environ['FORGE_LEASE_LABEL']
+ label.unlink()
+""")
+        for name in ("alpha", "beta"):
+            failed = self.call("spawn", agent=name, task="hi", size="small")
+            self.assertIn("killed at the timeout", failed["error"])
+        alpha = self.call("teardown", agent="alpha")
+        self.assertNotEqual(alpha.get("receipt"), "failed", alpha)
+        self.assertEqual(alpha["forge"]["state"], "released")
+        self.assertEqual(alpha["forge"]["instance"], 1)
+        self.assertFalse((self.root / "forge-label").exists())
+        beta = self.call("teardown", agent="beta")
+        self.assertNotEqual(beta.get("receipt"), "failed", beta)
+        self.assertEqual(beta["forge"]["state"], "released")
+        self.assertNotIn("instance", beta["forge"])
+
     def test_child_export_admission_and_parent_inbox_symlink(self):
         first = self.call("spawn", agent="alpha", task="hi")
         self.settled()

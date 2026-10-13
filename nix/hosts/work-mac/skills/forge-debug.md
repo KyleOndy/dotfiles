@@ -79,7 +79,10 @@ and `$c/agents/<agent>/supervisor.log` is the place to look.
 
 A lease counts against the memory budget once it has an `instance`, until it
 reads `released`. A failed `forge claim` leaves it `uncertain` with no
-`instance`, which counts for nothing.
+`instance`, which counts for nothing. Its teardown asks `forge which <label>`
+for the instance, since a claim killed at its 15-minute timeout can still
+have written the label, and releases that instance, or just marks the lease
+`released` when no instance holds the label.
 
 A resumed agent gets its instance's socket and `FORGE_INSTANCE` only while
 its lease reads `stopped` or `running`. Resuming one after teardown, or one

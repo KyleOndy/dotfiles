@@ -82,7 +82,8 @@ one with no VM, no coordinator slot and no label, and records `<label>` in
 `~/.local/state/forge/<n>/label`, or prints the number already holding that
 label. It takes the coordinator's slot lock and it skips a labelled number,
 so the two never hand out the same one. `forge ls` shows the label as OWNER,
-and `forge nuke` on the instance removes it with the rest of the directory.
+`forge which <label>` prints the number holding it, and `forge nuke` on the
+instance removes it with the rest of the directory.
 The Claude `forge` subagent claims one per task this way.
 
 |               | unset                              | `FORGE_INSTANCE=n`                                                           |

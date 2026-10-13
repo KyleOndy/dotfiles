@@ -907,16 +907,26 @@ lock_instance() {
 	fi
 }
 
-cmd_claim() {
-	local label="$1" n dir
-	[[ ${label} =~ ${LABEL_RE} ]] || die "label must match ${LABEL_RE}, got '${label}'"
-	lock_ownership
+# The named instance holding label $1, or nothing when none does.
+label_holder() {
+	local n
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
-		if [[ "$(cat "${HOME}/.local/state/forge/${n}/label" 2>/dev/null)" == "${label}" ]]; then
+		if [[ "$(cat "${HOME}/.local/state/forge/${n}/label" 2>/dev/null)" == "$1" ]]; then
 			echo "${n}"
 			return
 		fi
 	done
+}
+
+cmd_claim() {
+	local label="$1" n dir
+	[[ ${label} =~ ${LABEL_RE} ]] || die "label must match ${LABEL_RE}, got '${label}'"
+	lock_ownership
+	n="$(label_holder "${label}")"
+	if [[ -n ${n} ]]; then
+		echo "${n}"
+		return
+	fi
 	for ((n = 1; n <= MAX_INSTANCE; n++)); do
 		dir="${HOME}/.local/state/forge/${n}"
 		[[ -e ${dir}/label || -d ${LIMA_HOME:-${HOME}/.lima}/forge-${n} ]] && continue
@@ -1222,6 +1232,11 @@ cmd_nuke() {
 	log "Everything removed."
 }
 
+cmd_which() {
+	[[ $1 =~ ${LABEL_RE} ]] || die "invalid lease label"
+	label_holder "$1"
+}
+
 # A `forge nuke` run by hand takes the label with the VM. With neither left
 # the number is free, by the same test `forge claim` uses, and there is
 # nothing to release. Anything still there must carry this label, which
@@ -1372,6 +1387,8 @@ Commands:
   release <label> Remove FORGE_INSTANCE only while it still owns this label.
                  Succeeds and changes nothing when the instance is already
                  free, as after a 'forge nuke'.
+  which <label>  Print the number of the named instance holding <label>, or
+                 nothing when none does. Changes nothing.
   nuke [--all [--force]]
                  Delete the VM, and with it every cluster and network. --all
                  does that to every named instance, never the unnamed one,
@@ -1495,6 +1512,10 @@ claim)
 release)
 	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: FORGE_INSTANCE=N forge release <label>"
 	cmd_release "$2"
+	;;
+which)
+	[[ -n ${2:-} && -z ${3:-} ]] || die "usage: forge which <label>"
+	cmd_which "$2"
 	;;
 cache)
 	[[ -z ${3:-} ]] || die "usage: forge cache up|nuke|vm-config"

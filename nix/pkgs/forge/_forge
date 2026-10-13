@@ -15,6 +15,7 @@ _arguments -s \
     pods\:"list every pod on every cluster of every running instance"
     events\:"list and follow events on every cluster of every running instance"
     claim\:"reserve a free named instance under a label"
+    which\:"print the named instance holding a label"
     nuke\:"delete the VM and every cluster, mirror, volume and network"
     resize\:"change the VM'"'"'s CPUs and memory"
     vm-config\:"print the lima config the VM is created from"

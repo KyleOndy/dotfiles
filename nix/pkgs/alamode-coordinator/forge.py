@@ -10,6 +10,12 @@ from common import Store
 SIZES = {"small": 4, "large": 8, "xlarge": 16}
 
 
+def instance_number(output):
+    if not re.fullmatch(r"[1-9][0-9]?", output) or int(output) > 15:
+        raise ValueError(f"Forge returned an invalid instance: {output[:100]!r}")
+    return int(output)
+
+
 class Forge:
     def __init__(self, config):
         self.config = config
@@ -68,10 +74,8 @@ class Forge:
             }
             self.store.put(lease["label"], lease)
             try:
-                instance = self.command(["claim", lease["label"]])
-                if not re.fullmatch(r"[1-9][0-9]?", instance) or int(instance) > 15:
-                    raise ValueError("Forge claim returned an invalid instance")
-                lease.update(instance=int(instance), state="claimed")
+                instance = instance_number(self.command(["claim", lease["label"]]))
+                lease.update(instance=instance, state="claimed")
                 self.store.put(lease["label"], lease)
                 self.command(["init", "--size", size], lease)
                 lease["state"] = "stopped"
@@ -139,15 +143,18 @@ class Forge:
         with (self.root / "forge-budget.lock").open("a+") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             current = self.store.get(lease["label"])
-            if (
-                not current
-                or not lease.get("instance")
-                or current.get("instance") != lease["instance"]
-            ):
+            if not current or current.get("instance") != lease.get("instance"):
                 raise ValueError("Forge lease is no longer owned by this agent")
             if current["state"] == "released":
                 return current
-            self.command(["release", current["label"]], current)
+            # A claim that failed, or was killed at its timeout, can still have
+            # recorded the label on an instance.
+            if "instance" not in current:
+                holder = self.command(["which", current["label"]])
+                if holder:
+                    current["instance"] = instance_number(holder)
+            if "instance" in current:
+                self.command(["release", current["label"]], current)
             current["state"] = "released"
             self.store.put(current["label"], current)
             return current

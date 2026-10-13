@@ -37,6 +37,7 @@ remove_vm() { echo "$INSTANCE" >>"$HOME/removed"; sleep "${FIXTURE_DELAY:-0}"; }
 case "$1" in
 claim) cmd_claim "$2" ;;
 release) cmd_release "$2" ;;
+which) cmd_which "$2" ;;
 nuke) cmd_nuke ;;
 esac
 """
@@ -101,6 +102,13 @@ esac
             )
             self.run_forge("release", "lease-beta", instance=1)
             (self.root / "removed").unlink()
+
+    def test_which_names_the_instance_holding_a_label(self):
+        self.assertEqual(self.run_forge("claim", "lease-alpha").stdout.strip(), "1")
+        self.assertEqual(self.run_forge("claim", "lease-beta").stdout.strip(), "2")
+        self.assertEqual(self.run_forge("which", "lease-beta").stdout, "2\n")
+        absent = self.run_forge("which", "lease-gamma")
+        self.assertEqual((absent.returncode, absent.stdout), (0, ""), absent.stderr)
 
     def test_release_after_a_hand_nuke(self):
         self.assertEqual(self.run_forge("claim", "lease-alpha").stdout.strip(), "1")
