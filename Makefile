@@ -20,6 +20,16 @@ IMPURE := --impure
 # Builder guests use path flakes to include explicitly authorized protected files.
 ALAMODE_BUILD_FLAKE ?= .
 
+# nix-output-monitor renders nix's output only when it is on PATH and
+# stderr is a terminal. Piped into a file, it redraws its whole tree on
+# every line.
+NOM := $(shell [ -t 2 ] && command -v nom)
+NIX_BUILD := $(if $(NOM),nom,nix) build
+# $(call WITH_NOM,command) appends the flags nom reads to command, so
+# command has to end where nix flags go. pipefail keeps a failed build
+# from passing as nom's exit status.
+WITH_NOM = $(if $(NOM),set -o pipefail; $(1) --log-format internal-json -v 2>&1 | nom --json,$(1))
+
 # GC roots for builds no substituter serves, so a garbage collection on
 # this machine does not force a rebuild. Each build replaces its own root.
 DEPLOY_GC := $(HOME)/.local/state/deploy-rs/gcroots
@@ -85,11 +95,11 @@ help: ## Show this help
 
 .PHONY: build
 build: ## Buld single host
-	$(REBUILD) --flake .#$(HOSTNAME) build --keep-going
+	$(call WITH_NOM,$(REBUILD) --flake .#$(HOSTNAME) build --keep-going)
 
 .PHONY: deploy
 deploy: ## Deploy currently defined configuration
-	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
+	$(call WITH_NOM,$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch)
 	$(if $(filter work-mac trex,$(HOSTNAME)),$(ALAMODE_SEATS_CHECK))
 
 # Every kernel output plus the configfile, because cogsworth's dtbo overlays
@@ -97,24 +107,24 @@ deploy: ## Deploy currently defined configuration
 # collected dev output rebuilds the whole kernel.
 .PHONY: deploy-rs-gcroots
 deploy-rs-gcroots:
-	nix build $(IMPURE) --out-link $(DEPLOY_GC)/cogsworth-kernel \
+	$(NIX_BUILD) $(IMPURE) --out-link $(DEPLOY_GC)/cogsworth-kernel \
 	  '.#nixosConfigurations.cogsworth.config.system.build.kernel^*' \
 	  .#nixosConfigurations.cogsworth.config.system.build.kernel.configfile \
 	  .#nixosConfigurations.cogsworth.config.system.modulesTree
 
 .PHONY: deploy-rs
 deploy-rs: $(if $(filter cogsworth,$(HOSTNAME)),deploy-rs-gcroots)
-	deploy .#$(HOSTNAME) -- $(IMPURE)
+	$(call WITH_NOM,deploy .#$(HOSTNAME) -- $(IMPURE))
 
 .PHONY: deploy-rs-all
 deploy-rs-all: deploy-rs-gcroots
-	nix flake check $(IMPURE) -L
-	deploy --skip-checks . -- $(IMPURE)
+	$(call WITH_NOM,nix flake check $(IMPURE) -L)
+	$(call WITH_NOM,deploy --skip-checks . -- $(IMPURE))
 
 .PHONY: deploy-rs-all-dry
 deploy-rs-all-dry: deploy-rs-gcroots
-	nix flake check $(IMPURE) -L
-	deploy --skip-checks --dry-activate . -- $(IMPURE)
+	$(call WITH_NOM,nix flake check $(IMPURE) -L)
+	$(call WITH_NOM,deploy --skip-checks --dry-activate . -- $(IMPURE))
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color
@@ -150,7 +160,7 @@ update/alamode: ## Update the pi.dev engine (via numtide/llm-agents.nix)
 
 .PHONY: check
 check: ## Run nix checks
-	nix flake check $(IMPURE)
+	$(call WITH_NOM,nix flake check $(IMPURE))
 
 .PHONY: secrets-status
 secrets-status: ## Show whether each git-crypt and sops file is stored encrypted, locally and upstream
@@ -166,7 +176,7 @@ sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 	@echo "Decrypting SSH host key locally..."
 	@export COGSWORTH_SSH_KEY=$$(sops -d nix/hosts/cogsworth/keys/ssh_host_ed25519_key.sops) && \
 		echo "Building SD image (this takes a while)..." && \
-		nix build --impure .#nixosConfigurations.cogsworth.config.system.build.sdImage && \
+		$(NIX_BUILD) --impure .#nixosConfigurations.cogsworth.config.system.build.sdImage && \
 		echo "Done! Image at: result/sd-image/" || \
 		(echo "Build failed"; exit 1)
 
@@ -174,7 +184,7 @@ sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 # and copies ~1GB back.
 .PHONY: iso-pika
 iso-pika: ## Build pika's headless install and rescue ISO
-	nix build $(IMPURE) .#nixosConfigurations.pika-installer.config.system.build.isoImage
+	$(NIX_BUILD) $(IMPURE) .#nixosConfigurations.pika-installer.config.system.build.isoImage
 	@echo "Done! Image at: result/iso/pika-installer.iso"
 
 .PHONY: cleanup
@@ -201,7 +211,7 @@ ALAMODE_SEATS_CHECK := alamode-seats check --deploy && mcloud-pins --deploy
 ALAMODE_SMOKE := ./result/etc/profiles/per-user/*/bin/alamode --help >/dev/null
 .PHONY: build-mac
 build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
+	$(NIX_BUILD) $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
 	$(ALAMODE_SMOKE)
 
 .PHONY: build-mac-dry
@@ -211,12 +221,12 @@ build-mac-dry: ## Dry-run build of work-mac darwin configuration
 .PHONY: deploy-mac
 deploy-mac: NIX_DAEMON_LABEL := org.nixos.nix-daemon
 deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	$(NIX_DAEMON_BEFORE); $(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch && $(NIX_DAEMON_RESTART)
+	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch) && $(NIX_DAEMON_RESTART)
 	$(ALAMODE_SEATS_CHECK)
 
 .PHONY: build-trex
 build-trex: ## Build trex darwin configuration
-	nix build $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system"
+	$(NIX_BUILD) $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system"
 	$(ALAMODE_SMOKE)
 
 .PHONY: build-trex-dry
@@ -234,7 +244,7 @@ NIX_DAEMON_RESTART = { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchct
 .PHONY: deploy-trex
 deploy-trex: NIX_DAEMON_LABEL := systems.determinate.nix-daemon
 deploy-trex: ## Deploy trex darwin configuration
-	$(NIX_DAEMON_BEFORE); $(SWITCH) --flake .#trex switch && $(NIX_DAEMON_RESTART)
+	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) --flake .#trex switch) && $(NIX_DAEMON_RESTART)
 	$(ALAMODE_SEATS_CHECK)
 
 .PHONY: flash-ergodox

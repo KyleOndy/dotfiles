@@ -17,6 +17,7 @@ in
   config = mkIf cfg.enable {
     home.packages = with pkgs; [
       nix-index
+      nix-output-monitor
       nixfmt
       nixpkgs-fmt
       nixpkgs-review
