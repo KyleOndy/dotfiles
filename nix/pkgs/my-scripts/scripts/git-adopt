@@ -22,9 +22,11 @@ says so.
 Adopting also trusts the worktree again. `wt` runs `direnv deny` on it before
 the agent starts, because a reload would run the agent's flake.nix shellHook
 unsandboxed in your shell. Every run that ends with the range signed, including
-the ones with nothing to do, runs `direnv allow` on the worktree. The listing
-first shows changes to the files that run on entry or steer the next agent:
-.envrc, flake.nix, flake.lock, .claude/, .pi/, AGENTS.md and CLAUDE.md.
+the ones with nothing to do, runs `direnv allow` on the worktree. One with
+commits on the branch then lists the push, merge and cleanup commands that come
+next. The listing first shows changes to the files that run on entry or steer
+the next agent: .envrc, flake.nix, flake.lock, .claude/, .pi/, AGENTS.md and
+CLAUDE.md.
 
   git adopt
     → base: merge-base of HEAD and the local default branch
@@ -99,6 +101,38 @@ allow_direnv() {
 	log_info "direnv allowed ${top}"
 }
 
+# A signed branch still has to reach the default branch, merged from whichever
+# worktree has that checked out, and a linked worktree is left over once it
+# does.
+next_steps() {
+	local default worktree
+	local -a steps=()
+	default=$(get_default_branch)
+	default=${default#origin/}
+	if git rev-parse --verify --quiet '@{upstream}' >/dev/null; then
+		steps+=(push "git push")
+	elif git remote get-url origin >/dev/null 2>&1; then
+		steps+=(push "git push -u origin ${branch}")
+	fi
+	if [[ $branch != "$default" ]]; then
+		worktree=$(git worktree list --porcelain | awk -v want="branch refs/heads/${default}" '
+			/^worktree / { path = substr($0, 10) }
+			$0 == want { print path }')
+		if [[ -n $worktree ]]; then
+			steps+=(merge "git -C $(printf '%q' "$worktree") merge --ff-only ${branch}")
+		else
+			steps+=(merge "git switch ${default} && git merge --ff-only ${branch}")
+		fi
+		if [[ $(git rev-parse --path-format=absolute --git-dir) != "$(git rev-parse --path-format=absolute --git-common-dir)" ]]; then
+			steps+=(cleanup "git wt-cleanup --merged")
+		fi
+	fi
+	[[ ${#steps[@]} -gt 0 ]] || return 0
+	echo "" >&2
+	log_info "Next:"
+	printf '  %-8s %s\n' "${steps[@]}" >&2
+}
+
 base=$(require_rewritable_range "$base_arg")
 branch=$(git rev-parse --abbrev-ref HEAD)
 
@@ -116,6 +150,7 @@ unsigned=$(git log --format='%G?' "${base}..HEAD" | grep -c '^N$' || true)
 if [[ $unsigned -eq 0 ]]; then
 	log_info "Already adopted: all ${total} commit(s) carry a signature"
 	allow_direnv
+	next_steps
 	exit 0
 fi
 
@@ -133,6 +168,8 @@ fi
 
 if [[ $dry_run == true ]]; then
 	log_info "Dry run: nothing was rewritten"
+	echo "" >&2
+	printf '  %-8s %s\n' adopt "git adopt${base_arg:+ $(printf '%q' "$base_arg")}" >&2
 	exit 0
 fi
 
@@ -151,3 +188,4 @@ echo "" >&2
 log_info "Adopted:"
 git log --format='  %h %G? %<(24,trunc)%an %s' "${base}..HEAD" >&2
 allow_direnv
+next_steps

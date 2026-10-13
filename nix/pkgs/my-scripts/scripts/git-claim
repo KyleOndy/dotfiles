@@ -73,6 +73,12 @@ while [[ $# -gt 0 ]]; do
 	esac
 done
 
+next_steps() {
+	echo "" >&2
+	log_info "Next:"
+	printf '  %-8s %s\n' adopt "git adopt${base_arg:+ $(printf '%q' "$base_arg")}" >&2
+}
+
 base=$(require_rewritable_range "$base_arg")
 branch=$(git rev-parse --abbrev-ref HEAD)
 
@@ -89,6 +95,7 @@ fi
 foreign=$(git log --format='%ae' "${base}..HEAD" | grep -c -v -x -F "$me_email" || true)
 if [[ $foreign -eq 0 ]]; then
 	log_info "Already yours: all ${total} commit(s) are authored by ${me_email}"
+	next_steps
 	exit 0
 fi
 
@@ -99,6 +106,8 @@ echo "" >&2
 
 if [[ $dry_run == true ]]; then
 	log_info "Dry run: nothing was rewritten"
+	echo "" >&2
+	printf '  %-8s %s\n' claim "git claim${base_arg:+ $(printf '%q' "$base_arg")}" >&2
 	exit 0
 fi
 
@@ -123,3 +132,4 @@ git rebase --force-rebase --exec \
 echo "" >&2
 log_info "Claimed:"
 git log --format='  %h %<(30,trunc)%an <%ae> %s' "${base}..HEAD" >&2
+next_steps
