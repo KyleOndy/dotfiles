@@ -153,7 +153,7 @@ in
         type = with lib.types; attrsOf str;
         default = { };
         example = {
-          OPENROUTER_API_KEY = "/usr/bin/security find-generic-password -s pi -a openrouter -w";
+          OPENROUTER_API_KEY = "/usr/bin/security find-generic-password -s alamode -a openrouter -w";
         };
         description = ''
           Trusted host commands that resolve credentials for the provider

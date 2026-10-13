@@ -88,7 +88,7 @@
     # machine too: the wrapper hard-fails a resolver rather than starting
     # without the value (once granted: the gate below keeps an ungranted
     # session from resolving it at all).
-    alamode.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
+    alamode.sandbox.envFromCommands.KAGI_API_KEY = "/usr/bin/security find-generic-password -s alamode -a kagi -w";
     alamode.sandbox.envGrantGates.KAGI_API_KEY = "kagi";
     # The catalog and the seats are sops secrets (nix/secrets/work-mac.yaml),
     # since the model ids in them are private. work-config appends its

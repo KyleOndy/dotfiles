@@ -259,7 +259,7 @@ in
       # Host relays resolve the keys; workloads receive scoped relay tokens.
       # Kagi resolution requires --allow-kagi. Inference is always admitted.
       sandbox.envFromCommands = {
-        KAGI_API_KEY = "/usr/bin/security find-generic-password -s pi -a kagi -w";
+        KAGI_API_KEY = "/usr/bin/security find-generic-password -s alamode -a kagi -w";
         MCLOUD_API_KEY = mcloudKeyCommand;
         ZAI_API_KEY = "/bin/cat ${osConfig.sops.secrets.zai_api_key.path}";
       };
