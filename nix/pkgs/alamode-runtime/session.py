@@ -1476,10 +1476,16 @@ def commits(count):
     return f"{count} commit" + ("" if int(count) == 1 else "s")
 
 
+def landing_branch(manifest):
+    # No slash: git refs are paths, so alamode/<id> cannot exist beside a
+    # branch named alamode, which a repository working on alamode has.
+    return "alamode-" + manifest["id"]
+
+
 def export_session(manifest):
     sealed = seal_session(manifest)
     print(json.dumps(sealed, indent=2))
-    branch = "alamode/" + manifest["id"]
+    branch = landing_branch(manifest)
     base = sealed["base"][:12]
     tell(
         [
@@ -1509,7 +1515,7 @@ def land(manifest):
     """Fetch a stopped session's commits into the checkout it started from.
 
     The commits arrive through the same sealed, admitted bundle as `sessions
-    export`, as branch alamode/<id> in the source repository, and that branch
+    export`, as branch alamode-<id> in the source repository, and that branch
     is all landing ever creates. The branch checked out at launch
     fast-forwards to it only when the launch was clean, the checkout is still
     on that branch and no agent context file changed; anything else waits on
@@ -1551,10 +1557,10 @@ def land(manifest):
         tell(["Nothing new to land: these commits are already on your checkout."])
         return
     sealed = seal_session(manifest)
-    branch = "alamode/" + manifest["id"]
+    branch = landing_branch(manifest)
+    # Not --quiet: it hides the per-ref line that says why a ref was refused.
     fetched = git(
         "fetch",
-        "--quiet",
         "--no-tags",
         sealed["bundle"],
         f"{sealed['ref']}:refs/heads/{branch}",
@@ -1681,7 +1687,7 @@ def landing_notice(manifest):
     record = manifest["workspace"]
     if manifest.get("coordinator", {}).get("role") == "child":
         return None
-    branch = "alamode/" + manifest["id"]
+    branch = landing_branch(manifest)
     launched = (record.get("source_ref") or "")[len("refs/heads/") :]
     if not record.get("source"):
         return (

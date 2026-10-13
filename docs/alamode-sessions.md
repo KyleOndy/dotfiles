@@ -52,7 +52,7 @@ the same admission as export:
   clean, the checkout is still on that branch, git can fast-forward it, and
   no agent context file such as `AGENTS.md`, `CLAUDE.md` or anything under
   `.claude/` changed.
-- Anything else waits on a new branch, `alamode/ID`, and the launch branch
+- Anything else waits on a new branch, `alamode-ID`, and the launch branch
   is NOT moved. After a launch with uncommitted changes, the adopt command
   leaves out the commit holding them.
 
@@ -64,16 +64,16 @@ Every outcome ends with what happened and the commands for what comes
 next:
 
 ```text
-alamode: 2 commits are waiting on alamode/20261013-102233-ab12cd34.
+alamode: 2 commits are waiting on alamode-20261013-102233-ab12cd34.
 alamode: main was NOT moved.
 alamode: These commits change files your agents read as instructions:
 alamode:     AGENTS.md
 alamode: pi and Claude outside the sandbox load these without asking, so read
 alamode: them as model-written before taking them.
 alamode:
-alamode:   review   git log -p 67e33ed81ca3..alamode/20261013-102233-ab12cd34
-alamode:   adopt    git merge --ff-only alamode/20261013-102233-ab12cd34 && git adopt 67e33ed81ca3
-alamode:   discard  git branch -D alamode/20261013-102233-ab12cd34
+alamode:   review   git log -p 67e33ed81ca3..alamode-20261013-102233-ab12cd34
+alamode:   adopt    git merge --ff-only alamode-20261013-102233-ab12cd34 && git adopt 67e33ed81ca3
+alamode:   discard  git branch -D alamode-20261013-102233-ab12cd34
 ```
 
 A fast-forward offers `review`, `adopt` (`git adopt` signs the commits) and

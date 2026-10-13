@@ -116,7 +116,7 @@ write the coordinator's requests.
 Quitting lands a session's commits in the repository it started from
 (`docs/alamode-sessions.md`, Landing): `land()` in
 `nix/pkgs/alamode-runtime/session.py` fast-forwards the launch branch or
-leaves the commits on `alamode/<id>`. Every outcome at quit goes through
+leaves the commits on `alamode-<id>`. Every outcome at quit goes through
 `tell()`: what happened in plain sentences, then the exact next commands. One
 that holds work back says what was NOT moved and why. An exit path that
 prints nothing, or a bare reason clause, is a bug. At launch the wrapper
