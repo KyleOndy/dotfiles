@@ -40,6 +40,7 @@ let
         delegateBin = lib.getExe pkgs.alamode-delegate;
         bell = lib.getExe pkgs.notification-bell;
         seatsBin = lib.optionalString seatsEnabled (lib.getExe seatsPackage);
+        sliceBin = lib.optionalString config.hmFoundry.terminal.tmux.enable (lib.getExe slicePackage);
         inherit (cfg) trustedProviders;
         coordinatorDaemon = lib.optionalString cfg.coordinator.enable (
           lib.getExe (
@@ -91,6 +92,16 @@ let
     secretsSource = lib.optionalString (cfg.secretsSource != null) cfg.secretsSource;
     relayModule = "${pkgs.alamode-relay}/libexec/alamode-relay/relay.py";
     inherit (cfg.sandbox) privateProviderHosts;
+  };
+  # tmux-sessionizer comes from PATH, so sliceBin is set only where the tmux
+  # module installs it.
+  slicePackage = pkgs.writeShellApplication {
+    name = "alamode-slice";
+    runtimeInputs = [
+      pkgs.direnv
+      pkgs.my-scripts
+    ];
+    text = lib.removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./slice.sh);
   };
 
   defaultSourceDir = toString ../alamode/source;

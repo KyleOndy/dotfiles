@@ -179,7 +179,7 @@ def pin_store_roots(config, directories=None, control=None, store_tool=None):
             continue
 
 
-VERBS = {"resume", "sessions", "coord", "delegate", "seats"}
+VERBS = {"resume", "sessions", "coord", "delegate", "seats", "slice"}
 
 HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
@@ -190,6 +190,7 @@ HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
 alamode resume [ID] [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
+alamode slice NAME | TICKET [NAME] [GRANTS] [-- PI ARGS]
 alamode delegate ... | seats ...
 
 A launch snapshots the current repository into private Git storage.
@@ -201,7 +202,8 @@ Flags after -- reach pi verbatim; alamode flags never follow it.
 --local admits only loopback models and refuses every network grant.
 --no-PROVIDER drops that provider and every model on its endpoints.
 --local-model admits a model the catalog lacks on a loopback provider.
-coord start prints JSON credentials without opening the UI."""
+coord start prints JSON credentials without opening the UI.
+slice starts alamode in a task worktree, in a new window of its tmux session."""
 
 
 def split_boundary(argv):
@@ -1854,7 +1856,7 @@ def main(argv=None):
     if argv in (["--version"], ["-v"]):
         return information(config, "--version")
     verb = argv[0] if argv and argv[0] in VERBS else None
-    if verb in ("delegate", "seats"):
+    if verb in ("delegate", "seats", "slice"):
         binary = config.get(verb + "Bin", "")
         if not binary:
             raise SessionError(f"alamode {verb} is not configured on this host")

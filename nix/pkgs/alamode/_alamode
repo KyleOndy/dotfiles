@@ -9,6 +9,7 @@ verbs=(
   'resume:resume the most recent or a named session'
   'sessions:list, show or export retained sessions'
   'coord:start or manage a coordinator'
+  'slice:start alamode in a task worktree, in its own tmux window'
   'delegate:run or control a durable delegated agent'
   'seats:inspect and check model seats'
 )
@@ -115,6 +116,13 @@ case $verb in
         esac
         ;;
     esac
+    ;;
+  slice)
+    _arguments \
+      '1:name or ticket:' \
+      '2::name:' \
+      "${grant_flags[@]}" \
+      '(-)--[engine arguments]'
     ;;
   delegate)
     _arguments \

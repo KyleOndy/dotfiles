@@ -42,11 +42,11 @@ The host daemon socket is never granted.
 
 ## Landing
 
-The happy path is a worktree per task: `wtp NAME` makes one off the base
-branch and starts `alamode` in it. When the session quits, edits left
-uncommitted become a `wip: uncommitted at exit` commit, and the wrapper
-fetches the session's commits into the repository it started from through
-the same admission as export:
+The happy path is a worktree per task: `alamode slice NAME` makes one off the
+base branch and starts `alamode` in it, in a new window of the worktree's tmux
+session. When the session quits, edits left uncommitted become a `wip:
+uncommitted at exit` commit, and the wrapper fetches the session's commits
+into the repository it started from through the same admission as export:
 
 - The branch checked out at launch fast-forwards to them when the launch was
   clean, the checkout is still on that branch, git can fast-forward it, and

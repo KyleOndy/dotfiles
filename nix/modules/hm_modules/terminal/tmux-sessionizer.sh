@@ -2,8 +2,10 @@
 set -euo pipefail
 
 # Switches to the tmux session for a worktree, making it first if needed.
-# Usage: tmux-sessionizer [path]
+# Usage: tmux-sessionizer [path [command]]
 # With no path, picks an existing session or a worktree under ~/src in fzf.
+# A command is typed into a new window for the path, made even when one is
+# already open there, so it never lands in a pane that is busy.
 #
 # A worktree in a ticket directory ({repo}/DEV-123/<name>, git
 # wt-feature-branch's work mode) joins session DEV-123 as a window of its own,
@@ -27,6 +29,7 @@ pick() {
 }
 
 target="${1:-}"
+command="${2:-}"
 if [[ -z ${target} ]]; then
 	# Escape in fzf is a choice not to switch, not an error.
 	target="$(pick)" || exit 0
@@ -49,9 +52,14 @@ else
 	session="${session//[.:]/_}"
 
 	if ! tmux has-session -t "=${session}" 2>/dev/null; then
-		tmux new-session -d -s "${session}" -n "${name}" -c "${path}"
-	elif ! tmux list-panes -s -t "=${session}" -F '#{pane_current_path}' | grep -qxF "${path}"; then
-		tmux new-window -t "=${session}:" -n "${name}" -c "${path}"
+		pane="$(tmux new-session -d -P -F '#{pane_id}' -s "${session}" -n "${name}" -c "${path}")"
+	elif [[ -n ${command} ]] ||
+		! tmux list-panes -s -t "=${session}" -F '#{pane_current_path}' | grep -qxF "${path}"; then
+		pane="$(tmux new-window -P -F '#{pane_id}' -t "=${session}:" -n "${name}" -c "${path}")"
+	fi
+	if [[ -n ${command} ]]; then
+		tmux send-keys -t "${pane}" -l "${command}"
+		tmux send-keys -t "${pane}" Enter
 	fi
 fi
 

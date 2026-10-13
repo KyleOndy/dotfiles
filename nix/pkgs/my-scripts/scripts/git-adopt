@@ -14,14 +14,14 @@ usage: git adopt [options] [base]
 Sign every commit on this branch that is not on the base branch.
 
 Agents commit unsigned: alamode exports commit.gpgsign=false and an
-`ai-daemon@` author, and `wt` turns signing off for the agents it launches, so
-`git log --show-signature` tells you which commits nobody has vouched for.
+`ai-daemon@` author, so `git log --show-signature` tells you which commits
+nobody has vouched for.
 Adopting them is the review gate: once you have read the work, your signature
 says so.
 
-Adopting also trusts the worktree again. `wt` runs `direnv deny` on it before
-the agent starts, because a reload would run the agent's flake.nix shellHook
-unsandboxed in your shell. Every run that ends with the range signed, including
+Adopting also trusts the worktree again. `alamode slice` runs `direnv deny` on
+it before the agent starts, because a reload would run the agent's flake.nix
+shellHook unsandboxed in your shell. Every run that ends with the range signed, including
 the ones with nothing to do, runs `direnv allow` on the worktree. One with
 commits on the branch then lists the push, merge and cleanup commands that come
 next. The listing first shows changes to the files that run on entry or steer

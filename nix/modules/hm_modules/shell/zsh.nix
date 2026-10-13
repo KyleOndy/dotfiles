@@ -609,60 +609,23 @@ in
               $EDITOR "$(dirname "$git_dir")/notes.txt"
             }
 
-            _wt_slug() {
-              setopt localoptions extendedglob
-              local s=''${(L)1} full
-              s=''${s//[^a-z0-9]##/-}
-              s=''${s##-}
-              s=''${s%%-}
-              full=$s
-              s=''${s[1,40]}
-              # Truncation landed mid-word, so drop the partial tail.
-              [[ $s != $full ]] && s=''${s%-*}
-              print -r -- ''${s%%-}
-            }
-
-            # git wt-feature-branch bases on origin/<default>. Branch from the
-            # local one instead: main here routinely carries commits that have
-            # not been pushed, and they belong in the new worktree.
-            _wt_base() {
-              local b
-              for b in main master; do
-                if git show-ref --verify --quiet "refs/heads/$b"; then
-                  print -r -- "$b"
-                  return
-                fi
-              done
-              git rev-parse --abbrev-ref HEAD
-            }
-
             # A function, not a script in my-scripts: only the calling shell
             # can change its own directory. Same reason fzf_pick_git_worktree
-            # lives here.
-            #
-            # One worktree substrate, four destinations. The worktree step
-            # below (make-or-reuse, direnv allow, cd) is shared; the mode
-            # flag says what happens there afterwards:
-            #   (none)  stay in this shell
-            #   -s      switch to the worktree's tmux session
-            #   -p      run alamode there; -c run claude there (wtp/wtc)
+            # lives here. `alamode slice` shares the worktree step, git
+            # wt-start, and starts an agent there instead.
             _wt_usage() {
-              echo "usage: wt [-s|-p|-c] <name> | <ticket> <name> [-- <agent args>]" >&2
-              echo "  makes or reuses the worktree, direnv-allows it when it matches" >&2
-              echo "  its base, and cds into it; then" >&2
-              echo "  -s  switches to its tmux session" >&2
-              echo "  -p  runs alamode, -c runs claude; args after -- are the agent's" >&2
+              echo "usage: wt [-s] <name> | <ticket> [<name>]" >&2
+              echo "  makes or reuses the worktree (git wt-start) and cds into it" >&2
+              echo "  -s  then switches to its tmux session" >&2
             }
 
             wt() {
               # Not `path`: zsh ties that name to $PATH, so declaring it local
               # empties PATH for the rest of the function.
-              local wt_path wt_base wt_ticket wt_title wt_slug mode cmd
-              local -a wt_args agent_args
-
+              local wt_path tmux_session
               case $1 in
-              -s | -p | -c)
-                mode=$1
+              -s)
+                tmux_session=1
                 shift
                 ;;
               -h | --help)
@@ -674,89 +637,20 @@ in
                 return 1
                 ;;
               esac
-
-              # `--` separates the worktree's arguments from the agent's, and
-              # is consumed here rather than forwarded: alamode reads `--` as
-              # its own end-of-flags and would hand --allow-read to the real
-              # pi binary, which rejects it. A grant before the
-              # separator reaches git wt-feature-branch, which takes unknown
-              # flags as positionals, so --allow-kagi there is read as a base
-              # ref and fails there instead.
-              while (( $# )); do
-                [[ $1 == -- ]] && { shift; agent_args=("$@"); break }
-                wt_args+=("$1")
-                shift
-              done
-              if (( $#wt_args == 0 )); then
+              if (( $# == 0 )); then
                 _wt_usage
                 return 1
               fi
-              if (( $#agent_args )) && [[ $mode != -p && $mode != -c ]]; then
-                echo "wt: args after -- are only for -p and -c" >&2
-                return 1
-              fi
-              if [[ $mode == -s ]] && ! command -v tmux-sessionizer >/dev/null 2>&1; then
+              if [[ -n $tmux_session ]] && ! command -v tmux-sessionizer >/dev/null 2>&1; then
                 echo "wt: -s needs tmux-sessionizer on PATH (hmFoundry.terminal.tmux.enable)" >&2
                 return 1
               fi
-              set -- "''${wt_args[@]}"
-
-              # A bare ticket takes its name from the issue title.
-              if (( $# == 1 )) && [[ $1 =~ '^[A-Za-z]+-[0-9]+$' ]]; then
-                wt_ticket=''${(U)1}
-                wt_title=$(linear issue title "$wt_ticket" 2>/dev/null) \
-                  && wt_slug=$(_wt_slug "$wt_title")
-                if [[ -n $wt_slug ]]; then
-                  set -- "$wt_ticket" "$wt_slug"
-                else
-                  set -- "$wt_ticket"
-                fi
-              fi
-
-              wt_base=$(_wt_base)
-              wt_path="$(git wt-feature-branch --print-path \
-                --base "$wt_base" "$@")" || return
-              # direnv's chpwd hook evaluates .envrc on the cd; an untrusted one
-              # loads nothing, so allow must precede the cd or the flake env never
-              # reaches this shell. Only a worktree identical to its base gets
-              # allowed: a reused one, or one on an existing branch, can carry an
-              # agent's flake.nix, and trusting that is `git adopt`'s job.
-              if [[ $(git -C "$wt_path" rev-parse HEAD) == $(git rev-parse "$wt_base") ]] \
-                && git -C "$wt_path" diff --quiet HEAD; then
-                ${pkgs.direnv}/bin/direnv allow "$wt_path"
-              fi
+              wt_path="$(git wt-start "$@")" || return
               cd "$wt_path" || return
-
-              case $mode in
-              -s)
+              if [[ -n $tmux_session ]]; then
                 tmux-sessionizer "$PWD"
-                ;;
-              -p | -c)
-                if [[ $mode == -p ]]; then cmd=alamode; else cmd=claude; fi
-                # The agent can write flake.nix, whose shellHook direnv would
-                # run unsandboxed in any shell here once it reloads. deny
-                # leaves this shell's already-loaded env for the agent and
-                # blocks every reload until `git adopt` allows the worktree
-                # again.
-                if [[ -e .envrc ]]; then
-                  ${pkgs.direnv}/bin/direnv deny "$PWD" || return
-                fi
-                # The agent's commits stay unsigned, so `git log
-                # --show-signature` tells you what it wrote and `git adopt`
-                # is what claims it. alamode exports the same keys itself
-                # (nix/pkgs/alamode); this covers the agents that do
-                # not. Scoped to $cmd, so your own commits in the worktree
-                # afterwards follow your usual signing config.
-                GIT_CONFIG_COUNT=2 \
-                  GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false \
-                  GIT_CONFIG_KEY_1=tag.gpgsign GIT_CONFIG_VALUE_1=false \
-                  "$cmd" "''${agent_args[@]}"
-                ;;
-              esac
+              fi
             }
-
-            wtc() { wt -c "$@" }
-            wtp() { wt -p "$@" }
           ''
         ];
       };

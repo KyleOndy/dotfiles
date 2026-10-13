@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+
+# Source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/../lib/common.sh"
+
+set_strict_mode
+
+show_help() {
+	cat <<'EOF'
+usage: git wt-start <name> | <ticket> [<name>]
+
+Make or reuse the worktree for a task and print its path on stdout. The
+shared first step of `wt` and `alamode slice`.
+
+  git wt-start add-starship
+    → git wt-feature-branch add-starship, based on the local main
+
+  git wt-start DEV-123
+    → names the worktree from the Linear issue title, so
+      DEV-123/fix-the-thing; DEV-123 alone when the title is unavailable
+
+The base is the local main or master, falling back to the current branch,
+rather than git wt-feature-branch's origin/<default>.
+
+A worktree identical to its base, with no uncommitted changes, is also
+`direnv allow`ed.
+EOF
+	exit 0
+}
+
+if [[ ${1:-} == "-h" || ${1:-} == "--help" || $# -eq 0 ]]; then
+	show_help
+fi
+
+slugify() {
+	local s full
+	s=$(sed -E 's/[^a-z0-9]+/-/g; s/^-//; s/-$//' <<<"${1,,}")
+	full=$s
+	s=${s:0:40}
+	# Truncation landed mid-word, so drop the partial tail.
+	[[ $s != "$full" ]] && s=${s%-*}
+	echo "${s%-}"
+}
+
+# main here routinely carries commits that have not been pushed, and they
+# belong in the new worktree.
+local_base() {
+	local b
+	for b in main master; do
+		if git show-ref --verify --quiet "refs/heads/${b}"; then
+			echo "$b"
+			return
+		fi
+	done
+	git rev-parse --abbrev-ref HEAD
+}
+
+if [[ $# -eq 1 ]] && is_valid_ticket_id "${1^^}"; then
+	ticket=${1^^}
+	slug=""
+	if title=$(linear issue title "$ticket" 2>/dev/null); then
+		slug=$(slugify "$title")
+	fi
+	if [[ -n $slug ]]; then
+		set -- "$ticket" "$slug"
+	else
+		set -- "$ticket"
+	fi
+fi
+
+base=$(local_base)
+path=$(git wt-feature-branch --print-path --base "$base" "$@")
+
+# direnv's chpwd hook evaluates .envrc on the caller's cd; an untrusted one
+# loads nothing, so allow must come first or the flake env never reaches that
+# shell. Only a worktree identical to its base gets allowed: a reused one, or
+# one on an existing branch, can carry an agent's flake.nix, and trusting that
+# is `git adopt`'s job.
+if [[ -e ${path}/.envrc ]] &&
+	[[ $(git -C "$path" rev-parse HEAD) == $(git rev-parse "$base") ]] &&
+	git -C "$path" diff --quiet HEAD; then
+	direnv allow "$path"
+fi
+
+echo "$path"

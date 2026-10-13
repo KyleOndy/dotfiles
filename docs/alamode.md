@@ -25,10 +25,10 @@ Upstream's (read by the real pi binary, kept verbatim):
 `PI_OFFLINE`.
 
 Internal JSON keys: the session config carries `bundles`, `profiles`,
-`coordinatorDaemon`, `delegateBin` and `seatsBin`. `pi` (the engine path)
-and `piArgs` (engine arguments) are named for the engine. The coordinator
-config key for the launcher binary is `launcher`. The coordinator wire
-protocol ops are `spawn`, `status`, `result`, `events`, `send`, `answer`,
+`coordinatorDaemon`, `delegateBin`, `seatsBin` and `sliceBin`. `pi` (the
+engine path) and `piArgs` (engine arguments) are named for the engine. The
+coordinator config key for the launcher binary is `launcher`. The coordinator
+wire protocol ops are `spawn`, `status`, `result`, `events`, `send`, `answer`,
 `interrupt`, `resume`, `close`, `teardown`, `report`, `question`,
 `forge_boot`, `offer`, `admit` and `shutdown` (section 3).
 

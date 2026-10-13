@@ -66,6 +66,7 @@
   coordinatorDaemon ? "",
   delegateBin ? "",
   seatsBin ? "",
+  sliceBin ? "",
   seatsFile ? "",
   settingsFile ? "",
   catalogFile ? "",
@@ -137,6 +138,7 @@ let
       coordinatorDaemon = coordinatorDaemon;
       delegateBin = delegateBin;
       seatsBin = seatsBin;
+      sliceBin = sliceBin;
       inherit
         seatsFile
         settingsFile

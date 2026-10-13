@@ -92,9 +92,7 @@ into the module.
 ## Commits
 
 Claude Code commits as the human: nothing sets an agent identity, and
-`settings.json` blanks the commit and PR attribution. Launched through
-`wtc`, it commits unsigned, and `git adopt` signs the range once it has
-been read.
+`settings.json` blanks the commit and PR attribution.
 
 ## Troubleshooting
 
