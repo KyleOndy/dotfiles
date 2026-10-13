@@ -141,10 +141,10 @@ Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
   the agent is torn down (`/teardown` or `agent_teardown` in the coordinator
   session), which runs `forge release <label>`. Tear the agent down rather
   than `forge nuke` its instance by hand. A release after a hand nuke still
-  clears the lease, unless another `forge claim` took `<n>` in between:
-  `forge release` then refuses with `forge lease changed`, and the lease
-  stays counted against the coordinator's memory budget. Never delete the
-  directory alone, which leaves the VM and gets the same refusal.
+  clears the lease, and touches nothing when another `forge claim` has taken
+  `<n>` since. Never delete the directory alone: that leaves the VM with no
+  label, `forge release` refuses it with `forge lease changed`, and the lease
+  stays counted against the coordinator's memory budget.
 
 ## Reporting back
 

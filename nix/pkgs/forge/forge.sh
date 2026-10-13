@@ -1239,14 +1239,20 @@ cmd_which() {
 
 # A `forge nuke` run by hand takes the label with the VM. With neither left
 # the number is free, by the same test `forge claim` uses, and there is
-# nothing to release. Anything still there must carry this label, which
-# lock_instance checks.
+# nothing to release. A number carrying another label was claimed after that,
+# which needed it free, so this lease's VM is gone with it. Anything else
+# must carry this label, which lock_instance checks.
 cmd_release() {
+	local label="${INSTANCE_DIR}/label"
 	[[ -n ${INSTANCE_DIR} ]] || die "forge release requires FORGE_INSTANCE"
 	[[ $1 =~ ${LABEL_RE} ]] || die "invalid lease label"
 	lock_ownership
-	if [[ ! -e ${INSTANCE_DIR}/label && ! -d ${LIMA_HOME:-${HOME}/.lima}/${VM_NAME} ]]; then
+	if [[ ! -e ${label} && ! -d ${LIMA_HOME:-${HOME}/.lima}/${VM_NAME} ]]; then
 		ok "Instance ${INSTANCE} is already free"
+		return
+	fi
+	if [[ -f ${label} && ! -L ${label} && $(<"${label}") != "$1" ]]; then
+		ok "Instance ${INSTANCE} belongs to $(<"${label}"), so '$1' is already released"
 		return
 	fi
 	export FORGE_LEASE_LABEL="$1"
@@ -1385,8 +1391,8 @@ Commands:
                  FORGE_INSTANCE. 'forge ls' shows the label as OWNER, and
                  'forge nuke' on that instance releases it.
   release <label> Remove FORGE_INSTANCE only while it still owns this label.
-                 Succeeds and changes nothing when the instance is already
-                 free, as after a 'forge nuke'.
+                 Succeeds and changes nothing when the instance is free or
+                 holds another label, as after a 'forge nuke'.
   which <label>  Print the number of the named instance holding <label>, or
                  nothing when none does. Changes nothing.
   nuke [--all [--force]]

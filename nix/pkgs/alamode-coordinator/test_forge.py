@@ -47,10 +47,12 @@ esac
         }
         self.env["HOME"] = str(self.root)
 
-    def run_forge(self, *args, instance=None, wait=True, delay=None):
+    def run_forge(self, *args, instance=None, lease=None, wait=True, delay=None):
         env = dict(self.env)
         if instance:
             env["FORGE_INSTANCE"] = str(instance)
+        if lease:
+            env["FORGE_LEASE_LABEL"] = lease
         if delay:
             env["FIXTURE_DELAY"] = str(delay)
         command = [shutil.which("bash"), str(self.script), *args]
@@ -74,7 +76,10 @@ esac
         self.assertEqual(self.run_forge("claim", "lease-alpha").stdout.strip(), "1")
         label = self.root / ".local/state/forge/1/label"
         label.write_text("lease-beta\n")
-        refusal = self.run_forge("release", "lease-alpha", instance=1)
+        stale = self.run_forge("release", "lease-alpha", instance=1)
+        self.assertEqual(stale.returncode, 0, stale.stderr)
+        self.assertEqual(label.read_text(), "lease-beta\n")
+        refusal = self.run_forge("nuke", instance=1, lease="lease-alpha")
         self.assertNotEqual(refusal.returncode, 0)
         self.assertIn("lease changed", refusal.stderr)
         self.assertFalse((self.root / "removed").exists())

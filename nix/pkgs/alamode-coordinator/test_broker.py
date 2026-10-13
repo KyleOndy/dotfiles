@@ -434,10 +434,11 @@ label=root/'forge-label'
 operation=sys.argv[1]
 if operation=='claim':
  label.write_text(sys.argv[2]);print('1')
-elif not label.exists() or label.read_text()!=os.environ.get('FORGE_LEASE_LABEL'):
+elif label.exists() and label.read_text()==os.environ.get('FORGE_LEASE_LABEL'):
+ if operation=='release':
+  label.unlink();(root/'forge-removed').touch()
+elif operation!='release':
  print('forge lease changed',file=sys.stderr);sys.exit(1)
-elif operation=='release':
- label.unlink();(root/'forge-removed').touch()
 """)
         first = self.call("spawn", agent="alpha", task="hi", size="small")
         self.assertNotEqual(first.get("receipt"), "failed", first)
@@ -447,13 +448,15 @@ elif operation=='release':
         self.assertIn("budget", no_room["error"])
         self.call("forge_boot", agent="alpha")
         (self.root / "forge-label").write_text("new owner")
-        refused = self.call("teardown", agent="alpha")
+        refused = self.call("forge_boot", agent="alpha")
         self.assertEqual(refused["receipt"], "failed")
         self.assertIn("lease changed", refused["error"])
-        self.assertFalse((self.root / "forge-removed").exists())
         self.assertIn(
             "lease changed", self.call("status", agent="alpha")["forge"]["error"]
         )
+        released = self.call("teardown", agent="alpha")
+        self.assertEqual(released["forge"]["state"], "released")
+        self.assertFalse((self.root / "forge-removed").exists())
 
     def test_failed_forge_claim_holds_no_memory(self):
         self.serve_forge(f"""
