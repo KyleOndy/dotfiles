@@ -306,8 +306,10 @@ pkgs.runCommand "alamode-e2e-check"
         cp ${../pkgs/alamode-runtime/result-fixtures.json} results/result-fixtures.json
         python3 results/test_results.py
         echo '{"shellPath":"${pkgs.bash}/bin/bash","shellCommandPrefix":"export SHELL_PREFIX_FIXTURE=1"}' > agent/settings.json
+        # A failing probe exits nonzero, and the grep below is what reports it
+        # with its log.
         PI_CODING_AGENT_DIR="$PWD/agent" ${realPi} --no-extensions --no-approve \
-          -e ${runtimeProbe} --mode rpc > runtime-probe.log 2>&1
+          -e ${runtimeProbe} --mode rpc > runtime-probe.log 2>&1 || true
         grep -q 'PASS: result fixtures' runtime-probe.log || fail "runtime probe failed: $(cat runtime-probe.log)"
 
         sysp() { jq -r '.messages[0].content' "captures/$1.jsonl"; }
