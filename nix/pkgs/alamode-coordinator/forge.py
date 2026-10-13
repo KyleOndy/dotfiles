@@ -50,10 +50,12 @@ class Forge:
             raise ValueError("Forge size is outside this session's authorized sizes")
         with (self.root / "forge-budget.lock").open("a+") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
+            # A lease without an instance never reached `forge init`, so no VM
+            # holds its memory.
             used = sum(
                 value["memory"]
                 for value in self.store.states().values()
-                if value["state"] != "released"
+                if "instance" in value and value["state"] != "released"
             )
             if used + SIZES[size] > self.config.get("memory_budget_gib", 32):
                 raise ValueError("Forge memory budget exhausted")

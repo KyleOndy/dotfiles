@@ -74,6 +74,10 @@ sqlite3 ~/.local/state/alamode/coordinators/pool/forge.sqlite "select name, valu
 A failed `forge up` leaves the VM as it stopped: the coordinator neither
 retries nor nukes it, and the lease holds until the agent is torn down.
 
+A lease counts against the memory budget once it has an `instance`, until it
+reads `released`. A failed `forge claim` leaves it `uncertain` with no
+`instance`, which counts for nothing.
+
 ## 3. Look inside it
 
 ```bash

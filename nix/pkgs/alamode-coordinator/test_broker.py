@@ -413,9 +413,20 @@ class BrokerTests(unittest.TestCase):
         self.assertNotEqual(refused.returncode, 0)
         self.assertIn("Child capability", refused.stderr)
 
-    def test_forge_adapter_budget_and_changed_lease(self):
+    def serve_forge(self, stub):
         fixture = self.root / "forge-stub"
-        fixture.write_text(f"""#!{sys.executable}
+        fixture.write_text(f"#!{sys.executable}\n{stub}")
+        fixture.chmod(0o700)
+        self.broker.terminate()
+        self.broker.wait()
+        self.config.update(with_forge=True, forge_bin=str(fixture), memory_budget_gib=4)
+        self.config["policy"].update(forge=True, forge_sizes=["small"])
+        atomic_json(self.directory / "broker.json", self.config)
+        self.broker = self.launch("--serve", self.directory / "broker.json")
+        wait_socket(self.config["socket"], self.config["token"], self.broker)
+
+    def test_forge_adapter_budget_and_changed_lease(self):
+        self.serve_forge(f"""
 from pathlib import Path
 import os,sys
 root=Path({str(self.root)!r})
@@ -428,14 +439,6 @@ elif not label.exists() or label.read_text()!=os.environ.get('FORGE_LEASE_LABEL'
 elif operation=='release':
  label.unlink();(root/'forge-removed').touch()
 """)
-        fixture.chmod(0o700)
-        self.broker.terminate()
-        self.broker.wait()
-        self.config.update(with_forge=True, forge_bin=str(fixture), memory_budget_gib=4)
-        self.config["policy"].update(forge=True, forge_sizes=["small"])
-        atomic_json(self.directory / "broker.json", self.config)
-        self.broker = self.launch("--serve", self.directory / "broker.json")
-        wait_socket(self.config["socket"], self.config["token"], self.broker)
         first = self.call("spawn", agent="alpha", task="hi", size="small")
         self.assertNotEqual(first.get("receipt"), "failed", first)
         self.settled()
@@ -451,6 +454,22 @@ elif operation=='release':
         self.assertIn(
             "lease changed", self.call("status", agent="alpha")["forge"]["error"]
         )
+
+    def test_failed_forge_claim_holds_no_memory(self):
+        self.serve_forge(f"""
+from pathlib import Path
+import sys
+refused=Path({str(self.root)!r})/'forge-refused'
+if not refused.exists():
+ refused.touch();print('no forge instance 1-15 is free',file=sys.stderr);sys.exit(1)
+if sys.argv[1]=='claim':
+ print('1')
+""")
+        failed = self.call("spawn", agent="alpha", task="hi", size="small")
+        self.assertEqual(failed["receipt"], "failed")
+        self.assertIn("no forge instance", failed["error"])
+        retried = self.call("spawn", agent="beta", task="hi", size="small")
+        self.assertNotEqual(retried.get("receipt"), "failed", retried)
 
     def test_child_export_admission_and_parent_inbox_symlink(self):
         first = self.call("spawn", agent="alpha", task="hi")
