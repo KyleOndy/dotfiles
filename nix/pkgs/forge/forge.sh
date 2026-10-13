@@ -1222,9 +1222,18 @@ cmd_nuke() {
 	log "Everything removed."
 }
 
+# A `forge nuke` run by hand takes the label with the VM. With neither left
+# the number is free, by the same test `forge claim` uses, and there is
+# nothing to release. Anything still there must carry this label, which
+# lock_instance checks.
 cmd_release() {
 	[[ -n ${INSTANCE_DIR} ]] || die "forge release requires FORGE_INSTANCE"
 	[[ $1 =~ ${LABEL_RE} ]] || die "invalid lease label"
+	lock_ownership
+	if [[ ! -e ${INSTANCE_DIR}/label && ! -d ${LIMA_HOME:-${HOME}/.lima}/${VM_NAME} ]]; then
+		ok "Instance ${INSTANCE} is already free"
+		return
+	fi
 	export FORGE_LEASE_LABEL="$1"
 	cmd_nuke
 }
@@ -1361,6 +1370,8 @@ Commands:
                  FORGE_INSTANCE. 'forge ls' shows the label as OWNER, and
                  'forge nuke' on that instance releases it.
   release <label> Remove FORGE_INSTANCE only while it still owns this label.
+                 Succeeds and changes nothing when the instance is already
+                 free, as after a 'forge nuke'.
   nuke [--all [--force]]
                  Delete the VM, and with it every cluster and network. --all
                  does that to every named instance, never the unnamed one,

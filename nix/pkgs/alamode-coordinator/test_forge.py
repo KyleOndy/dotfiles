@@ -102,6 +102,18 @@ esac
             self.run_forge("release", "lease-beta", instance=1)
             (self.root / "removed").unlink()
 
+    def test_release_after_a_hand_nuke(self):
+        self.assertEqual(self.run_forge("claim", "lease-alpha").stdout.strip(), "1")
+        self.assertEqual(self.run_forge("nuke", instance=1).returncode, 0)
+        released = self.run_forge("release", "lease-alpha", instance=1)
+        self.assertEqual(released.returncode, 0, released.stderr)
+        self.assertEqual((self.root / "removed").read_text(), "1\n")
+        (self.root / ".lima/forge-1").mkdir(parents=True)
+        refusal = self.run_forge("release", "lease-alpha", instance=1)
+        self.assertNotEqual(refusal.returncode, 0)
+        self.assertIn("lease changed", refusal.stderr)
+        self.assertEqual((self.root / "removed").read_text(), "1\n")
+
 
 if __name__ == "__main__":
     unittest.main()

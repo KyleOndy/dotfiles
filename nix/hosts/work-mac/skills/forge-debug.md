@@ -128,10 +128,12 @@ Memory: a small VM has 4GiB for two kind nodes and ArgoCD.
   behind it is a lease whose `forge init` failed: `forge.sqlite` shows it
   `uncertain` and its agent reads `failed`. `forge claim` skips `<n>` until
   the agent is torn down (`/teardown` or `agent_teardown` in the coordinator
-  session), which runs `forge release <label>`. Do not `forge nuke` a
-  coordinator's instance or delete its directory by hand: `forge release`
-  then refuses, and the lease stays counted against the coordinator's memory
-  budget.
+  session), which runs `forge release <label>`. Tear the agent down rather
+  than `forge nuke` its instance by hand. A release after a hand nuke still
+  clears the lease, unless another `forge claim` took `<n>` in between:
+  `forge release` then refuses with `forge lease changed`, and the lease
+  stays counted against the coordinator's memory budget. Never delete the
+  directory alone, which leaves the VM and gets the same refusal.
 
 ## Reporting back
 
