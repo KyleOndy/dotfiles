@@ -92,10 +92,14 @@ deploy: ## Deploy currently defined configuration
 	$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch
 	$(if $(filter work-mac trex,$(HOSTNAME)),$(ALAMODE_SEATS_CHECK))
 
+# Every kernel output plus the configfile, because cogsworth's dtbo overlays
+# build from kernel.dev and nixpkgs' ASLR sysctl reads the configfile. A
+# collected dev output rebuilds the whole kernel.
 .PHONY: deploy-rs-gcroots
 deploy-rs-gcroots:
 	nix build $(IMPURE) --out-link $(DEPLOY_GC)/cogsworth-kernel \
-	  .#nixosConfigurations.cogsworth.config.system.build.kernel \
+	  '.#nixosConfigurations.cogsworth.config.system.build.kernel^*' \
+	  .#nixosConfigurations.cogsworth.config.system.build.kernel.configfile \
 	  .#nixosConfigurations.cogsworth.config.system.modulesTree
 
 .PHONY: deploy-rs
