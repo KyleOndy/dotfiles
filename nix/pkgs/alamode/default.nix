@@ -11,6 +11,15 @@
   git,
   git-crypt,
   coreutils,
+  findutils,
+  diffutils,
+  gnused,
+  gnugrep,
+  gawk,
+  gnutar,
+  gzip,
+  gnumake,
+  patch,
   fd,
   ripgrep,
   jq,
@@ -81,7 +90,19 @@ let
     nodejs
     git
     git-crypt
+    # nixpkgs stdenv's own baseline (pkgs/stdenv/generic/common-path.nix).
+    # Without it these resolve to /usr/bin: BSD grep and sed, and a make that
+    # is an xcrun shim the sandbox cannot run.
     coreutils
+    findutils
+    diffutils
+    gnused
+    gnugrep
+    gawk
+    gnutar
+    gzip
+    gnumake
+    patch
     ripgrep
     # The engine's structured find tool runs fd, resolving it from PATH before
     # it ever downloads into the session-denied agent bin dir (getToolPath), so
