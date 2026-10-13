@@ -15,6 +15,7 @@ self: super: {
   kagi = super.callPackage ./kagi { };
   linear-cli = super.callPackage ./linear-cli { };
   my-scripts = super.callPackage ./my-scripts { };
+  notification-bell = super.callPackage ./notification-bell { };
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
   pragmata-pro = super.callPackage ./pragmata-pro { };

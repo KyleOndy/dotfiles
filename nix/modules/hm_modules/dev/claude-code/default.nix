@@ -12,7 +12,7 @@ let
   cfg = config.hmFoundry.dev.claude-code;
 
   # Package hook and statusline scripts with writeShellApplication so their
-  # runtime dependencies (jq, ffplay, tmux, GNU date) come from the module's
+  # runtime dependencies (jq, tmux, GNU date) come from the module's
   # closure instead of whatever happens to be on the ambient PATH. This also
   # runs shellcheck against every script at build time.
   mkScript =
@@ -34,10 +34,10 @@ let
     pkgs.jq
     pkgs.tmux
   ];
-  notificationBell = mkScript "notification-bell" ./hooks/notification-bell.sh [
-    pkgs.ffmpeg # ffplay
+  notificationBell = mkScript "claude-notification-bell" ./hooks/notification-bell.sh [
     pkgs.jq
     pkgs.tmux
+    pkgs.notification-bell
   ];
   # GNU grep and sed: the script relies on -E alternation and \b, which BSD
   # userland on darwin handles differently.
@@ -77,7 +77,6 @@ in
       ".claude/hooks/comment-lint.sh".source = commentLint;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
-      ".claude/assets/notification.wav".source = ./assets/notification.wav;
 
       # recursive = true creates real directories with per-file symlinks, so
       # experimental commands can be dropped alongside the managed ones while
