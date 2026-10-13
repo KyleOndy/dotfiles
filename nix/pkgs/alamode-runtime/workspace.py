@@ -436,7 +436,16 @@ def _copy_history(bare, objects, base, record_root):
 
 
 def _finish_workspace(
-    session_root, record_root, bare, branch, source, base, snapshot, protected, skipped
+    session_root,
+    record_root,
+    bare,
+    branch,
+    source,
+    base,
+    snapshot,
+    protected,
+    skipped,
+    source_ref=None,
 ):
     _git(bare, "update-ref", "refs/heads/" + branch, snapshot)
     _git(bare, "symbolic-ref", "HEAD", "refs/heads/" + branch)
@@ -482,6 +491,9 @@ def _finish_workspace(
         "branch": branch,
         "source": str(source) if source is not None else None,
         "source_base": base,
+        # The branch checked out in source at launch; None when HEAD was
+        # detached or the session did not start from a human checkout.
+        "source_ref": source_ref,
         "snapshot_commit": snapshot,
         "base_bundle": str(base_bundle),
         "protected_paths": protected,
@@ -496,6 +508,7 @@ def create(source, session_root, branch, base=None, *, record_root=None):
     """Snapshot human-authorized working files; never use this on a running agent's directory."""
     source = Path(source).resolve(strict=True)
     own, common, objects = _source_metadata(source)
+    head = _read_ref(own, "HEAD")
     base = base or _source_head(own, common)
     session_root, record_root, bare = _allocate(session_root, record_root, branch, base)
     _copy_history(bare, objects, base, record_root)
@@ -510,6 +523,7 @@ def create(source, session_root, branch, base=None, *, record_root=None):
         snapshot,
         protected,
         skipped,
+        head[5:] if head.startswith("ref: refs/heads/") else None,
     )
 
 

@@ -2,8 +2,9 @@
 
 Start in a repository with `alamode`, or use `alamode coord` to manage durable
 agents from the main conversation. A launch snapshots the repository into
-private Git storage. Commits stay there until explicitly exported or
-integrated. Outside Git, alamode starts with an empty private workspace.
+private Git storage, where the session commits, and quitting
+[lands](#landing) those commits back in the repository. Outside Git, alamode
+starts with an empty private workspace.
 
 `alamode` wraps the upstream pi coding agent: pi is the engine, alamode is
 the product. Flags after `--` reach the engine verbatim; alamode's own flags
@@ -38,6 +39,27 @@ module and a provisioned [Darwin builder](../nix/pkgs/alamode-builder/README.md)
 `nix build` and `nix eval` snapshot dirty files, submit them to that service,
 and preserve stdout, stderr and exit status. Outputs stay in the retained VM.
 The host daemon socket is never granted.
+
+## Landing
+
+The happy path is a worktree per task: `wtp NAME` makes one off the base
+branch and starts `alamode` in it. When the session quits, edits left
+uncommitted become a `wip: uncommitted at exit` commit, and the wrapper
+fetches the session's commits into the repository it started from through
+the same admission as export:
+
+- The branch checked out at launch fast-forwards to them when the launch was
+  clean, the checkout is still on that branch, git can fast-forward it, and
+  no agent context file such as `AGENTS.md`, `CLAUDE.md` or anything under
+  `.claude/` changed. The exit message prints the commands to review them, sign them
+  with `git adopt`, and undo the fast-forward.
+- Anything else waits on a new branch, `alamode/ID`, and the message says
+  why and prints the `git cherry-pick` range that adopts it. After a launch
+  with uncommitted changes, that range leaves out the commit holding them.
+
+Landing creates no other branch and moves no other one. Coordinator
+children land only through their coordinator. If landing fails, the
+commits stay in the session and `alamode sessions export ID` still works.
 
 ## Resume and results
 

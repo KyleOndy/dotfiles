@@ -113,6 +113,7 @@ alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ... | seats ...
 
 A launch snapshots the current repository into private Git storage.
+Quitting lands the session's commits back in that repository.
 Outside a repository, launches use an empty private scratch workspace.
 Grants persist on resume. Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.

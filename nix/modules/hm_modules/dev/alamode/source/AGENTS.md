@@ -76,8 +76,10 @@ A command handed to the human to run is checked first: every flag against
 Confirm before deleting files, running sudo, pushing, or rewriting history.
 Check `git status` before git operations.
 
-Commits land as the wrapper's agent identity (`ai-daemon@noreply.ondy.org`
-by default), unsigned, with repo hooks disabled. On main, master or a
-detached HEAD the git dirs are read-only, so `git add` and `git commit`
-fail; ask the human to start the session on a branch (`wtp`). The human re-authors the work with
-`git claim` and signs it with `git adopt`.
+Commits are made as the wrapper's agent identity (`ai-daemon@noreply.ondy.org`
+by default), unsigned, with repo hooks disabled, on the session's private
+branch. When the session quits, anything left uncommitted becomes a `wip:
+uncommitted at exit` commit and the wrapper brings the commits to the
+checkout the human launched from, so commit finished work in reviewable
+units as you go. The human re-authors the work with `git claim` and signs
+it with `git adopt`.

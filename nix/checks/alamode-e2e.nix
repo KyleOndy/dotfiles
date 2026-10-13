@@ -104,11 +104,15 @@ let
 
   runtimeProbe = pkgs.writeText "alamode-runtime-probe.ts" ''
     import assert from "node:assert/strict";
-    import { readFileSync } from "node:fs";
+    import { spawnSync } from "node:child_process";
+    import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+    import { tmpdir } from "node:os";
+    import { join } from "node:path";
     import { classifyResult } from "${extDir}/task.ts";
     import stallGuard from "${extDir}/stall-guard.ts";
     import refusalGuard from "${extDir}/refusal-guard.ts";
     import resumeHint from "${extDir}/resume-hint.ts";
+    import wipOnExit from "${extDir}/wip-on-exit.ts";
     import coordinator from "${extDir}/coordinator.ts";
 
     export default async function () {
@@ -155,6 +159,30 @@ let
       hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
       assert.equal(hint, "");
       process.stdout.write = write;
+      const repo = mkdtempSync(join(tmpdir(), "wip-on-exit-"));
+      const run = (args: string[]) => {
+        const result = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+        return { code: result.status, stdout: result.stdout, stderr: result.stderr };
+      };
+      const subject = () => run(["log", "-1", "--format=%s"]).stdout.trim();
+      for (const key of ["AUTHOR", "COMMITTER"]) {
+        process.env[`GIT_''${key}_NAME`] = "Synthetic alamode";
+        process.env[`GIT_''${key}_EMAIL`] = "synthetic@example.invalid";
+      }
+      run(["init", "-q"]);
+      run(["commit", "-q", "--allow-empty", "-m", "base"]);
+      writeFileSync(join(repo, "left"), "unsaved\n");
+      wipOnExit({ ...api, exec: async (command: string, args: string[]) => command === "git" ? run(args) : { code: 127, stdout: "", stderr: "" } } as any);
+      process.env.ALAMODE_SESSION_ID = "trusted-session-123";
+      process.env.ALAMODE_COORD_ROLE = "child";
+      await hooks.session_shutdown({ reason: "quit" }, { ...ctx, cwd: repo });
+      assert.equal(subject(), "base", "A child's worktree is its coordinator's to commit");
+      delete process.env.ALAMODE_COORD_ROLE;
+      await hooks.session_shutdown({ reason: "reload" }, { ...ctx, cwd: repo });
+      assert.equal(subject(), "base", "A reload is not an exit");
+      await hooks.session_shutdown({ reason: "quit" }, { ...ctx, cwd: repo });
+      assert.equal(subject(), "wip: uncommitted at exit");
+      assert.equal(run(["status", "--porcelain"]).stdout, "");
       const tools: any[] = [];
       const coordApi = { ...api, registerTool: (value: any) => tools.push(value) };
       delete process.env.ALAMODE_COORD_SOCKET;
@@ -176,7 +204,7 @@ let
       process.env.FORGE_INSTANCE = "1";
       coordinator(coordApi as any);
       assert.ok(tools.some((entry) => entry.name === "forge_boot"));
-      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards");
+      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards, wip on exit");
       process.exit(0);
     }
   '';
@@ -207,6 +235,7 @@ pkgs.runCommand "alamode-e2e-check"
       pkgs.jq
       pkgs.gnugrep
       pkgs.coreutils
+      pkgs.git
     ];
     # The dump provider listens on 127.0.0.1, which a sandboxed darwin build
     # may bind only when it asks.

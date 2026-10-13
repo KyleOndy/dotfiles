@@ -14,7 +14,7 @@ import types
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 
@@ -689,7 +689,7 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual((source / "initial").read_text(), "authorized dirty snapshot")
         self.assertFalse(canary.exists())
 
-    def sealed_session(self, name):
+    def sealed_session(self, name, dirty=False):
         """A session workspace with one agent commit on top of its snapshot."""
         source = self.root / (name + "-source")
         source.mkdir()
@@ -717,6 +717,8 @@ class PolicyTests(unittest.TestCase):
             "-qm",
             "Base",
         )
+        if dirty:
+            (source / "wip").write_text("human wip\n")
         metadata = session.workspace.create(
             source,
             self.root / (name + "-session"),
@@ -791,6 +793,102 @@ class PolicyTests(unittest.TestCase):
         session_root.mkdir(mode=0o700)
         with self.assertRaisesRegex(session.SessionError, "replaced"):
             session.export_session(manifest)
+
+    def land(self, manifest):
+        output = io.StringIO()
+        with redirect_stderr(output):
+            session.land(manifest)
+        return output.getvalue()
+
+    def git_in(self, where, *args):
+        return subprocess.run(
+            [
+                session.workspace.GIT,
+                "-C",
+                str(where),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "commit.gpgsign=false",
+                *args,
+            ],
+            env=session.workspace._environment(),
+            capture_output=True,
+            text=True,
+        )
+
+    def test_land_fast_forwards_a_clean_launch(self):
+        manifest, tip = self.sealed_session("land-clean")
+        source = Path(manifest["workspace"]["source"])
+        before = self.git_in(source, "rev-parse", "HEAD").stdout.strip()
+        message = self.land(manifest)
+        self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), tip)
+        self.assertEqual((source / "file").read_text(), "agent change\n")
+        self.assertIn("fast-forwarded main by 1 commit,", message)
+        self.assertIn(f"git adopt {before[:12]}", message)
+        self.assertIn(f"git reset --keep {before[:12]}", message)
+        # Only work left for the human keeps a branch.
+        self.assertTrue(
+            self.git_in(
+                source, "rev-parse", "-q", "--verify", "alamode/fixture"
+            ).returncode
+        )
+        # A resumed session that exits with nothing new lands nothing.
+        self.assertEqual(self.land(manifest), "")
+
+    def test_land_leaves_a_branch_when_the_checkout_moved(self):
+        manifest, tip = self.sealed_session("land-moved")
+        source = Path(manifest["workspace"]["source"])
+        (source / "human").write_text("human\n")
+        self.git_in(source, "add", "human")
+        self.git_in(source, "commit", "-qm", "Human")
+        moved = self.git_in(source, "rev-parse", "HEAD").stdout.strip()
+        message = self.land(manifest)
+        self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), moved)
+        self.assertEqual(
+            self.git_in(source, "rev-parse", "alamode/fixture").stdout.strip(), tip
+        )
+        base = manifest["workspace"]["snapshot_commit"]
+        self.assertRegex(
+            message, r"1 commit on alamode/fixture, not fast-forwarded: .*fast-forward"
+        )
+        self.assertIn(f"git cherry-pick {base[:12]}..alamode/fixture", message)
+
+    def test_land_keeps_a_dirty_launch_off_the_checkout(self):
+        manifest, tip = self.sealed_session("land-dirty", dirty=True)
+        source = Path(manifest["workspace"]["source"])
+        head = self.git_in(source, "rev-parse", "HEAD").stdout.strip()
+        snapshot = manifest["workspace"]["snapshot_commit"]
+        self.assertNotEqual(snapshot, head)
+        message = self.land(manifest)
+        self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), head)
+        self.assertEqual((source / "wip").read_text(), "human wip\n")
+        self.assertEqual(
+            self.git_in(source, "rev-parse", "alamode/fixture").stdout.strip(), tip
+        )
+        self.assertIn("uncommitted changes", message)
+        # The range leaves out the snapshot commit holding the human's edits.
+        self.assertIn(f"git cherry-pick {snapshot[:12]}..alamode/fixture", message)
+
+    def test_land_holds_context_files_and_skips_children(self):
+        manifest, _tip = self.sealed_session("land-context")
+        source = Path(manifest["workspace"]["source"])
+        work = Path(manifest["workspace"]["workspace"])
+        (work / "AGENTS.md").write_text("model-authored steering\n")
+        self.git_in(work, "add", "AGENTS.md")
+        self.git_in(work, "commit", "-qm", "Steer")
+        head = self.git_in(source, "rev-parse", "HEAD").stdout.strip()
+        self.assertEqual(self.land({**manifest, "coordinator": {"role": "child"}}), "")
+        self.assertTrue(
+            self.git_in(
+                source, "rev-parse", "-q", "--verify", "alamode/fixture"
+            ).returncode
+        )
+        message = self.land(manifest)
+        self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), head)
+        self.assertIn("2 commits on alamode/fixture", message)
+        self.assertIn("agent context files", message)
+        self.assertIn("These commits change AGENTS.md.", message)
 
     def test_admission_refuses_planted_guard_config_casings(self):
         source = self.root / "guard-source"

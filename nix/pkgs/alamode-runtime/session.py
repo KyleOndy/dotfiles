@@ -190,6 +190,7 @@ alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ... | seats ...
 
 A launch snapshots the current repository into private Git storage.
+Quitting lands the session's commits back in that repository.
 Outside a repository, launches use an empty private scratch workspace.
 Grants persist on resume. Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
@@ -1332,7 +1333,7 @@ def execute(config, manifest, arguments, environment, runtime, relay_port=0):
                     process.wait()
 
 
-def export_session(manifest):
+def seal_session(manifest):
     """Seal a session's committed work out of private storage, host-side.
 
     Extraction is data-only, so it cannot depend on the runtime that
@@ -1398,25 +1399,124 @@ def export_session(manifest):
         str(exported),
         reference,
     )
-    print(
-        json.dumps(
-            {
-                "session": manifest["id"],
-                "bundle": str(exported),
-                "ref": reference,
-                "base": base,
-                "tip": tip,
-                # Context files load in the human's own pi with no trust
-                # decision, so a merge that carries them must be reviewed as
-                # model-authored instructions, not documentation.
-                "context_files": admitted.get("context_files", []),
-                "source": manifest["workspace"]["source"],
-                "branch": manifest["workspace"]["branch"],
-            },
-            indent=2,
-        )
-    )
+    return {
+        "session": manifest["id"],
+        "bundle": str(exported),
+        "ref": reference,
+        "base": base,
+        "tip": tip,
+        # Context files load in the human's own pi with no trust
+        # decision, so a merge that carries them must be reviewed as
+        # model-authored instructions, not documentation.
+        "context_files": admitted.get("context_files", []),
+        "source": manifest["workspace"]["source"],
+        "branch": manifest["workspace"]["branch"],
+    }
+
+
+def export_session(manifest):
+    print(json.dumps(seal_session(manifest), indent=2))
     return 0
+
+
+def land(manifest):
+    """Fetch a stopped session's commits into the checkout it started from.
+
+    The commits arrive through the same sealed, admitted bundle as `sessions
+    export`, as branch alamode/<id> in the source repository, and that branch
+    is all landing ever creates. The branch checked out at launch
+    fast-forwards to it only when the launch was clean, the checkout is still
+    on that branch and no agent context file changed; anything else waits on
+    the branch for the human. The git here is the human's own, with their
+    configuration and hooks, run in their repository as if typed.
+    """
+    record = manifest["workspace"]
+    source = record.get("source")
+    # A child's source is its parent's checkout or a quarantine; its commits
+    # reach the human only through the coordinator.
+    if not source or manifest.get("coordinator", {}).get("role") == "child":
+        return
+
+    def git(*args):
+        return subprocess.run(
+            [workspace.GIT, "-C", source, *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+    bare = Path(record["common_dir"])
+    base = record["snapshot_commit"]
+    tip = workspace._source_head(bare, bare)
+    # Exit status 0 means a resumed session's work already landed.
+    if tip == base or not git("merge-base", "--is-ancestor", tip, "HEAD").returncode:
+        return
+    sealed = seal_session(manifest)
+    branch = "alamode/" + manifest["id"]
+    fetched = git(
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        sealed["bundle"],
+        f"{sealed['ref']}:refs/heads/{branch}",
+    )
+    if fetched.returncode:
+        raise SessionError(f"git fetch into {source} failed: {fetched.stderr.strip()}")
+
+    def count(start):
+        commits = git("rev-list", "--count", f"{start}..{tip}").stdout.strip()
+        return commits + (" commit" if commits == "1" else " commits")
+
+    reason = None
+    if base != record["source_base"]:
+        reason = "the session started from uncommitted changes, held by the branch's first commit"
+    elif sealed["context_files"]:
+        reason = "it changes agent context files"
+    elif not record.get("source_ref"):
+        reason = "the session did not start on a branch"
+    elif git("symbolic-ref", "-q", "HEAD").stdout.strip() != record["source_ref"]:
+        reason = "the checkout is no longer on " + record["source_ref"][11:]
+    else:
+        before = git("rev-parse", "HEAD").stdout.strip()
+        merged = git("merge", "--ff-only", "--quiet", "refs/heads/" + branch)
+        if merged.returncode:
+            lines = [
+                line
+                for line in merged.stderr.splitlines()
+                if line and not line.startswith("hint:")
+            ]
+            reason = lines[0] if lines else "git merge --ff-only failed"
+        else:
+            git("update-ref", "-d", "refs/heads/" + branch, tip)
+            print(
+                f"alamode: fast-forwarded {record['source_ref'][11:]} by "
+                f"{count(before)}, {before[:12]}..{tip[:12]}\n"
+                f"alamode: review  git log -p {before[:12]}..{tip[:12]}\n"
+                f"alamode: adopt   git adopt {before[:12]}\n"
+                f"alamode: undo    git reset --keep {before[:12]}",
+                file=sys.stderr,
+            )
+            return
+    # A resumed session's earlier commits may already be in the checkout; a
+    # dirty launch's snapshot commit never is, so the range starts no lower.
+    fork = git("merge-base", "HEAD", tip).stdout.strip()
+    if fork and not git("merge-base", "--is-ancestor", base, fork).returncode:
+        base = fork
+    print(
+        f"alamode: {count(base)} on {branch}, not fast-forwarded: {reason}\n"
+        f"alamode: review   git log -p {base[:12]}..{branch}\n"
+        f"alamode: adopt    git cherry-pick {base[:12]}..{branch}\n"
+        f"alamode: discard  git branch -D {branch}",
+        file=sys.stderr,
+    )
+    if sealed["context_files"]:
+        print(
+            "alamode: These commits change "
+            + ", ".join(sealed["context_files"])
+            + ". Your unsandboxed agents load those as instructions; review"
+            " them as model-authored before adopting.",
+            file=sys.stderr,
+        )
 
 
 def information(config, flag):
@@ -1763,7 +1863,22 @@ def main(argv=None):
             f"alamode: session {manifest['id']}\nalamode: workspace {manifest['workspace']['workspace']}",
             file=sys.stderr,
         )
-        return run(config, manifest, engine_args, home)
+        status = run(config, manifest, engine_args, home)
+        try:
+            land(manifest)
+        except (
+            SessionError,
+            workspace.WorkspaceError,
+            OSError,
+            subprocess.SubprocessError,
+        ) as error:
+            print(
+                f"alamode: landing failed: {error}\n"
+                f"alamode: the commits stay in the session; "
+                f"alamode sessions export {manifest['id']}",
+                file=sys.stderr,
+            )
+        return status
 
 
 if __name__ == "__main__":
