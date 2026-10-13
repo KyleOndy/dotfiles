@@ -106,6 +106,7 @@ let
     import assert from "node:assert/strict";
     import { spawnSync } from "node:child_process";
     import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+    import { createServer } from "node:net";
     import { tmpdir } from "node:os";
     import { join } from "node:path";
     import { classifyResult } from "${extDir}/task.ts";
@@ -214,7 +215,41 @@ let
       process.env.FORGE_INSTANCE = "1";
       coordinator(coordApi as any);
       assert.ok(tools.some((entry) => entry.name === "forge_boot"));
-      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards, wip on exit, landing notice");
+      const commands: Record<string, any> = {};
+      const requests: any[] = [];
+      const agents = [
+        { agent: "alpha", state: "closed", forge: { state: "stopped" } },
+        { agent: "beta", state: "executing" },
+        { agent: "gamma", state: "idle" },
+      ];
+      const broker = createServer((connection) => {
+        let line = "";
+        connection.on("data", (part) => {
+          line += part;
+          if (!line.endsWith("\n")) return;
+          const body = JSON.parse(line);
+          requests.push(body);
+          const data = body.op === "status" ? { agents }
+            : body.agent === "alpha" ? { receipt: "failed", error: "forge lease changed" }
+            : { state: "closed" };
+          connection.end(JSON.stringify({ ok: true, data }) + "\n");
+        });
+      });
+      process.env.ALAMODE_COORD_SOCKET = join(mkdtempSync(join(tmpdir(), "teardown-")), "s");
+      await new Promise<void>((resolve) => broker.listen(process.env.ALAMODE_COORD_SOCKET, resolve));
+      process.env.ALAMODE_COORD_ROLE = "main";
+      coordinator({ ...api, registerTool: () => {}, registerCommand: (name: string, value: any) => commands[name] = value } as any);
+      const tornDown = async (args: string) => {
+        requests.length = 0;
+        await commands.teardown.handler(args, noticeCtx);
+        return requests.filter((body) => body.op === "teardown").map((body) => body.agent);
+      };
+      assert.deepEqual(await tornDown("--settled"), ["alpha", "gamma"], "A closed agent can still hold a Forge lease");
+      assert.deepEqual(await tornDown(""), ["alpha", "beta", "gamma"], "One agent's failure must not stop the rest");
+      assert.equal(notices[notices.length - 1][0], "error");
+      assert.match(notices[notices.length - 1][1], /alpha: forge lease changed/);
+      broker.close();
+      console.log("PASS: result fixtures, configured TUI/print shell, refusal and resume guards, wip on exit, landing notice, teardown");
       process.exit(0);
     }
   '';

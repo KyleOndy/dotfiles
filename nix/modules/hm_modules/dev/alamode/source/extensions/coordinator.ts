@@ -492,22 +492,35 @@ export default function coordinator(pi: ExtensionAPI) {
   });
   pi.registerCommand("teardown", {
     description:
-      "Close agents while preserving their work; --settled closes only idle agents",
+      "Close agents and release their Forge leases while preserving their work; --settled takes only idle and closed agents",
     async handler(args, ctx) {
       try {
         if (args.trim() && args.trim() !== "--settled")
           throw new Error("Usage: /teardown [--settled]");
         const state = await request({ op: "status" });
+        const failures: string[] = [];
+        // A closed agent keeps its Forge lease until a teardown releases it.
         for (const agent of state.agents as Agent[]) {
           if (
-            agent.state === "closed" ||
-            (args.trim() === "--settled" && agent.state !== "idle")
+            args.trim() === "--settled" &&
+            agent.state !== "idle" &&
+            agent.state !== "closed"
           )
             continue;
-          await request({ op: "teardown", agent: agent.agent });
+          try {
+            await request({ op: "teardown", agent: agent.agent });
+          } catch (error) {
+            failures.push(`${agent.agent}: ${(error as Error).message}`);
+          }
         }
+        if (failures.length)
+          return ctx.ui.notify(
+            `Teardown failed for:\n${failures.join("\n")}\n` +
+              "/agents shows where each agent stands, and /teardown tries again.",
+            "error",
+          );
         ctx.ui.notify(
-          "Agent runtimes closed. Workspaces and sessions preserved.",
+          "Agent runtimes closed and Forge leases released. Workspaces and sessions preserved; /agents lists them.",
         );
       } catch (error) {
         ctx.ui.notify(String(error), "error");
