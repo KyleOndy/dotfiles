@@ -1,8 +1,8 @@
 UNAME := $(shell uname)
 HOSTNAME=$(shell hostname -s)
-ALLOW_BROKEN=false
-ALLOW_UNSUPPORTED=false
-ALLOW_UNFREE=false
+ALLOW_BROKEN ?= false
+ALLOW_UNSUPPORTED ?= false
+ALLOW_UNFREE ?= false
 
 # Captured at make-time so home-manager modules using mkOutOfStoreSymlink
 # (currently: alamode) symlink into the worktree you actually
