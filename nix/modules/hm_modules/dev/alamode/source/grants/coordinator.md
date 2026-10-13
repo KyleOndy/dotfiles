@@ -18,7 +18,8 @@ requires evidence from the checks it ran.
 Active work and retained worker processes have separate host-wide caps.
 `agent_interrupt` cancels the turn and queued messages. `agent_teardown`
 closes the worker while preserving its session, repository and branch.
-`agent_resume` reopens preserved work without replaying the last task.
+`agent_resume` reopens preserved work without replaying the last task. A
+torn-down agent comes back without its Forge VM.
 
 Children survive the main TUI exiting. `alamode coord attach <id>` reconnects
 the original main session. Use `/agents` and `/agent` to inspect and drive

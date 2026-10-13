@@ -100,6 +100,14 @@ class Forge:
         self.store.put(current["label"], current)
         return current
 
+    def live(self, resource):
+        current = self.store.get(resource["ownership_ref"])
+        return (
+            current is not None
+            and str(current.get("instance")) == resource["env"]["FORGE_INSTANCE"]
+            and current["state"] in ("stopped", "running")
+        )
+
     def resource(self, lease, runtime):
         home = Path.home()
         instance = lease["instance"]

@@ -78,6 +78,10 @@ A lease counts against the memory budget once it has an `instance`, until it
 reads `released`. A failed `forge claim` leaves it `uncertain` with no
 `instance`, which counts for nothing.
 
+A resumed agent gets its instance's socket and `FORGE_INSTANCE` only while
+its lease reads `stopped` or `running`. Resuming one after teardown, or one
+whose lease is missing from `forge.sqlite`, starts it with no forge at all.
+
 ## 3. Look inside it
 
 ```bash

@@ -228,6 +228,7 @@ class Broker:
                 "verification": state.get("verification"),
             }
         if op == "resume":
+            self.withhold_dead_forge(agent)
             self.ensure_supervisor(agent)
         if op in ("send", "interrupt", "answer", "resume", "close"):
             result = self.worker(
@@ -328,6 +329,21 @@ class Broker:
             current[body["op"]] = {"text": message, "time": time.time()}
             self.store.put(agent["agent"], current)
         return {"receipt": "recorded"}
+
+    # The launcher grants whatever socket and FORGE_INSTANCE the manifest
+    # names, and a released number can belong to another lease's VM.
+    def withhold_dead_forge(self, agent):
+        if not agent.get("manifest"):
+            return
+        manifest = read_json(agent["manifest"])
+        resource = manifest.get("resources", {}).get("forge")
+        if not resource:
+            return
+        from forge import Forge
+
+        if not Forge(self.config).live(resource):
+            del manifest["resources"]["forge"]
+            atomic_json(agent["manifest"], manifest)
 
     def ensure_supervisor(self, agent):
         try:

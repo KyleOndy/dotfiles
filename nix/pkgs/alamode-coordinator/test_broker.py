@@ -13,7 +13,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "alamode-runtime"))
 import workspace
 from broker import Broker
-from common import atomic_json, request, socket_path, wait_socket
+from common import Store, atomic_json, request, socket_path, wait_socket
 
 ROOT = Path(__file__).resolve().parent
 
@@ -494,6 +494,39 @@ elif sys.argv[1]=='init':
         )
         no_room = self.call("spawn", agent="beta", task="hi", size="small")
         self.assertIn("budget", no_room["error"])
+
+    def test_resume_grants_forge_only_while_the_lease_is_live(self):
+        self.serve_forge("""
+import sys
+if sys.argv[1]=='claim':
+ print('1')
+""")
+
+        def resumed(name):
+            self.settled(name, "closed")
+            self.call("resume", agent=name)
+            self.settled(name)
+            manifest = json.loads(
+                Path(Broker(self.config).agent(name)["manifest"]).read_text()
+            )
+            return "forge" in manifest.get("resources", {})
+
+        self.call("spawn", agent="alpha", task="hi", size="small")
+        self.settled()
+        self.call("close", agent="alpha")
+        self.assertTrue(resumed("alpha"))
+        self.call("teardown", agent="alpha")
+        self.assertFalse(resumed("alpha"))
+        self.call("spawn", agent="beta", task="hi", size="small")
+        self.settled("beta")
+        pool = Store(Path(self.config["pool"]) / "forge.sqlite")
+        with pool.db:
+            pool.db.execute(
+                "DELETE FROM state WHERE name=?",
+                (Broker(self.config).agent("beta")["forge"]["label"],),
+            )
+        self.call("close", agent="beta")
+        self.assertFalse(resumed("beta"))
 
     def test_child_export_admission_and_parent_inbox_symlink(self):
         first = self.call("spawn", agent="alpha", task="hi")
