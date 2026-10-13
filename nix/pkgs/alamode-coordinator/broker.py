@@ -7,6 +7,7 @@ import re
 import secrets
 import subprocess
 import sys
+import threading
 import time
 import uuid
 
@@ -155,6 +156,7 @@ class Broker:
             "forge_boot": {"agent"},
             "offer": {"bundle", "tip"},
             "admit": {"agent"},
+            "shutdown": set(),
         }
         if not isinstance(op, str) or op not in fields:
             raise ValueError("Unknown coordinator operation")
@@ -203,6 +205,12 @@ class Broker:
                     self.config.get("with_forge") and self.config["policy"].get("forge")
                 ),
             }
+        if op == "shutdown":
+            # serve() removes the socket and pidfile on its way out, and the
+            # lock goes with the process. Supervisors are detached, so agents
+            # keep running and a later attach finds them.
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return {"coordinator": self.config["coordinator"], "state": "stopping"}
         if op == "spawn":
             return self.store.operation(body, lambda: self.spawn(body))
         agent = self.agent(body.get("agent"))

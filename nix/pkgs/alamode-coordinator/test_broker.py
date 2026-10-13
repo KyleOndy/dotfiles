@@ -167,6 +167,25 @@ class BrokerTests(unittest.TestCase):
         )
         self.assertEqual(first, self.call("spawn", **body))
 
+    def test_shutdown_stops_the_daemon_and_leaves_agents_running(self):
+        self.call("spawn", agent="alpha", task="hi")
+        self.settled()
+        agent = Broker(self.config).agent("alpha")
+        with self.assertRaisesRegex(ValueError, "Child capability"):
+            request(
+                self.config["socket"],
+                agent["child_token"],
+                {"op": "shutdown", "id": "child-shutdown"},
+            )
+        self.assertEqual(self.call("shutdown")["state"], "stopping")
+        self.assertEqual(self.broker.wait(timeout=5), 0)
+        self.assertFalse(Path(self.config["socket"]).exists())
+        self.assertFalse((self.directory / "broker.pid").exists())
+        os.kill(int((self.directory / "agents/alpha/supervisor.pid").read_text()), 0)
+        self.broker = self.launch("--serve", self.directory / "broker.json")
+        wait_socket(self.config["socket"], self.config["token"], self.broker)
+        self.assertEqual(self.call("status", agent="alpha")["state"], "idle")
+
     def test_cap_steer_followup_interrupt_and_dialog(self):
         self.call("spawn", agent="alpha", task="hold")
         self.call("spawn", agent="beta", task="second")
