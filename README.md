@@ -52,7 +52,7 @@ evaluation.
 ```bash
 make help              # everything else
 make build             # build the host named by `hostname -s`
-make deploy            # switch it; work-mac needs HOSTNAME=work-mac
+make deploy            # switch it; work-mac needs HOST=work-mac
 make deploy-rs-all-dry # nix flake check, then dry-run tiger, pika, cogsworth
 make update            # update flake inputs
 make check             # flake checks

@@ -31,12 +31,16 @@ subdirectory:
 
 ```bash
 make build-mac-dry WORK_CONFIG=/Users/kondy/work/nix   # dry run
-make deploy HOSTNAME=work-mac WORK_CONFIG=/Users/kondy/work/nix
+make deploy HOST=work-mac WORK_CONFIG=/Users/kondy/work/nix
 make deploy-mac WORK_CONFIG=/Users/kondy/work/nix       # same thing
 ```
 
 Without `WORK_CONFIG`, builds use the stub and produce a personal/CI-safe
 configuration with no work-specific modules included.
+
+The `HOST=work-mac` override can go away entirely once the work config's
+home module exports `DOTFILES_HOST=work-mac`: the public Makefile reads it,
+so this machine's real (company) hostname never has to appear there.
 
 ## Manual setup
 

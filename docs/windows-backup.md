@@ -178,7 +178,7 @@ On the laptop, **Actions > Show ID**. Put that ID in `windowsBackupDirs` in
 tiger:
 
 ```bash
-make deploy-rs HOSTNAME=tiger
+make deploy-rs HOST=tiger
 ```
 
 Then get tiger's ID:

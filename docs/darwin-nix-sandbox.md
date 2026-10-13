@@ -122,7 +122,8 @@ The daemon reads the setting when it starts. A deploy rewrites
 `/etc/nix/nix.custom.conf`, Determinate's module has no step that
 restarts the daemon, and the probe kept fetching until
 `sudo launchctl kickstart -k system/systems.determinate.nix-daemon`.
-`make deploy-trex` runs that restart when the switch changed
-`/etc/nix/nix.conf`, `/etc/nix/nix.custom.conf` or `/etc/nix/machines`,
-and `make deploy-mac` does the same for work-mac's daemon; a bare
+`make deploy` runs that restart when the switch changed `/etc/nix/nix.conf`,
+`/etc/nix/nix.custom.conf` or `/etc/nix/machines` (`deploy-trex` and
+`deploy-mac` are aliases for it), and picks the daemon's launchd label per
+machine: Determinate's on trex, nix-darwin's on work-mac. A bare
 `darwin-rebuild switch` leaves the old settings running.

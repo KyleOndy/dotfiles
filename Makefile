@@ -1,5 +1,16 @@
 UNAME := $(shell uname)
-HOSTNAME=$(shell hostname -s)
+
+# The machine make runs on. Used only where the machine itself matters --
+# picking the local nix daemon's launchd label -- and as the last-resort
+# default for HOST. On work-mac this is a company hostname that must never
+# appear in this repo, which is why the host to deploy is its own variable.
+MACHINE := $(shell hostname -s)
+
+# The host to act on: the flake attr to build or switch, and the deploy-rs
+# node to push to. The make command line wins, then DOTFILES_HOST (work-mac
+# can export it from its own config, so the company name never has to be
+# typed or committed here), then the machine you are on.
+HOST ?= $(if $(DOTFILES_HOST),$(DOTFILES_HOST),$(MACHINE))
 ALLOW_BROKEN ?= false
 ALLOW_UNSUPPORTED ?= false
 ALLOW_UNFREE ?= false
@@ -73,6 +84,10 @@ ifeq ($(UNAME), Linux)
 	REBUILD := nixos-rebuild $(IMPURE)
 	# --preserve-env so DOTFILES_WORKTREE (and NIXPKGS_ALLOW_*) survive sudo
 	SWITCH := sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
+	# The nixos switch handles its own service reloads; the darwin daemon
+	# dance below is a no-op here.
+	NIX_DAEMON_BEFORE := :
+	NIX_DAEMON_RESTART := :
 else ifeq ($(UNAME), Darwin)
 	REBUILD := darwin-rebuild $(IMPURE)
 	# darwin-rebuild requires root for activation. --preserve-env keeps
@@ -85,22 +100,45 @@ else ifeq ($(UNAME), Darwin)
 	# retries: sudo catches ^C at the prompt and exits 1, so any other status
 	# has to end the loop or ^C cannot stop it.
 	SWITCH := until sudo -v; do [ $$? -eq 137 ] || exit 1; done; sudo --preserve-env=DOTFILES_WORKTREE,GIT_SSH_COMMAND,NIXPKGS_ALLOW_BROKEN,NIXPKGS_ALLOW_UNFREE,NIXPKGS_ALLOW_UNSUPPORTED_SYSTEM $(REBUILD)
+
+	# Activation rewrites these without restarting the nix daemon, which reads
+	# them only at start. A change to any of them restarts it, which kills any
+	# build in flight. The label is the daemon's launchd name, picked per
+	# machine: Determinate's on trex, nix-darwin's on work-mac.
+	NIX_DAEMON_SUM := cat /etc/nix/nix.conf /etc/nix/nix.custom.conf /etc/nix/machines 2>/dev/null | shasum
+	NIX_DAEMON_LABEL := $(if $(filter trex,$(MACHINE)),systems.determinate.nix-daemon,org.nixos.nix-daemon)
+	NIX_DAEMON_BEFORE := before=$$($(NIX_DAEMON_SUM))
+	NIX_DAEMON_RESTART = { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchctl kickstart -k system/$(NIX_DAEMON_LABEL); }
 else
   $(error Unsupported system: $(UNAME))
 endif
 
 .PHONY: help
 help: ## Show this help
-	@egrep -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-26s\033[0m %s\n", $$1, $$2}'
+	@grep -E -h '\s##\s' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-26s\033[0m %s\n", $$1, $$2}'
 
+# --keep-going so a local build reports every failing derivation, not just the first.
 .PHONY: build
-build: ## Buld single host
-	$(call WITH_NOM,$(REBUILD) --flake .#$(HOSTNAME) build --keep-going)
+build: ## Build this host's system
+	$(call WITH_NOM,$(REBUILD) --flake .#$(HOST) build --keep-going)
 
+# WORK_CONFIG only ever applies to work-mac: mkDarwinSystem imports
+# work-config's darwinModule on every darwin host, so honoring the override
+# for trex would layer the work modules onto a personal machine. The trex
+# targets deliberately ignore it.
 .PHONY: deploy
-deploy: ## Deploy currently defined configuration
-	$(call WITH_NOM,$(SWITCH) $(WORK_INPUT_FLAG) --flake .#$(HOSTNAME) switch)
-	$(if $(filter work-mac trex,$(HOSTNAME)),$(ALAMODE_SEATS_CHECK))
+deploy: ## Switch this machine to the new configuration
+	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) $(if $(filter work-mac,$(HOST)),$(WORK_INPUT_FLAG)) --flake .#$(HOST) switch) && $(NIX_DAEMON_RESTART)
+	$(if $(filter work-mac trex,$(HOST)),$(ALAMODE_SEATS_CHECK))
+
+# Aliases that pin the host; a HOST=... on the command line still wins.
+.PHONY: deploy-mac
+deploy-mac: HOST := work-mac
+deploy-mac: deploy ## Deploy work-mac (set WORK_CONFIG=/path/to/work for work config)
+
+.PHONY: deploy-trex
+deploy-trex: HOST := trex
+deploy-trex: deploy ## Deploy trex
 
 # Every kernel output plus the configfile, because cogsworth's dtbo overlays
 # build from kernel.dev and nixpkgs' ASLR sysctl reads the configfile. A
@@ -108,13 +146,13 @@ deploy: ## Deploy currently defined configuration
 .PHONY: deploy-rs-gcroots
 deploy-rs-gcroots:
 	$(NIX_BUILD) $(IMPURE) --out-link $(DEPLOY_GC)/cogsworth-kernel \
-	  '.#nixosConfigurations.cogsworth.config.system.build.kernel^*' \
+	  .#nixosConfigurations.cogsworth.config.system.build.kernel^* \
 	  .#nixosConfigurations.cogsworth.config.system.build.kernel.configfile \
 	  .#nixosConfigurations.cogsworth.config.system.modulesTree
 
 .PHONY: deploy-rs
-deploy-rs: $(if $(filter cogsworth,$(HOSTNAME)),deploy-rs-gcroots)
-	$(call WITH_NOM,deploy .#$(HOSTNAME) -- $(IMPURE))
+deploy-rs: $(if $(filter cogsworth,$(HOST)),deploy-rs-gcroots)
+	$(call WITH_NOM,deploy .#$(HOST) -- $(IMPURE))
 
 .PHONY: deploy-rs-all
 deploy-rs-all: deploy-rs-gcroots
@@ -128,39 +166,23 @@ deploy-rs-all-dry: deploy-rs-gcroots
 
 .PHONY: diff-system
 diff-system: ## Print system diff without color
-	@nix store diff-closures $(shell readlink -f /nix/var/nix/profiles/system) $(shell readlink -f ./result) |  sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
+	@nix store diff-closures $$(readlink -f /nix/var/nix/profiles/system) $$(readlink -f ./result) | sed 's/\x1B\[[0-9;]\{1,\}[A-Za-z]//g'
 
 .PHONY: update
-update: ## Update all flake soruces
+update: ## Update every flake input
 	nix flake update
 
-.PHONY: update/nixpkgs
-update/nixpkgs: ## Updage just nixpkgs source
-	nix flake update nixpkgs
+.PHONY: update/cogsworth
+update/cogsworth: ## Update just the cogsworth input
+	nix flake update cogsworth
 
 .PHONY: update/nixpkgs-master
-update/nixpkgs-master: ## Updage just nixpkgs-master source
+update/nixpkgs-master: ## Update just the nixpkgs-master input
 	nix flake update nixpkgs-master
 
-.PHONY: update/home-manager
-update/home-manager: ## Update just home-manager source
-	nix flake update home-manager
-
-.PHONY: update/nur
-update/nur: ## Update just the nur source
-	nix flake update nur
-
-.PHONY: update/claude-code
-update/claude-code: ## Update just claude-code source
-	nix flake update claude-code-nix
-
-.PHONY: update/alamode
-update/alamode: ## Update the pi.dev engine (via numtide/llm-agents.nix)
-	nix flake update llm-agents
-
 .PHONY: check
-check: ## Run nix checks
-	$(call WITH_NOM,nix flake check $(IMPURE))
+check: ## Run the flake checks
+	$(call WITH_NOM,nix flake check $(IMPURE) -L)
 
 .PHONY: secrets-status
 secrets-status: ## Show whether each git-crypt and sops file is stored encrypted, locally and upstream
@@ -169,16 +191,15 @@ secrets-status: ## Show whether each git-crypt and sops file is stored encrypted
 .PHONY: info
 info: ## Print information about the system
 	@echo "Current generation's largest dependencies:"
-	@du -shc $(shell nix-store -qR "$(shell realpath /var/run/current-system)") | sort -hr | head -n 11
+	@du -shc $$(nix-store -qR "$$(realpath /var/run/current-system)") | sort -hr | head -n 11
 
 .PHONY: sdcard-cogsworth
 sdcard-cogsworth: ## Build cogsworth SD card image with WiFi
 	@echo "Decrypting SSH host key locally..."
 	@export COGSWORTH_SSH_KEY=$$(sops -d nix/hosts/cogsworth/keys/ssh_host_ed25519_key.sops) && \
 		echo "Building SD image (this takes a while)..." && \
-		$(NIX_BUILD) --impure .#nixosConfigurations.cogsworth.config.system.build.sdImage && \
-		echo "Done! Image at: result/sd-image/" || \
-		(echo "Build failed"; exit 1)
+		$(NIX_BUILD) $(IMPURE) .#nixosConfigurations.cogsworth.config.system.build.sdImage && \
+		echo "Done! Image at: result/sd-image/"
 
 # x86_64-linux, and trex has no local x86_64 builder, so this runs on tiger
 # and copies ~1GB back.
@@ -193,9 +214,6 @@ cleanup: ## Cleanup and reduce diskspace of current system
 	nix-collect-garbage --delete-older-than 7d
 	sudo nix store optimise
 
-# Cache push targets
-# macOS-specific targets
-
 # The seats and catalog are sops secrets, which nix cannot see at eval, so
 # they are checked here against what the switch just decrypted to
 # /run/secrets, then each pinned mcloud id against the live endpoint,
@@ -209,51 +227,27 @@ ALAMODE_SEATS_CHECK := alamode-seats check --deploy && mcloud-pins --deploy
 # conflict only the real work config carries fails the build instead of
 # the first session start after a deploy. The glob is the host's one user.
 ALAMODE_SMOKE := ./result/etc/profiles/per-user/*/bin/alamode --help >/dev/null
+# $(call DARWIN_SYSTEM,host) is host's darwin system attr, quoted once for
+# every target that builds one.
+DARWIN_SYSTEM = "$(ALAMODE_BUILD_FLAKE)\#darwinConfigurations.$(1).system"
+
 .PHONY: build-mac
-build-mac: ## Build work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	$(NIX_BUILD) $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system"
+build-mac: ## Build work-mac (set WORK_CONFIG=/path/to/work for work config)
+	$(NIX_BUILD) $(IMPURE) $(WORK_INPUT_FLAG) $(call DARWIN_SYSTEM,work-mac)
 	$(ALAMODE_SMOKE)
 
 .PHONY: build-mac-dry
-build-mac-dry: ## Dry-run build of work-mac darwin configuration
-	nix build $(IMPURE) $(WORK_INPUT_FLAG) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.work-mac.system" --dry-run
-
-.PHONY: deploy-mac
-deploy-mac: NIX_DAEMON_LABEL := org.nixos.nix-daemon
-deploy-mac: ## Deploy work-mac darwin configuration (set WORK_CONFIG=/path/to/work for work config)
-	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) $(WORK_INPUT_FLAG) --flake .#work-mac switch) && $(NIX_DAEMON_RESTART)
-	$(ALAMODE_SEATS_CHECK)
+build-mac-dry: ## Dry-run build of work-mac (set WORK_CONFIG=... for work config)
+	nix build $(IMPURE) $(WORK_INPUT_FLAG) $(call DARWIN_SYSTEM,work-mac) --dry-run
 
 .PHONY: build-trex
-build-trex: ## Build trex darwin configuration
-	$(NIX_BUILD) $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system"
+build-trex: ## Build trex
+	$(NIX_BUILD) $(IMPURE) $(call DARWIN_SYSTEM,trex)
 	$(ALAMODE_SMOKE)
 
 .PHONY: build-trex-dry
-build-trex-dry: ## Dry-run build of trex darwin configuration
-	nix build $(IMPURE) "$(ALAMODE_BUILD_FLAKE)#darwinConfigurations.trex.system" --dry-run
-
-# Activation rewrites these without restarting the nix daemon, which reads
-# them only at start. A change to any of them restarts it, which kills any
-# build in flight. The label is the daemon's launchd name, set per target:
-# Determinate's on trex, nix-darwin's on work-mac.
-NIX_DAEMON_SUM := cat /etc/nix/nix.conf /etc/nix/nix.custom.conf /etc/nix/machines 2>/dev/null | shasum
-NIX_DAEMON_BEFORE := before=$$($(NIX_DAEMON_SUM))
-NIX_DAEMON_RESTART = { [ "$$before" = "$$($(NIX_DAEMON_SUM))" ] || sudo launchctl kickstart -k system/$(NIX_DAEMON_LABEL); }
-
-.PHONY: deploy-trex
-deploy-trex: NIX_DAEMON_LABEL := systems.determinate.nix-daemon
-deploy-trex: ## Deploy trex darwin configuration
-	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) --flake .#trex switch) && $(NIX_DAEMON_RESTART)
-	$(ALAMODE_SEATS_CHECK)
-
-.PHONY: flash-ergodox
-flash-ergodox:
-	nix run .#flash-ergodox
-
-.PHONY: flash-pad
-flash-pad: ## Flash the domestique push-to-talk pad
-	nix run .#flash-pad
+build-trex-dry: ## Dry-run build of trex
+	nix build $(IMPURE) $(call DARWIN_SYSTEM,trex) --dry-run
 
 # Replaces the script Roundcube's Filters UI edits, so changes made there
 # are lost on the next push. The server rejects a script that fails to

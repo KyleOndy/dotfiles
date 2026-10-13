@@ -27,13 +27,13 @@ also evaluates the Linux hosts and cannot go green on a mac.
 
 | Host        | Platform       | Role                    | Deploy                                                  |
 | ----------- | -------------- | ----------------------- | ------------------------------------------------------- |
-| `tiger`     | x86_64-linux   | homelab server          | `make deploy-rs HOSTNAME=tiger`                         |
+| `tiger`     | x86_64-linux   | homelab server          | `make deploy-rs HOST=tiger`                             |
 | `pika`      | x86_64-linux   | ODROID-H2, second copy  | deploy-rs, or `make iso-pika` for a fresh install       |
 | `cogsworth` | aarch64-linux  | Raspberry Pi 5 kiosk    | deploy-rs, or `make sdcard-cogsworth` for a fresh image |
 | `trex`      | aarch64-darwin | personal mac            | `make deploy-trex`                                      |
 | `work-mac`  | aarch64-darwin | work mac (user `kondy`) | `make deploy-mac`                                       |
 
-`make deploy-rs HOSTNAME=<host>` lets deploy-rs run its own `nix flake check`
+`make deploy-rs HOST=<host>` lets deploy-rs run its own `nix flake check`
 first, which fetches the private cogsworth input, so it needs that ssh key.
 `make deploy-rs-all-dry` runs `nix flake check`, then dry-activates tiger,
 pika and cogsworth. `make help` lists only the targets marked `##`, which

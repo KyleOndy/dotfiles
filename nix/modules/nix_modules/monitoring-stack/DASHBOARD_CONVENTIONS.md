@@ -418,7 +418,7 @@ Ensure the dashboard has:
 make deploy-rs-all-dry
 
 # Deploy tiger, the only host that serves dashboards
-make deploy-rs HOSTNAME=tiger
+make deploy-rs HOST=tiger
 ```
 
 Grafana auto-reloads dashboards every 10 seconds.
