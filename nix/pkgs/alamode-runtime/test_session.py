@@ -665,10 +665,13 @@ class PolicyTests(unittest.TestCase):
         exports = []
         with patch.object(session.workspace, "_git", side_effect=trusted_git):
             for _ in range(2):
-                output = io.StringIO()
-                with redirect_stdout(output):
+                output, steps = io.StringIO(), io.StringIO()
+                with redirect_stdout(output), redirect_stderr(steps):
                     self.assertEqual(session.export_session(manifest), 0)
                 exports.append(json.loads(output.getvalue()))
+        # The JSON stays on stdout; the human's next commands go to stderr.
+        self.assertIn(f"{exports[1]['ref']}:alamode/fixture", steps.getvalue())
+        self.assertIn("&& git adopt", steps.getvalue())
         self.assertNotEqual(exports[0]["bundle"], exports[1]["bundle"])
         # Context files ride admission as a recorded warning, not a refusal.
         self.assertEqual(exports[0]["context_files"], [])
@@ -795,10 +798,14 @@ class PolicyTests(unittest.TestCase):
             session.export_session(manifest)
 
     def land(self, manifest):
+        """Landing's message with its prefixes and wrapping undone."""
         output = io.StringIO()
         with redirect_stderr(output):
             session.land(manifest)
-        return output.getvalue()
+        return " ".join(
+            line.removeprefix("alamode:").strip()
+            for line in output.getvalue().splitlines()
+        )
 
     def git_in(self, where, *args):
         return subprocess.run(
@@ -824,17 +831,52 @@ class PolicyTests(unittest.TestCase):
         message = self.land(manifest)
         self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), tip)
         self.assertEqual((source / "file").read_text(), "agent change\n")
-        self.assertIn("fast-forwarded main by 1 commit,", message)
+        self.assertIn("Fast-forwarded main by 1 commit,", message)
+        self.assertIn(f"git log -p {before[:12]}..{tip[:12]}", message)
         self.assertIn(f"git adopt {before[:12]}", message)
         self.assertIn(f"git reset --keep {before[:12]}", message)
+        self.assertNotIn("unwip", message)
         # Only work left for the human keeps a branch.
         self.assertTrue(
             self.git_in(
                 source, "rev-parse", "-q", "--verify", "alamode/fixture"
             ).returncode
         )
-        # A resumed session that exits with nothing new lands nothing.
-        self.assertEqual(self.land(manifest), "")
+        # A resumed session that quits with nothing new says so.
+        self.assertIn("Nothing new to land", self.land(manifest))
+
+    def test_land_says_when_there_is_nothing_to_land(self):
+        manifest, _tip = self.sealed_session("land-none")
+        work = Path(manifest["workspace"]["workspace"])
+        self.git_in(
+            work, "reset", "--hard", "-q", manifest["workspace"]["snapshot_commit"]
+        )
+        self.assertIn("No commits this session", self.land(manifest))
+
+    def test_land_names_the_wip_commit(self):
+        manifest, _tip = self.sealed_session("land-wip")
+        work = Path(manifest["workspace"]["workspace"])
+        (work / "left").write_text("unsaved\n")
+        self.git_in(work, "add", "left")
+        self.git_in(work, "commit", "-qm", session.WIP_SUBJECT)
+        message = self.land(manifest)
+        self.assertIn("Fast-forwarded main by 2 commits,", message)
+        self.assertIn(f'The last commit, "{session.WIP_SUBJECT}"', message)
+        self.assertIn("git reset --soft HEAD~1", message)
+
+    def test_land_points_a_session_outside_git_at_export(self):
+        metadata = session.workspace.create_empty(
+            self.root / "land-empty-session",
+            "fixture",
+            record_root=self.records / "land-empty-records",
+        )
+        work = Path(metadata["workspace"])
+        (work / "notes").write_text("notes\n")
+        self.git_in(work, "add", "notes")
+        self.git_in(work, "commit", "-qm", "Notes")
+        message = self.land({**self.manifest, "workspace": metadata})
+        self.assertIn("started outside a repository", message)
+        self.assertIn("alamode sessions export fixture", message)
 
     def test_land_leaves_a_branch_when_the_checkout_moved(self):
         manifest, tip = self.sealed_session("land-moved")
@@ -849,10 +891,13 @@ class PolicyTests(unittest.TestCase):
             self.git_in(source, "rev-parse", "alamode/fixture").stdout.strip(), tip
         )
         base = manifest["workspace"]["snapshot_commit"]
-        self.assertRegex(
-            message, r"1 commit on alamode/fixture, not fast-forwarded: .*fast-forward"
+        self.assertIn("1 commit is waiting on alamode/fixture.", message)
+        self.assertIn("main was NOT moved: git refused to fast-forward it", message)
+        self.assertIn(
+            f"git cherry-pick {base[:12]}..alamode/fixture && git adopt {moved[:12]}",
+            message,
         )
-        self.assertIn(f"git cherry-pick {base[:12]}..alamode/fixture", message)
+        self.assertIn("git branch -D alamode/fixture", message)
 
     def test_land_keeps_a_dirty_launch_off_the_checkout(self):
         manifest, tip = self.sealed_session("land-dirty", dirty=True)
@@ -866,9 +911,14 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(
             self.git_in(source, "rev-parse", "alamode/fixture").stdout.strip(), tip
         )
-        self.assertIn("uncommitted changes", message)
-        # The range leaves out the snapshot commit holding the human's edits.
-        self.assertIn(f"git cherry-pick {snapshot[:12]}..alamode/fixture", message)
+        self.assertIn("main was NOT moved: the session started from your", message)
+        # The range leaves out the snapshot commit holding the human's edits,
+        # so a fast-forward, which would carry it, is never offered.
+        self.assertIn(
+            f"git cherry-pick {snapshot[:12]}..alamode/fixture && git adopt {head[:12]}",
+            message,
+        )
+        self.assertNotIn("--ff-only", message)
 
     def test_land_holds_context_files_and_skips_children(self):
         manifest, _tip = self.sealed_session("land-context")
@@ -886,9 +936,13 @@ class PolicyTests(unittest.TestCase):
         )
         message = self.land(manifest)
         self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), head)
-        self.assertIn("2 commits on alamode/fixture", message)
-        self.assertIn("agent context files", message)
-        self.assertIn("These commits change AGENTS.md.", message)
+        self.assertIn(
+            "2 commits are waiting on alamode/fixture. main was NOT moved.", message
+        )
+        self.assertIn("read as instructions: AGENTS.md pi and Claude", message)
+        self.assertIn(
+            f"git merge --ff-only alamode/fixture && git adopt {head[:12]}", message
+        )
 
     def test_admission_refuses_planted_guard_config_casings(self):
         source = self.root / "guard-source"

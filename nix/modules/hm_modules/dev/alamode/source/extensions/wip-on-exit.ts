@@ -18,9 +18,15 @@ export default function (pi: ExtensionAPI) {
         "--message",
         "wip: uncommitted at exit",
       );
-    if (result.code !== 0)
+    if (result.code !== 0) {
+      const id = process.env.ALAMODE_SESSION_ID;
       process.stderr.write(
-        `alamode: uncommitted changes stay in ${ctx.cwd}: ${result.stderr.trim()}\n`,
+        `alamode: Could not commit the session's leftover edits, so they stay\n` +
+          `alamode: uncommitted in ${ctx.cwd}: ${result.stderr.trim()}\n` +
+          (/^[A-Za-z0-9_-]+$/.test(id)
+            ? `alamode:\nalamode:   resume  alamode resume ${id}\n`
+            : ""),
       );
+    }
   });
 }

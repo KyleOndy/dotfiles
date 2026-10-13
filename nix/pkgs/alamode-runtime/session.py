@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
 import time
 from urllib.parse import urlsplit
 
@@ -27,6 +28,8 @@ from common import request, socket_directory
 import workspace
 
 ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}\Z")
+# extensions/wip-on-exit.ts commits leftover edits under this subject.
+WIP_SUBJECT = "wip: uncommitted at exit"
 PRIVATE_NETWORKS = [
     "0.0.0.0/8",
     "10.0.0.0/8",
@@ -1409,13 +1412,69 @@ def seal_session(manifest):
         # decision, so a merge that carries them must be reviewed as
         # model-authored instructions, not documentation.
         "context_files": admitted.get("context_files", []),
+        "commits": admitted["commits"],
         "source": manifest["workspace"]["source"],
         "branch": manifest["workspace"]["branch"],
     }
 
 
+def tell(paragraphs, steps=()):
+    """Say what just happened, then the commands for what comes next.
+
+    Every human-facing outcome ends this way, on stderr so stdout stays
+    machine-readable: wrapped paragraphs, then an aligned block of
+    (label, command) rows. A paragraph that starts with spaces keeps them.
+    """
+    lines = []
+    for paragraph in paragraphs:
+        lines.extend(textwrap.wrap(paragraph, 70) or [""])
+    if steps:
+        width = max(len(label) for label, _ in steps)
+        lines.append("")
+        lines.extend(f"  {label.ljust(width)}  {command}" for label, command in steps)
+    for line in lines:
+        print(("alamode: " + line).rstrip(), file=sys.stderr)
+
+
+def context_warning(paths):
+    return [
+        "These commits change files your agents read as instructions:",
+        *("    " + path for path in paths),
+        "pi and Claude outside the sandbox load these without asking, so"
+        " read them as model-written before taking them.",
+    ]
+
+
+def commits(count):
+    return f"{count} commit" + ("" if int(count) == 1 else "s")
+
+
 def export_session(manifest):
-    print(json.dumps(seal_session(manifest), indent=2))
+    sealed = seal_session(manifest)
+    print(json.dumps(sealed, indent=2))
+    branch = "alamode/" + manifest["id"]
+    base = sealed["base"][:12]
+    tell(
+        [
+            f"Sealed {commits(sealed['commits'])} from session"
+            f" {manifest['id']}. To take the work, run these in your"
+            " repository:",
+            *(
+                context_warning(sealed["context_files"])
+                if sealed["context_files"]
+                else []
+            ),
+        ],
+        [
+            (
+                "fetch",
+                f"git fetch {shlex.quote(sealed['bundle'])} {sealed['ref']}:{branch}",
+            ),
+            ("review", f"git log -p {base}..{branch}"),
+            ("adopt", f"git cherry-pick {base}..{branch} && git adopt"),
+            ("discard", f"git branch -D {branch}"),
+        ],
+    )
     return 0
 
 
@@ -1431,10 +1490,25 @@ def land(manifest):
     configuration and hooks, run in their repository as if typed.
     """
     record = manifest["workspace"]
-    source = record.get("source")
     # A child's source is its parent's checkout or a quarantine; its commits
     # reach the human only through the coordinator.
-    if not source or manifest.get("coordinator", {}).get("role") == "child":
+    if manifest.get("coordinator", {}).get("role") == "child":
+        return
+    source = record.get("source")
+    bare = Path(record["common_dir"])
+    base = record["snapshot_commit"]
+    tip = workspace._source_head(bare, bare)
+    if tip == base:
+        tell(["No commits this session, so nothing to land."])
+        return
+    if not source:
+        tell(
+            [
+                "This session started outside a repository, so its commits"
+                f" stay in {record['workspace']}."
+            ],
+            [("export", f"alamode sessions export {manifest['id']}")],
+        )
         return
 
     def git(*args):
@@ -1445,11 +1519,9 @@ def land(manifest):
             text=True,
         )
 
-    bare = Path(record["common_dir"])
-    base = record["snapshot_commit"]
-    tip = workspace._source_head(bare, bare)
     # Exit status 0 means a resumed session's work already landed.
-    if tip == base or not git("merge-base", "--is-ancestor", tip, "HEAD").returncode:
+    if not git("merge-base", "--is-ancestor", tip, "HEAD").returncode:
+        tell(["Nothing new to land: these commits are already on your checkout."])
         return
     sealed = seal_session(manifest)
     branch = "alamode/" + manifest["id"]
@@ -1463,60 +1535,111 @@ def land(manifest):
     if fetched.returncode:
         raise SessionError(f"git fetch into {source} failed: {fetched.stderr.strip()}")
 
-    def count(start):
-        commits = git("rev-list", "--count", f"{start}..{tip}").stdout.strip()
-        return commits + (" commit" if commits == "1" else " commits")
-
-    reason = None
-    if base != record["source_base"]:
-        reason = "the session started from uncommitted changes, held by the branch's first commit"
+    launched = (record.get("source_ref") or "")[len("refs/heads/") :]
+    current = git("symbolic-ref", "-q", "HEAD").stdout.strip()
+    clean = base == record["source_base"]
+    wip = git("log", "-1", "--format=%s", tip).stdout.strip() == WIP_SUBJECT
+    unwip = [("unwip", "git reset --soft HEAD~1")] if wip else []
+    held = None
+    if not clean:
+        held = (
+            f"{launched or 'Your checkout'} was NOT moved: the session started"
+            " from your uncommitted changes, and the branch's first commit"
+            " holds them. The adopt command below leaves that commit out;"
+            " commit or set aside your own changes first, since git adopt"
+            " needs a clean worktree."
+        )
     elif sealed["context_files"]:
-        reason = "it changes agent context files"
-    elif not record.get("source_ref"):
-        reason = "the session did not start on a branch"
-    elif git("symbolic-ref", "-q", "HEAD").stdout.strip() != record["source_ref"]:
-        reason = "the checkout is no longer on " + record["source_ref"][11:]
+        held = f"{launched or 'Your checkout'} was NOT moved."
+    elif not launched:
+        held = "Nothing was moved: the session did not start on a branch."
+    elif current != record["source_ref"]:
+        held = (
+            f"{launched} was NOT moved: the checkout is on"
+            f" {current[len('refs/heads/') :] or 'a detached HEAD'} now. The"
+            f" adopt command below switches back to {launched} first."
+        )
     else:
         before = git("rev-parse", "HEAD").stdout.strip()
         merged = git("merge", "--ff-only", "--quiet", "refs/heads/" + branch)
         if merged.returncode:
-            lines = [
+            refusal = [
                 line
                 for line in merged.stderr.splitlines()
                 if line and not line.startswith("hint:")
             ]
-            reason = lines[0] if lines else "git merge --ff-only failed"
+            held = f"{launched} was NOT moved: git refused to fast-forward it: " + (
+                refusal[0] if refusal else "git merge --ff-only failed"
+            )
         else:
             git("update-ref", "-d", "refs/heads/" + branch, tip)
-            print(
-                f"alamode: fast-forwarded {record['source_ref'][11:]} by "
-                f"{count(before)}, {before[:12]}..{tip[:12]}\n"
-                f"alamode: review  git log -p {before[:12]}..{tip[:12]}\n"
-                f"alamode: adopt   git adopt {before[:12]}\n"
-                f"alamode: undo    git reset --keep {before[:12]}",
-                file=sys.stderr,
+            count = git("rev-list", "--count", f"{before}..{tip}").stdout.strip()
+            tell(
+                [
+                    f"Fast-forwarded {launched} by {commits(count)},"
+                    f" {before[:12]}..{tip[:12]}.",
+                    *(
+                        [
+                            f'The last commit, "{WIP_SUBJECT}", holds edits the'
+                            " session left uncommitted; unwip turns it back"
+                            " into staged changes."
+                        ]
+                        if wip
+                        else []
+                    ),
+                ],
+                [
+                    ("review", f"git log -p {before[:12]}..{tip[:12]}"),
+                    *unwip,
+                    ("adopt", f"git adopt {before[:12]}"),
+                    ("undo", f"git reset --keep {before[:12]}"),
+                ],
             )
             return
-    # A resumed session's earlier commits may already be in the checkout; a
-    # dirty launch's snapshot commit never is, so the range starts no lower.
-    fork = git("merge-base", "HEAD", tip).stdout.strip()
-    if fork and not git("merge-base", "--is-ancestor", base, fork).returncode:
-        base = fork
-    print(
-        f"alamode: {count(base)} on {branch}, not fast-forwarded: {reason}\n"
-        f"alamode: review   git log -p {base[:12]}..{branch}\n"
-        f"alamode: adopt    git cherry-pick {base[:12]}..{branch}\n"
-        f"alamode: discard  git branch -D {branch}",
-        file=sys.stderr,
+    # Adoption targets the launch branch when there is one. A resumed
+    # session's earlier commits may already be on it; a dirty launch's
+    # snapshot commit never is, so the range starts no lower than base.
+    target = "refs/heads/" + launched if launched else "HEAD"
+    head = git("rev-parse", target).stdout.strip()
+    fork = git("merge-base", head, tip).stdout.strip()
+    start = (
+        fork
+        if fork and not git("merge-base", "--is-ancestor", base, fork).returncode
+        else base
     )
-    if sealed["context_files"]:
-        print(
-            "alamode: These commits change "
-            + ", ".join(sealed["context_files"])
-            + ". Your unsandboxed agents load those as instructions; review"
-            " them as model-authored before adopting.",
-            file=sys.stderr,
-        )
+    if clean and fork == head:
+        take = f"git merge --ff-only {branch}"
+    else:
+        take = f"git cherry-pick {start[:12]}..{branch}"
+    if launched and current != record["source_ref"]:
+        take = f"git switch {launched} && {take}"
+    count = git("rev-list", "--count", f"{start}..{tip}").stdout.strip()
+    tell(
+        [
+            f"{commits(count)} {'is' if count == '1' else 'are'} waiting on {branch}.",
+            held,
+            *(
+                context_warning(sealed["context_files"])
+                if sealed["context_files"]
+                else []
+            ),
+            *(
+                [
+                    f'The last commit, "{WIP_SUBJECT}", holds edits the'
+                    " session left uncommitted; once adopted, unwip turns it"
+                    " back into staged changes."
+                ]
+                if wip
+                else []
+            ),
+        ],
+        [
+            ("review", f"git log -p {start[:12]}..{branch}"),
+            ("adopt", f"{take} && git adopt {head[:12]}"),
+            *unwip,
+            ("discard", f"git branch -D {branch}"),
+        ],
+    )
 
 
 def information(config, flag):
@@ -1872,11 +1995,12 @@ def main(argv=None):
             OSError,
             subprocess.SubprocessError,
         ) as error:
-            print(
-                f"alamode: landing failed: {error}\n"
-                f"alamode: the commits stay in the session; "
-                f"alamode sessions export {manifest['id']}",
-                file=sys.stderr,
+            tell(
+                [
+                    f"Landing failed: {error}",
+                    "The commits are safe in the session. Export them by hand:",
+                ],
+                [("export", f"alamode sessions export {manifest['id']}")],
             )
         return status
 

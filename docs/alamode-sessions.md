@@ -51,15 +51,34 @@ the same admission as export:
 - The branch checked out at launch fast-forwards to them when the launch was
   clean, the checkout is still on that branch, git can fast-forward it, and
   no agent context file such as `AGENTS.md`, `CLAUDE.md` or anything under
-  `.claude/` changed. The exit message prints the commands to review them, sign them
-  with `git adopt`, and undo the fast-forward.
-- Anything else waits on a new branch, `alamode/ID`, and the message says
-  why and prints the `git cherry-pick` range that adopts it. After a launch
-  with uncommitted changes, that range leaves out the commit holding them.
+  `.claude/` changed.
+- Anything else waits on a new branch, `alamode/ID`, and the launch branch
+  is NOT moved. After a launch with uncommitted changes, the adopt command
+  leaves out the commit holding them.
 
-Landing creates no other branch and moves no other one. Coordinator
-children land only through their coordinator. If landing fails, the
-commits stay in the session and `alamode sessions export ID` still works.
+Every outcome ends with what happened and the commands for what comes
+next:
+
+```text
+alamode: 2 commits are waiting on alamode/20261013-102233-ab12cd34.
+alamode: main was NOT moved.
+alamode: These commits change files your agents read as instructions:
+alamode:     AGENTS.md
+alamode: pi and Claude outside the sandbox load these without asking, so read
+alamode: them as model-written before taking them.
+alamode:
+alamode:   review   git log -p 67e33ed81ca3..alamode/20261013-102233-ab12cd34
+alamode:   adopt    git merge --ff-only alamode/20261013-102233-ab12cd34 && git adopt 67e33ed81ca3
+alamode:   discard  git branch -D alamode/20261013-102233-ab12cd34
+```
+
+A fast-forward offers `review`, `adopt` (`git adopt` signs the commits) and
+`undo`. When the last commit is the `wip: uncommitted at exit` one, `unwip`
+turns it back into staged changes. Landing creates no other branch and moves
+no other one. Coordinator children land only through their coordinator. If
+landing fails, the commits stay in the session and `alamode sessions export
+ID` still works. `git adopt` in turn ends with the push, merge and worktree
+cleanup commands for the branch it signed.
 
 ## Resume and results
 
@@ -80,7 +99,8 @@ Export requires committed changes and a stopped session. It is data-only:
 the session's private Git storage is sealed host-side through the same
 admission that reviews every proposal, nothing in the session executes,
 and no runtime build is consulted, so a rebuild between launches cannot
-strand committed work. It prints a verified, standalone bundle and ref.
+strand committed work. It prints a verified, standalone bundle and ref as
+JSON on stdout, and the commands to fetch, review and adopt it on stderr.
 Review that bundle before integrating it into the human repository. Export
 never changes the human branch.
 
