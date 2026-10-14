@@ -53,7 +53,7 @@ Merge across hosts into one row per package with the hosts it affects.
 | Area        | Packages                                                                                      |
 | ----------- | --------------------------------------------------------------------------------------------- |
 | tiger stack | grafana, VictoriaMetrics, grafana-loki, alertmanager, grafana-alloy, caddy, jellyfin, sabnzbd |
-| hosts       | linux, zfs                                                                                    |
+| hosts       | linux, zfs, nix                                                                               |
 | daily tools | claude-code, pi, neovim, tmux, alacritty, zsh, starship, git, sops                            |
 
 Anything else with a major-version bump (first number changed, or `0.x` minor
@@ -71,6 +71,8 @@ findings are judged against our settings, not in general.
 
 Per package, report:
 
+- **Security**: every advisory a release in the range fixes, with severity and
+  link, or "none"
 - **Breaking**: what breaks, and the file and option in this repo it hits, or
   "nothing we use"
 - **Worth adopting**: features that change how we would use the tool, skipping
@@ -80,17 +82,35 @@ Per package, report:
 Use subagents only when more than five packages need research, one or two
 packages each, returning just the fields above.
 
-## 6. Verify
+## 6. Determinate Nix
+
+trex's nix is Determinate's, installed outside the flake, so it never shows
+in the snapshot and no update moves it. The `determinate` input carries only
+its nix-darwin module, and the module and the running daemon drift apart.
+
+Run `determinate-nixd version`. If the latest version differs from the
+running daemon, or the `determinate` input moved, read the
+[nix-src release notes](https://github.com/DeterminateSystems/nix-src/releases)
+for every version between the running one and the latest. Report the fields
+from step 5, judged against `determinateNix.customSettings` in
+`nix/hosts/trex/configuration.nix` and against `docs/darwin-nix-sandbox.md`.
+
+The upgrade needs root, so hand it over rather than running it:
+`sudo determinate-nixd upgrade`, then `determinate-nixd version` to confirm
+the daemon and client both moved.
+
+## 7. Verify
 
 Run the command in `.pi/verify.json`, which dry-builds both darwin configs
 and builds the repo's checks. For
 the Linux hosts, a dry run is `make deploy-rs-all-dry`; offer it rather than
 running it, since it needs the cogsworth ssh key and takes a while.
 
-## 7. Report and commit
+## 8. Report and commit
 
-Order: build failures, breaking changes, worth adopting, then the listed-only
-bumps as a compact table, then the changed inputs.
+Order: security advisories, build failures, breaking changes, worth adopting,
+then the listed-only bumps as a compact table, then the changed inputs. A
+Determinate upgrade that is due goes with the advisories.
 
 Ask whether to commit, revert (`git checkout flake.lock`), or leave it. The
 commit follows the repo's convention, `feat(sources): update all` (or
