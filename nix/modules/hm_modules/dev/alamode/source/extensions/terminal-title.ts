@@ -6,6 +6,10 @@
  * missing. No getter exposes that string, so the format is rebuilt here to
  * prefix it.
  *
+ * Under the wrapper pi's cwd is the private worktree, so the rebuilt title
+ * names the checkout in ALAMODE_SOURCE instead, as footer.ts does. pi's own
+ * writes still say `worktree`.
+ *
  * A marker, not a spinner: the working row already animates on screen, and
  * a title spinner writes an OSC escape per frame for what one glyph says.
  * Both states are drawn so the marker column never shifts the rest.
@@ -65,14 +69,14 @@ export default function (pi: ExtensionAPI) {
     last = ctx;
     if (!ctx.hasUI) return;
     const name = pi.getSessionName();
-    const cwd = path.basename(ctx.cwd);
+    const dir = path.basename(process.env.ALAMODE_SOURCE ?? ctx.cwd);
     // Shutdown drops pi's prefix along with the state: the title outlives the
-    // process that wrote it, and pi is no longer what this pane is running.
+    // process that wrote it, and once pi exits the pane runs something else.
     if (state === null) {
-      ctx.ui.setTitle(cwd);
+      ctx.ui.setTitle(dir);
       return;
     }
-    const title = `π - ${name ? `${name} - ${cwd}` : cwd}`;
+    const title = `π - ${name ? `${name} - ${dir}` : dir}`;
     const shown = state === "IDL" && jobs > 0 ? "EXE" : state;
     const marker = underTmux
       ? `[alamode:${shown}]`
