@@ -988,10 +988,11 @@ def child_environment(config, manifest, home, runtime):
             env["ALAMODE_LANDING_SHORT"],
         ) = notice
     # The session runs in a private worktree on alamode-<id>, so pi's own cwd
-    # and branch name the snapshot; these name the checkout it came from, for
-    # the footer (extensions/footer.ts).
+    # and branch name the snapshot; these name the checkout it came from and
+    # the commit the session started at, for the footer (extensions/footer.ts).
     record = manifest["workspace"]
     if record.get("source"):
+        env["ALAMODE_SNAPSHOT_COMMIT"] = record["snapshot_commit"]
         home = str(Path.home())
         source = record["source"]
         env["ALAMODE_SOURCE"] = (

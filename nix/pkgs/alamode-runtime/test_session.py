@@ -963,6 +963,10 @@ class PolicyTests(unittest.TestCase):
             environment["ALAMODE_LANDING_SHORT"], "fast-forwards main on quit"
         )
         self.assertEqual(environment["ALAMODE_SOURCE_BRANCH"], "main")
+        self.assertEqual(
+            environment["ALAMODE_SNAPSHOT_COMMIT"],
+            manifest["workspace"]["snapshot_commit"],
+        )
         self.assertTrue(
             manifest["workspace"]["source"].endswith(
                 environment["ALAMODE_SOURCE"].removeprefix("~")
