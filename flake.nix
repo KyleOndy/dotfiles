@@ -58,7 +58,8 @@
     # advisories (GHSA-jwvx-xq5j-gc56 and others). No follows: built against
     # nix's own pin, the outputs are Hydra's and come from cache.nixos.org.
     # TODO: remove with its overlay once nixos-26.05 ships 2.35.3
-    # (NixOS/nixpkgs#573629).
+    # (NixOS/nixpkgs#573629). alamode-nix-client builds from it too, so it
+    # needs another source first.
     nix-upstream.url = "github:NixOS/nix/2.35.3";
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
@@ -160,6 +161,10 @@
         (final: prev: {
           nixVersions = prev.nixVersions // {
             latest = inputs.nix-upstream.packages.${final.stdenv.hostPlatform.system}.nix;
+          };
+          alamode-nix-client = import ./nix/pkgs/alamode-nix-client {
+            inherit (inputs) nix-upstream;
+            inherit (final.stdenv.hostPlatform) system;
           };
         })
 
@@ -519,6 +524,10 @@
           alamode-seats = import ./nix/checks/alamode-seats.nix { inherit pkgs; };
           mcloud-pins = import ./nix/checks/mcloud-pins.nix { inherit pkgs; };
         }
+        # Linux opens with O_PATH, so the patch changes nothing there.
+        // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isDarwin {
+          alamode-nix-client = import ./nix/checks/alamode-nix-client.nix { inherit pkgs; };
+        }
       );
 
       devShells = forAllSystems (
@@ -632,7 +641,7 @@
             alamode-coordinator
             alamode-delegate
             ;
-          inherit (pkgs) alamode-builder;
+          inherit (pkgs) alamode-builder alamode-nix-client;
           alamode-check-native = import ./nix/pkgs/alamode-runtime/native-check.nix { inherit pkgs; };
           alamode-check-builder = pkgs.alamode-builder;
         }

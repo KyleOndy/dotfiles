@@ -1,0 +1,47 @@
+Open directories with O_SEARCH where O_PATH is missing (darwin).
+
+Since 2.35.2 a path is read one directory at a time, and without O_PATH
+each directory is opened O_RDONLY, which needs read permission on every
+ancestor. A directory that grants search but not read breaks it:
+
+  $ mkdir locked && echo '"hi"' > locked/f.nix && chmod 0311 locked
+  $ nix eval --impure --expr 'import ./locked/f.nix'
+  error: opening directory '.../locked': Permission denied
+
+srt grants only metadata on the ancestors of what a session may read, so
+inside srt every read by absolute path fails the same way, at /private or
+/Users. O_SEARCH needs only search permission, which is all openat
+beneath the directory requires.
+
+Measured on 2.35.3 (2026-10-14): unit and functional tests pass (178 ok,
+0 failed), and inside srt the patched client evaluates
+darwinConfigurations.trex to the same derivation as the host. Not sent
+upstream.
+
+diff --git a/src/libutil/posix-source-accessor.cc b/src/libutil/posix-source-accessor.cc
+index 55fa634..381b337 100644
+--- a/src/libutil/posix-source-accessor.cc
++++ b/src/libutil/posix-source-accessor.cc
+@@ -389,6 +389,9 @@ std::pair<Descriptor, std::shared_ptr<AutoCloseFD>> PosixDirectorySourceAccessor
+ #  ifdef O_PATH
+             /* As to not require read permissions on the directory. */
+             O_PATH |
++#  elif defined(O_SEARCH)
++            /* Likewise: search permission is enough to resolve paths beneath it. */
++            O_SEARCH |
+ #  else
+             /* Sadly this will require read permissison for path resolution,
+                but without O_PATH that's unavoidable. */
+diff --git a/src/libutil/unix/file-system-at.cc b/src/libutil/unix/file-system-at.cc
+index 18046ff..4e07db4 100644
+--- a/src/libutil/unix/file-system-at.cc
++++ b/src/libutil/unix/file-system-at.cc
+@@ -168,6 +168,8 @@ static AutoCloseFD openFileEnsureBeneathNoSymlinksIterative(
+             O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+ #ifdef __linux__
+                 | O_PATH /* Linux-specific optimization. Files are open only for path resolution purposes. */
++#elif defined(O_SEARCH)
++                | O_SEARCH /* Needs search permission on the directory, not read permission. */
+ #endif
+ #ifdef __FreeBSD__
+                 | O_RESOLVE_BENEATH /* Further guard against any possible SNAFUs. */
