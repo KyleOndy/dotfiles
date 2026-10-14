@@ -41,6 +41,11 @@
       # and what it costs (derivations carrying their own sandboxProfile do
       # not build locally, so a cache miss on one of them fails).
       sandbox = true;
+      # Without it, a build with more than about 1,069 inputs fails to start:
+      # macOS caps each sandbox operation's path filters at 64 KiB
+      # (NixOS/nix#4119). The cost: any build can read the whole store and
+      # add entries to it. docs/darwin-nix-sandbox.md has the measurements.
+      extra-sandbox-paths = [ "/nix/store" ];
 
       # pi and sandbox-runtime come from the llm-agents input, which Hydra
       # never sees; numtide's CI is the only thing that prebuilds them.

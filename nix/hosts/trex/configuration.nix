@@ -61,6 +61,11 @@ in
       # the network either way; docs/darwin-nix-sandbox.md has what this
       # closes.
       sandbox = true;
+      # Without it, a build with more than about 1,069 inputs fails to start:
+      # macOS caps each sandbox operation's path filters at 64 KiB
+      # (NixOS/nix#4119). The cost: any build can read the whole store and
+      # add entries to it. docs/darwin-nix-sandbox.md has the measurements.
+      extra-sandbox-paths = [ "/nix/store" ];
     };
 
     distributedBuilds = true;

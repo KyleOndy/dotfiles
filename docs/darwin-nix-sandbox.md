@@ -41,8 +41,9 @@ derivation with `__noChroot` and one with a `sandboxProfile`, and ignored
 warning: ignoring the client-specified setting 'sandbox', because it is a restricted setting and you are not a trusted user
 ```
 
-- **What it closes.** A build sees its build dir and declared inputs,
-  not the host's files, and an input-addressed build gets no network.
+- **What it closes.** A build sees its build dir and the store, not the
+  host's files, and an input-addressed build gets no network. The whole
+  store rather than only declared inputs, because of the size cap below.
   A derivation cannot opt out: under `true` the daemon refuses one that
   sets `__noChroot` or brings its own sandbox profile
   ([unix-derivation-builder.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/unix/build/unix-derivation-builder.cc#L1067-L1080)).
@@ -127,3 +128,46 @@ restarts the daemon, and the probe kept fetching until
 `deploy-mac` are aliases for it), and picks the daemon's launchd label per
 machine: Determinate's on trex, nix-darwin's on work-mac. A bare
 `darwin-rebuild switch` leaves the old settings running.
+
+## Large builds
+
+macOS merges each sandbox operation's path filters into one object and
+refuses a profile whose object passes 65535 bytes. Nix lists every
+input store path in the profile, so a build with more than about 1,069
+inputs fails before it starts. home-manager-applications has 1,291:
+
+```
+sandbox initialization failed: data object length 79249 exceeds maximum (65535)
+```
+
+Nix splits the paths across allow forms at 16 KiB, its answer to
+[nix#4119](https://github.com/NixOS/nix/issues/4119)
+([darwin-derivation-builder.cc](https://github.com/NixOS/nix/blob/8624d7c74eaee2638d2aff9b1e30455a74baba8c/src/libstore/darwin/build/darwin-derivation-builder.cc#L104-L140)),
+but the cap is per operation, not per form. Measured with `sandbox-exec`
+on profiles in Nix's shape (2026-10-14): one form and 1,113 forms fail
+at the same size, and the same paths split between `file-read*` and
+`process-exec` compile.
+
+Before Nix 2.35.3 and Determinate 3.23.2 the cap never showed, because
+large builds had no file confinement at all (GHSA-m4vq-qf6v-82pj).
+Every darwin stdenv derivation lists `/usr/lib/libSystem.B.dylib` and
+`/usr/lib/system/libunc.dylib` as optional impure inputs, and neither is
+on disk on current macOS. The splitting opened a new form before it
+skipped a missing optional path, leaving an unqualified
+`(allow file-read* file-write* process-exec)` behind. Both paths sort
+after `/nix/store`, so every build with more than about 250 inputs
+crossed a split and hit it. A profile of that shape compiled, read
+`~/.zshrc` and ran `/usr/bin/curl`; the network stayed denied.
+
+`extra-sandbox-paths = /nix/store`, on trex and work-mac alike, keeps
+those builds running. With it added to home-manager-applications'
+profile, the profile compiled, `~/.zshrc` was denied, `/nix/store` was
+readable and `example.com` was unreachable. The cost:
+
+- **A build reads any store path**, not only its inputs. The store is
+  world-readable, so this loses hermeticity, not secrecy: a build can
+  depend on a path it never declared.
+- **A build can add entries to `/nix/store`**, which is
+  `drwxrwxr-t root:nixbld`. Registered paths are read-only and owned by
+  root, and the sticky bit keeps a build from removing or renaming
+  them.
