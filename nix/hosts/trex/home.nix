@@ -265,6 +265,12 @@ in
       };
       sandbox.envGrantGates.KAGI_API_KEY = "kagi";
 
+      # --allow-nix builds through the session daemon, offline
+      # (docs/alamode-host-nix.md). trex has no Tart builder.
+      sandbox.nixDaemon = {
+        inherit (osConfig.systemFoundry.alamodeNixDaemon) socket label;
+      };
+
       # Coordinated agents on this host hold no forge: coordinator.forge
       # stays off (only work-mac has forge), so the broker is built without
       # it, spawn_agent takes no size here, and nothing forge-shaped reaches

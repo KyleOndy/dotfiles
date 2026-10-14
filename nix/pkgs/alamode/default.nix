@@ -4,6 +4,7 @@
   writeShellApplication,
   writeText,
   writeTextFile,
+  writeTextDir,
   symlinkJoin,
   bashInteractive,
   python3,
@@ -73,6 +74,11 @@
   runtimeSource ? "",
   privateProviderHosts ? [ ],
   builder ? "",
+  # The session nix daemon (systemFoundry.alamodeNixDaemon) and the client
+  # sessions reach it with; exclusive with builder.
+  nixDaemonSocket ? "",
+  nixDaemonLabel ? "",
+  nixClient ? null,
   # Program the relay runs for the bell extension; empty leaves it off.
   bell ? "",
   trustedProviders ? [ ],
@@ -115,6 +121,11 @@ let
     llm-agents.sandbox-runtime
   ]
   ++ lib.optionals stdenv.isLinux [ bubblewrap ];
+  # The client's own, so it never reads Determinate's /etc/nix/nix.conf,
+  # whose settings upstream nix warns are unknown.
+  nixClientConf = writeTextDir "nix.conf" ''
+    experimental-features = nix-command flakes
+  '';
   configuration = writeText "alamode-session-config.json" (
     builtins.toJSON {
       pi = realPiBin;
@@ -124,6 +135,9 @@ let
       sandboxRunner = "${runtime}/sandbox.mjs";
       buildClient = "${alamode-runtime}/bin/nix";
       builderModule = "${alamode-builder}/libexec/alamode-builder/builder.py";
+      nixClient = lib.optionalString (nixClient != null) "${nixClient}/bin";
+      nixClientConf = lib.optionalString (nixClient != null) "${nixClientConf}";
+      nixCanary = "${runtime}/nix-canary.nix";
       relayModule = "${alamode-relay}/libexec/alamode-relay/relay.py";
       domains = defaultDomains;
       readPaths = defaultReadPaths;
@@ -147,6 +161,8 @@ let
         trustedProviders
         privateProviderHosts
         builder
+        nixDaemonSocket
+        nixDaemonLabel
         bell
         ;
       resolvers = envFromCommands;

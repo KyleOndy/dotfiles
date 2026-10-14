@@ -20,6 +20,9 @@ let
         defaultWritePaths = cfg.sandbox.allowedWritePaths;
         defaultGitWrite = cfg.sandbox.gitWrite;
         builder = lib.optionalString (cfg.sandbox.builderConfig != null) cfg.sandbox.builderConfig;
+        nixDaemonSocket = lib.optionalString (cfg.sandbox.nixDaemon != null) cfg.sandbox.nixDaemon.socket;
+        nixDaemonLabel = lib.optionalString (cfg.sandbox.nixDaemon != null) cfg.sandbox.nixDaemon.label;
+        nixClient = if cfg.sandbox.nixDaemon != null then pkgs.alamode-nix-client else null;
         bundles = cfg.sandbox.bundles;
         profiles = cfg.sandbox.profiles;
         envFromCommands = cfg.sandbox.envFromCommands;
@@ -76,6 +79,14 @@ let
       }
     } "$out"
     chmod -R u+w "$out"
+    # grants/nix.md describes the Tart builder; a host whose --allow-nix is the
+    # session daemon gets nix-daemon.md under that name instead.
+    ${
+      if cfg.sandbox.nixDaemon != null then
+        ''mv "$out/grants/nix-daemon.md" "$out/grants/nix.md"''
+      else
+        ''rm "$out/grants/nix-daemon.md"''
+    }
     ${lib.concatMapStrings (skill: ''
       mkdir -p "$out/skills/${skill.name}"
       ${
@@ -136,6 +147,23 @@ in
           Trusted native Darwin builder JSON file. --allow-nix exposes a
           scoped build service using this configuration. Keep it outside
           agent-writable paths. See nix/pkgs/alamode-builder/README.md.
+        '';
+      };
+      nixDaemon = lib.mkOption {
+        type = lib.types.nullOr (
+          lib.types.submodule {
+            options = {
+              socket = lib.mkOption { type = lib.types.str; };
+              label = lib.mkOption { type = lib.types.str; };
+            };
+          }
+        );
+        default = null;
+        description = ''
+          The session nix daemon (systemFoundry.alamodeNixDaemon): its socket
+          and launchd label. --allow-nix gives the session that socket and a
+          client for it, after canary builds show the daemon still refuses
+          networked builds. See docs/alamode-host-nix.md.
         '';
       };
       privateProviderHosts = lib.mkOption {
@@ -563,6 +591,10 @@ in
 
   config = lib.mkIf cfg.enable {
     assertions = [
+      {
+        assertion = cfg.sandbox.builderConfig == null || cfg.sandbox.nixDaemon == null;
+        message = "hmFoundry.dev.alamode: --allow-nix means one of sandbox.builderConfig and sandbox.nixDaemon, not both.";
+      }
       {
         assertion = profileBundleViolations == [ ];
         message = "hmFoundry.dev.alamode: profiles name unknown bundles: ${toString profileBundleViolations}";

@@ -132,14 +132,20 @@ hands pi the same forecast: the header's lands row shows it, and
 nags about. Deliberately not `nix flake check`, which also evaluates the
 Linux hosts and cannot go green on a mac.
 
-No session can run it on trex. `--allow-nix` never grants the host daemon
+No session can run all of it. `--allow-nix` never grants the host daemon
 socket: the daemon gives a fixed-output derivation the network outside srt's
 proxy, so a session with the web off could still send out what it reads.
-Under the flag the session's `nix` is a client that submits `build` and
-`eval` to a fresh Tart VM (`nix/pkgs/alamode-builder/README.md`), and the
-wrapper refuses it on a host without `sandbox.builderConfig`. Only work-mac
-sets that, and whether its VM can run the whole verifier is untested; the
-README says why trex has none. Run the verifier yourself.
+On trex the flag means the session daemon (`systemFoundry.alamodeNixDaemon`,
+handed to alamode as `sandbox.nixDaemon`): a second daemon whose pre-build
+hook refuses every build that would get network, reached through
+`alamode-nix-client` once canary builds pass at the start
+(`docs/alamode-host-nix.md`). It builds and runs packages, not the verifier:
+alamode-e2e binds loopback, which the hook refuses, and the daemon has no
+Linux builders. On work-mac the session's `nix` is a client that submits
+`build` and `eval` to a fresh Tart VM (`nix/pkgs/alamode-builder/README.md`,
+`sandbox.builderConfig`), and whether that VM can run the whole verifier is
+untested. The wrapper refuses the flag on a host with neither. Run the
+verifier yourself.
 
 A dead model id fails silently at runtime, so the seats are checked before a
 run: `alamode-seats check` at every start, and after every `make deploy-trex`

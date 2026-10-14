@@ -217,7 +217,12 @@ def help_text(config):
             ("--allow-read PATH", "host reads of PATH"),
             ("--allow-write PATH", "host writes to PATH"),
             ("--allow-rw PATH", "both"),
-            ("--allow-nix", "nix build and eval on the isolated builder"),
+            (
+                "--allow-nix",
+                "nix through the offline session daemon"
+                if config.get("nixDaemonSocket")
+                else "nix build and eval on the isolated builder",
+            ),
             (
                 "--allow-git-write",
                 f"commits in private Git storage ({git_write} by default)",
@@ -475,11 +480,16 @@ def policy(options, config, home):
         if not 1 <= port <= 65535:
             raise SessionError("--listen requires a port between 1 and 65535")
         result["domains"].append(f"127.0.0.1:{port}")
-    if result["nix"] and not config.get("builder"):
+    if result["nix"] and not nix_available(config):
         raise SessionError(
-            "No isolated Nix builder is configured. Host daemon access is not a session grant."
+            "No isolated Nix builder or session daemon is configured. Host daemon access is not a session grant."
         )
     return result
+
+
+def nix_available(config):
+    # The hm module refuses a host that configures both.
+    return bool(config.get("nixDaemonSocket") or config.get("builder"))
 
 
 def regrant(config, manifest, args, home, control):
@@ -526,7 +536,11 @@ def regrant(config, manifest, args, home, control):
             },
         ],
     }
-    if grants["nix"] and "builder" not in manifest:
+    if (
+        grants["nix"]
+        and not config.get("nixDaemonSocket")
+        and "builder" not in manifest
+    ):
         updated["builder"] = read_json(expand(config["builder"], home))
     validate_grants(updated, control)
     return updated, grant_changes(recorded, grants)
@@ -998,17 +1012,17 @@ def child_environment(config, manifest, home, runtime):
             "PI_SKIP_VERSION_CHECK": "1",
             "PI_TELEMETRY": "0",
             "ALAMODE_GRANTS": ",".join(grants),
-            # policy() refuses nix on a host without a builder, so a session
-            # there must not be told to ask for it.
+            # policy() refuses nix on a host without a builder or session
+            # daemon, so a session there must not be told to ask for it.
             "ALAMODE_AVAILABLE_GRANTS": ",".join(
                 [
                     *(
                         name
                         for name, bundle in config["bundles"].items()
-                        if config.get("builder") or not bundle.get("nix")
+                        if nix_available(config) or not bundle.get("nix")
                     ),
                     "web",
-                    *(["nix"] if config.get("builder") else []),
+                    *(["nix"] if nix_available(config) else []),
                     "forge",
                     "clipboard",
                     "trustd",
@@ -1159,6 +1173,9 @@ def sandbox_policy(config, manifest, runtime, relay_port):
     if manifest.get("build_socket"):
         sockets.append(manifest["build_socket"])
         read.append(manifest["build_socket"])
+    if grant["nix"] and config.get("nixDaemonSocket"):
+        sockets.append(config["nixDaemonSocket"])
+        read.append(config["nixDaemonSocket"])
     resources = manifest.get("resources", {}).get("forge")
     if resources:
         sockets.append(resources["socket"])
@@ -1470,6 +1487,106 @@ def bell(config):
     return ring
 
 
+# The darwin sandbox gives these shapes network, so the session daemon's
+# pre-build hook must refuse each one (nix-canary.nix).
+NIX_CANARY_REFUSED = ("fod", "fetchurl", "localnet")
+
+
+def nix_canary(config, manifest, environment):
+    """Refuse the start unless the session nix daemon still builds offline.
+
+    Every start that carries nix runs the canaries, about 3 s with all five
+    in parallel, so a daemon restarted onto a new binary or a changed config
+    is caught before the session can reach its socket.
+    """
+    socket = config["nixDaemonSocket"]
+    job = "system/" + config["nixDaemonLabel"]
+    relaunch = f"alamode resume {manifest['id']}"
+    builds = {}
+    if Path(socket).is_socket():
+        nonce = secrets.token_hex(8)
+        closure = os.path.realpath("/run/current-system")
+        env = {
+            **environment,
+            "NIX_REMOTE": "unix://" + socket,
+            "NIX_CONF_DIR": config["nixClientConf"],
+        }
+        for name in (*NIX_CANARY_REFUSED, "net", "large"):
+            builds[name] = subprocess.Popen(
+                [
+                    config["nixClient"] + "/nix",
+                    "build",
+                    "--impure",
+                    "--no-link",
+                    # No cache holds a nonce, and a cache the daemon cannot
+                    # reach fails the build before the hook runs.
+                    "--option",
+                    "substitute",
+                    "false",
+                    "--file",
+                    config["nixCanary"],
+                    name,
+                    "--argstr",
+                    "nonce",
+                    nonce,
+                    "--argstr",
+                    "closure",
+                    closure,
+                ],
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+    results = {
+        name: (build.communicate()[1], build.returncode)
+        for name, build in builds.items()
+    }
+    if not builds or any(
+        "cannot connect to socket" in error for error, _ in results.values()
+    ):
+        tell(
+            [
+                f"The session nix daemon is not answering on {socket}, so this"
+                " session cannot start with nix. Start the daemon and resume.",
+            ],
+            [("start", f"sudo launchctl kickstart {job}"), ("resume", relaunch)],
+        )
+        raise SessionError("The session nix daemon is not running")
+    refused = [
+        name
+        for name in NIX_CANARY_REFUSED
+        if results[name][1] == 0 or "pre-build hook" not in results[name][0]
+    ]
+    # net must reach the builder and fail there, or it proves nothing.
+    failed = refused + (
+        ["net"]
+        if results["net"][1] == 0 or "pre-build hook" in results["net"][0]
+        else []
+    )
+    failed += ["large"] if results["large"][1] != 0 else []
+    if not failed:
+        return
+    log = Path(manifest["workspace"]["record_root"]) / "nix-canary.log"
+    log.write_text(
+        "".join(
+            f"== {name}: exit {code}\n{error}\n"
+            for name, (error, code) in results.items()
+        )
+    )
+    tell(
+        [
+            f"The session nix daemon failed its canary ({', '.join(failed)}),"
+            " so this session does not start with nix: a build through that"
+            f" daemon may reach the network. Each canary's output is in {log}.",
+            "Check the daemon, or resume with every grant but --allow-nix.",
+        ],
+        [("daemon", f"sudo launchctl print {job}"), ("resume", relaunch + " GRANTS")],
+    )
+    raise SessionError("The session nix daemon failed its canary")
+
+
 def run(config, manifest, args, home):
     catalog, auth, tool_credentials = credentials(
         config, manifest, home, include_tools=True
@@ -1492,7 +1609,14 @@ def run(config, manifest, args, home):
         runtime = prepare(config, manifest, relay)
         environment = child_environment(config, manifest, home, runtime)
         environment.update(relay.tool_env)
-        if manifest["policy"]["nix"]:
+        if manifest["policy"]["nix"] and config.get("nixDaemonSocket"):
+            nix_canary(config, manifest, environment)
+            environment.update(
+                NIX_REMOTE="unix://" + config["nixDaemonSocket"],
+                NIX_CONF_DIR=config["nixClientConf"],
+                PATH=config["nixClient"] + ":" + environment["PATH"],
+            )
+        elif manifest["policy"]["nix"]:
             from build_service import BuildService
 
             build = services.enter_context(
@@ -2318,7 +2442,7 @@ def main(argv=None):
             "configuration": configuration_path,
             "launcher": executable,
         }
-        if grants["nix"]:
+        if grants["nix"] and not config.get("nixDaemonSocket"):
             manifest["builder"] = read_json(expand(config["builder"], home))
         validate_grants(manifest, control)
         source = source_repository(Path.cwd())

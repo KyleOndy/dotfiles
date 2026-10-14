@@ -23,7 +23,8 @@ systemFoundry.alamodeBuilder.enable = true;
 Only work-mac enables it; apply through `make deploy-mac`. trex does not:
 every job starts from the base image's store, and a cold build of trex's
 system fetches 4.5 GiB and unpacks 18.7 GiB, so retained job VMs would
-fill its disk within a few runs. Root activation
+fill its disk within a few runs. trex's sessions build through an offline
+session daemon instead ([alamode-host-nix.md](../../../docs/alamode-host-nix.md)). Root activation
 copies the pinned package atomically to
 `/Library/PrivilegedHelperTools/alamode-builder/softnet`, owned by root:wheel with
 mode `4755`. The Nix store copy stays unprivileged. Redeployment repairs the

@@ -34,11 +34,16 @@ tokens. The host model catalog must explicitly list each permitted model.
 `hmFoundry.dev.alamode.sandbox.profiles`; it expands into the same fields
 the flags set and merges with any flags given alongside it.
 
-`--allow-nix` requires `sandbox.builderConfig` in the alamode Home Manager
-module and a provisioned [Darwin builder](../nix/pkgs/alamode-builder/README.md).
-`nix build` and `nix eval` snapshot dirty files, submit them to that service,
-and preserve stdout, stderr and exit status. Outputs stay in the retained VM.
-The host daemon socket is never granted.
+`--allow-nix` needs one of two things in the alamode Home Manager module.
+With `sandbox.builderConfig` and a provisioned
+[Darwin builder](../nix/pkgs/alamode-builder/README.md), `nix build` and
+`nix eval` snapshot dirty files, submit them to that service, and preserve
+stdout, stderr and exit status. Outputs stay in the retained VM. With
+`sandbox.nixDaemon`, the session gets a nix client for a second daemon whose
+builds are all offline, and outputs land in the host store
+([alamode-host-nix.md](alamode-host-nix.md)). Every start runs canary builds
+through it first and refuses nix if one would reach the network. The host
+daemon socket is never granted.
 
 ## Landing
 

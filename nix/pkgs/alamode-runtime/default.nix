@@ -11,6 +11,7 @@ runCommand "alamode-runtime" { nativeBuildInputs = [ python3 ]; } ''
   cp ${./results.py} "$out/libexec/alamode-runtime/results.py"
   cp ${./build_service.py} "$out/libexec/alamode-runtime/build_service.py"
   cp ${./build_client.py} "$out/libexec/alamode-runtime/build_client.py"
+  cp ${./nix-canary.nix} "$out/libexec/alamode-runtime/nix-canary.nix"
   cp ${../alamode-coordinator/common.py} "$out/libexec/alamode-runtime/common.py"
   cat > "$out/bin/nix" <<EOF
   #!${python3}/bin/python3 -I

@@ -58,7 +58,7 @@ wire protocol ops are `spawn`, `status`, `result`, `events`, `send`, `answer`,
   rename.
 - `advisor-eval` keeps its name (no pi in it).
 - `alamode-runtime`'s `$out/bin/nix`: the scoped build client intentionally
-  shadows `nix` inside `--allow-nix` sessions.
+  shadows `nix` inside `--allow-nix` sessions on a host with the Tart builder.
 
 ## 2. Command surface
 
@@ -126,7 +126,7 @@ Outside a repository, launches use an empty private scratch workspace.
 Grants persist on resume unless GRANTS or /regrant replace them.
 Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
---allow-nix requires a configured isolated builder.
+--allow-nix requires an isolated builder or a session nix daemon.
 --local admits only loopback models and refuses every network grant.
 --no-PROVIDER drops that provider and every model on its endpoints.
 --local-model admits a model the catalog lacks on a loopback provider.

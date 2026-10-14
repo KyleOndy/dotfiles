@@ -453,13 +453,7 @@ class PolicyTests(unittest.TestCase):
             popen.call_args.kwargs["env"]["CLAUDE_CODE_TMPDIR"], str(runtime / "tmp")
         )
 
-    def test_run_hands_the_build_client_to_the_child_under_its_own_name(self):
-        # bin/nix reads ALAMODE_BUILD_CLIENT at its first read, so a child
-        # handed the build client under any other name has a nix that dies at
-        # the shim. The producer and consumer are pinned to one name here,
-        # where no sandbox is needed to see it.
-        self.config["buildClient"] = str(self.root / "tools" / "nix")
-        self.config["builderModule"] = str(self.root / "builder-module.py")
+    def fixture_relay(self):
         relay_source = self.root / "relay-fixture.py"
         relay_source.write_text(
             "class Relay:\n"
@@ -488,6 +482,15 @@ class PolicyTests(unittest.TestCase):
                 }
             )
         )
+
+    def test_run_hands_the_build_client_to_the_child_under_its_own_name(self):
+        # bin/nix reads ALAMODE_BUILD_CLIENT at its first read, so a child
+        # handed the build client under any other name has a nix that dies at
+        # the shim. The producer and consumer are pinned to one name here,
+        # where no sandbox is needed to see it.
+        self.config["buildClient"] = str(self.root / "tools" / "nix")
+        self.config["builderModule"] = str(self.root / "builder-module.py")
+        self.fixture_relay()
         manifest = {
             **self.manifest,
             "policy": {**self.manifest["policy"], "nix": True},
@@ -527,7 +530,7 @@ class PolicyTests(unittest.TestCase):
             str(self.work / "runtime" / "build.json"),
         )
 
-    def test_nix_is_offered_only_with_a_builder(self):
+    def test_nix_is_offered_only_with_a_builder_or_session_daemon(self):
         runtime = self.work / "runtime"
         self.config["bundles"]["flake"] = {"domains": [], "nix": True}
 
@@ -537,12 +540,145 @@ class PolicyTests(unittest.TestCase):
             )
             return environment["ALAMODE_AVAILABLE_GRANTS"].split(",")
 
+        def grant():
+            return session.policy(
+                session.parse(["--allow-nix"], self.config), self.config, self.root
+            )
+
         self.assertNotIn("nix", available())
         self.assertNotIn("flake", available())
         self.assertIn("registry", available())
-        self.config["builder"] = str(self.root / "builder.json")
-        self.assertIn("nix", available())
-        self.assertIn("flake", available())
+        with self.assertRaisesRegex(session.SessionError, "Host daemon access"):
+            grant()
+        for key, value in (
+            ("builder", str(self.root / "builder.json")),
+            ("nixDaemonSocket", str(self.root / "daemon.sock")),
+        ):
+            with self.subTest(key=key), patch.dict(self.config, {key: value}):
+                self.assertIn("nix", available())
+                self.assertIn("flake", available())
+                self.assertTrue(grant()["nix"])
+
+    def session_daemon(self):
+        # A host whose --allow-nix is the session daemon. The client plays
+        # each canary from the (stderr, exit code) pairs in CANARY_OUTCOMES,
+        # unless asked to substitute, which plays an unreachable cache.
+        client = self.root / "client"
+        client.mkdir()
+        (client / "nix").write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, sys\n"
+            "name = sys.argv[sys.argv.index('--file') + 2]\n"
+            "error, code = json.loads(os.environ['CANARY_OUTCOMES'])[name]\n"
+            "if 'substitute' not in sys.argv:\n"
+            "    error, code = \"error: unable to download '.narinfo'\\n\", 1\n"
+            "sys.stderr.write(error)\n"
+            "sys.exit(code)\n"
+        )
+        (client / "nix").chmod(0o755)
+        daemon = socket.socket(socket.AF_UNIX)
+        self.addCleanup(daemon.close)
+        daemon.bind(str(self.root / "daemon.sock"))
+        self.config.update(
+            nixDaemonSocket=str(self.root / "daemon.sock"),
+            nixDaemonLabel="org.example.session-nix",
+            nixClient=str(client),
+            nixClientConf=str(self.root / "conf"),
+            nixCanary=str(self.root / "canary.nix"),
+        )
+
+    def canary(self, outcomes):
+        session.nix_canary(
+            self.config,
+            self.manifest,
+            {"PATH": os.environ["PATH"], "CANARY_OUTCOMES": json.dumps(outcomes)},
+        )
+
+    def test_nix_canary_refuses_a_daemon_that_would_give_a_build_network(self):
+        self.session_daemon()
+        hook = "error: pre-build hook '/nix/store/x-hook' failed with exit code 1\n"
+        healthy = {
+            "fod": [hook, 1],
+            "fetchurl": [hook, 1],
+            "localnet": [hook, 1],
+            "net": ["error: builder failed with exit code 7\n", 1],
+            "large": ["", 0],
+        }
+        told = io.StringIO()
+        with redirect_stderr(told):
+            self.canary(healthy)
+        self.assertEqual(told.getvalue(), "")
+        for name, outcome in (
+            ("fod", ["", 0]),
+            ("localnet", ["", 0]),
+            # It ran: the hash check comes after the fetch went out.
+            ("fetchurl", ["error: hash mismatch in fixed-output derivation\n", 1]),
+            # Refused by the hook, net never tested the sandbox.
+            ("net", [hook, 1]),
+            ("net", ["", 0]),
+            ("large", ["error: builder failed with exit code 1\n", 1]),
+        ):
+            told = io.StringIO()
+            with (
+                self.subTest(name=name, outcome=outcome),
+                redirect_stderr(told),
+                self.assertRaisesRegex(session.SessionError, "failed its canary"),
+            ):
+                self.canary({**healthy, name: outcome})
+            self.assertIn(f"canary ({name})", told.getvalue())
+            log = (self.records / "nix-canary.log").read_text()
+            self.assertIn(f"== {name}: exit {outcome[1]}", log)
+
+    def test_nix_canary_says_how_to_start_a_daemon_that_is_not_answering(self):
+        self.session_daemon()
+        refused = "error: cannot connect to socket at '/x': Connection refused\n"
+        outcomes = {
+            name: [refused, 1] for name in (*session.NIX_CANARY_REFUSED, "net", "large")
+        }
+        for stale in (False, True):
+            if stale:
+                Path(self.config["nixDaemonSocket"]).unlink()
+            told = io.StringIO()
+            with (
+                self.subTest(stale=stale),
+                redirect_stderr(told),
+                self.assertRaisesRegex(session.SessionError, "not running"),
+            ):
+                self.canary(outcomes)
+            self.assertIn(
+                "launchctl kickstart system/org.example.session-nix", told.getvalue()
+            )
+
+    def test_session_daemon_nix_hands_the_child_a_client_and_one_socket(self):
+        self.session_daemon()
+        self.fixture_relay()
+        manifest = {
+            **self.manifest,
+            "policy": {**self.manifest["policy"], "nix": True},
+        }
+        canaries = []
+        captured = {}
+
+        def record(config, manifest, arguments, environment, runtime, relay_port=0):
+            captured.update(environment)
+            return 0
+
+        with (
+            patch.object(session, "nix_canary", lambda *args: canaries.append(args)),
+            patch.object(session, "execute", record),
+        ):
+            self.assertEqual(session.run(self.config, manifest, [], self.root), 0)
+        self.assertEqual(len(canaries), 1)
+        socket_path = self.config["nixDaemonSocket"]
+        self.assertEqual(captured["NIX_REMOTE"], "unix://" + socket_path)
+        self.assertEqual(captured["NIX_CONF_DIR"], self.config["nixClientConf"])
+        self.assertTrue(captured["PATH"].startswith(self.config["nixClient"] + ":"))
+        self.assertNotIn("ALAMODE_BUILD_CLIENT", captured)
+        runtime = self.work / "runtime"
+        granted = session.sandbox_policy(self.config, manifest, runtime, 0)
+        self.assertIn(socket_path, granted["network"]["allowUnixSockets"])
+        plain = session.sandbox_policy(self.config, self.manifest, runtime, 0)
+        self.assertNotIn(socket_path, plain["network"]["allowUnixSockets"])
 
     def test_local_refuses_the_network_and_drops_host_defaults(self):
         self.config["domains"] = ["default.example.invalid"]
