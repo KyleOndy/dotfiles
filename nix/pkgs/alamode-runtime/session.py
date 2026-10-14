@@ -1808,7 +1808,10 @@ def tell(paragraphs, steps=()):
     """
     lines = []
     for paragraph in paragraphs:
-        lines.extend(textwrap.wrap(paragraph, 70) or [""])
+        lines.extend(
+            textwrap.wrap(paragraph, 70, break_long_words=False, break_on_hyphens=False)
+            or [""]
+        )
     if steps:
         width = max(len(label) for label, _ in steps)
         lines.append("")

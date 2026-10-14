@@ -1221,6 +1221,13 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("started outside a repository", message)
         self.assertIn("alamode sessions export fixture", message)
 
+    def test_tell_keeps_a_long_path_on_one_line(self):
+        path = "/Users/someone/.local/state/alamode/workspaces/20261014-115908-f81cec89/worktree"
+        told = io.StringIO()
+        with redirect_stderr(told):
+            session.tell([f"Its commits stay in {path}."])
+        self.assertIn(f"alamode: {path}.\n", told.getvalue())
+
     def test_land_leaves_a_branch_when_the_checkout_moved(self):
         manifest, tip = self.sealed_session("land-moved")
         source = Path(manifest["workspace"]["source"])
