@@ -438,6 +438,12 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart = getExe portForwardRefresh;
+        # A failure is usually a dead tunnel that pia-wg-healthcheck rebuilds
+        # within 5 minutes, and the retry binds the port that reconnect got.
+        # A unit waiting to restart reads as activating, never failed, so a
+        # refresh that keeps failing shows up as PiaPortForwardStale.
+        Restart = "on-failure";
+        RestartSec = "5min";
       };
     };
 
