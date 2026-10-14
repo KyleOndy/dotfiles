@@ -14,8 +14,11 @@
     onDemand = true;
     onDemandLingerMinutes = 5;
     # Sparse, so this caps the real disk the guest store can take. The
-    # guest collects garbage below 5 GiB free.
-    diskSize = "40GiB";
+    # guest collects garbage below 5 GiB free, and over ssh-ng that GC
+    # deletes a running build's own inputs. The cogsworth kernel
+    # (uncompressed DWARF, ~6.5k modules) peaks near 36 GiB, so it has to
+    # finish above that line.
+    diskSize = "64GiB";
   };
 
   nix = {
