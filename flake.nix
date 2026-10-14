@@ -61,6 +61,18 @@
     # (NixOS/nixpkgs#573629). alamode-nix-client builds from it too, so it
     # needs another source first.
     nix-upstream.url = "github:NixOS/nix/2.35.3";
+    # Determinate Nix 3.23 logs activity type 10113, and nom 2.2.0 prints a
+    # ParseNixJSONMessageError for every such line
+    # (maralorn/nix-output-monitor#320). This is the fix,
+    # maralorn/nix-output-monitor#321, pinned by commit so an update cannot
+    # pull a later push to the PR. Its cabal file needs GHC2024, which
+    # nixos-26.05's ghc 9.6.6 lacks, hence nixpkgs-master.
+    # TODO: remove with trex's overlay once a nixpkgs nom carries #321.
+    nix-output-monitor = {
+      url = "github:maralorn/nix-output-monitor/202f940f96360548dedfb3b9234f6f6f08a9a2ba";
+      inputs.nixpkgs.follows = "nixpkgs-master";
+      inputs.git-hooks.follows = "pre-commit-hooks";
+    };
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
     };
@@ -783,6 +795,14 @@
         includeModules = [
           ./nix/hosts/trex/root-ssh-config.nix
           inputs.determinate.darwinModules.default
+          # See the nix-output-monitor input. Only trex runs Determinate Nix.
+          {
+            nixpkgs.overlays = [
+              (final: _prev: {
+                nix-output-monitor = inputs.nix-output-monitor.packages.${final.stdenv.hostPlatform.system}.default;
+              })
+            ];
+          }
         ];
       };
 
