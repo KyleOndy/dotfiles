@@ -437,6 +437,7 @@ def policy(options, config, home):
         "local_models": options.local_model,
         "web": options.web,
         "domains": (list(config["domains"]) if defaults else []) + options.allow,
+        "allow": list(dict.fromkeys(options.allow)),
         "read": list(config["readPaths"]) + options.allow_read + options.allow_rw,
         "write": list(config["writePaths"]) + options.allow_write + options.allow_rw,
         "listen": list(config.get("listenPorts", [])) + options.listen,
@@ -1003,6 +1004,10 @@ def child_environment(config, manifest, home, runtime):
             env["ALAMODE_SOURCE_BRANCH"] = branch
     if manifest["policy"].get("local"):
         env["ALAMODE_LOCAL"] = "1"
+    # A resumed session's manifest can predate "allow".
+    allowed = manifest["policy"].get("allow", [])
+    if allowed:
+        env["ALAMODE_ALLOWED_HOSTS"] = ",".join(allowed)
     resources = manifest.get("resources", {}).get("forge")
     if resources:
         env.update(resources["env"])

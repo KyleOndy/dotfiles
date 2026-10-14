@@ -155,6 +155,7 @@ class PolicyTests(unittest.TestCase):
         self.assertTrue(session.requested_grants(options, self.config))
         grants = session.policy(options, self.config, self.root)
         self.assertIn("registry.example.invalid", grants["domains"])
+        self.assertEqual(grants["allow"], ["registry.example.invalid"])
         self.assertIn("registry", grants["grants"])
         with self.assertRaises(session.SessionError):
             session.parse(["--profile", "missing"], self.config)
@@ -968,6 +969,22 @@ class PolicyTests(unittest.TestCase):
             )
         )
         self.assertNotIn("ALAMODE_LOCAL", environment)
+        self.assertNotIn("ALAMODE_ALLOWED_HOSTS", environment)
+        allowed = session.child_environment(
+            self.config,
+            {
+                **manifest,
+                "policy": {
+                    **manifest["policy"],
+                    "allow": ["a.example.invalid", "b.example.invalid"],
+                },
+            },
+            self.root,
+            self.work / "runtime",
+        )
+        self.assertEqual(
+            allowed["ALAMODE_ALLOWED_HOSTS"], "a.example.invalid,b.example.invalid"
+        )
         local = session.child_environment(
             self.config,
             {

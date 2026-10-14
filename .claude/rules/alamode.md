@@ -20,7 +20,8 @@ start, so a `/settings` edit lasts one session. The sandbox wrapper is
 which records the grants it carries (`--web`, `--allow-nix`, `-forge`,
 `-clipboard`, `-trustd`, `-git-write`, each bundle, and the coordinator) in
 `ALAMODE_GRANTS` and the ones it could carry in `ALAMODE_AVAILABLE_GRANTS`.
-`--allow <host>`, `--listen` and path grants are not recorded.
+`--allow <host>` hosts, a profile's domains among them, go in
+`ALAMODE_ALLOWED_HOSTS`; `--listen` and path grants are not exported.
 `extensions/grants.ts` turns the carried ones into system-prompt sections
 from `grants/<name>.md` and lists the rest, so a session the sandbox blocks
 knows which flag to ask the human to restart with.
