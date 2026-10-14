@@ -1756,7 +1756,12 @@ in
           enable = true;
           jellyfinUrl = "http://127.0.0.1:8096";
           apiKeyFile = config.sops.secrets.jellyfin_api_key_exporter.path;
-          enableActivityCollector = true;
+          # It puts last_seen and total_play_time in labels, so every scrape
+          # makes new series, and it reads Playback Reporting's database every
+          # 15s, which answers "database is locked" while the plugin writes.
+          # Nothing reads it: what got watched comes from
+          # jellyfin_now_playing_state.
+          enableActivityCollector = false;
         };
 
         # Exportarr for *arr + sabnzbd metrics. API keys come from sops.
