@@ -945,7 +945,9 @@ def safe_clear(root, relative):
 # agent directory's copy first on every operation (docs/pi-sandbox-audit.md,
 # findings 1-6). SYSTEM.md, APPEND_SYSTEM.md and the AGENTS.md/CLAUDE.md
 # alternates replace or extend the system prompt and user instructions the
-# same way, prompts/ adds slash commands a human can run from a resumed TUI,
+# same way, prompts/ adds slash commands a human can run from a resumed TUI
+# (and so does commands/, which pi's startup migration renames to prompts/
+# whenever prompts/ is missing, src/migrations.ts migrateCommandsToPrompts),
 # and keybindings.json rebinds its keys, so they are reclaimed too (pi 1.0.0
 # docs/configuration.md names every file the agent directory contributes, and
 # docs/security.md which of them load without a trust decision). bin and npm
@@ -979,6 +981,7 @@ PLANTED_AGENT_NAMES = (
     "CLAUDE.md",
     "CLAUDE.MD",
     "prompts",
+    "commands",
     "keybindings.json",
 )
 
@@ -1370,6 +1373,9 @@ def prepare(config, manifest, relay):
     runtime = root / "runtime"
     for name in PLANTED_AGENT_NAMES:
         safe_clear(root, "runtime/agent/" + name)
+    # pi loads user skills from $HOME/.agents/skills with no trust decision,
+    # and the session's HOME is runtime/home, which it writes and resume keeps.
+    safe_clear(root, "runtime/home/.agents")
     for name in ("home", "tmp", "cache", "state", "sessions"):
         safe_write(root, f"runtime/{name}/.pi-runtime", b"")
     settings = read_json(config["settingsFile"]) if config["settingsFile"] else {}

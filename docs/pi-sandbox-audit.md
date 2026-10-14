@@ -65,8 +65,9 @@ packages it loads).
 
 The file is writable by every session ("pi's own state"), and both keys are
 documented exec primitives (pi docs/settings.md). No env var or CLI flag
-overrides settings keys in pi 1.0.0 or 1.1.0 (researched across both), so
-there is nothing to pin the values with; `PI_CODING_AGENT_DIR` relocates the
+overrides settings keys in pi 1.0.0 through 1.2.0 (researched in 1.0.0 and
+1.1.0; 1.2.0's CLI parser and environment reads are unchanged), so there
+is nothing to pin the values with; `PI_CODING_AGENT_DIR` relocates the
 whole agent dir, too blunt a lever.
 
 Proof: in a scratch agent dir, a fresh headless child ran the planted
@@ -263,9 +264,13 @@ wraps the human's pi too: `/login`, first-trust grants, `pi install`,
 managed-binary downloads and `pi update --models` become unsandboxed acts
 (`pi --no-sandbox`). Those are human decisions, which is the right side of
 the line for them. Then encode the inventory as a flake-check assertion and
-re-run it on every pi bump: pi 1.1.0 changes nothing here (checked), but new
-trusted paths arrive over time, and a deny-by-default list turns each into a
-refusal instead of a hole.
+re-run it on every pi bump: pi 1.1.0 and 1.2.0 add no trusted path here
+(checked against each release's source; 1.2.0's per-key OpenRouter model
+list lands in the existing `models-store.json`). The 1.2.0 pass found two
+older ones the reclaim missed, agent-dir `commands/`, which pi's startup
+migration renames to `prompts/`, and `$HOME/.agents/skills`, since `HOME` is
+the session's `runtime/home`. New trusted paths arrive over time, and a
+deny-by-default list turns each into a refusal instead of a hole.
 
 ## Residuals, after the fixes
 

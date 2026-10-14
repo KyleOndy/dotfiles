@@ -1852,7 +1852,12 @@ class PolicyTests(unittest.TestCase):
         (agent / "AGENTS.override.md").write_text("planted override")
         (agent / "prompts").mkdir()
         (agent / "prompts" / "evil.md").write_text("planted slash command")
+        (agent / "commands").mkdir()
+        (agent / "commands" / "evil.md").write_text("planted slash command")
         (agent / "keybindings.json").write_text("{}")
+        home_skills = runtime / "home" / ".agents" / "skills"
+        home_skills.mkdir(parents=True)
+        (home_skills / "evil.md").write_text("planted user skill")
         # Tool shadowing trees, with nested content.
         planted_bin = agent / "bin"
         planted_bin.mkdir()
@@ -1903,9 +1908,11 @@ class PolicyTests(unittest.TestCase):
             "CLAUDE.md",
             "CLAUDE.MD",
             "prompts",
+            "commands",
             "keybindings.json",
         ):
             self.assertFalse((agent / name).exists(), name)
+        self.assertFalse((runtime / "home" / ".agents").exists())
         self.assertTrue((agent / "agents").is_dir())
         self.assertTrue((agent / "skills").is_dir())
         self.assertEqual((sentinel / "keep").read_text(), "sentinel")
