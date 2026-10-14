@@ -1009,6 +1009,12 @@ def child_environment(config, manifest, home, runtime):
     return env
 
 
+def literal(path):
+    # srt reads `*`, `?` and `[` in a string entry as a pattern; this entry
+    # names the path whatever characters it holds.
+    return {"path": str(path), "literal": True}
+
+
 def cased_deny(root, path):
     # A deny entry whose every component below the writable root is a glob
     # character class. APFS resolves names case-insensitively while Seatbelt
@@ -1017,6 +1023,10 @@ def cased_deny(root, path):
     # deny never matches nothing changes. Components at or above the writable
     # root are left literal: the session cannot alias a directory it cannot
     # write, and paths outside the write roots are denied outright anyway.
+    # Elsewhere the filesystem is case-sensitive and srt's Linux backend
+    # skips a write-deny pattern, so the entry names the path.
+    if sys.platform != "darwin":
+        return literal(path)
     try:
         relative = Path(path).relative_to(root)
     except ValueError:
@@ -1036,8 +1046,14 @@ def cased_deny(root, path):
 def sandbox_policy(config, manifest, runtime, relay_port):
     grant = manifest["policy"]
     root = manifest["workspace"]["session_root"]
-    write = [root, *grant["write"]]
-    read = [*config["systemReadPaths"], root, *grant["read"], *grant["write"]]
+    # validate_grants compares grants as paths, so srt must read them as
+    # paths too, or a grant ending in `alam*` could cover the control dir.
+    write = [root, *map(literal, grant["write"])]
+    read = [
+        *config["systemReadPaths"],
+        root,
+        *map(literal, grant["read"] + grant["write"]),
+    ]
     sockets = []
     if manifest.get("coordinator"):
         sockets.append(manifest["coordinator"]["socket"])

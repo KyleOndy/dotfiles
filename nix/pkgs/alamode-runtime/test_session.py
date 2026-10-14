@@ -178,11 +178,8 @@ class PolicyTests(unittest.TestCase):
         rules = session.sandbox_policy(
             self.config, self.manifest, self.work / "runtime", 0
         )
-        self.assertTrue(
-            {
-                str(path) for path in session.transport_directories(self.manifest)
-            }.issubset(rules["filesystem"]["denyWrite"])
-        )
+        for path in session.transport_directories(self.manifest):
+            self.assertIn(str(path), rules["filesystem"]["denyWrite"])
 
     def test_information_does_not_admit_source_or_credentials(self):
         executable = self.root / "fake-pi"
@@ -1247,7 +1244,7 @@ class PolicyTests(unittest.TestCase):
             self.config, self.manifest, self.work / "runtime", 0
         )
         workspace = Path(self.manifest["workspace"]["workspace"])
-        expected = {
+        expected = [
             session.cased_deny(self.work, workspace / ".pi" / "secret-guard.json"),
             session.cased_deny(self.work, workspace / ".pi" / "verify.json"),
             session.cased_deny(
@@ -1258,11 +1255,11 @@ class PolicyTests(unittest.TestCase):
             ),
             session.cased_deny(self.work, self.work / "runtime" / "agent" / "bin"),
             session.cased_deny(self.work, self.work / "runtime" / "agent" / "npm"),
-        }
-        self.assertTrue(
-            expected.issubset(set(rules["filesystem"]["denyWrite"])),
-            rules["filesystem"]["denyWrite"],
-        )
+        ]
+        for entry in expected:
+            self.assertIn(entry, rules["filesystem"]["denyWrite"])
+        if sys.platform != "darwin":
+            return
         # APFS resolves names case-insensitively while Seatbelt regexes are
         # case-sensitive, so every variant spelling of every plantable path
         # must still match some deny entry; the character classes guarantee it.
@@ -1299,8 +1296,10 @@ class PolicyTests(unittest.TestCase):
             ),
             rules["filesystem"]["denyRead"],
         )
-        # Every casing variant must match some deny entry, and the job logs
-        # stall-guard points the model at must stay readable.
+        # The job logs stall-guard points the model at stay readable.
+        self.assertNotIn("job-logs", str(rules["filesystem"]["denyRead"]).lower())
+        if sys.platform != "darwin":
+            return
         variants = []
         for task in ("task-logs", "TASK-LOGS", "Task-Logs"):
             for runtime in ("runtime", "Runtime"):
@@ -1315,11 +1314,18 @@ class PolicyTests(unittest.TestCase):
                     ),
                     f"{path} slips every denyRead entry",
                 )
-        self.assertFalse(
-            any(
-                "job-logs" in entry.lower() for entry in rules["filesystem"]["denyRead"]
-            )
+
+    def test_sandbox_reads_grants_as_paths(self):
+        grant = str(self.root / "alam*")
+        self.manifest["policy"]["read"] = []
+        self.manifest["policy"]["write"] = [grant]
+        rules = session.sandbox_policy(
+            self.config, self.manifest, self.work / "runtime", 0
         )
+        entry = {"path": grant, "literal": True}
+        self.assertIn(entry, rules["filesystem"]["allowWrite"])
+        self.assertIn(entry, rules["filesystem"]["allowRead"])
+        self.assertNotIn(grant, rules["filesystem"]["allowWrite"])
 
     def test_pin_store_roots_registers_deployment_packages(self):
         gcroots = self.root / "gcroots"
