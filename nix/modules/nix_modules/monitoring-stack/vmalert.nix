@@ -321,7 +321,7 @@ in
                 service: sonarr
               annotations:
                 summary: "Sonarr has {{ $value }} queue item(s) stuck importing"
-                description: "Sonarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://sonarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists blocked items at 48h, but never touches one sitting in importPending."
+                description: "Sonarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://sonarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
 
             - alert: RadarrQueueHigh
               expr: radarr_queue_total > 50
@@ -341,7 +341,7 @@ in
                 service: radarr
               annotations:
                 summary: "Radarr has {{ $value }} queue item(s) stuck importing"
-                description: "Radarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://radarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists blocked items at 48h, but never touches one sitting in importPending."
+                description: "Radarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://radarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
 
             - alert: LidarrQueueHigh
               expr: lidarr_queue_total > 50
@@ -364,7 +364,7 @@ in
                 service: lidarr
               annotations:
                 summary: "Lidarr has {{ $value }} queue item(s) stuck importing"
-                description: "Lidarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://lidarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. arr-queue-janitor removes and blocklists blocked items at 48h, but never touches one sitting in importPending."
+                description: "Lidarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://lidarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
 
             # Each app's System > Status page: download client unreachable,
             # root folder missing, import lists failing. UpdateCheck is noise

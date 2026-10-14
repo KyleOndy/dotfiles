@@ -153,14 +153,22 @@ in
             # Fractional seconds appear on some records and fromdateiso8601
             # rejects them.
             targets=$(printf '%s' "$queue" | jq -r --argjson now "$now" --argjson cutoff "$CUTOFF" '
-              .records[]
+              [.records[]
               | select(.added != null)
               # importFailed is where Lidarr parks an incomplete release;
               # Sonarr and Radarr call the same condition importBlocked.
+              # A finished download with nothing left it can import, such as
+              # a season pack missing one episode, stays importPending with a
+              # warning instead. A healthy pending item reads ok.
               | select(.trackedDownloadState == "importBlocked"
                        or .trackedDownloadState == "importFailed"
-                       or .trackedDownloadState == "failedPending")
-              | select(((.added | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) + $cutoff) <= $now)
+                       or .trackedDownloadState == "failedPending"
+                       or (.trackedDownloadState == "importPending"
+                           and .trackedDownloadStatus == "warning"))
+              | select(((.added | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) + $cutoff) <= $now)]
+              # One record per episode or album, and removing any of them
+              # removes the whole download.
+              | unique_by(.downloadId)[]
               | "\(.id)\t\(.title)"')
 
             key=$(cat "$keyfile")
