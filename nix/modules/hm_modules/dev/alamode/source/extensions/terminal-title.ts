@@ -29,7 +29,7 @@
  * States are IDL waiting on you with nothing running, RUN in the agent loop,
  * EXE running a tool or, once the turn has settled, a background job
  * (stall-guard.ts), CMP compacting, and RTY sleeping between provider
- * retries, which the retry budget stretches to 126s. There is no
+ * retries, which the retry budget stretches to 122s. There is no
  * permission-prompt state: pi gates tools with the sandbox rather than by
  * asking. `--print` and `--mode json` leave hasUI false, where setTitle is a
  * no-op, so a non-interactive run reports nothing.

@@ -972,12 +972,13 @@ export default function (pi: ExtensionAPI) {
             (event) => {
               const type = event.type;
               // message_update is one event per token, tool_execution_update
-              // repeats the whole accumulated result on every tick (pi
-              // 0.84.3 docs/rpc.md), and agent_end repeats every message
-              // already logged. All three are bulk and none is logged; the
-              // first is still the only live window into a subagent's
-              // reasoning between tool calls, so its deltas feed the live
-              // tail the pinned rows narrate from.
+              // carries a tool's latest partial result, which for bash is the
+              // whole accumulated output on every tick (pi docs/json.md
+              // leaves replace-or-extend to each tool), and agent_end repeats
+              // every message already logged. All three are bulk and none is
+              // logged; the first is still the only live window into a
+              // subagent's reasoning between tool calls, so its deltas feed
+              // the live tail the pinned rows narrate from.
               if (type === "message_update") {
                 const block = event.assistantMessageEvent as
                   | { type?: string; delta?: string }

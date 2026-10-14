@@ -3,8 +3,8 @@
  *
  * The working row is the one surface that exists exactly as long as the
  * work does, and it already redraws at the spinner's interval, so
- * ctx.ui.setWorkingMessage() (docs/extensions.md, "Widgets, Status, and
- * Footer") is nearly free to keep current. Loader.setMessage() calls
+ * ctx.ui.setWorkingMessage() (ExtensionUIContext in pi's
+ * core/extensions/types.ts) is nearly free to keep current. Loader.setMessage() calls
  * ui.requestRender() itself. The footer alternative would tick a line
  * five other extensions already share.
  *

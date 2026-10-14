@@ -16,7 +16,8 @@ MAX_FILE_BYTES = 64 * 1024 * 1024
 MAX_COMMITS = 1000
 OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 # Context files pi loads from a repository with no trust decision (pi 1.0.0
-# docs/security.md: "Context-file discovery does not require project trust").
+# to 1.2.0 docs/configuration.md: "Context-file discovery does not require
+# project trust").
 # Admission records them instead of refusing them: documentation work
 # legitimately edits them, and the record tells the human which paths in a
 # merge are model-authored steering rather than code.

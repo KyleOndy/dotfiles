@@ -15,9 +15,8 @@
  *
  *   - A returned prompt replaces the whole assembled prompt for the run, so
  *     any section another extension sets is silently dropped (a probe marker
- *     set alongside a return never reached the provider), and no later
- *     handler can see the replacement either: every handler is handed the
- *     same base prompt. Sections compose in both directions.
+ *     set alongside a return never reached the provider). Sections compose
+ *     with every other extension's.
  *   - Sections are the assembled prompt's own pipeline: what lands in the
  *     provider request also lands in the session file's structured record,
  *     so a human can audit any transcript for whether the grants guidance

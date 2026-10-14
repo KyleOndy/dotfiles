@@ -1,9 +1,10 @@
 /**
  * linear: read-only Linear ticket lookup for alamode.
  *
- * pi 0.82.1 has no MCP support, so the MCP servers this laptop already talks
- * to are unreachable from pi and the route is registerTool against Linear's
- * GraphQL API. There is no REST surface to fall back to.
+ * Sessions run pi with its built-in MCP off (--no-mcp, and the agent dir's
+ * mcp.json is reclaimed at every start, nix/pkgs/alamode-runtime/session.py),
+ * so the MCP servers this laptop already talks to are unreachable from pi and
+ * the route is registerTool against Linear's GraphQL API. There is no REST surface to fall back to.
  *
  * The call goes out from inside the sandbox with a plain fetch. pi ships as a
  * Bun binary and srt injects HTTP_PROXY / HTTPS_PROXY plus the CA-trust

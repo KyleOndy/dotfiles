@@ -59,11 +59,12 @@ let
       pkgs.llm-agents.pi;
 
   # retry.maxRetries 6 against the default 2s base: pi's agent-level backoff
-  # is baseDelayMs * 2^(attempt-1) with no jitter and no ceiling, so the
-  # budget is 126s and the longest single sleep is 64s. The default 3 gives up
-  # after 14s, which mcloud outranks on a routine overload; past 6 the
-  # doubling buys minutes of silent sleep that reads as a hang, with nothing
-  # on screen to say the session is only waiting. shellPath replaces macOS's
+  # is baseDelayMs * 2^(attempt-1) with no jitter, each sleep capped at
+  # retry.maxAgentDelayMs (60s), so the budget is 122s and the longest single
+  # sleep is 60s. The default 3 gives up after 14s, which mcloud outranks on a
+  # routine overload; past 6 every retry adds another silent minute that
+  # reads as a hang, with nothing on screen to say the session is only
+  # waiting. shellPath replaces macOS's
   # /bin/bash 3.2, which cannot parse `"$(cat <<'EOF'` with an apostrophe
   # in the heredoc body, the usual commit-message shape.
   settingsFile = pkgs.writeText "alamode-settings.json" (

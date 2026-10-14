@@ -31,9 +31,8 @@ SEATS_FILE = "@seatsFile@"
 # Empty when the host keeps no trust list, and then no seat's provider is
 # checked.
 TRUSTED = [p for p in "@trustedProviders@".split(",") if p]
-# Repo path of the sops file holding alamode_seats and
-# alamode_models_json, for the fix-it lines. Empty when the host didn't name one.
-# fix-it lines. Empty when the host didn't name one.
+# Repo path of the sops file holding alamode_seats and alamode_models_json,
+# for the fix-it lines. Empty when the host didn't name one.
 SOURCE = "@secretsSource@"
 # The inference relay's module and the plain-HTTP hosts it may contact, so a
 # deploy check refuses the same catalog the relay would at session start.

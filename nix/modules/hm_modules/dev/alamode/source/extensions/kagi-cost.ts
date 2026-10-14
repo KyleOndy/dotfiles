@@ -4,9 +4,9 @@
  * pi prices a session from model token usage, so a paid API reached through
  * the bash tool is invisible: the footer and /session read the same whether a
  * turn made ten Kagi requests or none. docs/extensions.md ("tool_result")
- * lets a handler return a `usage` patch, and docs/rpc.md ("ToolResultMessage")
- * says a tool result's usage "contributes to session token and cost totals",
- * which is the hook that closes the gap.
+ * lets a handler return a `usage` patch, and docs/message-types.md
+ * ("ToolResultMessage") says a tool result's usage "contributes to
+ * full-session statistics", which is the hook that closes the gap.
  *
  * The amount comes from the `kagi` command itself (nix/pkgs/kagi/kagi.sh),
  * which prints one `kagi: billed $x.xxx` line per invocation on stderr. Two

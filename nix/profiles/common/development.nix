@@ -29,12 +29,15 @@ with lib;
         domestique.enable = lib.mkDefault pkgs.stdenv.hostPlatform.isDarwin;
         alamode = {
           enable = lib.mkDefault true;
-          # pi 0.80.5's startup tmux keyboard probe (checkTmuxKeyboardSetup)
-          # calls spawn("tmux") when $TMUX is set; the strict srt sandbox
-          # denies that exec and the engine does not catch the synchronous
-          # spawn EPERM, so it crashes on launch inside tmux. Forcing TMUX
-          # empty makes it skip the probe. TMUX is read in exactly one
-          # place (the probe), and empty is harmless outside tmux.
+          # pi's startup tmux keyboard probe (checkTmuxKeyboardSetup, since
+          # 0.80.5) calls spawn("tmux") when $TMUX is set; the strict srt
+          # sandbox denies that exec and the engine does not catch the
+          # synchronous spawn EPERM, so it crashes on launch inside tmux.
+          # Forcing TMUX empty makes it skip the probe. pi-tui still counts
+          # an empty TMUX as a multiplexer (tui-alt-screen.ts tests
+          # TMUX !== undefined) and picks button-motion mouse tracking, which
+          # costs hover outside tmux; inside it, TERM=tmux-256color picks
+          # the same mode anyway.
           sandbox.envVars.TMUX = "";
         };
       };

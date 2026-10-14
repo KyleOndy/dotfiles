@@ -2,8 +2,8 @@
  * working-indicator: a wave of rising bars for the streaming working row.
  *
  * pi exposes no setting or theme key for the spinner, so ctx.ui
- * .setWorkingIndicator() (docs/tui.md, "Working Indicator Customization")
- * is the only lever.
+ * .setWorkingIndicator() (ExtensionUIContext in pi's
+ * core/extensions/types.ts) is the only lever.
  *
  * The frames are block elements from U+2581-U+2588. Alacritty draws
  * U+2500-U+259F with its own built-in font (builtin_box_drawing, default
