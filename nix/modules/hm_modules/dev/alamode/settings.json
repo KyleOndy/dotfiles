@@ -1,6 +1,6 @@
 {
   "theme": "gruvbox-dark",
-  "quietStartup": true,
+  "quietStartup": "header",
   "defaultThinkingLevel": "max",
   "showCacheMissNotices": true,
   "retry": {
