@@ -584,6 +584,79 @@ in
     };
   };
 
+  # The UDM Pro's newest Network autobackup and Protect config. Fixed names,
+  # so each pull replaces the last and the storage/backups snapshots hold the
+  # history. The key's line on the UDM forces a tar of those two files and
+  # nothing else; docs/backup-strategy.md has it.
+  systemd.services.udm-backup =
+    let
+      udm = "10.25.89.1";
+      knownHosts = pkgs.writeText "udm-known-hosts" "${udm} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOKYhS4Cva5mOBiuI3l/3bN3T2diG29KNxyEq/tt7QhC";
+    in
+    {
+      description = "Pull the UDM Pro's newest Network and Protect backups into storage/backups";
+      unitConfig.RequiresMountsFor = "/mnt/backups";
+      environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
+      serviceConfig = {
+        Type = "oneshot";
+        TimeoutStartSec = "10min";
+        # ReadWritePaths fails the unit on a missing path, and tmpfiles
+        # refuses anything below apps/: kyle owns /mnt/backups, so the step
+        # to root-owned apps/ is an unsafe path transition. `+` runs this
+        # outside the sandbox.
+        ExecStartPre = "+${pkgs.coreutils}/bin/install -d -m 0700 /mnt/backups/apps/udm";
+        ExecStart = lib.getExe (
+          pkgs.writeShellApplication {
+            name = "udm-backup";
+            runtimeInputs = [
+              pkgs.openssh
+              pkgs.gnutar
+            ];
+            text = ''
+              dest=/mnt/backups/apps/udm
+              tmp=$(mktemp -d "$dest/.pull.XXXXXX")
+              trap 'rm -rf "$tmp"' EXIT
+
+              ssh -T -i ${config.sops.secrets.udm_backup_ssh_key.path} \
+                -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=30 \
+                -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts} \
+                root@${udm} | tar -xf - --no-same-owner -C "$tmp"
+
+              mv -f "$tmp"/autobackup_*.unf "$dest/network.unf"
+              mv -f "$tmp"/unifi_protect_backup.*.zip "$dest/protect.zip"
+
+              # The UDM's write time, not the pull's, so a UDM that stops
+              # backing up ages this the same as a pull that fails.
+              {
+                echo '# HELP udm_backup_file_timestamp_seconds Unix time the UDM wrote the backup tiger last pulled'
+                echo '# TYPE udm_backup_file_timestamp_seconds gauge'
+                echo "udm_backup_file_timestamp_seconds{file=\"network\"} $(stat -c %Y "$dest/network.unf")"
+                echo "udm_backup_file_timestamp_seconds{file=\"protect\"} $(stat -c %Y "$dest/protect.zip")"
+              } >"$TEXTFILE_DIR/udm_backup.prom.tmp"
+              mv -f "$TEXTFILE_DIR/udm_backup.prom.tmp" "$TEXTFILE_DIR/udm_backup.prom"
+            '';
+          }
+        );
+        ProtectSystem = "strict";
+        ReadWritePaths = [
+          "/mnt/backups/apps/udm"
+          config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory
+        ];
+      };
+    };
+
+  # The Network app writes at 00:00 UTC and Protect at 00:00 New York time,
+  # so 03:00 local follows both year-round. 03:00 rather than 02:00 because
+  # the spring DST change skips 02:00.
+  systemd.timers.udm-backup = {
+    description = "Daily UDM Pro backup pull";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*-*-* 03:00";
+      Persistent = true;
+    };
+  };
+
   # media managment
   #
   # Only the two accounts that have no other route in. Every service that
@@ -600,7 +673,7 @@ in
   # rather than hardlink.
   systemd.tmpfiles.rules = [
     # Secrets live in both. Only kyle touches kyle/, only the root *arr-backup
-    # units touch apps/, and pika reads through zfs send. `d`, not `z`: `z`
+    # and udm-backup units touch apps/, and pika reads through zfs send. `d`, not `z`: `z`
     # refuses kyle-owned /mnt/backups to root-owned apps/ as an unsafe path
     # transition and fails systemd-tmpfiles-resetup.
     "d /mnt/backups/kyle 0700 kyle kyle -"
@@ -2263,6 +2336,7 @@ in
     prowlarr_api_key.mode = "0400";
     bazarr_api_key.mode = "0400";
     sabnzbd_api_key.mode = "0400";
+    udm_backup_ssh_key.mode = "0400";
     # alamode's catalog and seats, and alamode-advisor's Kagi key, read
     # through LoadCredential, as is mcloud_api_key below. The catalog and
     # seat are secrets because the model ids in them are private.

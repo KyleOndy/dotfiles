@@ -105,8 +105,8 @@ home and awake. See [windows-backup.md](windows-backup.md).
 
 Its freshness alert works differently from the others. Every other writer
 here runs on a timer on a host we control and reports its own success
-(the git bundles, histdb and mail through node_exporter's textfile
-collector),
+(the git bundles, histdb, mail and the UDM pull through node_exporter's
+textfile collector),
 so absence is measurable from the inside. The laptop is not, so tiger asks
 its own Syncthing every 15 minutes whether the laptop is connected and fully
 synced, stamps a file when it is, and alerts on the stamp's age. Any future
@@ -114,7 +114,7 @@ writer that lives off-fleet needs the same treatment.
 
 `/mnt/backups/kyle` holds the git bundles below, the dotfiles git-crypt
 key, shell history and mail, and `/mnt/backups/apps` holds \*arr backup zips that
-carry API keys. tmpfiles holds them at 0700, `kyle` and `root` respectively,
+carry API keys and the UDM's backups. tmpfiles holds them at 0700, `kyle` and `root` respectively,
 because nothing but those accounts reads them on tiger and pika reads through
 `zfs send`. They are `d` rules rather than `z`: `/mnt/backups` is owned by
 kyle, and `z` rejects the step to root-owned `apps/` as an unsafe path
@@ -140,6 +140,36 @@ mistake there reaches the server and it doesn't count. The cost of this one
 is that tiger holds each account's full password
 (`shared-tiger-trex.yaml`), which can also delete mail and send as that
 address.
+
+tiger pulls the UDM Pro's newest Network autobackup and Protect config zip
+into `/mnt/backups/apps/udm` at 03:00, as `network.unf` and `protect.zip`.
+The names are fixed, so each pull replaces the last. sanoid's tiers decide
+how many copies we keep, and the archive tier holds one version a day until
+the noncurrent expiry drops it.
+
+The Network app backs up settings only (`autobackup_days` 0), about 140 KB.
+The default carries 30 days of stats at about 20 MB, and unpoller already
+has those in VictoriaMetrics. A console's UI has no control for this, so it
+was set through the API, and a firmware update could quietly put it back.
+A `network.unf` near 20 MB means it did.
+
+A `.unf` holds the Wi-Fi keys and VPN keys, which is why it lives under the
+0700 `apps/`. The UniFi OS console backup (admins, console settings) is not
+pulled. The UDM uploads that one to the UI account itself.
+
+tiger never gets a shell on the gateway. Its key, sops key
+`udm_backup_ssh_key`, can only stream a tar of the two newest files, and the
+UDM's sshd takes keys only. UniFi policy `tiger ssh to unifi console` lets
+tiger's two MACs reach the Gateway zone on tcp/22, beside
+`tiger to unifi console` for unpoller's 443. The line lives in the UDM's
+`/root/.ssh/authorized_keys`, which survives firmware updates but not a
+reset or a replacement. To put it back, from trex:
+
+```
+command="tar -cf - -C /data/unifi/data/backup/autobackup $(cd /data/unifi/data/backup/autobackup && ls -t autobackup_*.unf | head -n1) -C /etc/unifi-protect/backups $(cd /etc/unifi-protect/backups && ls -t unifi_protect_backup.*.zip | head -n1)",from="10.25.89.6",restrict ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIONZv0SzLf8x0vPshePkMirOWZKnDCo4iHDTnc19mO/6 udm-backup@tiger
+```
+
+A new UDM also brings a new host key, which `udm-backup` pins.
 
 ### Writers into storage/projects
 

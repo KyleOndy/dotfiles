@@ -1145,6 +1145,32 @@ in
                 summary: "No mail backup metric from {{ $labels.host }}"
                 description: "No mail_backup_last_success_timestamp_seconds series exists for tiger, so MailBackupStale cannot fire. Either mail-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u mail-backup` on tiger."
 
+        # tiger pulls the UDM Pro's newest Network and Protect backups into
+        # /mnt/backups/apps/udm daily. The timestamp is when the UDM wrote the
+        # file, so a UDM that stops writing backups ages it the same as a
+        # failed pull.
+        - name: udm_backup
+          interval: 60s
+          rules:
+            - alert: UdmBackupStale
+              expr: time() - udm_backup_file_timestamp_seconds{host="tiger"} > 2 * 86400
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "UDM {{ $labels.file }} backup on tiger is over 2 days old"
+                description: "The newest UDM {{ $labels.file }} backup in /mnt/backups/apps/udm on tiger was written over 2 days ago, against a daily backup and a daily pull. Run `journalctl -u udm-backup` on tiger. If the pull succeeds, the UDM stopped writing: check the dates in /data/unifi/data/backup/autobackup or /etc/unifi-protect/backups on it. A reset UDM loses the forced-command key; docs/backup-strategy.md has the line to restore."
+
+            # Same reason as HistdbBackupMetricMissing.
+            - alert: UdmBackupMetricMissing
+              expr: absent(udm_backup_file_timestamp_seconds{host="tiger",file="network"})
+              for: 26h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No UDM backup metric from tiger"
+                description: "No udm_backup_file_timestamp_seconds series exists for tiger, so UdmBackupStale cannot fire. Either udm-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u udm-backup` on tiger."
+
         # launchd agents on trex. Every rule here goes quiet while trex
         # sleeps, because its vmagent stops pushing and the series go stale.
         - name: launchd_agents
