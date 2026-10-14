@@ -109,6 +109,10 @@ in
     ];
   };
 
+  # The daemon alamode sessions build through: no network for any build it
+  # runs. home.nix hands its socket to alamode.
+  systemFoundry.alamodeNixDaemon.enable = true;
+
   # Of trex's 32 GiB, held only while the builder VM is up.
   nix-rosetta-builder.memory = "12GiB";
 
