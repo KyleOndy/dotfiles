@@ -422,6 +422,8 @@ in
       description = "PIA network namespace and veth link";
       after = [ "network-online.target" ];
       wants = [ "network-online.target" ];
+      # Its restart drags pia-wg-connect along through BindsTo; see there.
+      restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
@@ -438,6 +440,10 @@ in
       wantedBy = [ "multi-user.target" ];
       after = [ "netns-pia.service" ];
       bindsTo = [ "netns-pia.service" ];
+      # A restart costs the forwarded port, and a PIA outage during a switch
+      # makes deploy-rs roll back the whole host. A changed script waits for
+      # the next reconnect or a manual `systemctl restart`.
+      restartIfChanged = false;
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
