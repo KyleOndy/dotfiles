@@ -189,6 +189,10 @@ update/cogsworth: ## Update just the cogsworth input
 update/nixpkgs-master: ## Update just the nixpkgs-master input
 	nix flake update nixpkgs-master
 
+.PHONY: update/ai
+update/ai: ## Update just the AI tooling inputs (llm-agents, claude-code-nix)
+	nix flake update llm-agents claude-code-nix
+
 .PHONY: check
 check: ## Run the flake checks
 	$(call WITH_NOM,nix flake check $(IMPURE) -L)
