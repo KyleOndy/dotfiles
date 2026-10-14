@@ -39,7 +39,7 @@ import {
 } from "@earendil-works/pi-tui";
 import path from "node:path";
 
-const NAME_CELLS = 6;
+export const NAME_CELLS = 6;
 const TAIL_LINES = 2;
 
 interface Timing {
@@ -66,9 +66,9 @@ export interface RowSpec<Args> {
   tail?(text: string): string[];
 }
 
-const EMPTY: Component = { render: () => [], invalidate() {} };
+export const EMPTY: Component = { render: () => [], invalidate() {} };
 
-class Lines implements Component {
+export class Lines implements Component {
   constructor(private readonly draw: (width: number) => string[]) {}
   render(width: number): string[] {
     return this.draw(width);
@@ -76,7 +76,7 @@ class Lines implements Component {
   invalidate(): void {}
 }
 
-function indent(component: Component, cells: number): Component {
+export function indent(component: Component, cells: number): Component {
   if (cells <= 0) return component;
   const box = new Box(cells, 0);
   box.addChild(component);
@@ -102,7 +102,7 @@ export function text(result: Result): string {
     .join("\n");
 }
 
-function row(
+export function row(
   theme: Theme,
   stripe: string,
   name: string,
@@ -118,6 +118,21 @@ function row(
     fitted +
     " ".repeat(width - visibleWidth(fitted) - visibleWidth(meta)) +
     meta
+  );
+}
+
+// A line under a row, behind the same stripe and starting where the row's
+// summary does.
+export function continuation(
+  theme: Theme,
+  stripe: string,
+  text: string,
+  width: number,
+): string {
+  return truncateToWidth(
+    `${theme.fg(stripe, "▌")}${" ".repeat(NAME_CELLS + 1)}${text}`,
+    width,
+    "...",
   );
 }
 
@@ -189,16 +204,11 @@ export function rows<Args>(
       const tail = (spec.tail?.(output) ?? output.split("\n"))
         .filter((line) => line.trim() !== "")
         .slice(-TAIL_LINES);
-      const gutter = " ".repeat(NAME_CELLS + 1);
       return pad(
         new Lines((width) => [
           ...head.render(width),
           ...tail.map((line) =>
-            truncateToWidth(
-              `${theme.fg("error", "▌")}${gutter}${theme.fg("toolOutput", line)}`,
-              width,
-              "...",
-            ),
+            continuation(theme, "error", theme.fg("toolOutput", line), width),
           ),
         ]),
       );

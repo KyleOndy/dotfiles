@@ -60,7 +60,15 @@ import {
   getAgentDir,
   parseFrontmatter,
 } from "@earendil-works/pi-coding-agent";
-import { Text, truncateToWidth } from "@earendil-works/pi-tui";
+import { truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import {
+  EMPTY,
+  Lines,
+  NAME_CELLS,
+  continuation,
+  indent,
+  row,
+} from "./tool-rows.ts";
 
 // Matches the local model server's --prompt-concurrency 3 (mlx-openai-server
 // launchd config, nix/hosts/trex/home.nix) -- no point queuing more subagents
@@ -141,6 +149,37 @@ interface TaskResult {
   elapsedMs: number;
   tokens: number;
   cost: number;
+}
+
+interface BatchDetails {
+  agent?: string;
+  model?: string;
+  results?: TaskResult[];
+}
+
+// Shared by one call's renderCall and renderResult.
+interface BatchState {
+  details?: BatchDetails;
+  // The text of a result that carries no results array: an argument error.
+  error?: string;
+}
+
+// Yellow until the batch settles, then red if any task failed.
+function stripeOf(state: BatchState): string {
+  if (state.error !== undefined) return "error";
+  const results = state.details?.results;
+  if (!results || results.some((r) => r.state === "running")) return "warning";
+  return results.some((r) => r.state === "failed") ? "error" : "success";
+}
+
+// Text wrapped to the room right of a row's stripe and name column.
+function under(text: string, width: number): string[] {
+  return text
+    .replace(/\t/g, "  ")
+    .split("\n")
+    .flatMap((line) =>
+      wrapTextWithAnsi(line, Math.max(1, width - NAME_CELLS - 2)),
+    );
 }
 
 interface ChildOutcome {
@@ -531,6 +570,15 @@ function rawStatus(r: TaskResult): string {
   return r.activity ?? (r.live ? `…${liveTail(r.live)}` : "thinking");
 }
 
+// What a running row says. The first status lands STATUS_MS in, and a
+// subagent can run a dozen tools before then, so until it does the row names
+// the tool in flight rather than the live tail, which changes every token.
+function shownStatus(r: TaskResult): string {
+  return (
+    r.status ?? r.activity ?? (r.tools > 0 || r.live ? "thinking" : "starting")
+  );
+}
+
 function addToWindow(r: TaskResult, text: string): void {
   r.window = (r.window + text).slice(-STATUS_WINDOW);
 }
@@ -570,7 +618,9 @@ function fmtElapsed(ms: number): string {
 // `run`/`done`/`FAILED` are words rather than glyphs so the state survives
 // without color, and the latter two match the wire format the model already
 // receives. A running subagent's clock is read at render time, not at its
-// last event, so one thinking for minutes does not look stalled.
+// last event, so one thinking for minutes does not look stalled. The
+// counters come before the subject at fixed widths, so every row's subject
+// starts in the same column.
 function taskRow(r: TaskResult, theme: Theme): string {
   const label =
     r.state === "running"
@@ -578,20 +628,14 @@ function taskRow(r: TaskResult, theme: Theme): string {
       : r.state === "done"
         ? theme.fg("success", "done  ")
         : theme.fg("error", "FAILED");
-  const subject =
-    r.state === "running"
-      ? theme.fg("muted", r.status ?? "starting")
-      : theme.fg("muted", oneLine(r.task));
-  const trailing =
-    r.state === "running"
-      ? theme.fg(
-          "dim",
-          `  ${r.tools} tool${r.tools === 1 ? "" : "s"}  ${fmtElapsed(Date.now() - r.startedAt)}`,
-        )
-      : r.elapsedMs
-        ? theme.fg("dim", `  ${fmtElapsed(r.elapsedMs)}`)
-        : "";
-  return `${theme.fg("dim", `[${r.index + 1}]`)} ${label} ${subject}${trailing}`;
+  const ms = r.state === "running" ? Date.now() - r.startedAt : r.elapsedMs;
+  const counters = [
+    fmtElapsed(ms).padStart(6),
+    fmtTokens(r.tokens).padStart(9),
+    `${String(r.tools).padStart(3)} ${r.tools === 1 ? "tool " : "tools"}`,
+  ].join("  ");
+  const subject = r.state === "running" ? shownStatus(r) : oneLine(r.task);
+  return `${theme.fg("dim", `[${r.index + 1}]`)} ${label} ${theme.fg("dim", counters)}  ${theme.fg("muted", subject)}`;
 }
 
 // pi.exec would be the shorter call, but it buffers: it resolves once, after
@@ -839,7 +883,7 @@ export default function (pi: ExtensionAPI) {
               text: results
                 .map(
                   (r) =>
-                    `[${r.index + 1}] ${r.state === "running" ? (r.status ?? "starting") : r.state}`,
+                    `[${r.index + 1}] ${r.state === "running" ? shownStatus(r) : r.state}`,
                 )
                 .join("\n"),
             },
@@ -893,8 +937,9 @@ export default function (pi: ExtensionAPI) {
         if (!seat) emit();
       }, STATUS_MS);
 
-      // The tool row scrolls away once anything prints below it, so the same
-      // rows stay pinned above the editor until the batch returns. Keyed by
+      // While the batch runs its rows are pinned above the editor, where the
+      // tool row would scroll away once anything prints below it, and the
+      // tool row shows only its header. Keyed by
       // call, since one turn can hold more than one task call. RPC drops
       // component factories (docs/rpc-extension-ui.md), hence the mode rather
       // than hasUI. The working row's spinner redraws the screen for as long
@@ -1051,62 +1096,100 @@ export default function (pi: ExtensionAPI) {
       };
     },
 
-    // The default row renders the combined summary, so the outcome of a
-    // three-subagent fan-out sits behind several screens of their prose. These
-    // put the batch first: which tasks are running and what they are doing,
-    // which came back and which failed, with the summaries behind ctrl+O.
-    renderCall(args, theme, _context) {
+    // The default shell renders the combined summary, so the outcome of a
+    // three-subagent fan-out sits behind several screens of their prose. The
+    // batch is one striped row instead, as tool-rows.ts draws bash and read,
+    // with a line per task under it once it settles; ctrl+o adds each task's
+    // trail while it runs and its summary once it is done.
+    //
+    // pi calls renderCall and then renderResult each time the result changes
+    // and renders their components afterwards, so the header reads the
+    // details renderResult stored in context.state. Those are the objects
+    // execute() keeps mutating, so the counters move between updates.
+    renderShell: "self",
+
+    renderCall(args, theme, context) {
+      const state = context.state as BatchState;
       const count = Array.isArray(args.tasks) ? args.tasks.length : 0;
-      let text =
-        theme.fg("toolTitle", theme.bold("task ")) +
-        theme.fg("muted", `${count} task${count === 1 ? "" : "s"}`);
-      if (args.agent) text += ` ${theme.fg("accent", args.agent)}`;
-      return new Text(text, 0, 0);
+      return indent(
+        new Lines((width) => {
+          const details = state.details;
+          const results = details?.results ?? [];
+          const running = results.filter((r) => r.state === "running").length;
+          const tokens = results.reduce((n, r) => n + r.tokens, 0);
+          const cost = results.reduce((n, r) => n + r.cost, 0);
+          const agent = details?.agent ?? args.agent;
+          const summary = [
+            agent ? theme.fg("accent", agent) : undefined,
+            count ? `${count} task${count === 1 ? "" : "s"}` : undefined,
+            details?.model ? theme.fg("dim", details.model) : undefined,
+          ]
+            .filter((part): part is string => part !== undefined)
+            .join(theme.fg("dim", " · "));
+          const took =
+            context.durationMs !== undefined && context.durationMs >= 1000
+              ? fmtElapsed(context.durationMs)
+              : undefined;
+          const meta = [
+            running ? theme.fg("warning", `${running} running`) : undefined,
+            tokens ? theme.fg("dim", fmtTokens(tokens)) : undefined,
+            // Providers that do not price a model report zero, and a $0.00
+            // that only means "unpriced" is worse than no column at all.
+            cost > 0 ? theme.fg("dim", `$${cost.toFixed(2)}`) : undefined,
+            running ? undefined : took && theme.fg("dim", took),
+          ]
+            .filter((part): part is string => !!part)
+            .join("  ");
+          return [row(theme, stripeOf(state), "task", summary, meta, width)];
+        }),
+        context.outputPad,
+      );
     },
 
-    renderResult(result, { expanded }, theme, _context) {
-      const details = result.details as
-        | { agent?: string; model?: string; results?: TaskResult[] }
-        | undefined;
+    renderResult(result, { expanded }, theme, context) {
+      const state = context.state as BatchState;
+      const details = result.details as BatchDetails | undefined;
       // The early argument errors carry no results array. Their own text is
       // the whole message.
       if (!details?.results) {
         const first = result.content[0];
-        return new Text(first?.type === "text" ? first.text : "", 0, 0);
+        const text = first?.type === "text" ? first.text : "";
+        state.error = text;
+        return indent(
+          new Lines((width) =>
+            under(text, width).map((line) =>
+              continuation(theme, "error", theme.fg("error", line), width),
+            ),
+          ),
+          context.outputPad,
+        );
       }
 
-      const { results, agent, model } = details;
-      const running = results.filter((r) => r.state === "running").length;
-      const tokens = results.reduce((n, r) => n + r.tokens, 0);
-      const cost = results.reduce((n, r) => n + r.cost, 0);
-      const head = [
-        theme.fg(
-          "muted",
-          `${results.length} task${results.length === 1 ? "" : "s"}`,
-        ),
-        agent ? theme.fg("accent", agent) : undefined,
-        model ? theme.fg("dim", model) : undefined,
-        running ? theme.fg("warning", `${running} running`) : undefined,
-        tokens ? theme.fg("dim", fmtTokens(tokens)) : undefined,
-        // Providers that do not price a model report zero, and a $0.00 that
-        // only means "unpriced" is worse than no column at all.
-        cost > 0 ? theme.fg("dim", `$${cost.toFixed(2)}`) : undefined,
-      ]
-        .filter((part): part is string => part !== undefined)
-        .join(theme.fg("dim", " · "));
-
-      const lines = [head];
-      for (const r of results) {
-        lines.push(taskRow(r, theme));
-        if (!expanded) continue;
-        // While it runs the path it took is the only thing to show; once it
-        // finishes, what it concluded matters more.
-        if (r.state === "running")
-          for (const step of r.trail)
-            lines.push(theme.fg("dim", `      ${step}`));
-        else if (r.summary) lines.push(theme.fg("dim", r.summary));
-      }
-      return new Text(lines.join("\n"), 0, 0);
+      state.details = details;
+      const { results } = details;
+      if (!expanded && results.some((r) => r.state === "running")) return EMPTY;
+      return indent(
+        new Lines((width) => {
+          const stripe = stripeOf(state);
+          const lines: string[] = [];
+          for (const r of results) {
+            lines.push(continuation(theme, stripe, taskRow(r, theme), width));
+            if (!expanded) continue;
+            // While it runs the path it took is the only thing to show; once
+            // it finishes, what it concluded matters more.
+            const detail =
+              r.state === "running"
+                ? r.trail.map((step) => `    ${step}`)
+                : under(r.summary, width);
+            for (const line of detail)
+              lines.push(
+                continuation(theme, stripe, theme.fg("dim", line), width),
+              );
+          }
+          return lines;
+        }),
+        context.outputPad,
+      );
     },
   });
 }
