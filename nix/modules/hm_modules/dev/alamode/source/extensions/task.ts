@@ -51,7 +51,7 @@ import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Type } from "typebox";
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { Api, Model, Usage } from "@earendil-works/pi-ai";
 import {
   type ExtensionAPI,
   type ExtensionContext,
@@ -391,6 +391,7 @@ async function summarize(
   task: string,
   window: string,
   signal: AbortSignal,
+  spent: Usage,
 ): Promise<string | undefined> {
   const reply = await registry
     .streamSimple(
@@ -408,11 +409,37 @@ async function summarize(
       { maxTokens: STATUS_TOKENS, reasoning: seat.reasoning, signal },
     )
     .result();
+  addUsage(spent, reply.usage);
   const text = reply.content
     .flatMap((part) => (part.type === "text" ? [part.text] : []))
     .join("");
   // Drawn straight into the terminal, where a control character is a command.
   return oneLine(text.replace(/[\p{Cc}\p{Cf}]/gu, " "), 60) || undefined;
+}
+
+function emptyUsage(): Usage {
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 0,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+  };
+}
+
+function addUsage(total: Usage, usage: Partial<Usage> | undefined): void {
+  if (!usage) return;
+  total.input += usage.input ?? 0;
+  total.output += usage.output ?? 0;
+  total.cacheRead += usage.cacheRead ?? 0;
+  total.cacheWrite += usage.cacheWrite ?? 0;
+  total.totalTokens += usage.totalTokens ?? 0;
+  total.cost.input += usage.cost?.input ?? 0;
+  total.cost.output += usage.cost?.output ?? 0;
+  total.cost.cacheRead += usage.cost?.cacheRead ?? 0;
+  total.cost.cacheWrite += usage.cost?.cacheWrite ?? 0;
+  total.cost.total += usage.cost?.total ?? 0;
 }
 
 interface AssistantResult {
@@ -825,6 +852,11 @@ export default function (pi: ExtensionAPI) {
       // Each status emits, which is what moves the rows on a host without
       // the spinner.
       const seat = statusSeat(ctx.modelRegistry);
+      // Every model call the batch makes, the subagents' and the status
+      // seat's. pi counts a tool result's usage in the session's totals
+      // (docs/extensions.md, Tools), which the subagents' own runs never
+      // reach since they keep no session.
+      const spent = emptyUsage();
       const statusCalls = new AbortController();
       const inFlight = new Set<number>();
       const tick = setInterval(() => {
@@ -848,6 +880,7 @@ export default function (pi: ExtensionAPI) {
               statusCalls.signal,
               AbortSignal.timeout(STATUS_TIMEOUT_MS),
             ]),
+            spent,
           )
             .catch(() => undefined)
             .then((status) => {
@@ -947,19 +980,14 @@ export default function (pi: ExtensionAPI) {
                 emit();
               } else if (type === "message_end") {
                 const message = event.message as
-                  | {
-                      role?: string;
-                      usage?: {
-                        totalTokens?: number;
-                        cost?: { total?: number };
-                      };
-                    }
+                  | { role?: string; usage?: Partial<Usage> }
                   | undefined;
                 // One assistant message is one billed request, so these sum
                 // to the batch total across turns.
                 if (message?.role === "assistant") {
                   r.tokens += message.usage?.totalTokens ?? 0;
                   r.cost += message.usage?.cost?.total ?? 0;
+                  addUsage(spent, message.usage);
                 }
                 emit();
               }
@@ -1019,6 +1047,7 @@ export default function (pi: ExtensionAPI) {
       return {
         content: [{ type: "text", text: summary }],
         details: { agent: agent?.name, model, results },
+        usage: spent,
       };
     },
 
