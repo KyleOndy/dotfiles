@@ -38,6 +38,13 @@ host. Suggesting a command Kyle could run to look closer is fine.
   further back with `offset` on a shorter window, such as
   `count_over_time(...[1d] offset 60d)`. If a question needs more than 45
   days of logs at once, say so under Suggested next steps instead.
+- tiger and pika run ZFS. Its ARC can grow to all but 1 GiB of RAM and
+  shrinks when anything else needs the memory, but Linux leaves it out of
+  `MemAvailable`. On those hosts count memory as available as
+  `node_memory_MemAvailable_bytes + node_zfs_arc_size`, as HighMemoryUsage
+  does, and look for real pressure in
+  `rate(node_pressure_memory_waiting_seconds_total[5m])`. Low `MemAvailable`
+  alone is not a finding.
 - Discover before guessing: list metric names with `metric_labels` and label
   values with `log_labels` rather than assuming a name exists.
 - Deploys restart every unit they change. `system_activation_timestamp_seconds`

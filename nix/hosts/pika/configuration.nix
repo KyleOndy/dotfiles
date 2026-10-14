@@ -114,9 +114,11 @@ in
     supportedFilesystems.zfs = true;
 
     # No zfs_arc_max. The Pi plan this replaces capped ARC because it had 4GB
-    # of RAM. With 32GB the 50% default lands at 16GB and nothing else on the
-    # box wants memory, so the metadata for a ~1.18TB pool fits outright,
-    # which is what keeps scrubs and syncoid deltas quick.
+    # of RAM. With 32GB the default (OpenZFS 2.4: all RAM but 1GB) leaves
+    # about 31GB, nothing else on the box wants memory, and the metadata for a
+    # ~1.18TB pool fits outright, which is what keeps scrubs and syncoid
+    # deltas quick. The ARC is not in MemAvailable, so pika reads as nearly
+    # full whenever it is warm.
     zfs.extraPools = [ "tank" ];
     zfs.forceImportRoot = false;
   };

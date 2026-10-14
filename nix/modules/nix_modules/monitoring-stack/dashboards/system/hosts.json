@@ -170,7 +170,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(((1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100) or ((node_memory_internal_bytes + node_memory_wired_bytes + node_memory_compressed_bytes) / node_memory_total_bytes * 100))",
+          "expr": "max(((1 - (node_memory_MemAvailable_bytes + (node_zfs_arc_size or node_memory_MemTotal_bytes * 0)) / node_memory_MemTotal_bytes) * 100) or ((node_memory_internal_bytes + node_memory_wired_bytes + node_memory_compressed_bytes) / node_memory_total_bytes * 100))",
           "instant": true
         }
       ],
@@ -236,13 +236,13 @@
     {
       "type": "timeseries",
       "title": "Memory Usage",
-      "description": "Linux is MemTotal minus MemAvailable. Darwin has no MemAvailable, so trex is app plus wired plus compressed, which is what Activity Monitor calls Memory Used.",
+      "description": "Linux is MemTotal minus MemAvailable, with the ZFS ARC on tiger and pika counted as available, as HighMemoryUsage does: it shrinks when anything else needs the memory, but Linux leaves it out of MemAvailable. Darwin has no MemAvailable, so trex is app plus wired plus compressed, which is what Activity Monitor calls Memory Used.",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "(1 - node_memory_MemAvailable_bytes{host=~\"$host\"} / node_memory_MemTotal_bytes{host=~\"$host\"}) * 100",
+          "expr": "(1 - (node_memory_MemAvailable_bytes{host=~\"$host\"} + (node_zfs_arc_size{host=~\"$host\"} or node_memory_MemTotal_bytes{host=~\"$host\"} * 0)) / node_memory_MemTotal_bytes{host=~\"$host\"}) * 100",
           "legendFormat": "{{host}}"
         },
         {
