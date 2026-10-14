@@ -118,7 +118,9 @@ dependencies runs code of its own:
 - **Network:** it cannot reach the LAN, and on loopback an iptables owner
   match lets it reach only the four monitoring ports, not Caddy's admin
   socket, Syncthing or the apps.
-- **Files:** `/mnt` and the local daemons' sockets are hidden from it.
+- **Files:** `/mnt` and the local daemons' sockets are hidden from it,
+  nix-daemon's included: a build it submitted would run outside these
+  network limits.
 - **The mailer** is a separate `DynamicUser` unit and the only holder of the
   SMTP password. pi cannot start it, and it mails only plain files, never
   a symlink. It renders the HTML part with pandoc in `--sandbox`, and

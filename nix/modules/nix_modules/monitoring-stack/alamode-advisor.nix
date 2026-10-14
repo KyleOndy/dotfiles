@@ -51,8 +51,9 @@ let
     ProtectSystem = "strict";
     ProtectHome = true;
     # The ZFS datasets under /mnt are world-readable, and so are the sockets
-    # of the local daemons (D-Bus, Avahi, dhcpcd, winbind, sshd, Postgres).
-    # Neither unit needs any of them; DNS goes through /run/nscd.
+    # of the local daemons (D-Bus, Avahi, dhcpcd, winbind, sshd, Postgres,
+    # nix-daemon). Neither unit needs any of them; DNS goes through /run/nscd.
+    # A build submitted to nix-daemon runs outside IPAddressDeny below.
     InaccessiblePaths = [
       "-/mnt"
       "-/srv"
@@ -62,6 +63,7 @@ let
       "-/run/samba"
       "-/run/ssh-unix-local"
       "-/run/postgresql"
+      "-/nix/var/nix/daemon-socket"
     ];
     PrivateTmp = true;
     PrivateDevices = true;
