@@ -522,9 +522,133 @@
       }
     },
     {
+      "type": "table",
+      "title": "Now Playing",
+      "description": "Every Jellyfin session the exporter sees, playing or paused.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "jellyfin_now_playing_state",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "host": true,
+              "instance": true,
+              "job": true,
+              "user_id": true,
+              "type": true,
+              "series_season": true,
+              "series_episode": true
+            },
+            "indexByName": {
+              "username": 0,
+              "series_title": 1,
+              "title": 2,
+              "device": 3,
+              "method": 4,
+              "Value": 5
+            },
+            "renameByName": {
+              "username": "User",
+              "series_title": "Series",
+              "title": "Title",
+              "device": "Device",
+              "method": "Method",
+              "Value": "State"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "State" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": { "text": "Paused" },
+                      "1": { "text": "Playing" }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false } }
+    },
+    {
+      "type": "table",
+      "title": "Watched",
+      "description": "Time each title spent playing over the dashboard's range: playing samples times the 15s scrape interval. Time the exporter was down is missing.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(sum by (username, series_title, title) (sum_over_time(jellyfin_now_playing_state[$__range])) * 15)",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": {
+              "username": 0,
+              "series_title": 1,
+              "title": 2,
+              "Value": 3
+            },
+            "renameByName": {
+              "username": "User",
+              "series_title": "Series",
+              "title": "Title",
+              "Value": "Played"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [{ "field": "Played", "desc": true }]
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Played" },
+            "properties": [{ "id": "unit", "value": "s" }]
+          }
+        ]
+      },
+      "options": { "showHeader": true, "footer": { "show": false } }
+    },
+    {
       "type": "logs",
       "title": "Media Service Errors",
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 33 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 41 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
@@ -546,7 +670,7 @@
     {
       "type": "row",
       "title": "Immich",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 50 },
       "collapsed": false,
       "panels": []
     },
@@ -554,7 +678,7 @@
       "type": "timeseries",
       "title": "Active Jobs by Queue",
       "description": "Jobs running right now in each queue. Immich exports no waiting count, and creates a queue's series only once the queue first runs after a restart, so this starts sparse. ImmichJobsStuck fires when a queue stays above zero for 2 hours while Finished Jobs stays flat.",
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 43 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 51 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -592,7 +716,7 @@
       "type": "timeseries",
       "title": "Finished Jobs",
       "description": "Jobs finished over the trailing hour, by outcome. A job type has no series until it first runs after a restart.",
-      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 43 },
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 51 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -630,7 +754,7 @@
       "type": "timeseries",
       "title": "Failed Jobs by Type",
       "description": "Failures over the trailing hour per job type. ImmichJobsFailing fires above 10.",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 43 },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 51 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -668,7 +792,7 @@
       "type": "timeseries",
       "title": "API Requests by Status",
       "description": "Requests Caddy served for immich's three names, from its access log. The api worker's metrics endpoint exports no HTTP series.",
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 43 },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 51 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [
         {
@@ -706,7 +830,7 @@
     {
       "type": "row",
       "title": "VPN and Torrents",
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 59 },
       "collapsed": false,
       "panels": []
     },
@@ -714,7 +838,7 @@
       "type": "stat",
       "title": "Tunnel Handshake Age",
       "description": "Measured by pia-wg-healthcheck every 5 minutes, after any restart it triggers. A tunnel that has never handshaken reads as the time since 1970. PiaHandshakeStale fires above 5 minutes.",
-      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 52 },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 60 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -749,7 +873,7 @@
       "type": "stat",
       "title": "qBittorrent Listen Port",
       "description": "Read back from qBittorrent after qbittorrent-set-port pushes the forwarded port. A failed WebUI login reads as a mismatch.",
-      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 52 },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 60 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -793,7 +917,7 @@
       "type": "stat",
       "title": "Forwarded Port",
       "description": "From the getSignature payload pia-wg-connect stored. Only a reconnect gets a new signature, so once it expires bindPort fails until the tunnel restarts.",
-      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 52 },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 60 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -849,7 +973,7 @@
       "type": "stat",
       "title": "VPN Job Freshness",
       "description": "Time since each job last succeeded. PiaHealthcheckStale fires past 15 minutes, PiaPortForwardStale and QbittorrentSetPortStale past 30.",
-      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 52 },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 60 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
@@ -897,7 +1021,7 @@
       "type": "timeseries",
       "title": "Tunnel Restarts",
       "description": "Restarts pia-wg-healthcheck triggered in the trailing hour. systemd's own restart counter does not see these. PiaTunnelFlapping fires above 3.",
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 57 },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 65 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
