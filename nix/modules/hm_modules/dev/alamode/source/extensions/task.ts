@@ -760,6 +760,9 @@ export default function (pi: ExtensionAPI) {
         "json",
         // Keeps a fan-out of throwaway research runs out of the session tree.
         "--no-session",
+        // `--tools` filters MCP tools only through an `mcp__` entry, so a
+        // server in an mcp.json the session wrote would reach the child.
+        "--no-mcp",
       ];
       // Takes the text itself, not only a path (resolvePromptInput in pi's
       // core/resource-loader.js falls through to the literal string), so the

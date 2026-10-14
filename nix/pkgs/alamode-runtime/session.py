@@ -1391,10 +1391,12 @@ def run(config, manifest, args, home):
             pi_args = ["--model", manifest["seats"]["ALAMODE_SESSION_MODEL"], *pi_args]
         if "--session" not in pi_args and "--no-session" not in pi_args:
             pi_args = ["--session", session_file, *pi_args]
+        # No session reaches an MCP server: the reclaim clears mcp.json, and
+        # this keeps a server that slips past it from connecting at all.
         return execute(
             config,
             manifest,
-            [config["pi"], *pi_args, "--no-approve"],
+            [config["pi"], *pi_args, "--no-approve", "--no-mcp"],
             environment,
             runtime,
             relay.port,
