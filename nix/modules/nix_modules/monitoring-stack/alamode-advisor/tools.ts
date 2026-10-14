@@ -77,7 +77,13 @@ const DAY_SECONDS = 86_400;
 const BASELINE_DAYS = 14;
 
 const LABEL_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const RELATIVE_TIME = /^now(?:-(\d+)([smhdw]))?$/;
+const RELATIVE_TIME = /^(?:now)?\s*-?\s*((?:\d+[smhdw])+)$/i;
+const DURATION_PART = /(\d+)([smhdw])/gi;
+const UNIX_SECONDS = /^\d{9,10}$/;
+const UNIX_NANOSECONDS = /^\d{18,19}$/;
+// Date.parse reads a clock time with no zone as tiger's local time.
+const CLOCK = /\d:\d{2}/;
+const ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
 const STEP = /^\d+[smhd]$/;
 const UNIT_SECONDS: Record<string, number> = {
   s: 1,
@@ -91,17 +97,26 @@ type Labels = Record<string, string>;
 type Sample = [number, string];
 
 const TIME_HELP =
-  "now, now-<n><s|m|h|d|w> such as now-24h, or an RFC3339 timestamp";
+  "now, now-<n><s|m|h|d|w> such as now-24h or now-1d12h, unix seconds, or an RFC3339 timestamp ending in Z";
 
 /** Unix seconds. */
 function parseTime(spec: string, now: number): number {
-  const relative = RELATIVE_TIME.exec(spec.trim());
+  const trimmed = spec.trim();
+  if (/^now$/i.test(trimmed)) return now;
+  const relative = RELATIVE_TIME.exec(trimmed);
   if (relative) {
-    return relative[1]
-      ? now - Number(relative[1]) * UNIT_SECONDS[relative[2]]
-      : now;
+    let ago = 0;
+    for (const [, n, unit] of relative[1].matchAll(DURATION_PART)) {
+      ago += Number(n) * UNIT_SECONDS[unit.toLowerCase()];
+    }
+    return now - ago;
   }
-  const ms = Date.parse(spec);
+  if (UNIX_SECONDS.test(trimmed)) return Number(trimmed);
+  if (UNIX_NANOSECONDS.test(trimmed)) return Number(trimmed.slice(0, -9));
+  if (CLOCK.test(trimmed) && !ZONE.test(trimmed)) {
+    throw new Error(`"${spec}" has no time zone. End it with Z for UTC.`);
+  }
+  const ms = Date.parse(trimmed);
   if (Number.isNaN(ms)) {
     throw new Error(`Cannot parse time "${spec}". Use ${TIME_HELP}.`);
   }
@@ -467,7 +482,24 @@ export default function (pi: ExtensionAPI) {
     );
   });
 
-  pi.registerTool({
+  // pi hands a thrown error to the model and to no one else. These lines,
+  // which alamode-advisor.sh keeps, are the journal's record of a failed call.
+  const registerTool: ExtensionAPI["registerTool"] = (tool) =>
+    pi.registerTool({
+      ...tool,
+      async execute(id, params, ...rest) {
+        try {
+          return await tool.execute(id, params, ...rest);
+        } catch (err) {
+          console.error(
+            `alamode-advisor tool-error: ${tool.name} ${JSON.stringify(params).slice(0, 300)}: ${String(err).slice(0, 300)}`,
+          );
+          throw err;
+        }
+      },
+    });
+
+  registerTool({
     name: "promql",
     label: "PromQL",
     description:
@@ -508,11 +540,11 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "logql",
     label: "LogQL",
     description:
-      "Run a LogQL query against Loki, which holds the systemd journal of every host and Caddy's access log. A log query needs start and returns lines, newest first. A metric query (count_over_time, rate, sum by) runs as an instant query without start, or as a range with start.",
+      "Run a LogQL query against Loki, which holds the systemd journal of every host and Caddy's access log. A log query returns lines, newest first, from start, by default the last 24h. A metric query (count_over_time, rate, sum by) runs as an instant query without start, or as a range with start.",
     promptSnippet: "Query logs with LogQL",
     promptGuidelines: [
       'Start from metric queries such as sum by (host, unit) (count_over_time({job="systemd-journal"} |~ `(?i)\\berror\\b` [24h])) and read raw lines only for what stands out. Match whole words: a bare "error" or "fail" also matches unit descriptions and alert names.',
@@ -522,6 +554,11 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       query: Type.String({ description: "LogQL expression." }),
       ...rangeParams,
+      start: Type.Optional(
+        Type.String({
+          description: `Range start: ${TIME_HELP}. Without it a metric query runs as an instant query and a log query covers the last 24h.`,
+        }),
+      ),
       limit: Type.Optional(
         Type.Integer({
           minimum: 1,
@@ -531,7 +568,12 @@ export default function (pi: ExtensionAPI) {
       ),
     }),
     async execute(_id, params, signal) {
-      if (params.start === undefined) {
+      // Loki refuses a log query on its instant endpoint, and only a log
+      // query opens with a stream selector.
+      const start =
+        params.start ??
+        (params.query.trimStart().startsWith("{") ? "now-24h" : undefined);
+      if (start === undefined) {
         const now = Math.floor(Date.now() / 1000);
         const time = parseTime(params.end ?? "now", now);
         const json = await get(
@@ -542,16 +584,13 @@ export default function (pi: ExtensionAPI) {
         );
         return result(formatQueryResult(json.data));
       }
-      const { start, end, step } = parseRange({
-        ...params,
-        start: params.start,
-      });
+      const { start: from, end, step } = parseRange({ ...params, start });
       const json = await get(
         LOKI,
         "/loki/api/v1/query_range",
         {
           query: params.query,
-          start: toNs(start),
+          start: toNs(from),
           end: toNs(end),
           step,
           limit: String(params.limit ?? DEFAULT_LOG_LIMIT),
@@ -563,7 +602,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "baseline",
     label: "Baseline",
     description: `Judge today against the spread of the prior days. Runs one PromQL or LogQL metric query at the same time of day on today and each of the prior ${BASELINE_DAYS} days, and returns per series every day's value, the prior days' min, median and max, whether today is below, within or above that range, and today's ratio to the median. Write the query for one day's figure: increase(x[1d]) or count_over_time({...} [1d]) for a count, the bare metric for a gauge.`,
@@ -619,7 +658,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "metric_labels",
     label: "Metric labels",
     description:
@@ -648,7 +687,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "log_labels",
     label: "Log labels",
     description:
@@ -690,7 +729,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "alerts",
     label: "Alerts",
     description:
@@ -714,7 +753,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "web_search",
     label: "Web search",
     description: `Search the web with Kagi. Returns title, URL and snippet for up to ${SEARCH_RESULTS} results. No tool opens the pages, so the snippet is all there is. At most ${MAX_SEARCHES_PER_RUN} searches per run.`,
@@ -733,7 +772,7 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.registerTool({
+  registerTool({
     name: "alert_rules",
     label: "Alert rules",
     description:

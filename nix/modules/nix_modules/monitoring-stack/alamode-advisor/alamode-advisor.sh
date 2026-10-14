@@ -100,6 +100,7 @@ advise() {
 	} >"${work}.tmp"
 
 	usage=$(grep -m 1 '^alamode-advisor usage: ' "${work}.err" || true)
+	grep '^alamode-advisor tool-error: ' "${work}.err" >&2 || true
 	rm -f "${work}.err"
 	mv "${work}.tmp" "${REPORTS}/${file}"
 	echo "wrote ${REPORTS}/${file} (pi exit ${status}) ${usage#alamode-advisor }"
