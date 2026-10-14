@@ -17,6 +17,8 @@
           project_doc_fallback_filenames = [ "CLAUDE.md" ];
           # Instead of a plaintext ~/.codex/auth.json.
           cli_auth_credentials_store = "keyring";
+          # Rows per wheel event; codex defaults to 1.
+          tui.mouse_scroll_speed = 3.0;
         };
       };
 }
