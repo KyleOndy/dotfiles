@@ -46,9 +46,17 @@ readonly SONARR_URL="${SONARR_URL:-http://127.0.0.1:8989}"
 readonly RADARR_CONFIG="${RADARR_CONFIG:-/var/lib/radarr/.config/Radarr/config.xml}"
 readonly SONARR_CONFIG="${SONARR_CONFIG:-/var/lib/sonarr/.config/NzbDrone/config.xml}"
 
+# Sonarr and Radarr journal a script's stderr as Error and drop its stdout
+# below their Info level, and MediaAudioNeedsReview reads those Error lines.
+# So log is for what needs a person, and note for a verdict that does not.
 log() {
 	logger -t audio-language-check -- "$*"
 	echo "$*" >&2
+}
+
+note() {
+	logger -t audio-language-check -- "$*"
+	echo "$*"
 }
 
 api() {
@@ -280,7 +288,7 @@ check_file() {
 
 	summary="tagged [$(join_comma "${shown[@]}")], whisper hears [$(join_comma "${heards[@]}")]"
 	if [ -n "$eng" ]; then
-		log "OK $title: $summary"
+		note "OK $title: $summary"
 	elif [ ${#review[@]} -gt 0 ]; then
 		log "REVIEW $title: $summary; $(join_comma "${review[@]}") ($(basename "$f"))"
 	else
@@ -305,12 +313,12 @@ check_file() {
 			case "$f" in
 			*.mkv)
 				if mkvpropedit "$f" "${args[@]}" >/dev/null 2>&1; then
-					log "FIXED $(basename "$f"): ${args[*]}"
+					note "FIXED $(basename "$f"): ${args[*]}"
 				else
 					log "FIX-FAILED $(basename "$f"): mkvpropedit rejected ${args[*]}"
 				fi
 				;;
-			*) log "FIX-SKIPPED $(basename "$f"): only matroska can be retagged without a remux" ;;
+			*) note "FIX-SKIPPED $(basename "$f"): only matroska can be retagged without a remux" ;;
 			esac
 		fi
 	fi
@@ -439,7 +447,7 @@ main() {
 			# dub set as its default.
 			_lang=$(title_language "$_f")
 			if [ "$_lang" != English ] && [ "$_lang" != Unknown ]; then
-				log "FIX-SKIPPED $(basename "$_f"): originalLanguage=$_lang"
+				note "FIX-SKIPPED $(basename "$_f"): originalLanguage=$_lang"
 				continue
 			fi
 			check_file "$_f" "$(basename "$_f")" 1 || true
@@ -483,7 +491,7 @@ main() {
 	key=$(read_api_key "$key_override" "$key_config")
 
 	if [ "$event" = "Test" ]; then
-		log "test event from $service: ffprobe=$(command -v ffprobe) whisper=$(command -v whisper-cli) model=$WHISPER_MODEL enforce=$ENFORCE"
+		note "test event from $service: ffprobe=$(command -v ffprobe) whisper=$(command -v whisper-cli) model=$WHISPER_MODEL enforce=$ENFORCE"
 		exit 0
 	fi
 	[ ${#files[@]} -eq 0 ] && {
@@ -501,7 +509,7 @@ main() {
 			jq -r '.originalLanguage.name // "Unknown"')
 	fi
 	if [ "$orig_lang" != "English" ] && [ "$orig_lang" != "Unknown" ]; then
-		log "SKIP $title: originalLanguage=$orig_lang"
+		note "SKIP $title: originalLanguage=$orig_lang"
 		exit 0
 	fi
 
