@@ -181,29 +181,100 @@ def pin_store_roots(config, directories=None, control=None, store_tool=None):
 
 VERBS = {"resume", "sessions", "coord", "delegate", "seats", "slice"}
 
-HELP = """alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
-        [--allow-read PATH] [--allow-write PATH] [--allow-rw PATH]
-        [--allow-nix] [--allow-git-write] [--no-git-write]
-        [--allow-trustd] [--allow-forge] [--allow-clipboard]
-        [--allow-BUNDLE] [--local] [--no-PROVIDER]
-        [--local-model PROVIDER/ID] [-- PI ARGS]
-alamode resume [ID] [-- PI ARGS]
-alamode sessions [show ID | export ID]
-alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
-alamode slice NAME | TICKET [NAME] [GRANTS] [-- PI ARGS]
-alamode delegate ... | seats ...
 
-A launch snapshots the current repository into private Git storage.
-Quitting lands the session's commits back in that repository.
-Outside a repository, launches use an empty private scratch workspace.
-Grants persist on resume. Provider credentials stay in the host relay.
-Flags after -- reach pi verbatim; alamode flags never follow it.
---allow-nix requires a configured isolated builder.
---local admits only loopback models and refuses every network grant.
---no-PROVIDER drops that provider and every model on its endpoints.
---local-model admits a model the catalog lacks on a loopback provider.
-coord start prints JSON credentials without opening the UI.
-slice starts alamode in a task worktree, in a new window of its tmux session."""
+def help_text(config):
+    # Names that vary by host come from the session config, so the help
+    # shows what this machine accepts.
+    def names(values):
+        return ", ".join(sorted(values)) or "none on this host"
+
+    def table(rows):
+        return "\n".join(f"  {flag:<20}{text}" for flag, text in rows)
+
+    bundles = textwrap.fill(
+        names(config["bundles"]),
+        width=78,
+        initial_indent=" " * 24,
+        subsequent_indent=" " * 24,
+    )
+    git_write = "on" if config.get("gitWrite", True) else "off"
+    grants = table(
+        [
+            ("--web", "any public web destination"),
+            ("--allow HOST", "one network destination"),
+            ("--allow-BUNDLE", "a named set of hosts and paths, one of:"),
+        ]
+    )
+    grants += "\n" + bundles + "\n"
+    grants += table(
+        [
+            ("--listen PORT", "one loopback port, and any host service on it"),
+            ("--allow-read PATH", "host reads of PATH"),
+            ("--allow-write PATH", "host writes to PATH"),
+            ("--allow-rw PATH", "both"),
+            ("--allow-nix", "nix build and eval on the isolated builder"),
+            (
+                "--allow-git-write",
+                f"commits in private Git storage ({git_write} by default)",
+            ),
+            ("--no-git-write", "no changes to private Git storage"),
+            ("--allow-trustd", "Apple certificate validation"),
+            ("--allow-forge", "Forge resources for child agents"),
+            ("--allow-clipboard", "the clipboard"),
+            (
+                "--profile NAME",
+                f"a preset of the above: {names(config.get('profiles', {}))}",
+            ),
+        ]
+    )
+    models = table(
+        [
+            ("--local", "loopback models only; refuses every network grant"),
+            ("--local-model P/ID", "admit a loopback model the catalog lacks"),
+            (
+                "--no-PROVIDER",
+                f"drop a provider's models: {names(config['trustedProviders'])}",
+            ),
+        ]
+    )
+    return f"""alamode runs the pi coding agent in a private sandbox.
+
+A launch snapshots the current repository into private Git storage, and
+quitting lands the session's commits back in it. Outside a repository it
+starts in an empty scratch workspace. Provider credentials stay in host
+relays.
+
+Start a session
+  alamode [GRANTS] [-- PI ARGS]       here, on a snapshot of this repository
+  alamode slice NAME|TICKET [GRANTS] [-- PI ARGS]
+                                      in a new worktree, in its own tmux window
+  alamode resume [ID] [-- PI ARGS]    the newest session, or session ID
+
+Look back
+  alamode sessions                    list retained sessions
+  alamode sessions show ID            what a session was granted
+  alamode sessions export ID          a verified review bundle of its commits
+
+Run several agents
+  alamode coord [GRANTS]              start a coordinator and open its UI
+  alamode coord ls                    list coordinators, repos and agents
+  alamode coord attach ID | stop ID
+  alamode coord start [GRANTS]        print JSON credentials, no UI
+  alamode delegate ...                run or steer a delegated agent
+  alamode seats ...                   show which model fills each seat
+
+Grants are chosen at launch and kept on resume
+{grants}
+
+Models
+{models}
+
+Everything after -- reaches pi unchanged. alamode -- --help lists pi's flags.
+
+Examples
+  alamode slice add-starship
+  alamode --allow-node --listen 3000
+  alamode resume -- --model PROVIDER/ID"""
 
 
 def split_boundary(argv):
@@ -1863,7 +1934,7 @@ def main(argv=None):
         os.execv(binary, [binary, *argv[1:]])
     front, engine_args = split_boundary(argv[1:] if verb else argv)
     if "--help" in front or "-h" in front:
-        print(HELP)
+        print(help_text(config))
         return 0
 
     resume_id = None
