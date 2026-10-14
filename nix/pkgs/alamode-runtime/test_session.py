@@ -954,25 +954,48 @@ class PolicyTests(unittest.TestCase):
                 "Quitting fast-forwards main with this session's commits."
                 " Commits that change files your agents read as instructions"
                 " wait on alamode-fixture instead.",
+                "fast-forwards main on quit",
             ),
         )
         environment = session.child_environment(
             self.config, manifest, self.root, self.work / "runtime"
         )
         self.assertEqual(environment["ALAMODE_LANDING_LEVEL"], "info")
-        level, text = session.landing_notice(
+        self.assertEqual(
+            environment["ALAMODE_LANDING_SHORT"], "fast-forwards main on quit"
+        )
+        self.assertEqual(environment["ALAMODE_SOURCE_BRANCH"], "main")
+        self.assertTrue(
+            manifest["workspace"]["source"].endswith(
+                environment["ALAMODE_SOURCE"].removeprefix("~")
+            )
+        )
+        self.assertNotIn("ALAMODE_LOCAL", environment)
+        local = session.child_environment(
+            self.config,
+            {
+                **manifest,
+                "policy": {**manifest["policy"], "local": True, "allowed_models": []},
+            },
+            self.root,
+            self.work / "runtime",
+        )
+        self.assertEqual(local["ALAMODE_LOCAL"], "1")
+        level, text, short = session.landing_notice(
             {**manifest, "workspace": {**manifest["workspace"], "source_ref": None}}
         )
         self.assertEqual(level, "warning")
         self.assertIn("did not start on a branch", text)
+        self.assertEqual(short, "waits on alamode-fixture")
         self.assertIsNone(
             session.landing_notice({**manifest, "coordinator": {"role": "child"}})
         )
 
         dirty, _tip = self.sealed_session("notice-dirty", dirty=True)
-        level, text = session.landing_notice(dirty)
+        level, text, short = session.landing_notice(dirty)
         self.assertEqual(level, "warning")
         self.assertIn("quitting will NOT move main", text)
+        self.assertEqual(short, "waits on alamode-fixture, main will NOT move")
         # A session with commits already has work to land, so starting over
         # is offered only before the first one.
         self.assertNotIn("launch again", text)
@@ -987,9 +1010,12 @@ class PolicyTests(unittest.TestCase):
             "fixture",
             record_root=self.records / "notice-empty-records",
         )
-        level, text = session.landing_notice({**self.manifest, "workspace": metadata})
+        level, text, short = session.landing_notice(
+            {**self.manifest, "workspace": metadata}
+        )
         self.assertEqual(level, "info")
         self.assertIn("outside a repository", text)
+        self.assertEqual(short, "stays in the session")
 
     def test_admission_refuses_planted_guard_config_casings(self):
         source = self.root / "guard-source"

@@ -908,7 +908,28 @@ def child_environment(config, manifest, home, runtime):
             env["ALAMODE_COORD_FORGE"] = "1"
     notice = landing_notice(manifest)
     if notice:
-        env["ALAMODE_LANDING_LEVEL"], env["ALAMODE_LANDING"] = notice
+        (
+            env["ALAMODE_LANDING_LEVEL"],
+            env["ALAMODE_LANDING"],
+            env["ALAMODE_LANDING_SHORT"],
+        ) = notice
+    # The session runs in a private worktree on alamode-<id>, so pi's own cwd
+    # and branch name the snapshot; these name the checkout it came from, for
+    # the footer (extensions/footer.ts).
+    record = manifest["workspace"]
+    if record.get("source"):
+        home = str(Path.home())
+        source = record["source"]
+        env["ALAMODE_SOURCE"] = (
+            "~" + source[len(home) :]
+            if source == home or source.startswith(home + "/")
+            else source
+        )
+        branch = (record.get("source_ref") or "").removeprefix("refs/heads/")
+        if branch:
+            env["ALAMODE_SOURCE_BRANCH"] = branch
+    if manifest["policy"].get("local"):
+        env["ALAMODE_LOCAL"] = "1"
     resources = manifest.get("resources", {}).get("forge")
     if resources:
         env.update(resources["env"])
@@ -1676,13 +1697,14 @@ def land(manifest):
 
 
 def landing_notice(manifest):
-    """Where quitting will put the session's commits, as (level, text).
+    """Where quitting will put the session's commits, as (level, text, short).
 
     pi shows it at startup (extensions/landing-notice.ts): its fullscreen TUI
     covers anything the wrapper prints first. Only the conditions fixed at
     launch, so a session that can never fast-forward says so before the work
     rather than after it; context files and a checkout that moves are left to
-    land(). None for a child, which never lands.
+    land(). short is the same forecast as a clause for the header's lands
+    row (extensions/header.ts). None for a child, which never lands.
     """
     record = manifest["workspace"]
     if manifest.get("coordinator", {}).get("role") == "child":
@@ -1694,6 +1716,7 @@ def landing_notice(manifest):
             "info",
             "This session is outside a repository, so its commits stay in the"
             " session. Quitting prints how to export them.",
+            "stays in the session",
         )
     if record["snapshot_commit"] != record["source_base"]:
         bare = Path(record["common_dir"])
@@ -1707,18 +1730,26 @@ def landing_notice(manifest):
                 f" To have quitting fast-forward {launched or 'a branch'}, quit"
                 " now, commit or set aside your changes, and launch again."
             )
-        return "warning", text
+        return (
+            "warning",
+            text,
+            f"waits on {branch}, {launched} will NOT move"
+            if launched
+            else f"waits on {branch}",
+        )
     if not launched:
         return (
             "warning",
             "The session did not start on a branch, so quitting will NOT move"
             f" one: the commits will wait on {branch}.",
+            f"waits on {branch}",
         )
     return (
         "info",
         f"Quitting fast-forwards {launched} with this session's commits."
         " Commits that change files your agents read as instructions wait on"
         f" {branch} instead.",
+        f"fast-forwards {launched} on quit",
     )
 
 
