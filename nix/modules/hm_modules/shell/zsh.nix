@@ -39,8 +39,7 @@ in
         };
         shellAliases = {
           ":e" = "$EDITOR";
-          ":q" = "exit";
-          ":Q" = "exit";
+          ":Q" = ":q";
           cdtmp = "cd $(mktemp -d)";
           cdg = "cd $(git root)";
           claude-caffeine =
@@ -150,6 +149,18 @@ in
             zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}' # lowers match uppers
 
             setopt ignoreeof # don't close my shell on ^d. Why is that a good idea?
+
+            # Leaving a session's last pane returns the client to the session it
+            # came from. detach-on-destroy in tmux.nix covers every other exit.
+            :q() {
+              # zsh refuses an exit while jobs remain, and switching first would
+              # strand this shell in a session nobody is looking at.
+              if [[ -n $TMUX ]] && (( ''${#jobstates} == 0 )) &&
+                [[ $(tmux display-message -p -t "$TMUX_PANE" '#{session_windows} #{window_panes}') == '1 1' ]]; then
+                tmux switch-client -l 2>/dev/null
+              fi
+              exit
+            }
 
             find_up() {
               local p=$(pwd)

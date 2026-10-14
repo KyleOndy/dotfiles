@@ -60,7 +60,7 @@ let
       [ -n "$name" ] || exit 0
       read -r session placeholder < <(tmux new-session -d -P -F '#{session_id} #{window_id}' -s "$name")
       # Before the move: moving a session's last window destroys it, and
-      # detach-on-destroy would detach the client before it could follow.
+      # detach-on-destroy would send the client elsewhere before it could follow.
       if [ "''${2:-}" = follow ]; then tmux switch-client -t "$session"; fi
       tmux move-window -s "$win" -t "$session:"
       tmux kill-window -t "$placeholder"
@@ -192,6 +192,11 @@ in
         # find-window, which tmux-fzf covers
         bind-key f display-popup -E -w 80% -h 60% ${getExe sessionizer}
         bind-key j display-popup -E -w 60% -h 50% ${getExe sessionSwitcher}
+
+        # a destroyed session hands its client to the next session by name
+        # instead of detaching it. Not off: that picks by activity_time, which
+        # agent output in a background session keeps bumping.
+        set -g detach-on-destroy next
 
         # ----------------------
         # Window/Pane Reorganization
