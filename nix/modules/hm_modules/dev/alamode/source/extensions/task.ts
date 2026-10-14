@@ -155,7 +155,9 @@ interface ChildOutcome {
 // the allowlist optional and its worker.md declares none, which inherits the
 // full tool surface including this tool (pi 0.84.3
 // examples/extensions/subagent/agents/worker.md). Unconditional here, and
-// `task` is never in it, so the recursion has nowhere to start.
+// `task` is never in it, so the recursion has nowhere to start. pi reads
+// `+x`/`-x` as edits to its default tools (bash, write) and `*` as a pattern
+// that can match `task`, so only plain names pass.
 function parseTools(value: unknown): string {
   const raw =
     typeof value === "string"
@@ -166,7 +168,7 @@ function parseTools(value: unknown): string {
   const tools = raw
     .filter((t): t is string => typeof t === "string")
     .map((t) => t.trim())
-    .filter((t) => t && t !== "task");
+    .filter((t) => t && t !== "task" && !/^[+-]|\*/.test(t));
   return tools.length > 0 ? tools.join(",") : SUBAGENT_TOOLS;
 }
 
