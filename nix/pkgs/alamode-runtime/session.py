@@ -1386,7 +1386,7 @@ def prepare(config, manifest, relay):
     for key in (
         "theme",
         "quietStartup",
-        "showThinkingBlock",
+        "hideThinkingBlock",
         "defaultThinkingLevel",
         "lastChangelogVersion",
     ):
