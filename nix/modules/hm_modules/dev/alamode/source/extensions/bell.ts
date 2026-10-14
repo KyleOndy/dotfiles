@@ -4,7 +4,9 @@
  *
  * Waiting means the turn settled with no background job (stall-guard.ts).
  * A keystroke or a new turn cancels the ring, so a session you are watching
- * stays quiet, and the next settle starts the minute again.
+ * stays quiet, and the next settle starts the minute again. A run you
+ * cancelled settles without arming it: the Esc that cancelled it reached pi
+ * before the settle did.
  *
  * The sandbox denies CoreAudio (see domestique.ts), so the sound plays in the
  * relay outside it. alamode-relay's /tool/bell route takes the session's
@@ -68,8 +70,8 @@ export default function (pi: ExtensionAPI) {
     settled = false;
     cancel();
   });
-  pi.on("agent_settled", () => {
-    settled = true;
+  pi.on("agent_settled", (event) => {
+    settled = !event.aborted;
     arm();
   });
   pi.events.on("stall-guard:jobs", (count) => {
