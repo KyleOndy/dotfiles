@@ -40,6 +40,7 @@ MODEL_FIELDS = {
     "thinkingLevelMap",
     "promptCache",
     "samplingParams",
+    "samplingParamsByThinkingLevel",
     "compat",
 }
 HEADER_NAME = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
