@@ -56,9 +56,10 @@ before it is advertised as supported.
 ### Security and authority
 
 - **SEC-1: Consistent enforcement.** Direct launches, convenience commands,
-  resumes, research tasks, and coordinator children enforce the same policy
-  semantics. Changing network mode must not widen filesystem, Git, process,
-  socket, or credential access. Missing enforcement fails closed.
+  resumes, regrants, research tasks, and coordinator children enforce the
+  same policy semantics. Changing network mode must not widen filesystem,
+  Git, process, socket, or credential access. Missing enforcement fails
+  closed.
 - **SEC-2: Complete capability records.** Each session has a trusted record
   of its workspace, provider, network destinations, filesystem paths,
   services, and workload resources. The human can inspect it. Children may
@@ -201,7 +202,7 @@ the current branch.
 | Dotfiles workload        | A child completes the Darwin evaluation, representative source build, verifier, and ordinary commit. Git-crypt files remain protected. Repeat after a cache miss.                                           | DEV-2, BUILD-1, BUILD-2                     |
 | Hostile Git writes       | Attempt pointer replacement, packed-ref updates, object replacement, sibling writes, and writes to later-created siblings. Protected state remains unchanged; normal commits still work.                    | SEC-1, DEV-2, DEV-3                         |
 | Executable persistence   | Plant Git, direnv, settings, extension, credential-resolver, and executable-path changes. Start and resume sessions concurrently. No plant runs with greater authority or in another session.               | SEC-3, SEC-4, SEC-5                         |
-| Mode and platform parity | Repeat boundary probes through direct launch, convenience commands, resume, children, and each network mode on every supported OS. Only the declared capabilities differ.                                   | SEC-1, SEC-2, OPS-3                         |
+| Mode and platform parity | Repeat boundary probes through direct launch, convenience commands, resume, regrant, children, and each network mode on every supported OS. Only the declared capabilities differ.                          | SEC-1, SEC-2, OPS-3                         |
 | Builder boundary         | Probe synthetic private host files, public temporary files, sockets, loopback, network destinations, and privilege overrides, including from fixed-output recipes. Only the declared build policy succeeds. | BUILD-2, BUILD-3, BUILD-4                   |
 | Central child control    | With Forge absent, spawn, answer a question, steer, interrupt, follow up, and resume through the main session. Settled children release active-turn capacity.                                               | BUILD-5, COORD-1, COORD-2, COORD-3, COORD-4 |
 | Interrupted operations   | Disconnect the UI and kill the broker during startup, execution, and cleanup. Reattach without duplicate work, leaked quota, lost commits, or incorrect ownership.                                          | COORD-4, COORD-5, OPS-4                     |

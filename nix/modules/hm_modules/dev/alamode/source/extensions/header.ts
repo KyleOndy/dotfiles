@@ -13,8 +13,10 @@
  *
  * ALAMODE_LANDING_SHORT is landing_notice()'s forecast as a clause
  * (nix/pkgs/alamode-runtime/session.py); a warning's full sentence also
- * arrives as landing-notice.ts's toast. Without ALAMODE_SESSION_ID the wrapper did
- * not run, and only the art and wordmark are drawn.
+ * arrives as landing-notice.ts's toast. ALAMODE_REGRANTED is set only on the
+ * launch a regrant starts, and names what it added and dropped. Without
+ * ALAMODE_SESSION_ID the wrapper did not run, and only the art and wordmark
+ * are drawn.
  */
 
 import { type ExtensionAPI, VERSION } from "@earendil-works/pi-coding-agent";
@@ -70,6 +72,7 @@ export default function (pi: ExtensionAPI) {
     const id = process.env.ALAMODE_SESSION_ID;
     const lands = process.env.ALAMODE_LANDING_SHORT;
     const warning = process.env.ALAMODE_LANDING_LEVEL === "warning";
+    const regranted = process.env.ALAMODE_REGRANTED;
 
     ctx.ui.setHeader((_tui, theme) => ({
       invalidate() {},
@@ -90,7 +93,9 @@ export default function (pi: ExtensionAPI) {
           lands
             ? `${dim("lands  ")}  ${theme.fg(warning ? "warning" : "success", lands)}`
             : "",
-          "",
+          regranted
+            ? `${dim("grants ")}  ${theme.fg("warning", regranted)}`
+            : "",
         ];
         return [
           ...SLICE.map((art, row) =>

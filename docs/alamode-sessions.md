@@ -89,13 +89,24 @@ cleanup commands for the branch it signed.
 ```sh
 alamode resume              # the most recent session
 alamode resume ID
+alamode resume ID GRANTS    # the same session with GRANTS in place of its own
 alamode sessions            # list retained sessions
 alamode sessions show ID    # a session's recorded authority
 alamode sessions export ID  # a verified review bundle
 ```
 
-Resume restores the recorded grants and workspace. Start a new session to
-change authority. Resume also needs the runtime build that recorded the
+Resume restores the recorded grants and workspace. To change the grants
+of work already under way, regrant it: `/regrant` inside pi, or
+`alamode resume ID GRANTS` after quitting. GRANTS replace the session's
+own, as on a launch, so restate every grant to keep; quitting prints the
+command with the current flags filled in, and `/regrant` opens an editor
+on them. `/regrant` quits pi and asks y/N at the terminal before the new
+grants apply, since the session can write the request it leaves; a no
+ends the session like a normal quit. Either way the same transcript and
+worktree continue, pi's header shows what changed, and `sessions show`
+lists each earlier policy under `regrants`. `--local`, `--local-model`
+and `--no-PROVIDER` stay as launched, and a coordinator and its agents
+keep their grants. Resume also needs the runtime build that recorded the
 session: a rebuild invalidates it, and the error names the recorded build
 and the export command that still works. Provider credentials may rotate.
 

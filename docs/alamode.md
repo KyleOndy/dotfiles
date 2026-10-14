@@ -68,6 +68,7 @@ hard boundary to the engine:
 ```
 alamode [--profile NAME] [GRANTS] [-- PI-ARGS]
 alamode resume [ID] [-- PI-ARGS]
+alamode resume ID GRANTS [-- PI-ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ...        # = alamode-delegate
@@ -94,9 +95,15 @@ alamode seats ...          # = alamode-seats
   or stopped one; `coord start` prints the JSON credentials (socket,
   token, coordinator, session, workspace) for headless consumers
   (`alamode-delegate` standalone mode consumes it).
-- Grants hold exactly on resume/attach: recorded grants are replayed, any
-  requested change is refused, children spawn through the wrapper with
-  recorded policy, credentials stay in the relay.
+- Grants hold exactly on resume/attach: recorded grants are replayed,
+  children spawn through the wrapper with recorded policy, credentials
+  stay in the relay. The one change is a regrant: `resume ID GRANTS`, or
+  `/regrant` in pi (confirmed y/N at the terminal, since the session can
+  write the request), replaces the grants, as a launch with GRANTS would
+  set them, on the same transcript and worktree. The record keeps each
+  previous policy under `regrants`. `--local`, `--local-model` and
+  `--no-PROVIDER` stay as launched, a regrant needs an explicit ID, and
+  `coord attach` and coordinator sessions refuse any change.
 
 ### 2.1 Help text (canonical)
 
@@ -108,6 +115,7 @@ alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--allow-BUNDLE] [--local] [--no-PROVIDER]
         [--local-model PROVIDER/ID] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
+alamode resume ID GRANTS [-- PI ARGS]
 alamode sessions [show ID | export ID]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ... | seats ...
@@ -115,7 +123,8 @@ alamode delegate ... | seats ...
 A launch snapshots the current repository into private Git storage.
 Quitting lands the session's commits back in that repository.
 Outside a repository, launches use an empty private scratch workspace.
-Grants persist on resume. Provider credentials stay in the host relay.
+Grants persist on resume unless GRANTS or /regrant replace them.
+Provider credentials stay in the host relay.
 Flags after -- reach pi verbatim; alamode flags never follow it.
 --allow-nix requires a configured isolated builder.
 --local admits only loopback models and refuses every network grant.
@@ -191,7 +200,7 @@ build asserts the compdef token equals `meta.mainProgram`.
   substituted at build time).
 - IDs complete from pure globs over the state layout (no socket pings on
   TAB): `resume` and `sessions show|export` offer
-  `~/.local/state/alamode/records/*/`; `coord attach|stop` offer
+  `~/.local/state/alamode/records/*/`, and `resume` then grant flags; `coord attach|stop` offer
   `~/.local/state/alamode/coordinators/*/`; `delegate` offers
   `~/.local/state/alamode/delegates/*.json` stems.
 - `delegate` and `seats` complete as subcommands of `_alamode` (no

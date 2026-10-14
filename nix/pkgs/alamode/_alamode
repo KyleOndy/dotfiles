@@ -90,6 +90,7 @@ case $verb in
   resume)
     _arguments \
       '1:session id:compadd -a records' \
+      "${grant_flags[@]}" \
       '(-)--[engine arguments]' \
       '*:engine argument:_files'
     ;;

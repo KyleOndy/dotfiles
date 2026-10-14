@@ -8,7 +8,7 @@
  * sandbox. Guessing produced workarounds before this existed. This appends a
  * short note to the failed bash result that identifies a possible refusal, lists the
  * grants this session does not carry, and restates the protocol: name the
- * --allow-<name> flag, ask the human to restart, do not retry or work
+ * --allow-<name> flag, ask the human to run /regrant, do not retry or work
  * around.
  *
  * Signatures are the strings srt's policy actually produced on this setup,
@@ -89,7 +89,7 @@ export default function (pi: ExtensionAPI) {
       `[refusal-guard] The line above looks like the OS sandbox refusing (signature: ` +
       `${hit.name}). It may also be an ordinary permission or connection error. ${catalog} ` +
       `Check the failed operation against this session's grants. If a grant is missing, ` +
-      `name the --allow-<name> flag and ask the human to restart alamode with it; ` +
+      `name the --allow-<name> flag and ask the human to run /regrant with it; ` +
       `the sandbox cannot widen mid-session. Do not work around a policy denial.`;
 
     blocks.push({ type: "text", text: note });

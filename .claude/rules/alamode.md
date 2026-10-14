@@ -24,7 +24,10 @@ which records the grants it carries (`--web`, `--allow-nix`, `-forge`,
 `ALAMODE_ALLOWED_HOSTS`; `--listen` and path grants are not exported.
 `extensions/grants.ts` turns the carried ones into system-prompt sections
 from `grants/<name>.md` and lists the rest, so a session the sandbox blocks
-knows which flag to ask the human to restart with.
+knows which flag to ask the human for. `/regrant` (`extensions/regrant.ts`)
+quits pi with a request; the wrapper asks y/N at the terminal and relaunches
+the same session with the new grants (`regrant()` in `session.py`), and
+`alamode resume ID GRANTS` does the same from the shell.
 
 Every provider the agent reaches is an internal or account-billed endpoint,
 and mcloud is the primary on both macs. Model ids are private, since the org

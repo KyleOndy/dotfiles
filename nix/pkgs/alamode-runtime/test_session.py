@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import pty
 import shutil
 import signal
 import socket
@@ -114,7 +115,8 @@ class PolicyTests(unittest.TestCase):
         ):
             with self.subTest(strict=args), self.assertRaises(session.SessionError):
                 session.parse(args, self.config)
-        # A grant request is detectable so resumes can refuse it wholesale.
+        # A grant request is detectable, so a coordinator attach can refuse
+        # it wholesale and a resume can route it to regrant().
         for args in (
             ["--web"],
             ["--allow-registry"],
@@ -181,6 +183,212 @@ class PolicyTests(unittest.TestCase):
         )
         for path in session.transport_directories(self.manifest):
             self.assertIn(str(path), rules["filesystem"]["denyWrite"])
+
+    def test_regrant_replaces_grants_and_records_the_old_policy(self):
+        self.config["bundles"]["paths"] = {"readPaths": ["/approved"]}
+        launched = ["--web", "--allow-read", "/kept"]
+        manifest = {
+            **self.manifest,
+            "grant_args": launched,
+            "policy": session.policy(
+                session.parse(launched, self.config), self.config, self.root
+            ),
+        }
+        requested = ["--allow-read", "/kept", "--allow-paths", "--listen", "3000"]
+        updated, changes = session.regrant(
+            self.config, manifest, requested, self.root, self.records
+        )
+        # GRANTS replace the recorded ones: --web, not restated, is dropped.
+        self.assertEqual(changes, ["-web", "+paths", "+read /approved", "+listen 3000"])
+        self.assertFalse(updated["policy"]["web"])
+        self.assertEqual(updated["grant_args"], requested)
+        self.assertEqual(updated["regrants"][-1]["policy"], manifest["policy"])
+        self.assertEqual(updated["regrants"][-1]["grant_args"], launched)
+        self.assertNotIn("regrants", manifest)
+        again, _ = session.regrant(
+            self.config, updated, launched, self.root, self.records
+        )
+        self.assertEqual(
+            [entry["grant_args"] for entry in again["regrants"]], [launched, requested]
+        )
+
+    def test_regrant_keeps_model_scope_and_coordinator_grants(self):
+        self.config["trustedProviders"] = ["fixture"]
+        manifest = {
+            **self.manifest,
+            "grant_args": [],
+            "policy": {
+                **self.manifest["policy"],
+                "allowed_models": ["fixture/probe"],
+                "catalog_scope": "digest",
+            },
+        }
+        for args in (["--local"], ["--no-fixture"], ["--local-model", "fixture/x"]):
+            with (
+                self.subTest(args=args),
+                self.assertRaisesRegex(session.SessionError, "stay as the session"),
+            ):
+                session.regrant(self.config, manifest, args, self.root, self.records)
+        for key in ("coordinator_id", "coordinator"):
+            with (
+                self.subTest(key=key),
+                self.assertRaisesRegex(session.SessionError, "new coordinator"),
+            ):
+                session.regrant(
+                    self.config,
+                    {**manifest, key: {"role": "main"}},
+                    ["--web"],
+                    self.root,
+                    self.records,
+                )
+        # main() hands over the control directory resolved, as expand()
+        # resolves grants.
+        control = self.records.resolve()
+        with self.assertRaisesRegex(session.SessionError, "overlaps trusted"):
+            session.regrant(
+                self.config,
+                manifest,
+                ["--allow-read", str(control)],
+                self.root,
+                control,
+            )
+        updated, _ = session.regrant(
+            self.config, manifest, ["--web"], self.root, self.records
+        )
+        self.assertEqual(updated["policy"]["allowed_models"], ["fixture/probe"])
+        self.assertEqual(updated["policy"]["catalog_scope"], "digest")
+
+    def test_regrant_request_is_taken_once_and_never_followed(self):
+        self.assertIsNone(session.take_regrant_request(self.manifest))
+        request = self.work / session.REGRANT_REQUEST
+        request.parent.mkdir(parents=True)
+        request.write_text("--web --allow-read '/a b'\n")
+        self.assertEqual(
+            session.take_regrant_request(self.manifest),
+            ["--web", "--allow-read", "/a b"],
+        )
+        self.assertFalse(request.exists())
+        self.assertIsNone(session.take_regrant_request(self.manifest))
+        # An emptied editor asks for the host defaults alone.
+        request.write_text("\n")
+        self.assertEqual(session.take_regrant_request(self.manifest), [])
+        elsewhere = self.work / "elsewhere"
+        elsewhere.write_text("--web\n")
+        request.symlink_to(elsewhere)
+        with self.assertRaises(OSError):
+            session.take_regrant_request(self.manifest)
+        self.assertFalse(request.is_symlink())
+        self.assertTrue(elsewhere.exists())
+        request.write_text("--allow-read 'unclosed\n")
+        with self.assertRaisesRegex(session.SessionError, "unreadable"):
+            session.take_regrant_request(self.manifest)
+
+    def test_child_learns_its_grant_flags_and_where_to_ask_for_others(self):
+        runtime = self.work / "runtime"
+        manifest = {**self.manifest, "grant_args": ["--allow-read", "/a b"]}
+        environment = session.child_environment(
+            self.config, manifest, self.root, runtime
+        )
+        self.assertEqual(environment["ALAMODE_GRANT_ARGS"], "--allow-read '/a b'")
+        self.assertEqual(
+            environment["ALAMODE_REGRANT_REQUEST"],
+            str(self.work / session.REGRANT_REQUEST),
+        )
+        self.assertNotIn("ALAMODE_REGRANTED", environment)
+        environment = session.child_environment(
+            self.config, {**manifest, "regranted": ["+web", "-nix"]}, self.root, runtime
+        )
+        self.assertEqual(environment["ALAMODE_REGRANTED"], "+web -nix")
+        coordinated = {
+            **manifest,
+            "coordinator": {"socket": "s", "token": "t", "id": "c", "role": "main"},
+        }
+        environment = session.child_environment(
+            self.config, coordinated, self.root, runtime
+        )
+        self.assertNotIn("ALAMODE_REGRANT_REQUEST", environment)
+
+    def test_resume_regrants_and_relaunches_on_request(self):
+        home = self.root / "home"
+        control = session.directory(home / ".local/state/alamode")
+        record = session.directory(session.directory(control / "records") / "fixture")
+        config_path = (self.root / "configuration.json").resolve()
+        config_path.write_text(json.dumps(self.config))
+        manifest = {
+            **self.manifest,
+            "grant_args": [],
+            "configuration": str(config_path),
+        }
+        (record / "manifest.json").write_text(json.dumps(manifest))
+        runs = []
+
+        def run(config, manifest, args, home):
+            runs.append(manifest)
+            if len(runs) == 1:
+                path = (
+                    Path(manifest["workspace"]["session_root"])
+                    / session.REGRANT_REQUEST
+                )
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("--allow-registry\n")
+            return 0
+
+        with (
+            patch.dict(os.environ, {"HOME": str(home)}),
+            patch.object(session, "run", run),
+            patch.object(session, "land"),
+            patch.object(session, "pin_store_roots"),
+            patch.object(session, "confirm_regrant", return_value=True) as confirm,
+            redirect_stderr(io.StringIO()),
+        ):
+            with self.assertRaisesRegex(session.SessionError, "Name the session"):
+                session.main([str(config_path), "alamode", "resume", "--web"])
+            self.assertEqual(
+                session.main(
+                    [str(config_path), "alamode", "resume", "fixture", "--web"]
+                ),
+                0,
+            )
+        self.assertEqual([entry["policy"]["web"] for entry in runs], [True, False])
+        self.assertEqual(runs[0]["regranted"], ["+web"])
+        self.assertEqual(runs[1]["regranted"], ["-web", "+registry"])
+        self.assertEqual(confirm.call_args.args[1], ["--allow-registry"])
+        saved = json.loads((record / "manifest.json").read_text())
+        self.assertEqual(saved["grant_args"], ["--allow-registry"])
+        self.assertNotIn("regranted", saved)
+        self.assertEqual(
+            [entry["grant_args"] for entry in saved["regrants"]], [[], ["--web"]]
+        )
+
+    def test_confirm_regrant_reads_the_answer_from_the_terminal(self):
+        pid, terminal = pty.fork()
+        if pid == 0:
+            accepted = False
+            try:
+                accepted = session.confirm_regrant(
+                    {"id": "fixture"}, ["--web"], ["+web"]
+                )
+            finally:
+                os._exit(0 if accepted else 1)
+        # Read to the end: the child cannot finish exiting while the
+        # terminal holds output nobody has read.
+        output = b""
+        answered = False
+        while True:
+            try:
+                chunk = os.read(terminal, 1024)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output += chunk
+            if not answered and b"[y/N] " in output:
+                os.write(terminal, b"y\n")
+                answered = True
+        _, status = os.waitpid(pid, 0)
+        os.close(terminal)
+        self.assertIn(b"Relaunch with these grants? [y/N] ", output)
+        self.assertEqual(os.waitstatus_to_exitcode(status), 0)
 
     def test_information_does_not_admit_source_or_credentials(self):
         executable = self.root / "fake-pi"

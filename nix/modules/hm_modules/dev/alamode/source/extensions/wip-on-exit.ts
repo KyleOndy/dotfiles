@@ -6,6 +6,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async (event, ctx) => {
     if (event.reason !== "quit" || !process.env.ALAMODE_SESSION_ID) return;
     if (process.env.ALAMODE_COORD_ROLE === "child") return;
+    // A regrant relaunches pi on this worktree without landing anything.
+    if (process.env.ALAMODE_REGRANTING) return;
     const git = (...args: string[]) => pi.exec("git", args, { cwd: ctx.cwd });
     const status = await git("status", "--porcelain");
     if (status.code !== 0 || !status.stdout.trim()) return;

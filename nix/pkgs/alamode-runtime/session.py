@@ -19,6 +19,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import termios
 import textwrap
 import time
 from urllib.parse import urlsplit
@@ -30,6 +31,10 @@ import workspace
 ID = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9_.-]{0,79}\Z")
 # extensions/wip-on-exit.ts commits leftover edits under this subject.
 WIP_SUBJECT = "wip: uncommitted at exit"
+# extensions/regrant.ts writes the grant flags /regrant asks for here, then
+# quits pi. The session can write this file too, so it is only a request:
+# the human's answer at the terminal is the grant.
+REGRANT_REQUEST = "runtime/state/regrant-request"
 PRIVATE_NETWORKS = [
     "0.0.0.0/8",
     "10.0.0.0/8",
@@ -249,6 +254,7 @@ Start a session
   alamode slice NAME|TICKET [GRANTS] [-- PI ARGS]
                                       in a new worktree, in its own tmux window
   alamode resume [ID] [-- PI ARGS]    the newest session, or session ID
+  alamode resume ID GRANTS            session ID with GRANTS in place of its own
 
 Look back
   alamode sessions                    list retained sessions
@@ -263,7 +269,8 @@ Run several agents
   alamode delegate ...                run or steer a delegated agent
   alamode seats ...                   show which model fills each seat
 
-Grants are chosen at launch and kept on resume
+Grants are chosen at launch and kept on resume. GRANTS on a resume, or
+/regrant inside the session, replace them: restate every grant to keep.
 {grants}
 
 Models
@@ -274,7 +281,8 @@ Everything after -- reaches pi unchanged. alamode -- --help lists pi's flags.
 Examples
   alamode slice add-starship
   alamode --allow-node --listen 3000
-  alamode resume -- --model PROVIDER/ID"""
+  alamode resume -- --model PROVIDER/ID
+  alamode resume ID --allow-node --allow-nix"""
 
 
 def split_boundary(argv):
@@ -382,7 +390,7 @@ def requested_grants(options, config):
 def refuse_grant_changes(options, config):
     if requested_grants(options, config):
         raise SessionError(
-            "Resume uses the recorded grants; start a new session to change authority"
+            "A coordinator and its agents keep their recorded grants; start a new coordinator to change them"
         )
 
 
@@ -472,6 +480,82 @@ def policy(options, config, home):
             "No isolated Nix builder is configured. Host daemon access is not a session grant."
         )
     return result
+
+
+def regrant(config, manifest, args, home, control):
+    """The manifest with ARGS in place of its grants, and what that changes.
+
+    ARGS mean what they mean at a launch, so every grant kept is restated.
+    The previous policy goes into the record's regrants list, where
+    `sessions show` lists it. Model scope stays as launched: the catalog
+    digest and seats were admitted against it, and the transcript runs on a
+    model inside it.
+    """
+    if manifest.get("coordinator_id") or manifest.get("coordinator"):
+        raise SessionError(
+            "A coordinator and its agents keep their recorded grants; start a new coordinator to change them"
+        )
+    options = parse(args, config)
+    if options.managed_manifest:
+        raise SessionError("--managed-manifest is not a grant")
+    grants = policy(options, config, home)
+    recorded = manifest["policy"]
+    for key, launched in (
+        ("local", False),
+        ("excluded_providers", []),
+        ("local_models", []),
+    ):
+        if grants[key] != recorded.get(key, launched):
+            raise SessionError(
+                "--local, --local-model and --no-PROVIDER stay as the session"
+                " launched; restate them unchanged, or start a new session"
+            )
+    for key in ("allowed_models", "catalog_scope"):
+        if key in recorded:
+            grants[key] = recorded[key]
+    updated = {
+        **manifest,
+        "policy": grants,
+        "grant_args": list(args),
+        "regrants": [
+            *manifest.get("regrants", []),
+            {
+                "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "policy": recorded,
+                "grant_args": manifest.get("grant_args"),
+            },
+        ],
+    }
+    if grants["nix"] and "builder" not in manifest:
+        updated["builder"] = read_json(expand(config["builder"], home))
+    validate_grants(updated, control)
+    return updated, grant_changes(recorded, grants)
+
+
+def grant_changes(before, after):
+    """Each grant a regrant adds or drops, as "+name" or "-name"."""
+    changes = []
+    for key, name in (
+        ("web", "web"),
+        ("nix", "nix"),
+        ("forge", "forge"),
+        ("clipboard", "clipboard"),
+        ("trustd", "trustd"),
+        ("git_write", "git-write"),
+    ):
+        if bool(before.get(key)) != bool(after.get(key)):
+            changes.append(("+" if after.get(key) else "-") + name)
+    for key, label in (
+        ("grants", ""),
+        ("allow", "host "),
+        ("read", "read "),
+        ("write", "write "),
+        ("listen", "listen "),
+    ):
+        old, new = before.get(key, []), after.get(key, [])
+        changes += [f"+{label}{value}" for value in new if value not in old]
+        changes += [f"-{label}{value}" for value in old if value not in new]
+    return changes
 
 
 def loopback(url):
@@ -1005,6 +1089,14 @@ def child_environment(config, manifest, home, runtime):
             env["ALAMODE_SOURCE_BRANCH"] = branch
     if manifest["policy"].get("local"):
         env["ALAMODE_LOCAL"] = "1"
+    # A resumed session's manifest can predate "grant_args".
+    if "grant_args" in manifest:
+        env["ALAMODE_GRANT_ARGS"] = shlex.join(manifest["grant_args"])
+    if not manifest.get("coordinator"):
+        env["ALAMODE_REGRANT_REQUEST"] = str(runtime.parent / REGRANT_REQUEST)
+    # Set only for the run a regrant starts, so pi shows the change once.
+    if manifest.get("regranted"):
+        env["ALAMODE_REGRANTED"] = " ".join(manifest["regranted"])
     # A resumed session's manifest can predate "allow".
     allowed = manifest["policy"].get("allow", [])
     if allowed:
@@ -1601,6 +1693,49 @@ def tell(paragraphs, steps=()):
         print(("alamode: " + line).rstrip(), file=sys.stderr)
 
 
+def take_regrant_request(manifest):
+    """The grant flags /regrant asked for, or None; the request is removed."""
+    root = workspace_root(manifest)
+    try:
+        data = safe_read(root, REGRANT_REQUEST, limit=4096)
+    except FileNotFoundError:
+        return None
+    finally:
+        safe_clear(root, REGRANT_REQUEST)
+    try:
+        return shlex.split(data.decode())
+    except ValueError as error:
+        raise SessionError(f"the request is unreadable: {error}") from None
+
+
+def confirm_regrant(manifest, args, changes):
+    """Whether the human at the terminal accepts a /regrant request.
+
+    The answer is read from /dev/tty, which a sandboxed process cannot type
+    into: srt's profile refuses TIOCSTI with EPERM, allowPty included
+    (measured on sandbox-runtime 0.0.79).
+    """
+    tell(
+        [
+            f"/regrant asks to relaunch session {manifest['id']} with these"
+            " grants in place of its own. Answer n if you did not run"
+            " /regrant: the session can write this request too.",
+        ],
+        [
+            ("grants", shlex.join(args) or "(host defaults only)"),
+            ("changes", ", ".join(changes) or "none"),
+        ],
+    )
+    try:
+        # Unbuffered: a buffered read-write open needs a seekable file.
+        with open("/dev/tty", "r+b", buffering=0) as terminal:
+            termios.tcflush(terminal, termios.TCIFLUSH)
+            terminal.write(b"Relaunch with these grants? [y/N] ")
+            return terminal.readline().strip().lower() in (b"y", b"yes")
+    except OSError:
+        return False
+
+
 def context_warning(paths):
     return [
         "These commits change files your agents read as instructions:",
@@ -2052,6 +2187,16 @@ def main(argv=None):
     except (OSError, KeyError):
         pass  # A best-effort root never stops a launch.
     options = parse(grant_part, config)
+    regrant_args = None
+    if attach_id or options.managed_manifest:
+        refuse_grant_changes(options, config)
+    elif verb == "resume" and requested_grants(options, config):
+        # Never the newest session by default: a grant change names its target.
+        if resume_id is None:
+            raise SessionError(
+                "Name the session whose grants change: alamode resume ID GRANTS"
+            )
+        regrant_args = list(grant_part)
     if verb == "resume" and resume_id is None:
         candidates = sorted(
             records.glob("*/manifest.json"), key=lambda path: path.stat().st_mtime
@@ -2059,8 +2204,6 @@ def main(argv=None):
         if not candidates:
             raise SessionError("No sessions recorded yet")
         resume_id = candidates[-1].parent.name
-    if resume_id or attach_id or options.managed_manifest:
-        refuse_grant_changes(options, config)
     if list_coordinators:
         return coordinator_table(control)
     if stop_id is not None:
@@ -2086,7 +2229,15 @@ def main(argv=None):
             json.dumps(
                 {
                     key: record[key]
-                    for key in ("id", "policy", "workspace", "configuration")
+                    for key in (
+                        "id",
+                        "grant_args",
+                        "policy",
+                        "regrants",
+                        "workspace",
+                        "configuration",
+                    )
+                    if key in record
                 },
                 indent=2,
             )
@@ -2160,6 +2311,8 @@ def main(argv=None):
         manifest = {
             "version": 1,
             "id": identity,
+            # Printed back for editing when quitting and by /regrant.
+            "grant_args": list(grant_part),
             "policy": grants,
             "seats": held,
             "configuration": configuration_path,
@@ -2195,6 +2348,10 @@ def main(argv=None):
             raise SessionError("This session is already running") from error
         if export_id:
             return export_session(manifest)
+        changes = None
+        if regrant_args is not None:
+            manifest, changes = regrant(config, manifest, regrant_args, home, control)
+            write_json(manifest_path, manifest)
         if manifest.get("coordinator_id"):
             coordinator(config, manifest, control, executable)
             write_json(manifest_path, manifest)
@@ -2215,7 +2372,51 @@ def main(argv=None):
             f"alamode: session {manifest['id']}\nalamode: workspace {manifest['workspace']['workspace']}",
             file=sys.stderr,
         )
-        status = run(config, manifest, engine_args, home)
+        # A request left from an earlier run was never answered by this one.
+        take_regrant_request(manifest)
+        while True:
+            status = run(
+                config,
+                {**manifest, "regranted": changes} if changes else manifest,
+                engine_args,
+                home,
+            )
+            relaunch = f"alamode resume {manifest['id']}"
+            if manifest.get("coordinator"):
+                break  # child_environment offers no /regrant here.
+            try:
+                requested = take_regrant_request(manifest)
+                if requested is None:
+                    break
+                updated, changes = regrant(config, manifest, requested, home, control)
+            except (SessionError, OSError) as error:
+                tell(
+                    [
+                        f"/regrant was refused: {error}. The session ends here"
+                        " like a normal quit.",
+                    ],
+                    [
+                        ("resume", relaunch),
+                        (
+                            "regrant",
+                            f"{relaunch} {shlex.join(manifest.get('grant_args', [])) or 'GRANTS'}",
+                        ),
+                    ],
+                )
+                break
+            if not confirm_regrant(manifest, requested, changes):
+                tell(
+                    ["Grants unchanged. The session ends here like a normal quit."],
+                    [("resume", relaunch)]
+                    + (
+                        [("regrant", f"{relaunch} {shlex.join(requested)}")]
+                        if requested
+                        else []
+                    ),
+                )
+                break
+            manifest = updated
+            write_json(manifest_path, manifest)
         try:
             land(manifest)
         except (

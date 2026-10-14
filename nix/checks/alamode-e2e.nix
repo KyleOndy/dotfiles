@@ -112,7 +112,7 @@ let
     import { classifyResult } from "${extDir}/task.ts";
     import stallGuard from "${extDir}/stall-guard.ts";
     import refusalGuard from "${extDir}/refusal-guard.ts";
-    import resumeHint from "${extDir}/resume-hint.ts";
+    import regrant from "${extDir}/regrant.ts";
     import wipOnExit from "${extDir}/wip-on-exit.ts";
     import landingNotice from "${extDir}/landing-notice.ts";
     import coordinator from "${extDir}/coordinator.ts";
@@ -148,18 +148,40 @@ let
       const failure = { ...success, isError: true, content: [...success.content] };
       hooks.tool_result(failure, ctx);
       assert.equal(failure.content.length, 2, "Successful quoted text must not consume the failure hint");
-      resumeHint(api as any);
+      const regrantCommands: Record<string, any> = {};
+      regrant({ ...api, registerCommand: (name: string, value: any) => regrantCommands[name] = value } as any);
       let hint = "";
       const write = process.stdout.write;
       Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
       process.stdout.write = ((text: string) => { hint += text; return true; }) as any;
       process.env.ALAMODE_SESSION_ID = "trusted-session-123";
+      process.env.ALAMODE_GRANT_ARGS = "--web --allow-read '/a b'";
       hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
-      assert.match(hint, /alamode resume trusted-session-123/);
+      assert.match(hint, /alamode resume trusted-session-123\n/);
+      assert.match(hint, /alamode resume trusted-session-123 --web --allow-read '\/a b'\n/);
       hint = "";
+      process.stdout.write("\x1b[2mTo resume this session:\x1b[22m pi --session fixture\n");
+      assert.equal(hint, "", "pi's own resume line runs a pi outside the sandbox");
       process.env.ALAMODE_SESSION_ID = "untrusted;command";
       hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
       assert.equal(hint, "");
+      process.env.ALAMODE_SESSION_ID = "trusted-session-123";
+      let shutdowns = 0;
+      const refusals: string[] = [];
+      const commandCtx = {
+        ...ctx, hasUI: true, shutdown: () => shutdowns++,
+        ui: { notify: (_text: string, level: string) => refusals.push(level), editor: async (_title: string, prefill: string) => prefill + " --allow-nix" },
+      };
+      delete process.env.ALAMODE_REGRANT_REQUEST;
+      await regrantCommands.regrant.handler("--web", commandCtx);
+      assert.deepEqual([refusals, shutdowns], [["error"], 0], "A coordinator's grants stay fixed");
+      const request = join(mkdtempSync(join(tmpdir(), "regrant-")), "request");
+      process.env.ALAMODE_REGRANT_REQUEST = request;
+      await regrantCommands.regrant.handler("", commandCtx);
+      assert.equal(readFileSync(request, "utf8"), "--web --allow-read '/a b' --allow-nix\n", "The editor starts from the session's own flags");
+      assert.equal(shutdowns, 1);
+      hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
+      assert.equal(hint, "", "A regrant relaunches, so there is nothing to resume yet");
       process.stdout.write = write;
       const repo = mkdtempSync(join(tmpdir(), "wip-on-exit-"));
       const run = (args: string[]) => {
@@ -182,6 +204,9 @@ let
       delete process.env.ALAMODE_COORD_ROLE;
       await hooks.session_shutdown({ reason: "reload" }, { ...ctx, cwd: repo });
       assert.equal(subject(), "base", "A reload is not an exit");
+      await hooks.session_shutdown({ reason: "quit" }, { ...ctx, cwd: repo });
+      assert.equal(subject(), "base", "A regrant relaunches on the same worktree");
+      delete process.env.ALAMODE_REGRANTING;
       await hooks.session_shutdown({ reason: "quit" }, { ...ctx, cwd: repo });
       assert.equal(subject(), "wip: uncommitted at exit");
       assert.equal(run(["status", "--porcelain"]).stdout, "");
