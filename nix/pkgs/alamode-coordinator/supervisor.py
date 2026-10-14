@@ -214,8 +214,10 @@ class Supervisor:
                 self.run_events = [event]
             elif kind == "agent_settled":
                 self.run_events.append(event)
+                # pi's own flag wins: an interrupt that lands after the run
+                # settled sets self.aborted, but pi had nothing left to abort.
                 self.state["outcome"] = classify_result(
-                    self.run_events, aborted=self.aborted
+                    self.run_events, aborted=event.get("aborted", self.aborted)
                 )
                 self.state["state"] = "idle"
                 self.state["activity"] = None
@@ -384,7 +386,11 @@ class Supervisor:
                 self.state["state"] = (
                     "closed" if op == "close" else "idle" if alive else "lost"
                 )
-                if interrupted:
+                settled = (
+                    self.run_events
+                    and self.run_events[-1].get("type") == "agent_settled"
+                )
+                if interrupted and not settled:
                     self.state["outcome"] = classify_result(
                         self.run_events, aborted=True
                     )

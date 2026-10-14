@@ -419,5 +419,77 @@
       "state": "success",
       "text": "answer"
     }
+  },
+  {
+    "name": "settled aborted",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "toolUse",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled",
+        "aborted": true
+      }
+    ],
+    "expected": {
+      "state": "aborted",
+      "text": "answer"
+    }
+  },
+  {
+    "name": "aborted run then completed run",
+    "events": [
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "toolUse",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled",
+        "aborted": true
+      },
+      {
+        "type": "agent_start"
+      },
+      {
+        "type": "message_end",
+        "message": {
+          "role": "assistant",
+          "stopReason": "stop",
+          "content": [
+            {
+              "type": "text",
+              "text": "answer"
+            }
+          ]
+        }
+      },
+      {
+        "type": "agent_settled",
+        "aborted": false
+      }
+    ],
+    "expected": {
+      "state": "success",
+      "text": "answer"
+    }
   }
 ]

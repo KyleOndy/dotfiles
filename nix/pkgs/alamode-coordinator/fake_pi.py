@@ -59,7 +59,7 @@ def run(message):
         run(queued.pop(0))
     else:
         running = False
-        emit({"type": "agent_settled"})
+        emit({"type": "agent_settled", "aborted": aborted.is_set()})
 
 
 for line in sys.stdin:

@@ -2,24 +2,26 @@ def classify_result(events, exit_code=0, *, aborted=False, timed_out=False):
     """Classify one alamode turn. Verification is a separate trusted outcome."""
     final = None
     settled = False
+    cancelled = False
     for event in events:
         if not isinstance(event, dict):
             continue
         kind = event.get("type")
         if kind == "agent_start":
             final = None
-            settled = False
+            settled = cancelled = False
         elif kind == "message_end":
             message = event.get("message", {})
             if isinstance(message, dict) and message.get("role") == "assistant":
                 final = message
-                settled = False
+                settled = cancelled = False
         elif kind == "agent_end" and final is None:
             for message in event.get("messages") or []:
                 if isinstance(message, dict) and message.get("role") == "assistant":
                     final = message
         elif kind == "agent_settled":
             settled = True
+            cancelled = event.get("aborted") is True
 
     final = final or {}
     content = final.get("content")
@@ -33,7 +35,7 @@ def classify_result(events, exit_code=0, *, aborted=False, timed_out=False):
     reason = final.get("stopReason")
     if timed_out:
         state, error = "timeout", "Agent timed out"
-    elif aborted or reason == "aborted":
+    elif aborted or cancelled or reason == "aborted":
         state, error = "aborted", "Agent was cancelled"
     elif exit_code != 0:
         state, error = "error", f"Agent process exited with code {exit_code}"

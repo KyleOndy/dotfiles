@@ -431,16 +431,17 @@ export function classifyResult(
 ): { state: string; text: string; error: string | null } {
   let final: AssistantResult | undefined;
   let settled = false;
+  let cancelled = false;
   for (const event of events) {
     if (!event || typeof event !== "object") continue;
     if (event.type === "agent_start") {
       final = undefined;
-      settled = false;
+      settled = cancelled = false;
     } else if (event.type === "message_end") {
       const message = event.message as AssistantResult | undefined;
       if (message?.role === "assistant") {
         final = message;
-        settled = false;
+        settled = cancelled = false;
       }
     } else if (event.type === "agent_end" && !final) {
       for (const message of (event.messages ?? []) as AssistantResult[]) {
@@ -448,6 +449,7 @@ export function classifyResult(
       }
     } else if (event.type === "agent_settled") {
       settled = true;
+      cancelled = event.aborted === true;
     }
   }
   const text = (Array.isArray(final?.content) ? final.content : [])
@@ -462,7 +464,7 @@ export function classifyResult(
   if (timedOut) {
     state = "timeout";
     error = "Agent timed out";
-  } else if (aborted || reason === "aborted") {
+  } else if (aborted || cancelled || reason === "aborted") {
     state = "aborted";
     error = "Agent was cancelled";
   } else if (exitCode !== 0) {
