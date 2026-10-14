@@ -57,8 +57,13 @@ warning: ignoring the client-specified setting 'sandbox', because it is a restri
   protects what a fetch returns, not what it sends. With or without the
   flip, a build is a way past its client's domain allowlist for anything
   the client can read. Loopback is one attribute away for any derivation:
-  `__darwinAllowLocalNetworking` opens every port on 127.0.0.1
-  ([sandbox-defaults.sb](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/darwin/build/sandbox-defaults.sb#L49-L54)).
+  `__darwinAllowLocalNetworking` opens every port on 127.0.0.1, and
+  mDNSResponder with it
+  ([sandbox-defaults.sb](https://github.com/NixOS/nix/blob/8624d7c74eaee2638d2aff9b1e30455a74baba8c/src/libstore/darwin/build/sandbox-defaults.sb#L49-L71)).
+  So such a build resolves any name, and a lookup of a name under a
+  domain someone else runs carries data out. Measured on trex
+  (2026-10-14): with the attribute, curl resolved example.com and failed
+  only at the connect; without it, curl could not resolve the name.
 - **What stays open.** `/private/tmp` and `/private/var/tmp` stay
   readable and writable. They are in darwin's default `sandbox-paths`
   ([globals.cc](https://github.com/NixOS/nix/blob/979a87c97bef7b96cd4ec4b142188089851e47ad/src/libstore/globals.cc#L94-L107)), and every one of those is
