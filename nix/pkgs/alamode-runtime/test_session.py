@@ -515,6 +515,18 @@ class PolicyTests(unittest.TestCase):
             )
 
     def test_runner_keeps_the_session_tmpdir(self):
+        # execute() builds the network transport directory under /tmp, on
+        # the host where the wrapper runs unsandboxed. A Nix build sandbox
+        # denies writes there, and so does an alamode session running its
+        # own tests, so the test runs only where the path it asserts can
+        # exist — the same line nix/checks/alamode.nix draws for the
+        # native containment probes. Anything but a denied write still
+        # fails: a /tmp transport directory with the wrong owner or mode
+        # would break every launch, here and on the host.
+        try:
+            session.directory(Path("/tmp") / f"alamode-network-{os.getuid()}")
+        except OSError:
+            self.skipTest("/tmp is not writable under this sandbox")
         runtime = self.work / "runtime"
         with patch.object(session.subprocess, "Popen") as popen:
             popen.return_value.wait.return_value = 0

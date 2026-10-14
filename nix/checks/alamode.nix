@@ -1,5 +1,7 @@
 # Native containment probes are opt-in in test_session.py; nested Seatbelt
-# profiles cannot be exercised from the Nix build sandbox.
+# profiles cannot be exercised from the Nix build sandbox. The one test
+# that builds the /tmp transport directory skips there too, for the same
+# reason: execute() runs unsandboxed on the host, where /tmp is writable.
 { pkgs }:
 let
   # A bundle named after a built-in grant fails at evaluation, where the
