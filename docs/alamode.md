@@ -70,6 +70,7 @@ alamode [--profile NAME] [GRANTS] [-- PI-ARGS]
 alamode resume [ID] [-- PI-ARGS]
 alamode resume ID GRANTS [-- PI-ARGS]
 alamode sessions [show ID | export ID | peek [ID]]
+alamode stats [DAYS|all]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ...        # = alamode-delegate
 alamode seats ...          # = alamode-seats
@@ -91,6 +92,23 @@ alamode seats ...          # = alamode-seats
   is `alamode -- --help`). `--version`/`-v` pass through to the engine.
   `--managed-manifest` is coordinator-internal and undocumented in help.
 - `resume` with no ID resumes the most recent record.
+- `stats` prints usage across every retained session for today and the
+  last 3, 7 and 30 days, a chosen number of days, or `all` time:
+  sessions, turns, tool calls, tokens, reasoning tokens, cost, the wall
+  time models spent answering, the time tools spent running, and the
+  time spent thinking. Totals are derived on demand from the session
+  records pi writes under each workspace — the same files `resume`
+  replays — so no usage ledger exists to drift, go stale across
+  resumes, or miss a session that died before landing; a live session
+  counts as far as it has written. Everything but thinking wall time is
+  already in those records; the one number pi does not persist is how
+  long the reasoning phase ran, which only exists while it streams, so
+  the runtime's thinking-time extension times it there and appends an
+  entry beside the messages it belongs to, and `stats` folds those in.
+  Sessions recorded before the extension, and providers that reason
+  silently instead of streaming the phase, report reasoning tokens but
+  no thinking time, and the column says `-` rather than pretending
+  zero.
 - `coord` starts a new coordinator; `coord attach ID` reconnects to a live
   or stopped one; `coord start` prints the JSON credentials (socket,
   token, coordinator, session, workspace) for headless consumers
@@ -117,6 +135,7 @@ alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
 alamode resume [ID] [-- PI ARGS]
 alamode resume ID GRANTS [-- PI ARGS]
 alamode sessions [show ID | export ID | peek [ID]]
+alamode stats [DAYS|all]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ... | seats ...
 
@@ -195,7 +214,7 @@ The wrapper package installs `_alamode` at
 build asserts the compdef token equals `meta.mainProgram`.
 
 - Verb dispatch with `_arguments -C` state machine: first word completes
-  `resume sessions coord delegate seats`; after `--`, file completion
+  `resume sessions stats coord delegate seats`; after `--`, file completion
   only; before it, grant flags (with `@bundleFlags@` and `@profileNames@`
   substituted at build time).
 - IDs complete from pure globs over the state layout (no socket pings on

@@ -2,6 +2,7 @@
 
 import argparse
 from contextlib import ExitStack
+from datetime import date, datetime, timedelta
 import fcntl
 import hashlib
 import importlib.util
@@ -203,7 +204,15 @@ def pin_store_roots(config, directories=None, control=None, store_tool=None):
             continue
 
 
-VERBS = {"resume", "sessions", "coord", "delegate", "seats", "slice"}
+VERBS = {"resume", "sessions", "stats", "coord", "delegate", "seats", "slice"}
+
+# alamode stats windows: today, then the last 3, 7 and 30 days. A number or
+# `all` replaces the ladder; the last window also scopes the per-model
+# table and the per-day cost bars.
+STATS_WINDOWS = ("1", "3", "7", "30")
+STATS_MODELS_SHOWN = 8
+STATS_BARS = 14
+STATS_BAR_WIDTH = 20
 
 
 def help_text(config):
@@ -285,6 +294,7 @@ Look back
   alamode sessions show ID            what a session was granted
   alamode sessions export ID          a verified review bundle of its commits
   alamode sessions peek [ID]          its commits so far, as a git ref
+  alamode stats [DAYS|all]            usage across retained sessions
 
 Run several agents
   alamode coord [GRANTS]              start a coordinator and open its UI
@@ -2567,6 +2577,383 @@ def stop_coordinator(control, identifier):
     return 0
 
 
+def blank_day():
+    return {
+        "sessions": set(),
+        "turns": 0,
+        "tool_calls": 0,
+        "tokens": 0,
+        "reasoning": 0,
+        "thinking_ms": 0,
+        "model_ms": 0,
+        "tool_ms": 0,
+        "cost": 0,
+    }
+
+
+def blank_model():
+    return {"replies": 0, "tokens": 0, "reasoning": 0, "thinking_ms": 0, "cost": 0}
+
+
+def money(mills):
+    return "$" + format(mills / 1000, ",.2f")
+
+
+def duration(mills):
+    """Wall-clock milliseconds as a compact span.
+
+    Nothing recorded reads as "-" rather than "0s", so a window whose
+    sessions predate the measurement is unmeasured, not instant: request
+    durations and thinking time are absent from records older than the
+    pi build that began persisting them.
+    """
+    if not mills:
+        return "-"
+    total = round(mills / 1000)
+    hours, rest = divmod(total, 3600)
+    minutes, seconds = divmod(rest, 60)
+    if hours:
+        return f"{hours}h{minutes:02d}m"
+    if minutes:
+        return f"{minutes}m{seconds:02d}s"
+    return f"{seconds}s"
+
+
+def count(value):
+    """A token count with thousands separators; "-" when none was reported."""
+    return format(value, ",") if value else "-"
+
+
+def stamp_date(entry):
+    """An entry's local calendar day, or None without a parsable timestamp.
+
+    pi writes every session entry with an ISO timestamp, so one pass over
+    its files can put each request on the day it happened, a live
+    session's included: its file is only ever appended to.
+    """
+    if not isinstance(entry, dict):
+        return None
+    stamp = entry.get("timestamp")
+    if not isinstance(stamp, str):
+        return None
+    try:
+        return datetime.fromisoformat(stamp.replace("Z", "+00:00")).astimezone().date()
+    except ValueError:
+        return None
+
+
+def usage_numbers(usage):
+    """A usage record as (tokens, reasoning tokens, mills), priced the way
+    pi prices it.
+
+    Tokens are pi's own total, input, output and both cache directions;
+    reasoning tokens are already inside output (docs/message-types.md) and
+    are returned separately, never added again. Cost is summed in
+    thousandths of a dollar so a long history cannot drift the way
+    repeated float addition would.
+    """
+    tokens = 0
+    for key in ("input", "output", "cacheRead", "cacheWrite"):
+        value = usage.get(key)
+        if isinstance(value, (int, float)):
+            tokens += value
+    reasoning = usage.get("reasoning")
+    cost = usage.get("cost")
+    total = cost.get("total") if isinstance(cost, dict) else None
+    return (
+        tokens,
+        reasoning if isinstance(reasoning, (int, float)) else 0,
+        round(total * 1000) if isinstance(total, (int, float)) else 0,
+    )
+
+
+def scan_session_file(path, identity, days, models):
+    """Fold one pi session file into the per-day and per-model totals.
+
+    Usage is attributed exactly as pi's own accounting attributes it:
+    assistant messages to the model that answered, tool results,
+    compaction and branch summaries to "tools", and the engine's usage
+    entries (cache warming, nested tools) to the model they name. Request
+    and tool wall time come from the durationMs pi persists on each
+    message, and thinking wall time from the thinking-time entries the
+    runtime's extension appends beside the messages it timed; records
+    that predate either carry none and read as unmeasured. A line that
+    is not whole JSON is skipped, because a live session appends line
+    by line and the tail may be mid-write.
+    """
+    try:
+        stream = open(path, "rb")
+    except OSError:
+        return
+    with stream:
+        for line in stream:
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            day = stamp_date(entry)
+            if day is None:
+                continue
+            bucket = days.setdefault(day, blank_day())
+            bucket["sessions"].add(identity)
+            usage = None
+            key = None
+            replies = 0
+            kind = entry.get("type")
+            message = entry.get("message") if kind == "message" else None
+            if isinstance(message, dict):
+                role = message.get("role")
+                if role == "user":
+                    bucket["turns"] += 1
+                elif role == "assistant":
+                    replies = 1
+                    content = message.get("content")
+                    if isinstance(content, list):
+                        bucket["tool_calls"] += sum(
+                            1
+                            for block in content
+                            if isinstance(block, dict)
+                            and block.get("type") == "toolCall"
+                        )
+                    usage = message.get("usage")
+                    served = message.get("responseModel") or message.get("model")
+                    if isinstance(message.get("provider"), str) and isinstance(
+                        served, str
+                    ):
+                        key = message["provider"] + "/" + served
+                    spent = message.get("durationMs")
+                    if isinstance(spent, (int, float)) and spent >= 0:
+                        bucket["model_ms"] += round(spent)
+                elif role == "toolResult":
+                    usage = message.get("usage")
+                    key = "tools"
+                    spent = message.get("durationMs")
+                    if isinstance(spent, (int, float)) and spent >= 0:
+                        bucket["tool_ms"] += round(spent)
+            elif kind == "usage":
+                usage = entry.get("usage")
+                if isinstance(entry.get("provider"), str) and isinstance(
+                    entry.get("model"), str
+                ):
+                    key = entry["provider"] + "/" + entry["model"]
+            elif kind in ("compaction", "branch_summary"):
+                usage = entry.get("usage")
+                key = "tools"
+            elif kind == "custom" and entry.get("customType") == "thinking-time":
+                # The entry the runtime's thinking-time extension appends
+                # per request that streamed a thinking block; data it
+                # could not attribute is counted in the day and in no
+                # model, and a hand-shaped entry is skipped, never summed.
+                data = entry.get("data")
+                spent = data.get("thinkingMs") if isinstance(data, dict) else None
+                if isinstance(spent, (int, float)) and spent > 0:
+                    spent = round(spent)
+                    bucket["thinking_ms"] += spent
+                    if isinstance(data.get("provider"), str) and isinstance(
+                        data.get("model"), str
+                    ):
+                        key = data["provider"] + "/" + data["model"]
+                        models.setdefault(day, {}).setdefault(key, blank_model())[
+                            "thinking_ms"
+                        ] += spent
+            if not isinstance(usage, dict):
+                continue
+            tokens, reasoning, mills = usage_numbers(usage)
+            bucket["tokens"] += tokens
+            bucket["reasoning"] += reasoning
+            bucket["cost"] += mills
+            if key:
+                model = models.setdefault(day, {}).setdefault(key, blank_model())
+                model["replies"] += replies
+                model["tokens"] += tokens
+                model["reasoning"] += reasoning
+                model["cost"] += mills
+
+
+def render_table(rows):
+    """Fixed-width table rows: a left-aligned first column, the rest
+    right-aligned under their headers, sized to what they hold."""
+    widths = [max(len(row[column]) for row in rows) for column in range(len(rows[0]))]
+    lines = []
+    for row in rows:
+        head = row[0].ljust(widths[0])
+        tail = [cell.rjust(width) for cell, width in zip(row[1:], widths[1:])]
+        lines.append("  ".join([head, *tail]).rstrip())
+    return lines
+
+
+def stats_table(records, window):
+    """Print usage across every retained session, derived on demand.
+
+    pi already records each turn under the session's workspace, with the
+    tokens, price, model and tool calls of every request, and nothing
+    deletes those files, so the totals need no ledger of their own: a
+    summary kept beside the records could only drift from what it
+    summarizes, miss a session that died before landing, or go stale
+    across resumes, and every rebuild would have to migrate it. The pass
+    reads each file once, so a live session counts as far as it has
+    written. Bare stats prints today and the last 3, 7 and 30 days; a
+    number prints that many days; all prints every day on record.
+
+    Tokens, reasoning tokens, cost, turns and tool calls come straight
+    from the usage records, and request and tool wall time from the
+    durations pi persists on each message. The one number pi does not
+    record is the wall time a request spent thinking, which exists only
+    while the reasoning streams, so the runtime's thinking-time
+    extension times it there and appends an entry beside the messages it
+    belongs to, and the scan folds those in. Sessions recorded before
+    the extension, and providers that reason silently instead of
+    streaming the phase, contribute reasoning tokens but no thinking
+    wall time, so the column reads "-" rather than pretending zero.
+    """
+    today = date.today()
+    if window == "all":
+        windows = [*STATS_WINDOWS, "all"]
+    elif window == "":
+        windows = list(STATS_WINDOWS)
+    else:
+        windows = [window]
+
+    def label(name):
+        if name == "all":
+            return "all time"
+        count = int(name)
+        return "today" if count == 1 else f"{count} days"
+
+    def span(name):
+        if name == "all":
+            return sorted(days)
+        count = int(name)
+        return [today - timedelta(days=step) for step in range(count - 1, -1, -1)]
+
+    manifests = sorted(records.glob("*/manifest.json"))
+    if not manifests:
+        print("alamode: no sessions recorded yet")
+        return 0
+    # An append updates the file's mtime, so a file last written before
+    # the oldest window day cannot hold an entry inside it; `all` reads
+    # everything and keeps no such shortcut.
+    cutoff = 0.0
+    if windows[-1] != "all":
+        oldest = today - timedelta(days=int(windows[-1]) - 1)
+        cutoff = datetime.combine(oldest, datetime.min.time()).astimezone().timestamp()
+    days = {}
+    models = {}
+    for manifest_path in manifests:
+        record = read_json(manifest_path)
+        identity = record["id"]
+        root = Path(record["workspace"]["session_root"])
+        # The wrapper points pi at runtime/sessions/main.jsonl, and anything
+        # the engine files under its own default directory sits beside the
+        # agent state; both are pi's records and neither is deleted.
+        for pattern in (
+            "runtime/sessions/*.jsonl",
+            "runtime/agent/sessions/**/*.jsonl",
+        ):
+            for path in sorted(root.glob(pattern)):
+                try:
+                    if path.stat().st_mtime < cutoff:
+                        continue
+                except OSError:
+                    continue
+                scan_session_file(path, identity, days, models)
+
+    def totals(dates):
+        result = blank_day()
+        for day in dates:
+            bucket = days.get(day)
+            if not bucket:
+                continue
+            result["sessions"] |= bucket["sessions"]
+            for field in (
+                "turns",
+                "tool_calls",
+                "tokens",
+                "reasoning",
+                "thinking_ms",
+                "model_ms",
+                "tool_ms",
+                "cost",
+            ):
+                result[field] += bucket[field]
+        return result
+
+    rows = [
+        [
+            "WINDOW",
+            "SESSIONS",
+            "TURNS",
+            "TOOL CALLS",
+            "TOKENS",
+            "REASONING",
+            "THINKING",
+            "MODEL TIME",
+            "TOOL TIME",
+            "COST",
+        ]
+    ]
+    spans = {}
+    for name in windows:
+        spans[name] = span(name)
+        window_total = totals(spans[name])
+        rows.append(
+            [
+                label(name),
+                str(len(window_total["sessions"])),
+                str(window_total["turns"]),
+                str(window_total["tool_calls"]),
+                format(window_total["tokens"], ","),
+                count(window_total["reasoning"]),
+                duration(window_total["thinking_ms"]),
+                duration(window_total["model_ms"]),
+                duration(window_total["tool_ms"]),
+                money(window_total["cost"]),
+            ]
+        )
+    print("\n".join(render_table(rows)))
+
+    # The widest window also scopes the per-model table.
+    merged = {}
+    for day in spans[windows[-1]]:
+        for key, model in models.get(day, {}).items():
+            entry = merged.setdefault(key, blank_model())
+            for field in ("replies", "tokens", "reasoning", "thinking_ms", "cost"):
+                entry[field] += model[field]
+    if merged:
+        ordered = sorted(
+            merged.items(),
+            key=lambda item: (-item[1]["cost"], -item[1]["tokens"], item[0]),
+        )[:STATS_MODELS_SHOWN]
+        rows = [["MODEL", "REPLIES", "TOKENS", "REASONING", "THINKING", "COST"]]
+        for key, model in ordered:
+            rows.append(
+                [
+                    key,
+                    str(model["replies"]) if model["replies"] else "-",
+                    format(model["tokens"], ","),
+                    count(model["reasoning"]),
+                    duration(model["thinking_ms"]),
+                    money(model["cost"]),
+                ]
+            )
+        title = "ALL TIME" if windows[-1] == "all" else label(windows[-1]).upper()
+        print()
+        print("MODELS (" + title + ")")
+        print("\n".join(render_table(rows)))
+
+    # One bar per day for the recent stretch of the widest window.
+    recent = min(int(windows[-1]) if windows[-1] != "all" else STATS_BARS, STATS_BARS)
+    bars = span(str(recent))
+    costs = [days[day]["cost"] if day in days else 0 for day in bars]
+    if any(costs):
+        print()
+        print("COST BY DAY")
+        for day, mills in zip(bars, costs):
+            marks = "#" * round(STATS_BAR_WIDTH * mills / max(costs))
+            print(f"{day}  {marks:<{STATS_BAR_WIDTH}}  {money(mills)}")
+    return 0
+
+
 def main(argv=None):
     os.umask(0o077)
 
@@ -2602,6 +2989,7 @@ def main(argv=None):
     peek_id = None
     list_sessions = False
     list_coordinators = False
+    stats_window = None
     coordinator_new = False
     coordinator_start = False
     attach_id = None
@@ -2634,6 +3022,17 @@ def main(argv=None):
             raise SessionError(
                 "sessions takes: nothing to list, show ID, export ID, or peek [ID]"
             )
+        grant_part = []
+    elif verb == "stats":
+        if engine_args:
+            raise SessionError("stats takes no engine arguments")
+        if len(front) > 1 or (front and front[0].startswith("-")):
+            raise SessionError("stats takes: nothing, a number of days, or all")
+        stats_window = front[0] if front else ""
+        if stats_window not in ("", "all") and not re.fullmatch(
+            r"[1-9][0-9]*", stats_window
+        ):
+            raise SessionError("stats takes: nothing, a number of days, or all")
         grant_part = []
     elif verb == "coord":
         sub = front[0] if front and not front[0].startswith("-") else None
@@ -2731,6 +3130,8 @@ def main(argv=None):
         if not ID.fullmatch(peek_id):
             raise SessionError("Invalid session ID")
         return peek(read_json(records / peek_id / "manifest.json"))
+    if stats_window is not None:
+        return stats_table(records, stats_window)
     if inspect_id:
         if not ID.fullmatch(inspect_id):
             raise SessionError("Invalid session ID")

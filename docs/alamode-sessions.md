@@ -114,6 +114,7 @@ alamode sessions            # list retained sessions
 alamode sessions show ID    # a session's recorded authority
 alamode sessions export ID  # a verified review bundle
 alamode sessions peek [ID]  # commits so far, as a ref in the checkout
+alamode stats [DAYS|all]    # usage totals across retained sessions
 ```
 
 Resume restores the recorded grants and workspace. To change the grants
@@ -138,6 +139,29 @@ shows both builds, what changed and the reasons to answer no, and the new
 `regrants` entry keeps the old build's configuration. A coordinator stays
 on the build that recorded it, and the error names that build and the
 export command that still works. Provider credentials may rotate.
+
+`alamode stats` totals sessions, turns, tool calls, tokens, reasoning
+tokens, cost, request time, tool time and thinking time across every
+retained session, coordinator children and delegates included: today and
+the last 3, 7 and 30 days by default, a chosen number of days, or all time
+with `all`, with the models that spent it and a cost bar per recent day.
+Totals are derived on demand from the session records pi writes under each
+workspace, the same files resume replays, so nothing is summarized or
+stored separately: a rebuilt runtime reports identical totals, a session
+that died before landing still counts, and a live session counts as far as
+it has written. Cost covers tool-reported spend such as Kagi, which the
+session folds into its own accounting.
+
+Every column but thinking time comes straight out of pi's own records:
+usage carries the tokens and the price, each assistant message carries how
+long its request ran, each tool result how long the tool ran. The
+reasoning phase's wall time is the one number nowhere in those records,
+because it only exists while the reasoning streams, so the runtime's
+thinking-time extension times it from the stream and appends an entry
+beside the messages it belongs to, and `stats` folds those entries in.
+Sessions recorded before the extension read `-` there, not zero, and so
+do the providers that reason silently, reporting reasoning tokens but
+streaming no thinking to time.
 
 Export requires committed changes and a stopped session. It is data-only:
 the session's private Git storage is sealed host-side through the same

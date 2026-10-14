@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import pty
+import re
 import shutil
 import signal
 import socket
@@ -17,6 +18,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from contextlib import redirect_stderr, redirect_stdout
+from datetime import date, datetime, timedelta
 from unittest.mock import patch
 
 
@@ -501,6 +503,7 @@ class PolicyTests(unittest.TestCase):
                 self.assertEqual(session.main([str(config), "alamode", "--help"]), 0)
             self.assertIn("alamode resume", output.getvalue())
             self.assertIn("coord", output.getvalue())
+            self.assertIn("alamode stats", output.getvalue())
             self.assertFalse(evidence.exists())
 
     def test_replaced_workspace_is_rejected_before_execution(self):
@@ -2288,6 +2291,324 @@ class PolicyTests(unittest.TestCase):
         current.mkdir(parents=True)
         with self.assertRaisesRegex(session.SessionError, "deeper than 32"):
             session.safe_clear(self.work, "runtime/agent/bin")
+
+
+class StatsTests(unittest.TestCase):
+    """alamode stats: usage totals derived on demand from the session
+    records pi already writes under each retained workspace."""
+
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="alamode-stats-")
+        self.root = Path(self.temporary.name)
+        self.home = self.root / "home"
+        self.records = self.home / ".local/state/alamode/records"
+        self.records.mkdir(parents=True, mode=0o700)
+        self.config = configuration(self.root)
+        self.config_path = self.root / "alamode-session-config.json"
+        self.config_path.write_text(json.dumps(self.config))
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def stamp(self, days_ago, hour=12):
+        # Noon local time keeps the calendar day stable across midnight
+        # and daylight-saving boundaries.
+        moment = (
+            datetime.combine(date.today(), datetime.min.time())
+            - timedelta(days=days_ago)
+            + timedelta(hours=hour)
+        )
+        return moment.astimezone().isoformat()
+
+    def usage(self, cost, inputs=0, outputs=0, reasoning=0):
+        # Reasoning is reported only when the provider reports it, the way
+        # pi copies the field through; a zero is left out so the scan also
+        # meets its absence.
+        usage = {
+            "input": inputs,
+            "output": outputs,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "cost": {
+                "input": 0,
+                "output": 0,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "total": cost,
+            },
+        }
+        if reasoning:
+            usage["reasoning"] = reasoning
+        return usage
+
+    def thinking(self, days_ago, mills, model="probe", provider="fixture"):
+        # The entry the runtime's thinking-time extension appends beside
+        # the request it timed.
+        return {
+            "type": "custom",
+            "id": "c0ffee00",
+            "parentId": "0badcafe",
+            "timestamp": self.stamp(days_ago),
+            "customType": "thinking-time",
+            "data": {"thinkingMs": mills, "provider": provider, "model": model},
+        }
+
+    def conversation(
+        self,
+        days_ago,
+        cost,
+        inputs,
+        outputs,
+        tools=(),
+        model="probe",
+        reasoning=0,
+        request_ms=None,
+        thinking_ms=None,
+    ):
+        assistant = {
+            "role": "assistant",
+            "provider": "fixture",
+            "model": model,
+            "usage": self.usage(cost, inputs, outputs, reasoning),
+            "content": [
+                {"type": "text", "text": "ok"},
+                *({"type": "toolCall", "id": name, "name": name} for name in tools),
+            ],
+        }
+        if request_ms is not None:
+            assistant["durationMs"] = request_ms
+        entries = [
+            {"type": "session", "timestamp": self.stamp(days_ago)},
+            {
+                "type": "message",
+                "timestamp": self.stamp(days_ago),
+                "message": {"role": "user"},
+            },
+            {
+                "type": "message",
+                "timestamp": self.stamp(days_ago),
+                "message": assistant,
+            },
+        ]
+        if thinking_ms is not None:
+            entries.append(self.thinking(days_ago, thinking_ms, model))
+        return entries
+
+    def record(self, name, entries, written_days_ago=None):
+        root = self.home / ".local/state/alamode/workspaces" / name
+        directory = root / "runtime" / "agent" / "sessions" / "--fixture--"
+        directory.mkdir(parents=True, mode=0o700)
+        path = directory / f"2026-01-01T00-00-00-000Z_{name}.jsonl"
+        path.write_text("".join(json.dumps(entry) + "\n" for entry in entries))
+        if written_days_ago is not None:
+            # pi only appends, so a file's mtime is when it was last
+            # written; a file untouched inside the window is skipped
+            # unread.
+            moment = datetime.now().timestamp() - written_days_ago * 86400
+            os.utime(path, (moment, moment))
+        manifest = self.records / name / "manifest.json"
+        manifest.parent.mkdir(parents=True, mode=0o700)
+        manifest.write_text(
+            json.dumps(
+                {
+                    "id": name,
+                    "workspace": {
+                        "session_root": str(root),
+                        "workspace": str(root),
+                    },
+                }
+            )
+        )
+        return path
+
+    def stats(self, *arguments):
+        output = io.StringIO()
+        with patch.dict(os.environ, {"HOME": str(self.home)}), redirect_stdout(output):
+            code = session.main(
+                [str(self.config_path), "/fixture/alamode", "stats", *arguments]
+            )
+        self.assertEqual(code, 0)
+        return output.getvalue()
+
+    def row(self, label, output):
+        match = re.search(rf"^{re.escape(label)}\s+(.*)$", output, re.MULTILINE)
+        self.assertIsNotNone(match, output)
+        return match.group(1).split()
+
+    def test_windows_derived_from_the_session_records(self):
+        self.record(
+            "archived",
+            self.conversation(40, 9.00, 100, 10),
+            written_days_ago=40,
+        )
+        self.record("week", self.conversation(2, 0.50, 500, 50, reasoning=45))
+        recent = self.record(
+            "recent",
+            self.conversation(
+                0,
+                1.23,
+                1000,
+                200,
+                tools=("bash", "bash", "edit"),
+                reasoning=166,
+                request_ms=26138,
+                thinking_ms=25000,
+            )
+            + [
+                # A tool result carries its own reported spend (kagi) and a
+                # cache warm is model usage outside the conversation, both
+                # of which pi bills into the session's own totals. The
+                # result also carries how long the tool ran.
+                {
+                    "type": "message",
+                    "timestamp": self.stamp(0),
+                    "message": {
+                        "role": "toolResult",
+                        "usage": self.usage(0.012),
+                        "durationMs": 30000,
+                    },
+                },
+                {
+                    "type": "usage",
+                    "timestamp": self.stamp(0),
+                    "kind": "cache_warm",
+                    "provider": "fixture",
+                    "model": "warm",
+                    "usage": self.usage(0.01, 30, 4),
+                },
+            ],
+        )
+        # A live session's file ends mid-line; the torn tail is skipped.
+        with recent.open("a") as stream:
+            stream.write('{"type": "message", "timestamp": "')
+        output = self.stats()
+        self.assertEqual(
+            self.row("today", output),
+            ["1", "1", "3", "1,234", "166", "25s", "26s", "30s", "$1.25"],
+        )
+        for label in ("3 days", "7 days", "30 days"):
+            self.assertEqual(
+                self.row(label, output),
+                ["2", "2", "3", "1,784", "211", "25s", "26s", "30s", "$1.75"],
+            )
+        self.assertNotIn("all time", output)
+        self.assertIn("MODELS (30 DAYS)", output)
+        self.assertRegex(output, r"fixture/probe\s+2\s+1,750\s+211\s+25s\s+\$1\.73")
+        self.assertRegex(output, r"tools\s+-\s+0\s+-\s+-\s+\$0\.01")
+        self.assertRegex(output, r"fixture/warm\s+-\s+34\s+-\s+-\s+\$0\.01")
+        self.assertIn("COST BY DAY", output)
+        self.assertIn(f"{date.today()}  " + "#" * 20 + "  $1.25", output)
+
+    def test_all_time_reads_every_record(self):
+        self.record(
+            "archived",
+            self.conversation(40, 9.00, 100, 10),
+            written_days_ago=40,
+        )
+        self.record("week", self.conversation(2, 0.50, 500, 50, reasoning=45))
+        output = self.stats("all")
+        self.assertEqual(
+            self.row("all time", output),
+            ["2", "2", "0", "660", "45", "-", "-", "-", "$9.50"],
+        )
+        self.assertIn("MODELS (ALL TIME)", output)
+
+    def test_a_window_argument_narrows_the_view(self):
+        self.record("week", self.conversation(2, 0.50, 500, 50, reasoning=45))
+        self.record("recent", self.conversation(0, 1.23, 1000, 200, reasoning=166))
+        output = self.stats("5")
+        self.assertEqual(
+            self.row("5 days", output),
+            ["2", "2", "0", "1,750", "211", "-", "-", "-", "$1.73"],
+        )
+        self.assertIn("MODELS (5 DAYS)", output)
+        self.assertNotIn("today", output)
+
+    def test_a_deleted_workspace_reports_nothing(self):
+        path = self.record("gone", self.conversation(0, 1.00, 10, 10))
+        shutil.rmtree(path.parents[4])
+        output = self.stats()
+        self.assertEqual(
+            self.row("today", output),
+            ["0", "0", "0", "0", "-", "-", "-", "-", "$0.00"],
+        )
+
+    def test_thinking_entries_tolerate_partial_and_foreign_data(self):
+        # The scan reads files a live session appends to, so an entry that
+        # is torn, misshapen or another extension's must not skew a total:
+        # what cannot be attributed is dropped, never guessed.
+        self.record(
+            "partial",
+            [
+                {"type": "session", "timestamp": self.stamp(0)},
+                # No data at all.
+                {
+                    "type": "custom",
+                    "timestamp": self.stamp(0),
+                    "customType": "thinking-time",
+                },
+                # Data that is not a mapping.
+                {
+                    "type": "custom",
+                    "timestamp": self.stamp(0),
+                    "customType": "thinking-time",
+                    "data": 25000,
+                },
+                # Negative time.
+                {
+                    "type": "custom",
+                    "timestamp": self.stamp(0),
+                    "customType": "thinking-time",
+                    "data": {
+                        "thinkingMs": -5,
+                        "provider": "fixture",
+                        "model": "probe",
+                    },
+                },
+                # No model to attribute to; the day still keeps the time.
+                {
+                    "type": "custom",
+                    "timestamp": self.stamp(0),
+                    "customType": "thinking-time",
+                    "data": {"thinkingMs": 4000, "provider": "fixture"},
+                },
+                # Another extension's custom entry is not a measurement.
+                {
+                    "type": "custom",
+                    "timestamp": self.stamp(0),
+                    "customType": "advisor-steer",
+                    "data": {
+                        "thinkingMs": 99000,
+                        "provider": "fixture",
+                        "model": "probe",
+                    },
+                },
+                # The one well-formed measurement.
+                self.thinking(0, 4000),
+            ],
+        )
+        output = self.stats("1")
+        self.assertEqual(
+            self.row("today", output),
+            ["1", "0", "0", "0", "-", "8s", "-", "-", "$0.00"],
+        )
+        self.assertRegex(output, r"fixture/probe\s+-\s+0\s+-\s+4s\s+\$0\.00")
+
+    def test_without_records(self):
+        self.assertEqual(self.stats(), "alamode: no sessions recorded yet\n")
+
+    def test_argument_errors(self):
+        for arguments in (["--web"], ["x"], ["0"], ["3", "extra"], ["--", "--model"]):
+            with self.subTest(arguments=arguments):
+                with self.assertRaises(session.SessionError):
+                    session.main(
+                        [
+                            str(self.config_path),
+                            "/fixture/alamode",
+                            "stats",
+                            *arguments,
+                        ]
+                    )
 
 
 class Provider(BaseHTTPRequestHandler):

@@ -8,6 +8,7 @@ local -a verbs coord_actions
 verbs=(
   'resume:resume the most recent or a named session'
   'sessions:list, show or export retained sessions'
+  'stats:usage totals across retained sessions'
   'coord:start or manage a coordinator'
   'slice:start alamode in a task worktree, in its own tmux window'
   'delegate:run or control a durable delegated agent'
@@ -98,6 +99,10 @@ case $verb in
     _arguments \
       '1:action:(show export peek)' \
       '2:session id:compadd -a records'
+    ;;
+  stats)
+    _arguments \
+      '1:window:(all 1 3 7 30)'
     ;;
   coord)
     _arguments -C \
