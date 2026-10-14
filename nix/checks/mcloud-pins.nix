@@ -259,6 +259,7 @@ pkgs.runCommand "mcloud-pins-check"
       awk 'want && !/^  fix: / { exit 1 }
         { want = /^mcloud-pins: / && !/, each with its fix above$/ && !/ served and answering, / } END { exit want }' "$T/out" ||
         fail "mcloud-pins $*: a failure without a fix line"
+      if grep -qiE 'acme|zeta|omega|kappa|lambda|sigma|tau|nope' "$LOG" 2>/dev/null; then fail "mcloud-pins $*: the request log names a fixture id"; fi
     }
     both() { # <exit>: --deploy into $T/deploy, which names no fixture id, and plain into $T/plain
       run "$1" --deploy
@@ -279,7 +280,7 @@ pkgs.runCommand "mcloud-pins-check"
     endpoint() { # [jq object over the default]
       jq -n '{served: ["acme/zeta-9000", "acme/omega-2", "acme/kappa-7", "acme/lambda-4", "acme/tau-5"]}'" + ''${1:-null}" \
         >"$HOME/endpoint.json"
-      rm -f "$HOME/requests"
+      rm -f "$HOME/requests" "$LOG"
     }
     # A check with no answer, a 429 or a 5xx says nothing about the pin: a
     # problem by hand, only a warning under --deploy.
@@ -312,6 +313,7 @@ pkgs.runCommand "mcloud-pins-check"
 
     T=$TMPDIR/mp
     export HOME=$T/home
+    LOG=$HOME/.local/state/mcloud-pins/requests.log
     A=$HOME/.pi/agent
     mkdir -p "$A" "$T/bin"
     ln -s ${alamodeSeats} "$T/bin/alamode-seats"
@@ -575,12 +577,16 @@ pkgs.runCommand "mcloud-pins-check"
     both 1
     dep "mcloud-pins: $Z: a one-token completion got no answer within 60s"
     dep "  fix: rerun mcloud-pins; if it fails the same way, replace the model in $Z, $S"
+    dep "  log: $LOG"
     # A 401, a 403, a 5xx or no answer is retried once: a failure that
     # clears passes, one that does not fails.
     endpoint '{text: {"acme/zeta-9000": "flaky000", "acme/omega-2": "flaky401", "acme/kappa-7": "flaky503"}}'
     both 0
     [ "$(cat "$T/deploy")" = "$PASS" ] || fail "a probe failed once did not pass on its retry"
     requests 'of("text") | length == 12'
+    [ "$(grep -c '^[0-9:]* probe models\[0\] 000 exit 28 ' "$LOG")" = 2 ] &&
+      [ "$(grep -c '^[0-9:]* retry models\[0\] 200 exit 0 ' "$LOG")" = 2 ] ||
+      fail "the request log has no hung probe and retry for models[0]"
     endpoint '{text: {"acme/omega-2": 401}}'
     both 1
     dep "mcloud-pins: $O: listed, but a one-token completion answers HTTP 401"
@@ -730,6 +736,12 @@ pkgs.runCommand "mcloud-pins-check"
     endpoint
     both 0
     dep 'mcloud-pins: 3 pins served and answering, 2 image checks, 0 reasoning checks and 0 tool checks passed'
+
+    # The log keeps its last 2000 lines across runs.
+    endpoint
+    seq 2500 >"$LOG"
+    run 0 --deploy
+    [ "$(grep -cx '[0-9]*' "$LOG")" -le 2000 ] || fail "the request log was not trimmed"
 
     run 2 --verbose
     grep -qxF 'usage: mcloud-pins [--deploy | --context]' "$T/out" || fail "no usage line"

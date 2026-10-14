@@ -153,7 +153,11 @@ or `make deploy-mac`, which then runs `mcloud-pins --deploy` against the live
 endpoint. That probes each pin for an answer, a declared image input, a
 seat's reasoning level and tool calls; `mcloud-pins --context` also fills
 each declared context window, which takes minutes. An endpoint that does not
-answer at all only warns under `--deploy`. At start only a problem
+answer at all only warns under `--deploy`. A probe that fails once is
+retried before it counts, and every request mcloud-pins sends, with its
+status, curl exit code and stage timings, is in
+`~/.local/state/mcloud-pins/requests.log`, kept across runs and free of
+ids. At start only a problem
 in the session's own seat (or the advisor's, under `-- --advisor`) stops the run;
 the rest warn, and the seat's consumer refuses when used. Every message
 names the seat var and what to change, never the value. pi runs a level the

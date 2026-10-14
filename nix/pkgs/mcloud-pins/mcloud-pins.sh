@@ -26,6 +26,13 @@
 # `alamode-seats source` prints for this host. A warning is a check whose answer
 # could not be read either way; it does not fail the run.
 #
+# Every request appends a line to ~/.local/state/mcloud-pins/requests.log
+# ($XDG_STATE_HOME when set), which keeps its last 2000 lines across runs, so
+# a rerun leaves the failed run in place. A line names the pin by catalog
+# position or seat var, never by id, and gives the HTTP status, curl's exit
+# code and the seconds to DNS, connect, TLS, first byte and the end. A run that
+# fails or warns prints the path.
+#
 # Two failures this catches, both of which shipped, and both of which fail
 # silently at runtime rather than loudly:
 #
@@ -129,6 +136,8 @@ case "$#:${1:-}" in
 	;;
 esac
 readonly DEPLOY CONTEXT
+# The log line under a failure, set once a request has gone.
+LOGGED=""
 
 SOPS_FILE="$(alamode-seats source 2>/dev/null || true)"
 [ -n "$SOPS_FILE" ] || SOPS_FILE="this host's sops file"
@@ -136,7 +145,7 @@ readonly IN_SOPS="in $SOPS_FILE"
 
 # die <what> <fix>: a failure before any model is checked.
 die() {
-	printf 'mcloud-pins: %s\n  fix: %s\n' "$1" "$2" >&2
+	printf 'mcloud-pins: %s\n  fix: %s\n%s' "$1" "$2" "$LOGGED" >&2
 	exit 2
 }
 
@@ -148,7 +157,7 @@ down() {
 	if [ -z "$DEPLOY" ]; then
 		die "$1" "rerun mcloud-pins; if it fails the same way, $2"
 	fi
-	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, %s\n' "$1" "$2" >&2
+	printf 'mcloud-pins: warning: %s, so no pin was checked\n  fix: rerun mcloud-pins once the endpoint answers; if it keeps failing, %s\n%s' "$1" "$2" "$LOGGED" >&2
 	exit 0
 }
 
@@ -203,16 +212,34 @@ fi
 # api <seconds> <path> [-]: the response body, then the HTTP status on a line
 # of its own, 000 when nothing answered. With `-` the request body is stdin.
 # The key and the body reach curl through a file descriptor and stdin rather
-# than its argv, which any user can read with ps.
+# than its argv, which any user can read with ps. Logs the request as $step,
+# for $id's pin when id is set.
 api() {
-	local args=(-s --max-time "$1" -w '\n%{http_code}')
+	local args=(-s --max-time "$1" -w '\n%{http_code} %{time_namelookup} %{time_connect} %{time_appconnect} %{time_starttransfer} %{time_total}')
+	local out rc=0 code dns connect tls first total pin=-
 	if [ $# -gt 2 ]; then
 		args+=(-H "Content-Type: application/json" --data-binary @-)
 	fi
-	curl "${args[@]}" -H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY") \
-		"$BASE_URL/$2" || true
+	out="$(curl "${args[@]}" -H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY") \
+		"$BASE_URL/$2")" || rc=$?
+	read -r code dns connect tls first total <<<"${out##*$'\n'}"
+	if [ -n "${id:-}" ]; then
+		pin="${entries[$id]:-${seat_vars[$id]:-}}"
+		pin="${pin//alamode_models_json providers.mcloud./}"
+	fi
+	printf '%s %s %s %s exit %s dns %s connect %s tls %s first %s total %s\n' "$(date +%T)" "$step" "$pin" "$code" "$rc" \
+		"${dns:--}" "${connect:--}" "${tls:--}" "${first:--}" "${total:--}" >>"$LOG"
+	printf '%s\n%s' "${out%$'\n'*}" "$code"
 }
 
+LOG="${XDG_STATE_HOME:-$HOME/.local/state}/mcloud-pins/requests.log"
+readonly LOG
+mkdir -p "${LOG%/*}"
+if [ -f "$LOG" ]; then tail -n 2000 "$LOG" >"$LOG.new" && mv "$LOG.new" "$LOG"; fi
+printf '%s mcloud-pins%s\n' "$(date +%FT%T%z)" "${DEPLOY:+ --deploy}${CONTEXT:+ --context}" >>"$LOG"
+LOGGED="  log: $LOG"$'\n'
+
+step=models
 resp="$(api 30 models)"
 code="${resp##*$'\n'}"
 case "$code" in
@@ -364,6 +391,7 @@ check_image() {
 	req="$(jq -nc --arg model "$id" --arg tf "$tf" --arg text "$IMAGE_PROMPT" --arg url "$IMAGE_URL" '{model: $model,
 		($tf): 1024, messages: [{role: "user", content: [{type: "text", text: $text},
 		{type: "image_url", image_url: {url: $url}}]}]}')"
+	step=image
 	chat 120 <<<"$req"
 	r="$(reply)"
 	case "$code" in
@@ -406,6 +434,7 @@ check_reason() {
 	req="$(jq -nc --arg model "$id" --arg tf "$tf" --argjson n "$BUDGET" --arg text "$SUM_PROMPT" --arg effort "$effort" \
 		'{model: $model, ($tf): $n, messages: [{role: "user", content: $text}]}
 		+ (if $effort == "" then {} else {reasoning_effort: $effort} end)')"
+	step="reason:$level"
 	chat 300 <<<"$req"
 	fix="correct thinkingLevelMap, reasoning or compat.supportsReasoningEffort in $at so the engine sends what the endpoint takes, or pick another level for $who, $IN_SOPS"
 	case "$code" in
@@ -469,6 +498,7 @@ check_tools() {
 	fix="point $tvars at a model that calls tools, $IN_SOPS"
 	req="$(jq -nc --arg model "$id" --arg tf "$tf" --argjson n "$BUDGET" --arg text "$TOOL_PROMPT" --argjson tools "$TOOLS" \
 		'{model: $model, ($tf): $n, messages: [{role: "user", content: $text}], tools: $tools, tool_choice: "auto"}')"
+	step=tools
 	chat 300 <<<"$req"
 	case "$code" in
 	200) ;;
@@ -513,6 +543,7 @@ check_context() {
 	chars=$((n * 4 - ${#head} - ${#tail}))
 	[ "$chars" -gt 0 ] || chars=0
 	echo "mcloud-pins (context): $id: about $n prompt tokens, contextWindow $window..." >&2
+	step=context
 	chat 900 < <(
 		{
 			printf '%s' "$head"
@@ -561,6 +592,7 @@ while read -r id; do
 	printf '%s\n' "$served" | grep -qxF -- "$id" || continue
 	load
 	req="$(jq -nc --arg model "$id" --arg tf "$tf" '{model: $model, ($tf): 1, messages: [{role: "user", content: "hi"}]}')"
+	step=probe
 	chat 60 <<<"$req"
 	# One failed request says little about a pin: mcloud has refused a
 	# sound id with a 401 after GET /models took the key, and let a probe
@@ -570,6 +602,7 @@ while read -r id; do
 	case "$code" in
 	000 | 401 | 403 | 5??)
 		sleep 5
+		step=retry
 		chat 60 <<<"$req"
 		;;
 	esac
@@ -708,6 +741,7 @@ if [ "$problems" -ne 0 ]; then
 	summary="$(plural "$problems" problem)"
 	[ "$warnings" = 0 ] || summary+=" and $(plural "$warnings" warning)"
 	echo "mcloud-pins: $summary across $(plural "$npins" pin), each with its fix above" >&2
+	printf '%s' "$LOGGED" >&2
 	exit 1
 fi
 passed=("$(plural "$ok_image" "image check")" "$(plural "$ok_reason" "reasoning check")" "$(plural "$ok_tools" "tool check")")
@@ -716,3 +750,4 @@ printf -v list '%s, ' "${passed[@]:0:${#passed[@]}-1}"
 list="${list%, } and ${passed[-1]}"
 [ -n "$DEPLOY" ] || echo
 echo "mcloud-pins: $(plural "$npins" pin) served and answering, $list passed$([ "$warnings" = 0 ] || echo ", $(plural "$warnings" warning) above")"
+[ "$warnings" = 0 ] || printf '%s' "$LOGGED" >&2
