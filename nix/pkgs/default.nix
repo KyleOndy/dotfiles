@@ -1,11 +1,33 @@
-self: super: {
+self: super:
+let
+  # A git-crypt file is plaintext only in the worktree. Upstream nix reads a
+  # clean tree's flake source from HEAD's blobs, which hold the ciphertext,
+  # so these take their src from the worktree make exports. Determinate with
+  # lazy-trees reads the worktree either way. Pure evaluation keeps the
+  # package's own src.
+  fromWorktree =
+    name: pkg:
+    let
+      worktree = builtins.getEnv "DOTFILES_WORKTREE";
+    in
+    if worktree == "" then
+      pkg
+    else
+      pkg.overrideAttrs {
+        src = builtins.path {
+          path = "${worktree}/nix/pkgs/${name}";
+          inherit name;
+        };
+      };
+in
+{
   ask = super.callPackage ./ask { inherit (self) mlx; };
   audio-language-check = super.callPackage ./audio-language-check { };
   babashka-scripts = super.callPackage ./babashka-scripts { };
   backup-git-repos = super.callPackage ./backup-git-repos { };
   backup-photos = super.callPackage ./backup-photos { };
   backup-resolve-projects = super.callPackage ./backup-resolve-projects { };
-  berkeley-mono = super.callPackage ./berkeley-mono { };
+  berkeley-mono = fromWorktree "berkeley-mono" (super.callPackage ./berkeley-mono { });
   berkeley-mono-nerd-font = super.callPackage ./berkeley-mono-nerd-font { };
   birdnet-go = super.callPackage ./birdnet-go { };
   forge = super.callPackage ./forge { lima = self.master.lima; };
@@ -18,7 +40,7 @@ self: super: {
   notification-bell = super.callPackage ./notification-bell { };
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
-  pragmata-pro = super.callPackage ./pragmata-pro { };
+  pragmata-pro = fromWorktree "pragmata-pro" (super.callPackage ./pragmata-pro { });
   s3-archive-push = super.callPackage ./s3-archive-push { };
   s3-archive-reconcile = super.callPackage ./s3-archive-reconcile { };
   secrets-check = super.callPackage ./secrets-check { };
