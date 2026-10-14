@@ -315,12 +315,14 @@ class WorkspaceTests(unittest.TestCase):
         # Steering-only files ride admission as a recorded warning: pi loads
         # AGENTS.md and CLAUDE.md with no trust decision, and the human's
         # other agents read .claude and .agents the same way, so a merge that
-        # carries them must say which paths are model-authored.
+        # carries them must say which paths are model-authored. Claude Code
+        # loads CLAUDE.local.md as project memory the same way.
         manifest = self.create("context-session")
         work = Path(manifest["workspace"])
         for path in (
             "AGENTS.md",
             "CLAUDE.md",
+            "CLAUDE.local.md",
             ".claude/rules/x.md",
             ".agents/skills/y.md",
         ):
@@ -343,8 +345,66 @@ class WorkspaceTests(unittest.TestCase):
         )
         self.assertEqual(
             admitted["context_files"],
-            [".agents/skills/y.md", ".claude/rules/x.md", "AGENTS.md", "CLAUDE.md"],
+            [
+                ".agents/skills/y.md",
+                ".claude/rules/x.md",
+                "AGENTS.md",
+                "CLAUDE.local.md",
+                "CLAUDE.md",
+            ],
         )
+
+    def test_admission_refuses_case_variant_attribute_files(self):
+        # APFS resolves .GITATTRIBUTES to the same file as .gitattributes,
+        # and git honors the case variant: measured, an eol rule planted as
+        # .GITATTRIBUTES normalized content at add. Every spelling must hit
+        # the same refusal as exact case, and .GIT-CRYPT/ key paths are
+        # protected content in any casing.
+        for index, path in enumerate(
+            (".GITATTRIBUTES", ".GitAttributes", ".GIT-CRYPT/keys/default")
+        ):
+            with self.subTest(path=path):
+                manifest = self.create(f"attr-session-{index}")
+                work = Path(manifest["workspace"])
+                if path.endswith("keys/default"):
+                    target = work / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text("planted key material\n")
+                    self.git(work, "add", "--", path)
+                else:
+                    # A working-tree write would collide with the tracked
+                    # .gitattributes on APFS, so the variant enters the
+                    # index directly, as a planted tree entry.
+                    blob = self.git(work, "rev-parse", "HEAD:plain.txt").stdout.strip()
+                    self.git(
+                        work,
+                        "update-index",
+                        "--add",
+                        "--cacheinfo",
+                        "100644",
+                        blob,
+                        path,
+                    )
+                self.git(work, "commit", "-qm", "Plant")
+                tip = self.git(work, "rev-parse", "HEAD").stdout.strip()
+                bundle = work / "result.bundle"
+                self.git(
+                    work,
+                    "bundle",
+                    "create",
+                    str(bundle),
+                    manifest["snapshot_commit"] + "..HEAD",
+                )
+                with self.assertRaisesRegex(
+                    workspace.WorkspaceError, "protected content"
+                ):
+                    workspace.admit_bundle(
+                        manifest,
+                        bundle,
+                        self.root / f"attr-quarantine-{index}",
+                        tip,
+                        "gate-proposal",
+                    )
 
     def test_source_head_refuses_planted_symlinks(self):
         # _source_head also resolves a session's private storage on export,

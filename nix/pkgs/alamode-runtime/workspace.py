@@ -20,8 +20,15 @@ OID = re.compile(r"(?:[0-9a-f]{40}|[0-9a-f]{64})\Z")
 # project trust").
 # Admission records them instead of refusing them: documentation work
 # legitimately edits them, and the record tells the human which paths in a
-# merge are model-authored steering rather than code.
-CONTEXT_FILES = ("agents.md", "agents.override.md", "claude.md")
+# merge are model-authored steering rather than code. CLAUDE.local.md is
+# Claude Code's project-local memory file, loaded the same way as CLAUDE.md,
+# so a merge that carries it holds for review too.
+CONTEXT_FILES = (
+    "agents.md",
+    "agents.override.md",
+    "claude.md",
+    "claude.local.md",
+)
 # Configuration the human's own unsandboxed agents treat as executable. pi's
 # project trust covers everything under .pi/ (mcp.json spawns servers,
 # extensions run in-process, settings change tools); Claude Code runs hooks
@@ -258,10 +265,13 @@ def _attributes(directory, paths):
 
 
 def _protected(directory, paths):
+    # The git-crypt key directory is compared lowercased, like the
+    # admission checks below: APFS resolves a planted .GIT-CRYPT/ to the
+    # same files, so a case variant must stay protected content.
     return {
         path
         for path, value in _attributes(directory, paths).items()
-        if value.startswith("git-crypt") or path.startswith(".git-crypt/")
+        if value.startswith("git-crypt") or path.lower().startswith(".git-crypt/")
     }
 
 
@@ -708,8 +718,12 @@ def admit_bundle(
             if path
         }
         forbidden = protected.intersection(changed) | _protected(bare, sorted(changed))
+        # Case-insensitive like the trust-gated checks below: APFS
+        # resolves .GITATTRIBUTES to the same file, and git honors the case
+        # variant (measured: an eol rule in .GITATTRIBUTES normalizes at
+        # add), so a variant spelling must not ride a bundle.
         forbidden.update(
-            path for path in changed if Path(path).name == ".gitattributes"
+            path for path in changed if Path(path).name.lower() == ".gitattributes"
         )
         # Guard configurations pi and its extensions load without a trust
         # decision. The sandbox refuses to write them in-session; the refusal
