@@ -1790,12 +1790,13 @@ def land(manifest):
 def landing_notice(manifest):
     """Where quitting will put the session's commits, as (level, text, short).
 
-    pi shows it at startup (extensions/landing-notice.ts): its fullscreen TUI
-    covers anything the wrapper prints first. Only the conditions fixed at
-    launch, so a session that can never fast-forward says so before the work
-    rather than after it; context files and a checkout that moves are left to
-    land(). short is the same forecast as a clause for the header's lands
-    row (extensions/header.ts). None for a child, which never lands.
+    pi shows it at startup, since its fullscreen TUI covers anything the
+    wrapper prints first: short is the same forecast as a clause for the
+    header's lands row (extensions/header.ts), and a warning's text is also
+    shown in full (extensions/landing-notice.ts). Only the conditions fixed
+    at launch, so a session that can never fast-forward says so before the
+    work rather than after it; context files and a checkout that moves are
+    left to land(). None for a child, which never lands.
     """
     record = manifest["workspace"]
     if manifest.get("coordinator", {}).get("role") == "child":

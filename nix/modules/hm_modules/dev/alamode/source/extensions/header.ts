@@ -12,8 +12,8 @@
  * returns early without builtInHeader), so settings.json sets "header".
  *
  * ALAMODE_LANDING_SHORT is landing_notice()'s forecast as a clause
- * (nix/pkgs/alamode-runtime/session.py); the full sentence still arrives
- * as landing-notice.ts's toast. Without ALAMODE_SESSION_ID the wrapper did
+ * (nix/pkgs/alamode-runtime/session.py); a warning's full sentence also
+ * arrives as landing-notice.ts's toast. Without ALAMODE_SESSION_ID the wrapper did
  * not run, and only the art and wordmark are drawn.
  */
 

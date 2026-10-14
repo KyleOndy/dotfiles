@@ -194,6 +194,9 @@ let
       assert.equal(notices.length, 0, "A reload is not a launch");
       hooks.session_start({ reason: "startup" }, noticeCtx);
       assert.deepEqual(notices, [["warning", "The commits will wait on alamode/fixture."]]);
+      process.env.ALAMODE_LANDING_LEVEL = "info";
+      hooks.session_start({ reason: "startup" }, noticeCtx);
+      assert.equal(notices.length, 1, "The header carries an info forecast");
       const tools: any[] = [];
       const coordApi = { ...api, registerTool: (value: any) => tools.push(value) };
       delete process.env.ALAMODE_COORD_SOCKET;

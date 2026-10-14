@@ -121,7 +121,8 @@ leaves the commits on `alamode-<id>`. Every outcome at quit goes through
 that holds work back says what was NOT moved and why. An exit path that
 prints nothing, or a bare reason clause, is a bug. At launch the wrapper
 cannot print, since pi's fullscreen TUI covers it, so `landing_notice()`
-hands pi the same forecast and `extensions/landing-notice.ts` shows it.
+hands pi the same forecast: the header's lands row shows it, and
+`extensions/landing-notice.ts` repeats a warning in full.
 
 `.pi/verify.json` names this repo's verifier, which is what `verify-guard`
 nags about. Deliberately not `nix flake check`, which also evaluates the
