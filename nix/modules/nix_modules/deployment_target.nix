@@ -116,7 +116,7 @@ in
         download-buffer-size = 524288000; # 500 MB
         connect-timeout = 5;
         stalled-download-timeout = 30;
-        download-attempts = 3;
+        filetransfer-retry-attempts = 3;
         substituters = [
           "https://cache.nixos.org"
           # Prebuilt Pi-specific kernel/firmware for cogsworth, avoids local

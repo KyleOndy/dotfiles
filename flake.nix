@@ -54,6 +54,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     deploy-rs.url = "github:serokell/deploy-rs";
+    # nix 2.35.2, what nixos-26.05 ships, is affected by the 2026-10-13
+    # advisories (GHSA-jwvx-xq5j-gc56 and others). No follows: built against
+    # nix's own pin, the outputs are Hydra's and come from cache.nixos.org.
+    # TODO: remove with its overlay once nixos-26.05 ships 2.35.3
+    # (NixOS/nixpkgs#573629).
+    nix-upstream.url = "github:NixOS/nix/2.35.3";
     nixCats = {
       url = "github:BirdeeHub/nixCats-nvim";
     };
@@ -149,6 +155,13 @@
         })
 
         inputs.llm-agents.overlays.shared-nixpkgs
+
+        # See the nix-upstream input.
+        (final: prev: {
+          nixVersions = prev.nixVersions // {
+            latest = inputs.nix-upstream.packages.${final.stdenv.hostPlatform.system}.nix;
+          };
+        })
 
         # TODO: remove once direnv fixes fish test sandbox kills on macOS
         # direnv 2.37.1 fish tests get Killed: 9 in macOS sandbox during nix build
