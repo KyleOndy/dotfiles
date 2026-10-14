@@ -1238,6 +1238,23 @@ def trusted_layout(manifest):
     return root
 
 
+def host_editor():
+    """The caller's $VISUAL or $EDITOR for pi's external-editor key, its
+    program resolved on the caller's PATH, or None.
+
+    child_environment passes neither variable and the session's PATH lacks
+    the user's profile, so pi would fall back to nano. pi splits the command
+    on spaces and runs it without a shell (editInExternalEditor), so the
+    program must be absolute and free of spaces. The editor runs as pi's
+    child, inside the same sandbox, and reads only what the session can.
+    """
+    words = (os.environ.get("VISUAL") or os.environ.get("EDITOR") or "").split()
+    program = shutil.which(words[0]) if words else None
+    if not program or " " in program:
+        return None
+    return " ".join([program, *words[1:]])
+
+
 def prepare(config, manifest, relay):
     root = trusted_layout(manifest)
     runtime = root / "runtime"
@@ -1268,6 +1285,9 @@ def prepare(config, manifest, relay):
             "enableSkillCommands": True,
         }
     )
+    editor = host_editor()
+    if editor:
+        settings.setdefault("externalEditor", editor)
     safe_write(
         root, "runtime/agent/settings.json", (json.dumps(settings) + "\n").encode()
     )

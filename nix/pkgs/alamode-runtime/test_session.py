@@ -1450,6 +1450,24 @@ class PolicyTests(unittest.TestCase):
                 index += 1
         return re.fullmatch(result, path) is not None
 
+    def test_host_editor_resolves_the_callers_editor(self):
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        editor = bin_dir / "editor-probe"
+        editor.write_text("#!/bin/sh\n")
+        editor.chmod(0o755)
+        path = {"PATH": str(bin_dir)}
+        cases = (
+            ({"VISUAL": "editor-probe -f", "EDITOR": "absent"}, f"{editor} -f"),
+            ({"EDITOR": "editor-probe"}, str(editor)),
+            ({"VISUAL": "absent"}, None),
+            ({}, None),
+        )
+        for variables, expected in cases:
+            with self.subTest(variables=variables):
+                with patch.dict(os.environ, {**path, **variables}, clear=True):
+                    self.assertEqual(session.host_editor(), expected)
+
     def test_prepare_reclaims_planted_agent_state(self):
         class Relay:
             catalog = {"providers": {}}
