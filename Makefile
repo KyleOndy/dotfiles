@@ -129,6 +129,7 @@ build: ## Build this host's system
 .PHONY: deploy
 deploy: ## Switch this machine to the new configuration
 	$(NIX_DAEMON_BEFORE); $(call WITH_NOM,$(SWITCH) $(if $(filter work-mac,$(HOST)),$(WORK_INPUT_FLAG)) --flake .#$(HOST) switch) && $(NIX_DAEMON_RESTART)
+	@$(if $(filter trex,$(HOST)),$(DETERMINATE_NOTICE))
 	$(if $(filter work-mac trex,$(HOST)),$(ALAMODE_SEATS_CHECK))
 
 # Aliases that pin the host; a HOST=... on the command line still wins.
@@ -236,6 +237,11 @@ cleanup: ## Cleanup and reduce diskspace of current system
 # not answer at all only warns, since an outage says nothing about this
 # host's config.
 ALAMODE_SEATS_CHECK := alamode-seats check --deploy && mcloud-pins --deploy
+# trex's Determinate Nix lives outside the flake (/usr/local/bin and root's
+# default profile), so no deploy moves it. determinate-nixd names the latest
+# release itself; this repeats that after a trex deploy. It never fails the
+# deploy, and prints nothing when the check cannot reach Determinate.
+DETERMINATE_NOTICE := determinate-nixd version 2>/dev/null | awk '/^Determinate Nixd daemon version:/ { cur = $$NF } /^Latest version:/ { new = $$NF } END { if (cur != "" && new != "" && cur != new) printf "warning: Determinate Nix %s is running and %s is out.\n  Upgrade: sudo determinate-nixd upgrade\n  Release notes: https://github.com/DeterminateSystems/nix-src/releases\n", cur, new }'
 # The built wrapper parses its baked session config on every start, so a
 # conflict only the real work config carries fails the build instead of
 # the first session start after a deploy. The glob is the host's one user.
