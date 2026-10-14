@@ -110,9 +110,6 @@ let
         exit 1
       fi
 
-      wg_ip=$(echo "$region" | jq -r '.servers.wg[0].ip')
-      wg_hostname=$(echo "$region" | jq -r '.servers.wg[0].cn')
-
       # --fail-with-body rather than -f: PIA explains a rejection in the
       # response body, and -f discards it, leaving an unattended unit unable
       # to tell a wrong password from a server that stopped answering.
@@ -133,51 +130,92 @@ let
       priv_key=$(wg genkey)
       pub_key=$(echo "$priv_key" | wg pubkey)
 
-      wg_json=$(curl -sS --fail-with-body -G \
-        --connect-to "$wg_hostname::$wg_ip:" \
-        --cacert "${piaCaCert}" \
-        --data-urlencode "pt=$token" \
-        --data-urlencode "pubkey=$pub_key" \
-        "https://$wg_hostname:1337/addKey") || {
-        echo "pia-wg-connect: addKey rejected by $wg_hostname ($wg_ip): $wg_json" >&2
-        exit 1
-      }
-
-      if [ "$(echo "$wg_json" | jq -r '.status')" != "OK" ]; then
-        echo "pia-wg-connect: addKey did not return OK: $wg_json" >&2
-        exit 1
-      fi
-
-      peer_ip=$(echo "$wg_json" | jq -r '.peer_ip')
-      server_key=$(echo "$wg_json" | jq -r '.server_key')
-      server_port=$(echo "$wg_json" | jq -r '.server_port')
-      dns_server=$(echo "$wg_json" | jq -r '.dns_servers[0]')
-
-      # Bring wg0 up inside the pia namespace directly, rather than writing a
-      # wg-quick conf and running wg-quick -- wg-quick manages the DEFAULT
-      # namespace's DNS/routes, and everything here needs to land in
-      # "${cfg.namespace}" instead.
-      #
       # The healthcheck heals a stale tunnel by restarting this unit, so a run
       # has to tolerate wg0 already existing. It can be stranded in either
       # namespace: a run that dies between the add and the move leaves it
       # behind in this one. Nothing else on the host owns the name.
-      ip netns exec "${cfg.namespace}" ip link del wg0 2>/dev/null || true
-      ip link del wg0 2>/dev/null || true
+      remove_wg0() {
+        ip netns exec "${cfg.namespace}" ip link del wg0 2>/dev/null || true
+        ip link del wg0 2>/dev/null || true
+      }
 
-      ip link add wg0 type wireguard
-      ip link set wg0 netns "${cfg.namespace}"
+      # A region lists several servers, and one can accept addKey while
+      # refusing getSignature, so each is tried in turn.
+      mapfile -t servers < <(echo "$region" | jq -r '.servers.wg[] | "\(.ip) \(.cn)"')
+      pf=""
+      for server in "''${servers[@]}"; do
+        read -r wg_ip wg_hostname <<< "$server"
+        remove_wg0
 
-      ip netns exec "${cfg.namespace}" wg set wg0 \
-        private-key <(echo "$priv_key") \
-        peer "$server_key" \
-        allowed-ips 0.0.0.0/0 \
-        endpoint "$wg_ip:$server_port" \
-        persistent-keepalive 25
+        wg_json=$(curl -sS --fail-with-body -m 10 -G \
+          --connect-to "$wg_hostname::$wg_ip:" \
+          --cacert "${piaCaCert}" \
+          --data-urlencode "pt=$token" \
+          --data-urlencode "pubkey=$pub_key" \
+          "https://$wg_hostname:1337/addKey") || {
+          echo "pia-wg-connect: addKey rejected by $wg_hostname ($wg_ip): $wg_json" >&2
+          continue
+        }
 
-      ip netns exec "${cfg.namespace}" ip addr add "$peer_ip" dev wg0
-      ip netns exec "${cfg.namespace}" ip link set wg0 up
-      ip netns exec "${cfg.namespace}" ip route replace default dev wg0
+        if [ "$(echo "$wg_json" | jq -r '.status')" != "OK" ]; then
+          echo "pia-wg-connect: addKey did not return OK from $wg_hostname ($wg_ip): $wg_json" >&2
+          continue
+        fi
+
+        peer_ip=$(echo "$wg_json" | jq -r '.peer_ip')
+        server_key=$(echo "$wg_json" | jq -r '.server_key')
+        server_port=$(echo "$wg_json" | jq -r '.server_port')
+        dns_server=$(echo "$wg_json" | jq -r '.dns_servers[0]')
+
+        # Bring wg0 up inside the pia namespace directly, rather than writing a
+        # wg-quick conf and running wg-quick -- wg-quick manages the DEFAULT
+        # namespace's DNS/routes, and everything here needs to land in
+        # "${cfg.namespace}" instead.
+        ip link add wg0 type wireguard
+        ip link set wg0 netns "${cfg.namespace}"
+
+        ip netns exec "${cfg.namespace}" wg set wg0 \
+          private-key <(echo "$priv_key") \
+          peer "$server_key" \
+          allowed-ips 0.0.0.0/0 \
+          endpoint "$wg_ip:$server_port" \
+          persistent-keepalive 25
+
+        ip netns exec "${cfg.namespace}" ip addr add "$peer_ip" dev wg0
+        ip netns exec "${cfg.namespace}" ip link set wg0 up
+        ip netns exec "${cfg.namespace}" ip route replace default dev wg0
+
+        # Port forwarding: one getSignature call yields a payload+signature good
+        # for the port's ~2 month life; only bindPort needs repeating (every
+        # <15min, see the refresh timer), and only a fresh getSignature call
+        # produces a new port to hand to qBittorrent.
+        # Unlike token and addKey, the port-forwarding endpoints authorize only
+        # callers arriving through the tunnel, answering "Unauthorized client"
+        # from the host namespace. wg handshakes lazily on first traffic, so
+        # early attempts time out while the tunnel is still coming up.
+        for _ in $(seq 6); do
+          pf=$(ip netns exec "${cfg.namespace}" curl -sS --fail-with-body -m 5 -G \
+            --connect-to "$wg_hostname::$wg_ip:" \
+            --cacert "${piaCaCert}" \
+            --data-urlencode "token=$token" \
+            "https://$wg_hostname:19999/getSignature") && break
+          sleep 5
+        done
+
+        if [ "$(echo "$pf" | jq -r '.status')" = "OK" ]; then
+          break
+        fi
+        echo "pia-wg-connect: getSignature never returned OK via $wg_hostname ($wg_ip): $pf" >&2
+        pf=""
+      done
+
+      # A wg0 left up keeps handshaking, so the healthcheck would never see
+      # the tunnel as stale and retry.
+      if [ -z "$pf" ]; then
+        remove_wg0
+        echo "pia-wg-connect: no server in region '${cfg.region}' granted a forwarded port" >&2
+        exit 1
+      fi
 
       # `ip netns exec` bind-mounts /etc/netns/<name>/resolv.conf over
       # /etc/resolv.conf for anything it launches (ip-netns(8)). qBittorrent
@@ -185,29 +223,6 @@ let
       # which does not get that treatment, so its unit bind-mounts this same
       # file in directly (see qbittorrent.nix).
       echo "nameserver $dns_server" > "/etc/netns/${cfg.namespace}/resolv.conf"
-
-      # Port forwarding: one getSignature call yields a payload+signature good
-      # for the port's ~2 month life; only bindPort needs repeating (every
-      # <15min, see the refresh timer), and only a fresh getSignature call
-      # produces a new port to hand to qBittorrent.
-      # Unlike token and addKey, the port-forwarding endpoints authorize only
-      # callers arriving through the tunnel, answering "Unauthorized client"
-      # from the host namespace. wg handshakes lazily on first traffic, so
-      # early attempts time out while the tunnel is still coming up.
-      pf=""
-      for _ in $(seq 6); do
-        pf=$(ip netns exec "${cfg.namespace}" curl -sS --fail-with-body -m 5 -G \
-          --connect-to "$wg_hostname::$wg_ip:" \
-          --cacert "${piaCaCert}" \
-          --data-urlencode "token=$token" \
-          "https://$wg_hostname:19999/getSignature") && break
-        sleep 5
-      done
-
-      if [ "$(echo "$pf" | jq -r '.status')" != "OK" ]; then
-        echo "pia-wg-connect: getSignature never returned OK via $wg_hostname ($wg_ip): $pf" >&2
-        exit 1
-      fi
 
       echo "$pf" | jq -c --arg hostname "$wg_hostname" --arg gateway "$wg_ip" \
         '{payload: .payload, signature: .signature, hostname: $hostname, gateway: $gateway}' \
