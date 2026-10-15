@@ -765,6 +765,18 @@ in
                 summary: "Pool {{ $labels.pool }} on {{ $labels.host }} is {{ $value | humanizePercentage }} allocated"
                 description: "{{ $labels.pool }} on {{ $labels.host }} is past 85% allocated, and the per-dataset DiskSpaceLow rules fire only near full. Prune, or plan capacity. Check: zpool list {{ $labels.pool }}; zfs list -o name,used,usedbysnapshots -r {{ $labels.pool }}"
 
+            # ZpoolCapacityHigh mails once a day, and one night of downloads
+            # took storage from 83% to 95.8% allocated on 2026-10-13, with
+            # about 200G of usable space left.
+            - alert: ZpoolCapacityCritical
+              expr: zfs_pool_allocated_bytes / zfs_pool_size_bytes > 0.95
+              for: 15m
+              labels:
+                severity: critical
+              annotations:
+                summary: "Pool {{ $labels.pool }} on {{ $labels.host }} is {{ $value | humanizePercentage }} allocated"
+                description: "{{ $labels.pool }} on {{ $labels.host }} is past 95% allocated, a few hundred GB from writes failing. Stop whatever is writing (a download burst into scratch-big, a replica) before pruning. Check: zfs list -o name,used,usedbysnapshots,avail -r {{ $labels.pool }}"
+
         # Tier 2 of docs/backup-strategy.md: tiger snapshots, pika pulls.
         #
         # Freshness is measured the same way on both ends, so the pair says
