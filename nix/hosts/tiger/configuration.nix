@@ -1309,6 +1309,13 @@ in
   # runs as root here, so the group owns nothing; it exists to resolve the rules.
   users.groups.nutmon = { };
 
+  # A stop in the old configuration and a start in the new one leaves the
+  # driver down for the whole switch, 17 to 27s, and with its interrupt
+  # endpoint unread that long this Tripp Lite drops off USB (see pollinterval
+  # below). upsdrv has no ExecStop, so a restart in the new configuration
+  # loses nothing.
+  systemd.services.upsdrv.stopIfChanged = false;
+
   power.ups = {
     enable = true;
     mode = "standalone";
