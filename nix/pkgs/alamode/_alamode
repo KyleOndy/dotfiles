@@ -86,7 +86,15 @@ if (( boundary < CURRENT )); then
   return
 fi
 
-local verb=${words[2]}
+# A verb still being typed completes as a verb. Once it is complete, shift
+# it into words[1], which _arguments skips as the command name, so each
+# verb's specs number its own arguments from 1.
+local verb
+(( CURRENT > 2 )) && verb=${words[2]}
+if (( ${verbs[(I)${(b)verb}:*]} )); then
+  shift words
+  (( CURRENT-- ))
+fi
 case $verb in
   resume)
     _arguments \
