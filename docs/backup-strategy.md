@@ -570,15 +570,20 @@ indistinguishable from not trying.
 
 ### Bandwidth
 
-The uplink measures 24.6 Mbps, so the push is capped at 2 MB/s in
-`/etc/aws/s3-archive-push.conf`. Saturating it fills the modem's buffer and
-takes interactive latency with it.
+The uplink measures 24.6 Mbps, but for minutes to an hour at a time its
+capacity falls to about 11 Mbps (seen on 2026-10-14 and 2026-10-15). A push
+sending more than the line carries fills the modem's buffer, and every
+offsite path, the public aliases included, sees seconds of latency. So the
+push is capped under the dips, at 1 MB/s (about 9 Mbps on the wire) with two
+concurrent requests, in `/etc/aws/s3-archive-push.conf`. awscli says to lower
+`max_concurrent_requests` along with `max_bandwidth`, since many requests
+sharing a low cap time out.
 
 It is a config file rather than a unit environment variable because awscli
-has no env var for `max_bandwidth`. Measured effect on a concurrent speed
-test: 2.94 MB/s down to 2.30 MB/s.
+has no env var for `max_bandwidth`. Measured at a 2 MB/s cap, a concurrent
+speed test dropped from 2.94 MB/s to 2.30 MB/s.
 
-The seed is therefore slow on purpose. 637 GB at 2 MB/s is about four
+The seed is therefore slow on purpose. 637 GB at 1 MB/s is about seven
 days.
 Steady-state daily deltas are minutes.
 

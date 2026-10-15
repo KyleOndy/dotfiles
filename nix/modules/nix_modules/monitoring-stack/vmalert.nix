@@ -911,7 +911,7 @@ in
             # The unless guard separates "the push is dead" from "the push is
             # still running". s3-archive-push writes its metrics only after
             # the sync returns, so last_success on its own reads a 30-hour
-            # bulk import as a 30-hour outage; against the 2MB/s cap a push
+            # bulk import as a 30-hour outage; against the 1MB/s cap a push
             # carrying one legitimately outlives the 36h threshold.
             - alert: S3ArchivePushStale
               expr: |-

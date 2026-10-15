@@ -39,7 +39,7 @@ readonly TEXTFILE_DIR="/var/lib/prometheus-node-exporter-text-files"
 readonly OUTFILE="$TEXTFILE_DIR/s3_reconcile_$PREFIX.prom"
 
 # The bucket only compares to the source between pushes. A push carrying a
-# bulk import runs for a day or more against the 2MB/s cap, and every file it
+# bulk import runs for a day or more against the 1MB/s cap, and every file it
 # has not reached yet reads as missing: the run of 2026-08-25 landed mid-sync
 # and scored 1515 missing against 186 orphans it then pruned. Scheduling
 # cannot avoid this on its own, because a Persistent timer whose stamp

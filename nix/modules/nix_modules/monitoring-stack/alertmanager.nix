@@ -99,7 +99,7 @@ in
               repeat_interval = "24h";
             }
             {
-              # A push moves against a 2MB/s cap on a daily timer, so nothing
+              # A push moves against a 1MB/s cap on a daily timer, so nothing
               # about the offsite copy changes inside an hour, and
               # S3ArchivePushStale fires only once no push is running at all.
               # Every repeat restates the same wait.

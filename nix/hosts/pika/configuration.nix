@@ -31,7 +31,7 @@ let
 
   pushUnit = dataset: prefix: {
     description = "Push ${dataset} to the offsite archive bucket";
-    # A cold push of tank/photos is 508G against the 2MB/s cap, so this runs
+    # A cold push of tank/photos is 508G against the 1MB/s cap, so this runs
     # for days. Activation must not stop a sync in flight.
     restartIfChanged = false;
     environment = {
@@ -267,13 +267,19 @@ in
     };
   };
 
-  # Held under the measured 24.6 Mbps uplink: saturating it fills the modem's
-  # buffer and takes interactive latency with it. A config file rather than
-  # the unit environment because awscli has no env var for max_bandwidth.
+  # Held under the uplink's dips, not its 24.6 Mbps peak. For minutes to an
+  # hour at a time its capacity falls to about 11 Mbps, and a push sending
+  # more than that fills the modem's buffer and takes every offsite path's
+  # latency to seconds. 1 MiB/s is about 9 Mbps on the wire. Concurrency
+  # comes down with it: requests sharing a low cap time out
+  # (https://github.com/aws/aws-cli/blob/2.34.24/awscli/topics/s3-config.rst?plain=1#L211-L219).
+  # A config file rather than the unit environment because awscli has no env
+  # var for max_bandwidth.
   environment.etc."aws/s3-archive-push.conf".text = ''
     [profile archive-push]
     s3 =
-      max_bandwidth = 2MB/s
+      max_bandwidth = 1MB/s
+      max_concurrent_requests = 2
   '';
 
   # Fixed offsets rather than After= ordering on syncoid: a stuck pull delays

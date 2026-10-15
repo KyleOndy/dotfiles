@@ -26,7 +26,7 @@ Files land as plain files, one for one. That matters more than it looks:
   that is already near 80%.
 - **Archive formats fight the S3 tier.** `aws s3 sync` re-uploads a file
   whole when it changes. An image backup that merges into one big file every
-  night is a full re-upload every night, at 2 MB/s, each version billed for
+  night is a full re-upload every night, at 1 MB/s, each version billed for
   180 days. Chunked formats (Kopia, restic, Duplicati) behave better, but
   they need the tool to restore and usually a password, and the S3 tier is
   plain files on purpose.

@@ -96,7 +96,7 @@ mirror() {
 #
 #   [profile ondy-org]
 #   s3 =
-#     max_bandwidth = 2MB/s
+#     max_bandwidth = 1MB/s
 push_s3() {
 	local src="$1" dest="$2" class="$3"
 	shift 3
