@@ -152,8 +152,8 @@ case $verb in
     # Launch form: verbs at the first word, grant flags anywhere before --.
     if (( CURRENT == 2 )); then
       _alternative \
-        'verbs:verb:_describe -t verbs command verbs' \
-        'grant-flags:grant:_describe -t grants "grant flag" grant_flag_words'
+        'verbs:verb: _describe -t verbs command verbs' \
+        'grant-flags:grant: _describe -t grants "grant flag" grant_flag_words'
     else
       _arguments \
         "${grant_flags[@]}" \
