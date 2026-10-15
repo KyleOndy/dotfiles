@@ -1742,6 +1742,45 @@ def run(config, manifest, args, home):
         )
 
 
+def session_tty_denies(dev="/dev", terminal=None):
+    """Every host pseudo-terminal slot a session must not open, by path.
+
+    srt's allowPty block admits read, write and ioctl on /dev/ptmx and on
+    every /dev/ttys* at once (macos-sandbox-utils.js, 0.0.79), which is
+    load-bearing: pi re-opens /dev/tty for its TUI and the slaves it creates
+    for its children are opened by path. The same allow also covers every
+    other pane on the host, and measured from inside a session, another
+    pane's slot can be drained of typed-ahead input and painted with a
+    forged prompt (docs/alamode-escape-audit.md, finding 2). The launching
+    pane's own slave is kept, so a TUI that re-opens its terminal by name
+    still works, and every other slot that exists now is denied by literal
+    path, appended after srt's allow block in sandbox.mjs where Seatbelt
+    resolves last-match-wins. A slot first used after launch is outside the
+    frozen list until the next one, which is why the enumeration runs at
+    every launch and resume.
+    """
+    if sys.platform != "darwin":
+        # srt's Linux profile has no pty allow block to carve.
+        return []
+    if terminal is None:
+        for descriptor in (0, 1, 2):
+            try:
+                if os.isatty(descriptor):
+                    terminal = os.ttyname(descriptor)
+                    break
+            except OSError:
+                continue
+    return [
+        slot
+        for slot in (
+            str(Path(dev) / name)
+            for name in sorted(os.listdir(dev))
+            if name.startswith("ttys")
+        )
+        if slot != terminal
+    ]
+
+
 def execute(config, manifest, arguments, environment, runtime, relay_port=0):
     workspace_root(manifest)
     validate_transport_grants(manifest)
@@ -1758,6 +1797,9 @@ def execute(config, manifest, arguments, environment, runtime, relay_port=0):
             *manifest.get("resources", {}).get("forge", {}).get("local_ports", []),
         ],
         "listenPorts": manifest["policy"]["listen"],
+        # Pseudo-terminal slots the profile patch in sandbox.mjs denies;
+        # the runner appends them after srt's pty allow block.
+        "ttyDenies": session_tty_denies(),
     }
     with (
         tempfile.TemporaryDirectory(

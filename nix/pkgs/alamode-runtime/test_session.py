@@ -526,6 +526,37 @@ class PolicyTests(unittest.TestCase):
             popen.call_args.kwargs["env"]["CLAUDE_CODE_TMPDIR"], str(runtime / "tmp")
         )
 
+    def test_runner_gets_the_frozen_tty_denies(self):
+        # The runner payload carries the slots session_tty_denies froze at
+        # launch, so the profile patch in sandbox.mjs can deny them.
+        runtime = self.work / "runtime"
+        captured = {}
+
+        class Runner:
+            def __init__(self, arguments, **kwargs):
+                descriptor = int(arguments[-1])
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                captured["payload"] = json.loads(os.read(descriptor, 1 << 20))
+
+            def wait(self):
+                return 0
+
+            def poll(self):
+                return 0
+
+        with (
+            patch.object(session, "session_tty_denies", return_value=["/dev/ttys009"]),
+            patch.object(session.subprocess, "Popen", Runner),
+        ):
+            session.execute(
+                self.config,
+                self.manifest,
+                ["true"],
+                {"PATH": "/usr/bin", "TMPDIR": str(runtime / "tmp")},
+                runtime,
+            )
+        self.assertEqual(captured["payload"]["ttyDenies"], ["/dev/ttys009"])
+
     def fixture_relay(self):
         relay_source = self.root / "relay-fixture.py"
         relay_source.write_text(
@@ -1849,6 +1880,42 @@ class PolicyTests(unittest.TestCase):
         self.assertIn(entry, rules["filesystem"]["allowRead"])
         self.assertNotIn(grant, rules["filesystem"]["allowWrite"])
 
+    def test_session_tty_denies_freeze_foreign_slots_and_keep_own(self):
+        dev = self.root / "dev"
+        dev.mkdir()
+        for name in ("ttys000", "ttys001", "ttys002"):
+            (dev / name).write_text("")
+        for name in ("ptmx", "tty", "console"):
+            (dev / name).write_text("")
+        # The launching pane's own slave is the one slot kept openable by
+        # path; srt's allowPty block needs nothing more for pi's own TUI.
+        self.assertEqual(
+            session.session_tty_denies(dev=dev, terminal=str(dev / "ttys001")),
+            [str(dev / "ttys000"), str(dev / "ttys002")],
+        )
+        # A launch with no terminal of its own keeps no slot: pi reaches its
+        # controlling terminal through /dev/tty, not the slave's path.
+        with patch.object(session.os, "isatty", return_value=False):
+            self.assertEqual(
+                session.session_tty_denies(dev=dev),
+                [str(dev / name) for name in ("ttys000", "ttys001", "ttys002")],
+            )
+        # The own slave is discovered from the first terminal descriptor.
+        with (
+            patch.object(session.os, "isatty", side_effect=lambda fd: fd == 0),
+            patch.object(session.os, "ttyname", return_value=str(dev / "ttys002")),
+        ):
+            self.assertEqual(
+                session.session_tty_denies(dev=dev),
+                [str(dev / "ttys000"), str(dev / "ttys001")],
+            )
+
+    def test_session_tty_denies_are_darwin_only(self):
+        # srt's Linux profile has no pty allow block to carve, so the runner
+        # payload carries no slots there.
+        with patch.object(session.sys, "platform", "linux"):
+            self.assertEqual(session.session_tty_denies(), [])
+
     def test_pin_store_roots_registers_deployment_packages(self):
         gcroots = self.root / "gcroots"
         config = {
@@ -2589,6 +2656,164 @@ print(json.dumps(r))
             finally:
                 provider.shutdown()
                 provider.server_close()
+
+    def test_real_pi_denies_foreign_tty_slots(self):
+        """Live Seatbelt probe for the pseudo-terminal slot denies.
+
+        srt's allowPty block admits every /dev/ttys* slot on the host at
+        once; the profile patch in sandbox.mjs denies, by literal path,
+        every slot that existed at launch except the launching pane's own
+        slave. This launch has no terminal of its own (its descriptors are
+        pipes), so every existing slot is denied, including the foreign one
+        the test opened before the launch; a slot the session itself
+        creates must keep working, because pi opens the slaves it creates
+        for its children by path.
+        """
+        import shlex
+
+        with tempfile.TemporaryDirectory(
+            prefix="alamode-session-native-", dir="/private/tmp"
+        ) as temporary:
+            root = Path(temporary)
+            home = root / "home"
+            home.mkdir()
+            source = root / "source"
+            source.mkdir()
+            config = configuration(root)
+            master, slave = os.openpty()
+            config["env"] = {"ALAMODE_FOREIGN_SLOT": os.ttyname(slave)}
+            environment = {
+                "HOME": str(home),
+                "PATH": config["path"],
+                "PI_PROVIDER_SECRET": KEY,
+                "GIT_CONFIG_NOSYSTEM": "1",
+                "GIT_CONFIG_GLOBAL": "/dev/null",
+                "GIT_AUTHOR_NAME": "Fixture",
+                "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
+                "GIT_COMMITTER_NAME": "Fixture",
+                "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
+            }
+            subprocess.run(
+                ["git", "init", "-q", "-b", "main", str(source)],
+                env=environment,
+                check=True,
+            )
+            (source / "original.txt").write_text("fixture\n")
+            subprocess.run(
+                ["git", "-C", str(source), "add", "."], env=environment, check=True
+            )
+            subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(source),
+                    "-c",
+                    "commit.gpgsign=false",
+                    "-c",
+                    "core.hooksPath=/dev/null",
+                    "commit",
+                    "-qm",
+                    "Fixture",
+                ],
+                env=environment,
+                check=True,
+            )
+            sandbox_source = Path(
+                os.environ.get(
+                    "ALAMODE_SANDBOX_RUNNER_SOURCE", MODULE.with_name("sandbox.mjs")
+                )
+            ).read_text()
+            sandbox_source = sandbox_source.replace(
+                "@sandboxRuntime@", os.environ["ALAMODE_SANDBOX_RUNTIME"]
+            )
+            Path(config["sandboxRunner"]).write_text(sandbox_source)
+            provider = ThreadingHTTPServer(("127.0.0.1", 0), Provider)
+            provider.daemon_threads = True
+            provider.calls = []
+            threading.Thread(target=provider.serve_forever, daemon=True).start()
+            try:
+                catalog = {
+                    "providers": {
+                        "fixture": {
+                            "api": "openai-completions",
+                            "baseUrl": f"http://127.0.0.1:{provider.server_port}/v1",
+                            "apiKey": "$PI_PROVIDER_SECRET",
+                            "models": [{"id": "probe", "maxTokens": 1024}],
+                        }
+                    }
+                }
+                Path(config["catalogFile"]).write_text(json.dumps(catalog))
+                config_file = root / "config.json"
+                config_file.write_text(json.dumps(config))
+                probe = """import errno, fcntl, json, os, termios
+def probe(path, flags):
+    try:
+        os.close(os.open(path, flags))
+        return "open"
+    except OSError as error:
+        return "EPERM" if error.errno == errno.EPERM else error.errno
+r = {}
+foreign = os.environ["ALAMODE_FOREIGN_SLOT"]
+r["foreign"] = probe(foreign, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+r["foreign_read"] = probe(foreign, os.O_RDONLY | os.O_NONBLOCK)
+master, slave = os.openpty()
+r["own_slot"] = probe(os.ttyname(slave), os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+try:
+    fcntl.ioctl(slave, termios.TIOCGWINSZ, b"\\0" * 8)
+    r["own_winsz"] = "ok"
+except OSError:
+    r["own_winsz"] = "EPERM"
+print(json.dumps(r))
+"""
+                provider.command = (
+                    shlex.quote(sys.executable) + " -c " + shlex.quote(probe)
+                )
+                command = [
+                    sys.executable,
+                    str(MODULE),
+                    str(config_file),
+                    "/fixture/alamode",
+                    "--",
+                    "--model",
+                    "fixture/probe",
+                    "--no-session",
+                    "--mode",
+                    "json",
+                    "Run the fixture",
+                ]
+                result = subprocess.run(
+                    command,
+                    cwd=source,
+                    env=environment,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertGreaterEqual(
+                    len(provider.calls), 2, result.stdout + result.stderr
+                )
+                tools = [
+                    message
+                    for message in provider.calls[-1][1]["messages"]
+                    if message["role"] == "tool"
+                ]
+                report = json.loads(tools[-1]["content"])
+                self.assertEqual(
+                    report,
+                    {
+                        "foreign": "EPERM",
+                        "foreign_read": "EPERM",
+                        "own_slot": "open",
+                        "own_winsz": "ok",
+                    },
+                    report,
+                )
+            finally:
+                provider.shutdown()
+                provider.server_close()
+                os.close(master)
+                os.close(slave)
 
     def test_real_pi_strict_web_isolation_and_commits(self):
         import shlex

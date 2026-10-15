@@ -82,6 +82,38 @@ try {
         ...ports,
       ].join("\n"),
     );
+    // srt's allowPty block admits every /dev/ttys* slot on the host at once
+    // (its regex has no slot boundary), which is load-bearing for the
+    // session's own terminal and the slaves pi creates for its children, but
+    // also covers every other pane: measured, a session can drain another
+    // pane's typed-ahead input and paint its display. Deny, by literal path,
+    // every slot that existed at launch except the launching pane's own
+    // slave, appended after the allow block so Seatbelt resolves
+    // last-match-wins. The marker keeps this fail-closed: an srt bump that
+    // moves the pty block refuses to start the session rather than running
+    // wide.
+    const ptyBlock = [
+      "; Pseudo-terminal (pty) support",
+      "(allow pseudo-tty)",
+      "(allow file-ioctl",
+      '  (literal "/dev/ptmx")',
+      '  (regex #"^/dev/ttys")',
+      ")",
+      "(allow file-read* file-write*",
+      '  (literal "/dev/ptmx")',
+      '  (regex #"^/dev/ttys")',
+      ")",
+    ].join("\n");
+    const ttyDenies = input.ttyDenies.map((path) => {
+      if (!/^\/dev\/ttys[^/]+$/.test(path))
+        throw new Error("Invalid tty deny path");
+      return `(deny file-read* file-write* file-ioctl (literal ${JSON.stringify(path)}))`;
+    });
+    command = replacePolicy(
+      command,
+      ptyBlock,
+      [ptyBlock, ...ttyDenies].join("\n"),
+    );
   }
   child = spawn(input.shell, ["-c", command], {
     cwd: input.cwd,
