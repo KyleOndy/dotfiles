@@ -315,7 +315,7 @@ in
         environment = {
           API_KEY_FILE = cfg.backup.apiKeyFile;
           BACKUP_DIR = "${stateDir}/data/backups";
-          RETENTION_DAYS = "30";
+          RETENTION_DAYS = "7";
         };
         script = ''
           API_KEY=$(cat "$API_KEY_FILE")
