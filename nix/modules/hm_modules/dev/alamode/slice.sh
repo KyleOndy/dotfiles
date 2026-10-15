@@ -45,6 +45,10 @@ printf -v command '%q ' alamode "$@"
 tmux-sessionizer "$path" "${command% }"
 
 echo "alamode slice: alamode is running in a new tmux window at ${path}" >&2
+if branch=$(git -C "$path" symbolic-ref --short -q HEAD) &&
+	git -C "$path" rev-parse --verify --quiet "refs/wt-base/${branch}" >/dev/null; then
+	echo "  review every commit on ${branch}, from any session: git log -p refs/wt-base/${branch}..${branch}" >&2
+fi
 if [[ -e ${path}/.envrc ]]; then
 	echo "  direnv stays blocked there until you review the work and run: git adopt" >&2
 fi
