@@ -1,5 +1,7 @@
 # nix
+# nix build A B writes result and then result-1, result-2, ... beside it
 result
+result-*
 results/
 
 # direnv
