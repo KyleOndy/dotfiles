@@ -149,7 +149,7 @@ in
           last_run=''${last_run:-0}
 
           if queue=$(curl -sf --max-time 30 -H "X-Api-Key: $(cat "$keyfile")" \
-                       "$url/api/$api/queue?pageSize=200"); then
+                       "$url/api/$api/queue?pageSize=1000"); then
             # Fractional seconds appear on some records and fromdateiso8601
             # rejects them.
             targets=$(printf '%s' "$queue" | jq -r --argjson now "$now" --argjson cutoff "$CUTOFF" '
