@@ -466,7 +466,11 @@ def _finish_workspace(
     _git(bare, "worktree", "add", "--no-checkout", str(workspace), branch)
     git_dir = bare / "worktrees" / "worktree"
     _git(git_dir, "config", "extensions.worktreeConfig", "true")
-    _git(git_dir, "config", "--worktree", "core.bare", "false")
+    # Where git-worktree(1) puts core.bare under worktreeConfig. Set false in
+    # the worktree instead, git there reads .bare as a checkout of `branch`
+    # and refuses to check the branch out again after a detach.
+    _git(bare, "config", "--unset", "core.bare")
+    _git(bare, "config", "--worktree", "core.bare", "true")
     _git(git_dir, "config", "--worktree", "core.worktree", str(workspace))
     _git(git_dir, "config", "--worktree", "core.sparseCheckout", "true")
     _git(git_dir, "config", "--worktree", "core.sparseCheckoutCone", "false")

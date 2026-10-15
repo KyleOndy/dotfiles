@@ -115,6 +115,18 @@ class WorkspaceTests(unittest.TestCase):
         }
         self.assertFalse(source_inodes & child_inodes)
 
+    def test_branch_checks_out_again_after_a_detach(self):
+        manifest = self.create()
+        work = Path(manifest["workspace"])
+        self.git(work, "checkout", "-q", "--detach")
+        self.git(work, "checkout", "-q", manifest["branch"])
+        self.assertEqual(
+            self.git(
+                Path(manifest["common_dir"]), "rev-parse", "--is-bare-repository"
+            ).stdout.strip(),
+            "true",
+        )
+
     def test_empty_workspace_commits_and_admits_without_importing_nearby_files(self):
         external = self.root / "external-private-fixture"
         external.write_text("synthetic private file outside workspace\n")
