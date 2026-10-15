@@ -53,7 +53,7 @@ Via Grafana Explore at `https://grafana.tiger.infra.ondy.org` (LAN or VPN only):
 
 ## Watchdog
 
-Three independent checks, all in one script that the timer runs every 30s
+Four independent checks, all in one script that the timer runs every 30s
 (grep `systemd.services.cogsworth-watchdog` in `configuration.nix`). Each
 keeps its own counter in `/var/lib/cogsworth-watchdog/`, resets it on the
 first success, and calls `systemctl reset-failed` before restarting so a
@@ -62,6 +62,7 @@ service that hit the restart limit still recovers.
 | Check          | Probe                                  | Threshold | Action                                       |
 | -------------- | -------------------------------------- | --------- | -------------------------------------------- |
 | Backend health | `GET 127.0.0.1:8080/api/health`        | 3 (90s)   | restart `cogsworth.service`                  |
+| WiFi data path | ping the default gateway               | 10 (5min) | restart `wpa_supplicant.service`             |
 | Kiosk renderer | `Runtime.evaluate` over CDP on `:9222` | 5 (150s)  | restart `cogsworth-kiosk.service`            |
 | Off-origin     | top-frame URL is not localhost         | 3 (90s)   | `Page.navigate` back each tick, then restart |
 

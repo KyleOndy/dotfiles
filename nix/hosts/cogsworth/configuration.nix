@@ -189,6 +189,11 @@ in
       networks = {
         "The Ondy's" = {
           pskRaw = "ext:home_psk";
+          # Kristen's Office, 2.4 GHz. Left to choose, cogsworth joined
+          # Basement rack after a disconnect and held a link there with
+          # about 29% of frames retried, against 5 to 7% here. With this,
+          # it has no AP to fall back to if this one is down.
+          extraConfig = "bssid=8c:30:66:54:78:7d";
         };
       };
     };
@@ -972,7 +977,9 @@ in
       COGSWORTH_STATE_FILE="$STATE_DIR/failure_count"
       KIOSK_STATE_FILE="$STATE_DIR/kiosk_failure_count"
       KIOSK_ORIGIN_STATE_FILE="$STATE_DIR/kiosk_offorigin_count"
+      NET_STATE_FILE="$STATE_DIR/gateway_failure_count"
       FAILURE_THRESHOLD=3              # Backend: restart after 3 consecutive failures (90 seconds)
+      NET_FAILURE_THRESHOLD=10         # Gateway: restart wpa_supplicant after 10 consecutive failures (5 minutes)
       KIOSK_FAILURE_THRESHOLD=5        # Kiosk: restart after 5 consecutive failures (150 seconds)
       KIOSK_ORIGIN_FAILURE_THRESHOLD=3 # Off-origin: restart after 3 consecutive failed snap-backs (90 seconds)
       KIOSK_GRACE_PERIOD_S=60          # Skip kiosk checks for 60s after a fresh start
@@ -1007,6 +1014,28 @@ in
           systemctl restart cogsworth.service
           # Reset counter after restart
           echo "0" > "$COGSWORTH_STATE_FILE"
+        fi
+      fi
+
+      # --- Check the WiFi data path ---
+      # The link can stop passing data while the carrier stays up, so
+      # wpa_supplicant never reassociates on its own: on 2026-10-14 that
+      # cut cogsworth off for over two hours, until it rebooted.
+      NET_FAILURES=$(cat "$NET_STATE_FILE" 2>/dev/null || echo 0)
+      GATEWAY=$(${pkgs.iproute2}/bin/ip route show default | ${pkgs.gawk}/bin/awk '{print $3; exit}')
+      if [ -n "$GATEWAY" ] && ${pkgs.iputils}/bin/ping -c 1 -W 2 "$GATEWAY" >/dev/null 2>&1; then
+        if [ "$NET_FAILURES" -gt 0 ]; then
+          echo "$(date): Gateway reachable again (was $NET_FAILURES failures)"
+        fi
+        echo "0" > "$NET_STATE_FILE"
+      else
+        NET_FAILURES=$((NET_FAILURES + 1))
+        echo "$NET_FAILURES" > "$NET_STATE_FILE"
+        echo "$(date): Gateway '$GATEWAY' unreachable (attempt $NET_FAILURES/$NET_FAILURE_THRESHOLD)"
+        if [ "$NET_FAILURES" -ge "$NET_FAILURE_THRESHOLD" ]; then
+          echo "$(date): WATCHDOG TRIGGERED - Restarting wpa_supplicant.service"
+          systemctl restart wpa_supplicant.service
+          echo "0" > "$NET_STATE_FILE"
         fi
       fi
 
