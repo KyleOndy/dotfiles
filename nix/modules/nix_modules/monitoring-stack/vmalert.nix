@@ -1765,6 +1765,10 @@ in
             - alert: UnifiWanLatencyHigh
               expr: unpoller_site_latency_seconds{subsystem="www"} > 0.15
               for: 10m
+              # unpoller misses a sample when the gateway reconnects, which
+              # would resolve the alert mid-episode and fire it again as a new
+              # one 10 minutes later.
+              keep_firing_for: 15m
               labels:
                 severity: warning
               annotations:
