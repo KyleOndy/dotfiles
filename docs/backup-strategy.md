@@ -147,11 +147,18 @@ The names are fixed, so each pull replaces the last. sanoid's tiers decide
 how many copies we keep, and the archive tier holds one version a day until
 the noncurrent expiry drops it.
 
-The Network app backs up settings only (`autobackup_days` 0), about 140 KB.
-The default carries 30 days of stats at about 20 MB, and unpoller already
-has those in VictoriaMetrics. A console's UI has no control for this, so it
-was set through the API, and a firmware update could quietly put it back.
-A `network.unf` near 20 MB means it did.
+The Network app backs up settings only (`autobackup_days` 0), about 140 KB,
+every day at 00:00 UTC (`autobackup_cron_expr` `0 0 * * *`). The default
+carries 30 days of stats at about 20 MB, and unpoller already has those in
+VictoriaMetrics. A console's UI has no control for either, so both were set
+through the API, and a firmware update could quietly put them back. A
+`network.unf` near 20 MB means the stats came back; one that stops changing
+means the schedule did.
+
+The stored schedule was `0 0 * * 1` (Mondays). The app ran nightly anyway
+until a save through the API on 2026-10-14 made it follow that value, and
+the next night had no backup. The console's "System Backups: Auto (Weekly)"
+checkbox is the UniFi OS backup below, not this one.
 
 A `.unf` holds the Wi-Fi keys and VPN keys, which is why it lives under the
 0700 `apps/`. The UniFi OS console backup (admins, console settings) is not
