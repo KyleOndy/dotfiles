@@ -1321,6 +1321,31 @@ class PolicyTests(unittest.TestCase):
         with self.assertRaisesRegex(session.SessionError, "replaced"):
             session.export_session(manifest)
 
+    def test_export_points_a_rewritten_base_back_at_the_reflog(self):
+        manifest, tip = self.sealed_session("export-stranded")
+        work = Path(manifest["workspace"]["workspace"])
+        base = manifest["workspace"]["snapshot_commit"]
+
+        def git(*args):
+            self.assertEqual(self.git_in(work, *args).returncode, 0, args)
+
+        branch = self.git_in(work, "symbolic-ref", "--short", "HEAD").stdout.strip()
+        # An agent rewording a wip base: amend the base, replay the tip on it.
+        git("checkout", "-q", base)
+        git("commit", "-q", "--amend", "-m", "Reworded base")
+        git("cherry-pick", tip)
+        git("checkout", "-q", "-B", branch)
+        with self.assertRaises(session.Told) as raised:
+            session.export_session(manifest)
+        self.assertIn(base[:12], raised.exception.paragraphs[0])
+        self.assertIn(("then", f"git reset --keep {tip[:12]}"), raised.exception.steps)
+        # No reflog entry holds this tree, so no reset is safe to offer.
+        (work / "file").write_text("later\n")
+        git("commit", "-qam", "Later")
+        with self.assertRaises(session.Told) as raised:
+            session.export_session(manifest)
+        self.assertEqual(raised.exception.steps, [("resume", "alamode resume fixture")])
+
     def land(self, manifest):
         """Landing's message with its prefixes and wrapping undone."""
         output = io.StringIO()

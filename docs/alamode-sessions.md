@@ -86,8 +86,13 @@ A fast-forward offers `review`, `adopt` (`git adopt` signs the commits) and
 turns it back into staged changes. Landing creates no other branch and moves
 no other one. Coordinator children land only through their coordinator. If
 landing fails, the commits stay in the session and `alamode sessions export
-ID` still works. `git adopt` in turn ends with the push, merge and worktree
-cleanup commands for the branch it signed.
+ID` still works, unless the session's branch no longer descends from the
+commit it started from, as after an amend of that commit. Landing, export and
+peek all refuse that branch, and the refusal names a commit in the session's
+reflog with the same files that does descend, when there is one, and the
+`git reset --keep` that moves the branch back to it inside the session.
+`git adopt` in turn ends with the push, merge and worktree cleanup commands
+for the branch it signed.
 
 To look before quitting, run `alamode sessions peek` from the checkout. It
 fetches the newest session's commits so far into `refs/alamode/peek/ID`,

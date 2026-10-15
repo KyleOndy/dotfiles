@@ -77,6 +77,15 @@ class SessionError(RuntimeError):
     pass
 
 
+class Told(SessionError):
+    """A refusal that ends, like every outcome, with the commands to run next."""
+
+    def __init__(self, paragraphs, steps=()):
+        super().__init__(" ".join(paragraphs))
+        self.paragraphs = paragraphs
+        self.steps = steps
+
+
 def read_json(path):
     with open(path) as stream:
         return json.load(stream)
@@ -1841,6 +1850,82 @@ def execute(config, manifest, arguments, environment, runtime, relay_port=0):
                     process.wait()
 
 
+def stranded(manifest, staging, alternates, base, tip):
+    """The refusal for a session branch that no longer descends from its base.
+
+    The session's HEAD reflog is read as data, through the same no-symlink
+    reader as its refs, and an entry is offered only when it descends from
+    the base and has the tip's tree: resetting to it changes history and no
+    file. The reset runs inside the session, since git run here against the
+    session's repository would load its model-written config.
+    """
+    record = manifest["workspace"]
+    identity = manifest["id"]
+    common = Path(record["common_dir"])
+    try:
+        relative = Path(record["git_dir"]).relative_to(common) / "logs" / "HEAD"
+        mode, log = workspace._read_entry(common, relative)
+    except (OSError, ValueError, workspace.WorkspaceError):
+        mode, log = None, b""
+    entries = []
+    if mode != "120000":
+        for line in reversed(log.decode(errors="replace").splitlines()):
+            fields = line.split(" ", 2)
+            if (
+                len(fields) == 3
+                and workspace.OID.fullmatch(fields[1])
+                and fields[1] not in entries
+            ):
+                entries.append(fields[1])
+    # %(objectname) prints "<input> missing" for an object that is gone.
+    trees = workspace._text(
+        staging,
+        "cat-file",
+        "--batch-check=%(objectname)",
+        data="".join(oid + "^{tree}\n" for oid in (tip, *entries)).encode(),
+        extra=alternates,
+    ).splitlines()
+    found = next(
+        (
+            oid
+            for oid, tree in zip(entries, trees[1:])
+            if tree == trees[0]
+            and not workspace._git(
+                staging,
+                "merge-base",
+                "--is-ancestor",
+                base,
+                oid,
+                extra=alternates,
+                check=False,
+            ).returncode
+        ),
+        None,
+    )
+    paragraphs = [
+        f"Session {identity}'s branch no longer descends from its base"
+        f" {base[:12]}: a commit at or below the base was rewritten, by an"
+        " amend, a rebase or a reset. Nothing left the session; its commits"
+        " are still there.",
+    ]
+    steps = [("resume", f"alamode resume {identity}")]
+    if found:
+        paragraphs.append(
+            f"{found[:12]} in the session's reflog descends from the base and"
+            " has the same files as the branch, so moving the branch there"
+            " loses no change. Have the agent run the reset below in the"
+            " session, resuming it first if it has quit, then quit to land:"
+        )
+        steps.append(("then", f"git reset --keep {found[:12]}"))
+    else:
+        paragraphs.append(
+            "No commit in the session's reflog descends from the base with"
+            " the branch's files. Have the agent rebuild the branch on"
+            f" {base[:12]} in the session, resuming it first if it has quit:"
+        )
+    return Told(paragraphs, steps)
+
+
 def seal_session(manifest):
     """Seal a session's committed work out of private storage, host-side.
 
@@ -1871,6 +1956,21 @@ def seal_session(manifest):
             staging, "update-ref", "refs/heads/alamode-export", tip, extra=alternates
         )
         workspace._git(staging, "symbolic-ref", "HEAD", "refs/heads/alamode-export")
+        # Exit status 1 is "not an ancestor"; a missing object (128) falls
+        # through to the bundle, which reports it.
+        if (
+            workspace._git(
+                staging,
+                "merge-base",
+                "--is-ancestor",
+                base,
+                tip,
+                extra=alternates,
+                check=False,
+            ).returncode
+            == 1
+        ):
+            raise stranded(manifest, staging, alternates, base, tip)
         sealed = staging / "sealed.bundle"
         try:
             workspace._git(
@@ -2852,6 +2952,8 @@ def main(argv=None):
             write_json(manifest_path, manifest)
         try:
             land(manifest)
+        except Told as error:
+            tell(error.paragraphs, error.steps)
         except (
             SessionError,
             workspace.WorkspaceError,
@@ -2873,6 +2975,9 @@ if __name__ == "__main__":
         sys.exit(main())
     except KeyboardInterrupt:
         sys.exit(130)
+    except Told as error:
+        tell(error.paragraphs, error.steps)
+        sys.exit(1)
     except (
         SessionError,
         workspace.WorkspaceError,
