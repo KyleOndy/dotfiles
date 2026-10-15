@@ -307,6 +307,79 @@ class PolicyTests(unittest.TestCase):
             self.config, coordinated, self.root, runtime
         )
         self.assertNotIn("ALAMODE_REGRANT_REQUEST", environment)
+        self.assertNotIn("ALAMODE_GRANT_MENU", environment)
+
+    def test_grant_menu_locks_what_a_flag_cannot_switch(self):
+        runtime = self.work / "runtime"
+        self.config["nixDaemonSocket"] = str(self.root / "daemon.sock")
+        self.config["bundles"]["flake"] = {"domains": [], "nix": True}
+
+        def launched(args):
+            grants = session.policy(
+                session.parse(args, self.config), self.config, self.root
+            )
+            return {**self.manifest, "grant_args": args, "policy": grants}
+
+        def rows(manifest):
+            menu = json.loads(session.grant_menu(self.config, manifest, self.root))
+            self.assertEqual(menu["args"], manifest["grant_args"])
+            return {row.pop("name"): row for row in menu["rows"]}
+
+        args = ["--allow-flake", "--allow-nix", "--allow-read", "/a b"]
+        environment = session.child_environment(
+            self.config, launched(args), self.root, runtime
+        )
+        menu = json.loads(environment["ALAMODE_GRANT_MENU"])
+        self.assertEqual(
+            [row["name"] for row in menu["rows"]],
+            environment["ALAMODE_AVAILABLE_GRANTS"].split(","),
+        )
+        switch = rows(launched(args))
+        # --allow-flake grants nix as well, so unchecking nix alone would lie.
+        self.assertTrue(switch["nix"]["held"])
+        self.assertRegex(switch["nix"]["locked"], "--allow-nix alone")
+        self.assertEqual(
+            switch["flake"],
+            {
+                "flag": "--allow-flake",
+                "held": True,
+                "drop": ["--allow-flake"],
+                "add": [],
+                "locked": None,
+            },
+        )
+        self.assertEqual(
+            switch["web"],
+            {
+                "flag": "--web",
+                "held": False,
+                "drop": [],
+                "add": ["--web"],
+                "locked": None,
+            },
+        )
+        # git-write is on by default, so only --no-git-write turns it off.
+        self.assertEqual(
+            switch["git-write"],
+            {
+                "flag": "--allow-git-write",
+                "held": True,
+                "drop": ["--allow-git-write"],
+                "add": ["--no-git-write"],
+                "locked": None,
+            },
+        )
+        switch = rows(launched(["--allow-flake"]))
+        self.assertRegex(switch["nix"]["locked"], "a bundle sets it")
+        switch = rows(launched(["--local"]))
+        self.assertRegex(switch["web"]["locked"], "--local refuses")
+        self.assertRegex(switch["registry"]["locked"], "--local refuses")
+        self.assertIsNone(switch["git-write"]["locked"])
+        self.assertNotIn(
+            "ALAMODE_GRANT_MENU",
+            session.child_environment(self.config, self.manifest, self.root, runtime),
+            "A manifest from before grant_args has no flags to switch",
+        )
 
     def test_resume_regrants_and_relaunches_on_request(self):
         home = self.root / "home"

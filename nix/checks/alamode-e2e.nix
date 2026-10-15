@@ -112,7 +112,7 @@ let
     import { classifyResult } from "${extDir}/task.ts";
     import stallGuard from "${extDir}/stall-guard.ts";
     import refusalGuard from "${extDir}/refusal-guard.ts";
-    import regrant from "${extDir}/regrant.ts";
+    import regrant, { quote, switched } from "${extDir}/regrant.ts";
     import wipOnExit from "${extDir}/wip-on-exit.ts";
     import landingNotice from "${extDir}/landing-notice.ts";
     import coordinator from "${extDir}/coordinator.ts";
@@ -182,6 +182,48 @@ let
       assert.equal(shutdowns, 1);
       hooks.session_shutdown({ reason: "quit" }, { ...ctx, hasUI: true });
       assert.equal(hint, "", "A regrant relaunches, so there is nothing to resume yet");
+      assert.equal(quote(["--web", "--allow-read", "/a b", "it's", ""]), "--web --allow-read '/a b' 'it'\"'\"'s' '''");
+      const menu = {
+        args: ["--allow-flake", "--allow-nix", "--allow-read", "/a b"],
+        rows: [
+          { name: "web", flag: "--web", held: false, drop: [], add: ["--web"], locked: null },
+          { name: "nix", flag: "--allow-nix", held: true, drop: ["--allow-nix"], add: [], locked: "--allow-flake sets it" },
+          { name: "flake", flag: "--allow-flake", held: true, drop: ["--allow-flake"], add: [], locked: null },
+          { name: "git-write", flag: "--allow-git-write", held: true, drop: ["--allow-git-write"], add: ["--no-git-write"], locked: null },
+        ],
+      };
+      assert.deepEqual(
+        switched(menu, { web: true, nix: false, flake: true, "git-write": false }),
+        ["--allow-flake", "--allow-nix", "--allow-read", "/a b", "--web", "--no-git-write"],
+        "A locked row and one left as it was keep their flags",
+      );
+      process.env.ALAMODE_GRANT_MENU = JSON.stringify(menu);
+      const down = "\x1b[B";
+      const pick = (keys: string[], editor = async () => undefined as string | undefined) => ({
+        ...commandCtx, mode: "tui",
+        ui: {
+          ...commandCtx.ui, editor,
+          custom: (factory: Function) => new Promise((resolve) => {
+            const component = factory({ requestRender: () => {} }, { fg: (_c: string, t: string) => t, bold: (t: string) => t }, {}, resolve);
+            for (const key of keys) component.handleInput(key);
+          }),
+        },
+      });
+      const notified = refusals.length;
+      shutdowns = 0;
+      writeFileSync(request, "");
+      await regrantCommands.regrant.handler("", pick([" ", down, " ", down, down, down, " "]));
+      assert.equal(readFileSync(request, "utf8"), "--allow-flake --allow-nix --allow-read '/a b' --web\n", "Space switches a row, and a locked row stays put");
+      assert.equal(shutdowns, 1);
+      writeFileSync(request, "");
+      await regrantCommands.regrant.handler("", pick([" ", "\x1b"]));
+      await regrantCommands.regrant.handler("", pick([down, down, down, down, " "]));
+      assert.deepEqual([readFileSync(request, "utf8"), shutdowns, refusals.slice(notified)], ["", 1, ["info"]], "Escape, or relaunching unchanged, keeps the session running");
+      let prefill = "";
+      await regrantCommands.regrant.handler("", pick([down, down, down, " ", down, down, " "], async (_title: string, text: string) => (prefill = text) + " --listen 3000"));
+      assert.equal(prefill, "--allow-flake --allow-nix --allow-read '/a b' --no-git-write", "The editor starts from the switched flags");
+      assert.equal(readFileSync(request, "utf8"), prefill + " --listen 3000\n");
+      delete process.env.ALAMODE_GRANT_MENU;
       process.stdout.write = write;
       const repo = mkdtempSync(join(tmpdir(), "wip-on-exit-"));
       const run = (args: string[]) => {

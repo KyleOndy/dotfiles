@@ -104,9 +104,13 @@ Resume restores the recorded grants and workspace. To change the grants
 of work already under way, regrant it: `/regrant` inside pi, or
 `alamode resume ID GRANTS` after quitting. GRANTS replace the session's
 own, as on a launch, so restate every grant to keep; quitting prints the
-command with the current flags filled in, and `/regrant` opens an editor
-on them. `/regrant` quits pi and asks y/N at the terminal before the new
-grants apply, since the session can write the request it leaves; a no
+command with the current flags filled in. `/regrant` with no flags opens
+a checklist of the grants a flag turns on or off, built by `grant_menu()`
+in `session.py`: space switches a row, and a row a host default, a
+profile or a bundle holds is locked with the reason. Hosts, paths and
+ports are edited as flags from its last row. `/regrant` quits pi and
+asks y/N at the terminal before the new grants apply, since the session
+can write the request it leaves; a no
 ends the session like a normal quit. Either way the same transcript and
 worktree continue, pi's header shows what changed, and `sessions show`
 lists each earlier policy under `regrants`. `--local`, `--local-model`

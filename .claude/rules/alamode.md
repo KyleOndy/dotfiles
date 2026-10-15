@@ -25,8 +25,11 @@ which records the grants it carries (`--web`, `--allow-nix`, `-forge`,
 `extensions/grants.ts` turns the carried ones into system-prompt sections
 from `grants/<name>.md` and lists the rest, so a session the sandbox blocks
 knows which flag to ask the human for. `/regrant` (`extensions/regrant.ts`)
-quits pi with a request; the wrapper asks y/N at the terminal and relaunches
-the same session with the new grants (`regrant()` in `session.py`), and
+opens a checklist of `ALAMODE_GRANT_MENU`, which `grant_menu()` builds from
+`SWITCHES` and the bundles, so a new on/off grant goes in `SWITCHES` and
+nowhere in the extension. It quits pi with a request; the wrapper asks y/N
+at the terminal and relaunches the same session with the new grants
+(`regrant()` in `session.py`), and
 `alamode resume ID GRANTS` does the same from the shell.
 
 Every provider the agent reaches is an internal or account-billed endpoint,

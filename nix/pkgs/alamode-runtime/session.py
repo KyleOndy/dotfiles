@@ -35,6 +35,16 @@ WIP_SUBJECT = "wip: uncommitted at exit"
 # quits pi. The session can write this file too, so it is only a request:
 # the human's answer at the terminal is the grant.
 REGRANT_REQUEST = "runtime/state/regrant-request"
+# Each grant that is on or off: its name in ALAMODE_GRANTS, its policy key,
+# the flag that turns it on and the flag, if any, that turns it off.
+SWITCHES = (
+    ("web", "web", "--web", None),
+    ("nix", "nix", "--allow-nix", None),
+    ("forge", "forge", "--allow-forge", None),
+    ("clipboard", "clipboard", "--allow-clipboard", None),
+    ("trustd", "trustd", "--allow-trustd", None),
+    ("git-write", "git_write", "--allow-git-write", "--no-git-write"),
+)
 PRIVATE_NETWORKS = [
     "0.0.0.0/8",
     "10.0.0.0/8",
@@ -524,6 +534,67 @@ def nix_available(config):
     return bool(config.get("nixDaemonSocket") or config.get("builder"))
 
 
+def grant_switches(config):
+    """Each grant this host offers, as SWITCHES rows, bundles first.
+
+    A bundle's policy key is None: policy() lists it under "grants".
+    policy() refuses nix on a host without a builder or session daemon, so
+    there neither nix nor a bundle that needs it is offered.
+    """
+    nix = nix_available(config)
+    return [
+        *(
+            (name, None, "--allow-" + name, None)
+            for name, bundle in config["bundles"].items()
+            if nix or not bundle.get("nix")
+        ),
+        *(row for row in SWITCHES if nix or row[0] != "nix"),
+    ]
+
+
+def grant_menu(config, manifest, home):
+    """The checklist /regrant opens, as JSON for extensions/regrant.ts.
+
+    A row switches by dropping its "drop" tokens from grant_args and adding
+    its "add" tokens. It is locked, with the reason, when policy() refuses
+    the switched flags or they leave the grant as it is, because a host
+    default, a profile or a bundle holds it.
+    """
+    args = manifest["grant_args"]
+
+    def held(grants, name, key):
+        return bool(grants[key]) if key else name in grants["grants"]
+
+    rows = []
+    for name, key, on, off in grant_switches(config):
+        was = held(manifest["policy"], name, key)
+        extra = [off] if off else []
+        drop, add = ([on], extra) if was else (extra, [on])
+        switched = [arg for arg in args if arg not in drop]
+        switched += [arg for arg in add if arg not in switched]
+        try:
+            grants = policy(parse(switched, config), config, home)
+            locked = (
+                None
+                if held(grants, name, key) != was
+                else f"{on} alone does not switch it: a host default, a"
+                " profile or a bundle sets it"
+            )
+        except SessionError as error:
+            locked = str(error)
+        rows.append(
+            {
+                "name": name,
+                "flag": on,
+                "held": was,
+                "drop": drop,
+                "add": add,
+                "locked": locked,
+            }
+        )
+    return json.dumps({"args": args, "rows": rows})
+
+
 def regrant(config, manifest, args, home, control):
     """The manifest with ARGS in place of its grants, and what that changes.
 
@@ -581,14 +652,7 @@ def regrant(config, manifest, args, home, control):
 def grant_changes(before, after):
     """Each grant a regrant adds or drops, as "+name" or "-name"."""
     changes = []
-    for key, name in (
-        ("web", "web"),
-        ("nix", "nix"),
-        ("forge", "forge"),
-        ("clipboard", "clipboard"),
-        ("trustd", "trustd"),
-        ("git_write", "git-write"),
-    ):
+    for name, key, _, _ in SWITCHES:
         if bool(before.get(key)) != bool(after.get(key)):
             changes.append(("+" if after.get(key) else "-") + name)
     for key, label in (
@@ -1020,16 +1084,7 @@ PLANTED_AGENT_NAMES = (
 
 def child_environment(config, manifest, home, runtime):
     grants = list(manifest["policy"]["grants"])
-    for key, name in (
-        ("web", "web"),
-        ("nix", "nix"),
-        ("forge", "forge"),
-        ("clipboard", "clipboard"),
-        ("trustd", "trustd"),
-        ("git_write", "git-write"),
-    ):
-        if manifest["policy"][key]:
-            grants.append(name)
+    grants += [name for name, key, _, _ in SWITCHES if manifest["policy"][key]]
     if manifest.get("coordinator"):
         grants.append("coordinator")
     env = {key: os.environ[key] for key in SAFE_ENV if key in os.environ}
@@ -1047,22 +1102,8 @@ def child_environment(config, manifest, home, runtime):
             "PI_SKIP_VERSION_CHECK": "1",
             "PI_TELEMETRY": "0",
             "ALAMODE_GRANTS": ",".join(grants),
-            # policy() refuses nix on a host without a builder or session
-            # daemon, so a session there must not be told to ask for it.
             "ALAMODE_AVAILABLE_GRANTS": ",".join(
-                [
-                    *(
-                        name
-                        for name, bundle in config["bundles"].items()
-                        if nix_available(config) or not bundle.get("nix")
-                    ),
-                    "web",
-                    *(["nix"] if nix_available(config) else []),
-                    "forge",
-                    "clipboard",
-                    "trustd",
-                    "git-write",
-                ]
+                name for name, *_ in grant_switches(config)
             ),
             "ALAMODE_TRUSTED_PROVIDERS": ",".join(
                 scoped_providers(manifest["policy"])
@@ -1143,6 +1184,8 @@ def child_environment(config, manifest, home, runtime):
         env["ALAMODE_GRANT_ARGS"] = shlex.join(manifest["grant_args"])
     if not manifest.get("coordinator"):
         env["ALAMODE_REGRANT_REQUEST"] = str(runtime.parent / REGRANT_REQUEST)
+        if "grant_args" in manifest:
+            env["ALAMODE_GRANT_MENU"] = grant_menu(config, manifest, home)
     # Set only for the run a regrant starts, so pi shows the change once.
     if manifest.get("regranted"):
         env["ALAMODE_REGRANTED"] = " ".join(manifest["regranted"])
