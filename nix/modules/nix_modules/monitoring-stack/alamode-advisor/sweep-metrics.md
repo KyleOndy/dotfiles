@@ -12,7 +12,7 @@ nearest edge. Fit a trend toward a limit with `predict_linear` over `[7d]`,
 and say which window you used.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
-   already firing and what is already watched.
+   firing, what fired in the last 24h, and what is already watched.
 2. Discover what exists with `metric_labels` (`__name__`, `job`, `host`)
    before writing queries.
 3. Cover these areas:

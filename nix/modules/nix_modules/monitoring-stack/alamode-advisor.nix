@@ -11,7 +11,7 @@
 #
 # The boundary is the tool list. pi runs with no built-in tools (no bash,
 # read, write or edit) and only the tools in alamode-advisor/tools.ts: queries
-# that each call one fixed GET path, and a Kagi web search that returns
+# that call only fixed GET paths, and a Kagi web search that returns
 # snippets and never opens a page. The unit confines pi itself, in case
 # pi or one of its dependencies ever runs code of its own: its own user, no
 # capabilities, the state directory and a private /tmp as the only writable

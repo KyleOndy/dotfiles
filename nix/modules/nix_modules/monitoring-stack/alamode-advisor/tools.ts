@@ -6,7 +6,7 @@
  * name, never a URL or a path. That matters because the ports these reach
  * also change things, some on a plain GET: VictoriaMetrics' /snapshot/* and
  * /internal/force_merge, vmalert's /-/reload, and Loki's /flush and
- * /ingester/shutdown. So every tool calls one fixed GET path, and the only
+ * /ingester/shutdown. So every tool calls only fixed GET paths, and the only
  * model input that reaches a path is a label name that has matched
  * LABEL_NAME first.
  *
@@ -509,6 +509,7 @@ export default function (pi: ExtensionAPI) {
       "Filter and group by the host label, never instance.",
       "Judge whether a value changed with baseline, not against one earlier window, and project fill or drain with predict_linear.",
       "Aggregate before asking for many series; results past 200 series (instant) or 40 (range) are dropped.",
+      'A function over several metric names, such as increase({__name__=~"a|b"}[24h]), drops the names, and VictoriaMetrics rejects the result as "duplicate output timeseries". Append keep_metric_names: increase({__name__=~"a|b"}[24h]) keep_metric_names.',
     ],
     parameters: Type.Object({
       query: Type.String({ description: "PromQL / MetricsQL expression." }),
@@ -733,8 +734,8 @@ export default function (pi: ExtensionAPI) {
     name: "alerts",
     label: "Alerts",
     description:
-      "List the alerts Alertmanager holds now, with labels, summary and start time. Silenced and inhibited alerts are marked.",
-    promptSnippet: "List current alerts",
+      "List the alerts Alertmanager holds now, with labels, summary and start time, then every alert rule that fired in the last 24h with when it last fired. Silenced and inhibited alerts are marked.",
+    promptSnippet: "List current and recent alerts",
     parameters: Type.Object({}),
     async execute(_id, _params, signal) {
       const alerts: any[] = await get(
@@ -743,13 +744,30 @@ export default function (pi: ExtensionAPI) {
         { active: "true" },
         signal,
       );
-      if (alerts.length === 0) return result("no active alerts");
       const lines = alerts.map((a) => {
         const state = a.status?.state ?? "unknown";
         const summary = a.annotations?.summary ?? "";
         return `${a.startsAt} ${state} ${formatLabels(a.labels)} ${summary}`;
       });
-      return result(`${alerts.length} alerts\n${lines.join("\n")}`);
+      // Alertmanager drops an alert once it resolves, and a deploy restart
+      // drops them all, so a sweep hours later would miss the night's alerts.
+      // vmalert writes ALERTS to VictoriaMetrics, which keeps them. The
+      // upssched and watchdog pushes go to Alertmanager only.
+      const fired = await get(
+        VM,
+        "/api/v1/query",
+        { query: 'tlast_over_time(ALERTS{alertstate="firing"}[24h])' },
+        signal,
+      );
+      const past = (fired.data?.result ?? []).map((s: any) => {
+        const { alertstate: _, ...labels } = s.metric;
+        const last = new Date(Number(s.value[1]) * 1000).toISOString();
+        return `${last} ${formatLabels(labels)}`;
+      });
+      return result(
+        `${alerts.length} alerts now\n${lines.join("\n")}\n\n` +
+          `${past.length} alert rules fired in the last 24h (time last seen firing; vmalert rules only)\n${past.join("\n")}`,
+      );
     },
   });
 

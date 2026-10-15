@@ -15,9 +15,17 @@
 # ALAMODE_ADVISOR_*_URL endpoints.
 
 readonly REPORTS="${STATE_DIRECTORY}/reports"
-# "<fingerprint> <startsAt>" per line: an alert that resolves and fires again
-# gets a new startsAt, and with it a new triage.
+# "<fingerprint> <epoch seconds>" per line: each alert already triaged, and
+# the last time a run saw it firing.
 readonly SEEN="${STATE_DIRECTORY}/seen-alerts"
+# How long an alert must go without firing before it next fires as a new
+# incident, in seconds. startsAt cannot mark one: a flapping alert gets a new
+# one each time it resolves, and a deploy that restarts Alertmanager, which
+# holds alerts only in memory, gives every firing alert a new one.
+readonly RETRIAGE_AFTER=$((6 * 3600))
+# jq: $seen, the file's text, as {fingerprint: epoch}. A line still holding
+# a startsAt from before the epoch format reads as seen at $now.
+readonly SEEN_MAP='def seen_map: $seen | split("\n") | map(select(length > 0) | split(" ") | {(.[0]): (.[1] | tonumber? // $now)}) | add // {};'
 # An alert storm is one report per group (see triage_alerts), so these bound
 # what one costs. A group past the per-run cap waits for the next run; past
 # the daily cap it is marked seen and never triaged.
@@ -107,10 +115,11 @@ advise() {
 }
 
 triage_alerts() {
-	local firing group name today count n=0
+	local firing group name today now count n=0
 	firing=$(curl -fsS --max-time 30 \
 		"${ALAMODE_ADVISOR_AM_URL}/api/v2/alerts?active=true&silenced=false&inhibited=false")
 	today=$(date -u +%Y%m%d)
+	now=$(date +%s)
 	touch "$SEEN"
 
 	# One triage per group of unseen alerts from one rule on one host that
@@ -121,7 +130,7 @@ triage_alerts() {
 
 		# Marked before the run, so one that fails or times out is not retried
 		# every two minutes at the provider's expense.
-		jq -r '.[] | "\(.fingerprint) \(.startsAt)"' <<<"$group" >>"$SEEN"
+		jq -r --arg now "$now" '.[] | "\(.fingerprint) \($now)"' <<<"$group" >>"$SEEN"
 
 		count=$(find "$REPORTS" -name "${today}T*-alert-*.md" | wc -l)
 		if ((count >= MAX_ALERT_REPORTS_PER_DAY)); then
@@ -140,17 +149,22 @@ triage_alerts() {
 				"$(jq 'map({labels, annotations, startsAt})' <<<"$group")" \
 				"$acks")"
 		n=$((n + 1))
-	done < <(jq -c --rawfile seen "$SEEN" '
-		($seen | split("\n") | map({(.): true}) | add // {}) as $s
-		| map(select($s["\(.fingerprint) \(.startsAt)"] | not))
+	done < <(jq -c --rawfile seen "$SEEN" --argjson now "$now" --argjson gap "$RETRIAGE_AFTER" "${SEEN_MAP}"'
+		seen_map as $s
+		| map(select(($s[.fingerprint] // 0) < $now - $gap))
 		| group_by([.labels.alertname, .labels.host, .startsAt])
 		| .[]' <<<"$firing")
 
-	# The file keeps only what is firing now, so it stays the size of the
-	# current alert set. An alert that is silenced and then unsilenced is
-	# triaged again.
-	jq -r '.[] | "\(.fingerprint) \(.startsAt)"' <<<"$firing" |
-		grep -xFf - "$SEEN" >"${SEEN}.new" || true
+	# Each fingerprint in the file that is firing now is stamped now; one not
+	# seen firing for RETRIAGE_AFTER is dropped. Only fingerprints already in
+	# the file are stamped, so a group held back by MAX_ALERTS_PER_RUN still
+	# gets its turn. A silence counts as not firing.
+	jq -r --rawfile seen "$SEEN" --argjson now "$now" --argjson gap "$RETRIAGE_AFTER" "${SEEN_MAP}"'
+		seen_map as $s
+		| $s + (map(select($s[.fingerprint]) | {(.fingerprint): $now}) | add // {})
+		| to_entries[]
+		| select(.value >= $now - $gap)
+		| "\(.key) \(.value)"' <<<"$firing" >"${SEEN}.new"
 	mv "${SEEN}.new" "$SEEN"
 }
 

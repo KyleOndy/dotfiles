@@ -26,8 +26,11 @@ The module is `../alamode-advisor.nix`. Prompts and tools live beside this file.
 - **`/var/lib/alamode-advisor/reports/`**: every report, named
   `<utc>-<kind>-<name>.md`. Group `alamode-advisor` can read them, and kyle is in
   it.
-- **`/var/lib/alamode-advisor/seen-alerts`**: `<fingerprint> <startsAt>` for each
-  alert already triaged. Delete a line to triage that alert again.
+- **`/var/lib/alamode-advisor/seen-alerts`**: `<fingerprint> <epoch seconds>`
+  for each alert already triaged, with the last time a run saw it firing. An
+  alert is triaged again only after 6 hours without firing, so a flapping
+  alert, or a deploy that restarts Alertmanager and gives every alert a new
+  startsAt, costs no second report. Delete a line to triage that alert again.
 - **`/var/lib/alamode-advisor-acks/acknowledged.md`**: the acknowledged issues
   below.
 - **`/var/lib/private/alamode-advisor-mail/mailed`**: report names already mailed.
@@ -85,7 +88,7 @@ pi runs with no built-in tools: no bash, read, write or edit. Its only tools
 are in `tools.ts`:
 
 - **`promql`, `logql`, `baseline`, `metric_labels`, `log_labels`, `alerts`,
-  `alert_rules`**: each calls one fixed GET path on loopback. The model
+  `alert_rules`**: each calls only fixed GET paths on loopback. The model
   supplies a query, never a URL. That matters because the same ports serve
   VictoriaMetrics' `delete_series`, Loki's delete API and Alertmanager's
   silences. `baseline` is one range query whose arithmetic the tool does

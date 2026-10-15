@@ -8,7 +8,7 @@ day, which can itself be high or low. Report a change only when today falls
 outside that range, and say how far.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
-   already firing and what is already watched.
+   firing, what fired in the last 24h, and what is already watched.
 2. Journal volume and errors by host and unit, e.g.
 
    ```logql
