@@ -29,7 +29,9 @@ the next agent: .envrc, flake.nix, flake.lock, .claude/, .pi/, AGENTS.md and
 CLAUDE.md.
 
   git adopt
-    → base: merge-base of HEAD and the local default branch
+    → base: merge-base of HEAD and the local default branch, or where
+      git wt-feature-branch started the branch (refs/wt-base/<branch>)
+      when that is between the merge-base and HEAD
     → signs each commit in base..HEAD, rewriting it
 
   git adopt main

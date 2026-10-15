@@ -367,8 +367,9 @@ checkout_worktree() {
 # echo the base commit for `git rebase` to replay onto.
 #
 # Shared by git-adopt and git-claim, which differ only in what they do to each
-# commit. An empty first argument means the local default branch, so a rewrite
-# covers what this branch added and nothing already on the trunk.
+# commit. An empty first argument means the local default branch, or the
+# branch's refs/wt-base/<branch> when that is closer, so a rewrite covers what
+# this branch added and nothing already on the trunk.
 #
 # The caller handles the empty range: this echoes the base whether or not
 # anything sits above it, because dying on "nothing to do" would be wrong.
@@ -376,7 +377,7 @@ checkout_worktree() {
 # Usage: base=$(require_rewritable_range "${base_arg}")
 require_rewritable_range() {
 	local base_arg=${1:-}
-	local branch base_ref local_default base total unpushed
+	local branch base_ref local_default base start total unpushed
 
 	git rev-parse --git-dir >/dev/null 2>&1 || die "Not a git repository"
 
@@ -402,6 +403,18 @@ require_rewritable_range() {
 		die "Base '${base_ref}' is not a valid ref"
 	base=$(git merge-base HEAD "$base_ref") ||
 		die "No common ancestor with '${base_ref}'"
+
+	# refs/wt-base/<branch> is where git wt-feature-branch started the branch.
+	# It sits past the merge-base when the default branch was rewritten after
+	# that, say by git adopt, and the range would otherwise take in the old
+	# copies of the rewritten commits. After a rebase onto a newer default
+	# branch it falls behind the merge-base, and the merge-base is right.
+	if [[ -z $base_arg ]] &&
+		start=$(git rev-parse --verify --quiet "refs/wt-base/${branch}") &&
+		git merge-base --is-ancestor "$base" "$start" &&
+		git merge-base --is-ancestor "$start" HEAD; then
+		base=$start
+	fi
 
 	# --not --remotes drops anything a remote already carries. Rewriting those
 	# would strand the remote copy and need a force push to reconcile.

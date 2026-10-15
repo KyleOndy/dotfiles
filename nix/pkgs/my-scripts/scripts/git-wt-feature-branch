@@ -18,6 +18,8 @@ usage: git wt-feature-branch <name> [base]
        git wt-feature-branch --existing <branch> [prefix]
 
 Create a new git worktree with branch, or checkout an existing branch.
+A new branch's starting commit is kept as refs/wt-base/<branch>, which
+git adopt and git claim use as its base.
 
 Home mode (1-2 arguments):
   git wt-feature-branch add-starship
@@ -251,6 +253,14 @@ else
 fi
 
 checkout_worktree "$feature_path" "$branch_name"
+
+# git adopt and git claim take this as the branch's base, and unlike the
+# merge-base it holds after the base is rewritten or the branch lands on it.
+# git wt-cleanup --prune deletes it once the branch is gone.
+if [[ $checkout_existing != true ]]; then
+	git update-ref "refs/wt-base/${branch_name}" "refs/heads/${branch_name}" ||
+		log_warn "Could not record refs/wt-base/${branch_name}; git adopt falls back to the merge-base"
+fi
 
 echo "" >&2
 log_info "Created worktree: ${feature_path}"

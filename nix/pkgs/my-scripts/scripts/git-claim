@@ -19,7 +19,9 @@ shows which commits came out of an agent. Claiming them says you are answering
 for the work as its author.
 
   git claim
-    → base: merge-base of HEAD and the local default branch
+    → base: merge-base of HEAD and the local default branch, or where
+      git wt-feature-branch started the branch (refs/wt-base/<branch>)
+      when that is between the merge-base and HEAD
     → re-authors every commit in base..HEAD not already authored by you
 
   git claim main

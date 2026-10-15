@@ -368,6 +368,21 @@ automated_cleanup() {
 	echo -e "${COLOR_GREEN}Cleanup complete.${COLOR_RESET}"
 }
 
+# git wt-feature-branch records where each branch started as
+# refs/wt-base/<branch>, which means nothing once the branch is deleted.
+prune_base_refs() {
+	local ref
+	while IFS= read -r ref; do
+		git show-ref --verify --quiet "refs/heads/${ref#refs/wt-base/}" && continue
+		if [[ $DRY_RUN == true ]]; then
+			echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would delete: ${ref}"
+		else
+			git update-ref -d "$ref"
+			echo "Deleted ${ref}"
+		fi
+	done < <(git for-each-ref --format='%(refname)' refs/wt-base/)
+}
+
 # Prune and maintenance
 run_maintenance() {
 	echo "Running git worktree maintenance..."
@@ -375,10 +390,15 @@ run_maintenance() {
 
 	if [[ $DRY_RUN == true ]]; then
 		echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would run: git worktree prune"
+		prune_base_refs
 		echo -e "${COLOR_YELLOW}[DRY-RUN]${COLOR_RESET} Would run: git gc --auto"
 	else
 		echo "Pruning worktrees..."
 		git worktree prune -v
+
+		echo ""
+		echo "Pruning base refs of deleted branches..."
+		prune_base_refs
 
 		echo ""
 		echo "Running garbage collection..."
@@ -428,6 +448,7 @@ Automated cleanup:
 Maintenance:
   git wt-cleanup --prune
     → Run git worktree prune (remove deleted worktrees from git)
+    → Delete refs/wt-base/<branch> for each branch that no longer exists
     → Run git gc --auto (cleanup and optimize repository)
 
 Dry run:
