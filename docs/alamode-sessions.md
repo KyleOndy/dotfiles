@@ -111,9 +111,13 @@ ends the session like a normal quit. Either way the same transcript and
 worktree continue, pi's header shows what changed, and `sessions show`
 lists each earlier policy under `regrants`. `--local`, `--local-model`
 and `--no-PROVIDER` stay as launched, and a coordinator and its agents
-keep their grants. Resume also needs the runtime build that recorded the
-session: a rebuild invalidates it, and the error names the recorded build
-and the export command that still works. Provider credentials may rotate.
+keep their grants. A rebuild between launches moves a resumed session to
+the new build only on a yes at the terminal: the new build derives the
+grants again from the recorded flags (or the GRANTS given), the prompt
+shows both builds, what changed and the reasons to answer no, and the new
+`regrants` entry keeps the old build's configuration. A coordinator stays
+on the build that recorded it, and the error names that build and the
+export command that still works. Provider credentials may rotate.
 
 Export requires committed changes and a stopped session. It is data-only:
 the session's private Git storage is sealed host-side through the same

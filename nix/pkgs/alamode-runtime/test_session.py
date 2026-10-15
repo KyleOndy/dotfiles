@@ -1090,25 +1090,102 @@ class PolicyTests(unittest.TestCase):
         }
         return manifest, git(work, "rev-parse", "HEAD").stdout.strip()
 
-    def test_resume_names_the_recorded_runtime_and_export_does_not(self):
+    def test_rebind_derives_grants_again_and_keeps_coordinators(self):
+        old = str(self.root / "old-runtime.json")
+        new = str(self.root / "new-runtime.json")
+        launched = ["--allow-registry"]
         manifest = {
             **self.manifest,
             "id": "fixture-runtime",
-            "configuration": str(self.root / "old-runtime.json"),
+            "configuration": old,
+            "grant_args": launched,
+            "policy": session.policy(
+                session.parse(launched, self.config), self.config, self.root
+            ),
         }
-        # A matching build re-admits the session without comment.
-        session.require_recorded_runtime(manifest, str(self.root / "old-runtime.json"))
-        with self.assertRaisesRegex(
-            session.SessionError, "different runtime"
-        ) as raised:
-            session.require_recorded_runtime(
-                manifest, str(self.root / "new-runtime.json")
-            )
-        # The refusal names the recorded build and the export that still
-        # works, so the dead end carries its own way out.
-        message = str(raised.exception)
-        self.assertIn("old-runtime.json", message)
-        self.assertIn("sessions export fixture-runtime", message)
+        # The rebuild gives the same flag another host, which only the
+        # recorded policy's domains can show.
+        self.config["bundles"]["registry"]["domains"].append("mirror.example.invalid")
+        updated, changes = session.rebind(
+            self.config, manifest, new, None, self.root, self.records
+        )
+        self.assertEqual(changes, ["+host mirror.example.invalid"])
+        self.assertIn("mirror.example.invalid", updated["policy"]["domains"])
+        self.assertEqual(updated["configuration"], new)
+        self.assertEqual(updated["grant_args"], launched)
+        self.assertEqual(updated["regrants"][-1]["configuration"], old)
+        self.assertEqual(updated["regrants"][-1]["policy"], manifest["policy"])
+        # Requested grants replace the recorded ones, as a regrant's do.
+        _, changes = session.rebind(
+            self.config, manifest, new, ["--web"], self.root, self.records
+        )
+        self.assertEqual(
+            changes, ["+web", "-registry", "-host registry.example.invalid"]
+        )
+        without_args = {key: manifest[key] for key in manifest if key != "grant_args"}
+        for refused in (
+            {**manifest, "coordinator_id": "fixture-runtime"},
+            {**manifest, "coordinator": {"role": "main"}},
+            without_args,
+        ):
+            with (
+                self.subTest(keys=sorted(refused)),
+                self.assertRaisesRegex(
+                    session.SessionError, "different runtime"
+                ) as raised,
+            ):
+                session.rebind(self.config, refused, new, None, self.root, self.records)
+            # The refusal names the recorded build and the export that
+            # still works, so the dead end carries its own way out.
+            message = str(raised.exception)
+            self.assertIn("old-runtime.json", message)
+            self.assertIn("sessions export fixture-runtime", message)
+
+    def test_resume_under_another_build_asks_first(self):
+        home = self.root / "home"
+        control = session.directory(home / ".local/state/alamode")
+        record = session.directory(session.directory(control / "records") / "fixture")
+        config_path = (self.root / "configuration.json").resolve()
+        config_path.write_text(json.dumps(self.config))
+        old = str(self.root / "old-runtime.json")
+        manifest = {**self.manifest, "grant_args": [], "configuration": old}
+        recorded = json.dumps(manifest)
+        (record / "manifest.json").write_text(recorded)
+        runs = []
+
+        def run(config, manifest, args, home):
+            runs.append(manifest)
+            return 0
+
+        for answer in (False, True):
+            told = io.StringIO()
+            with (
+                self.subTest(answer=answer),
+                patch.dict(os.environ, {"HOME": str(home)}),
+                patch.object(session, "run", run),
+                patch.object(session, "land"),
+                patch.object(session, "pin_store_roots"),
+                patch.object(session, "ask", return_value=answer) as ask,
+                redirect_stderr(told),
+            ):
+                status = session.main(
+                    [str(config_path), "alamode", "resume", "fixture"]
+                )
+            self.assertEqual(ask.call_args.args, ("Resume under this build?",))
+            self.assertIn(old, told.getvalue())
+            self.assertIn("Answer n if you have not rebuilt", told.getvalue())
+            if not answer:
+                self.assertEqual(status, 1)
+                self.assertEqual(runs, [])
+                self.assertEqual((record / "manifest.json").read_text(), recorded)
+                self.assertIn("sessions export fixture", told.getvalue())
+        self.assertEqual(status, 0)
+        self.assertEqual(len(runs), 1)
+        self.assertNotIn("regranted", runs[0])
+        saved = json.loads((record / "manifest.json").read_text())
+        self.assertEqual(saved["configuration"], str(config_path))
+        self.assertEqual(saved["policy"], manifest["policy"])
+        self.assertEqual(saved["regrants"][-1]["configuration"], old)
 
     def test_export_refuses_when_nothing_is_committed(self):
         manifest, _tip = self.sealed_session("export-empty")

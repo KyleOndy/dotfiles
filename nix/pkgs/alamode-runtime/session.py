@@ -399,19 +399,51 @@ def refuse_grant_changes(options, config):
         )
 
 
-def require_recorded_runtime(manifest, configuration_path):
-    # Resume re-admits the session through this build: grants, admission and
-    # the sandbox all come from the running wrapper, so a session recorded
-    # by another runtime must not be re-admitted by this one. Export is
-    # data-only (see export_session) and never consults the recorded
-    # configuration, which is why the message names the way out rather
-    # than the dead end.
-    if manifest["configuration"] != configuration_path:
+def rebind(config, manifest, configuration_path, args, home, control):
+    """The manifest moved to this build, and what that changes.
+
+    Resume re-admits the session through this build: grants, admission and
+    the sandbox all come from the running wrapper. A session recorded by
+    another build has its grants derived again here, from ARGS or else its
+    recorded ones, the way /regrant derives them, and the previous policy
+    and configuration go into the regrants list. A recorded policy is never
+    carried across, because its defaults and bundles are the old build's.
+    A coordinator keeps its build: its daemon and agents belong to the one
+    that started them. Export is data-only (see export_session) and never
+    consults the recorded configuration, which is why the refusal names it.
+    """
+    if (
+        manifest.get("coordinator_id")
+        or manifest.get("coordinator")
+        or (args is None and "grant_args" not in manifest)
+    ):
         raise SessionError(
             "Session was created by a different runtime; resume needs its recorded "
             f"build ({manifest['configuration']}). Export the commits with "
             f"`alamode sessions export {manifest['id']}` and start a new session."
         )
+    updated, changes = regrant(
+        config,
+        manifest,
+        manifest["grant_args"] if args is None else args,
+        home,
+        control,
+    )
+    # grant_changes names the hosts --allow adds; a rebuild can also move
+    # the host defaults and a bundle's domains under the same flags.
+    for sign, now, then in (
+        ("+", updated["policy"], manifest["policy"]),
+        ("-", manifest["policy"], updated["policy"]),
+    ):
+        changes += [
+            f"{sign}host {host}"
+            for host in now.get("domains", [])
+            if host not in then.get("domains", [])
+            and f"{sign}host {host}" not in changes
+        ]
+    updated["configuration"] = configuration_path
+    updated["regrants"][-1]["configuration"] = manifest["configuration"]
+    return updated, changes
 
 
 def policy(options, config, home):
@@ -1841,13 +1873,25 @@ def take_regrant_request(manifest):
         raise SessionError(f"the request is unreadable: {error}") from None
 
 
-def confirm_regrant(manifest, args, changes):
-    """Whether the human at the terminal accepts a /regrant request.
+def ask(question):
+    """Whether the human at the terminal answers QUESTION with yes.
 
     The answer is read from /dev/tty, which a sandboxed process cannot type
     into: srt's profile refuses TIOCSTI with EPERM, allowPty included
-    (measured on sandbox-runtime 0.0.79).
+    (measured on sandbox-runtime 0.0.79). No terminal answers no.
     """
+    try:
+        # Unbuffered: a buffered read-write open needs a seekable file.
+        with open("/dev/tty", "r+b", buffering=0) as terminal:
+            termios.tcflush(terminal, termios.TCIFLUSH)
+            terminal.write(question.encode() + b" [y/N] ")
+            return terminal.readline().strip().lower() in (b"y", b"yes")
+    except OSError:
+        return False
+
+
+def confirm_regrant(manifest, args, changes):
+    """Whether the human at the terminal accepts a /regrant request."""
     tell(
         [
             f"/regrant asks to relaunch session {manifest['id']} with these"
@@ -1859,14 +1903,36 @@ def confirm_regrant(manifest, args, changes):
             ("changes", ", ".join(changes) or "none"),
         ],
     )
-    try:
-        # Unbuffered: a buffered read-write open needs a seekable file.
-        with open("/dev/tty", "r+b", buffering=0) as terminal:
-            termios.tcflush(terminal, termios.TCIFLUSH)
-            terminal.write(b"Relaunch with these grants? [y/N] ")
-            return terminal.readline().strip().lower() in (b"y", b"yes")
-    except OSError:
-        return False
+    return ask("Relaunch with these grants?")
+
+
+def confirm_rebind(manifest, updated, changes):
+    """Whether the human at the terminal resumes the session under this build."""
+    tell(
+        [
+            f"Session {manifest['id']} was recorded by another alamode build."
+            " Resuming moves it to this one: this build's sandbox runs it,"
+            " its grants are derived again here, and this build reviews its"
+            " commits when you quit.",
+        ],
+        [
+            ("recorded", manifest["configuration"]),
+            ("this", updated["configuration"]),
+            ("grants", shlex.join(updated["grant_args"]) or "(host defaults only)"),
+            ("changes", ", ".join(changes) or "none"),
+        ],
+    )
+    tell(
+        [
+            "",
+            "Answer n if you have not rebuilt alamode since this session last"
+            " ran, if this build is older than the recorded one (a rollback"
+            " undoes every fix made since), if a change above is one you did"
+            " not expect, or if the rebuild changed the session workspace"
+            " layout. Export works from either build.",
+        ]
+    )
+    return ask("Resume under this build?")
 
 
 def context_warning(paths):
@@ -2386,6 +2452,7 @@ def main(argv=None):
             stdout=subprocess.PIPE,
         )
         resume_id = json.loads(result.stdout)["session"]
+    rebuilt = False
     if options.managed_manifest:
         manifest_path = Path(options.managed_manifest).resolve(strict=True)
         if control not in manifest_path.parents:
@@ -2399,10 +2466,8 @@ def main(argv=None):
             raise SessionError("Invalid session ID")
         manifest_path = records / identity / "manifest.json"
         manifest = read_json(manifest_path)
-        if resume_id:
-            # Resume re-admits this session through the current build; export
-            # is data-only and takes the same manifest from any build.
-            require_recorded_runtime(manifest, configuration_path)
+        # Export is data-only and takes the same manifest from any build.
+        rebuilt = bool(resume_id) and manifest["configuration"] != configuration_path
     else:
         identity = time.strftime("%Y%m%d-%H%M%S-") + secrets.token_hex(4)
         grants = policy(options, config, home)
@@ -2482,7 +2547,31 @@ def main(argv=None):
         if export_id:
             return export_session(manifest)
         changes = None
-        if regrant_args is not None:
+        if rebuilt:
+            updated, changes = rebind(
+                config, manifest, configuration_path, regrant_args, home, control
+            )
+            if not confirm_rebind(manifest, updated, changes):
+                relaunch = f"alamode resume {manifest['id']}"
+                tell(
+                    [
+                        f"Session {manifest['id']} was not resumed; its record"
+                        " is unchanged. Export works from any build:",
+                    ],
+                    [
+                        ("export", f"alamode sessions export {manifest['id']}"),
+                        (
+                            "resume",
+                            f"{relaunch} {shlex.join(regrant_args)}"
+                            if regrant_args
+                            else relaunch,
+                        ),
+                    ],
+                )
+                return 1
+            manifest = updated
+            write_json(manifest_path, manifest)
+        elif regrant_args is not None:
             manifest, changes = regrant(config, manifest, regrant_args, home, control)
             write_json(manifest_path, manifest)
         if manifest.get("coordinator_id"):
