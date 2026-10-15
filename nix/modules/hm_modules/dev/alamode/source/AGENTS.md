@@ -76,6 +76,12 @@ A command handed to the human to run is checked first: every flag against
 Confirm before deleting files, running sudo, pushing, or rewriting history.
 Check `git status` before git operations.
 
+`$ALAMODE_SNAPSHOT_COMMIT` is the commit the session started from. It and
+every commit below it belong to the human, a `wip: uncommitted at exit`
+commit an earlier session left there included. Never amend, reword, rebase
+or reset across it: landing and export refuse a branch that no longer
+descends from it. Say what should change there and the human does it.
+
 Commits are made as the wrapper's agent identity (`ai-daemon@noreply.ondy.org`
 by default), unsigned, with repo hooks disabled, on the session's private
 branch. When the session quits, anything left uncommitted becomes a `wip:
