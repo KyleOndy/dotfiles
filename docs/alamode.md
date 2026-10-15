@@ -69,7 +69,7 @@ hard boundary to the engine:
 alamode [--profile NAME] [GRANTS] [-- PI-ARGS]
 alamode resume [ID] [-- PI-ARGS]
 alamode resume ID GRANTS [-- PI-ARGS]
-alamode sessions [show ID | export ID]
+alamode sessions [show ID | export ID | peek [ID]]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ...        # = alamode-delegate
 alamode seats ...          # = alamode-seats
@@ -116,7 +116,7 @@ alamode [--profile NAME] [--web] [--allow HOST] [--listen PORT]
         [--local-model PROVIDER/ID] [-- PI ARGS]
 alamode resume [ID] [-- PI ARGS]
 alamode resume ID GRANTS [-- PI ARGS]
-alamode sessions [show ID | export ID]
+alamode sessions [show ID | export ID | peek [ID]]
 alamode coord [GRANTS] | attach ID | start [GRANTS] | ls | stop ID
 alamode delegate ... | seats ...
 
@@ -199,7 +199,7 @@ build asserts the compdef token equals `meta.mainProgram`.
   only; before it, grant flags (with `@bundleFlags@` and `@profileNames@`
   substituted at build time).
 - IDs complete from pure globs over the state layout (no socket pings on
-  TAB): `resume` and `sessions show|export` offer
+  TAB): `resume` and `sessions show|export|peek` offer
   `~/.local/state/alamode/records/*/`, and `resume` then grant flags; `coord attach|stop` offer
   `~/.local/state/alamode/coordinators/*/`; `delegate` offers
   `~/.local/state/alamode/delegates/*.json` stems.

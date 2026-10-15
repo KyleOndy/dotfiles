@@ -89,6 +89,16 @@ landing fails, the commits stay in the session and `alamode sessions export
 ID` still works. `git adopt` in turn ends with the push, merge and worktree
 cleanup commands for the branch it signed.
 
+To look before quitting, run `alamode sessions peek` from the checkout. It
+fetches the newest session's commits so far into `refs/alamode/peek/ID`,
+through the same admission as export, and moves no branch. The session keeps
+running. Each peek replaces the ref, since the session may rewrite its
+history, and landing deletes it. It prints the commands to review the
+commits, check them out in a detached `CHECKOUT-peek` worktree, or drop the
+ref. Edits the session has not committed stay out; `!!git diff` inside pi
+shows those. Building or testing that worktree runs model-written code
+outside the sandbox, the same trust step as adopting it.
+
 ## Resume and results
 
 ```sh
@@ -98,6 +108,7 @@ alamode resume ID GRANTS    # the same session with GRANTS in place of its own
 alamode sessions            # list retained sessions
 alamode sessions show ID    # a session's recorded authority
 alamode sessions export ID  # a verified review bundle
+alamode sessions peek [ID]  # commits so far, as a ref in the checkout
 ```
 
 Resume restores the recorded grants and workspace. To change the grants

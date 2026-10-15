@@ -275,6 +275,7 @@ Look back
   alamode sessions                    list retained sessions
   alamode sessions show ID            what a session was granted
   alamode sessions export ID          a verified review bundle of its commits
+  alamode sessions peek [ID]          its commits so far, as a git ref
 
 Run several agents
   alamode coord [GRANTS]              start a coordinator and open its UI
@@ -2073,7 +2074,8 @@ def land(manifest):
 
     The commits arrive through the same sealed, admitted bundle as `sessions
     export`, as branch alamode-<id> in the source repository, and that branch
-    is all landing ever creates. The branch checked out at launch
+    is all landing ever creates; the ref a peek left is deleted, since the
+    branch or the fast-forward supersedes it. The branch checked out at launch
     fast-forwards to it only when the launch was clean, the checkout is still
     on that branch and no agent context file changed; anything else waits on
     the branch for the human. The git here is the human's own, with their
@@ -2124,6 +2126,7 @@ def land(manifest):
     )
     if fetched.returncode:
         raise SessionError(f"git fetch into {source} failed: {fetched.stderr.strip()}")
+    git("update-ref", "-d", peek_ref(manifest))
 
     launched = (record.get("source_ref") or "")[len("refs/heads/") :]
     current = git("symbolic-ref", "-q", "HEAD").stdout.strip()
@@ -2230,6 +2233,97 @@ def land(manifest):
             ("discard", f"git branch -D {branch}"),
         ],
     )
+
+
+def peek_ref(manifest):
+    return "refs/alamode/peek/" + manifest["id"]
+
+
+def peek(manifest):
+    """Fetch a session's commits so far into peek_ref() in its source checkout.
+
+    It takes no launch lock, so it runs beside the live session: sealing
+    reads the session's storage only as data, and admission refuses a bundle
+    that changes while it is copied and then verifies the copy, as it does a
+    coordinator child's proposal written while that child runs. The ref is
+    all it writes in the source repository, and it is forced, since the
+    session may rewrite what an earlier peek fetched.
+    """
+    record = manifest["workspace"]
+    identity = manifest["id"]
+    # A child's source is its parent's private workspace or a quarantine,
+    # and the human's git fetching there would run that repository's
+    # model-written config and hooks.
+    if manifest.get("coordinator", {}).get("role") == "child":
+        raise SessionError(
+            f"Session {identity} is a coordinator child; its commits reach you"
+            " only through its coordinator"
+        )
+    source = record.get("source")
+    if not source:
+        tell(
+            [
+                f"Session {identity} started outside a repository, so there is"
+                " no checkout to fetch into."
+            ],
+            [("export", f"alamode sessions export {identity}")],
+        )
+        return 1
+    bare = Path(record["common_dir"])
+    base = record["snapshot_commit"]
+    if workspace._source_head(bare, bare) == base:
+        tell(
+            [f"Session {identity} has no commits yet, so there is nothing to peek at."]
+        )
+        return 0
+    sealed = seal_session(manifest)
+    ref = peek_ref(manifest)
+    try:
+        fetched = subprocess.run(
+            [
+                workspace.GIT,
+                "-C",
+                source,
+                "fetch",
+                "--no-tags",
+                sealed["bundle"],
+                f"+{sealed['ref']}:{ref}",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+    finally:
+        # The quarantine holds a full copy of the repository's history, and
+        # a session is peeked at many times.
+        shutil.rmtree(Path(sealed["bundle"]).parent, ignore_errors=True)
+    if fetched.returncode:
+        raise SessionError(f"git fetch into {source} failed: {fetched.stderr.strip()}")
+    checkout = source + "-peek"
+    tell(
+        [
+            f"Fetched {commits(sealed['commits'])} from session {identity},"
+            f" {base[:12]}..{sealed['tip'][:12]}, into {ref} in {source}.",
+            "It holds committed work only; !!git diff inside pi shows the"
+            " rest. Peek again to refresh it. Quitting the session deletes it.",
+            *(
+                context_warning(sealed["context_files"])
+                if sealed["context_files"]
+                else []
+            ),
+        ],
+        [
+            ("review", f"git log -p {base[:12]}..{ref}"),
+            (
+                "checkout",
+                f"git -C {shlex.quote(checkout)} switch --detach {ref}"
+                if Path(checkout).exists()
+                else f"git worktree add --detach {shlex.quote(checkout)} {ref}",
+            ),
+            ("drop", f"git update-ref -d {ref}"),
+        ],
+    )
+    return 0
 
 
 def landing_notice(manifest):
@@ -2404,6 +2498,8 @@ def main(argv=None):
     resume_id = None
     export_id = None
     inspect_id = None
+    # "" means the newest session started from this checkout.
+    peek_id = None
     list_sessions = False
     list_coordinators = False
     coordinator_new = False
@@ -2421,17 +2517,23 @@ def main(argv=None):
             raise SessionError("sessions takes no engine arguments")
         if not front:
             list_sessions = True
+        elif front == ["peek"]:
+            peek_id = ""
         elif (
             len(front) == 2
-            and front[0] in ("show", "export")
+            and front[0] in ("show", "export", "peek")
             and not front[1].startswith("-")
         ):
             if front[0] == "show":
                 inspect_id = front[1]
+            elif front[0] == "peek":
+                peek_id = front[1]
             else:
                 export_id = front[1]
         else:
-            raise SessionError("sessions takes: nothing to list, show ID, or export ID")
+            raise SessionError(
+                "sessions takes: nothing to list, show ID, export ID, or peek [ID]"
+            )
         grant_part = []
     elif verb == "coord":
         sub = front[0] if front and not front[0].startswith("-") else None
@@ -2505,6 +2607,30 @@ def main(argv=None):
                 )
             )
         return 0
+    if peek_id is not None:
+        if not peek_id:
+            here = source_repository(Path.cwd())
+            checkout = str(here.resolve()) if here else None
+            started = []
+            for path in records.glob("*/manifest.json"):
+                record = read_json(path)
+                # A coordinator's children record its checkout as their
+                # source too, and reach the human only through it.
+                if (
+                    checkout
+                    and record["workspace"].get("source") == checkout
+                    and record.get("coordinator", {}).get("role") != "child"
+                ):
+                    started.append(path)
+            if not started:
+                raise SessionError(
+                    "No session started from this checkout; name one:"
+                    " alamode sessions peek ID"
+                )
+            peek_id = max(started, key=lambda path: path.stat().st_mtime).parent.name
+        if not ID.fullmatch(peek_id):
+            raise SessionError("Invalid session ID")
+        return peek(read_json(records / peek_id / "manifest.json"))
     if inspect_id:
         if not ID.fullmatch(inspect_id):
             raise SessionError("Invalid session ID")

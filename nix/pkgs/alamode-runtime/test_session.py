@@ -1,3 +1,4 @@
+import fcntl
 import importlib.util
 import hashlib
 import io
@@ -1473,6 +1474,115 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("read as instructions: AGENTS.md pi and Claude", message)
         self.assertIn(
             f"git merge --ff-only alamode-fixture && git adopt {head[:12]}", message
+        )
+
+    def peek(self, manifest):
+        """peek()'s status and message, unwrapped like land()'s."""
+        output = io.StringIO()
+        with redirect_stderr(output):
+            status = session.peek(manifest)
+        return status, " ".join(
+            line.removeprefix("alamode:").strip()
+            for line in output.getvalue().splitlines()
+        )
+
+    def test_peek_fetches_commits_so_far_and_landing_drops_its_ref(self):
+        manifest, tip = self.sealed_session("peek")
+        source = Path(manifest["workspace"]["source"])
+        work = Path(manifest["workspace"]["workspace"])
+        base = manifest["workspace"]["snapshot_commit"]
+        head = self.git_in(source, "rev-parse", "HEAD").stdout.strip()
+        ref = "refs/alamode/peek/fixture"
+        status, message = self.peek(manifest)
+        self.assertEqual(status, 0)
+        self.assertEqual(self.git_in(source, "rev-parse", ref).stdout.strip(), tip)
+        self.assertEqual(self.git_in(source, "rev-parse", "HEAD").stdout.strip(), head)
+        self.assertIn(
+            f"Fetched 1 commit from session fixture, {base[:12]}..{tip[:12]},"
+            f" into {ref} in {source}.",
+            message,
+        )
+        self.assertIn(f"git log -p {base[:12]}..{ref}", message)
+        self.assertIn(f"git worktree add --detach {source}-peek {ref}", message)
+        self.assertEqual(
+            list((Path(manifest["workspace"]["record_root"]) / "exports").iterdir()),
+            [],
+        )
+        # The session may rewrite what an earlier peek fetched.
+        (work / "file").write_text("rewritten\n")
+        self.git_in(work, "commit", "-qa", "--amend", "-m", "Agent change, rewritten")
+        rewritten = self.git_in(work, "rev-parse", "HEAD").stdout.strip()
+        Path(f"{source}-peek").mkdir()
+        _status, message = self.peek(manifest)
+        self.assertEqual(
+            self.git_in(source, "rev-parse", ref).stdout.strip(), rewritten
+        )
+        self.assertIn(f"git -C {source}-peek switch --detach {ref}", message)
+        self.land(manifest)
+        self.assertTrue(
+            self.git_in(source, "rev-parse", "-q", "--verify", ref).returncode
+        )
+
+    def test_peek_refuses_children_and_says_when_there_is_nothing(self):
+        manifest, _tip = self.sealed_session("peek-none")
+        with self.assertRaisesRegex(session.SessionError, "through its coordinator"):
+            session.peek({**manifest, "coordinator": {"role": "child"}})
+        work = Path(manifest["workspace"]["workspace"])
+        self.git_in(
+            work, "reset", "--hard", "-q", manifest["workspace"]["snapshot_commit"]
+        )
+        status, message = self.peek(manifest)
+        self.assertEqual(status, 0)
+        self.assertIn("has no commits yet", message)
+        metadata = session.workspace.create_empty(
+            self.root / "peek-empty-session",
+            "fixture",
+            record_root=self.records / "peek-empty-records",
+        )
+        status, message = self.peek({**self.manifest, "workspace": metadata})
+        self.assertEqual(status, 1)
+        self.assertIn("alamode sessions export fixture", message)
+
+    def test_sessions_peek_runs_beside_a_live_session(self):
+        manifest, tip = self.sealed_session("peek-live")
+        source = Path(manifest["workspace"]["source"])
+        home = self.root / "home"
+        control = session.directory(home / ".local/state/alamode")
+        record = session.directory(session.directory(control / "records") / "fixture")
+        (record / "manifest.json").write_text(json.dumps(manifest))
+        os.utime(record / "manifest.json", (0, 0))
+        # Newer, from the same checkout, and never the default.
+        child = session.directory(control / "records" / "fixture-child")
+        (child / "manifest.json").write_text(
+            json.dumps(
+                {**manifest, "id": "fixture-child", "coordinator": {"role": "child"}}
+            )
+        )
+        config_path = (self.root / "configuration.json").resolve()
+        config_path.write_text(json.dumps(self.config))
+        cwd = os.getcwd()
+        with (
+            (record / "launch.lock").open("a") as lock,
+            patch.dict(os.environ, {"HOME": str(home)}),
+            patch.object(session, "pin_store_roots"),
+            redirect_stderr(io.StringIO()),
+        ):
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.assertRaisesRegex(session.SessionError, "already running"):
+                session.main(
+                    [str(config_path), "alamode", "sessions", "export", "fixture"]
+                )
+            os.chdir(source)
+            try:
+                status = session.main([str(config_path), "alamode", "sessions", "peek"])
+            finally:
+                os.chdir(cwd)
+        self.assertEqual(status, 0)
+        self.assertEqual(
+            self.git_in(
+                source, "rev-parse", "refs/alamode/peek/fixture"
+            ).stdout.strip(),
+            tip,
         )
 
     def test_landing_notice_says_at_launch_where_commits_go(self):

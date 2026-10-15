@@ -96,7 +96,7 @@ case $verb in
     ;;
   sessions)
     _arguments \
-      '1:action:(show export)' \
+      '1:action:(show export peek)' \
       '2:session id:compadd -a records'
     ;;
   coord)
