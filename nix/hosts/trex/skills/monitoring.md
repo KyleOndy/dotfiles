@@ -17,7 +17,9 @@ unpoller and nut exporters, and scrapes its own stack (VictoriaMetrics,
 vmagent, vmalert, Alertmanager, Loki, alloy, Grafana). nut serves the UPS at
 `/ups_metrics`; its `/metrics` is only the exporter's own process. tiger also
 scrapes the native endpoints of immich (8081 api, 8082 microservices) and
-navidrome (`/metrics` on its app port, which Caddy answers with a 404).
+navidrome (`/metrics` on its app port, which Caddy answers with a 404), and
+the ESPHome power plugs on the iot VLAN (job `esphome`, with `host` set to the
+plug: washer, dryer, sump-pump).
 cogsworth exposes the kiosk app at `/api/metrics` and birdnet-go's telemetry on
 `127.0.0.1:8091` (predictions and detections; per stream, only dropped audio
 chunks and queue depth, so stream liveness comes from Loki), and

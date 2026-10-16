@@ -2130,6 +2130,32 @@ in
                 }
               ];
             }
+            # Power monitoring plugs, flashed by esphome/flash-plug. Each IP is
+            # a UniFi fixed IP and must also be in policy "tiger to iot power
+            # plugs", since the iot network's isolation blocks tiger otherwise.
+            {
+              job_name = "esphome";
+              static_configs = [
+                {
+                  targets = [ "192.168.3.29:80" ];
+                  labels = {
+                    host = "washer";
+                  };
+                }
+                {
+                  targets = [ "192.168.3.173:80" ];
+                  labels = {
+                    host = "dryer";
+                  };
+                }
+                {
+                  targets = [ "192.168.3.183:80" ];
+                  labels = {
+                    host = "sump-pump";
+                  };
+                }
+              ];
+            }
             # The monitoring stack scraping itself. Without these, a stalled
             # ingest or a Loki rejecting pushes is invisible: `up` only proves
             # the process answers, not that data is landing.

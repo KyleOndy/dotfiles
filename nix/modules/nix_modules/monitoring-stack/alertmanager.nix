@@ -169,6 +169,16 @@ in
             ];
             equal = [ "host" ];
           }
+          # SumpPumpOffline is the same fault as the sump pump plug's
+          # InstanceDown, fired sooner and with what to check first.
+          {
+            source_matchers = [ "alertname = SumpPumpOffline" ];
+            target_matchers = [
+              "alertname = InstanceDown"
+              "job = esphome"
+            ];
+            equal = [ "host" ];
+          }
         ];
 
         receivers = [

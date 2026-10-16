@@ -69,7 +69,7 @@ tool boundary and secrets: `monitoring-stack/alamode-advisor/README.md`.
 
 ### Dashboards
 
-Seven, each the investigation surface for one or more alert groups. A
+Eight, each the investigation surface for one or more alert groups. A
 dashboard nothing can send you to does not earn its place:
 
 | Dashboard                 | Alert groups it serves                                                                                                             |
@@ -81,6 +81,7 @@ dashboard nothing can send you to does not earn its place:
 | `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), ddns, reads Loki                                                                             |
 | `UniFi Network`           | unifi                                                                                                                              |
 | `Monitoring Stack Health` | monitoring_stack                                                                                                                   |
+| `Appliances`              | sump_pump, InstanceDown on job esphome                                                                                             |
 
 textfile_collector, audio_language and Loki's ruler_heartbeat have no
 dashboard yet.

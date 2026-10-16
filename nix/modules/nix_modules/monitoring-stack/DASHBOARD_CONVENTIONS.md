@@ -185,11 +185,12 @@ retention window.
 dashboard sits in under `dashboards/` becomes its Grafana folder. Adding one
 is dropping in a file; there is nothing to register.
 
-Three folders exist:
+Four folders exist:
 
 - `system/` - Hosts, Storage and Data Safety, Monitoring Stack Health, UPS
 - `network/` - Caddy Reverse Proxy, UniFi Network
 - `applications/` - Cogsworth, Media (the \*arr stack, jellyfin, ytdl-sub, immich)
+- `home/` - Appliances (the ESPHome power plugs)
 
 ### Naming Conventions
 

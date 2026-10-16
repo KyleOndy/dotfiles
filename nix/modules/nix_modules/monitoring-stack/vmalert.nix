@@ -1785,6 +1785,41 @@ in
                 summary: "WAN dropped {{ $value }} times in the last hour"
                 description: "The gateway recorded repeated internet drops. The S3 archive push and both public cert renewals depend on this link."
 
+        # The sump pump's ESPHome plug (esphome/ in this repo). Above 50 W is
+        # running: the plug reports 0 below 3 W and a pump draws hundreds.
+        - name: sump_pump
+          interval: 30s
+          rules:
+            # The plug sits between the outlet and the pump, so an unreachable
+            # plug is most often an outlet without power, which stops the pump
+            # too. alertmanager mutes the InstanceDown for the same host.
+            - alert: SumpPumpOffline
+              expr: up{job="esphome",host="sump-pump"} == 0
+              for: 2m
+              labels:
+                severity: critical
+              annotations:
+                summary: "The sump pump plug is unreachable"
+                description: "Either its outlet has lost power, and the pump with it (check the GFCI and the breaker first), or the plug has dropped off the Ondy's - IOT Wi-Fi. With the outlet live, `ssh tiger curl -m 5 http://{{ $labels.instance }}/metrics` and the plug's Wi-Fi signal on the Appliances dashboard show which."
+
+            - alert: SumpPumpRunningLong
+              expr: esphome_sensor_value{job="esphome",host="sump-pump",id="power"} > 50
+              for: 10m
+              labels:
+                severity: critical
+              annotations:
+                summary: "The sump pump has run for 10 minutes without stopping"
+                description: "Drawing {{ $value | humanize }} W. Check the pit: a stuck float runs the pump dry until it burns out, a failed check valve sends the water straight back down, and heavy inflow can outpace the pump."
+
+            - alert: SumpPumpBusy
+              expr: avg_over_time((esphome_sensor_value{job="esphome",host="sump-pump",id="power"} > bool 50)[1h:15s]) > 0.3
+              for: 5m
+              labels:
+                severity: warning
+              annotations:
+                summary: "The sump pump ran {{ $value | humanizePercentage }} of the last hour"
+                description: "Heavy inflow, or short cycling from a float set too tight or a failed check valve. Runs per hour on the Appliances dashboard tell them apart: a few long runs is inflow, dozens of short ones is cycling."
+
         # The stack watching itself. `up` covers a process that stops
         # answering; these cover the ones that answer and still move no data.
         - name: monitoring_stack
