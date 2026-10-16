@@ -704,7 +704,7 @@
       "description": "kWh each outlet used per day over the last 14 days, from the plug's Total Energy counter, which survives reboots but not a factory reset.",
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 40
       },
@@ -819,13 +819,132 @@
     },
     {
       "type": "timeseries",
+      "title": "Cost per Day",
+      "description": "Energy per Day at $0.2415/kWh, the JCP&L supply plus delivery rate on the August 2026 bill. That is the June to September supply rate, and the fixed monthly customer charge is not included.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "increase(esphome_sensor_value{job=\"esphome\",id=\"total_energy\"}[$__interval]) * 0.2415",
+          "legendFormat": "{{host}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "min": 0,
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "washer"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dryer"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sump-pump"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dehumidifier"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": ["mean", "sum"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "interval": "1d",
+      "timeFrom": "14d",
+      "hideTimeOverride": true
+    },
+    {
+      "type": "timeseries",
       "title": "Voltage",
       "description": "Mains voltage at each outlet. All three share the house supply, so they should move together; the UPS on tiger sees the same sags.",
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 40
+        "w": 12,
+        "x": 0,
+        "y": 48
       },
       "datasource": {
         "type": "prometheus",
@@ -935,9 +1054,9 @@
       "description": "Each plug's signal on Ondy's - IOT. The first thing to check when a plug goes offline with its outlet still live.",
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 40
+        "w": 12,
+        "x": 12,
+        "y": 48
       },
       "datasource": {
         "type": "prometheus",
