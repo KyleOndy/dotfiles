@@ -127,7 +127,6 @@ in
         # passes through tmux unmodified and renders identically on every
         # machine, rather than being downsampled to each terminal's 256-color
         # approximation.
-        set -as terminal-features 'alacritty*:RGB'
         set -as terminal-features 'foot*:RGB'
 
         # set scrollback history to 10000 (10k)
