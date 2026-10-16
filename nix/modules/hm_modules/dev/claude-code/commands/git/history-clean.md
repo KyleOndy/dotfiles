@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(git:*), Bash(sed:*), Read, Grep, AskUserQuestion
+allowed-tools: Bash(git:*), Bash(sed:*), Bash(grep:*), Bash(gh api:*), Bash(curl:*), Read, Grep, AskUserQuestion
 argument-hint: [--base <ref>]
 description: Rebase and tidy unpushed commits without an interactive editor
 disable-model-invocation: true
@@ -46,9 +46,60 @@ git branch "$BACKUP"
 git log --oneline "$BASE..HEAD"
 ```
 
-Show that log and confirm with AskUserQuestion before running anything
-below. The backup branch is what makes the verification step work, so
-create it even though `git reflog` would also get you home.
+Run the reference check below, then show that log and its findings and
+confirm with AskUserQuestion before running anything else. The backup
+branch is what makes the verification step work, so create it even
+though `git reflog` would also get you home.
+
+## Check every reference
+
+A rewrite is the last cheap chance to fix a commit message, so every URL
+and SHA in the range gets checked, not just the commits being cleaned:
+
+```bash
+for c in $(git rev-list "$BASE..HEAD"); do
+  git log -1 --format=%B "$c" |
+    grep -oE 'https?://[^] )>"`]+|\b[0-9a-f]{7,40}\b' |
+    sed "s|^|$(git rev-parse --short "$c") |"
+done
+```
+
+Each one must resolve and still say what the message claims:
+
+- A permalink resolves at its ref and its `#L` anchor lands on the code
+  the message describes. `gh api "repos/OWNER/REPO/contents/PATH?ref=REF"`
+  reaches private repos that curl sees as 404.
+- Any other URL returns 2xx. Skip localhost and elided examples.
+- A SHA of this repo is reachable from `HEAD`:
+  `git merge-base --is-ancestor SHA HEAD`. One held only by the reflog, a
+  backup branch or a dangling `wip:` commit dies at the next gc.
+- A SHA of another repo is on that repo's remote:
+  `git -C OTHER branch -r --contains SHA`. That repo may have been
+  cleaned with this same command; its rewritten commit has the same
+  `git patch-id --stable`.
+
+The rewrite then changes every SHA from the oldest edited commit to
+`HEAD`. A later message citing one of them, as a short SHA or a
+permalink, needs the new SHA at its own `edit` stop. The cited commit is
+older, so it is already rewritten when the rebase pauses at the citing
+one:
+
+```bash
+git log --format='%H %s' "$BASE..HEAD" | grep -F 'subject of the cited commit'
+```
+
+The old SHAs die with the backup branch, so search every repo that cites
+this one before rewriting:
+
+```bash
+OLD=$(git rev-list "$BASE..HEAD" | cut -c1-7 | paste -sd'|' -)
+git -C OTHER log --all --format='%h %s%n%b' | grep -E "\b($OLD)"
+git -C OTHER grep -nE "\b($OLD)" HEAD
+```
+
+An unpushed citation there gets re-pointed like one here. A pushed one
+can only be fixed by rewriting that repo's pushed history as well, so it
+goes into the confirmation as a cost of the rewrite.
 
 ## Line numbers are inverted
 
@@ -117,6 +168,12 @@ git commit --amend -m "feat(tf): add wolf IP variable for DNS migration"
 git rebase --continue
 ```
 
+To change part of a message and keep the rest, pipe it through `sed`:
+
+```bash
+git log -1 --format=%B | sed 's/cfe1f67/b63f350/' | git commit --amend -F -
+```
+
 ## Picking one
 
 - `fixup!` or `squash!` commits present: autosquash.
@@ -134,8 +191,12 @@ git diff "$BACKUP"
 
 An empty diff means the rewrite preserved the tree. If it is not empty
 the rebase lost something: `git rebase --abort` mid-flight, or
-`git reset --hard "$BACKUP"` once it has finished. Delete the backup
-branch with `git branch -D "$BACKUP"` after you have checked.
+`git reset --hard "$BACKUP"` once it has finished.
+
+Run the reference check again. Every URL and SHA must resolve against
+the rewritten history, and no message may still cite a SHA that only
+`$BACKUP` holds. Delete the backup branch with `git branch -D "$BACKUP"`
+after you have checked.
 
 ## References
 
