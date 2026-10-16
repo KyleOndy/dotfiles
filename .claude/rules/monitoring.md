@@ -81,7 +81,7 @@ dashboard nothing can send you to does not earn its place:
 | `Caddy Reverse Proxy`     | tls_certificates (no cert panel yet), ddns, reads Loki                                                                             |
 | `UniFi Network`           | unifi                                                                                                                              |
 | `Monitoring Stack Health` | monitoring_stack                                                                                                                   |
-| `Appliances`              | sump_pump, InstanceDown on job esphome                                                                                             |
+| `Appliances`              | sump_pump, dehumidifier, InstanceDown on job esphome                                                                               |
 
 textfile_collector, audio_language and Loki's ruler_heartbeat have no
 dashboard yet.

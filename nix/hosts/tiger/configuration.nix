@@ -2154,6 +2154,12 @@ in
                     host = "sump-pump";
                   };
                 }
+                {
+                  targets = [ "192.168.3.68:80" ];
+                  labels = {
+                    host = "dehumidifier";
+                  };
+                }
               ];
             }
             # The monitoring stack scraping itself. Without these, a stalled

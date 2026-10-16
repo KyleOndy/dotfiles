@@ -2,7 +2,7 @@
   "title": "Appliances",
   "uid": "appliances",
   "tags": ["home", "esphome", "power"],
-  "description": "The washer, dryer and sump pump, each read from an ESPHome power plug on the iot network that tiger scrapes. Investigation surface for the sump_pump alert group and InstanceDown on job esphome.",
+  "description": "The washer, dryer, sump pump and basement dehumidifier, each read from an ESPHome power plug on the iot network that tiger scrapes. Investigation surface for the sump_pump and dehumidifier alert groups and InstanceDown on job esphome.",
   "id": null,
   "schemaVersion": 39,
   "refresh": "1m",
@@ -220,6 +220,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dehumidifier"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
           }
         ]
       },
@@ -430,13 +445,256 @@
     },
     {
       "type": "row",
-      "title": "Outlets",
+      "title": "Dehumidifier",
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
         "y": 26
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Last Run",
+      "description": "Time since the compressor last ran (above 150 W), looking back 7 days.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - max_over_time(timestamp(esphome_sensor_value{job=\"esphome\",host=\"dehumidifier\",id=\"power\"} > 150)[7d:15s])",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "noValue": "over 7 days"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Duty, 24h",
+      "description": "Share of the last 24 hours the compressor ran.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time((esphome_sensor_value{job=\"esphome\",host=\"dehumidifier\",id=\"power\"} > bool 150)[24h:15s])",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Outdoor Dew Point, 48h",
+      "description": "Outdoor dew point averaged over 48 hours, from birdnet-go's yr.no weather on cogsworth. Above 12 C, DehumidifierIdle fires if the compressor has not run in those 48 hours.",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time((WITH (t = weather_temperature_celsius{job=\"birdnet-go\"}, g = ln(weather_humidity_percentage{job=\"birdnet-go\"} / 100) + 17.62 * t / (243.12 + t)) 243.12 * g / (17.62 - g))[2d:15m])",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              },
+              {
+                "color": "blue",
+                "value": 12
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Compressor Duty and Outdoor Dew Point",
+      "description": "Share of each hour the compressor ran, against outdoor dew point. A humid stretch with no duty is what DehumidifierIdle catches.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 31
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time((esphome_sensor_value{job=\"esphome\",host=\"dehumidifier\",id=\"power\"} > bool 150)[$__interval:15s])",
+          "legendFormat": "duty"
+        },
+        {
+          "refId": "B",
+          "expr": "WITH (t = weather_temperature_celsius{job=\"birdnet-go\"}, g = ln(weather_humidity_percentage{job=\"birdnet-go\"} / 100) + 17.62 * t / (243.12 + t)) 243.12 * g / (17.62 - g)",
+          "legendFormat": "dew point"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "showPoints": "never",
+            "spanNulls": false
+          },
+          "min": 0,
+          "max": 1,
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dew point"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "min"
+              },
+              {
+                "id": "max"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "calcs": ["last", "max"],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "interval": "1h"
+    },
+    {
+      "type": "row",
+      "title": "Outlets",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 39
       },
       "panels": []
     },
@@ -448,7 +706,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 27
+        "y": 40
       },
       "datasource": {
         "type": "prometheus",
@@ -525,6 +783,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dehumidifier"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
           }
         ]
       },
@@ -552,7 +825,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 27
+        "y": 40
       },
       "datasource": {
         "type": "prometheus",
@@ -625,6 +898,21 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dehumidifier"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
           }
         ]
       },
@@ -649,7 +937,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 27
+        "y": 40
       },
       "datasource": {
         "type": "prometheus",
@@ -719,6 +1007,21 @@
                 "value": {
                   "mode": "fixed",
                   "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dehumidifier"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
                 }
               }
             ]

@@ -1820,6 +1820,43 @@ in
                 summary: "The sump pump ran {{ $value | humanizePercentage }} of the last hour"
                 description: "Heavy inflow, or short cycling from a float set too tight or a failed check valve. Runs per hour on the Appliances dashboard tell them apart: a few long runs is inflow, dozens of short ones is cycling."
 
+        # The basement dehumidifier's ESPHome plug. Above 150 W is the
+        # compressor running; it drew 368.5 W on the plug's first scrape.
+        - name: dehumidifier
+          interval: 5m
+          rules:
+            # A dehumidifier that stops draining fills its tank and stops, which
+            # looks the same as a dry basement. There is no basement humidity
+            # sensor, so this reads outdoor dew point from birdnet-go's yr.no
+            # weather (Magnus formula, Sonntag constants). A 12 C dew point is
+            # 56% RH at 21 C and wetter in any cooler basement, so a working
+            # unit runs at least once in 2 days of it.
+            - alert: DehumidifierIdle
+              expr: |
+                WITH (
+                  t = weather_temperature_celsius{job="birdnet-go"},
+                  g = ln(weather_humidity_percentage{job="birdnet-go"} / 100) + 17.62 * t / (243.12 + t),
+                )
+                max_over_time(esphome_sensor_value{job="esphome",host="dehumidifier",id="power"}[2d]) < 150
+                and on() avg_over_time((243.12 * g / (17.62 - g))[2d:15m]) > 12
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "The dehumidifier has not run in 2 days of humid weather"
+                description: "Outdoor dew point averaged above 12 C for 2 days and the compressor never started (peak draw {{ $value | humanize }} W). Check the tank: a full one stops the unit, so the drain hose is kinked, clogged or lifted above the outlet. 0 W also fits a unit switched off or tripped; a steady few dozen watts is the fan alone, so a frozen coil or a failed compressor."
+
+            # DehumidifierIdle cannot fire without the weather series.
+            - alert: DehumidifierWeatherMissing
+              expr: absent(weather_humidity_percentage{host="cogsworth"}) and on(host) up{host="cogsworth",job="birdnet-go"} == 1
+              for: 2h
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "birdnet-go is up but exports no weather"
+                description: "DehumidifierIdle reads outdoor dew point from birdnet-go's weather_temperature_celsius and weather_humidity_percentage, so it cannot fire. Either weather polling is off in birdnet-go's config or an upgrade renamed the metrics. On cogsworth: `curl -s localhost:8091/metrics | grep ^weather_`."
+
         # The stack watching itself. `up` covers a process that stops
         # answering; these cover the ones that answer and still move no data.
         - name: monitoring_stack
