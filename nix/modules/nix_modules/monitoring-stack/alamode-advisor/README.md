@@ -178,3 +178,9 @@ over its model requests, plus how many queries and searches it made.
 
 An alert triage takes 4 to 5 minutes. Kagi costs at most $0.06 a run. The model
 runs on trex's mcloud account, and the `wrote` lines count its tokens.
+
+## Reviewing the mail
+
+`/monitor-review` in Claude Code runs [review.md](review.md): it checks each
+report and alert against live data, drafts acknowledgements, and archives the
+reviewed mail with `archive-mail.py`.
