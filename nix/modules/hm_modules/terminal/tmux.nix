@@ -148,10 +148,6 @@ in
         set-option -g status on                # turn the status bar on
         set -g status-interval 5               # set update frequencey (default 15 seconds)
 
-        # visual notification of activity in other windows
-        setw -g monitor-activity on
-        set -g visual-activity on
-
         # better tmux/vim navigation with smart pane switching with awareness
         # of Vim splits.
         # See: https://github.com/christoomey/vim-tmux-navigator
