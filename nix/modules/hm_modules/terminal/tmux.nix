@@ -103,6 +103,8 @@ in
       terminal = "tmux-256color";
       sensibleOnTop = false; # do not inject other configuration
       baseIndex = 1; # start window numbering at 1
+      # lines per pane; agent transcripts run ~600 bytes a line, ~30 MB full
+      historyLimit = 50000;
       extraConfig = ''
         # start pane numbering at 1 (matches window base index)
         set -g pane-base-index 1
@@ -128,9 +130,6 @@ in
         # machine, rather than being downsampled to each terminal's 256-color
         # approximation.
         set -as terminal-features 'foot*:RGB'
-
-        # set scrollback history to 10000 (10k)
-        set -g history-limit 10000
 
         # reload tmux.conf using PREFIX r
         # todo: get this path from some source of truth
