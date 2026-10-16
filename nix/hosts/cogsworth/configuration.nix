@@ -1071,10 +1071,12 @@ in
       fi
 
       # Probe Chromium's CDP target list once; extract both the page's
-      # WebSocket debugger URL and its current top-level URL out of it.
+      # WebSocket debugger URL and its current top-level URL out of it. The
+      # list also holds extension background pages and browser UI, in no
+      # fixed order, so take the first "page" target, not the first entry.
       CDP_TARGETS=$(${pkgs.curl}/bin/curl -sf --max-time 10 http://127.0.0.1:9222/json/list 2>/dev/null || true)
-      KIOSK_WS=$(echo "$CDP_TARGETS" | grep -o '"webSocketDebuggerUrl": *"[^"]*"' | head -1 | cut -d'"' -f4)
-      KIOSK_URL=$(echo "$CDP_TARGETS" | grep -o '"url": *"[^"]*"' | head -1 | cut -d'"' -f4)
+      KIOSK_WS=$(echo "$CDP_TARGETS" | ${pkgs.jq}/bin/jq -r 'map(select(.type == "page"))[0].webSocketDebuggerUrl // empty' 2>/dev/null || true)
+      KIOSK_URL=$(echo "$CDP_TARGETS" | ${pkgs.jq}/bin/jq -r 'map(select(.type == "page"))[0].url // empty' 2>/dev/null || true)
 
       if [ -n "$KIOSK_WS" ]; then
         # Send a trivial Runtime.evaluate and check for a numeric response.
