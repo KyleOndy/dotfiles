@@ -1,0 +1,13 @@
+# No wifi networks here: ESPHome loads the captive portal's saved credentials
+# only while none are compiled in (wifi_component.cpp, WiFiComponent::start).
+packages:
+  athom: github://athom-tech/athom-configs/athom-without-relay-plug.yaml@e312e70a00a46e72297e0059498c418a72b6ae1e
+
+esphome:
+  name_add_mac_suffix: false
+
+api:
+  # The 15min default reboots the plug whenever no API client is connected.
+  reboot_timeout: 0s
+
+prometheus:

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Reflash an Athom plug from stock firmware with plug.yaml and join it to the
+# IoT Wi-Fi. Builds on tiger, since ESP8266's macOS toolchain is x86_64-only
+# and trex has no Rosetta. Uploads from trex over the plug's own access point,
+# since the iot network's isolation drops replies to the LAN.
+#
+#   flash-plug sump-pump "Sump Pump"
+set -euo pipefail
+
+readonly AP_ADDRESS=192.168.4.1
+readonly IOT_SSID="Ondy's - IOT"
+readonly BUILD_HOST=tiger
+readonly BUILD_DIR=.cache/esphome
+
+if [[ $# -ne 2 || ! $1 =~ ^[a-z0-9-]+$ ]]; then
+	echo "usage: $(basename "$0") <name, a-z 0-9 -> <friendly name>" >&2
+	exit 64
+fi
+readonly name=$1 friendly=$2
+readonly substitutions=(-s name "$name" -s friendly_name "$friendly")
+
+dir=$(cd "$(dirname "$0")" && pwd)
+readonly dir
+root=$(git -C "$dir" rev-parse --show-toplevel)
+readonly root
+tmp=$(mktemp -d)
+readonly tmp
+trap 'rm -rf "$tmp"' EXIT
+
+# nixpkgs-master: the flake's nixpkgs trails the Athom package's esphome
+# min_version. tiger and trex both run this one.
+nixpkgs=github:NixOS/nixpkgs/$(jq -r '.nodes["nixpkgs-master"].locked.rev' "$root/flake.lock")
+readonly nixpkgs
+esphome=$(nix build --no-link --print-out-paths "$nixpkgs#esphome")/bin/esphome
+readonly esphome
+
+read -rsp "Password for $IOT_SSID: " psk
+echo
+
+# shellcheck disable=SC2029 # expanded on trex on purpose
+ssh "$BUILD_HOST" "mkdir -p $BUILD_DIR && cat >$BUILD_DIR/plug.yaml" <"$dir/plug.yaml"
+# shellcheck disable=SC2029 # expanded on trex on purpose; substitutions are %q-quoted
+ssh "$BUILD_HOST" "cd $BUILD_DIR && nix run $nixpkgs#esphome -- $(printf '%q ' "${substitutions[@]}") compile plug.yaml"
+scp -q "$BUILD_HOST:$BUILD_DIR/.esphome/build/$name/.pioenvs/$name/firmware.bin" "$tmp/firmware.bin"
+# upload re-reads plug.yaml, which fetches the Athom package once its cached
+# clone is a day old, and trex has no internet on the plug's access point.
+"$esphome" "${substitutions[@]}" config "$dir/plug.yaml" >/dev/null
+
+read -rp "Plug in the $name plug, join Wi-Fi athom-without-relay-plug-<mac>, then press Enter. "
+"$esphome" "${substitutions[@]}" upload "$dir/plug.yaml" --file "$tmp/firmware.bin" --device "$AP_ADDRESS"
+
+read -rp "Join Wi-Fi $name once it appears, then press Enter. "
+printf '%s' "$psk" | curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -G --data-urlencode "ssid=$IOT_SSID" --data-urlencode psk@- "http://$AP_ADDRESS/wifisave"
+echo
+
+cat <<EOF
+$name is joining $IOT_SSID; trex's Wi-Fi falls back to its usual network.
+Next: give client $name a fixed IP on iot in UniFi, then add that IP to the
+"tiger to iot plugs" policy and the esphome scrape job on tiger.
+EOF
