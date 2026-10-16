@@ -86,6 +86,18 @@ let
                 sum_over_time({unit="cogsworth.service"} |= "cogsworth.agent.core/completion"
                   | json model, cost=`usage.cost` | unwrap cost [5m])
               )
+
+      # The watchdog recovers with `systemctl restart`, which systemd's
+      # NRestarts does not count, so its own log line is the only record.
+      - name: cogsworth_watchdog_logs
+        interval: 5m
+        rules:
+          - record: cogsworth_watchdog:triggers:count5m
+            expr: |
+              sum by (host, target) (
+                count_over_time({unit="cogsworth-watchdog.service"} |= "WATCHDOG TRIGGERED"
+                  | regexp `(?i)restarting (?P<target>[a-z_-]+)\.service` [5m])
+              )
   '';
 
   # auth_enabled = false pins every stream to the "fake" tenant, and the local

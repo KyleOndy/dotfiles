@@ -1550,15 +1550,15 @@ in
                 summary: "Cogsworth application is down"
                 description: "Cogsworth service has been unavailable for 5 minutes on the kiosk"
 
+            # From cogsworth_watchdog_logs in loki.nix.
             - alert: CogsworthWatchdogTriggered
-              expr: increase(node_systemd_service_restart_total{host="cogsworth",name="cogsworth.service"}[15m]) > 2
-              for: 1m
+              expr: sum by (host, target) (sum_over_time(cogsworth_watchdog:triggers:count5m{host="cogsworth"}[15m])) > 0
               labels:
                 severity: warning
                 service: cogsworth
               annotations:
-                summary: "Cogsworth watchdog triggered {{ $value }} restarts"
-                description: "Cogsworth service has been restarted {{ $value }} times in the last 15 minutes. The three-tier watchdog may be recovering from failures."
+                summary: "Cogsworth watchdog restarted {{ $labels.target }} {{ $value }} times"
+                description: "The watchdog found {{ $labels.target }} hung or unhealthy and restarted it. journalctl -u cogsworth-watchdog on cogsworth gives the check that failed; a repeat means the restart is not fixing it."
 
             - alert: CogsworthHighCPUTemp
               expr: node_hwmon_temp_celsius{host="cogsworth"} > 70
