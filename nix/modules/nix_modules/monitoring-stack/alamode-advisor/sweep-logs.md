@@ -34,7 +34,10 @@ outside that range, and say how far.
 4. Read raw lines only for the handful of changes that stood out, enough to
    say what the errors are. Before calling a count a jump, run `baseline` on
    the specific line that stood out (`|= "<text>"`), not only the broad
-   regex.
+   regex. A unit that logs a fixed burst at every start rises with its
+   starts, so before calling its count a trend, count its starts with a
+   line it logs once per start, divide, and say what started it: a deploy,
+   a watchdog's own lines, or a manual `systemctl restart`.
 5. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.

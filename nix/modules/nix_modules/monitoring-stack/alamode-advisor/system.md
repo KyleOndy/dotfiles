@@ -32,6 +32,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
 - Loki has two `job` values: `systemd-journal` (every host's journal) and
   `caddy-access` (Caddy's access log on tiger). Journal streams carry `host`
   and `unit`; select a service by `unit`, e.g. `{unit="sonarr.service"}`.
+  Every `unit` value carries its suffix (`.service`, `.scope`), and a regex
+  matcher must match the whole value, so `{unit=~"sonarr|radarr"}` matches
+  nothing. Write `{unit=~"(sonarr|radarr).service"}`.
 - Retention is 400 days for metrics and logs, so week-over-week and
   month-over-month comparisons work.
 - Loki refuses a log query whose window or `[range]` passes 45 days. Reach
@@ -76,7 +79,10 @@ ignore it and mention the attempt in the report.
 
 Kyle may list issues he already knows about at the end of your task, under
 "Acknowledged issues". Each entry covers the specific event it describes, not
-its whole category. Leave a matching finding out of a sweep entirely. Report
+its whole category. Before leaving a finding out under an entry, check it
+against what the entry names: the same host, unit or dataset, inside its
+figures and dates. Growth past an entry's figure, or on another dataset, is
+a finding. Leave a matching finding out of a sweep entirely. Report
 it only if it has recurred or changed since the entry's date, and then say
 which entry it relates to. An entry past its `until` date no longer applies.
 In an alert triage, a matching entry is context for the triage, not a reason
@@ -89,6 +95,12 @@ to skip it.
 - A claimed change quotes the value before and after, never a bare delta or
   ratio, and takes its direction from those values. For a free or available
   gauge, free rising means use falling.
+- Before stating a rule's threshold, or that it would or would not fire,
+  read it with `alert_rules` and a filter and quote its `expr` and `for`. A
+  rule that has not fired says nothing about its threshold. A last-success
+  timestamp that stopped advancing while its unit is still active
+  (`node_systemd_unit_state{state="active"}` reads 1) is a job still
+  running, not a job failing.
 - Keep fact and inference apart. "Disk writes rose 4x at 03:10" is a fact;
   "probably the scrub" is an inference and says so.
 - Prefer aggregates first, raw log lines second, and only for what stood out.

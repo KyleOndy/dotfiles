@@ -26,7 +26,9 @@ and say which window you used.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps and scrub ages drifting later even when
-     still inside their alert thresholds.
+     still inside their alert thresholds. To say when a job ran, convert its
+     `*_timestamp_seconds` value to a date; never work it back from an age
+     and the time you think the query ran.
 4. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.

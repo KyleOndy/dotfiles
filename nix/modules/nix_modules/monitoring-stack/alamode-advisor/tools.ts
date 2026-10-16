@@ -285,9 +285,12 @@ function formatStreams(
   const blocks = streams.map((s) => {
     const lines = s.values.map(([ns, line]) => {
       const iso = new Date(Number(BigInt(ns) / 1_000_000n)).toISOString();
+      // VictoriaMetrics puts the error after the requestURI, so a long line
+      // keeps both ends.
+      const half = MAX_LOG_LINE_CHARS / 2;
       const text =
         line.length > MAX_LOG_LINE_CHARS
-          ? `${line.slice(0, MAX_LOG_LINE_CHARS)}[...]`
+          ? `${line.slice(0, half)}[...]${line.slice(-half)}`
           : line;
       return `${iso} ${text}`;
     });
@@ -310,6 +313,16 @@ function formatQueryResult(data: { resultType: string; result: any }): string {
     default:
       return JSON.stringify(data.result);
   }
+}
+
+// Loki answers a selector that matches no stream exactly as it answers a real
+// zero, and a unit regex without its suffix is the usual way to write one.
+const NO_STREAM_HINT =
+  '\nA selector that matches no stream returns this too. Unit values carry their suffix, such as sonarr.service, and a regex matcher must match the whole value: unit=~"(sonarr|radarr).service", not unit=~"sonarr|radarr".';
+
+function formatLokiResult(data: { resultType: string; result: any }): string {
+  const text = formatQueryResult(data);
+  return data.result.length === 0 ? text + NO_STREAM_HINT : text;
 }
 
 function median(sorted: number[]): number {
@@ -583,7 +596,7 @@ export default function (pi: ExtensionAPI) {
           { query: params.query, time: toNs(time) },
           signal,
         );
-        return result(formatQueryResult(json.data));
+        return result(formatLokiResult(json.data));
       }
       const { start: from, end, step } = parseRange({ ...params, start });
       const json = await get(
@@ -599,7 +612,7 @@ export default function (pi: ExtensionAPI) {
         },
         signal,
       );
-      return result(formatQueryResult(json.data));
+      return result(formatLokiResult(json.data));
     },
   });
 
@@ -653,8 +666,13 @@ export default function (pi: ExtensionAPI) {
           "baseline needs a metric query such as count_over_time({...} [1d]), not a log selector.",
         );
       }
+      const text = formatBaseline(
+        json.data.result,
+        times,
+        logs ? 0 : undefined,
+      );
       return result(
-        formatBaseline(json.data.result, times, logs ? 0 : undefined),
+        logs && json.data.result.length === 0 ? text + NO_STREAM_HINT : text,
       );
     },
   });
@@ -734,7 +752,7 @@ export default function (pi: ExtensionAPI) {
     name: "alerts",
     label: "Alerts",
     description:
-      "List the alerts Alertmanager holds now, with labels, summary and start time, then every alert rule that fired in the last 24h with when it last fired. Silenced and inhibited alerts are marked.",
+      "List the alerts Alertmanager holds now, with labels, summary and when each became active, then every alert rule that fired in the last 24h with the first and last time it was seen firing. Silenced and inhibited alerts are marked.",
     promptSnippet: "List current and recent alerts",
     parameters: Type.Object({}),
     async execute(_id, _params, signal) {
@@ -744,29 +762,54 @@ export default function (pi: ExtensionAPI) {
         { active: "true" },
         signal,
       );
+      // Alertmanager's startsAt resets whenever Alertmanager restarts, as on
+      // every deploy. vmalert restores its activeAt from VictoriaMetrics, so
+      // for every alert vmalert raised that is the real start.
+      const raised = await get(VMALERT, "/api/v1/alerts", {}, signal);
+      const activeAt = new Map<string, string>(
+        (raised.data?.alerts ?? []).map((a: any) => [
+          formatLabels(a.labels),
+          a.activeAt,
+        ]),
+      );
       const lines = alerts.map((a) => {
         const state = a.status?.state ?? "unknown";
         const summary = a.annotations?.summary ?? "";
-        return `${a.startsAt} ${state} ${formatLabels(a.labels)} ${summary}`;
+        const since = activeAt.get(formatLabels(a.labels));
+        const start = since
+          ? `active since ${since}`
+          : `Alertmanager startsAt ${a.startsAt}`;
+        return `${start} ${state} ${formatLabels(a.labels)} ${summary}`;
       });
       // Alertmanager drops an alert once it resolves, and a deploy restart
       // drops them all, so a sweep hours later would miss the night's alerts.
       // vmalert writes ALERTS to VictoriaMetrics, which keeps them. The
       // upssched and watchdog pushes go to Alertmanager only.
-      const fired = await get(
-        VM,
-        "/api/v1/query",
-        { query: 'tlast_over_time(ALERTS{alertstate="firing"}[24h])' },
-        signal,
+      const [first, last] = await Promise.all(
+        ["tfirst_over_time", "tlast_over_time"].map((fn) =>
+          get(
+            VM,
+            "/api/v1/query",
+            { query: `${fn}(ALERTS{alertstate="firing"}[24h])` },
+            signal,
+          ),
+        ),
       );
-      const past = (fired.data?.result ?? []).map((s: any) => {
+      const seen = (s: any): [string, string] => {
         const { alertstate: _, ...labels } = s.metric;
-        const last = new Date(Number(s.value[1]) * 1000).toISOString();
-        return `${last} ${formatLabels(labels)}`;
+        return [
+          formatLabels(labels),
+          new Date(Number(s.value[1]) * 1000).toISOString(),
+        ];
+      };
+      const firstSeen = new Map((first.data?.result ?? []).map(seen));
+      const past = (last.data?.result ?? []).map((s: any) => {
+        const [key, at] = seen(s);
+        return `${firstSeen.get(key) ?? "?"}..${at} ${key}`;
       });
       return result(
         `${alerts.length} alerts now\n${lines.join("\n")}\n\n` +
-          `${past.length} alert rules fired in the last 24h (time last seen firing; vmalert rules only)\n${past.join("\n")}`,
+          `${past.length} alert rules fired in the last 24h (first..last time seen firing in that window, which can span several episodes; vmalert rules only)\n${past.join("\n")}`,
       );
     },
   });
