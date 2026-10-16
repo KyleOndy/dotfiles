@@ -40,7 +40,15 @@ in
             mods = "Command";
             action = "None";
           }
-        ];
+        ]
+        # tmux requests modified keys with modifyOtherKeys, which alacritty does
+        # not implement. tmux forwards this CSI-u only to panes that asked for
+        # extended keys and sends the rest a plain CR, so it is safe behind tmux.
+        ++ optional config.hmFoundry.terminal.tmux.enable {
+          key = "Enter";
+          mods = "Shift";
+          chars = builtins.fromJSON ''"\u001b[13;2u"'';
+        };
         window = {
           option_as_alt = "OnlyLeft"; # Left Option = Meta, right Option = normal (matches iTerm2)
           decorations = "Buttonless"; # Remove window buttons but keep draggable title bar

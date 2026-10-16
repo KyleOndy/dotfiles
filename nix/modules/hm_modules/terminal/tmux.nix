@@ -116,12 +116,12 @@ in
         # allow programs to emit terminal-specific escape sequences through tmux
         set -g allow-passthrough on
 
-        # forward CSI-u modified-key sequences (Shift+Enter etc.) to inner TUIs
-        # alacritty 0.14+ supports the kitty keyboard protocol and emits CSI-u
-        # pi (and most modern TUIs) parse csi-u, not the tmux-default xterm format
+        # forward modified keys (Shift+Enter etc.) to panes that ask for them.
+        # alacritty.nix sends Shift+Enter as CSI-u itself, since alacritty
+        # ignores the modifyOtherKeys request tmux makes of the outer terminal.
+        # pi parses csi-u, not the tmux-default xterm format.
         set -g extended-keys on
         set -g extended-keys-format csi-u
-        set -as terminal-features 'alacritty*:extkeys'
 
         # Advertise truecolor so 24-bit color (e.g. the Claude Code statusline)
         # passes through tmux unmodified and renders identically on every
