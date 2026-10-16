@@ -158,6 +158,22 @@ resource "aws_route53_record" "ondy_me_txt" {
   records = ["v=spf1 include:mxroute.com -all"]
 }
 
+resource "aws_route53_record" "ondy_me_dkim" {
+  zone_id = aws_route53_zone.ondy_me.zone_id
+  name    = "x._domainkey.ondy.me"
+  type    = "TXT"
+  ttl     = "3600"
+  records = ["v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7k8++Jy/ABf1wKxSfB2wN3pWI8cdAi5R4f7I6whqZBfPXonPy5xqZagkfvIWPZli6CLvO92MbUQgn42SqWXV1WKx7FWziF2pD9VxjQvTVu/au8WmiKk/QAvA/Eqhcl1yEfDwbzH6rM8RUOBmDwIiwuttqHhKFMPC8b0S7edMYpekqDVTEy/MuU3vzjwTzgByT\"\"1aDH0A1YCUpFnch23+nekLaP8iqXzPtqJhVYs0Lh6xSDcnlc8ar4ktHjgwqRI4FwKs0PswBaqp0zOuZclzNScLqLSfEVqqCQlU4qcO9x8lybW/9DpJ/OqZUDjdV4bOxGISAcnZcumWxM3GLI64kdwIDAQAB"]
+}
+
+resource "aws_route53_record" "ondy_me_dmarc" {
+  zone_id = aws_route53_zone.ondy_me.zone_id
+  name    = "_dmarc.ondy.me"
+  type    = "TXT"
+  ttl     = "3600"
+  records = ["v=DMARC1; p=reject; rua=mailto:kyle@ondy.me"]
+}
+
 output "ondy_me_nameservers" {
   value = aws_route53_zone.ondy_me.name_servers
 }
