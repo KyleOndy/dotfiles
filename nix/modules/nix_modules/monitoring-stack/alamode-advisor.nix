@@ -164,9 +164,13 @@ let
           continue
         fi
 
+        # The name carries alert labels, which can hold anything, so the ID
+        # hashes it rather than quoting it.
+        msgid="$(printf %s "$name" | sha256sum | cut -c 1-32)@${config.networking.hostName}"
+
         if ! {
-          printf 'From: %s\nTo: %s\nSubject: [alamode-advisor] %s\nDate: %s\n' \
-            "${smtp.from}" "${concatStringsSep ", " smtp.to}" "$subject" "$(date -R)"
+          printf 'From: %s\nTo: %s\nSubject: [alamode-advisor] %s\nDate: %s\nMessage-ID: <%s>\n' \
+            "${smtp.from}" "${concatStringsSep ", " smtp.to}" "$subject" "$(date -R)" "$msgid"
           printf 'MIME-Version: 1.0\nContent-Type: multipart/alternative; boundary="%s"\n\n' "$BOUNDARY"
           # A client shows the last part it can display (RFC 2046, section
           # 5.1.4), so the Markdown stays for anything that cannot render HTML.
