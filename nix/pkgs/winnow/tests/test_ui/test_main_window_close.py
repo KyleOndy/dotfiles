@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+import pytest
 from PySide6.QtWidgets import QMessageBox
 
 import winnow.core.session as session_module
@@ -37,6 +38,19 @@ def _fail_deleting(monkeypatch, doomed):
             return original_unlink(self, *args, **kwargs)
 
         monkeypatch.setattr(Path, "unlink", mock_unlink)
+
+
+def _on_filesystem(monkeypatch, fs_type):
+    """Make every path report `fs_type`, as QStorageInfo would for its volume."""
+
+    class FakeStorageInfo:
+        def __init__(self, path):
+            pass
+
+        def fileSystemType(self):  # noqa: N802
+            return fs_type.encode()
+
+    monkeypatch.setattr(session_module, "QStorageInfo", FakeStorageInfo)
 
 
 # Session.delete_marked_files() tests
@@ -351,6 +365,34 @@ def test_delete_marked_files_unlinks_on_non_darwin(tmp_path, monkeypatch):
     assert not photo.exists()  # permanently unlinked instead
 
 
+def test_delete_marked_files_unlinks_on_darwin_network_volume(tmp_path, monkeypatch):
+    """Test delete_marked_files unlinks on a macOS network volume, where
+    send2trash cannot reach a Trash."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    raw = test_dir / "photo.RAF"
+    photo.touch()
+    raw.touch()
+
+    from winnow.core.session import Session
+
+    session = Session(directory=test_dir, images=[photo])
+    session.set_status(photo, PhotoStatus.DELETE)
+
+    trashed = []
+    monkeypatch.setattr(session_module, "send2trash", trashed.append)
+    monkeypatch.setattr(sys, "platform", "darwin")
+    _on_filesystem(monkeypatch, "smbfs")
+
+    failed = session.delete_marked_files()
+
+    assert failed == []
+    assert trashed == []
+    assert not photo.exists()
+    assert not raw.exists()
+
+
 def test_delete_marked_files_trash_failure_recorded(tmp_path, monkeypatch):
     """Test a send2trash failure on darwin is added to the failed list."""
     test_dir = tmp_path / "photos"
@@ -445,6 +487,44 @@ def test_close_event_with_deletes_shows_dialog(qapp, tmp_path, monkeypatch):
     assert "Confirm Quit" in args
     assert "2 deletes marked" in args[2]
     assert "Discard quits without deleting" in args[2]
+
+
+@pytest.mark.parametrize(
+    ("fs_type", "wording"),
+    [
+        ("apfs", "Yes moves the marked photos to the Trash"),
+        ("smbfs", "Yes permanently deletes the marked photos"),
+    ],
+)
+def test_close_event_names_where_deletes_go(
+    qapp, tmp_path, monkeypatch, fs_type, wording
+):
+    """Test the quit dialog says whether Yes trashes or permanently deletes."""
+    test_dir = tmp_path / "photos"
+    test_dir.mkdir()
+    photo = test_dir / "photo.jpg"
+    photo.touch()
+
+    window = MainWindow(test_dir)
+    window.session.set_status(photo, PhotoStatus.DELETE)
+
+    monkeypatch.setattr(sys, "platform", "darwin")
+    _on_filesystem(monkeypatch, fs_type)
+
+    messages = []
+
+    def mock_question(*args, **kwargs):
+        messages.append(args[2])
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", mock_question)
+
+    from PySide6.QtGui import QCloseEvent
+
+    window.closeEvent(QCloseEvent())
+
+    assert len(messages) == 1
+    assert wording in messages[0]
 
 
 def test_close_event_with_raw_siblings_shows_count(qapp, tmp_path, monkeypatch):

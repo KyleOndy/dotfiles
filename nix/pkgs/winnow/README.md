@@ -16,6 +16,11 @@ cache, nothing persisted between runs. Deletion is two-phase: mark in-app
 whole cull pass. Deleting a JPEG also deletes its `.RAF` sibling (same stem,
 either case), and the quit dialog counts those.
 
+On macOS, deleted files go to the Trash, except on a network volume (SMB,
+NFS, AFP, WebDAV), where send2trash cannot reach a Trash and files are
+unlinked permanently. The quit dialog says which one Yes will do. On Linux,
+deletion is always permanent.
+
 Linux and macOS, JPEG only (`.jpg`/`.jpeg` in the top level of the directory,
 not subdirectories). A few hundred photos per directory is the sweet spot;
 comparisons top out around 5 photos before things degrade.
@@ -80,7 +85,7 @@ ruff format .
 ```
 
 Run pytest on the platform you are changing. Deletion routes through
-send2trash on macOS and `Path.unlink` elsewhere, Qt's Ctrl/Cmd swap is
-disabled only on macOS, and APFS is case-insensitive by default, so a
-green suite on one platform says nothing about the other. Two tests skip
-themselves on a case-insensitive filesystem.
+send2trash on a local macOS volume and `Path.unlink` elsewhere, Qt's
+Ctrl/Cmd swap is disabled only on macOS, and APFS is case-insensitive by
+default, so a green suite on one platform says nothing about the other.
+Two tests skip themselves on a case-insensitive filesystem.

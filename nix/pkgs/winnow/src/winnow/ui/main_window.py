@@ -212,11 +212,16 @@ class MainWindow(QMainWindow):
                 if raw_count > 0
                 else f"{delete_count} deletes"
             )
+            delete_action = (
+                "moves the marked photos to the Trash"
+                if self.session.uses_trash()
+                else "permanently deletes the marked photos"
+            )
             reply = QMessageBox.question(
                 self,
                 "Confirm Quit",
                 f"{keeper_count} keepers, {delete_text} marked. "
-                "Yes deletes the marked photos and quits; Discard quits "
+                f"Yes {delete_action} and quits; Discard quits "
                 "without deleting anything; other marks are lost either way.",
                 QMessageBox.StandardButton.Yes
                 | QMessageBox.StandardButton.Discard

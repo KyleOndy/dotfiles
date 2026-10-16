@@ -9,10 +9,14 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from PySide6.QtCore import QStorageInfo
 from PySide6.QtGui import QPixmap
 from send2trash import send2trash
 
 from winnow.core.image_cache import ImageCache
+
+# macOS network filesystem types, as statfs(2) reports them in f_fstypename.
+NETWORK_FILESYSTEMS = frozenset({"smbfs", "nfs", "afpfs", "webdav"})
 
 # RAW extensions whose sibling file should be deleted alongside a JPEG.
 # Fuji writes uppercase .RAF; both cases are checked since some filesystems
@@ -167,6 +171,23 @@ class Session:
         """
         return len(self.deletes)
 
+    def uses_trash(self) -> bool:
+        """Whether deleting sends files to the Trash rather than unlinking them.
+
+        Only on macOS, and only off a network volume. send2trash's ctypes
+        backend cannot find a Trash on one (smbfs raises "Directory not
+        found"), so a cull there would delete nothing. Files on a network
+        volume are unlinked instead, and recovery is whatever the server
+        keeps.
+
+        Returns:
+            True if delete_marked_files() will use send2trash.
+        """
+        if sys.platform != "darwin":
+            return False
+        fs_type = bytes(QStorageInfo(str(self.directory)).fileSystemType()).decode()
+        return fs_type not in NETWORK_FILESYSTEMS
+
     def delete_marked_files(self) -> list[Path]:
         """Delete all files marked for deletion, along with any RAW siblings.
 
@@ -177,19 +198,20 @@ class Session:
         reported as failed too, so a surviving JPEG never loses its RAW. The
         session state is not modified.
 
-        On macOS, files are sent to the Trash (recoverable from Finder)
-        instead of being permanently removed, since that's the platform's
-        native expectation. Elsewhere, files are unlinked permanently.
+        Where uses_trash() holds, files are sent to the Trash (recoverable
+        from Finder), since that's the platform's native expectation.
+        Elsewhere, files are unlinked permanently.
 
         Returns:
             List of paths that failed to delete (empty if all succeeded).
         """
+        trash = self.uses_trash()
         failed = []
         for path in self.deletes:
             siblings = raw_siblings(path)
             for target in (path, *siblings):
                 try:
-                    if sys.platform == "darwin":
+                    if trash:
                         send2trash(target)
                     else:
                         target.unlink()
