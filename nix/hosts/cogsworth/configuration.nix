@@ -869,6 +869,9 @@ in
     # --touch-slop-distance is how far (px) a finger can drift before a tap
     # becomes a scroll; Chromium's Linux default is 15. FilteringScrollPrediction
     # smooths noisy touch scroll input; Chromium only enables it on Android.
+    # PreferCompositingToLCDText composites scrollers whose background isn't
+    # opaque; at DPR 1 Linux Chromium otherwise repaints them on every scroll
+    # frame to keep LCD text, which this fontconfig (rgba none) never draws.
     exec ${pkgs.chromium}/bin/chromium \
       --kiosk \
       --no-first-run \
@@ -883,7 +886,7 @@ in
       --ignore-gpu-blocklist \
       --enable-gpu-rasterization \
       --enable-zero-copy \
-      "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder,FilteringScrollPrediction" \
+      "--enable-features=VaapiVideoDecoder,AcceleratedVideoDecoder,FilteringScrollPrediction,PreferCompositingToLCDText" \
       "--disable-features=SkiaGraphite,UseChromeOSDirectVideoDecoder,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation,OptimizationGuideModelDownloading,OptimizationHints,OnDeviceModel" \
       "--js-flags=--max-old-space-size=256" \
       --process-per-site \
