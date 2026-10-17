@@ -38,6 +38,7 @@ in
   linear-cli = super.callPackage ./linear-cli { };
   my-scripts = super.callPackage ./my-scripts { };
   notification-bell = super.callPackage ./notification-bell { };
+  pagerduty = super.callPackage ./pagerduty { };
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
   pika-console = super.callPackage ./pika-console { };

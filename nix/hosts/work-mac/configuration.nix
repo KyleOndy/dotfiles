@@ -49,6 +49,10 @@ in
     # Refuses commits and pushes naming a private model id; `leak-guard
     # install` hooks it into a clone.
     (pkgs.leak-guard.override { keyCommand = mcloudKeyCommand; })
+    # Lists open PagerDuty incidents; `pagerduty get` reads anything else.
+    (pkgs.pagerduty.override {
+      tokenCommand = "/usr/bin/security find-generic-password -s work-secrets -a pagerduty -w";
+    })
   ];
 
   # The catalog and seats (alamode's modelsJsonFile and seatsFile), secrets
