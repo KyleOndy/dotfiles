@@ -1644,6 +1644,18 @@ in
                 summary: "Cogsworth mail {{ $labels.event }} in the last hour"
                 description: "agent-failed has already mailed the sender an apology and is never retried. reply-failed means the sender got nothing back. An ingest-failed message stays unclaimed and fails again on every poll until it ages out of the 2-day lookback, so this keeps firing until it is fixed. Run `journalctl -u cogsworth -g '{{ $labels.event }}'` on cogsworth for the exception."
 
+            # A failed receipt stays failed until someone re-parses it after a
+            # parser fix or dismisses it, so this fires until then. Its lines
+            # are missing from the price history the sale verdicts use.
+            - alert: CogsworthReceiptFailed
+              expr: cogsworth_receipts_failed{host="cogsworth"} > 0
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth has {{ $value }} receipt(s) it could not parse"
+                description: "The receipt parser is strict: any line it doesn't recognize, or totals that don't add up, fails the whole receipt. /manage/receipts on cogsworth shows each failure's reason. A store format change needs a parser fix and then Re-parse all; a receipt that will never parse can be dismissed. `journalctl -u cogsworth -g receipts` has the log."
+
             # display-loop retries every 250 ms and still records success, so
             # CogsworthJobStalled misses a stuck panel. sway 1.12 on vc4 fails
             # one power-on per wake, so the worst 5m rate in 14 days was
