@@ -14,7 +14,7 @@ instead.
 - pika: x86_64 NixOS, an ODROID-H2 holding the second backup copy. It pulls
   from tiger; tiger cannot reach it.
 - cogsworth: aarch64 NixOS on a Raspberry Pi 5, a kiosk display that also runs
-  birdnet-go.
+  birdnet-go. The Pi 5 throttles its Arm cores progressively from 80 °C.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
   gaps in its data are expected and not a finding on their own. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
@@ -48,6 +48,13 @@ host. Suggesting a command Kyle could run to look closer is fine.
   does, and look for real pressure in
   `rate(node_pressure_memory_waiting_seconds_total[5m])`. Low `MemAvailable`
   alone is not a finding.
+- tiger's `storage` pool is one raidz1 vdev of three disks, `scratch` is a
+  single NVMe, and pika's `tank` is a two-disk mirror. The `vdev` label of
+  `zfs_vdev_errors` lists each pool's disks. A numeric `vdev` is a disk ZFS
+  can no longer find by path, as in a `replacing` group mid-swap, and a
+  `vdev_remove` of an UNAVAIL disk at `resilver_finish` is a `zpool replace`
+  completing. Name a disk by its `serial`: `sdX` and `ataN` change between
+  boots.
 - Discover before guessing: list metric names with `metric_labels` and label
   values with `log_labels` rather than assuming a name exists.
 - Deploys restart every unit they change. `system_activation_timestamp_seconds`
@@ -58,6 +65,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
   systemd makes after a unit dies; a process that restarted while it stayed
   flat was stopped and started on purpose. Before calling a restart, a burst
   of 5xx or a unit gone quiet a fault, check whether a deploy lines up.
+- Read a failed unit's own last lines before naming a cause. Exit status 143
+  is SIGTERM (128 + 15): systemd or a person stopped it. A failure that comes
+  before a deploy or reboot was not caused by it.
 - Apps behind Caddy (Navidrome, Jellyfin, Immich, the arrs) log every client
   as 127.0.0.1. Name the client behind an app's log line only from the Caddy
   access line in the same second, matched on path and user (Subsonic clients

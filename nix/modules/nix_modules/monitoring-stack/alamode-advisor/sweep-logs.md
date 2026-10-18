@@ -21,7 +21,8 @@ outside that range, and say how far.
    "TimeoutException".
 
    Run it again with `offset 7d`, to find units that are new to the list or
-   went quiet when they normally log. Run `baseline` on each unit whose count
+   went quiet when they normally log. Keep the two lists apart: a count from
+   the offset run is a week old, never today's. Run `baseline` on each unit whose count
    looks high, one unit at a time. A unit that went quiet is a finding only
    if it stopped running
    (`node_systemd_unit_state{host="<host>",name="<unit>",state="active"}`

@@ -9,7 +9,9 @@ failure) needs only the last 24 hours. Judge whether something changed with
 day, which can itself be high or low. Report a change only when today falls
 outside that range, and say how far: today against the median and the range's
 nearest edge. Fit a trend toward a limit with `predict_linear` over `[7d]`,
-and say which window you used.
+and only over the part after the window's last step (a restart, a deploy, a
+dip and its rebound): a line across a step invents a trend. Say which window
+you used.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
    firing, what fired in the last 24h, and what is already watched.
