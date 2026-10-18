@@ -319,5 +319,12 @@ in
         };
       }) (lib.filesystem.listFilesRecursive ./dashboards)
     );
+
+    # The plugin installer resolves grafana.com within seconds of start, and
+    # network.target comes before tiger's DHCP lease and DNS.
+    systemd.services.grafana = {
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+    };
   };
 }
