@@ -77,7 +77,9 @@ Out of scope, deliberately:
 - **tiger's root disk.** jellyfin, navidrome, sabnzbd, prowlarr, the
   \*arrs, and the monitoring stack are all rebuildable from the flake.
 - **`storage/scratch-big`, `scratch/scratch`, `storage/data`.** Scratch is
-  scratch, and `storage/data` is empty.
+  scratch. `storage/data` holds a disposable 111G copy of an old home
+  directory, and anything saved through the `tiger-data` share lands there
+  with no second copy.
 - **Ingest.** Google Photos handles phone capture. Camera cards reach the
   library through `backup-photos` and `photos-promote`, run by hand.
 
@@ -286,8 +288,8 @@ it.
 
 The unsnapshotted datasets are a decision, recorded here so it reads as
 one: `storage/media` and `storage/scratch-big` are replaceable,
-`storage/data` is empty, `scratch/scratch` is scratch, and losing
-`storage/immich` is a risk we accept.
+`storage/data` holds nothing worth a copy, `scratch/scratch` is scratch,
+and losing `storage/immich` is a risk we accept.
 
 The pools were created by hand and are not declared in Nix. The `disko`
 input was removed in `e94efb4e`, so this stays manual, and any new dataset
