@@ -501,8 +501,10 @@ in
     }
   '';
 
-  # CPU always at max frequency when awake (app dynamically switches to powersave on screen off)
-  powerManagement.cpuFreqGovernor = "performance";
+  # performance pins all four cores at 2.4 GHz, and with birdnet-go's constant
+  # inference that reaches the Pi 5's 80 °C throttle point on warm evenings.
+  # schedutil's floor is 1.5 GHz.
+  powerManagement.cpuFreqGovernor = "schedutil";
 
   # Rotate framebuffer console to match physical display orientation (90° clockwise)
   boot.kernelParams = [
@@ -628,15 +630,6 @@ in
 
   # kyle: restart cogsworth services without password (for make deploy)
   security.sudo.extraRules = [
-    {
-      users = [ "cogsworth" ];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/cogsworth-set-governor";
-          options = [ "NOPASSWD" ];
-        }
-      ];
-    }
     {
       users = [ "kyle" ];
       commands = [
@@ -1200,17 +1193,6 @@ in
     alsa-utils # ALSA utilities (aplay, arecord, amixer, etc.)
     i2c-tools
     python3
-    (writeShellScriptBin "cogsworth-set-governor" ''
-      set -euo pipefail
-      GOVERNOR="''${1:?Usage: cogsworth-set-governor <performance|powersave>}"
-      case "$GOVERNOR" in
-        performance|powersave|ondemand) ;;
-        *) echo "Invalid governor: $GOVERNOR" >&2; exit 1 ;;
-      esac
-      for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        echo "$GOVERNOR" > "$cpu"
-      done
-    '')
     (writeShellScriptBin "edit-pi-config" ''
       set -euo pipefail
 
