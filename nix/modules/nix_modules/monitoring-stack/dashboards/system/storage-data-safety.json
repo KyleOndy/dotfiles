@@ -48,12 +48,6 @@
           "expr": "time() - (windows_backup_last_success_timestamp_seconds > 0)",
           "legendFormat": "windows {{machine}} (success)",
           "instant": true
-        },
-        {
-          "refId": "E",
-          "expr": "time() - windows_backup_target_mtime_seconds",
-          "legendFormat": "windows {{machine}} (target written)",
-          "instant": true
         }
       ],
       "options": {
@@ -184,11 +178,6 @@
           "refId": "C",
           "expr": "time() - (windows_backup_last_success_timestamp_seconds > 0)",
           "legendFormat": "windows {{machine}} (success)"
-        },
-        {
-          "refId": "D",
-          "expr": "time() - windows_backup_target_mtime_seconds",
-          "legendFormat": "windows {{machine}} (target written)"
         }
       ],
       "fieldConfig": {
