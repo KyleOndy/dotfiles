@@ -595,6 +595,9 @@ in
     LOG_LEVEL = "DEBUG";
   };
 
+  # The JVM exits 143 (128 + SIGTERM) when systemd stops it.
+  systemd.services.cogsworth.serviceConfig.SuccessExitStatus = "143";
+
   # Caddy reverse proxy: LAN HTTP access to cogsworth on port 80.
   # Using ":80" (not a hostname) disables Caddy's auto-HTTPS so no ACME/cert logic runs.
   # The backend binds :8080 on every interface; the firewall keeps it off the LAN.
