@@ -815,17 +815,21 @@ in
       "/mnt/media/tv"
       "/mnt/media/movies"
     ];
+    serviceConfig.LoadCredential = "api-key:${config.sops.secrets.bazarr_api_key.path}";
     unitConfig.RequiresMountsFor = [ "/mnt/media" ];
   };
 
   # nixpkgs has no option for bazarr's auth. Unset, its index page serves the
   # API key to anyone. auth.password holds the md5 hex, not the password.
+  # auth.apikey comes from the same sops secret exportarr reads, so rotating
+  # it in sops reaches both.
   systemd.services.bazarr.preStart = ''
     conf=${config.services.bazarr.dataDir}/config/config.yaml
     if [ -f "$conf" ]; then
       PW=$(tr -d '\n' < ${config.sops.secrets.bazarr_ui_password.path} | ${pkgs.coreutils}/bin/md5sum | cut -d' ' -f1) \
+        KEY=$(tr -d '\n' < "$CREDENTIALS_DIRECTORY/api-key") \
         ${pkgs.yq-go}/bin/yq -i \
-        '.auth.type = "form" | .auth.username = "kyle" | .auth.password = strenv(PW) | .general.ip = "127.0.0.1"' "$conf"
+        '.auth.type = "form" | .auth.username = "kyle" | .auth.password = strenv(PW) | .auth.apikey = strenv(KEY) | .general.ip = "127.0.0.1"' "$conf"
     fi
   '';
 
@@ -2373,7 +2377,14 @@ in
     radarr_api_key.mode = "0400";
     lidarr_api_key.mode = "0400";
     prowlarr_api_key.mode = "0400";
-    bazarr_api_key.mode = "0400";
+    bazarr_api_key = {
+      mode = "0400";
+      # Each unit holds a LoadCredential copy taken at its start.
+      restartUnits = [
+        "bazarr.service"
+        "exportarr-bazarr.service"
+      ];
+    };
     sabnzbd_api_key.mode = "0400";
     udm_backup_ssh_key.mode = "0400";
     # alamode's catalog and seats, and alamode-advisor's Kagi key, read
