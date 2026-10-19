@@ -11,7 +11,10 @@ outside that range, and say how far: today against the median and the range's
 nearest edge. Fit a trend toward a limit with `predict_linear` over `[7d]`,
 and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
-you used.
+you used. A series that a periodic job cuts back, such as a root filesystem
+at the weekly nix-gc, climbs between runs: compare its peaks across runs,
+not the slope inside one. Call a trend steady only from each series' own
+values, never from an aggregate across them.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
    firing, what fired in the last 24h, and what is already watched.

@@ -624,6 +624,7 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: [
       "Use baseline before calling anything a jump, a drop or unusual. One earlier day, such as offset 7d, can itself be high or low; the range of the prior days is the comparison.",
       'For logql, narrow to one unit or one line, e.g. count_over_time({unit="sonarr.service"} |= "database is locked" [1d]). The whole journal over 14 days outruns Loki\'s one-minute query timeout.',
+      "To compare peaks, query max_over_time(x[1d]). The highest daily average is not the highest sample, so it is no prior max.",
     ],
     parameters: Type.Object({
       language: Type.Union([Type.Literal("promql"), Type.Literal("logql")], {
@@ -752,7 +753,7 @@ export default function (pi: ExtensionAPI) {
     name: "alerts",
     label: "Alerts",
     description:
-      "List the alerts Alertmanager holds now, with labels, summary and when each became active, then every alert rule that fired in the last 24h with the first and last time it was seen firing. Silenced and inhibited alerts are marked.",
+      "List the alerts Alertmanager holds now, with labels, summary and when each went pending, then the vmalert alerts still pending (condition true, rule's for: not yet met), then every alert rule that fired in the last 24h with the first and last time it was seen firing. Silenced and inhibited alerts are marked.",
     promptSnippet: "List current and recent alerts",
     parameters: Type.Object({}),
     async execute(_id, _params, signal) {
@@ -764,23 +765,31 @@ export default function (pi: ExtensionAPI) {
       );
       // Alertmanager's startsAt resets whenever Alertmanager restarts, as on
       // every deploy. vmalert restores its activeAt from VictoriaMetrics, so
-      // for every alert vmalert raised that is the real start.
-      const raised = await get(VMALERT, "/api/v1/alerts", {}, signal);
+      // for every alert vmalert raised it survives restarts. activeAt is when
+      // the condition first held: the alert went pending then and fired its
+      // rule's for: later.
+      const raised: any[] =
+        (await get(VMALERT, "/api/v1/alerts", {}, signal)).data?.alerts ?? [];
       const activeAt = new Map<string, string>(
-        (raised.data?.alerts ?? []).map((a: any) => [
-          formatLabels(a.labels),
-          a.activeAt,
-        ]),
+        raised.map((a) => [formatLabels(a.labels), a.activeAt]),
       );
       const lines = alerts.map((a) => {
         const state = a.status?.state ?? "unknown";
         const summary = a.annotations?.summary ?? "";
         const since = activeAt.get(formatLabels(a.labels));
         const start = since
-          ? `active since ${since}`
+          ? `pending since ${since}`
           : `Alertmanager startsAt ${a.startsAt}`;
         return `${start} ${state} ${formatLabels(a.labels)} ${summary}`;
       });
+      // Alertmanager never sees a pending alert, so a rule that will fire
+      // tomorrow is visible only here.
+      const pending = raised
+        .filter((a) => a.state === "pending")
+        .map(
+          (a) =>
+            `pending since ${a.activeAt} value=${a.value} ${formatLabels(a.labels)} ${a.annotations?.summary ?? ""}`,
+        );
       // Alertmanager drops an alert once it resolves, and a deploy restart
       // drops them all, so a sweep hours later would miss the night's alerts.
       // vmalert writes ALERTS to VictoriaMetrics, which keeps them. The
@@ -809,6 +818,7 @@ export default function (pi: ExtensionAPI) {
       });
       return result(
         `${alerts.length} alerts now\n${lines.join("\n")}\n\n` +
+          `${pending.length} alerts pending in vmalert (condition true, rule's for: not yet met)\n${pending.join("\n")}\n\n` +
           `${past.length} alert rules fired in the last 24h (first..last time seen firing in that window, which can span several episodes; vmalert rules only)\n${past.join("\n")}`,
       );
     },

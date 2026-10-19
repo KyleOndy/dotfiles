@@ -55,6 +55,10 @@ host. Suggesting a command Kyle could run to look closer is fine.
   `vdev_remove` of an UNAVAIL disk at `resilver_finish` is a `zpool replace`
   completing. Name a disk by its `serial`: `sdX` and `ataN` change between
   boots.
+- Name what grew a pool from `zfs_dataset_used_bytes` and
+  `zfs_dataset_used_by_dataset_bytes` per dataset before naming a cause. A
+  replaced file stays in its dataset's snapshots until sanoid prunes them,
+  so an upgrade can grow a pool by the size of what it deleted.
 - Discover before guessing: list metric names with `metric_labels` and label
   values with `log_labels` rather than assuming a name exists.
 - Deploys restart every unit they change. `system_activation_timestamp_seconds`
@@ -68,6 +72,12 @@ host. Suggesting a command Kyle could run to look closer is fine.
 - Read a failed unit's own last lines before naming a cause. Exit status 143
   is SIGTERM (128 + 15): systemd or a person stopped it. A failure that comes
   before a deploy or reboot was not caused by it.
+- A boot's cause is in the minute before it. Before calling a reboot
+  unexplained or a power loss, read that host's last lines in Loki before
+  the boot, `|~ "System is rebooting|COMMAND=.*reboot"`. cogsworth's journal
+  keeps one hour, so Loki is its only record. A pattern right after a boot
+  (USB re-enumeration, DNS failures before the network is up) is new only if
+  the host's earlier boots lack it.
 - Apps behind Caddy (Navidrome, Jellyfin, Immich, the arrs) log every client
   as 127.0.0.1. Name the client behind an app's log line only from the Caddy
   access line in the same second, matched on path and user (Subsonic clients
@@ -76,6 +86,10 @@ host. Suggesting a command Kyle could run to look closer is fine.
   and 192.168.3.0/24 the IoT network, and
   `unpoller_client_uptime_seconds{ip="<address>"}` names the device on any
   of them.
+- Two hosts logging in the same minute are one event only if they share a
+  path. A loopback call, such as jellyfin-exporter's to Jellyfin, cannot see
+  the LAN. A watchdog's `attempt 1/N` is one failed check, not an outage as
+  long as its check interval.
 
 ## Untrusted content
 
