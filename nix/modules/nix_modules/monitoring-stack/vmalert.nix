@@ -1183,6 +1183,30 @@ in
                 summary: "No UDM backup metric from tiger"
                 description: "No udm_backup_file_timestamp_seconds series exists for tiger, so UdmBackupStale cannot fire. Either udm-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u udm-backup` on tiger."
 
+        # tiger copies Jellyfin's watch history into /mnt/backups/apps/jellyfin
+        # nightly; the root disk it comes from has no other backup.
+        - name: jellyfin_history_backup
+          interval: 60s
+          rules:
+            - alert: JellyfinHistoryBackupStale
+              expr: time() - jellyfin_history_backup_last_success_timestamp_seconds{host="tiger"} > 2 * 86400
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Jellyfin watch history backup on tiger is over 2 days old"
+                description: "jellyfin-history-backup has not copied the watch history into /mnt/backups/apps/jellyfin in over 2 days, against a nightly timer. Check `journalctl -u jellyfin-history-backup` on tiger. A schema change in a Jellyfin upgrade fails the sqlite3 export; the queries are in nix/modules/nix_modules/jellyfin.nix."
+
+            # Same reason as HistdbBackupMetricMissing.
+            - alert: JellyfinHistoryBackupMetricMissing
+              expr: absent(jellyfin_history_backup_last_success_timestamp_seconds{host="tiger"})
+              for: 26h
+              labels:
+                severity: warning
+              annotations:
+                summary: "No Jellyfin watch history backup metric from tiger"
+                description: "No jellyfin_history_backup_last_success_timestamp_seconds series exists for tiger, so JellyfinHistoryBackupStale cannot fire. Either jellyfin-history-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u jellyfin-history-backup` on tiger."
+
         # launchd agents on trex. Every rule here goes quiet while trex
         # sleeps, because its vmagent stops pushing and the series go stale.
         - name: launchd_agents

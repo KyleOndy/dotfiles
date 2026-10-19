@@ -174,6 +174,18 @@ in
       '';
     };
 
+    historyBackup.destinationPath = mkOption {
+      type = types.nullOr types.str;
+      default = null;
+      example = "/mnt/backups/apps/jellyfin";
+      description = ''
+        Directory that receives a nightly watch-history.db: each user's played
+        state and resume points, the activity log, and Playback Reporting's
+        history when the plugin is installed. Password hashes, API keys and
+        device tokens are left out. null disables it.
+      '';
+    };
+
     remoteClientBitrateLimit = mkOption {
       type = types.nullOr types.ints.positive;
       default = null;
@@ -370,6 +382,74 @@ in
           ReadWritePaths = [ "-${jfCfg.cacheDir}/transcodes" ];
         };
       };
+      jellyfin-history-backup = mkIf (cfg.historyBackup.destinationPath != null) (
+        let
+          dest = cfg.historyBackup.destinationPath;
+          db = "${jfCfg.dataDir}/data";
+          publish = pkgs.writeShellApplication {
+            name = "jellyfin-history-publish";
+            text = ''
+              install -d -m 0700 ${dest}
+              install -m 0600 "$RUNTIME_DIRECTORY/watch-history.db" ${dest}/.watch-history.db.tmp
+              mv -f ${dest}/.watch-history.db.tmp ${dest}/watch-history.db
+              {
+                echo '# HELP jellyfin_history_backup_last_success_timestamp_seconds Unix time jellyfin-history-backup last copied the watch history'
+                echo '# TYPE jellyfin_history_backup_last_success_timestamp_seconds gauge'
+                echo "jellyfin_history_backup_last_success_timestamp_seconds $(date +%s)"
+              } >"$TEXTFILE_DIR/jellyfin_history_backup.prom.tmp"
+              mv -f "$TEXTFILE_DIR/jellyfin_history_backup.prom.tmp" "$TEXTFILE_DIR/jellyfin_history_backup.prom"
+            '';
+          };
+        in
+        {
+          description = "Copy Jellyfin's watch history into ${dest}";
+          startAt = "*-*-* 03:30:00";
+          unitConfig.RequiresMountsFor = dest;
+          path = [ pkgs.sqlite ];
+          environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
+          # One transaction, so each source database is read at a single
+          # point in time while Jellyfin keeps writing. Items is there so the
+          # history reads without Jellyfin. UserData for an item that left
+          # the library sits on placeholder ItemId
+          # 00000000-0000-0000-0000-000000000001, keyed by CustomDataKey.
+          script = ''
+            sqlite3 -bail "$RUNTIME_DIRECTORY/watch-history.db" <<'SQL'
+            ATTACH 'file:${db}/jellyfin.db?mode=ro' AS jf;
+            ${optionalString cfg.installPlaybackReportingPlugin "ATTACH 'file:${db}/playback_reporting.db?mode=ro' AS pr;"}
+            BEGIN;
+            CREATE TABLE Users AS SELECT Id, Username FROM jf.Users;
+            CREATE TABLE Items AS
+              SELECT Id, Type, Name, SeriesName, ParentIndexNumber, IndexNumber, ProductionYear, RunTimeTicks, Path
+              FROM jf.BaseItems WHERE Id IN (SELECT ItemId FROM jf.UserData);
+            CREATE TABLE UserData AS SELECT * FROM jf.UserData;
+            CREATE TABLE ActivityLogs AS SELECT * FROM jf.ActivityLogs;
+            ${optionalString cfg.installPlaybackReportingPlugin "CREATE TABLE PlaybackActivity AS SELECT * FROM pr.PlaybackActivity;"}
+            COMMIT;
+            SQL
+          '';
+          serviceConfig = {
+            Type = "oneshot";
+            User = jfCfg.user;
+            Group = jfCfg.group;
+            RuntimeDirectory = "jellyfin-history-backup";
+            RuntimeDirectoryMode = "0700";
+            # dest is root's 0700 tree and the textfile directory root's, so
+            # the copy and the metric go out from outside the sandbox.
+            ExecStartPost = "+${getExe publish}";
+            Nice = 19;
+            IOSchedulingClass = "idle";
+            CapabilityBoundingSet = "";
+            NoNewPrivileges = true;
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateTmp = true;
+            PrivateNetwork = true;
+            # A read-only connection still opens a WAL database's -shm for
+            # writing, and creates -shm and -wal when Jellyfin is stopped.
+            ReadWritePaths = [ db ];
+          };
+        }
+      );
     };
   };
 }

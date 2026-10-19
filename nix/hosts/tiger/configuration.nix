@@ -672,10 +672,11 @@ in
   # Downloads land on a different dataset than the library, so imports copy
   # rather than hardlink.
   systemd.tmpfiles.rules = [
-    # Secrets live in both. Only kyle touches kyle/, only the root *arr-backup
-    # and udm-backup units touch apps/, and pika reads through zfs send. `d`, not `z`: `z`
-    # refuses kyle-owned /mnt/backups to root-owned apps/ as an unsafe path
-    # transition and fails systemd-tmpfiles-resetup.
+    # Secrets live in both. Only kyle touches kyle/, only the root *arr-backup,
+    # udm-backup and jellyfin-history-backup units touch apps/, and pika reads
+    # through zfs send. `d`, not `z`: `z` refuses kyle-owned /mnt/backups to
+    # root-owned apps/ as an unsafe path transition and fails
+    # systemd-tmpfiles-resetup.
     "d /mnt/backups/kyle 0700 kyle kyle -"
     "d /mnt/backups/apps 0700 root root -"
     # rrsync refuses to start if its restricted directory is absent, so this
@@ -1560,6 +1561,7 @@ in
         domainName = "jellyfin.tiger.infra.ondy.org";
         transcodeDebugLogging = true;
         installPlaybackReportingPlugin = true;
+        historyBackup.destinationPath = "${backup_path}/jellyfin";
         backup = {
           enable = true;
           apiKeyFile = config.sops.secrets.jellyfin_api_key_backup.path;

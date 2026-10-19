@@ -76,6 +76,8 @@ Out of scope, deliberately:
   dataset loses that library, and we accept that.
 - **tiger's root disk.** jellyfin, navidrome, sabnzbd, prowlarr, the
   \*arrs, and the monitoring stack are all rebuildable from the flake.
+  Jellyfin's watch history is the exception, since no flake rebuilds who
+  watched what, so it gets copied into `apps/` (below).
 - **`storage/scratch-big`, `scratch/scratch`, `storage/data`.** Scratch is
   scratch. `storage/data` holds a disposable 111G copy of an old home
   directory, and anything saved through the `tiger-data` share lands there
@@ -107,8 +109,8 @@ home and awake. See [windows-backup.md](windows-backup.md).
 
 Its freshness alert works differently from the others. Every other writer
 here runs on a timer on a host we control and reports its own success
-(the git bundles, histdb, mail and the UDM pull through node_exporter's
-textfile collector),
+(the git bundles, histdb, mail, the UDM pull and the Jellyfin copy through
+node_exporter's textfile collector),
 so absence is measurable from the inside. The laptop is not, so tiger asks
 its own Syncthing every 15 minutes whether the laptop is connected and fully
 synced, stamps a file when it is, and alerts on the stamp's age. Any future
@@ -116,7 +118,7 @@ writer that lives off-fleet needs the same treatment.
 
 `/mnt/backups/kyle` holds the git bundles below, the dotfiles git-crypt
 key, shell history and mail, and `/mnt/backups/apps` holds \*arr backup zips that
-carry API keys and the UDM's backups. tmpfiles holds them at 0700, `kyle` and `root` respectively,
+carry API keys, the UDM's backups and Jellyfin's watch history. tmpfiles holds them at 0700, `kyle` and `root` respectively,
 because nothing but those accounts reads them on tiger and pika reads through
 `zfs send`. They are `d` rules rather than `z`: `/mnt/backups` is owned by
 kyle, and `z` rejects the step to root-owned `apps/` as an unsafe path
@@ -179,6 +181,22 @@ command="tar -cf - -C /data/unifi/data/backup/autobackup $(cd /data/unifi/data/b
 ```
 
 A new UDM also brings a new host key, which `udm-backup` pins.
+
+`jellyfin-history-backup` copies Jellyfin's watch history into
+`/mnt/backups/apps/jellyfin/watch-history.db` at 03:30. It's one SQLite file,
+about 2 MB: each user's played state and resume points (`UserData`), the
+activity log, and the Playback Reporting plugin's history, plus each watched
+item's name and path so it reads without Jellyfin. Usernames go in. Password
+hashes, API keys and device tokens stay out.
+
+Jellyfin's own nightly backup doesn't cover this. It's a 3 GB zip, mostly
+metadata, on the same root disk, and it skips the plugin's database.
+
+Putting played state back into a rebuilt Jellyfin means writing `UserData`
+rows with Jellyfin stopped. Item IDs are a hash of type and path
+([LibraryManager.cs](https://github.com/jellyfin/jellyfin/blob/4b4b4cd94d8d3fe20b2b2b576edbc5cfa933fe07/Emby.Server.Implementations/Library/LibraryManager.cs#L631-L650)),
+so they carry over as long as the library paths do. User IDs don't, so match
+users by `Username`. Nobody has tried it yet.
 
 ### Writers into storage/projects
 

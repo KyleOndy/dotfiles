@@ -939,6 +939,49 @@
         },
         "overrides": []
       }
+    },
+    {
+      "type": "row",
+      "title": "Jellyfin",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 79 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "Watch History Backup Age",
+      "description": "Time since jellyfin-history-backup last copied Jellyfin's watch history into /mnt/backups/apps/jellyfin, against a nightly timer. Red is JellyfinHistoryBackupStale's 2 days. Empty is JellyfinHistoryBackupMetricMissing.",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 80 },
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - jellyfin_history_backup_last_success_timestamp_seconds{host=\"tiger\"}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 129600 },
+              { "color": "red", "value": 172800 }
+            ]
+          }
+        },
+        "overrides": []
+      }
     }
   ]
 }
