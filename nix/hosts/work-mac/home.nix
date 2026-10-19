@@ -166,7 +166,17 @@
 
   home.packages = with pkgs; [
     argocd
-    coder
+    # The CLI has to share the Coder deployment's major.minor
+    # (buildinfo.VersionsMatch), so this follows the server, not nixpkgs.
+    (coder.overrideAttrs (
+      finalAttrs: _: {
+        version = "2.37.4";
+        src = fetchurl {
+          url = "https://github.com/coder/coder/releases/download/v${finalAttrs.version}/coder_${finalAttrs.version}_darwin_arm64.zip";
+          hash = "sha256-xeO1MB+OesIzXHC8l+jd1em7GjkMn3d1gXEJyQueWHA=";
+        };
+      }
+    ))
     forge
     linear-cli
     opencode
