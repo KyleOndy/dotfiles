@@ -2033,6 +2033,8 @@ in
             }
             {
               job_name = "exportarr-bazarr";
+              scrape_interval = "60s";
+              scrape_timeout = "30s";
               static_configs = [
                 {
                   targets = [ "127.0.0.1:9712" ];
