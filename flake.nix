@@ -80,6 +80,12 @@
       url = "github:DietrichGebert/ponytail";
       flake = false;
     };
+    # recyclarr's custom formats and quality sizes. Pinned here so a change in
+    # what tiger downloads arrives through a lock update, not a nightly clone.
+    trash-guides = {
+      url = "github:TRaSH-Guides/Guides";
+      flake = false;
+    };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
     };

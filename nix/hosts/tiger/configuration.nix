@@ -1749,6 +1749,11 @@ in
         # time never stopped the group.
         rejectTerms = [ "REETKEVER" ];
       };
+      recyclarr = {
+        enable = true;
+        sonarr.apiKeyFile = config.sops.secrets.sonarr_api_key.path;
+        radarr.apiKeyFile = config.sops.secrets.radarr_api_key.path;
+      };
       bazarr = {
         enable = true;
         group = mediaGroup;
