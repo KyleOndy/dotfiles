@@ -114,6 +114,15 @@ let
       <IsRemoteIPFilterBlacklist>false</IsRemoteIPFilterBlacklist>
     </NetworkConfiguration>
   '';
+
+  # MaxDataAge is the months of history the plugin's nightly Trim Db task
+  # keeps. Its default is 3; -1 keeps everything.
+  playbackReportingXml = pkgs.writeText "jellyfin-playback-reporting.xml" ''
+    <?xml version="1.0" encoding="utf-8"?>
+    <ReportPlaybackOptions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <MaxDataAge>-1</MaxDataAge>
+    </ReportPlaybackOptions>
+  '';
 in
 {
   options.systemFoundry.jellyfin = {
@@ -157,7 +166,12 @@ in
     installPlaybackReportingPlugin = mkOption {
       type = types.bool;
       default = false;
-      description = "Automatically install the Playback Reporting plugin for play history tracking";
+      description = ''
+        Install the Playback Reporting plugin for play history tracking. Writes
+        its options on every Jellyfin start, so the history is kept forever and
+        a retention set in the plugin's settings page reverts on the next
+        restart.
+      '';
     };
 
     remoteClientBitrateLimit = mkOption {
@@ -301,6 +315,7 @@ in
             mkdir -p "$plugin"
             ${getExe pkgs.unzip} -o ${playbackReporting} -d "$plugin"
           fi
+          install -m 0644 ${playbackReportingXml} ${jfCfg.configDir}/playback_reporting.xml
         '')
       ];
     };
