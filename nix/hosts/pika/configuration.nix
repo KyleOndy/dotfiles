@@ -436,6 +436,46 @@ in
     };
   };
 
+  # The monitor on HDMI shows backup status in place of a login prompt.
+  # pika-console reads pika's rows from the exporters above, so they work
+  # with tiger down, and queries tiger's VictoriaMetrics for the TIGER rows
+  # with vmagent's login. It also blanks the panel overnight (SCREEN_HOURS
+  # in the script). A keyboard login is on tty2 (Ctrl+Alt+F2).
+  #
+  # The panel is 1920x1280 across 23cm, where the 8x16 default draws text
+  # 2mm tall. ter-v32b is the largest Terminus face: 120x40 cells.
+  console = {
+    font = "ter-v32b";
+    packages = [ pkgs.terminus_font ];
+  };
+
+  # Both, or systemd-getty-generator starts one of them again on the next
+  # daemon-reload.
+  systemd.services."getty@tty1".enable = false;
+  systemd.services."autovt@tty1".enable = false;
+
+  systemd.services.pika-console = {
+    description = "Backup status on the console";
+    wantedBy = [ "multi-user.target" ];
+    after = [
+      "prometheus-node-exporter.service"
+      "prometheus-zfs-exporter.service"
+    ];
+    serviceConfig = {
+      ExecStart = "${pkgs.pika-console}/bin/pika-console";
+      DynamicUser = true;
+      LoadCredential = "monitoring_password:${config.sops.secrets.monitoring_password.path}";
+      StandardInput = "tty";
+      StandardOutput = "tty";
+      TTYPath = "/dev/tty1";
+      TTYReset = true;
+      TTYVHangup = true;
+      TTYVTDisallocate = true;
+      Restart = "always";
+      RestartSec = 10;
+    };
+  };
+
   # Provisioning, done by hand once, recorded here because nothing in Nix
   # creates it. Same house style as tiger/configuration.nix:200.
   #

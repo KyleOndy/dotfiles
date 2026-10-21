@@ -40,6 +40,7 @@ in
   notification-bell = super.callPackage ./notification-bell { };
   photos-promote = super.callPackage ./photos-promote { };
   photos-recall = super.callPackage ./photos-recall { };
+  pika-console = super.callPackage ./pika-console { };
   pragmata-pro = fromWorktree "pragmata-pro" (super.callPackage ./pragmata-pro { });
   s3-archive-push = super.callPackage ./s3-archive-push { };
   s3-archive-reconcile = super.callPackage ./s3-archive-reconcile { };
