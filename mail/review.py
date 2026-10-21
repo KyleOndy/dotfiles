@@ -34,7 +34,12 @@ def parse_rules(path):
     rules = []
     for cond, body in re.findall(r"^if (.*?)\{(.*?)^\}", text, re.M | re.S):
         values = [v.lower() for v in re.findall(r'"([^"]*)"', cond)]
-        action = "junk" if "fileinto" in body else "keep"
+        if "fileinto" in body:
+            action = "junk"
+        elif "redirect" in body:
+            action = "copy"
+        else:
+            action = "keep"
         if cond.startswith("address :domain"):
             field, pats = "dom", values[1:]
         elif cond.startswith("address :is"):
