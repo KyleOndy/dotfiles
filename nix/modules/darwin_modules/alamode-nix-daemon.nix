@@ -43,7 +43,7 @@ let
     trusted-substituters =
     substituters = ${toString settings.substituters}
     trusted-public-keys = ${toString settings.trusted-public-keys}
-    ssl-cert-file = /etc/nix/macos-keychain.crt
+    ssl-cert-file = /etc/ssl/certs/ca-certificates.crt
     max-jobs = auto
     cores = 0
   '';
