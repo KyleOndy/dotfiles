@@ -113,11 +113,11 @@
         "pre-commit-hooks": "pre-commit-hooks"
       },
       "locked": {
-        "lastModified": 1792336478,
-        "narHash": "sha256-BQukAl30yaBkzqmp0B1l7P6mYTY61M6tsny7fysnNjg=",
+        "lastModified": 1792629694,
+        "narHash": "sha256-K58gO4r2Z6G7rOh5A934E9hNWIOFH4vRVja0lwXwids=",
         "ref": "main",
-        "rev": "be01ca208d3e6277e0fcc744fe6c215d4501f0f8",
-        "revCount": 476,
+        "rev": "15e2c39c64395f2ccf077d75c1dc87d304a0d348",
+        "revCount": 478,
         "type": "git",
         "url": "ssh://git@github.com/KyleOndy/cogsworth"
       },
