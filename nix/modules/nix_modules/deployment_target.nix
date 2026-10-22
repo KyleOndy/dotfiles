@@ -34,6 +34,15 @@ in
       smartmontools # drive health checks
     ];
 
+    # These roots signed the eMudhra intermediates whose private keys are
+    # recoverable from their public certificates
+    # (https://bugzilla.mozilla.org/show_bug.cgi?id=2083449). cacert below NSS
+    # 3.131.1 still ships them. Mirrored in darwin_modules/base.nix.
+    security.pki.caCertificateBlacklist = [
+      "Comodo AAA Services root"
+      "emSign ECC Root CA - G3"
+    ];
+
     # Preemptive SMART monitoring on all managed nodes. Autodetects all drives,
     # runs short daily self-tests and long weekly tests. Logs problems to
     # syslog/journald (alloy picks them up and forwards to Loki).

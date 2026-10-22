@@ -81,7 +81,7 @@ in
     # Provide SSL CA certificate bundle for HTTPS remote write with DynamicUser
     # DynamicUser runs in an isolated environment without automatic access to system certs
     systemd.services.vmagent.serviceConfig.Environment = [
-      "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+      "SSL_CERT_FILE=${config.environment.etc."ssl/certs/ca-certificates.crt".source}"
     ];
   };
 }

@@ -140,7 +140,7 @@ in
         StandardOutPath = "${logDir}/vmagent.log";
         StandardErrorPath = "${logDir}/vmagent.log";
         EnvironmentVariables = {
-          SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+          SSL_CERT_FILE = "${config.environment.etc."ssl/certs/ca-certificates.crt".source}";
         };
       };
     };
