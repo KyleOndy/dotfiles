@@ -7,6 +7,45 @@
 with lib;
 let
   cfg = config.hmFoundry.desktop.term.alacritty;
+  inherit (pkgs.stdenv.hostPlatform) isDarwin;
+
+  # nixpkgs signs Alacritty.app ad hoc, so its designated requirement is its
+  # cdhash and a TCC grant lasts until the next rebuild, while a switch run
+  # from Alacritty needs Full Disk Access (../browsers/firefox.nix). Signed
+  # with this self-signed identity, the requirement names the bundle id and
+  # certificate, which rebuilds keep. The key lives only in the login keychain.
+  signingIdentity = "hm-apps-codesign";
+
+  codesignInit = pkgs.writeShellApplication {
+    name = "hm-apps-codesign-init";
+    runtimeInputs = [ pkgs.openssl ];
+    text = ''
+      # Usage: hm-apps-codesign-init
+      # codesign takes the identity untrusted, and only TCC reads the result.
+      if [[ $(/usr/bin/security find-identity -p codesigning) == *'"${signingIdentity}"'* ]]; then
+        echo "hm-apps-codesign-init: ${signingIdentity} already exists" >&2
+        exit 0
+      fi
+      d=$(mktemp -d)
+      trap 'rm -rf "$d"' EXIT
+      openssl req -x509 -newkey rsa:2048 -nodes -days 7300 -subj "/CN=${signingIdentity}" \
+        -addext "keyUsage=critical,digitalSignature" \
+        -addext "extendedKeyUsage=critical,codeSigning" \
+        -addext "basicConstraints=critical,CA:false" \
+        -keyout "$d/key.pem" -out "$d/cert.pem" 2>/dev/null
+      # security import rejects OpenSSL 3's default PKCS12 MAC ("MAC
+      # verification failed"). The bundle stays in the 0700 temp dir, so its
+      # password guards nothing.
+      openssl pkcs12 -export -legacy -name ${signingIdentity} -inkey "$d/key.pem" -in "$d/cert.pem" -out "$d/id.p12" -passout pass:x
+      keychain="$HOME/Library/Keychains/login.keychain-db"
+      /usr/bin/security import "$d/id.p12" -k "$keychain" -P x -T /usr/bin/codesign
+      # codesign reaches the key as partition apple:, which import leaves out,
+      # so without this every switch shows a keychain prompt. It matches the
+      # key by the -name label and asks for the login password on the terminal.
+      /usr/bin/security set-key-partition-list -S apple-tool:,apple: -s -l ${signingIdentity} "$keychain" >/dev/null
+      echo "hm-apps-codesign-init: switch to sign Alacritty.app, then quit Alacritty, re-add it under Full Disk Access and relaunch it" >&2
+    '';
+  };
 in
 {
   options.hmFoundry.desktop.term.alacritty = {
@@ -136,5 +175,20 @@ in
         };
       };
     };
+
+    home.packages = optional isDarwin codesignInit;
+
+    # copyApps rsyncs the store's ad-hoc bundle back over the copy on every
+    # switch, so this signs on every switch too.
+    home.activation.codesignAlacritty = mkIf (isDarwin && config.targets.darwin.copyApps.enable) (
+      lib.hm.dag.entryAfter [ "copyApps" ] ''
+        app="$HOME/${config.targets.darwin.copyApps.directory}/Alacritty.app"
+        if [[ $(/usr/bin/security find-identity -p codesigning) != *'"${signingIdentity}"'* ]]; then
+          warnEcho "Alacritty.app stays ad-hoc signed, so its privacy grants break on every rebuild: run hm-apps-codesign-init once"
+        elif ! run /usr/bin/codesign --force --sign ${signingIdentity} "$app"; then
+          warnEcho "codesign could not sign Alacritty.app, so it stays ad-hoc signed until the next switch"
+        fi
+      ''
+    );
   };
 }

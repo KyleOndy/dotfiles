@@ -14,7 +14,9 @@ let
   # Team ID 43AQ936H96 (a rule baked into /usr/libexec/sandboxd) and denies
   # every other app, and nixpkgs' wrapper leaves the bundle ad-hoc signed
   # under org.nixos.firefox, so it cannot even lock its own profile.
-  # home-manager still writes profiles.ini, user.js and the extensions.
+  # home-manager still writes profiles.ini, user.js and the extensions, but
+  # only with Full Disk Access for the terminal running the switch (see
+  # ../term/alacritty.nix).
   firefoxBin =
     if isDarwin then
       "/Applications/Firefox.app/Contents/MacOS/firefox"

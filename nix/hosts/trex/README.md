@@ -5,8 +5,8 @@ Personal darwin (macOS) configuration for trex. Shared darwin plumbing lives in
 
 ## Manual Setup Required
 
-A few Homebrew casks manage apps whose own permissions or sandboxed prefs can't be
-set declaratively. Each needs a one-time manual step after first install.
+A few apps have permissions or sandboxed prefs that can't be set declaratively.
+Each needs a one-time manual step after first install.
 
 ### Shottr Screenshot Tool
 
@@ -91,6 +91,57 @@ install, launch it once and grant **Accessibility** and **Screen Recording**
 permission in System Settings -> Privacy & Security. Its preferences, the
 Option+Tab trigger included, come from `nix/modules/darwin_modules/alt-tab.nix`
 and take effect the next time AltTab launches, since it caches them in memory.
+
+### Alacritty Full Disk Access
+
+```
+ln: failed to create symbolic link '/Users/kyle/Library/Application Support/Firefox/profiles.ini': Operation not permitted
+```
+
+A switch dies like this when the terminal running it has no Full Disk Access.
+macOS 27 keeps every app but Firefox out of `~/Library/Application Support/Firefox`,
+and home-manager relinks `profiles.ini` there on every switch.
+
+nixpkgs signs Alacritty.app ad hoc, so macOS ties a grant to that exact build and
+every rebuild leaves a dead entry behind. `nix/modules/hm_modules/desktop/term/alacritty.nix`
+re-signs the app on every switch with a self-signed certificate instead, and the
+grant survives that. The certificate lives only in the login keychain, so each Mac
+makes its own, once.
+
+#### Initial Setup
+
+Run these from the worktree root.
+
+1. Create the certificate. A finished switch puts `hm-apps-codesign-init` on PATH,
+   and before that you can build it straight from the flake. It asks for the
+   login password once, so that codesign can use the key without a prompt.
+
+   ```bash
+   "$(DOTFILES_WORKTREE=$PWD nix build --impure --no-link --print-out-paths \
+     .#darwinConfigurations.trex.config.home-manager.users.kyle.home.path)/bin/hm-apps-codesign-init"
+   ```
+
+2. Sign the installed copy by hand, so the grant below only has to happen once.
+
+   ```bash
+   codesign --force --sign hm-apps-codesign "$HOME/Applications/Home Manager Apps/Alacritty.app"
+   ```
+
+3. Quit Alacritty. In System Settings -> Privacy & Security -> Full Disk Access,
+   remove every `alacritty` row, add `~/Applications/Home Manager Apps/Alacritty.app`
+   with `+` and switch it on. Relaunch Alacritty.
+4. `make deploy-trex`. If a keychain dialog still asks about codesign, choose
+   Always Allow. Allow only covers that one signing, and the next switch asks again.
+
+#### Verifying Signing
+
+```bash
+codesign -d -r- "$HOME/Applications/Home Manager Apps/Alacritty.app"
+```
+
+It should print `designated => identifier "org.alacritty" and certificate leaf = H"..."`.
+A `cdhash` requirement means the switch didn't sign it, and the switch's warning
+says why.
 
 ## tiger's SMB Shares
 

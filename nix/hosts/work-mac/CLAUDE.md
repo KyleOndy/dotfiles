@@ -46,3 +46,7 @@ so this machine's real (company) hostname never has to appear there.
 
 Shottr is installed here too. Its one-time manual setup is in
 `nix/hosts/trex/README.md`, which covers the same install.
+
+So is Alacritty's Full Disk Access signing setup, in the same README. Its build
+command works here unchanged, and the switch is
+`make deploy-mac WORK_CONFIG=/Users/kondy/work/nix`.
