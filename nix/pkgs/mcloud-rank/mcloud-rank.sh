@@ -47,8 +47,11 @@ if [ -z "$API_URL" ]; then
 	exit 2
 fi
 
-live=$(curl -fsS --max-time 30 "$API_URL/models" -H "Authorization: Bearer $MCLOUD_API_KEY")
-aa=$(curl -fsS --max-time 30 "$AA_URL" -H "x-api-key: $AA_API_KEY")
+# Every key reaches curl as -H @<(printf ...): printf is a builtin, so the
+# key passes through a pipe and never sits in curl's argv, which any user on
+# the host can read with ps.
+live=$(curl -fsS --max-time 30 "$API_URL/models" -H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY"))
+aa=$(curl -fsS --max-time 30 "$AA_URL" -H @<(printf 'x-api-key: %s\n' "$AA_API_KEY"))
 
 # Served ids and AA slugs spell one model differently. A served id can carry
 # an org prefix and a quantization suffix (Org/Name-1.5-FP8); the AA slug
@@ -108,7 +111,7 @@ reasoned() {
 	body=$(jq -n --arg m "$1" --arg e "$2" '{model: $m, max_tokens: 64, messages: [{role: "user", content: "What is 17 * 23? Answer with the number only."}]}
 		+ (if $e == "" then {} else {reasoning_effort: $e} end)' |
 		curl -fsS --max-time 30 "$API_URL/chat/completions" \
-			-H "Authorization: Bearer $MCLOUD_API_KEY" -H "Content-Type: application/json" -d @- 2>/dev/null) || {
+			-H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY") -H "Content-Type: application/json" -d @- 2>/dev/null) || {
 		echo "?"
 		return
 	}
@@ -130,7 +133,7 @@ saw() {
 		{type: "text", text: "What color fills this image? Reply with one lowercase word."},
 		{type: "image_url", image_url: {url: $url}}]}]}' |
 		curl -sS --max-time 120 -w '\n%{http_code}' "$API_URL/chat/completions" \
-			-H "Authorization: Bearer $MCLOUD_API_KEY" -H "Content-Type: application/json" -d @- 2>/dev/null) || true
+			-H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY") -H "Content-Type: application/json" -d @- 2>/dev/null) || true
 	case ${resp##*$'\n'} in
 	200)
 		if jq -r '.choices[0].message.content // ""' <<<"${resp%$'\n'*}" 2>/dev/null | grep -qiw green; then
@@ -175,7 +178,7 @@ speed() {
 		messages: [{role: "user", content: "Count from 1 to 300, one number per line."}]}')
 	start=${EPOCHREALTIME/[.,]/}
 	lines=$(curl -fsSN --max-time 120 "$API_URL/chat/completions" \
-		-H "Authorization: Bearer $MCLOUD_API_KEY" -H "Content-Type: application/json" -d @- <<<"$req" 2>/dev/null |
+		-H @<(printf 'Authorization: Bearer %s\n' "$MCLOUD_API_KEY") -H "Content-Type: application/json" -d @- <<<"$req" 2>/dev/null |
 		while IFS= read -r line; do
 			if [[ $line == data:* ]]; then printf '%s\t%s\n' "${EPOCHREALTIME/[.,]/}" "${line#data:}"; fi
 		done) || {
