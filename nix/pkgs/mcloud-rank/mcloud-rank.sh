@@ -1,10 +1,11 @@
 # shellcheck shell=bash
 # writeShellApplication provides the shebang and `set -euo pipefail`; this
-# file is only the body (nix/pkgs/mcloud-rank/default.nix).
+# file is only the body (nix/pkgs/mcloud-rank/default.nix), which also sets
+# GREEN_PNG to the known image: a 64x64 PNG, every pixel #00a000.
 #
 # Ranks the models mcloud serves by the Artificial Analysis
 # Intelligence Index, one score per reasoning effort, and asks each model
-# whether it thinks.
+# whether it thinks, whether it sees an image and how fast it answers.
 #
 #   mcloud-rank
 #
@@ -20,6 +21,8 @@
 # public.
 
 readonly AA_URL="https://artificialanalysis.ai/api/v2/data/llms/models"
+: "${GREEN_PNG:?path to the known image}"
+readonly GREEN_PNG
 
 [ -n "${MCLOUD_API_KEY:-}" ] || MCLOUD_API_KEY="$(sh -c "${MCLOUD_API_KEY_COMMAND:-true}")"
 [ -n "${AA_API_KEY:-}" ] || AA_API_KEY="$(sh -c "${AA_API_KEY_COMMAND:-true}")"
@@ -89,8 +92,8 @@ rows=$(jq -rn --argjson live "$live" --slurpfile aa <(printf '%s' "$aa") '
 	| "header\t\($top.name)\t\($top | score)",
 	  ($models | map(select(.cells) | .best = ([.cells[]] | max)) | sort_by(-.best)[]
 		| . as $m
-		| ["ranked", .id, (.best / ($top | score) * 100), ($cols[] | $m.cells[.] // "-")] | map(tostring) | join("\t")),
-	  ($models | map(select(.cells == null))[] | "unscored\t\(.id)")
+		| ["ranked", .id, (.best / ($top | score) * 100 | round | "\(.)%"), ($cols[] | $m.cells[.] // "-")] | map(tostring) | join("\t")),
+	  ($models | map(select(.cells == null))[] | ["unscored", .id, "-", ($cols[] | "-")] | join("\t"))
 ')
 
 # GET /v1/models carries no capability metadata, and the chat endpoint
@@ -114,12 +117,40 @@ reasoned() {
 		| if $t > 0 or $r != "" then "yes" else "no" end' <<<"$body"
 }
 
+IMAGE_URL="data:image/png;base64,$(base64 -w0 "$GREEN_PNG")"
+readonly IMAGE_URL
+
+# The endpoint's answer, not the model card's: an endpoint that drops image
+# parts still answers 200, with a guess, and any 4xx but a 429 is the
+# endpoint refusing the image. 1024 tokens leave a reasoning model room to
+# name the color.
+saw() {
+	local resp
+	resp=$(jq -n --arg m "$1" --arg url "$IMAGE_URL" '{model: $m, max_tokens: 1024, messages: [{role: "user", content: [
+		{type: "text", text: "What color fills this image? Reply with one lowercase word."},
+		{type: "image_url", image_url: {url: $url}}]}]}' |
+		curl -sS --max-time 120 -w '\n%{http_code}' "$API_URL/chat/completions" \
+			-H "Authorization: Bearer $MCLOUD_API_KEY" -H "Content-Type: application/json" -d @- 2>/dev/null) || true
+	case ${resp##*$'\n'} in
+	200)
+		if jq -r '.choices[0].message.content // ""' <<<"${resp%$'\n'*}" 2>/dev/null | grep -qiw green; then
+			echo yes
+		else
+			echo no
+		fi
+		;;
+	429) echo "?" ;;
+	4??) echo no ;;
+	*) echo "?" ;;
+	esac
+}
+
 # Replies are sampled, so one says little: n/3 is how many of three
-# concurrent replies reasoned.
-thinks() {
+# concurrent replies said yes.
+thrice() {
 	local replies n
 	replies=$(
-		for _ in 1 2 3; do reasoned "$1" "$2" & done
+		for _ in 1 2 3; do "$@" & done
 		wait
 	)
 	if [[ $replies == *'?'* ]]; then
@@ -130,20 +161,58 @@ thinks() {
 	fi
 }
 
+# One streamed reply, sent once the model's other probes are done so it
+# shares no batch with them. TTFT, in seconds, runs from sending the request,
+# connection setup included, to the first chunk carrying text or reasoning
+# rather than curl's time_starttransfer, since a server can send headers or a
+# role-only chunk before any token. TPOT, in milliseconds, spreads the rest
+# of the stream over the completion tokens after the first, reasoning tokens
+# included, so a thinking model's TPOT is its decode rate too. One reply on
+# a shared endpoint is this minute's load, not the model's speed.
+speed() {
+	local req start lines
+	req=$(jq -n --arg m "$1" '{model: $m, max_tokens: 256, stream: true, stream_options: {include_usage: true},
+		messages: [{role: "user", content: "Count from 1 to 300, one number per line."}]}')
+	start=${EPOCHREALTIME/[.,]/}
+	lines=$(curl -fsSN --max-time 120 "$API_URL/chat/completions" \
+		-H "Authorization: Bearer $MCLOUD_API_KEY" -H "Content-Type: application/json" -d @- <<<"$req" 2>/dev/null |
+		while IFS= read -r line; do
+			if [[ $line == data:* ]]; then printf '%s\t%s\n' "${EPOCHREALTIME/[.,]/}" "${line#data:}"; fi
+		done) || {
+		printf '?\t?\n'
+		return
+	}
+	jq -rRn --argjson start "$start" '
+		[inputs | index("\t") as $i | {t: (.[:$i] | tonumber), d: (.[$i + 1:] | ltrimstr(" ") | try fromjson catch null)}] as $c
+		| [$c[] | select(.d.choices[0].delta? | [.content, .reasoning_content, .reasoning] | add // "" | . != "")] as $tok
+		| ([$c[] | .d.usage.completion_tokens? // empty] | last) as $n
+		| (($n // ($tok | length)) - 1) as $after
+		| if ($tok | length) < 2 or $after < 1 then "?\t?"
+		  else "\(($tok[0].t - $start) / 1e6)\t\(($tok[-1].t - $tok[0].t) / 1e3 / $after)" end' <<<"$lines"
+}
+
+# Command substitutions run in order, so speed starts after the rest.
 while IFS=$'\t' read -r kind id rest; do
-	if [[ $kind == ranked ]]; then
-		printf '%s\t%s\t%s\t%s %s %s\n' "$kind" "$id" "$rest" "$(thinks "$id" "")" "$(thinks "$id" high)" "$(thinks "$id" none)"
-	else
+	if [[ $kind == header ]]; then
 		printf '%s\t%s\t%s\n' "$kind" "$id" "$rest"
+		continue
 	fi
+	printf '%s\t%s\t%s\t%s %s %s\t%s\t%s\n' "$kind" "$id" "$rest" \
+		"$(thrice reasoned "$id" "")" "$(thrice reasoned "$id" high)" "$(thrice reasoned "$id" none)" \
+		"$(thrice saw "$id")" "$(speed "$id")"
 done <<<"$rows" | awk -F'\t' '
 	$1 == "header" {
 		printf "Live on mcloud, AA Intelligence Index per reasoning effort.\n"
 		printf "TOP: best score as a share of %s (%s). DEF: AA named no effort.\n", $2, $3
-		printf "THINKS: replies that reasoned with no effort sent, high, none.\n\n"
-		printf "  %-30s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %s\n", "MODEL", "TOP", "OFF", "MIN", "LOW", "MED", "HIGH", "XHIGH", "MAX", "DEF", "THINKS"
+		printf "THINKS: replies that reasoned with no effort sent, high, none.\n"
+		printf "SEES: replies that named the color of a green image.\n"
+		printf "TTFT, TPOT: one streamed reply, a snapshot of the current load.\n\n"
+		printf "  %-30s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %-11s %4s %6s %7s\n", "MODEL", "TOP", "OFF", "MIN", "LOW", "MED", "HIGH", "XHIGH", "MAX", "DEF", "THINKS", "SEES", "TTFT", "TPOT"
 	}
-	$1 == "ranked" { printf "  %-30s %4.0f%% %5s %5s %5s %5s %5s %5s %5s %5s  %s\n", $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12 }
 	$1 == "unscored" && !seen++ { print "\nNot on the AA Intelligence Index:" }
-	$1 == "unscored" { print "  " $2 }
+	$1 != "header" {
+		ttft = $14 == "?" ? "?" : sprintf("%.2fs", $14)
+		tpot = $15 == "?" ? "?" : sprintf("%.1fms", $15)
+		printf "  %-30s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %-11s %4s %6s %7s\n", $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, ttft, tpot
+	}
 '

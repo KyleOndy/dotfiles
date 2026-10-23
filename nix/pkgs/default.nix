@@ -62,8 +62,9 @@ in
   };
   alamode-coordinator = super.callPackage ./alamode-coordinator { inherit (self) forge; };
   alamode-delegate = super.callPackage ./alamode-delegate { };
-  mcloud-pins = super.callPackage ./mcloud-pins { };
-  mcloud-rank = super.callPackage ./mcloud-rank { };
+  green-png = super.callPackage ./green-png { };
+  mcloud-pins = super.callPackage ./mcloud-pins { inherit (self) green-png; };
+  mcloud-rank = super.callPackage ./mcloud-rank { inherit (self) green-png; };
   leak-guard = super.callPackage ./leak-guard { inherit (self) llm-agents; };
   alamode-seats = super.callPackage ./alamode-seats { };
   advisor-eval = super.callPackage ./advisor-eval { inherit (self) llm-agents; };
