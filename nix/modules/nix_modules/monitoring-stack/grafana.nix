@@ -217,8 +217,13 @@ in
                           to = 0;
                         };
                         datasourceUid = "loki";
+                        # Jellyfin never logs a playback error as such. A play
+                        # that fails shows as the client stopping at 0 ms and
+                        # retrying, or as it asking for HLS segments no running
+                        # transcode will produce; one failed play leaves 4 to 14
+                        # of these within a minute or two.
                         model = {
-                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |~ "(?i)(playbackerror|playback failed)" [5m]))'';
+                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |~ "Stopped at 0 ms|cannot serve" [5m]))'';
                           queryType = "range";
                           refId = "A";
                         };
@@ -235,7 +240,7 @@ in
                           conditions = [
                             {
                               evaluator = {
-                                params = [ 2 ];
+                                params = [ 3 ];
                                 type = "gt";
                               };
                               operator = {
@@ -260,10 +265,12 @@ in
                     ];
                     noDataState = "OK";
                     execErrState = "Error";
-                    for = "5m";
+                    # A burst leaves the 5m window in 5m, so any pending period
+                    # here outlasts it and the rule never fires.
+                    for = "0s";
                     annotations = {
-                      summary = "Jellyfin playback errors detected on tiger";
-                      description = "More than 2 playback errors occurred in the last 5 minutes";
+                      summary = "A Jellyfin play failed on tiger";
+                      description = "More than 3 failed starts or missing HLS segments in 5 minutes, usually one play retrying: a DTS track on a Roku, a stalled Wi-Fi link (RokuWifiRateStuck), or an HLS resume loop (jellyfin#17966). On tiger, `journalctl -u jellyfin --since -15min | grep -E 'Stopped at 0 ms|cannot serve|RemoteIP'` names the title and the client.";
                     };
                     labels = {
                       severity = "warning";
