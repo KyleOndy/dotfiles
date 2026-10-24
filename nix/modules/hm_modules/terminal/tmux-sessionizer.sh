@@ -48,7 +48,7 @@ else
 	else
 		session="${parent}/${name}"
 	fi
-	# tmux rewrites both in a session name, which would break the exact match.
+	# A target reads both as separators, so a name holding either never matches.
 	session="${session//[.:]/_}"
 
 	if ! tmux has-session -t "=${session}" 2>/dev/null; then

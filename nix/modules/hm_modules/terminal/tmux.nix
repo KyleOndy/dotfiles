@@ -49,14 +49,16 @@ let
     '';
   };
   # Takes the name from read inside a popup rather than from command-prompt,
-  # so no character in it reaches tmux's or sh's parser. Targets go by id
-  # because tmux rewrites ':' and '.' in a session name to '_'.
+  # so no character in it reaches tmux's or sh's parser. ':' and '.' become
+  # '_' because a target reads them as window and pane separators, so a
+  # session named with either is unreachable by name.
   breakToSession = pkgs.writeShellApplication {
     name = "tmux-break-to-session";
     runtimeInputs = [ pkgs.tmux ];
     text = ''
       win=$1
       read -rp 'break to session: ' name
+      name=''${name//[.:]/_}
       [ -n "$name" ] || exit 0
       read -r session placeholder < <(tmux new-session -d -P -F '#{session_id} #{window_id}' -s "$name")
       # Before the move: moving a session's last window destroys it, and
