@@ -114,6 +114,12 @@ in
               enabled: true
               type: rtsp
               transport: tcp
+              # The default, full-stream, pulls the camera's video over
+              # cogsworth's Wi-Fi and discards it (-vn). Upstream defaults
+              # to it because UniFi cameras can fail the audio-only SETUP
+              # (birdnet-go#3953); audio-only never falls back, so a
+              # failure shows up as CogsworthBirdnetStreamSilent.
+              mediaMode: audio-only
               models: [birdnet]
             - name: Front Door
               url: ${config.sops.placeholder.birdnet_rtsp_url_front_door}
@@ -171,7 +177,7 @@ in
       ExecStart = "${pkgs.birdnet-go}/bin/birdnet-go serve --config ${configFile}";
       Restart = "always";
       RestartSec = "10s";
-      # A ceiling, not a budget: the classifier and two audio-only ffmpegs
+      # A ceiling, not a budget: the classifier and two ffmpegs
       # sit well under it. No-op while the host's memory cgroup controller is off.
       MemoryMax = "1G";
 
