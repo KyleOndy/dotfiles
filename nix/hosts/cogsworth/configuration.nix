@@ -189,18 +189,29 @@ in
       networks = {
         "The Ondy's" = {
           pskRaw = "ext:home_psk";
-          # Kristen's Office, 5 GHz (ch48, -57 dBm from the kiosk). Left to
-          # choose, cogsworth joined Basement rack after a disconnect and
-          # held a link there with about 29% of frames retried. The same
-          # AP's 2.4 GHz radio (bssid ...:7d) is the network's busiest and
-          # dropped cogsworth for missed ACKs (reason 34). With this, it
-          # has no AP to fall back to if this one is down.
-          extraConfig = "bssid=8c:30:66:54:78:7e";
+          # Kristen's Office, 2.4 GHz (ch1). Left to choose, cogsworth
+          # joined Basement rack after a disconnect and held a link there
+          # with about 29% of frames retried. This radio is the network's
+          # busiest and drops cogsworth for missed ACKs (reason 34) about
+          # every two days, for 7 s each. The same AP's 5 GHz radio
+          # (...:7e) dropped it five times in 10 hours on 2026-10-24, and
+          # twice it stayed off until the watchdog restarted wpa_supplicant:
+          # the AP hears the kiosk 13 dB weaker there (-68 dBm), and the
+          # network's 5 GHz Roaming Assistant steers clients below -75. With
+          # this, it has no AP to fall back to if this one is down.
+          extraConfig = "bssid=8c:30:66:54:78:7d";
         };
       };
     };
     interfaces.wlan0.useDHCP = true;
   };
+
+  # With firmware roaming on, wpa_supplicant leaves network selection to the
+  # firmware, so the bssid pin above holds only at the first connect: at 14:00Z
+  # on 2026-10-24 the firmware followed a steering request to Basement rack and
+  # off the pin. Read when the module loads.
+  # https://github.com/raspberrypi/linux/blob/aeadd6ed6be07f1350627dcd0fb14393f5abde56/drivers/net/wireless/broadcom/brcm80211/brcmfmac/common.c#L64-L66
+  boot.extraModprobeConfig = "options brcmfmac roamoff=1";
 
   time.timeZone = "America/New_York";
   i18n.defaultLocale = "en_US.UTF-8";
@@ -980,7 +991,7 @@ in
       KIOSK_ORIGIN_STATE_FILE="$STATE_DIR/kiosk_offorigin_count"
       NET_STATE_FILE="$STATE_DIR/gateway_failure_count"
       FAILURE_THRESHOLD=3              # Backend: restart after 3 consecutive failures (90 seconds)
-      NET_FAILURE_THRESHOLD=10         # Gateway: restart wpa_supplicant after 10 consecutive failures (5 minutes)
+      NET_FAILURE_THRESHOLD=4          # Gateway: restart wpa_supplicant after 4 consecutive failures (2 minutes)
       KIOSK_FAILURE_THRESHOLD=5        # Kiosk: restart after 5 consecutive failures (150 seconds)
       KIOSK_ORIGIN_FAILURE_THRESHOLD=3 # Off-origin: restart after 3 consecutive failed snap-backs (90 seconds)
       KIOSK_GRACE_PERIOD_S=60          # Skip kiosk checks for 60s after a fresh start

@@ -62,7 +62,7 @@ service that hit the restart limit still recovers.
 | Check          | Probe                                  | Threshold | Action                                       |
 | -------------- | -------------------------------------- | --------- | -------------------------------------------- |
 | Backend health | `GET 127.0.0.1:8080/api/health`        | 3 (90s)   | restart `cogsworth.service`                  |
-| WiFi data path | ping the default gateway               | 10 (5min) | restart `wpa_supplicant.service`             |
+| WiFi data path | ping the default gateway               | 4 (2min)  | restart `wpa_supplicant.service`             |
 | Kiosk renderer | `Runtime.evaluate` over CDP on `:9222` | 5 (150s)  | restart `cogsworth-kiosk.service`            |
 | Off-origin     | top-frame URL is not localhost         | 3 (90s)   | `Page.navigate` back each tick, then restart |
 
