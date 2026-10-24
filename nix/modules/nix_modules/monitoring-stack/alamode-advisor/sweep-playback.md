@@ -24,7 +24,7 @@ Where the evidence lives:
 
 Steps:
 
-1. Call `alerts` and `alert_rules` filtered on `jellyfin`.
+1. Call `alerts`, and `alert_rules` with the filter `jellyfin`.
 2. What played: `jellyfin_now_playing_state` over 24h, by `username`,
    `device`, `method` and `title`. A title played on several devices, or
    started again and again on one, is a lead.
