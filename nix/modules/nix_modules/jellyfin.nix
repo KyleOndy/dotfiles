@@ -307,6 +307,13 @@ in
         # QSV and the OpenCL tone mapper both open only the render node.
         DevicePolicy = "closed";
         DeviceAllow = [ "/dev/dri/renderD128 rw" ];
+
+        # 10.11 aborts on some stops (an ObjectDisposedException from
+        # LimitedConcurrencyLibraryScheduler.DisposeAsync, fixed in 12.0 by
+        # jellyfin#17763), and streaming its ~10 GiB core to systemd-coredump
+        # outlasts the 15 s stop timeout. systemd-coredump drops a dump whose
+        # core limit is under a page without reading it.
+        LimitCORE = 0;
       };
 
       # Runs as jellyfin inside its sandbox, so the declared XML lands owned by
