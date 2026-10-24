@@ -287,9 +287,8 @@ in
 
     systemd.services.jellyfin = {
       serviceConfig = {
-        # Relax UMask so trickplay directories are group-writable, matching the
-        # other *arr services (lidarr, sonarr, etc.) that share the media group.
-        UMask = mkForce "0002";
+        # nixpkgs' 0077 would leave the logs in logDir unreadable to the group.
+        UMask = mkForce "0027";
 
         # The library is read-only: no library sets SaveLocalMetadata,
         # SaveTrickplayWithMedia or SaveLyricsWithMedia, and no subtitle

@@ -81,9 +81,11 @@ in
   config = mkIf (parentCfg.enable && cfg.enable) {
     # The module runs alloy under DynamicUser, so log access is granted by
     # supplementary group rather than by a static user's extraGroups. The
-    # list merges with the module's own "systemd-journal".
+    # list merges with the module's own "systemd-journal". caddyReverseProxy,
+    # not plain services.caddy, is what makes Caddy's logs group-readable.
     systemd.services.alloy.serviceConfig.SupplementaryGroups =
-      optional config.services.jellyfin.enable "media" ++ optional config.services.caddy.enable "caddy";
+      optional config.services.jellyfin.enable "media"
+      ++ optional config.systemFoundry.caddyReverseProxy.enable "caddy";
 
     services.alloy = {
       enable = true;

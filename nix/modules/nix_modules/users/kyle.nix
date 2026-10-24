@@ -42,7 +42,6 @@ in
         "audio"
         "dialout" # microcontoller dev
         "input" # input device access for trackball remapping
-        "networkmanager"
         "render" # gpu access
         "video" # camera/capture device access
         "wheel" # Enable 'sudo' for the user.

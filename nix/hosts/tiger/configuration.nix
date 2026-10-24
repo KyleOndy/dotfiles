@@ -659,13 +659,10 @@ in
 
   # media managment
   #
-  # Only the two accounts that have no other route in. Every service that
+  # Only kyle, the one account with no other route in. Every service that
   # touches the media tree gets it as its primary group instead, from the
   # `group = mediaGroup` lines further down.
-  users.groups."${mediaGroup}".members = [
-    "svc.deploy"
-    "kyle"
-  ];
+  users.groups."${mediaGroup}".members = [ "kyle" ];
 
   # Media/download directory layout. The library lives on /mnt/media and
   # downloads on /mnt/scratch-big. No /mnt/storage compat symlinks needed.
@@ -757,21 +754,16 @@ in
     dir:
     "d /mnt/backups/${dir} 0750 ${config.services.syncthing.user} ${config.services.syncthing.group} -"
   ) (lib.attrNames windowsBackupDirs);
-  # Allow svc.deploy to write to the website directory (rsync content push).
-  users.users."svc.deploy".extraGroups = [ "caddy" ];
   # Read alamode-advisor's reports in /var/lib/alamode-advisor/reports.
   users.users.kyle.extraGroups = [ "alamode-advisor" ];
 
-  # media is jellyfin's primary group (set below), so only the GPU groups
-  # need adding here.
+  # media is jellyfin's primary group (set below), so only the GPU group
+  # needs adding here. DeviceAllow limits it to renderD128, so `video`, which
+  # owns only the card nodes, would grant nothing.
   users.users.jellyfin.extraGroups = [
     "render" # Intel GPU access for VA-API/QSV transcoding
-    "video" # Intel GPU access for VA-API/QSV transcoding
   ];
-  systemd.services.jellyfin.serviceConfig.SupplementaryGroups = [
-    "render"
-    "video"
-  ];
+  systemd.services.jellyfin.serviceConfig.SupplementaryGroups = [ "render" ];
 
   # The media services run under ProtectSystem=strict, so these are the only
   # paths under /mnt each one can write: its root folder plus the category

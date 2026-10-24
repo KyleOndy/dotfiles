@@ -24,13 +24,6 @@ let
     )
   ) cfg.channels;
 
-  # Jellyfin creates .trickplay directories under the media root as its own
-  # user; without this ytdl-sub cannot descend into them to move files.
-  fixTrickplayPerms = pkgs.writeShellScript "fix-trickplay-perms" ''
-    ${pkgs.findutils}/bin/find ${cfg.media_dir} -path '*.trickplay*' -type d \
-      -exec chmod g+rwX {} +
-  '';
-
   textfile = "/var/lib/prometheus-node-exporter-text-files/ytdl_sub.prom";
 
   # Where CacheDirectory below lands it.
@@ -245,7 +238,6 @@ in
 
     systemd.services.ytdl-sub-youtube = {
       serviceConfig = {
-        ExecStartPre = "+${fixTrickplayPerms}";
         Nice = 19;
         IOSchedulingClass = "idle";
 

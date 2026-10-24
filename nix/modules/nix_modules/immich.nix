@@ -148,11 +148,8 @@ in
           unitConfig.RequiresMountsFor = cfg.externalLibraryPaths;
         };
 
-    # Grant the immich user access to the iGPU device
-    users.users.immich.extraGroups = [
-      "render"
-      "video"
-    ];
+    # Grant the immich user access to the iGPU's render node
+    users.users.immich.extraGroups = [ "render" ];
 
     systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
       mkIf config.systemFoundry.caddyReverseProxy.enable
