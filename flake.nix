@@ -217,6 +217,22 @@
           });
         })
 
+        # tmux 3.7 through 3.7b crash the server, and every session with it,
+        # when a session is destroyed under `detach-on-destroy next`, which
+        # nix/modules/hm_modules/terminal/tmux.nix sets (tmux/tmux#5344).
+        (final: prev: {
+          tmux = prev.tmux.overrideAttrs (old: {
+            patches =
+              (old.patches or [ ])
+              ++ final.lib.optional (final.lib.versionOlder old.version "3.7c") (
+                final.fetchpatch {
+                  url = "https://github.com/tmux/tmux/commit/c515d8cae0082762058577a5e2ba828b1e76d9a8.patch";
+                  hash = "sha256-QRIfGC2wPBgNkxPbAW2gSv1Za4M7nMOcXhoAhT9RQN0=";
+                }
+              );
+          });
+        })
+
         # pyopen-wakeword segfaults during installCheckPhase on aarch64
         # (numpy crash). Build wyoming-openwakeword against a Python with
         # patched package set so pyopen-wakeword skips the broken phase.
