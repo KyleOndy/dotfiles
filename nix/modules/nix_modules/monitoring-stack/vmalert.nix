@@ -1455,12 +1455,12 @@ in
               annotations:
                 summary: "{{ $labels.unit }} imported a zero-filled file"
                 description: >-
-                  The import hook found a run of zeros in a file just
-                  imported, as when Sonarr's copy wrote 850 MiB of zeros into
-                  a file SABnzbd had verified. It deletes the file and
-                  blocklists the grab, and the failed-download search
-                  replaces it. DAMAGED-KEPT means it could not, and the file
-                  needs replacing by hand:
+                  The import hook found a run of zeros in a video file just
+                  imported. SABnzbd passes such a release, because its par2
+                  and CRCs were made from the damaged file. The hook deletes
+                  the file and blocklists the grab, and the failed-download
+                  search replaces it. DAMAGED-KEPT means it could not, and
+                  the file needs replacing by hand:
                   `journalctl -t audio-language-check --since -1d | grep DAMAGED`
                   on {{ $labels.host }}. Clears a day after the import.
 

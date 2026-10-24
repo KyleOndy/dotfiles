@@ -357,8 +357,10 @@ reject() {
 
 # Prints how many bytes of a file are holes, reading no data. The library's
 # dataset has compression on, so ZFS stores every all-zero record as a hole,
-# and a zero-filled run of a record or more shows up here. Sonarr's import
-# once wrote 850 MiB of zeros into a file that SABnzbd had verified.
+# and a zero-filled run of a record or more shows up here. A release can carry
+# such a run and still verify, since its par2 and CRCs were made from the
+# damaged file: one Traitors upload held 850 MiB. Only video containers are
+# judged; a DVD ISO holds about 1 MiB of holes in its UDF padding.
 hole_bytes() {
 	python3 -I -c '
 import os, sys
@@ -815,7 +817,10 @@ main() {
 			log "SKIP $title: missing file $f"
 			continue
 		}
-		holes=$(hole_bytes "$f") || holes=0
+		case "$f" in
+		*.mkv | *.mp4 | *.avi) holes=$(hole_bytes "$f") || holes=0 ;;
+		*) holes=0 ;;
+		esac
 		if [ "$holes" -ge "$DAMAGED_BYTES" ]; then
 			log "DAMAGED $title: $((holes / 1048576)) MiB zero-filled in $(basename "$f")"
 			# One id names one file; for a multi-file event it cannot say which.
