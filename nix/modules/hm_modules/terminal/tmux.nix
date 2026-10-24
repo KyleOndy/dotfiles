@@ -215,6 +215,10 @@ in
 
         run ${pkgs.tmuxPlugins.gruvbox.rtp}
         set -g @tmux-gruvbox 'dark256'
+        # A message draws over the status line and clears what is behind it
+        # only with fill, which tmux's defaults carry and gruvbox's do not.
+        set -ga message-style fill=colour239
+        set -ga message-command-style fill=colour248
 
         # Make active pane border more visible
         set-option -g pane-active-border-style "fg=colour214,bg=default"
