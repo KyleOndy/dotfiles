@@ -2332,6 +2332,31 @@ in
                 format = "Unix"
               }
             }
+
+            // Jellyfin's own log already reaches the journal. ffmpeg's output
+            // goes only to one file per transcode or remux, which Jellyfin
+            // deletes after LogFileRetentionDays (3).
+            loki.source.file "jellyfin_ffmpeg" {
+              targets = [{
+                __path__ = "${config.services.jellyfin.logDir}/FFmpeg.*.log",
+                job      = "jellyfin-ffmpeg",
+              }]
+              forward_to = [loki.process.jellyfin_ffmpeg.receiver]
+
+              file_match {
+                enabled = true
+              }
+            }
+
+            loki.process "jellyfin_ffmpeg" {
+              forward_to = [loki.write.default.receiver]
+
+              // Each file opens with the media source as one ~50 KB JSON line.
+              // ffmpeg's input dump below it lists the same streams.
+              stage.drop {
+                expression = "^[{]"
+              }
+            }
           '';
         };
       };

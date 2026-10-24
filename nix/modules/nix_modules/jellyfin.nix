@@ -209,7 +209,11 @@ in
       enable = true;
       package = pkgs.jellyfin;
       group = cfg.group;
+      # Out of dataDir, which is 0700 and holds the database and API keys, so
+      # group cfg.group can read the logs and nothing else.
+      logDir = "/var/log/jellyfin";
     };
+    systemd.tmpfiles.settings.jellyfinDirs.${jfCfg.logDir}.d.mode = mkForce "0750";
 
     # Caddy: reverse proxy with automatic WebSocket support, 300s timeouts, and unbuffered streaming
     systemFoundry.caddyReverseProxy.sites."${cfg.domainName}" =
