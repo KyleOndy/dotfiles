@@ -98,6 +98,12 @@ in
       loki.write "default" {
         endpoint {
           url = "${cfg.lokiUrl}"${basicAuthBlock}
+          // The default gives up after 10 retries (about 8.5 minutes) and
+          // drops the batch. Zero retries forever; the full queue then
+          // blocks the journal source, which resumes from the journal once
+          // Loki answers, so an outage loses only what the journal itself
+          // has rotated away by then (an hour on cogsworth).
+          max_backoff_retries = 0
         }
         external_labels = ${alloyMap cfg.extraLabels}
       }
