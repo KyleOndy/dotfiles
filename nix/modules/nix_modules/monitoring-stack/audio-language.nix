@@ -90,6 +90,11 @@ in
     systemd.services.audio-language-sweep = {
       description = "Count library files whose audio has no English track";
 
+      # A run takes about 45 minutes. Restarting one mid-run makes the switch
+      # wait for the oneshot to finish, past deploy-rs's activation timeout,
+      # and the deploy rolls back. The next timer run picks up the change.
+      restartIfChanged = false;
+
       path = [
         pkgs.audio-language-check
         pkgs.coreutils
