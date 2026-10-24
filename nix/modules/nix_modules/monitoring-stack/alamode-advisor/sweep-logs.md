@@ -20,7 +20,8 @@ outside that range, and say how far.
    fields (`"errors":0`), and still counts "Failed to start" and
    "TimeoutException".
 
-   Run it again with `offset 7d`, to find units that are new to the list or
+   Run it again with `[24h] offset 7d` (Loki accepts `offset` only right
+   after the range), to find units that are new to the list or
    went quiet when they normally log. Keep the two lists apart: a count from
    the offset run is a week old, never today's. Run `baseline` on each unit whose count
    looks high, one unit at a time. A unit that went quiet is a finding only

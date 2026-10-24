@@ -8,7 +8,11 @@ failure) needs only the last 24 hours. Judge whether something changed with
 `baseline`, against the spread of the prior 14 days rather than one earlier
 day, which can itself be high or low. Report a change only when today falls
 outside that range, and say how far: today against the median and the range's
-nearest edge. Fit a trend toward a limit with `predict_linear` over `[7d]`,
+nearest edge. A bare gauge in `baseline` is one sample a day, so judge a
+gauge's level with `quantile_over_time(0.5, x[1d])` and its peaks with
+`max_over_time(x[1d])`. Before calling a current value a change, read it at a
+1m step over the 10 minutes around it: one sample out of line is a spike, not
+a level. Fit a trend toward a limit with `predict_linear` over `[7d]`,
 and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
 you used. A series that a periodic job cuts back, such as a root filesystem

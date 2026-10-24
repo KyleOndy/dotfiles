@@ -36,7 +36,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
   `unit`, e.g. `{unit="sonarr.service"}`. Every `unit` value carries its
   suffix (`.service`, `.scope`), and a regex matcher must match the whole
   value, so `{unit=~"sonarr|radarr"}` matches nothing. Write
-  `{unit=~"(sonarr|radarr).service"}`.
+  `{unit=~"(sonarr|radarr).service"}`. A double-quoted string rejects `\.`
+  as an invalid escape: write `\\.`, or use a backtick string, which keeps
+  `\.` as is.
 - Retention is 400 days for metrics and logs, so week-over-week and
   month-over-month comparisons work.
 - Loki refuses a log query whose window or `[range]` passes 45 days. Reach
@@ -56,7 +58,14 @@ host. Suggesting a command Kyle could run to look closer is fine.
   can no longer find by path, as in a `replacing` group mid-swap, and a
   `vdev_remove` of an UNAVAIL disk at `resilver_finish` is a `zpool replace`
   completing. Name a disk by its `serial`: `sdX` and `ataN` change between
-  boots.
+  boots. Replacing every disk of a vdev with larger ones steps
+  `zfs_pool_size_bytes` up, so take used and free from the same timestamp,
+  and check size for a step before calling a change in free space a fill
+  or a freeing.
+- Name a hwmon sensor's device from `node_hwmon_chip_names` before naming
+  it. smartd's `Temperature_Celsius changed` lines carry the attribute's
+  normalized value, not °C (on tiger's disks about 94 minus °C), and the
+  `smartctl_*` series hold no temperature.
 - Name what grew a pool from `zfs_dataset_used_bytes` and
   `zfs_dataset_used_by_dataset_bytes` per dataset before naming a cause. A
   replaced file stays in its dataset's snapshots until sanoid prunes them,
@@ -76,7 +85,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
   before a deploy or reboot was not caused by it.
 - A boot's cause is in the minute before it. Before calling a reboot
   unexplained or a power loss, read that host's last lines in Loki before
-  the boot, `|~ "System is rebooting|COMMAND=.*reboot"`. cogsworth's journal
+  the boot, `|~ "System is (rebooting|powering down)|COMMAND=.*(reboot|poweroff)"`.
+  A unit silent until a boot was stopped by the shutdown before it: check
+  `node_boot_time_seconds` before calling such a gap a dropout. cogsworth's journal
   keeps one hour, so Loki is its only record. A pattern right after a boot
   (USB re-enumeration, DNS failures before the network is up) is new only if
   the host's earlier boots lack it.
@@ -124,7 +135,9 @@ to skip it.
   ratio, and takes its direction from those values. For a free or available
   gauge, free rising means use falling.
 - Before stating a rule's threshold, or that it would or would not fire,
-  read it with `alert_rules` and a filter and quote its `expr` and `for`. A
+  read it with `alert_rules` and a filter and quote its `expr` and `for`.
+  Before writing that no rule covers something, filter `alert_rules` on its
+  unit, task or metric name. A
   rule that has not fired says nothing about its threshold. A last-success
   timestamp that stopped advancing while its unit is still active
   (`node_systemd_unit_state{state="active"}` reads 1) is a job still
@@ -150,6 +163,9 @@ The report is GitHub-flavored Markdown. Kyle reads it as an HTML email
 rendered from that Markdown, or as the Markdown itself, so it has to read
 well both ways.
 
+- Only your final message becomes the report: pi prints the last assistant
+  text and drops the rest. Write the whole report there, after your last
+  query, and never refer to text from an earlier message.
 - No title. The report goes under a heading the script writes, so the first
   line is the verdict: one sentence of at most 30 words, in bold.
 - `##` for sections, `###` below them, nothing deeper.

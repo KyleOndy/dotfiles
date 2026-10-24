@@ -235,11 +235,15 @@ function shortTime(seconds: number): string {
 
 function formatVector(series: { metric: Labels; value: Sample }[]): string {
   if (series.length === 0) return "empty result";
-  const lines = series
-    .slice(0, MAX_VECTOR_SERIES)
-    .map(
-      (s) => `${formatLabels(s.metric)} ${formatNumber(Number(s.value[1]))}`,
-    );
+  const lines = series.slice(0, MAX_VECTOR_SERIES).map((s) => {
+    const v = Number(s.value[1]);
+    // The model misdates epochs it converts itself.
+    const date =
+      Number.isFinite(v) && s.metric.__name__?.endsWith("_timestamp_seconds")
+        ? ` (${shortTime(v)})`
+        : "";
+    return `${formatLabels(s.metric)} ${formatNumber(v)}${date}`;
+  });
   if (series.length > MAX_VECTOR_SERIES) {
     lines.push(
       `[${series.length - MAX_VECTOR_SERIES} more series: aggregate with sum by (...) or topk]`,
@@ -624,6 +628,7 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: [
       "Use baseline before calling anything a jump, a drop or unusual. One earlier day, such as offset 7d, can itself be high or low; the range of the prior days is the comparison.",
       'For logql, narrow to one unit or one line, e.g. count_over_time({unit="sonarr.service"} |= "database is locked" [1d]). The whole journal over 14 days outruns Loki\'s one-minute query timeout.',
+      "For logql, wrap the count in sum(...) or sum by (...). A bare | json turns every field of the line into a label, and 14 days of those pass Loki's 5,000-series limit.",
       "To compare peaks, query max_over_time(x[1d]). The highest daily average is not the highest sample, so it is no prior max.",
     ],
     parameters: Type.Object({
