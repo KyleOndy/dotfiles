@@ -108,7 +108,12 @@ in
 
   boot = {
     loader = {
-      systemd-boot.enable = true;
+      systemd-boot = {
+        enable = true;
+        # Each kernel change adds a 42.7 MB initrd to a /boot that sits
+        # near half full; nix-gc's 35 days alone leaves too many.
+        configurationLimit = 20;
+      };
       efi.canTouchEfiVariables = true;
     };
     supportedFilesystems.zfs = true;
