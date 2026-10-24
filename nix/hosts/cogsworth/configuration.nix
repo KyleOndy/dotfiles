@@ -189,11 +189,13 @@ in
       networks = {
         "The Ondy's" = {
           pskRaw = "ext:home_psk";
-          # Kristen's Office, 2.4 GHz. Left to choose, cogsworth joined
-          # Basement rack after a disconnect and held a link there with
-          # about 29% of frames retried, against 5 to 7% here. With this,
-          # it has no AP to fall back to if this one is down.
-          extraConfig = "bssid=8c:30:66:54:78:7d";
+          # Kristen's Office, 5 GHz (ch48, -57 dBm from the kiosk). Left to
+          # choose, cogsworth joined Basement rack after a disconnect and
+          # held a link there with about 29% of frames retried. The same
+          # AP's 2.4 GHz radio (bssid ...:7d) is the network's busiest and
+          # dropped cogsworth for missed ACKs (reason 34). With this, it
+          # has no AP to fall back to if this one is down.
+          extraConfig = "bssid=8c:30:66:54:78:7e";
         };
       };
     };
