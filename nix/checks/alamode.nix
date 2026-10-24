@@ -45,6 +45,19 @@ pkgs.runCommand "alamode-check"
     ${pkgs.alamode}/bin/alamode --help > help.txt
     grep -q 'resume' help.txt
     grep -q 'coord' help.txt
+    # A compiled pi loads .env from its working directory, which a session
+    # can write, unless llm-agents builds it with
+    # --no-compile-autoload-dotenv. The first run shows FORCE_COLOR colours
+    # --help, so the second can only pass by ignoring the file.
+    mkdir dotenv
+    echo FORCE_COLOR=1 > dotenv/.env
+    FORCE_COLOR=1 ${pkgs.lib.getExe pkgs.llm-agents.pi} --help > pi-colour.txt 2>&1
+    grep -q $'\e\[' pi-colour.txt
+    (cd dotenv && ${pkgs.lib.getExe pkgs.llm-agents.pi} --help) > pi-dotenv.txt 2>&1
+    if grep -q $'\e\[' pi-dotenv.txt; then
+      echo "pi loaded dotenv/.env" >&2
+      exit 1
+    fi
     # The completion must load as a function named for the program, or TAB
     # completes nothing and zsh never says why.
     zsh -f -c '
