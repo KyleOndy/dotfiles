@@ -30,9 +30,10 @@ outside that range, and say how far.
    reads 0) or the metrics it feeds stopped. One still running that stopped
    erroring after a deploy was fixed.
 
-3. Caddy access: 5xx counts by host and upstream, 4xx spikes, and request
-   patterns that look like scanning or credential stuffing against a public
-   app.
+3. Caddy access: 5xx counts by host and upstream, 4xx counts by vhost
+   through `baseline` (scanners alone swing them widely from day to day),
+   and request patterns that look like scanning or credential stuffing
+   against a public app.
 4. Read raw lines only for the handful of changes that stood out, enough to
    say what the errors are. Before calling a count a jump, run `baseline` on
    the specific line that stood out (`|= "<text>"`), not only the broad
@@ -47,6 +48,8 @@ outside that range, and say how far.
      and disk.
    - rests on lines you did not read this run. It goes under Not checked
      instead.
+   - you concluded is not a fault, such as the restarts and errors a
+     deploy explains.
 
    Name what you dropped, and why, under Checked.
 

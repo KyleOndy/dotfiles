@@ -47,8 +47,10 @@ Steps:
 4. For each play that stood out, read its ffmpeg runs: the command line
    (`-codec:v:0 copy` is video passed through, `h264_qsv` or `hevc_qsv` is
    a GPU encode, `libmp3lame` is audio converted), the input's streams,
-   any line with `Error`, `Invalid data` or `Conversion failed`, and its
-   `speed=`. Speed below 1x while unthrottled means tiger could not keep
+   any line matching `(?i)error|invalid|conversion failed` (demuxer errors
+   such as `invalid as first byte of an EBML number` are lowercase), and its
+   `speed=`. A `dup=` count that jumps right after a demuxer error is
+   damaged input, not frame-rate conversion. Speed below 1x while unthrottled means tiger could not keep
    up. Runs seconds apart are someone scrubbing when their `-ss` moves and
    the client retrying when it repeats.
 5. Name the client: the `RemoteIP:` line Jellyfin logs when the play
@@ -62,7 +64,16 @@ Steps:
    (a codec it claims and cannot play, a retry with no fallback), tiger
    (speed below 1x, GPU errors), or the network (a low or falling link
    rate, dropped downloads). Use `web_search` on the client's app version
-   and the error signature for a known upstream bug.
+   and the error signature for a known upstream bug. Rule out the known
+   failure modes first:
+   - A Roku's 0 ms stops on a direct play with no video ffmpeg run are most
+     often a DTS-only file it claims and cannot play. The audio-language
+     fix logs `COMPAT-PLAN` and `COMPAT-ADDED` per title:
+     `{job="systemd-journal",host="tiger"} |= "COMPAT-" |= "<title>"`.
+   - An HLS run with `-codec:v:0 copy` and transcoded audio, resumed
+     mid-file, whose client keeps asking for the segments just behind the
+     resume point (`cannot serve`), is a server bug,
+     [jellyfin#17966](https://github.com/jellyfin/jellyfin/issues/17966).
 7. Before writing, drop any finding that matches an entry under
    Acknowledged issues below, or that rests on lines you did not read this
    run, and name what you dropped, and why, under Checked.

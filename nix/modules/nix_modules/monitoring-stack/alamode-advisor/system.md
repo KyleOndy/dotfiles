@@ -15,6 +15,12 @@ instead.
   from tiger; tiger cannot reach it.
 - cogsworth: aarch64 NixOS on a Raspberry Pi 5, a kiosk display that also runs
   birdnet-go. The Pi 5 throttles its Arm cores progressively from 80 °C.
+  It is on Wi-Fi only. While its link is down, vmagent buffers its metrics
+  and alloy holds its log lines, and both arrive late once it reconnects,
+  so during an outage a lost link and a dead box look the same: say both
+  are possible rather than pick one. Once data is back,
+  `node_network_carrier{host="cogsworth",device="wlan0"}` and
+  `node_boot_time_seconds` tell them apart.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
   gaps in its data are expected and not a finding on their own. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
@@ -87,6 +93,14 @@ host. Suggesting a command Kyle could run to look closer is fine.
   systemd makes after a unit dies; a process that restarted while it stayed
   flat was stopped and started on purpose. Before calling a restart, a burst
   of 5xx or a unit gone quiet a fault, check whether a deploy lines up.
+- systemd's own lines about a unit (Starting, Started, Stopping, Stopped,
+  Failed, timeouts) carry `unit="init.scope"`, and Started and Stopped name
+  the unit by its description, as in `Started Jellyfin Media Server.`. The
+  unit's own stream holds none of them, so its silence says nothing about a
+  restart. Count a scraped service's restarts with
+  `changes(process_start_time_seconds{host="<host>",job="<job>"}[24h])`.
+  Whether a deploy an acknowledged issue waits on has happened is that
+  host's `system_activation_timestamp_seconds` since the entry's date.
 - Read a failed unit's own last lines before naming a cause. Exit status 143
   is SIGTERM (128 + 15): systemd or a person stopped it. A failure that comes
   before a deploy or reboot was not caused by it.
@@ -128,7 +142,8 @@ Kyle may list issues he already knows about at the end of your task, under
 its whole category. Before leaving a finding out under an entry, check it
 against what the entry names: the same host, unit or dataset, inside its
 figures and dates. Growth past an entry's figure, or on another dataset, is
-a finding. Leave a matching finding out of a sweep entirely. Report
+a finding. Where an entry ends with `Report <condition>`, that condition
+decides whether its kind of event is reportable again, not a larger count. Leave a matching finding out of a sweep entirely. Report
 it only if it has recurred or changed since the entry's date, and then say
 which entry it relates to. An entry past its `until` date no longer applies.
 In an alert triage, a matching entry is context for the triage, not a reason
@@ -156,7 +171,9 @@ to skip it.
   what an error message means, a known bug in a version, a documented vendor
   limit. Cite the URL you relied on. Queries leave the house, so search on
   the error signature, product and version, never on hostnames, IP
-  addresses, usernames, paths or anything resembling a credential.
+  addresses, usernames, paths or anything resembling a credential. Cite an
+  upstream issue only when its version and symptom match what you saw, and
+  say what differs.
 - You see search snippets only; nothing opens a page. When a finding rests
   on a page you only saw a snippet of, say so, cite its URL and list reading
   it as a next step.
