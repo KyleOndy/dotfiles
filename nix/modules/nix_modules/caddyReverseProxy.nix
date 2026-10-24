@@ -11,8 +11,8 @@ let
   # Custom Caddy build with Route53 DNS plugin for ACME DNS-01 challenge.
   # To get the correct hash: build once with lib.fakeHash, read the hash from the error, update here.
   caddyWithPlugins = pkgs.caddy.withPlugins {
-    plugins = [ "github.com/caddy-dns/route53@v1.6.0" ];
-    hash = "sha256-q/kR5fSbagypuzAfHUQk8N9TUH6/c2dTTT3EqNOtl4Y=";
+    plugins = [ "github.com/caddy-dns/route53@v1.6.2" ];
+    hash = "sha256-tDFYgWalHKeN/TGqI3o4FBAnWb0GDo4oNEiwZ3yhZPM=";
   };
 
   enabledSites = filterAttrs (_: s: s.enable) cfg.sites;
