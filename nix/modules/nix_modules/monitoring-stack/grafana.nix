@@ -152,7 +152,7 @@ in
                         datasourceUid = "loki";
                         model = {
                           expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
-                          queryType = "range";
+                          queryType = "instant";
                           refId = "A";
                         };
                       }
@@ -224,7 +224,7 @@ in
                         # of these within a minute or two.
                         model = {
                           expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |~ "Stopped at 0 ms|cannot serve" [5m]))'';
-                          queryType = "range";
+                          queryType = "instant";
                           refId = "A";
                         };
                       }
