@@ -1836,6 +1836,17 @@ in
                 summary: "WAN dropped {{ $value }} times in the last hour"
                 description: "The gateway recorded repeated internet drops. The S3 archive push and both public cert renewals depend on this link."
 
+            # The AP's rate control can pin an associated client at MCS0 (7.2
+            # Mbps) for days. Phones and laptops idle this low, Rokus never do.
+            # A series without ap_name is a departed client, not a link.
+            - alert: RokuWifiRateStuck
+              expr: max_over_time(unpoller_client_radio_transmit_rate_bps{name=~"(?i).*roku.*", ap_name!=""}[6h]) < 20e6
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.name }} Wi-Fi link stuck below 20 Mbps for 6h"
+                description: "The {{ $labels.ap_name }} AP has not sent to {{ $labels.name }} ({{ $labels.ip }}) faster than {{ $value | humanize }}bps in 6 hours, while a healthy link here idles at 260-430 Mbps. Jellyfin on it will stall and restart every few minutes. Restart the Roku (Settings > System > Power > System restart); a reconnect resets the rate. If it comes back low, check unpoller_client_radio_signal_db for a weak link."
+
         # The sump pump's ESPHome plug (esphome/ in this repo). Above 50 W is
         # running: the plug reports 0 below 3 W and a pump draws hundreds.
         - name: sump_pump
