@@ -296,14 +296,6 @@ in
   users = {
     # for backup reasons
     users = {
-      "svc.backup" = {
-        isSystemUser = true;
-        group = "svc.backup";
-        # No login needed (isSystemUser, inert placeholder, no
-        # services.syncoid wired up yet). Password removed entirely rather
-        # than sops-ified; account stays locked out until it has an actual
-        # login use case.
-      };
       "svc.syncoid" = {
         isNormalUser = true;
         # Its own group, not svc.backup: that one can write
@@ -332,10 +324,9 @@ in
         ];
       };
     };
-    groups."svc.backup".members = [
-      "svc.backup"
-      "kyle"
-    ];
+    # Group owner of /mnt/backups and the 2022 dump under
+    # /mnt/backups/kristen, so it stays without a user of its own.
+    groups."svc.backup".members = [ "kyle" ];
     groups."svc.syncoid" = { };
   };
 
