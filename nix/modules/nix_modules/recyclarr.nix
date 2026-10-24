@@ -379,7 +379,18 @@ in
         "radarr.service"
       ];
       wantedBy = [ "multi-user.target" ];
-      preStart = mkAfter "ln -sfn ${settings} ${stateDir}/settings.yml";
+      preStart = mkAfter ''
+        ln -sfn ${settings} ${stateDir}/settings.yml
+
+        # A switch that restarts Sonarr or Radarr starts this unit in the same
+        # second, before either answers, and a failed start fails the switch.
+        for url in ${cfg.sonarr.url} ${cfg.radarr.url}; do
+          for _ in $(seq 60); do
+            ${pkgs.curl}/bin/curl -sf --max-time 5 "$url/ping" >/dev/null && break
+            sleep 2
+          done
+        done
+      '';
       serviceConfig = {
         # Active after a run, so switch-to-configuration reruns it when the
         # config changes and leaves it alone when it does not.
