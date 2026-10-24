@@ -1411,6 +1411,25 @@ in
                   50 files as series and says so in its log when it truncates;
                   media_audio_no_english_files carries the full count.
 
+            - alert: MediaAudioDtsDefault
+              expr: media_audio_dts_default_file > 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "DTS default audio: {{ $labels.path }}"
+                description: >-
+                  The track Jellyfin plays by default is DTS, which the Rokus
+                  fail before the first frame with no transcode fallback. The
+                  import hook and the sweep both try to add an AC3 default, so
+                  this is a file they could not fix: not matroska, or a
+                  failed encode, mux or check.
+                  `journalctl -t audio-language-check | grep COMPAT` on
+                  {{ $labels.host }} gives the reason, and
+                  `audio-language-check --compat <path>` retries it.
+                  media_audio_dts_default_files carries the count beyond the
+                  first 50.
+
             # The sweep reads tags, so it passes a file tagged English that
             # whisper heard otherwise at import. This is the only signal for
             # one.

@@ -496,13 +496,6 @@ verify_ac3_mux() {
 # Never fails the caller: an import keeps its file whatever happens here.
 compat_audio() {
 	local f="$1" plan action
-	case "$f" in
-	*.mkv) ;;
-	*)
-		note "COMPAT-SKIPPED $(basename "$f"): only matroska is handled"
-		return 0
-		;;
-	esac
 	plan=$(compat_plan "$f") || {
 		log "COMPAT-FAILED $(basename "$f"): ffprobe could not read the audio tracks"
 		return 0
@@ -511,6 +504,13 @@ compat_audio() {
 	if [ "$action" = none ]; then
 		return 0
 	fi
+	case "$f" in
+	*.mkv) ;;
+	*)
+		log "COMPAT-SKIPPED $(basename "$f"): default audio is DTS, and only matroska is handled"
+		return 0
+		;;
+	esac
 	if [ "$DRY_RUN" = 1 ]; then
 		note "COMPAT-PLAN $(basename "$f"): $plan"
 		return 0
@@ -540,16 +540,30 @@ compat_audio() {
 sweep_library() {
 	local out="${AUDIO_LANG_TEXTFILE:-/var/lib/prometheus-node-exporter-text-files/audio_language.prom}"
 	local roots="${AUDIO_LANG_ROOTS:-/mnt/media/tv /mnt/media/movies}"
-	local f langs library verdict total=0 unverified=0 lang
-	local -A bad=()
-	local -a bad_libs=() bad_paths=()
+	local f langs library verdict total=0 unverified=0 lang plan fixed=0
+	local -A bad=() dts=()
+	local -a bad_libs=() bad_paths=() dts_libs=() dts_paths=()
 
 	local root
 	for root in $roots; do
 		library=$(basename "$root")
 		bad[$library]=${bad[$library]:-0}
+		dts[$library]=${dts[$library]:-0}
 		while IFS= read -r -d '' f; do
 			total=$((total + 1))
+			# Before the language checks, which end the iteration early. The
+			# import hook fixes new grabs; this catches what bypassed it.
+			plan=$(compat_plan "$f") || plan=none
+			if [ "${plan%% *}" != none ] && [ "$COMPAT" = 1 ]; then
+				compat_audio "$f"
+				plan=$(compat_plan "$f") || plan=none
+				[ "${plan%% *}" = none ] && fixed=$((fixed + 1))
+			fi
+			if [ "${plan%% *}" != none ]; then
+				dts[$library]=$((${dts[$library]} + 1))
+				dts_libs+=("$library")
+				dts_paths+=("$f")
+			fi
 			langs=$(audio_langs "$f")
 			has_english_tag "$langs" && continue
 			if tags_are_unknown "$langs"; then
@@ -592,6 +606,19 @@ sweep_library() {
 				"${bad_libs[$i]}" "$(escape_label "${bad_paths[$i]}")"
 			i=$((i + 1))
 		done
+		printf '# HELP media_audio_dts_default_files Video files whose default audio track is still DTS\n'
+		printf '# TYPE media_audio_dts_default_files gauge\n'
+		for library in "${!dts[@]}"; do
+			printf 'media_audio_dts_default_files{library="%s"} %s\n' "$library" "${dts[$library]}"
+		done
+		printf '# HELP media_audio_dts_default_file Video file whose default audio track is still DTS\n'
+		printf '# TYPE media_audio_dts_default_file gauge\n'
+		i=0
+		while [ "$i" -lt "${#dts_paths[@]}" ] && [ "$i" -lt "$MAX_SERIES" ]; do
+			printf 'media_audio_dts_default_file{library="%s",path="%s"} 1\n' \
+				"${dts_libs[$i]}" "$(escape_label "${dts_paths[$i]}")"
+			i=$((i + 1))
+		done
 		printf '# HELP media_audio_unverified_files Untagged files whose language whisper could not settle\n'
 		printf '# TYPE media_audio_unverified_files gauge\n'
 		printf 'media_audio_unverified_files %s\n' "$unverified"
@@ -612,7 +639,7 @@ sweep_library() {
 	if [ -n "$LANG_INDEX" ]; then
 		rm -f "$LANG_INDEX"
 	fi
-	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified"
+	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified dts_default=${#dts_paths[@]} dts_fixed=$fixed"
 }
 
 main() {

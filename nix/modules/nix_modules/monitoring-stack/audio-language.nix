@@ -71,24 +71,27 @@ in
       type = types.bool;
       default = false;
       description = ''
-        On import, keep the audio track Jellyfin plays by default from being
-        DTS. jellyfin-roku advertises dts whenever the Roku does, then fails
+        Keep the audio track Jellyfin plays by default from being DTS, on
+        import and again in the sweep for whatever bypassed the hook.
+        jellyfin-roku advertises dts whenever the Roku does, then fails
         DTS-HD MA and DTS:X before the first frame and never falls back to a
         transcode. An AC3 or EAC3 track in the same language is made the only
         default; without one, an AC3 copy of the DTS track is muxed in as the
-        first and only default, keeping the DTS track behind it.
+        first and only default, keeping the DTS track behind it. A file still
+        defaulting to DTS after the sweep is exported as
+        media_audio_dts_default_file.
 
         Matroska only. Adding a track rewrites the whole file, so the import
-        waits for a copy of it. `audio-language-check --compat <file>...`
-        does the same by hand, and with AUDIO_LANG_DRY_RUN=1 only prints what
-        it would do.
+        waits for a copy of it, and the sweep gains write access to `roots`.
+        `audio-language-check --compat <file>...` does the same by hand, and
+        with AUDIO_LANG_DRY_RUN=1 only prints what it would do.
       '';
     };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
     systemd.services.audio-language-sweep = {
-      description = "Count library files whose audio has no English track";
+      description = "Check library audio for a missing English track or a DTS default";
 
       # A run takes about 45 minutes. Restarting one mid-run makes the switch
       # wait for the oneshot to finish, past deploy-rs's activation timeout,
@@ -105,7 +108,10 @@ in
       serviceConfig = {
         Type = "oneshot";
         User = "audio-language";
-        Group = "audio-language";
+        # A file the sweep rewrites takes this group, and has to stay in media
+        # for the *arrs and the import hook to edit it. chgrp cannot fix it
+        # afterwards: ~@privileged below filters the chown calls.
+        Group = if cfg.compatAudio then "media" else "audio-language";
         SupplementaryGroups = [
           "media"
           "textfile"
@@ -122,8 +128,8 @@ in
           optional config.services.radarr.enable "radarr-config:${config.services.radarr.dataDir}/config.xml"
           ++ optional config.services.sonarr.enable "sonarr-config:${config.services.sonarr.dataDir}/config.xml";
 
-        ReadOnlyPaths = cfg.roots;
-        ReadWritePaths = [ (dirOf textfile) ];
+        ReadOnlyPaths = optionals (!cfg.compatAudio) cfg.roots;
+        ReadWritePaths = [ (dirOf textfile) ] ++ optionals cfg.compatAudio cfg.roots;
         NoNewPrivileges = true;
         CapabilityBoundingSet = "";
         ProtectSystem = "strict";
@@ -164,6 +170,7 @@ in
         AUDIO_LANG_ROOTS = concatStringsSep " " cfg.roots;
         RADARR_CONFIG = "%d/radarr-config";
         SONARR_CONFIG = "%d/sonarr-config";
+        AUDIO_LANG_COMPAT = mkIf cfg.compatAudio "1";
       };
 
       script = "audio-language-check --sweep";
