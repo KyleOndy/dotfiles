@@ -17,7 +17,9 @@ and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
 you used. A series that a periodic job cuts back, such as a root filesystem
 at the weekly nix-gc, climbs between runs: compare its peaks across runs,
-not the slope inside one. Call a trend steady only from each series' own
+not the slope inside one. nix-gc deletes only generations older than 35 days,
+so one run can free little; read `{unit="nix-gc.service"} |= "freed"` before
+projecting a date it fills. Call a trend steady only from each series' own
 values, never from an aggregate across them.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
@@ -34,8 +36,9 @@ values, never from an aggregate across them.
      counts that changed shape.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
-   - Backups: last-success timestamps and scrub ages drifting later even when
-     still inside their alert thresholds. To say when a job ran, convert its
+   - Backups: last-success timestamps drifting later even when still inside
+     their alert thresholds, and scrub ages past 32 days (every pool scrubs
+     on the 1st, so 0-31 days is the schedule). To say when a job ran, convert its
      `*_timestamp_seconds` value to a date; never work it back from an age
      and the time you think the query ran.
 4. Before writing, go through your findings and drop any that:
