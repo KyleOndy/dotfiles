@@ -92,6 +92,13 @@ in
       extraFlags = [
         "--collector.textfile.directory=${cfg.textfileDirectory}"
         "--collector.systemd.enable-restarts-metrics"
+        # The flag replaces node_exporter's default, so the default is
+        # repeated ahead of the snapshot pattern; `$$` is systemd's escape for
+        # `$`. Opening a path under .zfs/snapshot automounts that snapshot,
+        # and a snapshot of a dataset node-exporter cannot read fails statfs
+        # with EACCES, which fires FilesystemDeviceError until ZFS expires the
+        # mount or sanoid prunes the snapshot.
+        "--collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)|/[.]zfs/snapshot/"
       ];
     };
   };
