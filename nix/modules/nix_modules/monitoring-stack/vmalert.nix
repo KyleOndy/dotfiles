@@ -291,8 +291,14 @@ in
         - name: arr_queue_health
           interval: 60s
           rules:
+            # exportarr 2.3.0 sends one *_queue_total series per app: the
+            # whole queue's length, labelled with the state of its last
+            # record, so the labels flip as the queue moves and restart any
+            # `for:` keyed on them. Depth is summed across them, and what is
+            # stuck comes from arr-queue-janitor, which counts it each sweep.
+            # https://github.com/onedr0p/exportarr/blob/v2.3.0/internal/arr/collector/queue.go#L88-L96
             - alert: SonarrQueueHigh
-              expr: sonarr_queue_total > 50
+              expr: sum by (host) (sonarr_queue_total) > 50
               for: 4h
               labels:
                 severity: warning
@@ -301,20 +307,8 @@ in
                 summary: "Sonarr queue depth is high: {{ $value }} items"
                 description: "Sonarr has more than 50 items in queue for 4+ hours"
 
-            # Keyed on download_state, not on increase(gauge[6h]) == 0:
-            # MetricsQL reads a gauge decrease as a counter reset, so one item
-            # leaving the state restarts the `for:` for every other item in it.
-            # Sonarr reports a blocked item as importPending while it re-checks
-            # it each minute, so the blocked series has gaps that would restart
-            # `for:` too; max_over_time bridges them.
-            #
-            # download_status catches what the state list cannot: an item the
-            # *arr warns on but leaves in importPending forever. Radarr retried
-            # one unparseable mkv that way every 20s for over a week. The *arrs
-            # mark every import they refuse with TrackedDownload.Warn(), and a
-            # healthy importPending item reports status ok.
             - alert: SonarrImportBlocked
-              expr: sum by (host) (max_over_time(sonarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}[30m]) or max_over_time(sonarr_queue_total{download_status=~"warning|error"}[30m])) > 0
+              expr: max by (host) (arr_queue_janitor_blocked{app="sonarr"}) > 0
               for: 24h
               labels:
                 severity: warning
@@ -324,7 +318,7 @@ in
                 description: "Sonarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://sonarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
 
             - alert: RadarrQueueHigh
-              expr: radarr_queue_total > 50
+              expr: sum by (host) (radarr_queue_total) > 50
               for: 4h
               labels:
                 severity: warning
@@ -334,7 +328,7 @@ in
                 description: "Radarr has more than 50 items in queue for 4+ hours"
 
             - alert: RadarrImportBlocked
-              expr: sum by (host) (max_over_time(radarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}[30m]) or max_over_time(radarr_queue_total{download_status=~"warning|error"}[30m])) > 0
+              expr: max by (host) (arr_queue_janitor_blocked{app="radarr"}) > 0
               for: 24h
               labels:
                 severity: warning
@@ -344,7 +338,7 @@ in
                 description: "Radarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://radarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
 
             - alert: LidarrQueueHigh
-              expr: lidarr_queue_total > 50
+              expr: sum by (host) (lidarr_queue_total) > 50
               for: 4h
               labels:
                 severity: warning
@@ -353,11 +347,8 @@ in
                 summary: "Lidarr queue depth is high: {{ $value }} items"
                 description: "Lidarr has more than 50 items in queue for 4+ hours"
 
-            # importFailed and not just importBlocked: lidarr parks an
-            # incomplete release here, where sonarr and radarr would say
-            # importBlocked. Without it the whole group matches nothing.
             - alert: LidarrImportBlocked
-              expr: sum by (host) (max_over_time(lidarr_queue_total{download_state=~"importBlocked|importFailed|failedPending"}[30m]) or max_over_time(lidarr_queue_total{download_status=~"warning|error"}[30m])) > 0
+              expr: max by (host) (arr_queue_janitor_blocked{app="lidarr"}) > 0
               for: 24h
               labels:
                 severity: warning
@@ -365,6 +356,17 @@ in
               annotations:
                 summary: "Lidarr has {{ $value }} queue item(s) stuck importing"
                 description: "Lidarr retries these every 60s and is still blocked, so they need a decision, not time. Open https://lidarr.tiger.infra.ondy.org/activity/queue and either manual-import or remove them. Otherwise arr-queue-janitor removes and blocklists them 48h after the grab and searches again."
+
+            # The ImportBlocked rules read the janitor's last sweep, so a
+            # janitor that stopped sweeping leaves them frozen. It runs every
+            # 6h; 13h is two missed sweeps.
+            - alert: ArrQueueJanitorStale
+              expr: absent(arr_queue_janitor_last_run_timestamp_seconds) or (time() - arr_queue_janitor_last_run_timestamp_seconds > 13 * 3600)
+              labels:
+                severity: warning
+              annotations:
+                summary: "arr-queue-janitor has not swept {{ $labels.app }} in 13h"
+                description: "SonarrImportBlocked, RadarrImportBlocked and LidarrImportBlocked read its last sweep, so they are blind until it runs. journalctl -u arr-queue-janitor on tiger says why: usually the app's API was unreachable."
 
             # Each app's System > Status page: download client unreachable,
             # root folder missing, import lists failing. UpdateCheck is noise

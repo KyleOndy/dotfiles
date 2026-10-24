@@ -11,6 +11,20 @@ let
 
   textfile = "/var/lib/prometheus-node-exporter-text-files/arr_queue_janitor.prom";
 
+  # jq predicate for a queue record stuck importing.
+  stuck = ''
+    # importFailed is where Lidarr parks an incomplete release;
+    # Sonarr and Radarr call the same condition importBlocked.
+    # A finished download with nothing left it can import, such as
+    # a season pack missing one episode, stays importPending with a
+    # warning instead. A healthy pending item reads ok.
+    .trackedDownloadState == "importBlocked"
+    or .trackedDownloadState == "importFailed"
+    or .trackedDownloadState == "failedPending"
+    or (.trackedDownloadState == "importPending"
+        and .trackedDownloadStatus == "warning")
+  '';
+
   mkAppOptions = servicePort: defaultApiVersion: {
     enable = mkEnableOption "queue janitor for this service";
 
@@ -127,6 +141,8 @@ in
           printf '# TYPE arr_queue_janitor_removed_total counter\n'
           printf '# HELP arr_queue_janitor_last_run_timestamp_seconds Unix time this app was last swept successfully\n'
           printf '# TYPE arr_queue_janitor_last_run_timestamp_seconds gauge\n'
+          printf '# HELP arr_queue_janitor_blocked Downloads stuck importing after the last sweep\n'
+          printf '# TYPE arr_queue_janitor_blocked gauge\n'
         } > "$tmp"
 
         # index()==1 is the anchor; a "^" here would be matched literally and
@@ -140,31 +156,26 @@ in
         sweep_app() {
           local app="$1" url="$2" keyfile="$3" api="$4"
           local key queue targets id title
-          local removed=0 last_run
+          local removed=0 last_run blocked
 
           local prior_removed
           prior_removed=$(prior_metric arr_queue_janitor_removed_total "$app")
           prior_removed=''${prior_removed:-0}
           last_run=$(prior_metric arr_queue_janitor_last_run_timestamp_seconds "$app")
           last_run=''${last_run:-0}
+          blocked=$(prior_metric arr_queue_janitor_blocked "$app")
+          blocked=''${blocked:-0}
 
           if queue=$(curl -sf --max-time 30 -H "X-Api-Key: $(cat "$keyfile")" \
                        "$url/api/$api/queue?pageSize=1000"); then
+            blocked=$(printf '%s' "$queue" | jq '
+              [.records[] | select(${stuck})] | unique_by(.downloadId) | length')
             # Fractional seconds appear on some records and fromdateiso8601
             # rejects them.
             targets=$(printf '%s' "$queue" | jq -r --argjson now "$now" --argjson cutoff "$CUTOFF" '
               [.records[]
               | select(.added != null)
-              # importFailed is where Lidarr parks an incomplete release;
-              # Sonarr and Radarr call the same condition importBlocked.
-              # A finished download with nothing left it can import, such as
-              # a season pack missing one episode, stays importPending with a
-              # warning instead. A healthy pending item reads ok.
-              | select(.trackedDownloadState == "importBlocked"
-                       or .trackedDownloadState == "importFailed"
-                       or .trackedDownloadState == "failedPending"
-                       or (.trackedDownloadState == "importPending"
-                           and .trackedDownloadStatus == "warning"))
+              | select(${stuck})
               | select(((.added | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) + $cutoff) <= $now)]
               # One record per episode or album, and removing any of them
               # removes the whole download.
@@ -186,6 +197,7 @@ in
               fi
             done <<< "$targets"
 
+            blocked=$(( blocked - removed ))
             last_run="$now"
           else
             echo "could not read the $app queue at $url, leaving it alone" >&2
@@ -195,6 +207,8 @@ in
             "$app" "$(( prior_removed + removed ))" >> "$tmp"
           printf 'arr_queue_janitor_last_run_timestamp_seconds{app="%s"} %s\n' \
             "$app" "$last_run" >> "$tmp"
+          printf 'arr_queue_janitor_blocked{app="%s"} %s\n' \
+            "$app" "$blocked" >> "$tmp"
         }
 
         ${concatStringsSep "\n" (
