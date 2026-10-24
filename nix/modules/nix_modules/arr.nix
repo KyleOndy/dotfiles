@@ -55,6 +55,10 @@ let
   # Applied with mkDefault, so where the servarr modules already set a key
   # (sonarr and radarr set most of these) their value stands.
   # MemoryDenyWriteExecute is absent because the .NET JIT needs W+X pages.
+  # ProcSubset is absent because "pid" hides /proc/mounts, where the *arrs
+  # look up their root folder's free space; without it they report 0 and
+  # skip the free-space check on every import.
+  # https://github.com/Sonarr/Sonarr/blob/v4.0.20.3014/src/NzbDrone.Mono/Disk/ProcMountProvider.cs#L41-L43
   hardening = {
     CapabilityBoundingSet = "";
     NoNewPrivileges = true;
@@ -70,7 +74,6 @@ let
     ProtectControlGroups = true;
     ProtectHostname = true;
     ProtectProc = "invisible";
-    ProcSubset = "pid";
     RestrictSUIDSGID = true;
     RemoveIPC = true;
     RestrictNamespaces = true;
