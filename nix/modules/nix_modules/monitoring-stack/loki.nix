@@ -98,6 +98,18 @@ let
                 count_over_time({unit="cogsworth-watchdog.service"} |= "WATCHDOG TRIGGERED"
                   | regexp `(?i)restarting (?P<target>[a-z_-]+)\.service` [5m])
               )
+
+      # A rejected provider login only throttles that provider for 12 hours,
+      # and bazarr's System > Status stays clear, so this line is the record.
+      - name: bazarr_logs
+        interval: 5m
+        rules:
+          - record: bazarr:provider_auth_failures:count5m
+            expr: |
+              sum by (host, provider) (
+                count_over_time({unit="bazarr.service"} |= "because of: AuthenticationError"
+                  | regexp `Throttling (?P<provider>\S+) for` [5m])
+              )
   '';
 
   # auth_enabled = false pins every stream to the "fake" tenant, and the local

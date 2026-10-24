@@ -380,6 +380,17 @@ in
                 summary: "{{ $labels.job }}: {{ $labels.message }}"
                 description: "{{ $labels.job }} has reported this {{ $labels.type }} from {{ $labels.source }} for 2 hours. {{ $labels.wikiurl }}"
 
+            # From bazarr_logs in loki.nix. bazarr retries a throttled
+            # provider every 12 hours, so 13h spans one retry.
+            - alert: BazarrProviderLoginFailed
+              expr: sum by (host, provider) (sum_over_time(bazarr:provider_auth_failures:count5m[13h])) > 0
+              labels:
+                severity: warning
+                service: bazarr
+              annotations:
+                summary: "Bazarr cannot log in to {{ $labels.provider }}"
+                description: "The provider rejected bazarr's login, so bazarr skips it for 12 hours at a time and gets no subtitles from it. Fix the credentials at https://bazarr.tiger.infra.ondy.org/settings/providers (UI user kyle, password in sops key bazarr_ui_password)."
+
             - alert: ProwlarrIndexersUnavailable
               expr: sum by (host) (prowlarr_indexer_unavailable) * 2 > max by (host) (prowlarr_indexer_total)
               for: 2h
