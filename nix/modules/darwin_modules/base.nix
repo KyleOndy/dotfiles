@@ -64,16 +64,6 @@
   security.pam.services.sudo_local.touchIdAuth = lib.mkDefault true;
   security.pam.services.sudo_local.reattach = lib.mkDefault true;
 
-  # These roots signed the eMudhra intermediates whose private keys are
-  # recoverable from their public certificates
-  # (https://bugzilla.mozilla.org/show_bug.cgi?id=2083449). cacert below NSS
-  # 3.131.1 still ships them. Mirrored in nix_modules/deployment_target.nix.
-  # This covers the nix bundle only; /etc/ssl/cert.pem is Apple's.
-  security.pki.caCertificateBlacklist = [
-    "Comodo AAA Services root"
-    "emSign ECC Root CA - G3"
-  ];
-
   # Homebrew integration for GUI applications and tools not in nixpkgs.
   # casks/taps/brews are intentionally left out here, those are host-specific.
   homebrew = {
