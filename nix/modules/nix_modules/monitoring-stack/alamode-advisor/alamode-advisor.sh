@@ -91,17 +91,26 @@ slug() {
 # advise <name> <header> <task>
 advise() {
 	local name="$1" header="$2" task="$3"
-	local file work status=0 usage
+	local file work status=0 usage first
 	file="$(date -u +%Y%m%dT%H%M%SZ)-${name}.md"
 	# Built outside the reports directory, so the only change the mailer's
 	# path unit sees there is the finished report arriving.
 	work="${STATE_DIRECTORY}/${file}"
 
+	# pi reads a non-TTY stdin to its end and adds it to the prompt, and the
+	# caller's stdin may be the rest of the alert list.
+	timeout "$RUN_TIMEOUT" pi "${PI_ARGS[@]}" "$task" </dev/null >"${work}.out" 2>"${work}.err" || status=$?
+
+	# Every layout opens with a bold verdict. A degraded model exits 0 with a
+	# few lines of noise instead, and the header's first line is the subject.
+	if ((status == 0)) && { (($(wc -c <"${work}.out") < 1024)) || [[ $(head -c 2 "${work}.out") != '**' ]]; }; then
+		first=${header%%$'\n'*}
+		header="${first} (malformed)${header#"$first"}"
+	fi
+
 	{
 		printf '%s\n\n' "$header"
-		# pi reads a non-TTY stdin to its end and adds it to the prompt, and the
-		# caller's stdin may be the rest of the alert list.
-		timeout "$RUN_TIMEOUT" pi "${PI_ARGS[@]}" "$task" </dev/null 2>"${work}.err" || status=$?
+		cat "${work}.out"
 		if ((status != 0)); then
 			printf '\n\npi exited %d:\n\n```\n%s\n```\n' "$status" "$(tail -c 4000 "${work}.err")"
 		fi
@@ -109,7 +118,7 @@ advise() {
 
 	usage=$(grep -m 1 '^alamode-advisor usage: ' "${work}.err" || true)
 	grep '^alamode-advisor tool-error: ' "${work}.err" >&2 || true
-	rm -f "${work}.err"
+	rm -f "${work}.err" "${work}.out"
 	mv "${work}.tmp" "${REPORTS}/${file}"
 	echo "wrote ${REPORTS}/${file} (pi exit ${status}) ${usage#alamode-advisor }"
 }
