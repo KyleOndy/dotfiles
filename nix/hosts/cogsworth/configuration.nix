@@ -531,8 +531,8 @@ in
 
     # Disable WiFi power management - brcmfmac defaults to power_save on,
     # which sleeps the radio during idle and drops inbound SSH until the
-    # client re-associates (e.g. a UniFi kick). Re-applies on every wlan0
-    # appearance: boot, driver reload, reconnect.
+    # client re-associates (e.g. a UniFi kick). Runs on every wlan0 add
+    # (boot, driver reload); brcmfmac keeps the setting across reassociation.
     ACTION=="add", SUBSYSTEM=="net", KERNEL=="wlan0", RUN+="${pkgs.iw}/bin/iw dev wlan0 set power_save off"
   '';
 
@@ -1234,7 +1234,16 @@ in
   systemFoundry.monitoringStack = {
     enable = true;
 
-    nodeExporter.enable = true;
+    nodeExporter = {
+      enable = true;
+      # The AP's side (unpoller) shows only that it dropped the client. wifi
+      # adds cogsworth's own retry, tx-failed and beacon-loss counters.
+      enabledCollectors = [
+        "systemd"
+        "textfile"
+        "wifi"
+      ];
+    };
 
     vmagent = {
       enable = true;
