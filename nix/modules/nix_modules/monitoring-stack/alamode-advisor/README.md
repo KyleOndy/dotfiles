@@ -17,7 +17,7 @@ The module is `../alamode-advisor.nix`. Prompts and tools live beside this file.
 | Unit                                        | When                | Does                                                                                                                                                     |
 | ------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `alamode-advisor-alerts.timer` / `.service` | every 2 minutes     | Triages each newly firing, unsilenced alert, in one report for alerts of one rule on one host that start together. At most 3 reports a run and 20 a day. |
-| `alamode-advisor-sweep.timer` / `.service`  | 06:00 to 06:30      | The log sweep, then the metrics sweep. One report each.                                                                                                  |
+| `alamode-advisor-sweep.timer` / `.service`  | 06:00 to 06:30      | The log, metrics and playback sweeps, in that order. One report each.                                                                                    |
 | `alamode-advisor-mail.path` / `.service`    | when a report lands | Mails each report not yet sent to the monitoring stack's fixed recipients, as Markdown and as HTML, with a footer pointing at the acknowledgements file. |
 | `alamode-advisor-mail.timer`                | hourly              | The same, for a report that landed mid-send or failed to send.                                                                                           |
 
@@ -168,7 +168,7 @@ pbpaste | jq -Rs 'sub("\\s+$";"")' |
 ## Running it by hand
 
 ```bash
-sudo systemctl start alamode-advisor-sweep    # both sweeps, about 11 minutes, two emails
+sudo systemctl start alamode-advisor-sweep    # all three sweeps, three emails
 sudo systemctl start alamode-advisor-alerts   # triage anything new right now
 journalctl -u alamode-advisor-alerts -u alamode-advisor-sweep -u alamode-advisor-mail
 ```

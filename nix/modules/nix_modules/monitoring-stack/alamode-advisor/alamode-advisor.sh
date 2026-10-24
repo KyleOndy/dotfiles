@@ -6,7 +6,7 @@
 # alamode-advisor alerts|sweep
 #
 #   alerts  triage each alert Alertmanager has not been seen firing before
-#   sweep   the daily log and metrics reviews
+#   sweep   the daily log, metrics and playback reviews
 #
 # Each run writes one Markdown report to $STATE_DIRECTORY/reports. The unit
 # supplies STATE_DIRECTORY, CREDENTIALS_DIRECTORY, PI_CODING_AGENT_DIR (also
@@ -170,7 +170,7 @@ triage_alerts() {
 
 sweep() {
 	local kind
-	for kind in logs metrics; do
+	for kind in logs metrics playback; do
 		advise "sweep-${kind}" \
 			"# Daily ${kind} sweep, $(date -u +%F)" \
 			"$(<"${ALAMODE_ADVISOR_ASSETS}/sweep-${kind}.md")${acks}"

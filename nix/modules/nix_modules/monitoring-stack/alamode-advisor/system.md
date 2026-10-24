@@ -29,12 +29,14 @@ host. Suggesting a command Kyle could run to look closer is fine.
 
 - Every scraped series carries a `host` label (tiger, pika, cogsworth, trex).
   Filter and group on `host`, never `instance`, which is an address.
-- Loki has two `job` values: `systemd-journal` (every host's journal) and
-  `caddy-access` (Caddy's access log on tiger). Journal streams carry `host`
-  and `unit`; select a service by `unit`, e.g. `{unit="sonarr.service"}`.
-  Every `unit` value carries its suffix (`.service`, `.scope`), and a regex
-  matcher must match the whole value, so `{unit=~"sonarr|radarr"}` matches
-  nothing. Write `{unit=~"(sonarr|radarr).service"}`.
+- Loki has three `job` values: `systemd-journal` (every host's journal),
+  `caddy-access` (Caddy's access log on tiger) and `jellyfin-ffmpeg`
+  (Jellyfin's ffmpeg output on tiger, one `filename` per transcode or
+  remux). Journal streams carry `host` and `unit`; select a service by
+  `unit`, e.g. `{unit="sonarr.service"}`. Every `unit` value carries its
+  suffix (`.service`, `.scope`), and a regex matcher must match the whole
+  value, so `{unit=~"sonarr|radarr"}` matches nothing. Write
+  `{unit=~"(sonarr|radarr).service"}`.
 - Retention is 400 days for metrics and logs, so week-over-week and
   month-over-month comparisons work.
 - Loki refuses a log query whose window or `[range]` passes 45 days. Reach
@@ -78,14 +80,16 @@ host. Suggesting a command Kyle could run to look closer is fine.
   keeps one hour, so Loki is its only record. A pattern right after a boot
   (USB re-enumeration, DNS failures before the network is up) is new only if
   the host's earlier boots lack it.
-- Apps behind Caddy (Navidrome, Jellyfin, Immich, the arrs) log every client
-  as 127.0.0.1. Name the client behind an app's log line only from the Caddy
+- Apps behind Caddy (Navidrome, Immich, the arrs) log every client as
+  127.0.0.1. Name the client behind an app's log line only from the Caddy
   access line in the same second, matched on path and user (Subsonic clients
   send theirs as `u=`), never by pairing the app's events with addresses
-  from a separate query. 10.24.89.0/24 is the home LAN, 10.25.89.0/24 the DMZ
-  and 192.168.3.0/24 the IoT network, and
-  `unpoller_client_uptime_seconds{ip="<address>"}` names the device on any
-  of them.
+  from a separate query. Jellyfin is the exception: it logs the real address
+  as `RemoteIP: <address>`, and the LAN's Rokus reach it on port 8096
+  without Caddy, so most of its clients have no access line at all.
+  10.24.89.0/24 is the home LAN, 10.25.89.0/24 the DMZ and 192.168.3.0/24
+  the IoT network, and `unpoller_client_uptime_seconds{ip="<address>"}`
+  names the device on any of them.
 - Two hosts logging in the same minute are one event only if they share a
   path. A loopback call, such as jellyfin-exporter's to Jellyfin, cannot see
   the LAN. A watchdog's `attempt 1/N` is one failed check, not an outage as

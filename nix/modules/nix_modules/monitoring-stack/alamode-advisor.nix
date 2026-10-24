@@ -254,7 +254,7 @@ let
     serviceConfig = hardening // {
       Type = "oneshot";
       ExecStart = "${getExe advisor} ${mode}";
-      # Three alert triages, or the two sweeps, at RUN_TIMEOUT each.
+      # Three alert triages, or the three sweeps, at RUN_TIMEOUT each.
       TimeoutStartSec = "1h";
       User = "alamode-advisor";
       Group = "alamode-advisor";
