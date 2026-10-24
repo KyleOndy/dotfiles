@@ -34,6 +34,12 @@ readonly MAX_STREAMS="${AUDIO_LANG_MAX_STREAMS:-12}"
 # missing or hid English, and make the first English track the default.
 # Matroska only; see check_file.
 readonly FIX="${AUDIO_LANG_FIX:-0}"
+# Make sure the track Jellyfin plays by default is not DTS. The Rokus advertise
+# dts, then fail DTS-HD MA and DTS:X before the first frame and never fall back
+# to a transcode (jellyfin-roku #615). See compat_audio.
+readonly COMPAT="${AUDIO_LANG_COMPAT:-0}"
+# Print what compat_audio would do and write nothing.
+readonly DRY_RUN="${AUDIO_LANG_DRY_RUN:-0}"
 # An alert carrying no path sends you back to the library to find the file
 # yourself. One series per offender puts the paths in the mail, and the cap is
 # what keeps a pathological library from turning that into thousands of them.
@@ -346,6 +352,188 @@ reject() {
 	log "REJECTED $title: blocklisted historyId=$hid, replacement search will follow"
 }
 
+# Prints "none", "promote <compat> <default>" or "add <default> <channels>
+# <language>", audio tracks counted from 0. The default is the track Jellyfin
+# picks for a user preferring English: the first flagged default among the
+# English tracks, else among all of them, else the first. Only a DTS default
+# needs anything. An AC3 or EAC3 track in its language with at least its
+# channel count (5.1 standing in for more) is promoted; a commentary is not a
+# substitute, so without one an AC3 copy is added.
+compat_plan() {
+	ffprobe -v error -select_streams a -show_entries \
+		stream=codec_name,channels:stream_disposition=default,comment:stream_tags=language,title \
+		-of json "$1" 2>/dev/null | jq -r '
+		[.streams | to_entries[] | {
+			i: .key, codec: .value.codec_name, ch: (.value.channels // 0),
+			def: (.value.disposition.default // 0), comment: (.value.disposition.comment // 0),
+			lang: (.value.tags.language // "und"), title: (.value.tags.title // "")
+		}] as $t
+		| ([$t[] | select(.lang == "eng" or .lang == "en")] | if length > 0 then . else $t end) as $pool
+		| (([$pool[] | select(.def == 1)] + $pool) | first) as $s
+		| if $s == null or $s.codec != "dts" then "none"
+		  else (first($t[] | select(
+				(.codec == "ac3" or .codec == "eac3") and .lang == $s.lang
+				and .ch >= ([$s.ch, 6] | min) and .comment == 0
+				and (.title | test("comment"; "i") | not))) // null) as $c
+			| if $c != null then "promote \($c.i) \($s.i)" else "add \($s.i) \($s.ch) \($s.lang)" end
+		  end'
+}
+
+# Leaves exactly one default audio track, so Jellyfin picks it whatever
+# language a user prefers. mkvpropedit edits the header in place.
+make_only_default() {
+	local f="$1" keep="$2" i n
+	local -a args=()
+	n=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$f" | wc -l)
+	for ((i = 0; i < n; i++)); do
+		# mkvpropedit numbers tracks of a kind from 1, ffmpeg from 0.
+		args+=(--edit "track:a$((i + 1))" --set "flag-default=$([ "$i" -eq "$keep" ] && echo 1 || echo 0)")
+	done
+	mkvpropedit "$f" "${args[@]}" >/dev/null
+}
+
+# Muxes an AC3 copy of audio track $2 in as the first and only default audio
+# track. The original is replaced by rename only after the new file has every
+# old stream plus one, the same duration, the Dolby Vision configuration it
+# had, and an AC3 track that starts with the track it was made from; the old
+# file stays in the storage/media snapshots for their three days.
+add_ac3_track() {
+	local f="$1" s="$2" ch="$3" lang="$4"
+	local dir base audio out ac3ch rate label rc=0 order want have
+	local -a undefault=()
+	dir=$(dirname "$f")
+	base=$(basename "$f")
+	# Hidden and without a video extension, so neither Jellyfin nor the *arrs
+	# pick up a file still being written.
+	audio="$dir/.$base.ac3.part"
+	out="$dir/.$base.part"
+
+	want=$(($(stat -c %s "$f") + 1073741824))
+	have=$(df --output=avail -B1 "$dir" | tail -1)
+	if [ "$have" -lt "$want" ]; then
+		log "COMPAT-FAILED $base: $have bytes free, needs $want"
+		return 0
+	fi
+
+	ac3ch=$((ch > 6 ? 6 : ch))
+	rate=$((ac3ch > 2 ? 640 : 256))k
+	case "$ac3ch" in
+	6) label="AC3 5.1" ;;
+	2) label="AC3 2.0" ;;
+	*) label="AC3 ${ac3ch}ch" ;;
+	esac
+
+	if ! ffmpeg -nostdin -v error -y -i "$f" -map "0:a:$s" -c:a ac3 -b:a "$rate" -ac "$ac3ch" \
+		-f matroska "$audio" </dev/null; then
+		rm -f "$audio"
+		log "COMPAT-FAILED $base: ffmpeg could not encode audio track $s"
+		return 0
+	fi
+
+	order=$(mkvmerge -J "$f" | jq -r '[
+		(.tracks[] | select(.type == "video") | "1:\(.id)"), "0:0",
+		(.tracks[] | select(.type != "video") | "1:\(.id)")] | join(",")')
+	mapfile -t undefault < <(mkvmerge -J "$f" |
+		jq -r '.tracks[] | select(.type == "audio") | "--default-track-flag", "\(.id):0"')
+	mkvmerge -q -o "$out" --language "0:$lang" --track-name "0:$label" --default-track-flag 0:1 "$audio" \
+		"${undefault[@]}" "$f" --track-order "$order" || rc=$?
+	rm -f "$audio"
+	# 1 is warnings only.
+	if [ "$rc" -gt 1 ]; then
+		rm -f "$out"
+		log "COMPAT-FAILED $base: mkvmerge exited $rc"
+		return 0
+	fi
+
+	local why
+	if ! why=$(verify_ac3_mux "$f" "$out" "$s"); then
+		rm -f "$out"
+		log "COMPAT-FAILED $base: $why"
+		return 0
+	fi
+	chmod --reference="$f" "$out"
+	chgrp --reference="$f" "$out" 2>/dev/null || true
+	mv -f "$out" "$f"
+	note "COMPAT-ADDED $base: $label ${rate}bps from audio track $s (dts ${ch}ch $lang)"
+}
+
+# Prints the first check the new file fails and returns 1, or returns 0.
+# Track $3 of the old file is track $3 + 1 of the new one.
+verify_ac3_mux() {
+	local in="$1" out="$2" s="$3" a b
+	a=$(ffprobe -v error -show_entries format=nb_streams -of csv=p=0 "$in")
+	b=$(ffprobe -v error -show_entries format=nb_streams -of csv=p=0 "$out")
+	[ "$b" -eq $((a + 1)) ] || {
+		echo "stream count $a became $b"
+		return 1
+	}
+	a=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$in")
+	b=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$out")
+	awk -v a="$a" -v b="$b" 'BEGIN { d = a - b; exit !(d < 1 && d > -1) }' || {
+		echo "duration $a became $b"
+		return 1
+	}
+	a=$(ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 "$out")
+	[ "$a" = ac3 ] || {
+		echo "first audio track is $a, not ac3"
+		return 1
+	}
+	a=$(ffprobe -v error -select_streams v -show_entries stream_side_data=side_data_type -of csv=p=0 "$in" | grep -c DOVI || true)
+	b=$(ffprobe -v error -select_streams v -show_entries stream_side_data=side_data_type -of csv=p=0 "$out" | grep -c DOVI || true)
+	[ "$a" = "$b" ] || {
+		echo "Dolby Vision configuration records went from $a to $b"
+		return 1
+	}
+	a=$(ffprobe -v error -select_streams a:0 -show_entries packet=pts_time -read_intervals '%+#1' -of csv=p=0 "$out")
+	b=$(ffprobe -v error -select_streams "a:$((s + 1))" -show_entries packet=pts_time -read_intervals '%+#1' -of csv=p=0 "$out")
+	# One AC3 frame is 32 ms.
+	awk -v a="$a" -v b="$b" 'BEGIN { d = a - b; exit !(d < 0.1 && d > -0.1) }' || {
+		echo "AC3 starts at ${a}s, its source at ${b}s"
+		return 1
+	}
+}
+
+# Never fails the caller: an import keeps its file whatever happens here.
+compat_audio() {
+	local f="$1" plan action
+	case "$f" in
+	*.mkv) ;;
+	*)
+		note "COMPAT-SKIPPED $(basename "$f"): only matroska is handled"
+		return 0
+		;;
+	esac
+	plan=$(compat_plan "$f") || {
+		log "COMPAT-FAILED $(basename "$f"): ffprobe could not read the audio tracks"
+		return 0
+	}
+	read -r action _ <<<"$plan"
+	if [ "$action" = none ]; then
+		return 0
+	fi
+	if [ "$DRY_RUN" = 1 ]; then
+		note "COMPAT-PLAN $(basename "$f"): $plan"
+		return 0
+	fi
+	case "$action" in
+	promote)
+		local c
+		read -r _ c _ <<<"$plan"
+		if make_only_default "$f" "$c"; then
+			note "COMPAT-DEFAULT $(basename "$f"): audio track $c made the only default ($plan)"
+		else
+			log "COMPAT-FAILED $(basename "$f"): mkvpropedit could not set track $c default"
+		fi
+		;;
+	add)
+		local s ch lang
+		read -r _ s ch lang <<<"$plan"
+		add_ac3_track "$f" "$s" "$ch" "$lang"
+		;;
+	esac
+	return 0
+}
+
 # Walks the library and reports what it finds as node_exporter textfile
 # metrics. The import hook only ever sees new grabs, so a periodic pass is
 # what surfaces a backlog that predates it, and what an alert can read.
@@ -454,6 +642,18 @@ main() {
 		done
 		return
 		;;
+	--compat)
+		shift
+		[ $# -gt 0 ] || {
+			log "--compat needs at least one file"
+			return 1
+		}
+		local _f
+		for _f in "$@"; do
+			compat_audio "$_f"
+		done
+		return
+		;;
 	esac
 
 	local service base key_config key_override event title orig_lang download_id _f
@@ -508,9 +708,10 @@ main() {
 		orig_lang=$(api "$base" "$key" "/api/v3/series/${sonarr_series_id:-0}" |
 			jq -r '.originalLanguage.name // "Unknown"')
 	fi
+	local check_language=1
 	if [ "$orig_lang" != "English" ] && [ "$orig_lang" != "Unknown" ]; then
 		note "SKIP $title: originalLanguage=$orig_lang"
-		exit 0
+		check_language=0
 	fi
 
 	local f
@@ -519,7 +720,14 @@ main() {
 			log "SKIP $title: missing file $f"
 			continue
 		}
-		check_file "$f" "$title" "$FIX" && continue
+		# After the language check, so the English track it promotes is the
+		# one compat_audio judges. A rejected file is about to be replaced.
+		if [ "$check_language" = 0 ] || check_file "$f" "$title" "$FIX"; then
+			if [ "$COMPAT" = 1 ]; then
+				compat_audio "$f"
+			fi
+			continue
+		fi
 
 		if [ "$ENFORCE" = 1 ]; then
 			reject "$base" "$key" "$download_id" "$title"

@@ -66,6 +66,24 @@ in
         alone.
       '';
     };
+
+    compatAudio = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        On import, keep the audio track Jellyfin plays by default from being
+        DTS. jellyfin-roku advertises dts whenever the Roku does, then fails
+        DTS-HD MA and DTS:X before the first frame and never falls back to a
+        transcode. An AC3 or EAC3 track in the same language is made the only
+        default; without one, an AC3 copy of the DTS track is muxed in as the
+        first and only default, keeping the DTS track behind it.
+
+        Matroska only. Adding a track rewrites the whole file, so the import
+        waits for a copy of it. `audio-language-check --compat <file>...`
+        does the same by hand, and with AUDIO_LANG_DRY_RUN=1 only prints what
+        it would do.
+      '';
+    };
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
@@ -161,10 +179,12 @@ in
     systemd.services.radarr.environment = {
       AUDIO_LANG_ENFORCE = mkIf (cfg.enforceImports && config.services.radarr.enable) "1";
       AUDIO_LANG_FIX = mkIf (cfg.promoteEnglishTrack && config.services.radarr.enable) "1";
+      AUDIO_LANG_COMPAT = mkIf (cfg.compatAudio && config.services.radarr.enable) "1";
     };
     systemd.services.sonarr.environment = {
       AUDIO_LANG_ENFORCE = mkIf (cfg.enforceImports && config.services.sonarr.enable) "1";
       AUDIO_LANG_FIX = mkIf (cfg.promoteEnglishTrack && config.services.sonarr.enable) "1";
+      AUDIO_LANG_COMPAT = mkIf (cfg.compatAudio && config.services.sonarr.enable) "1";
     };
 
     systemd.timers.audio-language-sweep = {

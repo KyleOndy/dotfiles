@@ -1881,6 +1881,7 @@ in
           enable = true;
           enforceImports = true;
           promoteEnglishTrack = true;
+          compatAudio = true;
         };
 
         # Radarr and Sonarr retry a blocked import every 60s forever, so an
