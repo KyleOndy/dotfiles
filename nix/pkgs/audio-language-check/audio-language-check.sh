@@ -40,6 +40,9 @@ readonly FIX="${AUDIO_LANG_FIX:-0}"
 readonly COMPAT="${AUDIO_LANG_COMPAT:-0}"
 # Print what compat_audio would do and write nothing.
 readonly DRY_RUN="${AUDIO_LANG_DRY_RUN:-0}"
+# Zero-filled bytes at or above which a video file counts as damaged. No video
+# in the library has any; the one damaged file had 850 MiB.
+readonly DAMAGED_BYTES="${AUDIO_LANG_DAMAGED_BYTES:-1048576}"
 # An alert carrying no path sends you back to the library to find the file
 # yourself. One series per offender puts the paths in the mail, and the cap is
 # what keeps a pathological library from turning that into thousands of them.
@@ -352,6 +355,48 @@ reject() {
 	log "REJECTED $title: blocklisted historyId=$hid, replacement search will follow"
 }
 
+# Prints how many bytes of a file are holes, reading no data. The library's
+# dataset has compression on, so ZFS stores every all-zero record as a hole,
+# and a zero-filled run of a record or more shows up here. Sonarr's import
+# once wrote 850 MiB of zeros into a file that SABnzbd had verified.
+hole_bytes() {
+	python3 -I -c '
+import os, sys
+fd = os.open(sys.argv[1], os.O_RDONLY)
+end = os.fstat(fd).st_size
+pos = total = 0
+while pos < end:
+    hole = os.lseek(fd, pos, os.SEEK_HOLE)
+    if hole >= end:
+        break
+    try:
+        pos = os.lseek(fd, hole, os.SEEK_DATA)
+    except OSError:
+        pos = end
+    total += pos - hole
+print(total)
+' "$1"
+}
+
+# Deletes a damaged import so the search that reject starts sees the episode
+# or movie as missing; with the file in place it would turn down a release of
+# the same quality as no upgrade. Blocklisting stops a release that arrives
+# damaged every time from looping.
+replace_damaged() {
+	local service="$1" base="$2" key="$3" download_id="$4" title="$5" file_id="$6"
+	if [ -z "$file_id" ]; then
+		log "DAMAGED-KEPT $title: no file id in environment, replace it by hand"
+		return
+	fi
+	local path=episodefile
+	[ "$service" = radarr ] && path=moviefile
+	if ! curl -sf -X DELETE -H "X-Api-Key: $key" "${base}/api/v3/${path}/${file_id}" >/dev/null; then
+		log "DAMAGED-KEPT $title: deleting ${path} ${file_id} failed"
+		return
+	fi
+	reject "$base" "$key" "$download_id" "$title"
+}
+
 # Prints "none", "promote <compat> <default>" or "add <default> <channels>
 # <language>", audio tracks counted from 0. The default is the track Jellyfin
 # picks for a user preferring English: the first flagged default among the
@@ -540,17 +585,25 @@ compat_audio() {
 sweep_library() {
 	local out="${AUDIO_LANG_TEXTFILE:-/var/lib/prometheus-node-exporter-text-files/audio_language.prom}"
 	local roots="${AUDIO_LANG_ROOTS:-/mnt/media/tv /mnt/media/movies}"
-	local f langs library verdict total=0 unverified=0 lang plan fixed=0
-	local -A bad=() dts=()
-	local -a bad_libs=() bad_paths=() dts_libs=() dts_paths=()
+	local f langs library verdict total=0 unverified=0 lang plan fixed=0 holes
+	local -A bad=() dts=() zero=()
+	local -a bad_libs=() bad_paths=() dts_libs=() dts_paths=() zero_libs=() zero_paths=()
 
 	local root
 	for root in $roots; do
 		library=$(basename "$root")
 		bad[$library]=${bad[$library]:-0}
 		dts[$library]=${dts[$library]:-0}
+		zero[$library]=${zero[$library]:-0}
 		while IFS= read -r -d '' f; do
 			total=$((total + 1))
+			holes=$(hole_bytes "$f") || holes=0
+			if [ "$holes" -ge "$DAMAGED_BYTES" ]; then
+				zero[$library]=$((${zero[$library]} + 1))
+				zero_libs+=("$library")
+				zero_paths+=("$f")
+				log "sweep: $((holes / 1048576)) MiB zero-filled in $f"
+			fi
 			# Before the language checks, which end the iteration early. The
 			# import hook fixes new grabs; this catches what bypassed it.
 			plan=$(compat_plan "$f") || plan=none
@@ -619,6 +672,19 @@ sweep_library() {
 				"${dts_libs[$i]}" "$(escape_label "${dts_paths[$i]}")"
 			i=$((i + 1))
 		done
+		printf '# HELP media_zero_filled_files Video files holding a zero-filled run\n'
+		printf '# TYPE media_zero_filled_files gauge\n'
+		for library in "${!zero[@]}"; do
+			printf 'media_zero_filled_files{library="%s"} %s\n' "$library" "${zero[$library]}"
+		done
+		printf '# HELP media_zero_filled_file Video file holding a zero-filled run\n'
+		printf '# TYPE media_zero_filled_file gauge\n'
+		i=0
+		while [ "$i" -lt "${#zero_paths[@]}" ] && [ "$i" -lt "$MAX_SERIES" ]; do
+			printf 'media_zero_filled_file{library="%s",path="%s"} 1\n' \
+				"${zero_libs[$i]}" "$(escape_label "${zero_paths[$i]}")"
+			i=$((i + 1))
+		done
 		printf '# HELP media_audio_unverified_files Untagged files whose language whisper could not settle\n'
 		printf '# TYPE media_audio_unverified_files gauge\n'
 		printf 'media_audio_unverified_files %s\n' "$unverified"
@@ -639,7 +705,7 @@ sweep_library() {
 	if [ -n "$LANG_INDEX" ]; then
 		rm -f "$LANG_INDEX"
 	fi
-	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified dts_default=${#dts_paths[@]} dts_fixed=$fixed"
+	log "sweep: $total files, $(for k in "${!bad[@]}"; do printf '%s=%s ' "$k" "${bad[$k]}"; done)unverified=$unverified dts_default=${#dts_paths[@]} dts_fixed=$fixed zero_filled=${#zero_paths[@]}"
 }
 
 main() {
@@ -683,7 +749,7 @@ main() {
 		;;
 	esac
 
-	local service base key_config key_override event title orig_lang download_id _f
+	local service base key_config key_override event title orig_lang download_id file_id holes _f
 	local -a files=()
 
 	if [ -n "${radarr_eventtype:-}" ]; then
@@ -694,6 +760,7 @@ main() {
 		event="$radarr_eventtype"
 		title="${radarr_movie_title:-unknown}"
 		download_id="${radarr_download_id:-}"
+		file_id="${radarr_moviefile_id:-}"
 		[ -n "${radarr_moviefile_path:-}" ] && files=("$radarr_moviefile_path")
 	elif [ -n "${sonarr_eventtype:-}" ]; then
 		service=sonarr
@@ -703,6 +770,7 @@ main() {
 		event="$sonarr_eventtype"
 		title="${sonarr_series_title:-unknown} ${sonarr_episodefile_episodenumbers:-}"
 		download_id="${sonarr_download_id:-}"
+		file_id="${sonarr_episodefile_id:-}"
 		if [ -n "${sonarr_episodefile_paths:-}" ]; then
 			# Sonarr joins multiple paths with "|".
 			IFS='|' read -r -a files <<<"$sonarr_episodefile_paths"
@@ -747,6 +815,14 @@ main() {
 			log "SKIP $title: missing file $f"
 			continue
 		}
+		holes=$(hole_bytes "$f") || holes=0
+		if [ "$holes" -ge "$DAMAGED_BYTES" ]; then
+			log "DAMAGED $title: $((holes / 1048576)) MiB zero-filled in $(basename "$f")"
+			# One id names one file; for a multi-file event it cannot say which.
+			[ ${#files[@]} -eq 1 ] || file_id=""
+			replace_damaged "$service" "$base" "$key" "$download_id" "$title" "$file_id"
+			continue
+		fi
 		# After the language check, so the English track it promotes is the
 		# one compat_audio judges. A rejected file is about to be replaced.
 		if [ "$check_language" = 0 ] || check_file "$f" "$title" "$FIX"; then

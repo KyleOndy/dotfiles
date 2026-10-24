@@ -45,6 +45,11 @@ let
               sum by (host, unit) (
                 count_over_time({unit=~"radarr.service|sonarr.service"} |= "audio-language-check: REVIEW " [5m])
               )
+          - record: audio_language:damaged_lines:count5m
+            expr: |
+              sum by (host, unit) (
+                count_over_time({unit=~"radarr.service|sonarr.service"} |= "audio-language-check: DAMAGED" [5m])
+              )
 
       # One line every 5 minutes per source that analysed any audio, none for
       # one that analysed none. A stream with no name in its config logs its

@@ -10,6 +10,7 @@
   util-linux,
   gnugrep,
   gawk,
+  python3Minimal,
 }:
 
 let
@@ -35,6 +36,8 @@ writeShellApplication {
     util-linux
     gnugrep
     gawk
+    # SEEK_HOLE, which no coreutils tool exposes; see hole_bytes.
+    python3Minimal
   ];
   text = ''
     export WHISPER_MODEL="''${WHISPER_MODEL:-${model}}"

@@ -1448,6 +1448,37 @@ in
                   `journalctl -t audio-language-check --since -1d | grep REVIEW`
                   on {{ $labels.host }}. Clears a day after the import.
 
+            - alert: MediaImportDamaged
+              expr: sum by (host, unit) (sum_over_time(audio_language:damaged_lines:count5m[1d])) > 0
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.unit }} imported a zero-filled file"
+                description: >-
+                  The import hook found a run of zeros in a file just
+                  imported, as when Sonarr's copy wrote 850 MiB of zeros into
+                  a file SABnzbd had verified. It deletes the file and
+                  blocklists the grab, and the failed-download search
+                  replaces it. DAMAGED-KEPT means it could not, and the file
+                  needs replacing by hand:
+                  `journalctl -t audio-language-check --since -1d | grep DAMAGED`
+                  on {{ $labels.host }}. Clears a day after the import.
+
+            - alert: MediaFileZeroFilled
+              expr: media_zero_filled_file > 0
+              for: 1h
+              labels:
+                severity: warning
+              annotations:
+                summary: "Zero-filled video: {{ $labels.path }}"
+                description: >-
+                  The nightly sweep found a run of zeros of 1 MiB or more in
+                  this file, which plays as a frozen picture. The import hook
+                  replaces such a file as it lands, so this one bypassed the
+                  hook or the hook could not delete it. Delete it in Sonarr or
+                  Radarr and search again. media_zero_filled_files carries the
+                  count beyond the first 50.
+
             - alert: MediaAudioUnverified
               expr: media_audio_unverified_files > 10
               for: 6h
