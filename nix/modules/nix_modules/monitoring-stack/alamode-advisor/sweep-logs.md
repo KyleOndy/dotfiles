@@ -40,7 +40,11 @@ outside that range, and say how far.
    regex. A unit that logs a fixed burst at every start rises with its
    starts, so before calling its count a trend, count its starts with a
    line it logs once per start, divide, and say what started it: a deploy,
-   a watchdog's own lines, or a manual `systemctl restart`.
+   a watchdog's own lines, or a manual `systemctl restart`. A line logged
+   at boot or activation is new only if earlier boots lack it (steps in
+   `node_boot_time_seconds` or `system_activation_timestamp_seconds`), not
+   if the 7-day offset lacks it. A reboot that follows a deploy is not that
+   deploy's activation.
 5. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.
