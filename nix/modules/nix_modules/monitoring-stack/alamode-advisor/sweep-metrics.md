@@ -36,7 +36,12 @@ values, never from an aggregate across them.
      battery charge, runtime and load.
    - Network (unpoller): WAN latency, packet loss and throughput, AP retries
      and channel utilisation, device uptime resets that mean a reboot, client
-     counts that changed shape.
+     counts that changed shape. unpoller's VAP retry counters sum the
+     stations now associated, so they drop when one leaves, and increase()
+     reads that drop as a reset and adds the whole value. Count a day with
+     `sum_over_time(clamp_min(delta(x[1m]), 0)[1d:1m])`, read the raw 1m
+     samples before reporting a jump, and name the client whose
+     `unpoller_client_transmit_retries_total` rose with it.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps drifting later even when still inside
