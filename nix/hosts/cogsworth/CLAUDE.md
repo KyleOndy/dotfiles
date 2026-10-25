@@ -21,6 +21,12 @@ though bound to every interface, are reachable only over `ssh -L`.
 
 Journal is RAM-only (50M cap, 1h retention). For anything older, query Loki.
 
+With the Wi-Fi down nothing reaches Loki, and the reboot erases the journal.
+Before rebooting, open Info > Admin > Logs on the kiosk and photograph it: it
+shows `cogsworthDiagnostics` from `configuration.nix` (link, neighbor and
+watchdog state, then the kernel, wpa_supplicant, dhcpcd and watchdog journal)
+full screen. The backend serves it only to the Pi itself, not through Caddy.
+
 ```bash
 # Backend logs (calendar sync, API errors)
 ssh cogsworth journalctl -u cogsworth.service -f

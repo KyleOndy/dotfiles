@@ -20,6 +20,45 @@ let
     cp ${./models/500/hey_cogs.tflite}   $out/hey_cogs_500.tflite
     cp ${./models/10000/hey_cogs.tflite} $out/hey_cogs_10000.tflite
   '';
+
+  # What the kiosk's Admin > Logs page shows. With the Wi-Fi down the journal
+  # cannot reach Loki and the reboot that fixes it erases the journal, so a
+  # photo of that screen is the only record left. Every probe is bounded,
+  # since an iw call waits on the Wi-Fi firmware.
+  cogsworthDiagnostics = pkgs.writeShellApplication {
+    name = "cogsworth-diagnostics";
+    runtimeInputs = with pkgs; [
+      coreutils
+      gnugrep
+      iproute2
+      iw
+      systemd
+    ];
+    text = ''
+      run() {
+        printf '\n== %s\n' "$*"
+        timeout 3 "$@" 2>&1 || printf '(exit %s)\n' "$?"
+      }
+
+      printf '%s UTC, %s local\n' "$(date -u +%FT%TZ)" "$(date +%T%Z)"
+      run uptime
+      run grep -E '^(MemTotal|MemAvailable|SwapTotal|SwapFree):' /proc/meminfo
+      run systemctl --failed --no-legend --plain
+      run grep -r . /var/lib/cogsworth-watchdog
+      run ip -brief address show dev wlan0
+      run ip route show default
+      run ip neigh show dev wlan0
+      run ip -statistics -statistics link show dev wlan0
+      run iw dev wlan0 link
+      run iw dev wlan0 station dump
+      run journalctl --boot --utc --output=short-iso --no-pager --lines=300 \
+        _TRANSPORT=kernel + \
+        _SYSTEMD_UNIT=wpa_supplicant.service + UNIT=wpa_supplicant.service + \
+        _SYSTEMD_UNIT=dhcpcd.service + \
+        _SYSTEMD_UNIT=cogsworth-watchdog.service
+      run journalctl --boot --utc --output=short-iso --no-pager --lines=100 --priority=warning
+    '';
+  };
 in
 {
   imports = [ ./birdnet-go.nix ];
@@ -607,8 +646,11 @@ in
     # A path, not the password. The backend reads the file at call time, so
     # the credential never lands in the process environment.
     COGSWORTH_UNIFI_PASSWORD_FILE = config.sops.secrets.unpoller_password.path;
+    COGSWORTH_DIAGNOSTICS_CMD = lib.getExe cogsworthDiagnostics;
     LOG_LEVEL = "DEBUG";
   };
+  # For cogsworthDiagnostics' journalctl.
+  systemd.services.cogsworth.serviceConfig.SupplementaryGroups = [ "systemd-journal" ];
 
   # The JVM exits 143 (128 + SIGTERM) when systemd stops it.
   systemd.services.cogsworth.serviceConfig.SuccessExitStatus = "143";
