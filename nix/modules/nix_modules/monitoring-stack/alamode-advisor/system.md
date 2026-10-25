@@ -167,6 +167,11 @@ to skip it.
 - Keep fact and inference apart. "Disk writes rose 4x at 03:10" is a fact;
   "probably the scrub" is an inference and says so.
 - Prefer aggregates first, raw log lines second, and only for what stood out.
+- Split a count by the line's own fields (task, status, client address)
+  before naming a cause. A filter that matches none of the lines means the
+  guess was wrong, not that the cause is unknown. A negative claim such as
+  "no 2xx from outside" comes from an aggregate over the whole window, never
+  from sampled lines.
 - Use `web_search` to confirm upstream behavior you would otherwise guess at:
   what an error message means, a known bug in a version, a documented vendor
   limit. Cite the URL you relied on. Queries leave the house, so search on
