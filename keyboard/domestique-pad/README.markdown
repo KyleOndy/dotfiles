@@ -46,10 +46,10 @@ therefore the only way to ever add a potentiometer or a brake lever.
 
 ```bash
 git add keyboard/domestique-pad   # the flake reads the git tree
-make flash-pad
+nix run .#flash-pad
 ```
 
-`make flash-pad` builds, waits for the board to mount as `RPI-RP2`, copies the
+`flash-pad` builds, waits for the board to mount as `RPI-RP2`, copies the
 `.uf2`, and times out with a message rather than copying nowhere.
 
 Entering the bootloader:
