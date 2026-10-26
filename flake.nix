@@ -766,6 +766,14 @@
               ''
             );
           };
+
+          # An app rather than a package: openscad cannot render inside the
+          # darwin build sandbox (keyboard/domestique-pad/case/render.sh).
+          pad-case = {
+            type = "app";
+            meta.description = "Render the domestique pad case parts to 3MF";
+            program = "${pkgs.callPackage ./keyboard/domestique-pad/case { }}/bin/pad-case";
+          };
         }
       );
 
