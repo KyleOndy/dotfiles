@@ -299,6 +299,7 @@ let
       readonly TOPIC="$ROOT/topic"
       readonly CURSOR="$ROOT/heard-cursor"
       readonly LOCK="$STATE/ride.lock"
+      readonly STARTUP="$ROOT/startup.tsv"
       RIDE="${dq cfg.rideDir}/$(date +%Y-%m-%d)"
       readonly RIDE
 
@@ -341,6 +342,17 @@ let
 
       shopt -s nullglob
       mkdir -p "$ROOT" "$STATE"
+
+      # Startup timings, one line per step reached: epoch milliseconds, then
+      # driver or pi, then the step. ROOT is the one directory both this and
+      # the sandboxed extension can write, and epoch time lets their lines
+      # interleave. The time each step took, one block per ride:
+      #   awk -F'\t' '$3 == "start" { print ""; p = $1 }
+      #     { printf "%7d ms  %s %s\n", $1 - p, $2, $3; p = $1 }' startup.tsv
+      mark() {
+        printf '%s\tdriver\t%s\n' "$(date +%s%3N)" "$1" >>"$STARTUP" || true
+      }
+      mark start
 
       # A ride is a singleton, and now says so. There is one rider, one
       # microphone, one pair of headphones, and one push-to-talk key writing one
@@ -396,6 +408,7 @@ let
           exit 1
         fi
       fi
+      mark "lock held"
       # Child pids from launch, and the pidfiles they will write. Killed by the
       # pid launch saw rather than the file, which a watcher still building the
       # venv or importing mlx has not written yet. The launcher scripts exec
@@ -460,6 +473,7 @@ let
         [ "$old" = "$ROOT/gitdirs/$(basename "$RIDE")" ] && continue
         rm -rf "$old"
       done
+      mark reclaimed
 
       launch() {
         local name="$1" bin="$2" pidfile="$3" ready="$4" log="$5"
@@ -505,6 +519,7 @@ let
           exit 1
         fi
         printf 'domestique: %s ready, logging to %s\n' "$name" "$log"
+        mark "$name ready"
       }
 
       # The out-of-band channel writes notes beside the transcript, and the
@@ -535,6 +550,7 @@ let
       # one from outside this ride must not get to hold the rider back.
       rm -f "$RESTART" "$TOPIC" "$CURSOR"
       while true; do
+        mark "alamode launch"
         alamode${rideFlags} -- --domestique \
           --session-dir "$RIDE/.sessions" \
           --append-system-prompt "$STATE/ride-prompt.md" \

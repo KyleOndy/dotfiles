@@ -59,6 +59,9 @@ const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
 const SPEED_FILE = join(ROOT, "speed");
 
+// Shared with the driver (dev/domestique.nix, mark), which explains the format.
+const STARTUP = join(ROOT, "startup.tsv");
+
 // Read by the wrapper's relaunch loop, and by the next session for the topic
 // it should open on. TOPIC is absent for the first session of a ride.
 const RESTART = join(ROOT, "restart");
@@ -195,7 +198,16 @@ function speakable(text: string): string {
     .trim();
 }
 
+function mark(step: string, at = Date.now()): void {
+  try {
+    appendFileSync(STARTUP, `${Math.round(at)}\tpi\t${step}\n`, "utf8");
+  } catch {
+    // A ride does not end because its timings failed.
+  }
+}
+
 export default function (pi: ExtensionAPI) {
+  const loaded = Date.now();
   pi.registerFlag("domestique", {
     description: "Speak thinking and responses aloud via the domestique spool",
     type: "boolean",
@@ -766,6 +778,13 @@ export default function (pi: ExtensionAPI) {
     enabled = pi.getFlag("domestique") === true;
     if (!enabled) return;
 
+    // Whether this is a ride is known only here, so the earlier steps are
+    // written late, at the times they happened. The gap from the driver's
+    // "alamode launch" to "pi process start" is alamode's own setup.
+    mark("pi process start", Date.now() - process.uptime() * 1000);
+    mark("extension loaded", loaded);
+    mark("session_start");
+
     mkdirSync(SPOOL, { recursive: true });
     try {
       cursor = readFileSync(CURSOR, "utf8").trim();
@@ -806,6 +825,7 @@ export default function (pi: ExtensionAPI) {
     }, HEARD_POLL_MS);
     // A held timer would keep pi alive after the session ends.
     heardTimer.unref?.();
+    mark("session ready");
   });
 
   pi.on("agent_end", () => {
