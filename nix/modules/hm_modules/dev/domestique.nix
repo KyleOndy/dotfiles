@@ -12,8 +12,6 @@
 #
 # Usage: `domestique` starts the watchers and a session together, in a dated
 # directory under `rideDir` that is the only place the agent can write.
-# `domestique --workspace ~/work` also gives it a snapshot of that checkout,
-# whose commits land back in it the way any alamode session's do.
 # `domestique-review` reopens the newest one afterwards, without speech.
 # `domestique-speak` alone is the two-pane form, and prints the matching alamode
 # invocation.
@@ -26,7 +24,16 @@
 let
   cfg = config.hmFoundry.dev.domestique;
 
-  ridePromptFile = pkgs.writeText "domestique-ride-prompt.md" cfg.ridePrompt;
+  ridePromptFile = pkgs.writeText "domestique-ride-prompt.md" (
+    cfg.ridePrompt
+    + lib.optionalString (cfg.readPaths != [ ]) ''
+
+      The rider's notes are in ${lib.concatStringsSep ", " cfg.readPaths}, which
+      you can read and cannot write. Read the CLAUDE.md or README.md at the top
+      of each before relying on what it holds. Anything worth keeping goes in
+      the ride directory, and the rider files it afterwards.
+    ''
+  );
 
   lexiconFile = pkgs.writeText "domestique-lexicon.json" (builtins.toJSON cfg.lexicon);
 
@@ -101,7 +108,9 @@ let
     "`"
   ];
 
-  allowReadFlags = lib.concatMapStrings (r: " --allow-read ${lib.escapeShellArg r}") cfg.repos;
+  allowReadFlags = lib.concatMapStrings (r: " --allow-read ${lib.escapeShellArg r}") (
+    cfg.repos ++ cfg.readPaths
+  );
 
   allowBundleFlags = lib.concatMapStrings (
     b: " ${lib.escapeShellArg "--allow-${b}"}"
@@ -308,7 +317,6 @@ let
       # Held apart from "$@" because the loop below clears the arguments after
       # the first topic: an opening prompt is one topic's, a model is the ride's.
       model=()
-      workspace="$STATE"
       rest=()
       while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -324,21 +332,9 @@ let
             model=(--model "''${1#--model=}")
             shift
             ;;
-          --workspace)
-            if [ "$#" -lt 2 ]; then
-              echo "domestique: --workspace needs a directory" >&2
-              exit 1
-            fi
-            workspace="$2"
-            shift 2
-            ;;
-          --workspace=*)
-            workspace="''${1#--workspace=}"
-            shift
-            ;;
           -*)
             printf 'domestique: unknown option %s\n' "$1" >&2
-            printf 'usage: domestique [--model NAME] [--workspace DIR] [PROMPT...]\n' >&2
+            printf 'usage: domestique [--model NAME] [PROMPT...]\n' >&2
             exit 1
             ;;
           *)
@@ -461,11 +457,10 @@ let
       # alamode snapshots the repository enclosing its launch directory into
       # the session's workspace (session.py, source_repository) and lands the
       # session's commits there when it exits. Each topic is its own session,
-      # so its own snapshot. By default a ride launches from STATE, which sits
-      # in no repository and which no session can write, so nothing planted
-      # there turns it into one. --workspace names a checkout instead, for a
-      # ride that reads and commits to it.
-      cd "$workspace"
+      # so its own snapshot. A ride launches from STATE, which sits in no
+      # repository and which no session can write, so nothing planted there
+      # turns it into one. Notes are read in place through readPaths.
+      cd "$STATE"
 
       # A clone_repo checkout runs to hundreds of megabytes and is reproducible
       # from .bare in under a minute, where the notes beside it are neither. Only
@@ -944,6 +939,22 @@ in
 
         Host-specific by nature: set this where the paths belong rather than in
         a shared profile.
+      '';
+    };
+
+    readPaths = lib.mkOption {
+      type = with lib.types; listOf str;
+      default = [ ];
+      example = [ "/Users/me/notes" ];
+      description = ''
+        Directories rides and `domestique-review` read in place, as
+        `--allow-read` arguments. The ride prompt names them, since the
+        session's working directory holds none of their context files. Unlike
+        `repos`, nothing fetches or clones them.
+
+        In place rather than as the launch directory: alamode snapshots the
+        repository a session starts in, and a ride starts one session per
+        topic.
       '';
     };
 
