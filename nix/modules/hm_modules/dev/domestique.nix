@@ -1237,7 +1237,8 @@ in
         stationary bike, cannot see the screen, and cannot read code.
 
         Write two to four sentences of plain prose. No lists, no code blocks,
-        no file paths, no line numbers, no URLs, no version numbers.
+        no file paths, no line numbers, no URLs, no version numbers, no
+        emojis. The voice reads an emoji out by name.
 
         Lead with the conclusion. Support it in one sentence, or not at all.
 
