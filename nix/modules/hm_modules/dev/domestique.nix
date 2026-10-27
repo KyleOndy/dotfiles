@@ -747,36 +747,7 @@ in
 
     lexicon = lib.mkOption {
       type = with lib.types; attrsOf str;
-      default = {
-        SIGTERM = "sˈɪɡtɜɹm";
-        SIGKILL = "sˈɪɡkˌɪl";
-        YAML = "jˈæmᵊl";
-        k8s = "kˈAts";
-        systemd = "sˈɪstəm dˈi";
-        PostgreSQL = "pˈOstɡɹɛs kjˌuˈɛl";
-        NixOS = "nˈɪksOˌɛs";
-        ArgoCD = "ˈɑɹɡO sˌidˈi";
-        AWS = "ˈA dˈʌbᵊlju ˈɛs";
-        Clojure = "klˈOʒəɹ";
-        nixfmt = "nˈɪks fˈɔɹmˌæt";
-        sabnzbd = "sˈæb ˈɛn zˈi bˈi dˈi";
-        ODROID = "ˈɑd ɹˈYd";
-        NaN = "nˈæn";
-        GEMM = "ʤˈɛm";
-        SIMD = "sˈɪmdˌi";
-        TFLOPS = "tˈɛɹəflˌɑps";
-        SMEM = "ˈɛs mˈɛm";
-        TMEM = "tˈi mˈɛm";
-        MoE = "ˈɛm ˈO ˈi";
-        CuTe = "kjˈut";
-        RoPE = "ɹˈOp";
-        comptime = "kˈɑmp tˈIm";
-        # Qwen takes its q from pinyin Qianwen, and NVIDIA spells NCCL nickel:
-        # https://github.com/NVIDIA/nccl/blob/v2.28.3-1/README.md
-        Qwen = "ʧwˈɛn";
-        NCCL = "nˈɪkᵊl";
-        RoCE = "ɹˈɑki";
-      };
+      default = { };
       example = {
         kubectl = "kjˈubkəntɹOl";
       };
@@ -796,6 +767,9 @@ in
         ROCm as "rock em" and CUTLASS as a word. Its failures are acronyms it
         spells out letter by letter, and acronyms it runs together into a word
         when the letters were meant.
+
+        Entries defined elsewhere add to the built-in ones in this module's
+        `config`. Replacing a built-in one takes `lib.mkForce` on that key.
 
         Each entry is registered under both its own casing and lowercase,
         because misaki resolves an all-caps token through its acronym path and
@@ -1266,6 +1240,39 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # Here rather than in the option's default, which any definition elsewhere
+    # replaces whole instead of merging with.
+    hmFoundry.dev.domestique.lexicon = {
+      SIGTERM = "sˈɪɡtɜɹm";
+      SIGKILL = "sˈɪɡkˌɪl";
+      YAML = "jˈæmᵊl";
+      k8s = "kˈAts";
+      systemd = "sˈɪstəm dˈi";
+      PostgreSQL = "pˈOstɡɹɛs kjˌuˈɛl";
+      NixOS = "nˈɪksOˌɛs";
+      ArgoCD = "ˈɑɹɡO sˌidˈi";
+      AWS = "ˈA dˈʌbᵊlju ˈɛs";
+      Clojure = "klˈOʒəɹ";
+      nixfmt = "nˈɪks fˈɔɹmˌæt";
+      sabnzbd = "sˈæb ˈɛn zˈi bˈi dˈi";
+      ODROID = "ˈɑd ɹˈYd";
+      NaN = "nˈæn";
+      GEMM = "ʤˈɛm";
+      SIMD = "sˈɪmdˌi";
+      TFLOPS = "tˈɛɹəflˌɑps";
+      SMEM = "ˈɛs mˈɛm";
+      TMEM = "tˈi mˈɛm";
+      MoE = "ˈɛm ˈO ˈi";
+      CuTe = "kjˈut";
+      RoPE = "ɹˈOp";
+      comptime = "kˈɑmp tˈIm";
+      # Qwen takes its q from pinyin Qianwen, and NVIDIA spells NCCL nickel:
+      # https://github.com/NVIDIA/nccl/blob/v2.28.3-1/README.md
+      Qwen = "ʧwˈɛn";
+      NCCL = "nˈɪkᵊl";
+      RoCE = "ɹˈɑki";
+    };
+
     assertions = [
       {
         assertion = pkgs.stdenv.hostPlatform.isDarwin;
