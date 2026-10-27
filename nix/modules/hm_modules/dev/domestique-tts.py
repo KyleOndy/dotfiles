@@ -505,12 +505,18 @@ def main() -> int:
             return False
         return stream is not None and stream.active
 
-    def hush() -> None:
+    def finished() -> None:
         nonlocal playing_channel, last_finished
+        # An underflow is heard as crackle and leaves no other trace.
+        if sd.get_status().output_underflow:
+            log(f"{playing_channel} underflowed")
+        playing_channel = None
+        last_finished = time.monotonic()
+
+    def hush() -> None:
         sd.stop()
         if playing_channel is not None:
-            playing_channel = None
-            last_finished = time.monotonic()
+            finished()
 
     def ring(buf) -> None:
         if buf is not None:
@@ -688,8 +694,7 @@ def main() -> int:
                     time.sleep(POLL_SECONDS)
                     continue
             elif playing_channel is not None:
-                playing_channel = None
-                last_finished = time.monotonic()
+                finished()
 
             if held:
                 time.sleep(POLL_SECONDS)
