@@ -46,7 +46,11 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 
-const ROOT = join(homedir(), ".pi", "domestique");
+// alamode gives every session a private HOME (alamode-runtime/session.py,
+// child_environment), so the real ROOT and STATE arrive through its env
+// (dev/domestique.nix). The fallbacks serve pi run outside alamode.
+const ROOT =
+  process.env.DOMESTIQUE_ROOT || join(homedir(), ".pi", "domestique");
 
 // What only the watchers and the keys write (dev/domestique.nix, stateDir). A
 // ride is granted read here and nothing in any alamode session can write it,
@@ -212,6 +216,10 @@ export default function (pi: ExtensionAPI) {
     description: "Speak thinking and responses aloud via the domestique spool",
     type: "boolean",
     default: false,
+  });
+  pi.registerFlag("domestique-ride", {
+    description: "Ride directory for the transcript and clones (default: cwd)",
+    type: "string",
   });
 
   let enabled = false;
@@ -798,10 +806,10 @@ export default function (pi: ExtensionAPI) {
       if (Number.isFinite(n) && n > seq) seq = n;
     }
 
-    // The ride directory is pi's $PWD and the only place outside ~/.pi the
-    // sandbox lets this write (nix/pkgs/alamode-runtime/session.py, write_paths).
-    rideDir = ctx.cwd;
-    transcript = join(ctx.cwd, "transcript.md");
+    // pi's cwd is alamode's private workspace, which no human reads, so the
+    // wrapper names the ride directory and grants it alongside ROOT.
+    rideDir = String(pi.getFlag("domestique-ride") || ctx.cwd);
+    transcript = join(rideDir, "transcript.md");
     registerClone();
     openTopic();
 

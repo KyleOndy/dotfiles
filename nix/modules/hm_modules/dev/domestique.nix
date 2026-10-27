@@ -12,6 +12,8 @@
 #
 # Usage: `domestique` starts the watchers and a session together, in a dated
 # directory under `rideDir` that is the only place the agent can write.
+# `domestique --workspace ~/work` also gives it a snapshot of that checkout,
+# whose commits land back in it the way any alamode session's do.
 # `domestique-review` reopens the newest one afterwards, without speech.
 # `domestique-speak` alone is the two-pane form, and prints the matching alamode
 # invocation.
@@ -247,8 +249,8 @@ let
 
       ${ensureVenv}
 
-      printf 'domestique: run alamode with\n  alamode%s -- --domestique --append-system-prompt %s\n' \
-        "${rideFlags}" "$PROMPT"
+      printf 'domestique: run alamode with\n  alamode%s --allow-rw %s -- --domestique --append-system-prompt %s\n' \
+        "${rideFlags}" "$ROOT" "$PROMPT"
 
       export DOMESTIQUE_ROOT="$ROOT"
       export DOMESTIQUE_STATE="$STATE"
@@ -303,20 +305,10 @@ let
       RIDE="${dq cfg.rideDir}/$(date +%Y-%m-%d)"
       readonly RIDE
 
-      # Read by the clone_repo tool in extensions/domestique.ts, which needs the
-      # paths themselves rather than the --allow-read flags built from them. The
-      # names are private to the work config, so they arrive at runtime instead
-      # of being baked into the extension.
-      #
-      # Joined here rather than by printf in the shell: `repos` defaults to
-      # empty, and a format string with no arguments is SC2183, which fails the
-      # writeShellApplication build on any host that has not set it.
-      export DOMESTIQUE_REPOS=${lib.escapeShellArg (lib.concatStringsSep "\n" cfg.repos)}
-      export DOMESTIQUE_STATE="$STATE"
-
       # Held apart from "$@" because the loop below clears the arguments after
       # the first topic: an opening prompt is one topic's, a model is the ride's.
       model=()
+      workspace="$STATE"
       rest=()
       while [ "$#" -gt 0 ]; do
         case "$1" in
@@ -332,9 +324,21 @@ let
             model=(--model "''${1#--model=}")
             shift
             ;;
+          --workspace)
+            if [ "$#" -lt 2 ]; then
+              echo "domestique: --workspace needs a directory" >&2
+              exit 1
+            fi
+            workspace="$2"
+            shift 2
+            ;;
+          --workspace=*)
+            workspace="''${1#--workspace=}"
+            shift
+            ;;
           -*)
             printf 'domestique: unknown option %s\n' "$1" >&2
-            printf 'usage: domestique [--model NAME] [PROMPT...]\n' >&2
+            printf 'usage: domestique [--model NAME] [--workspace DIR] [PROMPT...]\n' >&2
             exit 1
             ;;
           *)
@@ -454,11 +458,14 @@ let
 
       mkdir -p "$RIDE/.sessions"
 
-      # The sandbox allows writes to $PWD and ~/.pi and nowhere else
-      # (nix/pkgs/alamode-runtime/session.py), so the launch directory
-      # is the whole of what the agent can take notes in. Left to the caller it
-      # is wherever the terminal happened to be.
-      cd "$RIDE"
+      # alamode snapshots the repository enclosing its launch directory into
+      # the session's workspace (session.py, source_repository) and lands the
+      # session's commits there when it exits. Each topic is its own session,
+      # so its own snapshot. By default a ride launches from STATE, which sits
+      # in no repository and which no session can write, so nothing planted
+      # there turns it into one. --workspace names a checkout instead, for a
+      # ride that reads and commits to it.
+      cd "$workspace"
 
       # A clone_repo checkout runs to hundreds of megabytes and is reproducible
       # from .bare in under a minute, where the notes beside it are neither. Only
@@ -537,8 +544,8 @@ let
       launch listening "${domestique-listen}/bin/domestique-listen" \
         "$STATE/listen.pid" "$STATE/listen.ready" "$STATE/listen.log"
 
-      # --allow-read and --allow-<bundle> belong to alamode, --domestique and
-      # everything after -- to the engine. The boundary is hard
+      # --allow-read, --allow-rw and --allow-<bundle> belong to alamode,
+      # --domestique and everything after -- to the engine. The boundary is hard
       # (nix/pkgs/alamode-runtime/session.py): an engine flag before -- is an
       # error, an alamode flag after it never applies, so grant flags go first
       # and -- separates the engine's own flags from them.
@@ -556,7 +563,8 @@ let
       rm -f "$RESTART" "$TOPIC" "$CURSOR"
       while true; do
         mark "alamode launch"
-        alamode${rideFlags} -- --domestique \
+        alamode${rideFlags} --allow-rw "$ROOT" --allow-rw "$RIDE" \
+          -- --domestique --domestique-ride "$RIDE" \
           --session-dir "$RIDE/.sessions" \
           --append-system-prompt "$STATE/ride-prompt.md" \
           "''${model[@]}" "$@" || true
@@ -635,12 +643,15 @@ let
           exit 1
         fi
         # Glob order is lexical and the directories are ISO dates.
-        ride="''${dirs[-1]}"
+        ride="''${dirs[-1]%/}"
       fi
 
       printf 'domestique-review: %s\n' "$ride"
-      cd "$ride"
-      exec alamode${alamodeFlags} -- "$@"
+      # Launched from the caller's directory like any alamode session, so the
+      # caller picks the workspace and the prompt says where the ride is.
+      exec alamode${alamodeFlags} --allow-rw "$ride" -- \
+        --append-system-prompt "The ride under review is $ride: its transcript.md, notes.md, bundles/ and repos/." \
+        "$@"
     '';
   };
 
@@ -919,9 +930,9 @@ in
       defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/work/rides"'';
       description = ''
         Parent of the per-ride working directories. A ride runs in
-        `<rideDir>/<YYYY-MM-DD>`, which becomes the session's $PWD and is therefore the
-        only place outside ~/.pi the sandbox lets the agent write
-        (`nix/pkgs/alamode-runtime/session.py`, write_paths). Notes taken during a
+        `<rideDir>/<YYYY-MM-DD>`, which the wrapper grants the session
+        read-write and is the only place outside ~/.pi/domestique the agent
+        can write. Notes taken during a
         ride land there, `transcript.md` records everything said aloud,
         `.sessions` holds one session file per topic, and `bundles/` holds
         each clone's commits as `git fetch <bundle>` takes them.
@@ -1313,6 +1324,17 @@ in
     # file, which can point git somewhere this condition does not match. Work
     # leaves a ride as a bundle (extensions/domestique.ts, bundleClones) so the
     # rider has no reason to run git inside a clone at all.
+    # A session's HOME is alamode's private one and its env is alamode's
+    # allowlist (session.py, child_environment), so the extension's paths
+    # travel here rather than through the wrapper's environment. REPOS is for
+    # clone_repo, which needs the paths themselves rather than the --allow-read
+    # flags built from them. Inert in a session without --domestique.
+    hmFoundry.dev.alamode.sandbox.envVars = {
+      DOMESTIQUE_ROOT = "${config.home.homeDirectory}/.pi/domestique";
+      DOMESTIQUE_STATE = stateDir;
+      DOMESTIQUE_REPOS = lib.concatStringsSep "\n" cfg.repos;
+    };
+
     programs.git.includes = [
       {
         condition = "gitdir:${config.home.homeDirectory}/.pi/domestique/gitdirs/";
