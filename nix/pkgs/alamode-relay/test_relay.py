@@ -39,6 +39,12 @@ class Upstream(BaseHTTPRequestHandler):
             self.send_header("Location", "/credentials")
             self.end_headers()
             return
+        if self.path == "/linear/graphql":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"data":{}}')
+            return
         if self.path.startswith("/kagi/"):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -462,6 +468,90 @@ class RelayTests(unittest.TestCase):
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertIn(expected, result.stdout)
                     self.assertNotIn(KEY, result.stdout + result.stderr)
+
+    def test_scoped_linear_route(self):
+        self.assertEqual(self.request(path="/tool/linear")[0], 403)
+        comment, update = relay_module.LINEAR_MUTATIONS
+        with (
+            patch.object(
+                relay_module,
+                "LINEAR_URL",
+                f"http://127.0.0.1:{self.upstream.server_port}/linear/graphql",
+            ),
+            start_relay(
+                self.catalog,
+                self.credentials,
+                tool_credentials={"linear": KEY},
+                allow_private_hosts=["127.0.0.1"],
+            ) as relay,
+        ):
+            self.assertNotIn(KEY, json.dumps(relay.tool_env))
+            self.assertEqual(relay.tool_env["ALAMODE_LINEAR_TOKEN"], relay.token)
+
+            def send(payload, token=None):
+                connection = http.client.HTTPConnection(
+                    "127.0.0.1", relay.port, timeout=2
+                )
+                connection.request(
+                    "POST",
+                    "/tool/linear",
+                    json.dumps(payload),
+                    {"Authorization": "Bearer " + (token or relay.token)},
+                )
+                response = connection.getresponse()
+                result = response.status, response.read()
+                connection.close()
+                return result
+
+            read = {"query": "query { viewer { id } }", "variables": {}}
+            self.assertEqual(send(read)[0], 200)
+            target, headers, body = self.upstream.calls[-1]
+            self.assertEqual(target, "/linear/graphql")
+            self.assertEqual(headers["authorization"], KEY)
+            self.assertEqual(body, read)
+            for payload in (
+                {
+                    "query": comment.replace("{ ", "{\n  "),
+                    "variables": {"input": {"issueId": "ENG-1", "body": "Done."}},
+                },
+                {
+                    "query": update,
+                    "variables": {"id": "ENG-1", "input": {"assigneeId": None}},
+                },
+            ):
+                with self.subTest(query=payload["query"]):
+                    self.assertEqual(send(payload)[0], 200)
+                    self.assertEqual(self.upstream.calls[-1][2], payload)
+            count = len(self.upstream.calls)
+            for payload in (
+                {"query": 'mutation { issueDelete(id: "ENG-1") { success } }'},
+                {
+                    "query": 'query { a: viewer { id } } mutation { issueArchive(id: "ENG-1") { success } }'
+                },
+                {"query": "subscription { issueUpdates { id } }"},
+                {
+                    "query": comment
+                    + ' mutation { issueDelete(id: "ENG-1") { success } }',
+                    "variables": {"input": {"issueId": "ENG-1", "body": "x"}},
+                },
+                {
+                    "query": comment,
+                    "variables": {"input": {"issueId": "ENG-1", "createAsUser": "x"}},
+                },
+                {"query": comment, "variables": {"input": {}}},
+                {
+                    "query": update,
+                    "variables": {"id": "ENG-1", "input": {"trashed": True}},
+                },
+                {"query": update, "variables": {"input": {"priority": 1}}},
+                {"query": read["query"], "operationName": "x"},
+                {"query": read["query"], "variables": []},
+                {"query": "x" * 16385},
+            ):
+                with self.subTest(payload=payload):
+                    self.assertEqual(send(payload)[0], 403)
+            self.assertEqual(send(read, "wrong")[0], 403)
+            self.assertEqual(len(self.upstream.calls), count)
 
     def test_bell_route(self):
         self.assertEqual(self.request(path="/tool/bell")[0], 403)

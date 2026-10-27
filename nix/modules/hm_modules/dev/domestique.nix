@@ -968,10 +968,9 @@ in
         on an unknown bundle rather than ignoring it.
 
         This is how a ride reaches a vendor API that ordinary alamode sessions
-        cannot. `linear` is the case it was built for: the credential arrives
-        through the wrapper's envFromCommands and is therefore present in every
-        session on the host, so egress is the only control left that a single
-        session can hold. Without the domain the key is inert.
+        cannot. `linear` is the case it was built for: a credential gated on a
+        bundle (`alamode.sandbox.envGrantGates`) is resolved only for a session
+        holding that grant, and the relay keeps it outside the sandbox.
 
         Empty by default, and it has to stay that way here. domestique is
         enabled on every darwin host, while the bundles it wants are defined

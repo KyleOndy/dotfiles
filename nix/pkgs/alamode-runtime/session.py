@@ -928,6 +928,12 @@ def credentials(config, manifest, home, *, include_tools=False):
                 "The kagi grant requires a configured KAGI_API_KEY resolver"
             )
         tool_credentials["kagi"] = environment["KAGI_API_KEY"]
+    if "linear" in manifest["policy"]["grants"]:
+        if not environment.get("LINEAR_API_KEY"):
+            raise SessionError(
+                "The linear grant requires a configured LINEAR_API_KEY resolver"
+            )
+        tool_credentials["linear"] = environment["LINEAR_API_KEY"]
     return (catalog, auth, tool_credentials) if include_tools else (catalog, auth)
 
 

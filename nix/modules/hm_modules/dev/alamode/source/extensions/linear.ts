@@ -1,37 +1,39 @@
 /**
- * linear: read-only Linear ticket lookup for alamode.
+ * linear: Linear ticket lookup, comments and triage edits for alamode.
  *
  * Sessions run pi with its built-in MCP off (--no-mcp, and the agent dir's
  * mcp.json is reclaimed at every start, nix/pkgs/alamode-runtime/session.py),
  * so the MCP servers this laptop already talks to are unreachable from pi and
- * the route is registerTool against Linear's GraphQL API. There is no REST surface to fall back to.
+ * the route is registerTool against Linear's GraphQL API. There is no REST
+ * surface to fall back to.
  *
- * The call goes out from inside the sandbox with a plain fetch. pi ships as a
- * Bun binary and srt injects HTTP_PROXY / HTTPS_PROXY plus the CA-trust
- * variables into the sandboxed child, so fetch traverses srt's filtering proxy
- * and the domain allowlist applies to it. Under seatbelt the child has loopback
- * and nothing else, which is also why the domain has to be granted explicitly:
- * `--allow-linear`, from the bundles entry on the host that holds the
- * credential. domestique passes it on every ride.
+ * The key never enters the session. The wrapper resolves LINEAR_API_KEY
+ * outside the sandbox, and only for a session holding the `linear` grant
+ * (`--allow-linear`, or a profile naming it); alamode-relay holds it and
+ * exports ALAMODE_LINEAR_URL and ALAMODE_LINEAR_TOKEN, a capability for its
+ * /tool/linear route. Without the grant the variables are unset and this
+ * extension registers nothing, rather than a tool that can only fail.
  *
- * Read-only describes this tool surface, not the session. The credential is a
- * personal API key carrying write scope, so a bash call to the same domain can
- * mutate. The egress bundle is the control that binds; without the domain the
- * key is inert.
- *
- * LINEAR_API_KEY arrives through the wrapper's envFromCommands, which resolves
- * it from the Keychain outside the sandbox. The wrapper scrubs anything
- * matching *_API_KEY that merely leaked in from the caller's shell, so a plain
- * shell export does not reach here. It is read once at registration and
- * dropped from process.env, which under Bun is a reduction rather than a
- * boundary: process.env is a view, and a child that inherits the environment
- * still carries the key.
+ * The relay is what bounds writes, since bash in the session can reach the
+ * same route with the same token. It passes any query and only the mutations
+ * in LINEAR_MUTATIONS (nix/pkgs/alamode-relay/relay.py), compared whole after
+ * collapsing whitespace, so COMMENT and UPDATE below must stay token for
+ * token the same as those.
  */
 
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const ENDPOINT = "https://api.linear.app/graphql";
+const url = process.env.ALAMODE_LINEAR_URL;
+const token = process.env.ALAMODE_LINEAR_TOKEN;
+
+const COMMENT = `mutation Comment($input: CommentCreateInput!) {
+  commentCreate(input: $input) { success comment { url } }
+}`;
+
+const UPDATE = `mutation Update($id: String!, $input: IssueUpdateInput!) {
+  issueUpdate(id: $id, input: $input) { success issue { identifier priorityLabel state { name } assignee { displayName } } }
+}`;
 
 // A hung request mid-ride is dead air with nothing on screen to explain it.
 const REQUEST_TIMEOUT_MS = 8000;
@@ -52,7 +54,13 @@ const MAX_IDENTIFIERS = 5;
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*-\d+$/;
 
-let apiKey = "";
+const PRIORITIES: Record<string, number> = {
+  none: 0,
+  urgent: 1,
+  high: 2,
+  medium: 3,
+  low: 4,
+};
 
 const DETAIL_FRAGMENT = `
   fragment Detail on Issue {
@@ -121,6 +129,16 @@ function normalizeIdentifier(raw: string): string {
     .toUpperCase();
 }
 
+function checkedIdentifier(raw: string): string {
+  const id = normalizeIdentifier(raw);
+  if (!IDENTIFIER.test(id)) {
+    throw new Error(
+      `Not a Linear identifier: ${id}. Expected a team key, a hyphen and a number, such as ENG-123.`,
+    );
+  }
+  return id;
+}
+
 /** Ticket prose, quoted so it cannot pose as this tool's own output. Anyone
  * with ticket access writes it, and it lands in the channel that also carries
  * the section separator and the `not found:` line. */
@@ -158,12 +176,10 @@ async function graphql(
 
   let response: Response;
   try {
-    response = await fetch(ENDPOINT, {
+    response = await fetch(url!, {
       method: "POST",
       headers: {
-        // Linear's personal API keys go in Authorization bare. A Bearer prefix
-        // is not what the docs specify.
-        Authorization: apiKey,
+        Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
@@ -184,15 +200,6 @@ async function graphql(
 
   if (!response.ok) {
     const body = (await response.text().catch(() => "")).slice(0, 200);
-    // A domain outside the allowlist comes back as an ordinary 403 from srt's
-    // filtering proxy rather than as a refused connection, so the denied case
-    // lands here and never reaches the catch above. Linear's own 403 is JSON,
-    // which is what keeps the two apart.
-    if (/network allowlist/i.test(body)) {
-      throw new Error(
-        "api.linear.app is not in this session's network allowlist. Pass --allow-linear, which ride mode does by default.",
-      );
-    }
     throw new Error(
       `Linear returned HTTP ${response.status}. ${body || "No body."}`,
     );
@@ -302,12 +309,7 @@ function renderSummary(issue: Issue): string {
 }
 
 export default function (pi: ExtensionAPI) {
-  // A host without the credential shows no tool at all, rather than a tool the
-  // model will reach for and that can only fail.
-  const resolved = process.env.LINEAR_API_KEY;
-  if (!resolved) return;
-  apiKey = resolved;
-  delete process.env.LINEAR_API_KEY;
+  if (!url || !token) return;
 
   pi.registerTool({
     name: "linear_issue",
@@ -317,7 +319,6 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "Read Linear issues by identifier, e.g. ENG-123",
     promptGuidelines: [
       "Use linear_issue whenever the user names a ticket identifier such as ENG-123, including when it appears as a git branch or worktree name.",
-      "linear_issue is read-only. There is no way to comment on or modify a Linear issue from here.",
       "linear_issue truncates long descriptions and returns only the newest comments, so do not treat its output as the complete ticket.",
     ],
     parameters: Type.Object({
@@ -333,12 +334,7 @@ export default function (pi: ExtensionAPI) {
         ...new Set(params.identifiers.map(normalizeIdentifier)),
       ];
 
-      const malformed = identifiers.filter((id) => !IDENTIFIER.test(id));
-      if (malformed.length > 0) {
-        throw new Error(
-          `Not Linear identifiers: ${malformed.join(", ")}. Expected a team key, a hyphen and a number, such as ENG-123.`,
-        );
-      }
+      identifiers.forEach(checkedIdentifier);
 
       // Aliases keep a multi-ticket question to one round trip. Identifiers ride
       // as variables rather than interpolated query text.
@@ -466,6 +462,165 @@ export default function (pi: ExtensionAPI) {
           },
         ],
         details: { count: issues.length },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "linear_comment",
+    label: "Linear comment",
+    description:
+      "Post a comment on a Linear issue, as the user, visible to everyone who can see the issue.",
+    promptSnippet: "Comment on a Linear issue",
+    promptGuidelines: [
+      "Use linear_comment only when the user asks for a comment on that ticket, and read the body back to them first when it is more than a sentence.",
+      "A linear_comment cannot be edited or deleted from here, so post once rather than correcting with a second comment.",
+    ],
+    parameters: Type.Object({
+      identifier: Type.String({
+        description: "Issue identifier such as ENG-123.",
+      }),
+      body: Type.String({
+        minLength: 1,
+        description: "Comment text in Markdown.",
+      }),
+    }),
+    async execute(_toolCallId, params, signal) {
+      const id = checkedIdentifier(params.identifier);
+      const { data } = await graphql(
+        COMMENT,
+        { input: { issueId: id, body: params.body } },
+        signal,
+      );
+      const result = data.commentCreate as {
+        success?: boolean;
+        comment?: { url?: string } | null;
+      } | null;
+      if (!result?.success)
+        throw new Error(`Linear did not post the comment on ${id}.`);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Commented on ${id}: ${result.comment?.url ?? "no url returned"}`,
+          },
+        ],
+        details: { identifier: id },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "linear_update",
+    label: "Linear update",
+    description:
+      "Change a Linear issue's workflow state, assignee or priority. Nothing else on the issue can be changed from here.",
+    promptSnippet: "Move, assign or reprioritize a Linear issue",
+    promptGuidelines: [
+      "Use linear_update only when the user asks for that change to that ticket.",
+      "linear_update takes the state by its name on the issue's team, such as In Progress or Done, and reports the names it accepts when one does not match.",
+      "linear_update can assign an issue only to the user or to nobody.",
+    ],
+    parameters: Type.Object({
+      identifier: Type.String({
+        description: "Issue identifier such as ENG-123.",
+      }),
+      state: Type.Optional(
+        Type.String({
+          description: "Workflow state name, such as In Progress.",
+        }),
+      ),
+      assignee: Type.Optional(
+        Type.Union([Type.Literal("me"), Type.Literal("nobody")], {
+          description: "me assigns the issue to the user, nobody unassigns it.",
+        }),
+      ),
+      priority: Type.Optional(
+        Type.Union(
+          Object.keys(PRIORITIES).map((name) => Type.Literal(name)),
+          { description: "none, urgent, high, medium or low." },
+        ),
+      ),
+    }),
+    async execute(_toolCallId, params, signal) {
+      const id = checkedIdentifier(params.identifier);
+      if (!params.state && !params.assignee && !params.priority) {
+        throw new Error(
+          "linear_update needs a state, an assignee or a priority to change.",
+        );
+      }
+
+      const input: Record<string, unknown> = {};
+      if (params.priority) input.priority = PRIORITIES[params.priority];
+      if (params.assignee === "nobody") input.assigneeId = null;
+
+      if (params.state || params.assignee === "me") {
+        const { data } = await graphql(
+          `
+            query Target($id: String!) {
+              viewer {
+                id
+              }
+              issue(id: $id) {
+                team {
+                  states {
+                    nodes {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          `,
+          { id },
+          signal,
+        );
+        if (params.assignee === "me") {
+          const viewer = data.viewer as { id?: string } | null;
+          if (!viewer?.id)
+            throw new Error("Linear did not say who the user is.");
+          input.assigneeId = viewer.id;
+        }
+        if (params.state) {
+          const issue = data.issue as {
+            team?: { states?: { nodes?: Array<{ id: string; name: string }> } };
+          } | null;
+          if (!issue) throw new Error(`No Linear issue found for ${id}.`);
+          const states = issue.team?.states?.nodes ?? [];
+          const wanted = params.state.trim().toLowerCase();
+          const state = states.find((s) => s.name.toLowerCase() === wanted);
+          if (!state) {
+            throw new Error(
+              `${id}'s team has no state named "${params.state}". It has: ${states.map((s) => s.name).join(", ")}.`,
+            );
+          }
+          input.stateId = state.id;
+        }
+      }
+
+      const { data } = await graphql(UPDATE, { id, input }, signal);
+      const result = data.issueUpdate as {
+        success?: boolean;
+        issue?: Issue | null;
+      } | null;
+      if (!result?.success || !result.issue) {
+        throw new Error(`Linear did not update ${id}.`);
+      }
+      const issue = result.issue;
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              issue.identifier,
+              issue.state?.name ?? "unknown state",
+              issue.priorityLabel ?? "no priority",
+              `assignee ${issue.assignee?.displayName ?? "nobody"}`,
+            ].join("  "),
+          },
+        ],
+        details: { identifier: id, changed: Object.keys(input) },
       };
     },
   });

@@ -17,7 +17,28 @@ from urllib.parse import urlsplit
 
 
 KAGI_BASE_URL = "https://kagi.com/api/v1"
-KAGI_MAX_REQUEST_BYTES = 128 * 1024
+LINEAR_URL = "https://api.linear.app/graphql"
+TOOL_MAX_REQUEST_BYTES = 128 * 1024
+# GraphQL names are [_A-Za-z][_0-9A-Za-z]* with no escape syntax, so a document
+# without this token holds only queries. A string literal or comment that
+# contains it is refused too, which costs a read nothing it needs.
+LINEAR_WRITE = re.compile(r"(?<![_0-9A-Za-z])(?:mutation|subscription)(?![_0-9A-Za-z])")
+# The only writes a linear grant carries, keyed by document with whitespace
+# collapsed, each mapped to its variables: None for a string, else the input
+# fields that variable may set. Matched whole, so a session cannot alias, batch
+# or extend a mutation. extensions/linear.ts sends these same documents.
+LINEAR_MUTATIONS = {
+    "mutation Comment($input: CommentCreateInput!) { "
+    "commentCreate(input: $input) { success comment { url } } }": {
+        "input": {"issueId", "body"},
+    },
+    "mutation Update($id: String!, $input: IssueUpdateInput!) { "
+    "issueUpdate(id: $id, input: $input) { success issue { identifier "
+    "priorityLabel state { name } assignee { displayName } } } }": {
+        "id": None,
+        "input": {"stateId", "assigneeId", "priority"},
+    },
+}
 # Seconds. A request inside this window after a ring is answered but silent,
 # so an agent looping on the route cannot hold the host's speaker.
 BELL_INTERVAL = 10
@@ -152,6 +173,30 @@ def _kagi_payload(payload, operation):
                 return False
             _ = parsed.port
         except ValueError:
+            return False
+    return True
+
+
+def _linear_payload(payload):
+    if not isinstance(payload, dict) or not set(payload) <= {"query", "variables"}:
+        return False
+    query = payload.get("query")
+    variables = payload.get("variables", {})
+    if not isinstance(query, str) or not 0 < len(query) <= 16384:
+        return False
+    if not isinstance(variables, dict):
+        return False
+    if not LINEAR_WRITE.search(query):
+        return True
+    shape = LINEAR_MUTATIONS.get(" ".join(query.split()))
+    if shape is None or set(variables) != set(shape):
+        return False
+    for name, fields in shape.items():
+        value = variables[name]
+        if fields is None:
+            if not isinstance(value, str) or not value:
+                return False
+        elif not isinstance(value, dict) or not value or not set(value) <= fields:
             return False
     return True
 
@@ -353,8 +398,8 @@ class _Handler(BaseHTTPRequestHandler):
             return
         length = int(lengths[0])
         limit = (
-            min(relay.max_request_bytes, KAGI_MAX_REQUEST_BYTES)
-            if route["api"] == "kagi"
+            min(relay.max_request_bytes, TOOL_MAX_REQUEST_BYTES)
+            if route["api"] in ("kagi", "linear")
             else relay.max_request_bytes
         )
         if not 0 < length <= limit:
@@ -385,6 +430,10 @@ class _Handler(BaseHTTPRequestHandler):
         if route["api"] == "kagi":
             if not _kagi_payload(payload, route["operation"]):
                 self._error(400, "Invalid scoped Kagi request")
+                return
+        elif route["api"] == "linear":
+            if not _linear_payload(payload):
+                self._error(403, "Linear request is outside this capability")
                 return
         else:
             if not isinstance(payload, dict) or payload.get("model") != route["model"]:
@@ -623,7 +672,7 @@ class Relay:
         )
         self.catalog = {"providers": providers}
         tool_credentials = tool_credentials or {}
-        if set(tool_credentials) - {"kagi"}:
+        if set(tool_credentials) - {"kagi", "linear"}:
             raise ValueError("Unsupported relay tool capability")
         if "kagi" in tool_credentials:
             key = tool_credentials["kagi"]
@@ -645,6 +694,24 @@ class Relay:
                     "upstream_path": endpoint.path.rstrip("/") + "/" + operation,
                     "headers": headers,
                 }
+        if "linear" in tool_credentials:
+            key = tool_credentials["linear"]
+            if not isinstance(key, str) or not key:
+                raise ValueError("Linear requires a nonempty resolved credential")
+            endpoint = _endpoint(LINEAR_URL, self.allow_private_hosts)
+            self.routes["/tool/linear"] = {
+                "api": "linear",
+                "endpoint": endpoint,
+                "upstream_path": endpoint.path,
+                # A personal API key goes in Authorization bare, without Bearer.
+                "headers": _headers(
+                    {
+                        "content-type": "application/json",
+                        "accept": "application/json",
+                        "authorization": key,
+                    }
+                ),
+            }
         if not self.routes:
             raise ValueError("No permitted provider models")
         # bell plays the host's notification sound, which the sandbox cannot
@@ -660,6 +727,11 @@ class Relay:
             self.tool_env.update(
                 KAGI_API_KEY=self.token,
                 KAGI_API_URL=f"http://127.0.0.1:{self.port}/tool/kagi",
+            )
+        if "linear" in tool_credentials:
+            self.tool_env.update(
+                ALAMODE_LINEAR_TOKEN=self.token,
+                ALAMODE_LINEAR_URL=f"http://127.0.0.1:{self.port}/tool/linear",
             )
         if bell is not None:
             self.tool_env.update(

@@ -1884,6 +1884,19 @@ class PolicyTests(unittest.TestCase):
             self.config, self.manifest, self.root, include_tools=True
         )
         self.assertEqual(tools, {"kagi": "synthetic-kagi-key"})
+        self.config["bundles"]["linear"] = {"domains": []}
+        self.manifest["policy"]["grants"].append("linear")
+        with patch.dict(os.environ), self.assertRaises(session.SessionError):
+            os.environ.pop("LINEAR_API_KEY", None)
+            session.credentials(
+                self.config, self.manifest, self.root, include_tools=True
+            )
+        self.config["resolvers"]["LINEAR_API_KEY"] = "printf synthetic-linear-key"
+        self.config["resolverGates"]["LINEAR_API_KEY"] = "linear"
+        _, _, tools = session.credentials(
+            self.config, self.manifest, self.root, include_tools=True
+        )
+        self.assertEqual(tools["linear"], "synthetic-linear-key")
 
     def test_prepare_refuses_parent_symlinks_and_replaces_file_symlinks(self):
         class Relay:
