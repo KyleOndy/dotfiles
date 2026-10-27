@@ -332,6 +332,11 @@ let
             model=(--model "''${1#--model=}")
             shift
             ;;
+          -*)
+            printf 'domestique: unknown option %s\n' "$1" >&2
+            printf 'usage: domestique [--model NAME] [PROMPT...]\n' >&2
+            exit 1
+            ;;
           *)
             rest+=("$1")
             shift
