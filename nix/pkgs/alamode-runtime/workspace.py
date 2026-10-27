@@ -1,5 +1,6 @@
 """Private Git storage and admission of commits from an untrusted workspace."""
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -362,6 +363,7 @@ def _snapshot(directory, source, base, own, common):
             oid = _text(directory, "hash-object", "-w", "--stdin", data=contents)
             _git(directory, "update-index", "--add", "--cacheinfo", mode, oid, path)
     protected.update(_protected(directory, paths))
+    algorithm = "sha256" if len(base) == 64 else "sha1"
     skipped = sorted(
         path
         for path in paths
@@ -380,8 +382,13 @@ def _snapshot(directory, source, base, own, common):
             raise WorkspaceError(
                 f"Cannot snapshot {path} without following a directory symlink: {error}"
             ) from error
-        oid = _text(directory, "hash-object", "-w", "--stdin", data=contents)
+        # The blob id `hash-object --stdin` would print, computed here because
+        # a git process costs about 10 ms to start and a checkout can hold
+        # tens of thousands of files. Only a changed file needs its object.
+        header = b"blob %d\0" % len(contents)
+        oid = hashlib.new(algorithm, header + contents).hexdigest()
         if tracked.get(path) != (mode, oid):
+            oid = _text(directory, "hash-object", "-w", "--stdin", data=contents)
             _git(directory, "update-index", "--add", "--cacheinfo", mode, oid, path)
     tree = _text(directory, "write-tree")
     if tree == _text(directory, "rev-parse", base + "^{tree}"):

@@ -227,6 +227,24 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual((work / "staged.txt").read_text(), "explicitly staged\n")
         self.assertIn("new.private", manifest["omitted_working_paths"])
 
+    def test_snapshot_writes_objects_only_for_changed_files(self):
+        (self.source / "untracked.txt").write_text("new\n")
+        hashed = []
+        real = workspace._git
+
+        def counting(directory, *args, **kwargs):
+            if "hash-object" in args:
+                hashed.append(kwargs.get("data"))
+            return real(directory, *args, **kwargs)
+
+        with patch.object(workspace, "_git", counting):
+            manifest = self.create()
+        work = Path(manifest["workspace"])
+        self.assertNotIn(b"original\n", hashed)
+        self.assertIn(b"new\n", hashed)
+        self.assertEqual((work / "plain.txt").read_text(), "original\n")
+        self.assertEqual((work / "untracked.txt").read_text(), "new\n")
+
     def test_children_use_only_trusted_snapshots_and_admitted_objects(self):
         manifest = self.create()
         tip, bundle = self.proposal(manifest)
