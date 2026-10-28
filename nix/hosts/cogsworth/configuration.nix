@@ -714,12 +714,13 @@ in
 
   # tmpfs mount for SQLite database (eliminates SD card I/O latency).
   # size is a cap, not a reservation: tmpfs holds RAM only for the pages in
-  # use. bird_detections grows about 0.2 MiB a day and nothing prunes it.
+  # use. bird_detections, the table that grows, keeps 366 days, about 75 MiB
+  # at October 2026's 2,000 rows a day.
   fileSystems."/var/lib/cogsworth/db" = {
     device = "tmpfs";
     fsType = "tmpfs";
     options = [
-      "size=64M"
+      "size=128M"
       "mode=0755"
       "uid=cogsworth"
       "gid=cogsworth"

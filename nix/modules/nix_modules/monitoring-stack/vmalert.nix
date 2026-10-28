@@ -1712,7 +1712,8 @@ in
             # keep the ticker alive. A task that hangs stops the next tick
             # with no exception and no log, and this is the only thing that
             # sees it. The 24h cleanups are deliberately unalerted: their
-            # failure surfaces as disk growth, which DiskWillFillSoon covers.
+            # failure surfaces as growth, which DiskWillFillSoon covers on the
+            # SD card and CogsworthDbTmpfsFilling in the DB.
             # bird-art-sync is daily too, and gets two days because one
             # missed run only leaves yesterday's art up. circular-sync runs
             # every 6h and fails while no ad covers today, which a late
@@ -1793,8 +1794,7 @@ in
                 summary: "Cogsworth exports no DB snapshot timestamp"
                 description: "node_exporter on cogsworth is up but has no cogsworth_db_snapshot_last_success_timestamp_seconds, so CogsworthDbSnapshotStale cannot fire. Either no snapshot has succeeded since the .prom file went missing, or the file is unreadable, which NodeTextfileCollectorFailing reports. Check `ls -l /var/lib/prometheus-node-exporter-text-files/` and `systemctl status cogsworth-db-snapshot` on cogsworth."
 
-            # DiskSpaceLow and its siblings exclude tmpfs, and the DB's tmpfs
-            # only grows: nothing prunes bird_detections.
+            # DiskSpaceLow and its siblings exclude tmpfs.
             - alert: CogsworthDbTmpfsFilling
               expr: node_filesystem_avail_bytes{host="cogsworth",mountpoint="/var/lib/cogsworth/db"} / node_filesystem_size_bytes{host="cogsworth",mountpoint="/var/lib/cogsworth/db"} < 0.2
               for: 30m
@@ -1803,7 +1803,7 @@ in
                 service: cogsworth
               annotations:
                 summary: "Cogsworth's DB tmpfs is {{ $value | humanizePercentage }} free"
-                description: "The kiosk DB lives on a tmpfs at /var/lib/cogsworth/db, and once it fills, every insert fails with SQLITE_FULL while reads keep working. bird_detections is what grows. Raise size= on the mount in nix/hosts/cogsworth/configuration.nix, which a deploy applies as a remount, or prune old detections."
+                description: "The kiosk DB lives on a tmpfs at /var/lib/cogsworth/db, and once it fills, every insert fails with SQLITE_FULL while reads keep working. bird_detections is what grows, and the bird-detections-prune task keeps 366 days of it, so check that task's cogsworth_job_last_success_timestamp_seconds first. Otherwise raise size= on the mount in nix/hosts/cogsworth/configuration.nix, which a deploy applies as a remount."
 
             # At 20260823 birdnet-go's only per-stream series are dropped
             # audio chunks and queue depth, which read the same for a healthy
