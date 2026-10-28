@@ -99,7 +99,7 @@ It has no other options; the sizes live in
 `nix/modules/nix_modules/sd-card-optimization.nix`. `noatime` on `/` and
 `/boot/firmware` comes from `configuration.nix`, not from the module.
 
-`/var/lib/cogsworth/db` is separately a 16M tmpfs. `cogsworth-db-restore`
+`/var/lib/cogsworth/db` is separately a 64M tmpfs. `cogsworth-db-restore`
 copies `cogsworth.db` up from `/var/lib/cogsworth/persistent` at boot, before
 the backend starts; a deploy that changes it does not rerun it.
 `cogsworth-db-snapshot` writes it back every 5 minutes, and
