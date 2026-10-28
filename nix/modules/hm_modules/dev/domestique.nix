@@ -207,6 +207,25 @@ let
     '';
   };
 
+  # Scores raw takes against noise-gated ones on the ride's own microphone, so
+  # a noise reducer goes into domestique-listen only if it lowers the word
+  # error rate. docs/domestique-microphone.md has the procedure.
+  domestique-mic-bench = pkgs.writeShellApplication {
+    name = "domestique-mic-bench";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.uv
+    ];
+    text = ''
+      readonly STATE=${lib.escapeShellArg stateDir}
+      mkdir -p "$STATE"
+      ${ensureVenv}
+      export DOMESTIQUE_STT_MODEL="${dq cfg.sttModel}"
+      export DOMESTIQUE_INPUT_DEVICE="''${DOMESTIQUE_INPUT_DEVICE:-${dq cfg.inputDevice}}"
+      exec "$VENV/bin/python" ${./domestique-mic-bench.py} "$@"
+    '';
+  };
+
   domestique-listen = pkgs.writeShellApplication {
     name = "domestique-listen";
     runtimeInputs = [
@@ -1378,6 +1397,7 @@ in
       domestique-fetch
       domestique-phonemes
       domestique-transcribe
+      domestique-mic-bench
       domestique-review
     ]
     ++ lib.optional cfg.zoom.enable domestique-zoom;
