@@ -121,7 +121,8 @@ host. Suggesting a command Kyle could run to look closer is fine.
   without Caddy, so most of its clients have no access line at all.
   10.24.89.0/24 is the home LAN, 10.25.89.0/24 the DMZ and 192.168.3.0/24
   the IoT network, and `unpoller_client_uptime_seconds{ip="<address>"}`
-  names the device on any of them.
+  names the device on any of them. tiger is 10.25.89.6, pika 10.24.89.102,
+  cogsworth 10.24.89.7 and trex 10.24.89.201.
 - Two hosts logging in the same minute are one event only if they share a
   path. A loopback call, such as jellyfin-exporter's to Jellyfin, cannot see
   the LAN. A watchdog's `attempt 1/N` is one failed check, not an outage as
