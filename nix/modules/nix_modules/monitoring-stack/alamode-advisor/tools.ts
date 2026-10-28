@@ -598,6 +598,13 @@ export default function (pi: ExtensionAPI) {
       STRICT,
     ),
     async execute(_id, params, signal) {
+      // Loki answers a trailing `limit 8` with "syntax error: unexpected
+      // IDENTIFIER", which does not say why, and counts as a query.
+      if (/\blimit\s+\d+\s*$/.test(params.query)) {
+        throw new Error(
+          "LogQL has no limit clause. Pass limit as the tool's parameter.",
+        );
+      }
       // Loki refuses a log query on its instant endpoint, and only a log
       // query opens with a stream selector.
       const start =
