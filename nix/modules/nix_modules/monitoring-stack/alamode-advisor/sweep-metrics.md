@@ -48,7 +48,9 @@ values, never from an aggregate across them.
      their alert thresholds, and scrub ages past 32 days (every pool scrubs
      on the 1st, so 0-31 days is the schedule). To say when a job ran, convert its
      `*_timestamp_seconds` value to a date; never work it back from an age
-     and the time you think the query ran.
+     and the time you think the query ran. A timestamp metric with one
+     series per label (prefix, app, task) holds one schedule per series:
+     read each series' own history before calling a cadence broken.
 4. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.
