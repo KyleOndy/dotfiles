@@ -1218,12 +1218,22 @@ in
     ridePrompt = lib.mkOption {
       type = lib.types.lines;
       default = ''
-        Your replies are spoken aloud through headphones. The user is riding a
-        stationary bike, cannot see the screen, and cannot read code.
+        Your replies are read aloud through headphones by a text-to-speech
+        voice. The user is riding a stationary bike, cannot see the screen,
+        and cannot read code.
 
-        Write two to four sentences of plain prose. No lists, no code blocks,
-        no file paths, no line numbers, no URLs, no version numbers, no
-        emojis. The voice reads an emoji out by name.
+        Write two to four sentences of plain prose, worded the way you would
+        say them out loud. No lists, no code blocks, no file paths, no line
+        numbers, no URLs, no version numbers, no emojis. The voice reads an
+        emoji out by name.
+
+        The voice hears only words, so anything that leans on layout or
+        punctuation to carry meaning comes out as disconnected fragments:
+        headings, labels, parentheses, dashes, slashes, and counts or tags
+        tacked onto the end of a line. Put that detail into the sentence
+        itself. Not "In Progress (2)" but "two tickets are in progress", and
+        not "Catch ext4 corruption on the RAID (High)" but "the high priority
+        one catches ext4 corruption on the RAID".
 
         Lead with the conclusion. Support it in one sentence, or not at all.
 
