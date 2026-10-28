@@ -607,6 +607,7 @@ in
                 summary: "SATA link errors on {{ $labels.host }}:{{ $labels.device }}"
                 description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} logged {{ $value }} new UDMA CRC errors in 24h. This is the cable, port or backplane, not the platters: reseat or swap the SATA cable before replacing the drive."
 
+
             - alert: ZfsVdevErrors
               expr: zfs_vdev_errors > 0
               for: 5m
@@ -1781,6 +1782,18 @@ in
               annotations:
                 summary: "Cogsworth exports no DB snapshot timestamp"
                 description: "node_exporter on cogsworth is up but has no cogsworth_db_snapshot_last_success_timestamp_seconds, so CogsworthDbSnapshotStale cannot fire. Either no snapshot has succeeded since the .prom file went missing, or the file is unreadable, which NodeTextfileCollectorFailing reports. Check `ls -l /var/lib/prometheus-node-exporter-text-files/` and `systemctl status cogsworth-db-snapshot` on cogsworth."
+
+            # DiskSpaceLow and its siblings exclude tmpfs, and the DB's tmpfs
+            # only grows: nothing prunes bird_detections.
+            - alert: CogsworthDbTmpfsFilling
+              expr: node_filesystem_avail_bytes{host="cogsworth",mountpoint="/var/lib/cogsworth/db"} / node_filesystem_size_bytes{host="cogsworth",mountpoint="/var/lib/cogsworth/db"} < 0.2
+              for: 30m
+              labels:
+                severity: warning
+                service: cogsworth
+              annotations:
+                summary: "Cogsworth's DB tmpfs is {{ $value | humanizePercentage }} free"
+                description: "The kiosk DB lives on a tmpfs at /var/lib/cogsworth/db, and once it fills, every insert fails with SQLITE_FULL while reads keep working. bird_detections is what grows. Raise size= on the mount in nix/hosts/cogsworth/configuration.nix, which a deploy applies as a remount, or prune old detections."
 
             # At 20260823 birdnet-go's only per-stream series are dropped
             # audio chunks and queue depth, which read the same for a healthy
