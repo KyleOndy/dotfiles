@@ -180,7 +180,7 @@ in
             printf '# TYPE smartctl_nvme_available_spare gauge\n'
             printf '# HELP smartctl_nvme_available_spare_threshold NVMe Available Spare Threshold (percent)\n'
             printf '# TYPE smartctl_nvme_available_spare_threshold gauge\n'
-            printf '# HELP smartctl_ata_attribute_raw ATA SMART attribute raw value, failure-predictive attributes only\n'
+            printf '# HELP smartctl_ata_attribute_raw ATA SMART attribute raw value, failure-predictive attributes and temperature only\n'
             printf '# TYPE smartctl_ata_attribute_raw gauge\n'
             printf '# HELP smartctl_selftest_log_has_errors Whether the ATA self-test log holds a failed test (smartctl exit bit 7)\n'
             printf '# TYPE smartctl_selftest_log_has_errors gauge\n'
@@ -224,10 +224,12 @@ in
               else
                 # 5, 187, 197 and 198 are the attributes whose non-zero raw
                 # values Backblaze found to predict failure; 199 counts link
-                # CRC errors, which point at the cable or port instead.
+                # CRC errors, which point at the cable or port instead. 194
+                # is the temperature in degrees C; its normalized value is a
+                # vendor scale (94 minus the temperature on a WD HC550).
                 # Field 10 is the raw value; some firmware appends text after it.
                 awk -v dev="$devname" -v ser="$serial" '
-                  $1 ~ /^(5|187|197|198|199)$/ && $10 ~ /^[0-9]+$/ {
+                  $1 ~ /^(5|187|194|197|198|199)$/ && $10 ~ /^[0-9]+$/ {
                     printf "smartctl_ata_attribute_raw{device=\"%s\",serial=\"%s\",attribute_id=\"%s\",attribute_name=\"%s\"} %s\n", dev, ser, $1, $2, $10
                   }' <<< "$output"
                 printf 'smartctl_selftest_log_has_errors{device="%s",serial="%s"} %d\n' "$devname" "$serial" "$(( (a_exit & 128) != 0 ))"

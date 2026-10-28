@@ -607,6 +607,16 @@ in
                 summary: "SATA link errors on {{ $labels.host }}:{{ $labels.device }}"
                 description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} logged {{ $value }} new UDMA CRC errors in 24h. This is the cable, port or backplane, not the platters: reseat or swap the SATA cable before replacing the drive."
 
+            # tiger's WD Ultrastar HC550s are rated to 60 C, and peaked at
+            # 44-49 C from 2026-10-14 to 10-28.
+            - alert: SmartDriveTemperatureHigh
+              expr: smartctl_ata_attribute_raw{attribute_id="194"} > 55
+              for: 15m
+              labels:
+                severity: warning
+              annotations:
+                summary: "{{ $labels.host }}:{{ $labels.device }} is at {{ $value }} C"
+                description: "Drive {{ $labels.device }} ({{ $labels.serial }}) on {{ $labels.host }} has read above 55 C for 15 minutes, within 5 C of its rated maximum. Look for a stopped case fan or a blocked intake. Run: smartctl -l scttemp /dev/{{ $labels.device }}"
 
             - alert: ZfsVdevErrors
               expr: zfs_vdev_errors > 0
