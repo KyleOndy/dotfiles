@@ -4,8 +4,8 @@
  * This extension makes no sound itself. Inside alamode's strict sandbox the
  * CoreAudio mach lookup is denied, and srt's settings schema (nix/pkgs/alamode/
  * wrapper.sh) exposes no mach knob to reopen it, so playback has to happen
- * outside. Each utterance lands in a spool file under ~/.pi, which strict mode
- * keeps writable, and the unsandboxed watcher owns the audio device.
+ * outside. Each utterance lands in a spool file under ~/.pi/domestique, which a
+ * ride grants the session, and the unsandboxed watcher owns the audio device.
  *
  * Two channels with opposite loss policies:
  *   think  Lossy, newest-wins. Thinking runs several hundred words per turn
@@ -661,7 +661,7 @@ export default function (pi: ExtensionAPI) {
         `ride directory. Available: ${available}.`,
       promptSnippet: `Clone a work repo into the ride directory (${available})`,
       promptGuidelines: [
-        "Use clone_repo before editing, committing or testing anything in a work repository. The originals are read-only, and the ride directory is the only writable place.",
+        "Use clone_repo before editing, committing or testing anything in a work repository. The originals are read-only.",
         "clone_repo cannot push and neither can anything else here. Commit locally and name the branch out loud; every branch ahead of origin is bundled into bundles/ after each reply, and the rider fetches it from there.",
       ],
       parameters: Type.Object({
@@ -679,9 +679,7 @@ export default function (pi: ExtensionAPI) {
         const dest = join(rideDir, "repos", params.name);
         if (existsSync(dest)) {
           return {
-            content: [
-              { type: "text", text: `Already cloned at repos/${params.name}.` },
-            ],
+            content: [{ type: "text", text: `Already cloned at ${dest}.` }],
           };
         }
 
@@ -770,7 +768,7 @@ export default function (pi: ExtensionAPI) {
             {
               type: "text",
               text:
-                `Cloned ${params.name} to repos/${params.name}, on its default ` +
+                `Cloned ${params.name} to ${dest}, on its default ` +
                 "branch. Branch, switch, edit and commit freely; every branch " +
                 "is fetched. Pushing is not possible, so leave work on a " +
                 "local branch and say its name; it reaches the rider as " +
@@ -834,6 +832,18 @@ export default function (pi: ExtensionAPI) {
     // A held timer would keep pi alive after the session ends.
     heardTimer.unref?.();
     mark("session ready");
+  });
+
+  // The agent's own notes would otherwise land in its working directory,
+  // apart from the transcript and the out-of-band notes.
+  pi.on("before_agent_start", (event, ctx) => {
+    if (!enabled || rideDir === ctx.cwd) return;
+    event.systemPromptOptions.sections.ride_directory =
+      "# Ride directory\n\n" +
+      `This ride's directory is ${rideDir}. Write notes, drafts and ` +
+      "anything else worth keeping there, not in the working directory. " +
+      "transcript.md and notes.md beside them are the ride's record; leave " +
+      "those two alone.";
   });
 
   pi.on("agent_end", () => {

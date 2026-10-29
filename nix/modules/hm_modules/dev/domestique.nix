@@ -132,7 +132,7 @@ let
   # on first run, keyed on the requirements store path so a change to the list
   # rebuilds it. Needs network once.
   #
-  # Under $STATE, not ~/.pi: every sandboxed session can write ~/.pi, and a
+  # Under $STATE, not ~/.pi: a ride's session can write ~/.pi/domestique, and a
   # .pth file dropped into site-packages would run unsandboxed on the next
   # ride. The same holds for every pidfile and the lock, which the driver
   # kills by.
@@ -452,7 +452,7 @@ let
       trap 'exit 143' TERM
       trap 'exit 129' HUP
 
-      mkdir -p "$RIDE/.sessions"
+      mkdir -p "$RIDE"
 
       # alamode snapshots the repository enclosing its launch directory into
       # the session's workspace (session.py, source_repository) and lands the
@@ -553,14 +553,13 @@ let
       # before session_start consumes neither, and the next ride would open
       # itself on a subject from whenever that was.
       # The cursor is the last of `heard` a session took, so a relaunch resumes
-      # where its predecessor stopped. It sits where any session can write, so
-      # one from outside this ride must not get to hold the rider back.
+      # where its predecessor stopped. It outlives the ride that wrote it, so an
+      # earlier ride's must not get to hold this one back.
       rm -f "$RESTART" "$TOPIC" "$CURSOR"
       while true; do
         mark "alamode launch"
         alamode${rideFlags} --allow-rw "$ROOT" --allow-rw "$RIDE" \
           -- --domestique --domestique-ride "$RIDE" \
-          --session-dir "$RIDE/.sessions" \
           --append-system-prompt "$STATE/ride-prompt.md" \
           "''${model[@]}" "$@" || true
         [ -e "$RESTART" ] || break
@@ -595,13 +594,13 @@ let
 
       # rmdir refuses a non-empty directory, so a ride that wrote something
       # keeps it and one that died before pi started leaves nothing behind.
-      rmdir "$RIDE/.sessions" "$RIDE" 2>/dev/null || true
+      rmdir "$RIDE" 2>/dev/null || true
     '';
   };
 
   # A ride writes into its own directory and reads the repos, so the pass that
   # turns it into actions is an ordinary session with the same read grants,
-  # started where the ride left its notes.
+  # plus read-write on the ride.
   domestique-review = pkgs.writeShellApplication {
     name = "domestique-review";
     runtimeInputs = [ pkgs.coreutils ];
@@ -898,21 +897,22 @@ in
       default = "${config.home.homeDirectory}/work/rides";
       defaultText = lib.literalExpression ''"''${config.home.homeDirectory}/work/rides"'';
       description = ''
-        Parent of the per-ride working directories. A ride runs in
-        `<rideDir>/<YYYY-MM-DD>`, which the wrapper grants the session
-        read-write and is the only place outside ~/.pi/domestique the agent
-        can write. Notes taken during a
-        ride land there, `transcript.md` records everything said aloud,
-        `.sessions` holds one session file per topic, and `bundles/` holds
-        each clone's commits as `git fetch <bundle>` takes them.
+        Parent of the per-ride directories. A ride writes to
+        `<rideDir>/<YYYY-MM-DD>`, which the session is granted and told about,
+        since alamode runs pi in a private workspace of its own. Notes taken
+        during a ride land there, `transcript.md` records everything said
+        aloud, and `bundles/` holds each clone's commits as
+        `git fetch <bundle>` takes them. The sessions themselves are alamode's,
+        listed by `alamode sessions`.
 
         One directory per day rather than per ride. A second ride appends to
         the same transcript, under its own timestamped headings, and the whole
         day reads as one document.
 
         `domestique-review` opens the newest of these in an ordinary alamode
-        session with the same `--allow-read` grants and no speech, which is
-        the pass that turns a ride into actions.
+        session with the same `--allow-read` grants, read-write on the ride
+        itself and no speech, which is the pass that turns a ride into
+        actions.
       '';
     };
 
