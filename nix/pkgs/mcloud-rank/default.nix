@@ -3,6 +3,8 @@
   writeShellApplication,
   coreutils,
   curl,
+  gawk,
+  gnugrep,
   jq,
   green-png,
   # A command printing the mcloud key from this host's secret store.
@@ -18,6 +20,8 @@ writeShellApplication {
   runtimeInputs = [
     coreutils
     curl
+    gawk
+    gnugrep
     jq
   ];
   text = ''
