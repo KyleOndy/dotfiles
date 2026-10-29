@@ -92,7 +92,7 @@ rows=$(jq -rn --argjson live "$live" --slurpfile aa <(printf '%s' "$aa") '
 	| ($scored | max_by(score)) as $top
 	| (reduce $scored[] as $r ({}; .[$r | base][$r | level] = ([.[$r | base][$r | level], ($r | score)] | max))) as $by_base
 	| [$live.data[].id | {id: ., cells: $by_base[norm]}] as $models
-	| "header\t\($top.name)\t\($top | score)",
+	| "header\t\($top.name)\t\($top | score)\t\([5, ($live.data[].id | length)] | max)",
 	  ($models | map(select(.cells) | .best = ([.cells[]] | max)) | sort_by(-.best)[]
 		| . as $m
 		| ["ranked", .id, (.best / ($top | score) * 100 | round | "\(.)%"), ($cols[] | $m.cells[.] // "-")] | map(tostring) | join("\t")),
@@ -210,12 +210,13 @@ done <<<"$rows" | awk -F'\t' '
 		printf "THINKS: replies that reasoned with no effort sent, high, none.\n"
 		printf "SEES: replies that named the color of a green image.\n"
 		printf "TTFT, TPOT: one streamed reply, a snapshot of the current load.\n\n"
-		printf "  %-30s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %-11s %4s %6s %7s\n", "MODEL", "TOP", "OFF", "MIN", "LOW", "MED", "HIGH", "XHIGH", "MAX", "DEF", "THINKS", "SEES", "TTFT", "TPOT"
+		fmt = "  %-" $4 "s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %-11s %4s %6s %7s\n"
+		printf fmt, "MODEL", "TOP", "OFF", "MIN", "LOW", "MED", "HIGH", "XHIGH", "MAX", "DEF", "THINKS", "SEES", "TTFT", "TPOT"
 	}
 	$1 == "unscored" && !seen++ { print "\nNot on the AA Intelligence Index:" }
 	$1 != "header" {
 		ttft = $14 == "?" ? "?" : sprintf("%.2fs", $14)
 		tpot = $15 == "?" ? "?" : sprintf("%.1fms", $15)
-		printf "  %-30s %5s %5s %5s %5s %5s %5s %5s %5s %5s  %-11s %4s %6s %7s\n", $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, ttft, tpot
+		printf fmt, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, ttft, tpot
 	}
 '
