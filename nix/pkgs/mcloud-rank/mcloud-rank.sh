@@ -100,12 +100,14 @@ rows=$(jq -rn --argjson live "$live" --slurpfile aa <(printf '%s' "$aa") '
 ')
 
 # GET /v1/models carries no capability metadata, and the chat endpoint
-# accepts every reasoning_effort value for every model, so whether a model
-# thinks is only visible in its replies. Some models think by default, others
-# only once an effort is sent, and "none" does not stop every model every
-# time; a chat_template_kwargs switch is honored by fewer still. An adaptive
-# model can skip thinking on a prompt that needs none, even at high, so the
-# probe asks for a product. "?" is a request that failed.
+# takes every reasoning_effort value for most models without saying whether
+# the model honors it. Some refuse a name their chat template lacks, such as
+# minimal or medium, with a 400. So whether a model thinks is only visible
+# in its replies. Some models think by default, others only once an effort is
+# sent, and "none" does not stop every model every time; a
+# chat_template_kwargs switch is honored by fewer still. An adaptive model can
+# skip thinking on a prompt that needs none, even at high, so the probe asks
+# for a product. "?" is a request that failed.
 reasoned() {
 	local body
 	body=$(jq -n --arg m "$1" --arg e "$2" '{model: $m, max_tokens: 64, messages: [{role: "user", content: "What is 17 * 23? Answer with the number only."}]}
