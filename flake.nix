@@ -732,13 +732,21 @@
               pkgs.writeShellScript "flash-pad" ''
                 set -euo pipefail
                 readonly VOLUME=/Volumes/RPI-RP2
+                readonly BUILD="''${1:-pad}"
+                case "$BUILD" in
+                  pad | probe) ;;
+                  *)
+                    echo "usage: nix run .#flash-pad [-- pad|probe]" >&2
+                    exit 2
+                    ;;
+                esac
 
                 echo "Building pad firmware..."
                 ${pkgs.nix}/bin/nix build .#pad-firmware
                 echo ""
                 echo "Hold key 1 and plug the pad in."
-                echo "  First flash ever: hold the board's BOOT button instead;"
-                echo "  BOOTMAGIC only exists once QMK is on it."
+                echo "  First flash ever, or the board is running the probe: hold"
+                echo "  its BOOT button instead; only the pad build has BOOTMAGIC."
                 echo ""
 
                 printf 'waiting for RPI-RP2 '
@@ -760,7 +768,7 @@
                 echo "Copying firmware..."
                 # RP2040 reboots the instant the uf2 lands, so the volume can
                 # vanish out from under cp. That is what success looks like.
-                cp result/domestique_pad_default.uf2 "$VOLUME/" 2>/dev/null || true
+                cp "result/domestique_''${BUILD}_default.uf2" "$VOLUME/" 2>/dev/null || true
                 echo ""
                 echo "Done. The pad reboots into firmware on its own."
               ''

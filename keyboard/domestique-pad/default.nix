@@ -44,6 +44,10 @@ stdenv.mkDerivation {
     cp ${./config.h} keyboards/domestique_pad/config.h
     cp ${./rules.mk} keyboards/domestique_pad/rules.mk
     cp ${./keymap.c} keyboards/domestique_pad/keymaps/default/keymap.c
+
+    mkdir -p keyboards/domestique_probe/keymaps/default
+    cp ${./probe/keyboard.json} keyboards/domestique_probe/keyboard.json
+    cp ${./probe/keymap.c} keyboards/domestique_probe/keymaps/default/keymap.c
   '';
 
   buildPhase = ''
@@ -51,7 +55,7 @@ stdenv.mkDerivation {
 
     # make rather than the qmk CLI, which wants a git checkout it does not have
     # here.
-    make domestique_pad:default
+    make domestique_pad:default domestique_probe:default
 
     runHook postBuild
   '';
@@ -61,8 +65,8 @@ stdenv.mkDerivation {
 
     mkdir -p $out
     # RP2040 takes a uf2 over mass storage; there is no flasher binary in the
-    # loop, so this file is the whole deliverable.
-    cp domestique_pad_default.uf2 $out/
+    # loop, so these files are the whole deliverable.
+    cp domestique_pad_default.uf2 domestique_probe_default.uf2 $out/
 
     runHook postInstall
   '';

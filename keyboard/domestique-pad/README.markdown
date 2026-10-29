@@ -70,6 +70,20 @@ Because BOOTMAGIC shares a switch with push-to-talk, plugging the pad in with a
 finger resting on key 1 mounts it as a drive instead of a keyboard. No cue rings;
 unplug and replug.
 
+### Probe
+
+```bash
+nix run .#flash-pad -- probe
+```
+
+A second build for finding where a wire landed. Every pin on the headers is a
+key, and closing one to GND types its silkscreen label (`D4`, `A0`, `MOSI`) into
+whatever has focus. A pin already shorted to GND types its label once at
+plug-in. Two pins shorted to each other type as a pair (`D6-D7`), which is what
+a switch makes when its common wire landed on a D pin instead of GND. It has no
+BOOTMAGIC, so getting back to the pad build means BOOT or a double-tap of RESET,
+then `nix run .#flash-pad`.
+
 ## After flashing
 
 The Karabiner rules are gated on the pad's USB identifiers, so they are inert
