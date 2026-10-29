@@ -42,6 +42,7 @@ stdenv.mkDerivation {
     mkdir -p keyboards/domestique_pad/keymaps/default
     cp ${./keyboard.json} keyboards/domestique_pad/keyboard.json
     cp ${./config.h} keyboards/domestique_pad/config.h
+    cp ${./rules.mk} keyboards/domestique_pad/rules.mk
     cp ${./keymap.c} keyboards/domestique_pad/keymaps/default/keymap.c
   '';
 

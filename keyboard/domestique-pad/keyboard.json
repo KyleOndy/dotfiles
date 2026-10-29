@@ -9,6 +9,10 @@
     "pid": "0xD065",
     "device_version": "0.0.1"
   },
+  "ws2812": {
+    "driver": "vendor",
+    "pin": "GP17"
+  },
   "matrix_pins": {
     "direct": [["GP4", "GP5"]]
   },

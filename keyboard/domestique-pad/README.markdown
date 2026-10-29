@@ -39,8 +39,13 @@ switch 2:  GP5 (silkscreen D5)  <-->  GND
 no resistors and no diodes. Silkscreen `Dn` is `GPn` for n in 2..10.
 
 Left free deliberately: GP0/GP1 (UART), GP12/GP13 (wired to the STEMMA QT
-connector), GP17 (NeoPixel), and GP26-GP29, which are the only ADC pins and
-therefore the only way to ever add a potentiometer or a brake lever.
+connector), and GP26-GP29, which are the only ADC pins and therefore the only
+way to ever add a potentiometer or a brake lever.
+
+The board's NeoPixel (GP17) lights while a switch is closed: green for key 1,
+blue for key 2, cyan for both. It reads the switches directly, ahead of the
+combo and USB, so a press that leaves it dark is wiring, and one that lights it
+but changes nothing on the Mac is Karabiner or the host.
 
 ## Build and flash
 

@@ -9,3 +9,6 @@
 // reach that, so the chord is a hold rather than a press.
 #define COMBO_MUST_HOLD_PER_COMBO
 #define COMBO_HOLD_TERM 200
+
+// The KB2040's onboard NeoPixel, driven directly rather than through rgblight.
+#define WS2812_LED_COUNT 1
