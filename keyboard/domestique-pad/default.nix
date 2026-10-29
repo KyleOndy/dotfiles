@@ -35,6 +35,10 @@ stdenv.mkDerivation {
   ];
 
   postPatch = ''
+    # The .uf2 step execs this script, and /usr/bin/env is outside the darwin
+    # build sandbox.
+    patchShebangs util/uf2conv.py
+
     mkdir -p keyboards/domestique_pad/keymaps/default
     cp ${./keyboard.json} keyboards/domestique_pad/keyboard.json
     cp ${./config.h} keyboards/domestique_pad/config.h
