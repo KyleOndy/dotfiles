@@ -767,8 +767,18 @@
 
                 echo "Copying firmware..."
                 # RP2040 reboots the instant the uf2 lands, so the volume can
-                # vanish out from under cp. That is what success looks like.
+                # vanish out from under cp and cp's exit status means nothing.
+                # The volume going away is the only sign the copy took.
                 cp "result/domestique_''${BUILD}_default.uf2" "$VOLUME/" 2>/dev/null || true
+                waited=0
+                while [ -d "$VOLUME" ] && [ "$waited" -lt 20 ]; do
+                  sleep 0.5
+                  waited=$((waited + 1))
+                done
+                if [ -d "$VOLUME" ]; then
+                  echo "$VOLUME is still mounted, so the copy did not take." >&2
+                  exit 1
+                fi
                 echo ""
                 echo "Done. The pad reboots into firmware on its own."
               ''
