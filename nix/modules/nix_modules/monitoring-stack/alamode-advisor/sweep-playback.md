@@ -51,7 +51,10 @@ Steps:
    such as `invalid as first byte of an EBML number` are lowercase), and its
    `speed=`. A `dup=` count that jumps right after a demuxer error is
    damaged input, not frame-rate conversion. Speed below 1x while unthrottled means tiger could not keep
-   up. Runs seconds apart are someone scrubbing when their `-ss` moves and
+   up. A `frame=` line just before `Transcoding is paused` is the throttle
+   holding ffmpeg, not where the run ended. Its end is its last `frame=`
+   line, beside the `video:...KiB` totals. Before calling a track short,
+   compare that frame count with the input's duration and frame rate. Runs seconds apart are someone scrubbing when their `-ss` moves and
    the client retrying when it repeats.
 5. Name the client: the `RemoteIP:` line Jellyfin logs when the play
    starts, then `unpoller_client_uptime_seconds{ip="<address>"}`. For a
