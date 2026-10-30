@@ -229,6 +229,9 @@ in
     # working directory is host-specific: the default ~/work/rides is a
     # work-mac shape, and trex has no ~/work.
     domestique.rideDir = "${config.home.homeDirectory}/alamode-ride";
+    # The trainer desk's shotgun, so the AirPods stay on A2DP. See
+    # docs/domestique-microphone.md.
+    domestique.inputDevice = "Shure MVX2U GEN 2";
 
     # Colima background service. Defaults (4 CPU / 8GB / 100GB) are
     # conservative starting points - tune once trex's actual RAM is known.
