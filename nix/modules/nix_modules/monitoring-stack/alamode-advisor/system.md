@@ -24,6 +24,11 @@ instead.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
   gaps in its data are expected and not a finding on their own. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
+  trex builds its x86_64-linux derivations on tiger, over ssh as
+  `svc.nixbuild`. A build there raises tiger's load, slows every scrape on
+  it and grows its root, all before any activation. Before blaming an
+  import or a deploy for any of those, check `node_load1{host="tiger"}` and
+  tiger's `Accepted publickey for svc.nixbuild` lines.
 - The network is UniFi, gateway a UDM Pro. unpoller on tiger polls its
   controller, so UniFi series have no host of their own.
 
@@ -88,7 +93,11 @@ host. Suggesting a command Kyle could run to look closer is fine.
 - Deploys restart every unit they change. `system_activation_timestamp_seconds`
   is each host's last activation (a deploy, a rollback or a boot) as a unix
   time, so over a range each deploy shows as a step to a new value, and
-  `changes(system_activation_timestamp_seconds[24h])` counts them. On the
+  `changes(system_activation_timestamp_seconds[24h])` counts them. A failed
+  deploy rolls back, so two steps minutes apart can be a deploy and its
+  undoing, leaving the host where it started. Name each step's closure from
+  `{host="<host>"} |= "switching to system configuration"` before saying
+  what a host runs. On the
   Linux hosts, `node_systemd_service_restart_total` counts only the restarts
   systemd makes after a unit dies; a process that restarted while it stayed
   flat was stopped and started on purpose. Before calling a restart, a burst
