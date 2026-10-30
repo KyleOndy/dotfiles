@@ -20,9 +20,12 @@ and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
 you used. A series that a periodic job cuts back, such as a root filesystem
 at the weekly nix-gc, climbs between runs: compare its peaks across runs,
-not the slope inside one. nix-gc deletes only generations older than 35 days,
-so one run can free little; read `{unit="nix-gc.service"} |= "freed"` before
-projecting a date it fills. Call a trend steady only from each series' own
+not the slope inside one. nix-gc runs Mondays at 00:00 tiger time
+(America/New_York). It deletes generations older than 35 days, keeping the
+one active at that cutoff, then every store path no root holds. On tiger
+that includes the inputs of trex's remote builds, so a run frees them even
+when no generation ages out. Read `{unit="nix-gc.service"} |= "freed"`
+before projecting a date it fills. Call a trend steady only from each series' own
 values, never from an aggregate across them.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
