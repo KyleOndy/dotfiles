@@ -78,6 +78,9 @@ READY = STATE / "watcher.ready"
 # synthesized as one buffer and keeps the rate it was made at.
 SPEED_FILE = ROOT / "speed"
 
+# Level for the next utterance in dB, written by /volume. State, as speed is.
+VOLUME_FILE = ROOT / "volume"
+
 # An empty spool is not silence: an utterance leaves the spool when synthesis
 # starts, not when playback ends. `domestique` waits on this to know a reply has
 # finished before it takes the watcher down.
@@ -103,9 +106,15 @@ REPLAY_REQUEST = STATE / "replay-request"
 # pi and therefore has no place in the spool's numbering.
 SAY = STATE / "say"
 
+# A spoken "faster" or "louder", from domestique-listen.py: `speed` or `volume`
+# and a signed step count. This watcher owns both settings, so it applies the
+# step and says where it landed.
+ADJUST_REQUEST = STATE / "adjust-request"
+
 VOICE = env("DOMESTIQUE_VOICE", "af_heart")
 MODEL = env("DOMESTIQUE_MODEL", "mlx-community/Kokoro-82M-bf16")
 SPEED = number("DOMESTIQUE_SPEED", "1.0", 0.1)
+VOLUME = number("DOMESTIQUE_VOLUME", "9", -12.0)
 NARRATE_THINKING = env("DOMESTIQUE_NARRATE_THINKING", "0") == "1"
 ESPEAK = env("DOMESTIQUE_ESPEAK", "")
 LEXICON_PATH = env("DOMESTIQUE_LEXICON", "")
@@ -150,6 +159,13 @@ POLL_SECONDS = number("DOMESTIQUE_POLL_SECONDS", "0.1", 0.01)
 # rest of the ride, and there is no way to see what you typed from the bike.
 SPEED_MIN = 0.5
 SPEED_MAX = 2.0
+SPEED_STEP = 0.1
+
+# Bounds on /volume, in dB. Kokoro peaks near -10 dBFS, so past about +10 the
+# clip guard holds every reply at full scale and more gain buys nothing.
+VOLUME_MIN = -12.0
+VOLUME_MAX = 12.0
+VOLUME_STEP = 3.0
 
 
 # --- espeak ------------------------------------------------------------------
@@ -366,6 +382,39 @@ def read_speed() -> float:
     return min(SPEED_MAX, max(SPEED_MIN, wanted))
 
 
+def read_volume() -> float:
+    try:
+        wanted = float(VOLUME_FILE.read_text().strip())
+    except (OSError, ValueError):
+        return VOLUME
+    return min(VOLUME_MAX, max(VOLUME_MIN, wanted))
+
+
+def at_volume(audio, db: float):
+    """Speech scaled by db, then scaled back under full scale if that clipped."""
+    import numpy as np
+
+    out = audio * 10 ** (db / 20)
+    peak = float(np.abs(out).max())
+    return out * (0.99 / peak) if peak > 0.99 else out
+
+
+def adjust(setting: str, steps: int) -> str:
+    """Step speed or volume, store it, and return what to say about it."""
+    if setting == "speed":
+        now = read_speed()
+        new = round(min(SPEED_MAX, max(SPEED_MIN, now + steps * SPEED_STEP)), 2)
+        SPEED_FILE.write_text(f"{new}\n")
+        edge = {SPEED_MAX: ", the fastest", SPEED_MIN: ", the slowest"}
+        return f"Speed {new:g}{edge.get(new, '')}."
+    now = read_volume()
+    new = min(VOLUME_MAX, max(VOLUME_MIN, now + steps * VOLUME_STEP))
+    VOLUME_FILE.write_text(f"{new:g}\n")
+    edge = {VOLUME_MAX: ", the loudest", VOLUME_MIN: ", the quietest"}
+    sign = "plus " if new > 0 else "minus " if new < 0 else ""
+    return f"Volume {sign}{abs(new):g}{edge.get(new, '')}."
+
+
 def synth(pipe, g2p, text: str, speed: float):
     import numpy as np
 
@@ -450,9 +499,11 @@ def main() -> int:
     # the context that asked for it.
     SAY.unlink(missing_ok=True)
     REPLAY_REQUEST.unlink(missing_ok=True)
-    # A ride starts at the configured rate, and publishing it is what lets
-    # /speed step relative to something.
+    ADJUST_REQUEST.unlink(missing_ok=True)
+    # A ride starts at the configured rate and level, and publishing them is
+    # what lets /speed and /volume step relative to something.
     SPEED_FILE.write_text(f"{SPEED}\n")
+    VOLUME_FILE.write_text(f"{VOLUME:g}\n")
 
     wire_espeak()
 
@@ -544,10 +595,12 @@ def main() -> int:
         # its voice while pi goes on spooling into nothing. The utterance is
         # the unit of loss.
         try:
-            speed = read_speed()
+            speed, volume = read_speed(), read_volume()
             audio = synth(pipe, g2p, text, speed)
             if audio is None:
                 return
+            # Before the cue, which has its own gain.
+            audio = at_volume(audio, volume)
 
             # The cue marks entry into answer mode, not each sentence of the
             # answer; ringing it between every sentence is unbearable.
@@ -560,7 +613,7 @@ def main() -> int:
                 audio = with_pad(audio, WAKE_PAD_MS)
 
             log(
-                f"{channel:6} {len(audio) / SR:5.2f}s {speed:.2f}x "
+                f"{channel:6} {len(audio) / SR:5.2f}s {speed:.2f}x {volume:+3.0f}dB "
                 f"{'cue' if cued else '   '} {text[:60]}"
             )
             if channel == "speak":
@@ -591,6 +644,7 @@ def main() -> int:
             return
         if audio is None:
             return
+        audio = at_volume(audio, read_volume())
         log(f"say    {len(audio) / SR:5.2f}s           {text[:60]}")
         play_now("say", with_pad(audio, WAKE_PAD_MS))
 
@@ -699,6 +753,22 @@ def main() -> int:
             if held:
                 time.sleep(POLL_SECONDS)
                 continue
+
+            # Only between utterances, so a step never cuts a sentence short,
+            # and ahead of the queue, so the next sentence is the first heard
+            # at the new setting.
+            if ADJUST_REQUEST.exists():
+                try:
+                    setting, steps = ADJUST_REQUEST.read_text().split()
+                    reply = adjust(setting, int(steps))
+                except (OSError, ValueError) as exc:
+                    reply = ""
+                    log(f"bad adjust request: {exc}")
+                ADJUST_REQUEST.unlink(missing_ok=True)
+                if reply:
+                    log(f"adjust {setting} {steps}")
+                    announce(reply)
+                    continue
 
             if speak_queue:
                 # Thinking queued before this sentence was narrating the wait

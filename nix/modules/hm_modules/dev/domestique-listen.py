@@ -15,7 +15,9 @@ Two channels, told apart by which file exists:
   listening   goes to the alamode session, as a message the agent answers.
   outofband   never reaches pi's context. It lands in notes.md in the ride
               directory, and a classifier then decides whether it was also a
-              request to change topic.
+              request to change topic. A whole utterance of "faster",
+              "louder", "help" and the like (CONTROLS) is a control instead,
+              and is neither noted nor classified.
 
 Writing the note before classifying is what makes a cheap fast classifier safe
 here. The two verdicts have wildly different costs: a topic change read as a
@@ -101,6 +103,29 @@ INTERRUPT = STATE / "interrupt"
 # extension, so an announcement from here goes through its own door.
 SAY = STATE / "say"
 
+# Speed and volume steps for the speech watcher, which owns both settings.
+ADJUST_REQUEST = STATE / "adjust-request"
+
+# Out-of-band utterances that are controls rather than notes. Only a whole
+# utterance matches, so a note that mentions speed stays a note.
+CONTROLS = {
+    "faster": ("speed", 1),
+    "speed up": ("speed", 1),
+    "slower": ("speed", -1),
+    "slow down": ("speed", -1),
+    "louder": ("volume", 1),
+    "volume up": ("volume", 1),
+    "quieter": ("volume", -1),
+    "softer": ("volume", -1),
+    "volume down": ("volume", -1),
+}
+HELP_WORDS = {"help", "commands"}
+HELP = (
+    "Hold both keys and say faster, slower, louder, or quieter. "
+    "Tap the replay key to hear an answer again, "
+    "and double tap the talk key to stop one."
+)
+
 # Finished transcripts, one file per utterance, read by the pi extension. It
 # can only read here, so it keeps a cursor rather than deleting what it took,
 # and this sweeps the directory at startup.
@@ -173,6 +198,25 @@ def say(text: str) -> None:
         tmp.rename(SAY)
     except OSError as exc:
         log(f"could not say {text!r}: {exc}")
+
+
+def control(text: str) -> bool:
+    """Act on an out-of-band utterance if it is a control, and say whether it was."""
+    words = " ".join(re.sub(r"[^a-z ]+", " ", text.lower()).split())
+    if words in HELP_WORDS:
+        say(HELP)
+        return True
+    if words not in CONTROLS:
+        return False
+    setting, step = CONTROLS[words]
+    tmp = STATE / "adjust-request.tmp"
+    try:
+        tmp.write_text(f"{setting} {step}\n")
+        tmp.rename(ADJUST_REQUEST)
+    except OSError as exc:
+        log(f"could not adjust {setting}: {exc}")
+        say("Didn't catch that.")
+    return True
 
 
 def note(text: str) -> None:
@@ -431,6 +475,8 @@ def main() -> int:
                 say("Didn't catch that.")
             return
 
+        if control(text):
+            return
         note(text)
         threading.Thread(target=resolve, args=(text,), daemon=True).start()
 

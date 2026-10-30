@@ -13,6 +13,11 @@ file under `~/.local/state/domestique`, and the domestique watchers read those.
 | both held           | F17     | `outofband` | transcript goes to `notes.md`, never into context        |
 | key 1 double-tapped | F18     | `interrupt` | the agent's turn stops, as Esc stops it at the terminal  |
 
+An out-of-band utterance that is only "faster", "slower", "louder",
+"quieter" or "help" is a control rather than a note: speech steps by 0.1x or
+3 dB and says where it landed, and "help" reads out these gestures. `/speed`
+and `/volume` do the same from the keyboard.
+
 F16 and F17 rather than F14 and F15: macOS binds F14 and F15 to display
 brightness, and that binding only appears in System Settings once a keyboard
 carrying those keys is attached. F13 and F16 through F20 are the free ones.

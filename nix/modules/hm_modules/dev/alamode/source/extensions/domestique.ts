@@ -62,6 +62,7 @@ const SPOOL = join(ROOT, "spool");
 const STOP = join(ROOT, "stop");
 const STOP_THINK = join(ROOT, "stop-think");
 const SPEED_FILE = join(ROOT, "speed");
+const VOLUME_FILE = join(ROOT, "volume");
 
 // Shared with the driver (dev/domestique.nix, mark), which explains the format.
 const STARTUP = join(ROOT, "startup.tsv");
@@ -102,6 +103,10 @@ const LISTENING = join(STATE, "listening");
 const SPEED_MIN = 0.5;
 const SPEED_MAX = 2.0;
 const SPEED_STEP = 0.1;
+// The same for /volume, in dB.
+const VOLUME_MIN = -12;
+const VOLUME_MAX = 12;
+const VOLUME_STEP = 3;
 
 // Below this, an utterance is not worth its own synthesis call and its own
 // bluetooth wake-up, so the buffer keeps accumulating past the boundary.
@@ -370,6 +375,17 @@ export default function (pi: ExtensionAPI) {
   function clampSpeed(rate: number): number {
     const bounded = Math.min(SPEED_MAX, Math.max(SPEED_MIN, rate));
     return Math.round(bounded * 100) / 100;
+  }
+
+  /** The level the watcher will use next, in dB, as storedSpeed() is. */
+  function storedVolume(): number {
+    try {
+      const stored = Number.parseFloat(readFileSync(VOLUME_FILE, "utf8"));
+      if (Number.isFinite(stored)) return stored;
+    } catch {
+      // No file means no watcher yet, and its startup write wins anyway.
+    }
+    return 0;
   }
 
   /** Backticks at the end of the text, short of a full fence marker. */
@@ -953,7 +969,8 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.registerCommand("speed", {
-    description: "Speech rate: a multiplier, or + and - to step it by 0.1",
+    description:
+      "Speech rate: a multiplier, or + and - to step it by 0.1. On the pad, hold both keys and say faster or slower",
     handler: (args, ctx) => {
       if (!enabled) {
         ctx.ui.notify("domestique: not active (pass --domestique)", "info");
@@ -980,6 +997,39 @@ export default function (pi: ExtensionAPI) {
       writeFileSync(SPEED_FILE, `${speed}\n`, "utf8");
       ctx.ui.notify(
         `domestique: ${speed.toFixed(2)}x from the next sentence`,
+        "info",
+      );
+    },
+  });
+
+  pi.registerCommand("volume", {
+    description:
+      "Speech level in dB: a level, or + and - to step it by 3. On the pad, hold both keys and say louder or quieter",
+    handler: (args, ctx) => {
+      if (!enabled) {
+        ctx.ui.notify("domestique: not active (pass --domestique)", "info");
+        return;
+      }
+
+      const arg = args.trim();
+      let wanted = storedVolume();
+      if (arg === "+" || arg === "-") {
+        wanted += arg === "+" ? VOLUME_STEP : -VOLUME_STEP;
+      } else if (arg) {
+        wanted = Number.parseFloat(arg);
+        if (!Number.isFinite(wanted)) {
+          ctx.ui.notify(
+            `domestique: /volume wants a number, got ${arg}`,
+            "warning",
+          );
+          return;
+        }
+      }
+
+      const volume = Math.min(VOLUME_MAX, Math.max(VOLUME_MIN, wanted));
+      writeFileSync(VOLUME_FILE, `${volume}\n`, "utf8");
+      ctx.ui.notify(
+        `domestique: ${volume > 0 ? "+" : ""}${volume} dB from the next sentence`,
         "info",
       );
     },

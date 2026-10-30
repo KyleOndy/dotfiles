@@ -287,6 +287,7 @@ let
       export DOMESTIQUE_VOICE="''${DOMESTIQUE_VOICE:-${dq cfg.voice}}"
       export DOMESTIQUE_MODEL="${dq cfg.model}"
       export DOMESTIQUE_SPEED="''${DOMESTIQUE_SPEED:-${dq cfg.speed}}"
+      export DOMESTIQUE_VOLUME="''${DOMESTIQUE_VOLUME:-${dq cfg.volume}}"
       export DOMESTIQUE_NARRATE_THINKING="''${DOMESTIQUE_NARRATE_THINKING:-${
         if cfg.narrateThinking then "1" else "0"
       }}"
@@ -738,9 +739,25 @@ in
         selecting words per minute.
 
         `/speed 1.3` moves it mid-ride and `/speed +` nudges it by 0.1, clamped
-        to 0.5 through 2.0. The watcher forgets that on restart, so a rate worth
+        to 0.5 through 2.0, as does saying "faster" or "slower" on the
+        out-of-band chord. The watcher forgets that on restart, so a rate worth
         keeping belongs here. Either way it applies to the next utterance, not
         the one already playing.
+      '';
+    };
+
+    volume = lib.mkOption {
+      type = lib.types.str;
+      default = "9";
+      description = ''
+        Speech level in dB, and the level every ride starts at. Kokoro peaks
+        near -10 dBFS, which music mastered for streaming buries, so the
+        default lifts replies most of the way to full scale. A reply that
+        would clip is scaled back under it instead.
+
+        `/volume 6` moves it mid-ride and `/volume +` steps it by 3 dB,
+        clamped to -12 through +12, as does saying "louder" or "quieter" on
+        the out-of-band chord. Cues keep their own level, cueGain.
       '';
     };
 
