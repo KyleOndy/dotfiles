@@ -46,6 +46,7 @@ in
   s3-archive-push = super.callPackage ./s3-archive-push { };
   s3-archive-reconcile = super.callPackage ./s3-archive-reconcile { };
   secrets-check = super.callPackage ./secrets-check { };
+  shurectl = super.callPackage ./shurectl { };
   winnow = super.callPackage ./winnow { };
   kubectl-rexec = super.callPackage ./kubectl-rexec { };
   presence-debug = super.callPackage ./presence-debug { };

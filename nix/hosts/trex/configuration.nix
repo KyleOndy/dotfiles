@@ -178,6 +178,7 @@ in
     (leak-guard.override { keyCommand = mcloudKeyCommand; }) # refuses commits and pushes naming a private model id
     (mcloud-pins.override { keyCommand = mcloudKeyCommand; }) # checks every pinned mcloud id answers, see nix/pkgs/mcloud-pins
     mpv
+    shurectl # sets the trainer mic's MVX2U from a preset, see docs/domestique-microphone.md
   ];
 
   # System version (managed by nix-darwin) - snapshot from when trex was
