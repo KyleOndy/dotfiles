@@ -6,11 +6,12 @@ file under `~/.local/state/domestique`, and the domestique watchers read those.
 
 ## Signals
 
-| gesture      | keycode | file        | what happens                                             |
-| ------------ | ------- | ----------- | -------------------------------------------------------- |
-| key 1 held   | F13     | `listening` | microphone opens, transcript goes to the alamode session |
-| key 2 tapped | F16     | `replay`    | re-speak the last reply; N taps replays N replies        |
-| both held    | F17     | `outofband` | transcript goes to `notes.md`, never into context        |
+| gesture             | keycode | file        | what happens                                             |
+| ------------------- | ------- | ----------- | -------------------------------------------------------- |
+| key 1 held          | F13     | `listening` | microphone opens, transcript goes to the alamode session |
+| key 2 tapped        | F16     | `replay`    | re-speak the last reply; N taps replays N replies        |
+| both held           | F17     | `outofband` | transcript goes to `notes.md`, never into context        |
+| key 1 double-tapped | F18     | `interrupt` | the agent's turn stops, as Esc stops it at the terminal  |
 
 F16 and F17 rather than F14 and F15: macOS binds F14 and F15 to display
 brightness, and that binding only appears in System Settings once a keyboard
@@ -27,6 +28,13 @@ than a press, because an out-of-band utterance can end the alamode session:
 The cost is `COMBO_TERM`: QMK cannot emit either single key until it knows the
 other is not coming, so both are delayed by that much on key-down. Invisible for
 push-to-talk, since nobody has started speaking yet.
+
+The double tap is resolved in firmware too, since the listener polls the key
+files every 0.1 s and a tap fits between two polls. The first tap goes out as an
+ordinary F13: it hushes speech, and the listener drops a recording under 0.4 s.
+A second press within 300 ms of releasing a tap that short sends F18 instead,
+and its release sends nothing. The listener hands the interrupt to the
+extension, which stops the run and says "Stopped." once it has.
 
 ## Wiring
 

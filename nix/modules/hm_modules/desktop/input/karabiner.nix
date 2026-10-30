@@ -131,6 +131,7 @@ let
   # release.
   listeningFile = "${cfg.pushToTalk.root}/listening";
   replayFile = "${cfg.pushToTalk.root}/replay";
+  interruptFile = "${cfg.pushToTalk.root}/interrupt";
   outOfBandFile = "${cfg.pushToTalk.root}/outofband";
 
   heldWhile = file: {
@@ -151,9 +152,10 @@ let
     ];
   };
 
-  # The pad (keyboard/domestique-pad) emits three bare F-keys and nothing else,
-  # the third of them a QMK combo of the other two. Each rule is gated on the
-  # device, so an F13 from any other keyboard cannot open the microphone.
+  # The pad (keyboard/domestique-pad) emits four bare F-keys and nothing else:
+  # F17 is a QMK combo of the other two keys and F18 a double tap of key 1. Each
+  # rule is gated on the device, so an F13 from any other keyboard cannot open
+  # the microphone.
   mkPadManipulator =
     key: actions:
     {
@@ -182,6 +184,9 @@ let
       # is the count, not the file's existence.
       (mkPadManipulator "f16" {
         to = [ { shell_command = "${pkgs.coreutils}/bin/printf . >> ${replayFile}"; } ];
+      })
+      (mkPadManipulator "f18" {
+        to = [ { shell_command = "${pkgs.coreutils}/bin/printf . >> ${interruptFile}"; } ];
       })
       (mkPadManipulator "f17" (heldWhile outOfBandFile))
     ];
@@ -254,8 +259,9 @@ in
         default = "${config.home.homeDirectory}/.local/state/domestique";
         description = ''
           Directory the key files are written into: `listening` while channel
-          one is held, `outofband` while the pad chord is held, and `replay`,
-          which accumulates one byte per replay tap. The domestique watchers
+          one is held, `outofband` while the pad chord is held, `replay`,
+          which accumulates one byte per replay tap, and `interrupt`, one byte
+          per double tap of the pad's key 1. The domestique watchers
           poll for them; nothing else reads them.
 
           Outside ~/.pi because every sandboxed alamode session can write there,

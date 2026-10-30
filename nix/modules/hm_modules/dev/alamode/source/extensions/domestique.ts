@@ -251,6 +251,11 @@ export default function (pi: ExtensionAPI) {
   // since a compaction that fails says so through no event.
   let compacting = false;
 
+  // Set by an interrupt until pi has settled and the speech watcher has acted
+  // on every hush it caused. A confirmation spooled before then is swept out
+  // along with the speech it confirms stopping.
+  let interrupted = false;
+
   // Response text not yet classified as prose or code, and which of the two we
   // are in. Held outside the speech buffer because a fence marker arrives split
   // across deltas as often as not.
@@ -456,6 +461,17 @@ export default function (pi: ExtensionAPI) {
     ctx.shutdown();
   }
 
+  /**
+   * Stop the run, as Esc does at the terminal. Interactive pi's abort first
+   * moves queued steering into the editor, so a misheard utterance still
+   * waiting there does not start the next run.
+   */
+  function interrupt(ctx: ExtensionContext): void {
+    hush();
+    ctx.abort();
+    interrupted = true;
+  }
+
   function compactNow(ctx: ExtensionContext): void {
     if (!ctx.isIdle()) ctx.abort();
     ctx.compact({
@@ -492,6 +508,9 @@ export default function (pi: ExtensionAPI) {
    * of "compact" would otherwise compact the session opened to discuss it.
    */
   function deliver(ctx: ExtensionContext, text: string, replayed: boolean) {
+    // Asking again straight after an interrupt confirms it well enough, and a
+    // "Stopped." held until that answer ends would describe the wrong run.
+    interrupted = false;
     heard += 1;
     logLine(`> ${text}`);
     ctx.ui?.notify(`heard: ${text}`, "info");
@@ -531,6 +550,11 @@ export default function (pi: ExtensionAPI) {
     }
 
     for (const name of names) {
+      if (name.endsWith(".interrupt.txt")) {
+        take(name);
+        interrupt(ctx);
+        continue;
+      }
       const topicChange = name.endsWith(".newtopic.txt");
       let text: string;
       try {
@@ -818,6 +842,10 @@ export default function (pi: ExtensionAPI) {
     let shown = false;
     heardTimer = setInterval(() => {
       drainHeard(ctx);
+      if (interrupted && ctx.isIdle() && !existsSync(STOP)) {
+        interrupted = false;
+        writeUtterance("speak", "Stopped.");
+      }
       warnContext(ctx);
       const open = existsSync(LISTENING);
       if (open === shown || !ctx.hasUI) return;

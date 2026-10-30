@@ -26,7 +26,9 @@ failure falls back to.
 This process also owns key interpretation for the third signal, the replay tap.
 Karabiner appends one byte per press and this drains the count; the speech
 watcher owns the audio and is told how many replies to repeat. One owner per
-file, so the two watchers never race over the same one.
+file, so the two watchers never race over the same one. A double tap of the
+push-to-talk key arrives the same way, a byte per double tap, and goes on to
+the extension as an interrupt.
 
 Parakeet rather than Whisper. A transducer emits a blank frame where there is
 no speech, and an autoregressive decoder invents fluent text through the pauses
@@ -89,6 +91,11 @@ REPLAY = STATE / "replay"
 
 # The count this hands to the speech watcher once the tapping has stopped.
 REPLAY_REQUEST = STATE / "replay-request"
+
+# One byte per double tap of the push-to-talk key, appended by Karabiner for the
+# same reason as REPLAY. The pad tells a double tap from two utterances itself,
+# since each tap is as likely as a replay tap to fall between two polls.
+INTERRUPT = STATE / "interrupt"
 
 # Out-of-band speech. The spool belongs to pi's stream and is numbered by the
 # extension, so an announcement from here goes through its own door.
@@ -278,9 +285,10 @@ def main() -> int:
     # first session, days late, and a stranded topic change restarts it there.
     for stale in [*HEARD.glob("*.txt"), *HEARD.glob("*.tmp")]:
         stale.unlink(missing_ok=True)
-    # Taps held over from a previous ride would replay the moment this came up.
+    # Taps held over from a previous ride would act the moment this came up.
     REPLAY.unlink(missing_ok=True)
     REPLAY_REQUEST.unlink(missing_ok=True)
+    INTERRUPT.unlink(missing_ok=True)
 
     started = time.monotonic()
     model = from_pretrained(MODEL)
@@ -426,16 +434,15 @@ def main() -> int:
         note(text)
         threading.Thread(target=resolve, args=(text,), daemon=True).start()
 
-    taken = STATE / "replay.taken"
-
-    def drain_replay() -> int:
+    def drain(counter: Path) -> int:
         """Take the taps accumulated so far and reset the counter.
 
         Renamed before it is measured, so a tap Karabiner appends in between
         lands in a fresh file rather than in one about to be deleted.
         """
+        taken = counter.with_name(f"{counter.name}.taken")
         try:
-            REPLAY.rename(taken)
+            counter.rename(taken)
         except OSError:
             return 0
         taps = taken.stat().st_size
@@ -452,7 +459,7 @@ def main() -> int:
     try:
         while True:
             try:
-                arrived = drain_replay()
+                arrived = drain(REPLAY)
                 if arrived:
                     if cancel_window.is_set():
                         cancelled.set()
@@ -463,6 +470,12 @@ def main() -> int:
                 if taps and time.monotonic() - last_tap >= REPLAY_QUIET:
                     REPLAY_REQUEST.write_text(f"{taps}\n")
                     taps = 0
+
+                # Only the extension can stop pi. Sent the way a topic change
+                # is, so it lands behind whatever was heard before it.
+                if drain(INTERRUPT):
+                    publish("", ".interrupt")
+                    log("interrupt")
 
                 if stuck is not None:
                     if not stuck.exists():
