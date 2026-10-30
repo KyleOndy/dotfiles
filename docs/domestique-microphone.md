@@ -109,6 +109,41 @@ for free.
 [trex's home.nix](../nix/hosts/trex/home.nix) pins `inputDevice` to the MVX2U,
 so the AirPods stay on A2DP with noise cancelling.
 
+## Tune
+
+After moving the mic, the bike or the fan:
+
+```sh
+domestique-mic-bench tune              # 3 setups x 15 phrases, about 6 minutes
+domestique-mic-bench tune --thorough   # 6 setups x 30 phrases, about 22 minutes
+```
+
+Fan at riding speed. A gain check comes first: two lines, repeated until
+speech peaks within 3 dB of -12 dBFS. Then each phrase comes up once per setup,
+in shuffled order, with shurectl switching the MVX2U between reads. Three dings
+count in each read; speak on the high one.
+
+| setup             | change from the Setup section above         | short |
+| ----------------- | ------------------------------------------- | ----- |
+| baseline          | none                                        | yes   |
+| denoiser-off      | Real-time Denoiser off                      | yes   |
+| presence-eq       | -4 dB at 100 and 250 Hz, +4 dB at 4 kHz     | yes   |
+| compressor-light  | Compressor Light                            |       |
+| compressor-medium | Compressor Medium                           |       |
+| auto-level        | Auto Level, Natural tone, no EQ or dynamics |       |
+
+The score is how unlikely Parakeet finds the script given the audio, in nats
+per token: the transducer's own training loss, summed over every alignment. It
+moves when a transcript is right but less sure, so it separates setups on far
+less reading than word error rate, which `tune` still prints beside it. On the
+2026-10-29 takes it put the gain check against the denoiser-off run at
++0.024 +/- 0.069, so reading noise alone is about that size per 10 phrases.
+
+A setup replaces baseline only by beating it phrase for phrase by more than two
+standard errors. The winner goes onto the MVX2U and into shurectl's preset slot
+4, so `shurectl --preset 4` puts it back. `tune --rescore DIR` scores a session
+again without recording.
+
 ## Sources
 
 - [Senal MC24-EL manual](https://www.manualslib.com/manual/1346833/Senal-Mc24-El.html)

@@ -207,9 +207,11 @@ let
     '';
   };
 
-  # Scores raw takes against noise-gated ones on the ride's own microphone, so
-  # a noise reducer goes into domestique-listen only if it lowers the word
-  # error rate. docs/domestique-microphone.md has the procedure.
+  # Benches the ride's own microphone. compare scores raw takes against
+  # noise-gated ones, so a noise reducer goes into domestique-listen only if it
+  # lowers the word error rate. tune switches the MVX2U between setups through
+  # shurectl, which only trex installs, and keeps the one Parakeet hears best.
+  # docs/domestique-microphone.md has the procedure.
   domestique-mic-bench = pkgs.writeShellApplication {
     name = "domestique-mic-bench";
     runtimeInputs = [
