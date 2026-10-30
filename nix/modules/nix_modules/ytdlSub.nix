@@ -338,6 +338,10 @@ in
           # whole file each time and a counter that restarts at zero every day
           # cannot be rated.
           pruned_watched=0 pruned_expired=0
+          # Set when a video cannot be removed. The sweeps carry on past it,
+          # so one file nobody can delete does not stop every other prune,
+          # and the unit still exits 1 at the end.
+          failed=0
           if [ -r "$STATE" ]; then
             read -r pruned_watched pruned_expired < "$STATE" || true
           fi
@@ -439,8 +443,11 @@ in
             # loop in a subshell and the counter increment would be discarded.
             while IFS= read -r f; do
               if [ -n "$f" ] && [ -f "$f" ]; then
-                drop "$f"
-                pruned_watched=$(( pruned_watched + 1 ))
+                if drop "$f"; then
+                  pruned_watched=$(( pruned_watched + 1 ))
+                else
+                  failed=1
+                fi
               fi
             done < "$work/watched"
           fi
@@ -453,8 +460,11 @@ in
             born=$(stat -c %W "$f" 2>/dev/null || echo 0)
             [ "$born" -gt 0 ] || continue
             if [ "$born" -lt "$horizon" ]; then
-              drop "$f"
-              pruned_expired=$(( pruned_expired + 1 ))
+              if drop "$f"; then
+                pruned_expired=$(( pruned_expired + 1 ))
+              else
+                failed=1
+              fi
             fi
           done < <(find "$MEDIA_DIR" -type f -print0 2>/dev/null)
 
@@ -468,6 +478,8 @@ in
 
           curl -sSf --max-time 30 -X POST -o /dev/null -H "$auth" "$API/Library/Refresh" \
             || echo "library refresh failed, Jellyfin will catch up on its own scan" >&2
+
+          exit "$failed"
         '';
     };
 
