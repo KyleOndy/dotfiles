@@ -30,7 +30,11 @@ instead.
   import or a deploy for any of those, check `node_load1{host="tiger"}` and
   tiger's `Accepted publickey for svc.nixbuild` lines.
 - The network is UniFi, gateway a UDM Pro. unpoller on tiger polls its
-  controller, so UniFi series have no host of their own.
+  controller, so UniFi series have no host of their own. A WAN drop shows as
+  an increase in `unpoller_site_intenet_drops_total` (unpoller's spelling)
+  and a stall in `unpoller_device_wan_receive_bytes_total`.
+  `unpoller_site_latency_seconds` holds its last value through a drop, so it
+  cannot rule one out.
 
 All configuration is declarative NixOS and nix-darwin in a dotfiles repo, so a
 real fix is a change to that config followed by a deploy, not an edit on the

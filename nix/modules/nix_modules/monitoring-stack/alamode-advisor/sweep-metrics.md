@@ -41,7 +41,12 @@ values, never from an aggregate across them.
      reads that drop as a reset and adds the whole value. Count a day with
      `sum_over_time(clamp_min(delta(x[1m]), 0)[1d:1m])`, read the raw 1m
      samples before reporting a jump, and name the client whose
-     `unpoller_client_transmit_retries_total` rose with it.
+     `unpoller_client_transmit_retries_total` rose with it. That client
+     counter is per association and follows the client from AP to AP, so
+     the delta form counts its carried value again at each roam. Count a
+     client's day with
+     `increase((max by (mac) (unpoller_client_transmit_retries_total{ap_name!=""}))[1d:1m])`,
+     and set it against the client's transmitted packets.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps drifting later even when still inside
