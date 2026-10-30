@@ -210,6 +210,23 @@ in
     "164".enabled = false; # Ctrl+Cmd+Space (Emoji & Symbols / Character Viewer)
   };
 
+  # Exempts these from Local Network privacy, which fails Alacritty's children
+  # with "No route to host": its grant is keyed to the executable's UUID, so a
+  # rebuild loses it. Takes a restart. WireGuard is left out because the check
+  # covers only Wi-Fi and Ethernet (Apple TN3179, "macOS considerations").
+  system.defaults.CustomSystemPreferences."com.apple.network.local-network" =
+    let
+      unifiNetworks = [
+        "10.24.89.0/24"
+        "10.25.89.0/24"
+        "192.168.3.0/24"
+      ];
+    in
+    {
+      AllowedWiFiLocalNetworkAddresses = unifiNetworks;
+      AllowedEthernetLocalNetworkAddresses = unifiNetworks;
+    };
+
   # Finder sidebar favourites, see nix/modules/darwin_modules/finder-sidebar.nix
   # tiger's shares mount -o nobrowse (see home.nix), so they never appear under
   # Locations. Their parent is pinned rather than the mountpoints themselves: a
