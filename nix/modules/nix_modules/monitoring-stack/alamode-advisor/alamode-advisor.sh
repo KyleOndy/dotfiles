@@ -124,9 +124,17 @@ advise() {
 }
 
 triage_alerts() {
-	local firing group name today now count n=0
+	local firing group name today now count status n=0
+	# curl exits 7 when nothing listens. Alertmanager restarts with each
+	# deploy, and a unit failing mid-switch makes switch-to-configuration exit
+	# 4, which deploy-rs answers with a rollback. The next run catches up.
 	firing=$(curl -fsS --max-time 30 \
-		"${ALAMODE_ADVISOR_AM_URL}/api/v2/alerts?active=true&silenced=false&inhibited=false")
+		"${ALAMODE_ADVISOR_AM_URL}/api/v2/alerts?active=true&silenced=false&inhibited=false") || {
+		status=$?
+		((status == 7)) || return "$status"
+		echo "Alertmanager is not listening, triaging on the next run"
+		return 0
+	}
 	today=$(date -u +%Y%m%d)
 	now=$(date +%s)
 	touch "$SEEN"
