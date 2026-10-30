@@ -788,7 +788,7 @@ export default function (pi: ExtensionAPI) {
     name: "alerts",
     label: "Alerts",
     description:
-      "List the alerts Alertmanager holds now, with labels, summary and when each went pending, then the vmalert alerts still pending (condition true, rule's for: not yet met), then every alert rule that fired in the last 24h with the first and last time it was seen firing. Silenced and inhibited alerts are marked.",
+      "List the alerts Alertmanager holds now, with labels, summary and when each one's condition first held, then the vmalert alerts still pending (condition true, rule's for: not yet met), then every alert rule that fired in the last 24h with the first and last time it was seen firing. Silenced and inhibited alerts are marked.",
     promptSnippet: "List current and recent alerts",
     parameters: Type.Object({}, STRICT),
     async execute(_id, _params, signal) {
@@ -813,8 +813,8 @@ export default function (pi: ExtensionAPI) {
         const summary = a.annotations?.summary ?? "";
         const since = activeAt.get(formatLabels(a.labels));
         const start = since
-          ? `pending since ${since}`
-          : `Alertmanager startsAt ${a.startsAt}`;
+          ? `firing, condition true since ${since},`
+          : `firing, Alertmanager startsAt ${a.startsAt},`;
         return `${start} ${state} ${formatLabels(a.labels)} ${summary}`;
       });
       // Alertmanager never sees a pending alert, so a rule that will fire
