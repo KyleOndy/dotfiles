@@ -207,7 +207,13 @@ in
   config = mkIf cfg.enable {
     services.jellyfin = {
       enable = true;
-      package = pkgs.jellyfin;
+      # Remuxed HLS drifts from its playlist after a resume and stalls the
+      # Roku: https://github.com/jellyfin/jellyfin/issues/17966. The patch
+      # is https://github.com/jellyfin/jellyfin/pull/18383 backported to
+      # 10.11.11; no release carries it.
+      package = pkgs.jellyfin.overrideAttrs (old: {
+        patches = old.patches ++ [ ./jellyfin-remux-segment-cuts.patch ];
+      });
       group = cfg.group;
       # Out of dataDir, which is 0700 and holds the database and API keys, so
       # group cfg.group can read the logs and nothing else.
