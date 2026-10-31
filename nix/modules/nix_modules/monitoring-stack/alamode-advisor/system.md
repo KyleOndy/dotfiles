@@ -117,7 +117,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
   host's `system_activation_timestamp_seconds` since the entry's date.
 - Read a failed unit's own last lines before naming a cause. Exit status 143
   is SIGTERM (128 + 15): systemd or a person stopped it. A failure that comes
-  before a deploy or reboot was not caused by it.
+  before a deploy or reboot was not caused by it. A switch resets every
+  failed unit, so one that clears at a deploy has not recovered: its cause
+  may still be there.
 - A boot's cause is in the minute before it. Before calling a reboot
   unexplained or a power loss, read that host's last lines in Loki before
   the boot, `|~ "System is (rebooting|powering down)|COMMAND=.*(reboot|poweroff)"`.
