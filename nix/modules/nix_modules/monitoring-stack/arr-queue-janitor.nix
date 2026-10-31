@@ -170,6 +170,11 @@ in
                        "$url/api/$api/queue?pageSize=1000"); then
             blocked=$(printf '%s' "$queue" | jq '
               [.records[] | select(${stuck})] | unique_by(.downloadId) | length')
+            # The *arrs retry a blocked import silently, so this is the only
+            # log of what is stuck and why.
+            printf '%s' "$queue" | jq -r --arg app "$app" '
+              [.records[] | select(${stuck})] | unique_by(.downloadId)[]
+              | "\($app) stuck: \(.title): \([.statusMessages[]?.messages[]?] | join("; "))"'
             # Fractional seconds appear on some records and fromdateiso8601
             # rejects them.
             targets=$(printf '%s' "$queue" | jq -r --argjson now "$now" --argjson cutoff "$CUTOFF" '
