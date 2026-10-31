@@ -49,7 +49,13 @@ values, never from an aggregate across them.
      the delta form counts its carried value again at each roam. Count a
      client's day with
      `increase((max by (mac) (unpoller_client_transmit_retries_total{ap_name!=""}))[1d:1m])`,
-     and set it against the client's transmitted packets.
+     and set it against the client's transmitted packets. Leave days its
+     counter sat flat at 0 out of the range, and hold a client only to a
+     threshold an acknowledgement sets for that client. Read a client's
+     labels and AP over the whole window, not at sweep time: a client that
+     looks fixed still roams. A new MAC whose second hex digit is 2, 6, A
+     or E is a randomized address, a phone or a visitor's; report one only
+     on the IoT or guest network, or once it stays for days.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps drifting later even when still inside
