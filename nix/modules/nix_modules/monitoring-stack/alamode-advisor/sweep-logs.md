@@ -33,7 +33,11 @@ outside that range, and say how far.
 3. Caddy access: 5xx counts by host and upstream, 4xx counts by vhost
    through `baseline` (scanners alone swing them widely from day to day),
    and request patterns that look like scanning or credential stuffing
-   against a public app.
+   against a public app. Split a vhost's 4xx by `remote_ip` before naming
+   who sent them, and group scanners by /24, since they rotate within one.
+   Name a probe from its method, headers and body size, not its paths
+   alone: it is credential stuffing only when it POSTs to that app's real
+   login.
 4. Read raw lines only for the handful of changes that stood out, enough to
    say what the errors are. Before calling a count a jump, run `baseline` on
    the specific line that stood out (`|= "<text>"`), not only the broad
