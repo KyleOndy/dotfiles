@@ -118,25 +118,25 @@
     {
       "type": "stat",
       "title": "Blocked Imports",
-      "description": "Items stuck in importBlocked, importFailed or failedPending. These never clear on their own.",
+      "description": "Downloads stuck importing at arr-queue-janitor's last sweep, every 6 h. These never clear on their own.",
       "gridPos": { "h": 5, "w": 12, "x": 12, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "victoriametrics" },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(sonarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
+          "expr": "max(arr_queue_janitor_blocked{app=\"sonarr\"}) or vector(0)",
           "legendFormat": "Sonarr",
           "instant": true
         },
         {
           "refId": "B",
-          "expr": "sum(radarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
+          "expr": "max(arr_queue_janitor_blocked{app=\"radarr\"}) or vector(0)",
           "legendFormat": "Radarr",
           "instant": true
         },
         {
           "refId": "C",
-          "expr": "sum(lidarr_queue_total{download_state=~\"importBlocked|importFailed|failedPending\"}) or vector(0)",
+          "expr": "max(arr_queue_janitor_blocked{app=\"lidarr\"}) or vector(0)",
           "legendFormat": "Lidarr",
           "instant": true
         },
