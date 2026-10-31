@@ -45,6 +45,10 @@ const KAGI_API = "https://kagi.com/api/v1";
 const MAX_SEARCHES_PER_RUN = 5;
 const SEARCH_RESULTS = 8;
 
+// IPv4 only: an IPv6 pattern also matches clock times such as 10:07:30. A
+// four-part version number matches too, and the error says to drop it.
+const IPV4_IN_QUERY = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])/;
+
 // Read once at registration and dropped from process.env, which under Bun is
 // a reduction rather than a boundary: the advisor has no tool that reads its
 // environment, and that is what keeps the key in.
@@ -463,6 +467,11 @@ async function kagiSearch(
   query: string,
   signal?: AbortSignal,
 ): Promise<string> {
+  if (IPV4_IN_QUERY.test(query)) {
+    throw new Error(
+      "The query holds an IPv4 address, and queries leave the house. Search on the error signature, product and version instead. A four-part version number looks the same, so leave it out too.",
+    );
+  }
   if (searchesMade >= MAX_SEARCHES_PER_RUN) {
     throw new Error(
       `All ${MAX_SEARCHES_PER_RUN} searches for this run are spent. Work with what you have.`,
