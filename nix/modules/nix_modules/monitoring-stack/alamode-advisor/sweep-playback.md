@@ -34,7 +34,10 @@ Steps:
      gave up before the first frame. Several stops for one title within
      minutes are the client retrying.
    - `cannot serve` (DynamicHlsController): the player asked for a segment
-     after its ffmpeg had ended.
+     after its ffmpeg had ended. They come in bursts right after the client
+     killed its own stream to retry (`KillTranscodingJob` just before), so
+     they follow a stall rather than cause one. Count bursts per playlist,
+     the hash in the `.ts` path, since one burst can straddle midnight.
    - `A task was canceled. URL GET /videos/`: the client dropped a segment
      download part way.
    - `Transcoding kill timer stopped`: the client went silent for 60s
@@ -74,9 +77,13 @@ Steps:
      fix logs `COMPAT-PLAN` and `COMPAT-ADDED` per title:
      `{job="systemd-journal",host="tiger"} |= "COMPAT-" |= "<title>"`.
    - An HLS run with `-codec:v:0 copy` and transcoded audio, resumed
-     mid-file, whose client keeps asking for the segments just behind the
-     resume point (`cannot serve`), is a server bug,
-     [jellyfin#17966](https://github.com/jellyfin/jellyfin/issues/17966).
+     mid-file, whose client stalls a few minutes on and then retries
+     (`cannot serve` for the segment it stalled on), is a server bug,
+     [jellyfin#17966](https://github.com/jellyfin/jellyfin/issues/17966):
+     the files drift from the playlist. tiger's Jellyfin carries the
+     upstream fix, which runs such a remux with `-f segment` and
+     `-segment_times`. A `-f hls` remux of an mkv means the fix is not
+     deployed; a stall under `-f segment` is new.
 7. Before writing, drop any finding that matches an entry under
    Acknowledged issues below, or that rests on lines you did not read this
    run, and name what you dropped, and why, under Checked.
