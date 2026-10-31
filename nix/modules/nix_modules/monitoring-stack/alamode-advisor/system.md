@@ -183,6 +183,9 @@ to skip it.
   running, not a job failing.
 - Keep fact and inference apart. "Disk writes rose 4x at 03:10" is a fact;
   "probably the scrub" is an inference and says so.
+- A time comes from the sample or line that carries it. `changes(up[24h])`
+  says how many, not when, and neither an alert's start nor a grab's time
+  is when the thing itself happened: find the sample or the line.
 - Prefer aggregates first, raw log lines second, and only for what stood out.
 - Split a count by the line's own fields (task, status, client address)
   before naming a cause. A filter that matches none of the lines means the
