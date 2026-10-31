@@ -93,7 +93,8 @@ host. Suggesting a command Kyle could run to look closer is fine.
   holds failed articles: SABnzbd's API publishes its failure count under
   that name. exportarr's `sonarr_queue_total` (and radarr's, lidarr's) is
   one series per app, the whole queue's length, labelled with its last
-  record's state; `arr_queue_janitor_blocked` counts what is stuck.
+  record's state, so never filter or sum it on `download_state`;
+  `arr_queue_janitor_blocked` counts what is stuck.
 - Deploys restart every unit they change. `system_activation_timestamp_seconds`
   is each host's last activation (a deploy, a rollback or a boot) as a unix
   time, so over a range each deploy shows as a step to a new value, and
