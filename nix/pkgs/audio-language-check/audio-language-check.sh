@@ -344,7 +344,7 @@ reject() {
 		return
 	fi
 	local hid
-	hid=$(api "$base" "$key" "/api/v3/history?pageSize=200" |
+	hid=$(api "$base" "$key" "/api/v3/history?downloadId=$(jq -rn --arg d "$download_id" '$d | @uri')&pageSize=200" |
 		jq -r --arg d "$download_id" \
 			'first(.records[] | select(.downloadId == $d and .eventType == "grabbed") | .id) // empty')
 	if [ -z "$hid" ]; then
