@@ -81,8 +81,19 @@ require_populated() {
 # go-w because Resolve leaves parts of its library world-writable, and -a would
 # carry that onto tiger, where every service account could rewrite a project.
 # -p reapplies it to files already in place, not only to new transfers.
+#
+# A symlink in the tree is footage that lives on an external SSD, linked back
+# so Resolve's media paths and the project scripts still resolve. -a would
+# replace tiger's real copy of that folder with the link, and the link
+# dangles whenever the SSD is unplugged. Excluded paths are exempt from
+# --delete, so tiger keeps the copy it had when the footage moved off trex.
 mirror() {
-	rsync -a --chmod=go-w --delete --info=progress2,del "${LITTER_EXCLUDES[@]}" "$1/" "$TIGER_HOST:$2/"
+	local link
+	local link_excludes=()
+	while IFS= read -r -d '' link; do
+		link_excludes+=(--exclude "/${link#"$1"/}")
+	done < <(find "$1" -type l -print0)
+	rsync -a --chmod=go-w --delete --info=progress2,del "${LITTER_EXCLUDES[@]}" "${link_excludes[@]}" "$1/" "$TIGER_HOST:$2/"
 }
 
 # aws s3 sync compares size and mtime off the LIST response, so a re-run is a
