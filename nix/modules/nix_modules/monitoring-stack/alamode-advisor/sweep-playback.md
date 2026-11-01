@@ -38,6 +38,11 @@ Steps:
      killed its own stream to retry (`KillTranscodingJob` just before), so
      they follow a stall rather than cause one. Count bursts per playlist,
      the hash in the `.ts` path, since one burst can straddle midnight.
+   - `Response Content-Length mismatch` (Kestrel, an `[ERR]`): Jellyfin
+     sent a segment while ffmpeg was still writing it, so the client got it
+     cut short. tiger's Jellyfin carries
+     `jellyfin-hls-stale-segments.patch` against this, so any one is a
+     finding.
    - `A task was canceled. URL GET /videos/`: the client dropped a segment
      download part way.
    - `Transcoding kill timer stopped`: the client went silent for 60s
@@ -58,7 +63,11 @@ Steps:
    holding ffmpeg, not where the run ended. Its end is its last `frame=`
    line, beside the `video:...KiB` totals. Before calling a track short,
    compare that frame count with the input's duration and frame rate. Runs seconds apart are someone scrubbing when their `-ss` moves and
-   the client retrying when it repeats.
+   the client retrying when it repeats. Compare the input's video bitrate
+   with the client's limit: a Roku decodes HEVC up to 40 Mb/s average and
+   H.264 up to level 4.2. A transcode with `-noautoscale` and no scale
+   filter keeps the source resolution, so a 4K source encoded to H.264 at
+   `-level 42` is beyond level 4.2 and no Roku plays it.
 5. Name the client: the `RemoteIP:` line Jellyfin logs when the play
    starts, then `unpoller_client_uptime_seconds{ip="<address>"}`. For a
    Roku on Wi-Fi that stalled, compare its
@@ -66,6 +75,8 @@ Steps:
    and `unpoller_client_satisfaction_ratio` over the play with the other
    clients on its `ap_name`. A rate pinned low for days while a neighbour
    on the same AP runs fast is the AP's rate control stuck on that client.
+   A client that vanishes from unpoller mid-play and reassociates a minute
+   later rebooted or lost its link; the series cannot say which.
 6. Decide where each failure sits: the file (codec, bad data), the client
    (a codec it claims and cannot play, a retry with no fallback), tiger
    (speed below 1x, GPU errors), or the network (a low or falling link
@@ -82,8 +93,12 @@ Steps:
      [jellyfin#17966](https://github.com/jellyfin/jellyfin/issues/17966):
      the files drift from the playlist. tiger's Jellyfin carries the
      upstream fix, which runs such a remux with `-f segment` and
-     `-segment_times`. A `-f hls` remux of an mkv means the fix is not
-     deployed; a stall under `-f segment` is new.
+     `-segment_times`. Judge the muxer only from remux runs
+     (`FFmpeg.DirectStream-*`, `FFmpeg.Remux-*`): `FFmpeg.Transcode-*`
+     runs re-encode and always use `-f hls`. A `-f hls` remux of an mkv
+     means the fix is not deployed. A stall under `-f segment` with
+     `Content-Length mismatch` lines is a segment served mid-write; one
+     without them, on an input above the client's limit, is the client.
 7. Before writing, drop any finding that matches an entry under
    Acknowledged issues below, or that rests on lines you did not read this
    run, and name what you dropped, and why, under Checked.
