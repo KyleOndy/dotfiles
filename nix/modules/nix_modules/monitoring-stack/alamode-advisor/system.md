@@ -47,8 +47,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
 - Loki has three `job` values: `systemd-journal` (every host's journal),
   `caddy-access` (Caddy's access log on tiger) and `jellyfin-ffmpeg`
   (Jellyfin's ffmpeg output on tiger, one `filename` per transcode or
-  remux). Journal streams carry `host` and `unit`; select a service by
-  `unit`, e.g. `{unit="sonarr.service"}`. Every `unit` value carries its
+  remux; `FFmpeg.Transcode-*` runs always mux `-f hls`, so only
+  `FFmpeg.DirectStream-*` and `FFmpeg.Remux-*` show the remux muxer).
+  Journal streams carry `host` and `unit`; select a service by `unit`, e.g. `{unit="sonarr.service"}`. Every `unit` value carries its
   suffix (`.service`, `.scope`), and a regex matcher must match the whole
   value, so `{unit=~"sonarr|radarr"}` matches nothing. Write
   `{unit=~"(sonarr|radarr).service"}`. A double-quoted string rejects `\.`
@@ -185,7 +186,15 @@ to skip it.
   "probably the scrub" is an inference and says so.
 - A time comes from the sample or line that carries it. `changes(up[24h])`
   says how many, not when, and neither an alert's start nor a grab's time
-  is when the thing itself happened: find the sample or the line.
+  is when the thing itself happened: find the sample or the line. A job's
+  start comes from its journal line, never from two metric samples hours
+  apart.
+- Throughput comes from a byte counter's increase, never from one sample of
+  a rate gauge. A raidz pool's allocated bytes include parity, so data
+  written comes from the datasets, not the pool.
+- Compare a value with the metric the entry or rule names. Another metric
+  about the same device, such as system memory for a heap, is a different
+  number.
 - Prefer aggregates first, raw log lines second, and only for what stood out.
 - Split a count by the line's own fields (task, status, client address)
   before naming a cause. A filter that matches none of the lines means the
