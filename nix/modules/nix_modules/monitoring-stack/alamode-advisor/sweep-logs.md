@@ -39,10 +39,12 @@ outside that range, and say how far.
    alone: it is credential stuffing only when it POSTs to that app's real
    login.
 4. Read raw lines only for the handful of changes that stood out, enough to
-   say what the errors are. Before calling a count a jump, run `baseline` on
-   the specific line that stood out (`|= "<text>"`), not only the broad
-   regex. A unit that logs a fixed burst at every start rises with its
-   starts, so before calling its count a trend, count its starts with a
+   say what the errors are. A unit's error-level count inside its range
+   still gets its distinct messages listed before you call it normal: the
+   count can hold while a new error replaces old ones. Before calling a
+   count a jump, run `baseline` on the specific line that stood out
+   (`|= "<text>"`), not only the broad regex. A unit that logs a fixed
+   burst at every start rises with its starts, so before calling its count a trend, count its starts with a
    line it logs once per start, divide, and say what started it: a deploy,
    a watchdog's own lines, or a manual `systemctl restart`. A line logged
    at boot or activation is new only if earlier boots lack it (steps in
