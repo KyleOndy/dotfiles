@@ -128,157 +128,20 @@ in
             ];
             resetPolicies = [ 1 ];
           };
+          # The Jellyfin log alerts are vmalert rules over Loki recording rules
+          # (loki.nix, vmalert.nix), so they reach Alertmanager and the advisor.
+          # Grafana keeps a provisioned rule dropped from this file until a
+          # deleteRules entry names its uid.
           rules.settings = {
             apiVersion = 1;
-            groups = [
+            deleteRules = [
               {
                 orgId = 1;
-                name = "jellyfin_log_alerts";
-                folder = "Media Services";
-                interval = "1m";
-                rules = [
-                  {
-                    uid = "jellyfin-transcode-failure";
-                    title = "Jellyfin Transcode Failure";
-                    condition = "B";
-                    data = [
-                      {
-                        refId = "A";
-                        queryType = "";
-                        relativeTimeRange = {
-                          from = 300;
-                          to = 0;
-                        };
-                        datasourceUid = "loki";
-                        model = {
-                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |= "FFmpeg exited with code" != "code 0" [5m]))'';
-                          queryType = "instant";
-                          refId = "A";
-                        };
-                      }
-                      {
-                        refId = "B";
-                        queryType = "";
-                        relativeTimeRange = {
-                          from = 0;
-                          to = 0;
-                        };
-                        datasourceUid = "-100";
-                        model = {
-                          conditions = [
-                            {
-                              evaluator = {
-                                params = [ 0 ];
-                                type = "gt";
-                              };
-                              operator = {
-                                type = "and";
-                              };
-                              query = {
-                                params = [ "B" ];
-                              };
-                              type = "query";
-                            }
-                          ];
-                          datasource = {
-                            type = "__expr__";
-                            uid = "-100";
-                          };
-                          expression = "A";
-                          reducer = "last";
-                          refId = "B";
-                          type = "threshold";
-                        };
-                      }
-                    ];
-                    noDataState = "OK";
-                    execErrState = "Error";
-                    for = "5m";
-                    annotations = {
-                      summary = "Jellyfin transcoding failures detected on tiger";
-                      description = "FFmpeg transcode failures occurred in the last 5 minutes";
-                    };
-                    labels = {
-                      severity = "critical";
-                      service = "jellyfin";
-                      host = "tiger";
-                    };
-                  }
-                  {
-                    uid = "jellyfin-playback-error";
-                    title = "Jellyfin Playback Error";
-                    condition = "B";
-                    data = [
-                      {
-                        refId = "A";
-                        queryType = "";
-                        relativeTimeRange = {
-                          from = 300;
-                          to = 0;
-                        };
-                        datasourceUid = "loki";
-                        # Jellyfin never logs a playback error as such. A play
-                        # that fails shows as the client stopping at 0 ms and
-                        # retrying, or as it asking for HLS segments no running
-                        # transcode will produce; one failed play leaves 4 to 14
-                        # of these within a minute or two.
-                        model = {
-                          expr = ''sum(count_over_time({host="tiger",unit="jellyfin.service"} |~ "Stopped at 0 ms|cannot serve" [5m]))'';
-                          queryType = "instant";
-                          refId = "A";
-                        };
-                      }
-                      {
-                        refId = "B";
-                        queryType = "";
-                        relativeTimeRange = {
-                          from = 0;
-                          to = 0;
-                        };
-                        datasourceUid = "-100";
-                        model = {
-                          conditions = [
-                            {
-                              evaluator = {
-                                params = [ 3 ];
-                                type = "gt";
-                              };
-                              operator = {
-                                type = "and";
-                              };
-                              query = {
-                                params = [ "B" ];
-                              };
-                              type = "query";
-                            }
-                          ];
-                          datasource = {
-                            type = "__expr__";
-                            uid = "-100";
-                          };
-                          expression = "A";
-                          reducer = "last";
-                          refId = "B";
-                          type = "threshold";
-                        };
-                      }
-                    ];
-                    noDataState = "OK";
-                    execErrState = "Error";
-                    # A burst leaves the 5m window in 5m, so any pending period
-                    # here outlasts it and the rule never fires.
-                    for = "0s";
-                    annotations = {
-                      summary = "A Jellyfin play failed on tiger";
-                      description = "More than 3 failed starts or missing HLS segments in 5 minutes, usually one play retrying: a DTS track on a Roku, a stalled Wi-Fi link (RokuWifiRateStuck), or an HLS resume loop (jellyfin#17966). On tiger, `journalctl -u jellyfin --since -15min | grep -E 'Stopped at 0 ms|cannot serve|RemoteIP'` names the title and the client.";
-                    };
-                    labels = {
-                      severity = "warning";
-                      service = "jellyfin";
-                      host = "tiger";
-                    };
-                  }
-                ];
+                uid = "jellyfin-transcode-failure";
+              }
+              {
+                orgId = 1;
+                uid = "jellyfin-playback-error";
               }
             ];
           };

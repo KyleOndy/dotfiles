@@ -485,7 +485,7 @@
     {
       "type": "timeseries",
       "title": "Transcode Failures",
-      "description": "Excludes code 0, which is a clean exit. Same query shape as the Grafana-managed Jellyfin Transcode Failure alert.",
+      "description": "Excludes code 0, which is a clean exit. Same lines as jellyfin:ffmpeg_failed_exits:count5m, which JellyfinFfmpegFailed alerts on.",
       "gridPos": { "h": 7, "w": 8, "x": 16, "y": 26 },
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [

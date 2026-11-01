@@ -226,6 +226,26 @@ in
                 summary: "{{ $labels.name }} is down on tiger"
                 description: "{{ $labels.name }} has not been active for 5 minutes and is not in a failed state, so it was stopped or never started. systemctl status {{ $labels.name }} on tiger."
 
+            # Two 5-minute tiles, so a burst that straddles a tile boundary
+            # still counts in full.
+            - alert: JellyfinPlaybackFailed
+              expr: sum by (host) (sum_over_time(jellyfin:playback_failure_lines:count5m[10m])) > 3
+              labels:
+                severity: warning
+                service: jellyfin
+              annotations:
+                summary: "A Jellyfin play failed on {{ $labels.host }}"
+                description: "{{ $value }} failed starts, missing HLS segments or half-written segments in 10 minutes, usually one play retrying: a DTS track on a Roku, a stalled Wi-Fi link (RokuWifiRateStuck), a stream above what the client decodes, or a segment served mid-write (Content-Length mismatch, which jellyfin-hls-stale-segments.patch prevents). On {{ $labels.host }}, `journalctl -u jellyfin --since -15min | grep -E 'Stopped at 0 ms|cannot serve|Content-Length mismatch|RemoteIP'` names the title and the client."
+
+            - alert: JellyfinFfmpegFailed
+              expr: sum by (host) (sum_over_time(jellyfin:ffmpeg_failed_exits:count5m[10m])) > 0
+              labels:
+                severity: warning
+                service: jellyfin
+              annotations:
+                summary: "Jellyfin's ffmpeg exited with an error on {{ $labels.host }}"
+                description: "A transcode or remux ffmpeg exited non-zero in the last 10 minutes; 137 is SIGKILL, after a q command went unanswered for 5 s. `journalctl -u jellyfin --since -15min | grep 'FFmpeg exited with code'` on {{ $labels.host }}, then the run's FFmpeg.*.log under /var/log/jellyfin."
+
             # Navidrome writes navidrome_info once at startup, so it is
             # present whenever the endpoint is.
             - alert: NavidromeMetricsAbsent
@@ -2060,7 +2080,7 @@ in
                 severity: warning
               annotations:
                 summary: "Loki is rejecting log pushes with 5xx"
-                description: "Alloy cannot deliver logs. Every Loki-backed panel and the two Grafana jellyfin alerts go blind while this lasts."
+                description: "Alloy cannot deliver logs. Every Loki-backed panel and every alert over a Loki recording rule goes blind while this lasts."
 
             - alert: AlloyDroppingEntries
               expr: sum by (reason) (rate(loki_write_dropped_entries_total[15m])) > 0

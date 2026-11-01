@@ -115,6 +115,25 @@ let
                 count_over_time({unit="bazarr.service"} |= "because of: AuthenticationError"
                   | regexp `Throttling (?P<provider>\S+) for` [5m])
               )
+
+      # Jellyfin never logs a failed play as such. It shows as the client
+      # stopping at 0 ms and retrying, asking for segments no running
+      # transcode will produce, or being sent a segment ffmpeg is still
+      # writing (Kestrel's Content-Length mismatch). One failed play leaves 4
+      # to 20 of these within a minute or two.
+      - name: jellyfin_logs
+        interval: 5m
+        rules:
+          - record: jellyfin:playback_failure_lines:count5m
+            expr: |
+              sum by (host) (
+                count_over_time({unit="jellyfin.service"} |~ "Stopped at 0 ms|cannot serve|Content-Length mismatch" [5m])
+              )
+          - record: jellyfin:ffmpeg_failed_exits:count5m
+            expr: |
+              sum by (host) (
+                count_over_time({unit="jellyfin.service"} |= "FFmpeg exited with code" != "code 0" [5m])
+              )
   '';
 
   # auth_enabled = false pins every stream to the "fake" tenant, and the local
