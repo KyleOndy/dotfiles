@@ -1,0 +1,125 @@
+Keep a restarted HLS run from serving its segments half-written.
+
+Jellyfin serves segment N once N+1 exists. When a client retries a remux
+one segment back (on 2026-11-01 the Projector Roku started at 255, then
+at 254), the abandoned run's 255.ts is still on disk, so the new run's
+254.ts is served while ffmpeg is writing it and Kestrel throws "Response
+Content-Length mismatch: too many bytes written". The segment muxer from
+jellyfin-remux-segment-cuts.patch writes each file in place for about
+0.5 s at -readrate 10, where the hls muxer buffers a segment and writes it
+in one burst, so this went from once in October to six times that night.
+A stop report's kill also deletes every file with the playlist's prefix
+1.5 s later, the new run's included.
+
+Before starting a run, delete this playlist's segments at and after its
+first segment, and have the delayed delete skip files written after the
+killed ffmpeg exited. Upstream 12.4 has the same readiness test and the
+same delete.
+
+--- a/Jellyfin.Api/Controllers/DynamicHlsController.cs
++++ b/Jellyfin.Api/Controllers/DynamicHlsController.cs
+@@ -1521,6 +1521,8 @@
+                     var (startSegment, startTimeTicks, segmentStarts) = GetRunStartPosition(state, segmentId, streamingRequest.CurrentRuntimeTicks);
+                     streamingRequest.StartTimeTicks = startTimeTicks;
+ 
++                    await DeleteSegmentFilesFrom(playlistPath, segmentExtension, startSegment).ConfigureAwait(false);
++
+                     state.WaitForPath = segmentPath;
+                     job = await _transcodeManager.StartFfMpeg(
+                         state,
+@@ -2219,6 +2221,35 @@
+         await DeleteFile(file.FullName, retryCount).ConfigureAwait(false);
+     }
+ 
++    private async Task DeleteSegmentFilesFrom(string playlistPath, string segmentExtension, int startSegment)
++    {
++        // A segment counts as ready once the next one exists, so a file an earlier run of this playlist left at or
++        // after the new run's start would get the new run's segment served while ffmpeg is still writing it.
++        var folder = Path.GetDirectoryName(playlistPath) ?? throw new ArgumentException("Path can't be a root directory.", nameof(playlistPath));
++        var filePrefix = Path.GetFileNameWithoutExtension(playlistPath);
++
++        List<FileSystemMetadata> files;
++        try
++        {
++            files = _fileSystem.GetFiles(folder, new[] { segmentExtension }, true, false).ToList();
++        }
++        catch (IOException)
++        {
++            return;
++        }
++
++        foreach (var file in files)
++        {
++            var name = Path.GetFileNameWithoutExtension(file.Name);
++            if (name.StartsWith(filePrefix, StringComparison.OrdinalIgnoreCase)
++                && int.TryParse(name.AsSpan(filePrefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
++                && index >= startSegment)
++            {
++                await DeleteFile(file.FullName, 0).ConfigureAwait(false);
++            }
++        }
++    }
++
+     private async Task DeleteFile(string path, int retryCount)
+     {
+         if (retryCount >= 5)
+--- a/MediaBrowser.MediaEncoding/Transcoding/TranscodeManager.cs
++++ b/MediaBrowser.MediaEncoding/Transcoding/TranscodeManager.cs
+@@ -235,9 +235,12 @@
+ 
+         job.Stop();
+ 
++        // Stop() waits for ffmpeg to exit, so a file written after this belongs to a newer job for the same playlist
++        var stoppedAt = DateTime.UtcNow;
++
+         if (delete(job.Path!))
+         {
+-            await DeletePartialStreamFiles(job.Path!, job.Type, 0, 1500).ConfigureAwait(false);
++            await DeletePartialStreamFiles(job.Path!, job.Type, 0, 1500, stoppedAt).ConfigureAwait(false);
+         }
+ 
+         if (closeLiveStream && !string.IsNullOrWhiteSpace(job.LiveStreamId))
+@@ -246,7 +249,7 @@
+         }
+     }
+ 
+-    private async Task DeletePartialStreamFiles(string path, TranscodingJobType jobType, int retryCount, int delayMs)
++    private async Task DeletePartialStreamFiles(string path, TranscodingJobType jobType, int retryCount, int delayMs, DateTime writtenBy)
+     {
+         if (retryCount >= 10)
+         {
+@@ -265,14 +268,14 @@
+             }
+             else
+             {
+-                DeleteHlsPartialStreamFiles(path);
++                DeleteHlsPartialStreamFiles(path, writtenBy);
+             }
+         }
+         catch (IOException ex)
+         {
+             _logger.LogError(ex, "Error deleting partial stream file(s) {Path}", path);
+ 
+-            await DeletePartialStreamFiles(path, jobType, retryCount + 1, 500).ConfigureAwait(false);
++            await DeletePartialStreamFiles(path, jobType, retryCount + 1, 500, writtenBy).ConfigureAwait(false);
+         }
+         catch (Exception ex)
+         {
+@@ -288,7 +291,7 @@
+         }
+     }
+ 
+-    private void DeleteHlsPartialStreamFiles(string outputFilePath)
++    private void DeleteHlsPartialStreamFiles(string outputFilePath, DateTime writtenBy)
+     {
+         var directory = Path.GetDirectoryName(outputFilePath)
+                         ?? throw new ArgumentException("Path can't be a root directory.", nameof(outputFilePath));
+@@ -296,7 +299,7 @@
+         var name = Path.GetFileNameWithoutExtension(outputFilePath);
+ 
+         var filesToDelete = _fileSystem.GetFilePaths(directory)
+-            .Where(f => f.Contains(name, StringComparison.OrdinalIgnoreCase));
++            .Where(f => f.Contains(name, StringComparison.OrdinalIgnoreCase) && _fileSystem.GetLastWriteTimeUtc(f) <= writtenBy);
+ 
+         List<Exception>? exs = null;
+         foreach (var file in filesToDelete)

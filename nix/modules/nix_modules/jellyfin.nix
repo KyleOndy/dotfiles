@@ -208,11 +208,16 @@ in
     services.jellyfin = {
       enable = true;
       # Remuxed HLS drifts from its playlist after a resume and stalls the
-      # Roku: https://github.com/jellyfin/jellyfin/issues/17966. The patch
-      # is https://github.com/jellyfin/jellyfin/pull/18383 backported to
-      # 10.11.11; no release carries it.
+      # Roku: https://github.com/jellyfin/jellyfin/issues/17966. The first
+      # patch is https://github.com/jellyfin/jellyfin/pull/18383 backported
+      # to 10.11.11; no release carries it. The second keeps a restarted run
+      # from serving a segment ffmpeg is still writing, which the first's
+      # in-place segment muxer makes frequent; 12.4 has the same race.
       package = pkgs.jellyfin.overrideAttrs (old: {
-        patches = old.patches ++ [ ./jellyfin-remux-segment-cuts.patch ];
+        patches = old.patches ++ [
+          ./jellyfin-remux-segment-cuts.patch
+          ./jellyfin-hls-stale-segments.patch
+        ];
       });
       group = cfg.group;
       # Out of dataDir, which is 0700 and holds the database and API keys, so
