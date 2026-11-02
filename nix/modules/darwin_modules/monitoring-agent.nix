@@ -103,8 +103,10 @@ in
         # Every APFS volume in a container reports the container's free
         # space, so one full disk raises one alert per volume. Data is the
         # only one whose number is actionable. The smbfs mounts are tiger's
-        # shares, already monitored on tiger.
-        "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware))($|/)"
+        # shares, already monitored on tiger. cryptexd mounts sealed,
+        # read-only images (Xcode's simulator runtimes) under a random
+        # suffix each time.
+        "--collector.filesystem.mount-points-exclude=^/(dev|nix|System/Volumes/(Preboot|Update|VM|xarts|iSCPreboot|Hardware)|private/var/run/com[.]apple[.]security[.]cryptexd)($|/)"
         "--collector.filesystem.fs-types-exclude=^(devfs|autofs|smbfs)$"
         "--collector.textfile.directory=${cfg.textfileDirectory}"
       ];
