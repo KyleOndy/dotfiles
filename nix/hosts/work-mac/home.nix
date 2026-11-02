@@ -82,6 +82,10 @@
   hmFoundry.dev = {
     java.enable = true;
 
+    # The trainer desk's shotgun, so the AirPods stay on A2DP. See
+    # docs/domestique-microphone.md.
+    domestique.inputDevice = "Shure MVX2U GEN 2";
+
     # work-config owns this host's models and provider keys; the Kagi token is
     # not one of them, so it is resolved here from the same Keychain the
     # wrapper already reads mcloud's from. The entry has to exist on this

@@ -53,6 +53,9 @@ in
     (pkgs.pagerduty.override {
       tokenCommand = "/usr/bin/security find-generic-password -s work-secrets -a pagerduty -w";
     })
+    # Sets the trainer mic's MVX2U from a preset when docked at the trainer
+    # desk, see docs/domestique-microphone.md.
+    pkgs.shurectl
   ];
 
   # The catalog and seats (alamode's modelsJsonFile and seatsFile), secrets
