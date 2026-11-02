@@ -1396,10 +1396,13 @@ in
       CMDSCRIPT ${upsSchedCmd}
       PIPEFN /run/nut/upssched.pipe
       LOCKFN /run/nut/upssched.lock
-      # Alert immediately on mains loss, and start the shutdown countdown.
-      AT ONBATT * EXECUTE onbatt-notify
+      # The monthly self-test runs about 10 s on battery, so the alert waits
+      # 30 s. The shutdown countdown starts at once.
+      AT ONBATT * START-TIMER onbatt-notify 30
       AT ONBATT * START-TIMER shutdown ${toString upsShutdownSeconds}
-      # Power restored: clear the alert and cancel the shutdown.
+      # Power restored: clear the alert and cancel the shutdown. Alertmanager
+      # sends nothing for a resolve whose firing it never notified.
+      AT ONLINE * CANCEL-TIMER onbatt-notify
       AT ONLINE * EXECUTE online-notify
       AT ONLINE * CANCEL-TIMER shutdown
       # Battery nearly empty: last-warning alert.
