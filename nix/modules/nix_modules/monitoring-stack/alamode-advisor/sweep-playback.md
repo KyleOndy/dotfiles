@@ -51,7 +51,10 @@ Steps:
    - `Not throttling transcoder gap -`: a negative gap means the player has
      caught up with ffmpeg and is starved. `Throttling transcoder gap` and
      `Sending pause command` are Jellyfin holding back an ffmpeg that is
-     180 seconds ahead, which is normal.
+     180 seconds ahead, which is normal. The gap is ffmpeg's position minus
+     the end of the last segment the client fetched, so ffmpeg's position
+     minus the gap is how far the client has downloaded. Segments on disk
+     past that are not in the client's buffer.
 4. For each play that stood out, read its ffmpeg runs: the command line
    (`-codec:v:0 copy` is video passed through, `h264_qsv` or `hevc_qsv` is
    a GPU encode, `libmp3lame` is audio converted), the input's streams,
@@ -60,8 +63,10 @@ Steps:
    `speed=`. A `dup=` count that jumps right after a demuxer error is
    damaged input, not frame-rate conversion. Speed below 1x while unthrottled means tiger could not keep
    up. A `frame=` line just before `Transcoding is paused` is the throttle
-   holding ffmpeg, not where the run ended. Its end is its last `frame=`
-   line, beside the `video:...KiB` totals. Before calling a track short,
+   holding ffmpeg, not where the run ended. Its end is the last `frame=`
+   line in the log, printed after the `[out#0/...] video:...KiB` totals;
+   read it from the log's tail, not from an earlier match. Before calling a
+   track short,
    compare that frame count with the input's duration and frame rate. Runs seconds apart are someone scrubbing when their `-ss` moves and
    the client retrying when it repeats. Compare the input's video bitrate
    with the client's limit: a Roku decodes HEVC up to 40 Mb/s average and
@@ -95,10 +100,17 @@ Steps:
      upstream fix, which runs such a remux with `-f segment` and
      `-segment_times`. Judge the muxer only from remux runs
      (`FFmpeg.DirectStream-*`, `FFmpeg.Remux-*`): `FFmpeg.Transcode-*`
-     runs re-encode and always use `-f hls`. A `-f hls` remux of an mkv
-     means the fix is not deployed. A stall under `-f segment` with
+     runs re-encode and always use `-f hls`. Read the muxer from the run's
+     `-f` option or its `Output #0, <muxer>` line, never from the `.m3u8`
+     Jellyfin names when it stops a job, which every HLS job has. The fix
+     needs keyframe data, which tiger extracts for mkv only, so a remux of
+     any other container runs `-f hls` by design, and a `-f hls` remux of
+     an mkv means the fix is not deployed. A stall under `-f segment` with
      `Content-Length mismatch` lines is a segment served mid-write; one
      without them, on an input above the client's limit, is the client.
+     So is a client whose `PingTranscodingJob` calls and segment requests
+     stop in the same second with no retry: it hung on its own. A restart
+     that resumes past the stall point says nothing about the file there.
 7. Before writing, drop any finding that matches an entry under
    Acknowledged issues below, or that rests on lines you did not read this
    run, and name what you dropped, and why, under Checked.
