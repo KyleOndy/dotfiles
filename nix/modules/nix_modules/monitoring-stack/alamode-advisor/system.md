@@ -12,7 +12,10 @@ instead.
   Radarr, Lidarr, Prowlarr, Bazarr, SABnzbd, qBittorrent inside a PIA
   WireGuard namespace), Immich, Navidrome, and a NUT server for the UPS.
 - pika: x86_64 NixOS, an ODROID-H2 holding the second backup copy. It pulls
-  from tiger; tiger cannot reach it.
+  from tiger; tiger cannot reach it. Its syncoid pulls run at 00:00 local
+  (05:00Z in EST) beside histdb-backup, with nix-gc on Mondays, so pika's
+  slowest scrapes and warmest temperatures fall in the hour after local
+  midnight. Size a night's pull before blaming the other jobs.
 - cogsworth: aarch64 NixOS on a Raspberry Pi 5, a kiosk display that also runs
   birdnet-go. The Pi 5 throttles its Arm cores progressively from 80 °C.
   It is on Wi-Fi only. While its link is down, vmagent buffers its metrics
@@ -69,7 +72,10 @@ host. Suggesting a command Kyle could run to look closer is fine.
   `rate(node_pressure_memory_waiting_seconds_total[5m])`. Low `MemAvailable`
   alone is not a finding.
 - tiger's `storage` pool is one raidz1 vdev of three disks, `scratch` is a
-  single NVMe, and pika's `tank` is a two-disk mirror. The `vdev` label of
+  single NVMe, and pika's `tank` is a two-disk mirror. Downloads land in
+  `storage/scratch-big` and an \*arr import copies them to `storage/media`,
+  so an import is a full read and write on the same three disks. Read
+  Radarr's and Sonarr's import lines before blaming SABnzbd for a busy pool. The `vdev` label of
   `zfs_vdev_errors` lists each pool's disks. A numeric `vdev` is a disk ZFS
   can no longer find by path, as in a `replacing` group mid-swap, and a
   `vdev_remove` of an UNAVAIL disk at `resilver_finish` is a `zpool replace`
