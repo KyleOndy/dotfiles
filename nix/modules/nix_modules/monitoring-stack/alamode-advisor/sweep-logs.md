@@ -37,7 +37,9 @@ outside that range, and say how far.
    who sent them, and group scanners by /24, since they rotate within one.
    Name a probe from its method, headers and body size, not its paths
    alone: it is credential stuffing only when it POSTs to that app's real
-   login.
+   login. A 4xx count above its range is volume, which the Public access
+   entries say is not a finding: report a scanner only for what got
+   through, a 2xx the entries do not list or a POST they name.
 4. Read raw lines only for the handful of changes that stood out, enough to
    say what the errors are. A unit's error-level count inside its range
    still gets its distinct messages listed before you call it normal: the
