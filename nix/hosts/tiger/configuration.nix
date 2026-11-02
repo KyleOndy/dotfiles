@@ -360,6 +360,13 @@ in
     '';
   };
 
+  # sanoid's ExecStartPre and ExecStopPost run one `zfs allow` or `zfs
+  # unallow` per dataset, each waiting on about two txg syncs. While an
+  # import copies scratch-big to media on the same three disks a txg takes
+  # 25-50 s, and the slowest command seen ran about 100 s against systemd's
+  # default 90 s, which applies per command. TimeoutSec covers the stop side.
+  systemd.services.sanoid.serviceConfig.TimeoutSec = "10min";
+
   fileSystems = {
     "/mnt/scratch-fast" = {
       device = "scratch/scratch";
