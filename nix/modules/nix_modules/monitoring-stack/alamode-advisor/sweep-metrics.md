@@ -64,7 +64,10 @@ values, never from an aggregate across them.
      `*_timestamp_seconds` value to a date; never work it back from an age
      and the time you think the query ran. A timestamp metric with one
      series per label (prefix, app, task) holds one schedule per series:
-     read each series' own history before calling a cadence broken.
+     read each series' own history before calling a cadence broken. Most
+     jobs write their timestamp only when they finish, so one past its slot
+     while `node_systemd_unit_state{name="<unit>",state="active"}` reads 1
+     is a run still going, not a missed one.
 4. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.
