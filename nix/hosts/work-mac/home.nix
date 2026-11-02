@@ -19,6 +19,7 @@
   # Enable Karabiner for trackball button remapping
   hmFoundry.desktop.input.karabiner.enable = true;
   hmFoundry.desktop.input.karabiner.pushToTalk.enable = true;
+  hmFoundry.desktop.input.karabiner.pushToTalk.pad.enable = true;
 
   # Enable work context for shell completions (Linear tickets, etc.)
   home.sessionVariables = {
