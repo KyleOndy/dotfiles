@@ -1,5 +1,6 @@
 /**
- * linear: Linear ticket lookup, comments and triage edits for alamode.
+ * linear: Linear ticket lookup, comments, triage edits and new tickets for
+ * alamode.
  *
  * Sessions run pi with its built-in MCP off (--no-mcp, and the agent dir's
  * mcp.json is reclaimed at every start, nix/pkgs/alamode-runtime/session.py),
@@ -17,8 +18,10 @@
  * The relay is what bounds writes, since bash in the session can reach the
  * same route with the same token. It passes any query and only the mutations
  * in LINEAR_MUTATIONS (nix/pkgs/alamode-relay/relay.py), compared whole after
- * collapsing whitespace, so COMMENT and UPDATE below must stay token for
- * token the same as those.
+ * collapsing whitespace, so COMMENT, UPDATE, CREATE and RELATE below must stay
+ * token for token the same as those. The relay also holds every CREATE until
+ * the user answers a dialog on the host, so the agent cannot approve its own
+ * ticket from bash.
  */
 
 import { Type } from "typebox";
@@ -35,8 +38,21 @@ const UPDATE = `mutation Update($id: String!, $input: IssueUpdateInput!) {
   issueUpdate(id: $id, input: $input) { success issue { identifier priorityLabel state { name } assignee { displayName } } }
 }`;
 
+const CREATE = `mutation Create($input: IssueCreateInput!) {
+  issueCreate(input: $input) { success issue { identifier url } }
+}`;
+
+const RELATE = `mutation Relate($input: IssueRelationCreateInput!) {
+  issueRelationCreate(input: $input) { success }
+}`;
+
 // A hung request mid-ride is dead air with nothing on screen to explain it.
 const REQUEST_TIMEOUT_MS = 8000;
+// The host dialog gives up after 120 seconds (APPROVAL_SECONDS in
+// nix/pkgs/alamode-runtime/session.py), and a name lookup precedes it.
+const CREATE_TIMEOUT_MS = 150_000;
+
+const RELATIONS = ["blocks", "related", "duplicate", "similar"] as const;
 
 // Caps live here rather than in the ride system prompt: a real ticket runs
 // several thousand characters, and every one of them slows later turns.
@@ -170,8 +186,9 @@ async function graphql(
   query: string,
   variables: Record<string, unknown>,
   signal: AbortSignal | undefined,
+  timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<GraphqlResult> {
-  const signals = [AbortSignal.timeout(REQUEST_TIMEOUT_MS)];
+  const signals = [AbortSignal.timeout(timeoutMs)];
   if (signal) signals.push(signal);
 
   let response: Response;
@@ -189,7 +206,7 @@ async function graphql(
     const name = err instanceof Error ? err.name : "";
     if (name === "TimeoutError") {
       throw new Error(
-        `Linear did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds.`,
+        `Linear did not answer within ${timeoutMs / 1000} seconds.`,
       );
     }
     if (signal?.aborted) throw new Error("Cancelled.");
@@ -621,6 +638,219 @@ export default function (pi: ExtensionAPI) {
           },
         ],
         details: { identifier: id, changed: Object.keys(input) },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "linear_create",
+    label: "Linear create",
+    description:
+      "Create a Linear issue as the user. Each create waits on a dialog on the user's screen, and only their click lets it through.",
+    promptSnippet: "Create a Linear issue",
+    promptGuidelines: [
+      "Use linear_create only when the user asks for a new ticket, and show them the title, team, project and description first.",
+      "A refused or timed-out linear_create is the user's answer. Do not retry it unless they ask.",
+      "linear_create takes the team by key such as ENG, the project and state by name, and the parent by identifier.",
+    ],
+    parameters: Type.Object({
+      team: Type.String({ description: "Team key, such as ENG." }),
+      title: Type.String({ minLength: 1, description: "One-line title." }),
+      description: Type.Optional(
+        Type.String({ description: "Issue body in Markdown." }),
+      ),
+      project: Type.Optional(
+        Type.String({
+          description: "Project name on that team, matched ignoring case.",
+        }),
+      ),
+      parent: Type.Optional(
+        Type.String({
+          description:
+            "Parent issue identifier such as ENG-123, which makes this a sub-issue.",
+        }),
+      ),
+      state: Type.Optional(
+        Type.String({
+          description:
+            "Workflow state name, such as Triage or Done. Omit for the team's default.",
+        }),
+      ),
+      assignee: Type.Optional(
+        Type.Literal("me", {
+          description: "me assigns the issue to the user. Omit for nobody.",
+        }),
+      ),
+      priority: Type.Optional(
+        Type.Union(
+          Object.keys(PRIORITIES).map((name) => Type.Literal(name)),
+          { description: "none, urgent, high, medium or low." },
+        ),
+      ),
+    }),
+    async execute(_toolCallId, params, signal) {
+      const team = params.team.trim().toUpperCase();
+      const project = params.project?.trim();
+      const parent = params.parent
+        ? checkedIdentifier(params.parent)
+        : undefined;
+
+      const declarations = ["$team: String!"];
+      const variables: Record<string, unknown> = { team };
+      if (project) {
+        declarations.push("$project: String!");
+        variables.project = project;
+      }
+      if (parent) {
+        declarations.push("$parent: String!");
+        variables.parent = parent;
+      }
+      // Two matches means the name is ambiguous, not that the first is right.
+      const { data } = await graphql(
+        `query Target(${declarations.join(", ")}) {
+          viewer { id }
+          team(id: $team) {
+            id
+            states { nodes { id name } }
+            ${project ? "projects(filter: { name: { eqIgnoreCase: $project } }, first: 2) { nodes { id name } }" : ""}
+          }
+          ${parent ? "parent: issue(id: $parent) { id }" : ""}
+        }`,
+        variables,
+        signal,
+      );
+
+      const found = data.team as {
+        id?: string;
+        states?: { nodes?: Array<{ id: string; name: string }> };
+        projects?: { nodes?: Array<{ id: string; name: string }> };
+      } | null;
+      if (!found?.id) throw new Error(`No Linear team with key ${team}.`);
+      const input: Record<string, unknown> = {
+        teamId: found.id,
+        title: oneLine(params.title),
+      };
+      if (params.description) input.description = params.description;
+      if (params.priority) input.priority = PRIORITIES[params.priority];
+
+      if (project) {
+        const matches = found.projects?.nodes ?? [];
+        if (matches.length !== 1) {
+          throw new Error(
+            matches.length === 0
+              ? `${team} has no project named "${project}".`
+              : `More than one ${team} project is named "${project}".`,
+          );
+        }
+        input.projectId = matches[0].id;
+      }
+      if (parent) {
+        const issue = data.parent as { id?: string } | null;
+        if (!issue?.id) throw new Error(`No Linear issue found for ${parent}.`);
+        input.parentId = issue.id;
+      }
+      if (params.state) {
+        const states = found.states?.nodes ?? [];
+        const wanted = params.state.trim().toLowerCase();
+        const state = states.find((s) => s.name.toLowerCase() === wanted);
+        if (!state) {
+          throw new Error(
+            `${team} has no state named "${params.state}". It has: ${states.map((s) => s.name).join(", ")}.`,
+          );
+        }
+        input.stateId = state.id;
+      }
+      if (params.assignee === "me") {
+        const viewer = data.viewer as { id?: string } | null;
+        if (!viewer?.id) throw new Error("Linear did not say who the user is.");
+        input.assigneeId = viewer.id;
+      }
+
+      const { data: created } = await graphql(
+        CREATE,
+        { input },
+        signal,
+        CREATE_TIMEOUT_MS,
+      );
+      const result = created.issueCreate as {
+        success?: boolean;
+        issue?: { identifier?: string; url?: string } | null;
+      } | null;
+      if (!result?.success || !result.issue?.identifier) {
+        throw new Error(`Linear did not create the ${team} issue.`);
+      }
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Created ${result.issue.identifier}: ${result.issue.url ?? "no url returned"}`,
+          },
+        ],
+        details: { identifier: result.issue.identifier },
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: "linear_relate",
+    label: "Linear relate",
+    description:
+      "Link two Linear issues: one blocks the other, or they are related, duplicates or similar.",
+    promptSnippet: "Link two Linear issues",
+    promptGuidelines: [
+      "Use linear_relate only when the user asks for the link, or as part of filing a ticket they approved.",
+      "With type blocks, issue is the one doing the blocking and related is the one it blocks.",
+    ],
+    parameters: Type.Object({
+      issue: Type.String({ description: "Issue identifier such as ENG-123." }),
+      related: Type.String({
+        description: "The other issue's identifier, such as ENG-124.",
+      }),
+      type: Type.Union(
+        RELATIONS.map((name) => Type.Literal(name)),
+        { description: "blocks, related, duplicate or similar." },
+      ),
+    }),
+    async execute(_toolCallId, params, signal) {
+      const a = checkedIdentifier(params.issue);
+      const b = checkedIdentifier(params.related);
+      if (a === b) throw new Error("An issue cannot be related to itself.");
+      const { data } = await graphql(
+        `
+          query Pair($a: String!, $b: String!) {
+            a: issue(id: $a) {
+              id
+            }
+            b: issue(id: $b) {
+              id
+            }
+          }
+        `,
+        { a, b },
+        signal,
+      );
+      const ids = [data.a, data.b].map(
+        (i) => (i as { id?: string } | null)?.id,
+      );
+      const missing = [a, b].filter((_, i) => !ids[i]);
+      if (missing.length > 0) {
+        throw new Error(`No Linear issue found for ${missing.join(", ")}.`);
+      }
+
+      const { data: linked } = await graphql(
+        RELATE,
+        {
+          input: { issueId: ids[0], relatedIssueId: ids[1], type: params.type },
+        },
+        signal,
+      );
+      const result = linked.issueRelationCreate as { success?: boolean } | null;
+      if (!result?.success) {
+        throw new Error(`Linear did not link ${a} and ${b}.`);
+      }
+      return {
+        content: [{ type: "text", text: `${a} ${params.type} ${b}.` }],
+        details: { issue: a, related: b, type: params.type },
       };
     },
   });

@@ -471,7 +471,7 @@ class RelayTests(unittest.TestCase):
 
     def test_scoped_linear_route(self):
         self.assertEqual(self.request(path="/tool/linear")[0], 403)
-        comment, update = relay_module.LINEAR_MUTATIONS
+        comment, update, create, relate = relay_module.LINEAR_MUTATIONS
         with (
             patch.object(
                 relay_module,
@@ -518,6 +518,16 @@ class RelayTests(unittest.TestCase):
                     "query": update,
                     "variables": {"id": "ENG-1", "input": {"assigneeId": None}},
                 },
+                {
+                    "query": relate,
+                    "variables": {
+                        "input": {
+                            "issueId": "ENG-2",
+                            "relatedIssueId": "ENG-1",
+                            "type": "blocks",
+                        }
+                    },
+                },
             ):
                 with self.subTest(query=payload["query"]):
                     self.assertEqual(send(payload)[0], 200)
@@ -544,6 +554,14 @@ class RelayTests(unittest.TestCase):
                     "variables": {"id": "ENG-1", "input": {"trashed": True}},
                 },
                 {"query": update, "variables": {"input": {"priority": 1}}},
+                {
+                    "query": create,
+                    "variables": {"input": {"teamId": "t", "title": "Unapproved"}},
+                },
+                {
+                    "query": relate,
+                    "variables": {"input": {"issueId": "ENG-1", "id": "x"}},
+                },
                 {"query": read["query"], "operationName": "x"},
                 {"query": read["query"], "variables": []},
                 {"query": "x" * 16385},
@@ -552,6 +570,77 @@ class RelayTests(unittest.TestCase):
                     self.assertEqual(send(payload)[0], 403)
             self.assertEqual(send(read, "wrong")[0], 403)
             self.assertEqual(len(self.upstream.calls), count)
+
+    def test_linear_create_waits_on_approval(self):
+        create = relay_module.LINEAR_CREATE
+        asked = []
+        answer = {"value": True}
+        opened = threading.Event()
+        release = threading.Event()
+
+        def approve(fields):
+            asked.append(fields)
+            if fields.get("title") == "Held":
+                opened.set()
+                release.wait(5)
+            return answer["value"]
+
+        with (
+            patch.object(
+                relay_module,
+                "LINEAR_URL",
+                f"http://127.0.0.1:{self.upstream.server_port}/linear/graphql",
+            ),
+            start_relay(
+                self.catalog,
+                self.credentials,
+                tool_credentials={"linear": KEY},
+                approve=approve,
+                allow_private_hosts=["127.0.0.1"],
+            ) as relay,
+        ):
+
+            def send(title, **extra):
+                connection = http.client.HTTPConnection(
+                    "127.0.0.1", relay.port, timeout=5
+                )
+                payload = {
+                    "query": create,
+                    "variables": {"input": {"teamId": "t", "title": title, **extra}},
+                }
+                connection.request(
+                    "POST",
+                    "/tool/linear",
+                    json.dumps(payload),
+                    {"Authorization": "Bearer " + relay.token},
+                )
+                response = connection.getresponse()
+                result = response.status
+                response.read()
+                connection.close()
+                return result
+
+            self.assertEqual(send("Approved"), 200)
+            self.assertEqual(asked[-1], {"teamId": "t", "title": "Approved"})
+            self.assertEqual(self.upstream.calls[-1][2]["query"], create)
+            count = len(self.upstream.calls)
+            answer["value"] = False
+            self.assertEqual(send("Refused"), 403)
+            answer["value"] = "yes"
+            self.assertEqual(send("Not a bool"), 403)
+            self.assertEqual(send("Unlisted field", labelIds=["x"]), 403)
+            self.assertEqual(asked[-1]["title"], "Not a bool")
+            answer["value"] = True
+            held = []
+            waiting = threading.Thread(target=lambda: held.append(send("Held")))
+            waiting.start()
+            self.assertTrue(opened.wait(5))
+            self.assertEqual(send("Stacked"), 403)
+            release.set()
+            waiting.join(5)
+            self.assertEqual(held, [200])
+            self.assertNotIn("Stacked", [fields["title"] for fields in asked])
+            self.assertEqual(len(self.upstream.calls), count + 1)
 
     def test_bell_route(self):
         self.assertEqual(self.request(path="/tool/bell")[0], 403)

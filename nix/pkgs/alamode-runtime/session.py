@@ -24,6 +24,7 @@ import termios
 import textwrap
 import time
 from urllib.parse import urlsplit
+import urllib.request
 
 sys.path.insert(0, str(Path(__file__).parent))
 from common import request, socket_directory
@@ -1594,6 +1595,109 @@ def bell(config):
     return ring
 
 
+# Seconds the issue-create dialog stays up before it refuses on its own.
+APPROVAL_SECONDS = 120
+APPROVAL_DESCRIPTION_CHARS = 500
+# issueCreate input field: the root query that resolves its id, and the field
+# a person reads in its place.
+LINEAR_NAMES = {
+    "teamId": ("team", "key"),
+    "projectId": ("project", "name"),
+    "parentId": ("issue", "identifier"),
+    "stateId": ("workflowState", "name"),
+    "assigneeId": ("user", "displayName"),
+}
+APPROVAL_SCRIPT = (
+    "on run argv",
+    'set answer to display dialog (item 1 of argv) with title "alamode: Linear"'
+    ' buttons {"Refuse", "Create"} default button "Refuse"'
+    f" giving up after {APPROVAL_SECONDS}",
+    "return button returned of answer",
+    "end run",
+)
+
+
+def linear_names(key, fields):
+    """Readable names for the ids in an issueCreate input, missing where the
+    lookup failed, so the dialog falls back to the raw id."""
+    present = [name for name in LINEAR_NAMES if isinstance(fields.get(name), str)]
+    if not present:
+        return {}
+    query = (
+        "query Names("
+        + ", ".join(f"${name}: String!" for name in present)
+        + ") { "
+        + " ".join(
+            f"{name}: {LINEAR_NAMES[name][0]}(id: ${name}) {{ {LINEAR_NAMES[name][1]} }}"
+            for name in present
+        )
+        + " }"
+    )
+    lookup = urllib.request.Request(
+        "https://api.linear.app/graphql",
+        data=json.dumps(
+            {"query": query, "variables": {name: fields[name] for name in present}}
+        ).encode(),
+        headers={"Authorization": key, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(lookup, timeout=10) as response:
+            data = json.load(response).get("data") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return {name: (data.get(name) or {}).get(LINEAR_NAMES[name][1]) for name in present}
+
+
+def linear_approval(key):
+    """The relay's approve for issueCreate: a host dialog, which a session
+    cannot click because srt leaves Apple Events off. None without a key or
+    off darwin, which refuses every create."""
+    if not key or sys.platform != "darwin":
+        return None
+
+    def approve(fields):
+        names = linear_names(key, fields)
+
+        def shown(name):
+            value = fields.get(name)
+            if value is None:
+                return "none"
+            return names.get(name) or f"{value} (unresolved)"
+
+        description = str(fields.get("description") or "").strip()
+        if len(description) > APPROVAL_DESCRIPTION_CHARS:
+            description = description[:APPROVAL_DESCRIPTION_CHARS] + " [...]"
+        text = "\n".join(
+            [
+                "Create a Linear issue?",
+                "",
+                str(fields.get("title") or "(no title)"),
+                "",
+                f"Team {shown('teamId')}, project {shown('projectId')}",
+                f"Parent {shown('parentId')}, state {shown('stateId')}",
+                f"Assignee {shown('assigneeId')}, priority {fields.get('priority', 'none')}",
+                "",
+                description or "(no description)",
+            ]
+        )
+        command = ["/usr/bin/osascript"]
+        for line in APPROVAL_SCRIPT:
+            command += ["-e", line]
+        try:
+            result = subprocess.run(
+                [*command, text],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=APPROVAL_SECONDS + 10,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return result.returncode == 0 and result.stdout.strip() == "Create"
+
+    return approve
+
+
 # The darwin sandbox gives these shapes network, so the session daemon's
 # pre-build hook must refuse each one (nix-canary.nix).
 NIX_CANARY_REFUSED = ("fod", "fetchurl", "localnet")
@@ -1711,6 +1815,7 @@ def run(config, manifest, args, home):
                 allow_private_hosts=config.get("privateProviderHosts", []),
                 tool_credentials=tool_credentials,
                 bell=bell(config),
+                approve=linear_approval(tool_credentials.get("linear")),
             )
         )
         runtime = prepare(config, manifest, relay)

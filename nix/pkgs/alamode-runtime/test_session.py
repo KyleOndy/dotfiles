@@ -2318,6 +2318,92 @@ class PolicyTests(unittest.TestCase):
             session.safe_clear(self.work, "runtime/agent/bin")
 
 
+class LinearApprovalTests(unittest.TestCase):
+    FIELDS = {
+        "teamId": "team-uuid",
+        "projectId": "project-uuid",
+        "title": "Fix the flaky probe",
+        "description": "x" * 600,
+        "priority": 3,
+    }
+
+    def test_refuses_without_a_dialog(self):
+        self.assertIsNone(session.linear_approval(""))
+        with patch.object(session.sys, "platform", "linux"):
+            self.assertIsNone(session.linear_approval("key"))
+
+    def test_dialog_answer_and_fallback_names(self):
+        calls = []
+
+        def run(command, **kwargs):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout=answer, stderr="")
+
+        with (
+            patch.object(session.sys, "platform", "darwin"),
+            patch.object(session.urllib.request, "urlopen", side_effect=OSError),
+            patch.object(session.subprocess, "run", side_effect=run),
+        ):
+            approve = session.linear_approval("key")
+            for answer, approved in (
+                ("Create\n", True),
+                ("Refuse\n", False),
+                ("", False),
+            ):
+                with self.subTest(answer=answer):
+                    self.assertIs(approve(self.FIELDS), approved)
+        text = calls[-1][-1]
+        self.assertEqual(calls[-1][0], "/usr/bin/osascript")
+        self.assertIn("Fix the flaky probe", text)
+        self.assertIn(
+            "Team team-uuid (unresolved), project project-uuid (unresolved)", text
+        )
+        self.assertIn("Parent none, state none", text)
+        self.assertIn("x" * session.APPROVAL_DESCRIPTION_CHARS + " [...]", text)
+        self.assertNotIn("x" * (session.APPROVAL_DESCRIPTION_CHARS + 1), text)
+
+    def test_dialog_shows_resolved_names(self):
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        lookups = []
+
+        def urlopen(request, timeout):
+            lookups.append(json.loads(request.data))
+            return Response(
+                json.dumps(
+                    {
+                        "data": {
+                            "teamId": {"key": "OPS"},
+                            "projectId": {"name": "Ad Hoc"},
+                        }
+                    }
+                ).encode()
+            )
+
+        with (
+            patch.object(session.sys, "platform", "darwin"),
+            patch.object(session.urllib.request, "urlopen", side_effect=urlopen),
+            patch.object(
+                session.subprocess,
+                "run",
+                side_effect=lambda command, **_: subprocess.CompletedProcess(
+                    command, 1, stdout="", stderr="cancelled"
+                ),
+            ) as run,
+        ):
+            self.assertFalse(session.linear_approval("key")(self.FIELDS))
+        self.assertEqual(
+            lookups[0]["variables"],
+            {"teamId": "team-uuid", "projectId": "project-uuid"},
+        )
+        self.assertIn("Team OPS, project Ad Hoc", run.call_args.args[0][-1])
+
+
 class StatsTests(unittest.TestCase):
     """alamode stats: usage totals derived on demand from the session
     records pi already writes under each retained workspace."""

@@ -27,6 +27,12 @@ LINEAR_WRITE = re.compile(r"(?<![_0-9A-Za-z])(?:mutation|subscription)(?![_0-9A-
 # collapsed, each mapped to its variables: None for a string, else the input
 # fields that variable may set. Matched whole, so a session cannot alias, batch
 # or extend a mutation. extensions/linear.ts sends these same documents.
+# A create also waits on the relay's approve, a host dialog the session can
+# neither reach nor answer.
+LINEAR_CREATE = (
+    "mutation Create($input: IssueCreateInput!) { "
+    "issueCreate(input: $input) { success issue { identifier url } } }"
+)
 LINEAR_MUTATIONS = {
     "mutation Comment($input: CommentCreateInput!) { "
     "commentCreate(input: $input) { success comment { url } } }": {
@@ -37,6 +43,22 @@ LINEAR_MUTATIONS = {
     "priorityLabel state { name } assignee { displayName } } } }": {
         "id": None,
         "input": {"stateId", "assigneeId", "priority"},
+    },
+    LINEAR_CREATE: {
+        "input": {
+            "teamId",
+            "projectId",
+            "parentId",
+            "title",
+            "description",
+            "stateId",
+            "assigneeId",
+            "priority",
+        },
+    },
+    "mutation Relate($input: IssueRelationCreateInput!) { "
+    "issueRelationCreate(input: $input) { success } }": {
+        "input": {"issueId", "relatedIssueId", "type"},
     },
 }
 # Seconds. A request inside this window after a ring is answered but silent,
@@ -435,6 +457,11 @@ class _Handler(BaseHTTPRequestHandler):
             if not _linear_payload(payload):
                 self._error(403, "Linear request is outside this capability")
                 return
+            if " ".join(
+                payload["query"].split()
+            ) == LINEAR_CREATE and not relay.approved(payload["variables"]["input"]):
+                self._error(403, "Linear issue creation was not approved")
+                return
         else:
             if not isinstance(payload, dict) or payload.get("model") != route["model"]:
                 self._error(403, "Model is outside this capability")
@@ -627,6 +654,7 @@ class Relay:
         allowed_models=None,
         tool_credentials=None,
         bell=None,
+        approve=None,
         allow_private_hosts=(),
         request_limit=1000,
         max_concurrency=8,
@@ -720,6 +748,10 @@ class Relay:
         self.rung_at = -math.inf
         if bell is not None:
             self.routes["/tool/bell"] = {"api": "bell"}
+        # approve takes an issueCreate input and blocks its handler until a
+        # person answers. None refuses every create.
+        self.approve = approve
+        self.approving = threading.Lock()
         self.server = _Server(("127.0.0.1", 0), _Handler)
         self.server.relay = self
         self.port = self.server.server_port
@@ -760,6 +792,15 @@ class Relay:
                         self._cancel(client, connection)
                 except (OSError, ValueError):
                     pass
+
+    def approved(self, fields):
+        # One dialog at a time, so a session looping on creates cannot stack them.
+        if self.approve is None or not self.approving.acquire(blocking=False):
+            return False
+        try:
+            return self.approve(fields) is True
+        finally:
+            self.approving.release()
 
     @staticmethod
     def _cancel(client, connection):
