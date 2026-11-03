@@ -49,6 +49,7 @@
       "Read(//tmp/**)",
       "WebSearch"
     ],
+    "ask": ["mcp__claude_ai_Linear__save_issue"],
     "deny": [
       "Read(//**/.env)",
       "Read(//**/.env.*)",
