@@ -1841,6 +1841,9 @@ in
                 summary: "BirdNET-Go on cogsworth exports no prediction counter"
                 description: "cogsworth is reporting but birdnet_predictions_total is missing, so CogsworthBirdnetNoAudio and CogsworthBirdnetNoDetections cannot fire. The counter appears on the first analysed window, so either birdnet-go is down (InstanceDown on job birdnet-go), telemetry is off in its config, an upgrade renamed the metric, or no stream has delivered audio since it started. On cogsworth: `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state}'`."
 
+            # birdnet-go's audio module logs only to logs/audio.log, and each
+            # line's url field holds the stream credential, so the runbooks
+            # below print named fields.
             - alert: CogsworthBirdnetNoAudio
               expr: sum by (host) (increase(birdnet_predictions_total{host="cogsworth"}[30m])) == 0
               for: 5m
@@ -1849,7 +1852,7 @@ in
                 service: birdnet-go
               annotations:
                 summary: "BirdNET-Go on cogsworth has analysed no audio for 30 minutes"
-                description: "No camera stream has delivered audio for 30 minutes, so the kiosk's bird feed has stopped moving. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows which stream is down, and `journalctl -u birdnet-go -g ffmpeg` shows why. The streams come off the UniFi Protect NVR, so a camera or NVR outage lands here too."
+                description: "No camera stream has delivered audio for 30 minutes, so the kiosk's bird feed has stopped moving. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows which stream is down, and `sudo jq -r '[.time, .level, .msg] | @tsv' /var/lib/birdnet-go/logs/audio.log | grep -v INFO | tail -n 30` shows why. The streams come off the UniFi Protect NVR, so a camera or NVR outage lands here too."
 
             # Per stream, from birdnet_logs in loki.nix, since one dead camera
             # of two only halves the counter above. A source counts once it has
@@ -1868,7 +1871,7 @@ in
                 service: birdnet-go
               annotations:
                 summary: "BirdNET-Go stream {{ $labels.source }} on cogsworth has reported nothing for 30 minutes"
-                description: "birdnet-go logs a pipeline stats line for each stream every 5 minutes it analyses any audio from it, and {{ $labels.source }} has logged none in 30 minutes, so that camera's birds are missing from the kiosk feed. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows the stream's state, and `journalctl -u birdnet-go -g ffmpeg` shows why. It fires only while another stream still reports, so every stream going quiet at once, whether birdnet-go itself or its logs not reaching Loki, is left to CogsworthBirdnetNoAudio and LokiRulerDown. A source named unnamed has no name in the birdnet-go config, and its real label would have been its stream URL."
+                description: "birdnet-go logs a pipeline stats line for each stream every 5 minutes it analyses any audio from it, and {{ $labels.source }} has logged none in 30 minutes, so that camera's birds are missing from the kiosk feed. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows the stream's state, and `sudo jq -r '[.time, .level, .msg] | @tsv' /var/lib/birdnet-go/logs/audio.log | grep -v INFO | tail -n 30` shows why. It fires only while another stream still reports, so every stream going quiet at once, whether birdnet-go itself or its logs not reaching Loki, is left to CogsworthBirdnetNoAudio and LokiRulerDown. A source named unnamed has no name in the birdnet-go config, and its real label would have been its stream URL."
 
             # Detections have not dropped below ~250 a day since the feed
             # started in 2026-09, so a whole day of none is never just a
