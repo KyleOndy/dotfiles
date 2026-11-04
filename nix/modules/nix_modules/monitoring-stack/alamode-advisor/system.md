@@ -23,7 +23,13 @@ instead.
   so during an outage a lost link and a dead box look the same: say both
   are possible rather than pick one. Once data is back,
   `node_network_carrier{host="cogsworth",device="wlan0"}` and
-  `node_boot_time_seconds` tell them apart.
+  `node_boot_time_seconds` tell them apart. birdnet-go's journal holds its
+  pipeline stats lines but not its audio events: ffmpeg exits, stream
+  restarts and connection errors go only to `logs/audio.log` on cogsworth,
+  which no tool reads, so a quiet journal says nothing about a stream. Judge
+  a stream from `birdnet:pipeline_inferences:avg5m`, about 200 when healthy.
+  A source named `rtsp_<hash>` is a real stream's capture id, logged while
+  that stream restarts.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
   gaps in its data are expected and not a finding on their own. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
