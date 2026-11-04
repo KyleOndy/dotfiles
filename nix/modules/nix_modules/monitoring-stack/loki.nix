@@ -65,6 +65,15 @@ let
                   | logfmt source
                   | label_format source=`{{ if contains "://" .source }}unnamed{{ else }}{{ .source }}{{ end }}` [5m])
               )
+          - record: birdnet:pipeline_inferences:avg5m
+            expr: |
+              avg by (host, source) (
+                avg_over_time({unit="birdnet-go.service"} |= "operation=pipeline_stats_report"
+                  | logfmt source, inferences
+                  | label_format source=`{{ if contains "://" .source }}unnamed{{ else }}{{ .source }}{{ end }}`
+                  | unwrap inferences
+                  | __error__="" [5m])
+              )
 
       # cogsworth exports nothing about its mail channel, but mulog writes
       # one JSON line per message outcome and one per agent completion.

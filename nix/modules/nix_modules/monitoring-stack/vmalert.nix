@@ -1876,6 +1876,22 @@ in
                 summary: "BirdNET-Go stream {{ $labels.source }} on cogsworth has reported nothing for 30 minutes"
                 description: "birdnet-go logs a pipeline stats line for each stream every 5 minutes it analyses any audio from it, and {{ $labels.source }} has logged none in 30 minutes, so that camera's birds are missing from the kiosk feed. On cogsworth, `curl -s localhost:8090/api/v2/streams/health | jq '.[] | {name, is_receiving_data, process_state, restart_count}'` shows the stream's state, and `sudo jq -r '[.time, .level, .msg] | @tsv' /var/lib/birdnet-go/logs/audio.log | grep -v INFO | tail -n 30` shows why. It fires only while another stream still reports, so every stream going quiet at once, whether birdnet-go itself or its logs not reaching Loki, is left to CogsworthBirdnetNoAudio and LokiRulerDown. A source named unnamed has no name in the birdnet-go config, and its real label would have been its stream URL."
 
+            # A stream losing part of its audio still reports, and the health
+            # API reads it as receiving once its ffmpeg restarts, so neither
+            # rule above sees it. A healthy stream analyses about 200 windows
+            # in 5 minutes.
+            - alert: CogsworthBirdnetStreamDegraded
+              expr: |-
+                max by (host, source) (max_over_time(birdnet:pipeline_inferences:avg5m{host="cogsworth",source!~"rtsp_[0-9a-f]{8}"}[30m])) < 150
+                and on (host) up{host="cogsworth",job="node"} == 1
+              for: 5m
+              labels:
+                severity: warning
+                service: birdnet-go
+              annotations:
+                summary: "BirdNET-Go stream {{ $labels.source }} on cogsworth has analysed under 75% of its audio for 30 minutes"
+                description: "birdnet-go analyses about 200 windows per stream in 5 minutes, and {{ $labels.source }} has stayed under 150 for 30 minutes, so that camera's birds are being missed. Check cogsworth's Wi-Fi first: unpoller_client_radio_transmit_rate_bps for cogsworth fell to 1 Mb/s the first time this happened. On cogsworth, `sudo jq -r '[.time, .level, .msg] | @tsv' /var/lib/birdnet-go/logs/audio.log | grep -v INFO | tail -n 30` shows ffmpeg's exits."
+
             # Detections have not dropped below ~250 a day since the feed
             # started in 2026-09, so a whole day of none is never just a
             # quiet night. The `or` keeps the rule alive when birdnet-go has
