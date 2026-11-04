@@ -51,7 +51,8 @@ Steps:
    - `Not throttling transcoder gap -`: a negative gap means the player has
      caught up with ffmpeg and is starved. `Throttling transcoder gap` and
      `Sending pause command` are Jellyfin holding back an ffmpeg that is
-     180 seconds ahead, which is normal. The gap is ffmpeg's position minus
+     180 seconds ahead, which is normal. Gaps are logged in ticks, 1e7 per
+     second, so `1780100000` is 178 s. The gap is ffmpeg's position minus
      the end of the last segment the client fetched, so ffmpeg's position
      minus the gap is how far the client has downloaded. Segments on disk
      past that are not in the client's buffer.
@@ -103,9 +104,10 @@ Steps:
      runs re-encode and always use `-f hls`. Read the muxer from the run's
      `-f` option or its `Output #0, <muxer>` line, never from the `.m3u8`
      Jellyfin names when it stops a job, which every HLS job has. The fix
-     needs keyframe data, which tiger extracts for mkv only, so a remux of
-     any other container runs `-f hls` by design, and a `-f hls` remux of
-     an mkv means the fix is not deployed. A stall under `-f segment` with
+     needs keyframe data, which upstream extracts only for files named
+     `.mkv`, so any other name runs `-f hls` by design, Matroska in another
+     extension included, and a `-f hls` remux of a `.mkv` file means the fix
+     is not deployed. A stall under `-f segment` with
      `Content-Length mismatch` lines is a segment served mid-write; one
      without them, on an input above the client's limit, is the client.
      So is a client whose `PingTranscodingJob` calls and segment requests
