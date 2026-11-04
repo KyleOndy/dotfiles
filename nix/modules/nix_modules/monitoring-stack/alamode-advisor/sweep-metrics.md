@@ -61,7 +61,10 @@ values, never from an aggregate across them.
      the raw samples before calling a day's traffic use, and judge the day
      without that sample. A new MAC whose second hex digit is 2, 6, A
      or E is a randomized address, a phone or a visitor's; report one only
-     on the IoT or guest network, or once it stays for days.
+     on the IoT or guest network, or once it stays for days. Before calling
+     one new, read `tfirst_over_time(unpoller_client_uptime_seconds{mac="<mac>"}[120d])`,
+     since the 14-day baseline hides an earlier stay, and compare its name
+     and AP with MACs that stopped just before it appeared.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps drifting later even when still inside
