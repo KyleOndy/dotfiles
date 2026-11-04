@@ -7,7 +7,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     nixos-raspberrypi = {
-      url = "github:nvmd/nixos-raspberrypi/main";
+      # develop, because main ships linux 6.18.34, short of the CVE-2026-98432
+      # fix in 6.18.56. Back to main once main carries 6.18.56 or later.
+      url = "github:nvmd/nixos-raspberrypi/develop";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # forge's guest VM. nixos-lima supplies the guest module that makes a NixOS
