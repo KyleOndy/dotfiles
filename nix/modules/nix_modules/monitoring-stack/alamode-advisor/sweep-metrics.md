@@ -56,7 +56,10 @@ values, never from an aggregate across them.
      counter sat flat at 0 out of the range, and hold a client only to a
      threshold an acknowledgement sets for that client. Read a client's
      labels and AP over the whole window, not at sweep time: a client that
-     looks fixed still roams. A new MAC whose second hex digit is 2, 6, A
+     looks fixed still roams. A client's byte, packet and retry counters
+     can jump in one 1m sample with no WAN or VAP traffic behind it, so read
+     the raw samples before calling a day's traffic use, and judge the day
+     without that sample. A new MAC whose second hex digit is 2, 6, A
      or E is a randomized address, a phone or a visitor's; report one only
      on the IoT or guest network, or once it stays for days.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
