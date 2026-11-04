@@ -268,6 +268,13 @@ in
   # Max = VA_BITS - PAGE_SHIFT - 3 = 47 - 14 - 3 = 30.
   boot.kernel.sysctl."vm.mmap_rnd_bits" = lib.mkForce 30;
 
+  # STOPGAP for CVE-2026-98432, not a fix. Blocks new MPTCP sockets, the
+  # reported remote root path through Caddy's :80 listener, but the
+  # use-after-free stays reachable over plain IPv4 TCP. Listeners opened
+  # before this applies keep MPTCP until they restart. Delete once this host
+  # boots 6.18.56 or later.
+  boot.kernel.sysctl."net.mptcp.enabled" = 0;
+
   # Reduce SD card wear by disabling access time updates
   fileSystems."/" = lib.mkForce {
     device = "/dev/disk/by-label/NIXOS_SD";
