@@ -134,7 +134,18 @@ in
     # because it has no pools.
     hostId = "ae260477";
     useDHCP = lib.mkDefault true;
+
+    # pika opens every connection to tiger itself, so nothing in the DMZ has
+    # reason to reach sshd, and a compromised tiger must not. sshd answers
+    # only the LAN. IPv6 gets no rule, so ssh over v6 is refused.
+    firewall = {
+      enable = lib.mkForce true;
+      extraCommands = ''
+        iptables -A nixos-fw -s 10.24.89.0/24 -p tcp --dport 22 -j nixos-fw-accept
+      '';
+    };
   };
+  services.openssh.openFirewall = false;
 
   time.timeZone = "America/New_York";
   i18n = {
