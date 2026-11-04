@@ -235,6 +235,8 @@ function formatLabels(labels: Labels): string {
 function formatNumber(n: number): string {
   if (!Number.isFinite(n)) return String(n);
   if (Number.isInteger(n) && Math.abs(n) < 1e12) return String(n);
+  // Five significant figures round a unix timestamp to the nearest 100,000 s.
+  if (Math.abs(n) >= 1e5 && Math.abs(n) < 1e12) return String(Math.round(n));
   return Number(n.toPrecision(5)).toString();
 }
 
