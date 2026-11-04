@@ -126,6 +126,7 @@ in
               enabled: true
               type: rtsp
               transport: tcp
+              mediaMode: audio-only
               models: [birdnet]
         privacyfilter:
           enabled: true
