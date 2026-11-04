@@ -39,7 +39,7 @@ nix/
 ├── nixcats/        neovim config as a nixCats package
 ├── checks/         flake checks
 └── secrets/        sops-encrypted secrets
-docs/  keyboard/  tf/  fuji-recipes/
+docs/  keyboard/  tf/  fuji-recipes/  3d-models/
 ```
 
 Every `.nix` under `nix/modules/` is imported automatically on the platform
