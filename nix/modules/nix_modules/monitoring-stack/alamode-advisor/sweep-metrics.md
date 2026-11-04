@@ -18,7 +18,10 @@ change, read it at a 1m step over the 10 minutes around it: one sample out
 of line is a spike, not a level. Fit a trend toward a limit with `predict_linear` over `[7d]`,
 and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
-you used. A series that a periodic job cuts back, such as a root filesystem
+you used. `zfs_pool_allocated_bytes` is raw, so on the raidz1 `storage` pool it
+reads 1.5x what the datasets use, and sanoid's daily prune at about 01:00Z steps
+it down when snapshots release replaced files. Fit a pool's growth on
+`zfs_dataset_used_by_dataset_bytes`, never across a prune. A series that a periodic job cuts back, such as a root filesystem
 at the weekly nix-gc, climbs between runs: compare its peaks across runs,
 not the slope inside one. nix-gc runs Mondays at 00:00 tiger time
 (America/New_York). It deletes generations older than 35 days, keeping the
