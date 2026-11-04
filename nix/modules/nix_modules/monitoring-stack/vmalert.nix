@@ -1857,10 +1857,13 @@ in
             # Per stream, from birdnet_logs in loki.nix, since one dead camera
             # of two only halves the counter above. A source counts once it has
             # reported in 24h, so one renamed or removed in birdnet-go.nix
-            # fires until a day after its last report.
+            # fires until a day after its last report. A stats tick that lands
+            # while birdnet-go re-registers a restarted stream logs the raw
+            # rtsp_<hash> id instead of the name, which is not a stream.
+            # https://github.com/tphakala/birdnet-go/blob/30197a29859303db226f2d8d68146f2b3b3c0490/internal/analysis/processor/pipeline_stats.go#L114-L120
             - alert: CogsworthBirdnetStreamSilent
               expr: |-
-                max by (host, source) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth"}[24h]))
+                max by (host, source) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth",source!~"rtsp_[0-9a-f]{8}"}[24h]))
                 unless
                 max by (host, source) (max_over_time(birdnet:pipeline_stats_reports:count5m{host="cogsworth"}[30m]))
                 and on (host) up{host="cogsworth",job="node"} == 1
