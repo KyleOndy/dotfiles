@@ -49,7 +49,20 @@
       "Read(//tmp/**)",
       "WebSearch"
     ],
-    "ask": ["mcp__claude_ai_Linear__save_issue"],
+    "ask": [
+      "mcp__claude_ai_Linear__save_issue",
+      "mcp__claude_ai_Slack__slack_send_message",
+      "mcp__claude_ai_Slack__slack_schedule_message",
+      "mcp__claude_ai_Notion__notion-create-pages",
+      "mcp__claude_ai_Notion__notion-update-page",
+      "mcp__claude_ai_Notion__notion-create-comment",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(linear issue create:*)",
+      "Bash(linear issue comment add:*)"
+    ],
     "deny": [
       "Read(//**/.env)",
       "Read(//**/.env.*)",
