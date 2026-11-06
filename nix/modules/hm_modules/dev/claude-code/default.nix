@@ -56,6 +56,10 @@ let
     pkgs.coreutils
     pkgs.git
   ];
+  promptGuard = mkScript "prompt-guard" ./hooks/prompt-guard.sh [
+    pkgs.jq
+    pkgs.gnugrep
+  ];
 in
 {
   options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
@@ -85,6 +89,7 @@ in
 
       ".claude/hooks/comment-lint.sh".source = commentLint;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
+      ".claude/hooks/prompt-guard.sh".source = promptGuard;
       ".claude/hooks/prose-gate.sh".source = proseGate;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
 
