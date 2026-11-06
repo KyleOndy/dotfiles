@@ -47,6 +47,15 @@ let
     pkgs.gnused
     pkgs.coreutils
   ];
+  # gnugrep for -P, which the emoji check needs.
+  proseGate = mkScript "prose-gate" ./hooks/prose-gate.sh [
+    pkgs.jq
+    pkgs.gnugrep
+    pkgs.gnused
+    pkgs.gawk
+    pkgs.coreutils
+    pkgs.git
+  ];
 in
 {
   options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
@@ -76,6 +85,7 @@ in
 
       ".claude/hooks/comment-lint.sh".source = commentLint;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
+      ".claude/hooks/prose-gate.sh".source = proseGate;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
 
       # recursive = true creates real directories with per-file symlinks, so

@@ -134,6 +134,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash|mcp__claude_ai_Slack__slack_(send_message|send_message_draft|schedule_message|create_canvas|update_canvas)|mcp__claude_ai_Notion__notion-(create-pages|update-page|create-comment|update-comment)|mcp__claude_ai_Linear__(save|create|update)_.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/prose-gate.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
