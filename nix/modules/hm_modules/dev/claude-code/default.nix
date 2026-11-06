@@ -68,6 +68,12 @@ let
     pkgs.findutils
     pkgs.git
   ];
+  authStall = mkScript "auth-stall" ./hooks/auth-stall.sh [
+    pkgs.jq
+    pkgs.gnugrep
+    pkgs.gnused
+    pkgs.coreutils
+  ];
 in
 {
   options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
@@ -95,6 +101,7 @@ in
       ".claude/rules/clojure.md".source = ./rules/clojure.md;
       ".claude/statusline.sh".source = statusline;
 
+      ".claude/hooks/auth-stall.sh".source = authStall;
       ".claude/hooks/comment-lint.sh".source = commentLint;
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/prompt-guard.sh".source = promptGuard;

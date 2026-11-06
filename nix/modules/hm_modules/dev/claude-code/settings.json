@@ -193,6 +193,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/auth-stall.sh",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -201,6 +211,16 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/tmux-indicator.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/auth-stall.sh",
             "timeout": 5
           }
         ]
