@@ -60,6 +60,14 @@ let
     pkgs.jq
     pkgs.gnugrep
   ];
+  ticketContext = mkScript "ticket-context" ./hooks/ticket-context.sh [
+    pkgs.jq
+    pkgs.gnugrep
+    pkgs.gnused
+    pkgs.coreutils
+    pkgs.findutils
+    pkgs.git
+  ];
 in
 {
   options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
@@ -91,6 +99,7 @@ in
       ".claude/hooks/notification-bell.sh".source = notificationBell;
       ".claude/hooks/prompt-guard.sh".source = promptGuard;
       ".claude/hooks/prose-gate.sh".source = proseGate;
+      ".claude/hooks/ticket-context.sh".source = ticketContext;
       ".claude/hooks/tmux-indicator.sh".source = tmuxIndicator;
 
       # recursive = true creates real directories with per-file symlinks, so
