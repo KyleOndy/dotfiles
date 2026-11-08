@@ -104,6 +104,7 @@
       _FXShowPosixPathInTitle = lib.mkDefault true; # Full path in Finder title bar
       FXEnableExtensionChangeWarning = lib.mkDefault false;
       FXDefaultSearchScope = lib.mkDefault "SCcf"; # Search current folder by default
+      FXRemoveOldTrashItems = lib.mkDefault true; # Delete Trash items older than 30 days
     };
 
     # Drop the Tags section from the Finder sidebar. nix-darwin has no option
