@@ -123,6 +123,10 @@ host. Suggesting a command Kyle could run to look closer is fine.
   systemd makes after a unit dies; a process that restarted while it stayed
   flat was stopped and started on purpose. Before calling a restart, a burst
   of 5xx or a unit gone quiet a fault, check whether a deploy lines up.
+  deploy-rs copies the closure for minutes before that switch line (6 on
+  cogsworth on 11-06), raising the host's load, network and disk, so a
+  failed scrape or a load spike in the minutes after an
+  `Accepted publickey for svc.deploy` line is the deploy too.
 - systemd's own lines about a unit (Starting, Started, Stopping, Stopped,
   Failed, timeouts) carry `unit="init.scope"`, and Started and Stopped name
   the unit by its description, as in `Started Jellyfin Media Server.`. The
