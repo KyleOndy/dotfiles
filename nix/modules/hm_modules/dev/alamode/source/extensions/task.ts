@@ -69,6 +69,7 @@ import {
   indent,
   row,
 } from "./tool-rows.ts";
+import { count } from "./footer.ts";
 
 // Matches the local model server's --prompt-concurrency 3 (mlx-openai-server
 // launchd config, nix/hosts/trex/home.nix) -- no point queuing more subagents
@@ -147,7 +148,14 @@ interface TaskResult {
   tools: number;
   startedAt: number;
   elapsedMs: number;
+  // Every request's tokens summed, so the context resent each turn counts
+  // once per turn: the bill, which the log records.
   tokens: number;
+  // The last completed request's tokens, the number pi's footer shows as
+  // context. Zero before the first.
+  context: number;
+  // Undefined for an id the catalog lacks.
+  contextWindow?: number;
   cost: number;
 }
 
@@ -603,8 +611,10 @@ function activityOf(toolName: string, args: unknown): string {
     : toolName;
 }
 
-function fmtTokens(n: number): string {
-  return n >= 1000 ? `${Math.round(n / 1000)}k tok` : `${n} tok`;
+function fmtContext(r: TaskResult): string {
+  return r.contextWindow
+    ? `${count(r.context)}/${count(r.contextWindow)}`
+    : count(r.context);
 }
 
 function fmtElapsed(ms: number): string {
@@ -631,7 +641,7 @@ function taskRow(r: TaskResult, theme: Theme): string {
   const ms = r.state === "running" ? Date.now() - r.startedAt : r.elapsedMs;
   const counters = [
     fmtElapsed(ms).padStart(6),
-    fmtTokens(r.tokens).padStart(9),
+    `${fmtContext(r).padStart(9)} ctx`,
     `${String(r.tools).padStart(3)} ${r.tools === 1 ? "tool " : "tools"}`,
   ].join("  ");
   const subject = r.state === "running" ? shownStatus(r) : oneLine(r.task);
@@ -825,6 +835,14 @@ export default function (pi: ExtensionAPI) {
           details: {},
         };
       }
+      const slash = model.indexOf("/");
+      const contextWindow =
+        slash > 0
+          ? ctx.modelRegistry.find(
+              model.slice(0, slash),
+              stripLevel(model.slice(slash + 1)),
+            )?.contextWindow
+          : undefined;
 
       const args = [
         "--tools",
@@ -872,6 +890,8 @@ export default function (pi: ExtensionAPI) {
         startedAt,
         elapsedMs: 0,
         tokens: 0,
+        context: 0,
+        contextWindow,
         cost: 0,
       }));
 
@@ -1026,12 +1046,25 @@ export default function (pi: ExtensionAPI) {
                 emit();
               } else if (type === "message_end") {
                 const message = event.message as
-                  | { role?: string; usage?: Partial<Usage> }
+                  | {
+                      role?: string;
+                      stopReason?: string;
+                      usage?: Partial<Usage>;
+                    }
                   | undefined;
                 // One assistant message is one billed request, so these sum
                 // to the batch total across turns.
                 if (message?.role === "assistant") {
-                  r.tokens += message.usage?.totalTokens ?? 0;
+                  const tokens = message.usage?.totalTokens ?? 0;
+                  r.tokens += tokens;
+                  // Skips aborted and errored requests as pi's footer does,
+                  // since their usage does not reflect the context.
+                  if (
+                    tokens > 0 &&
+                    message.stopReason !== "aborted" &&
+                    message.stopReason !== "error"
+                  )
+                    r.context = tokens;
                   r.cost += message.usage?.cost?.total ?? 0;
                   addUsage(spent, message.usage);
                 }
@@ -1117,7 +1150,6 @@ export default function (pi: ExtensionAPI) {
           const details = state.details;
           const results = details?.results ?? [];
           const running = results.filter((r) => r.state === "running").length;
-          const tokens = results.reduce((n, r) => n + r.tokens, 0);
           const cost = results.reduce((n, r) => n + r.cost, 0);
           const agent = details?.agent ?? args.agent;
           const summary = [
@@ -1133,7 +1165,6 @@ export default function (pi: ExtensionAPI) {
               : undefined;
           const meta = [
             running ? theme.fg("warning", `${running} running`) : undefined,
-            tokens ? theme.fg("dim", fmtTokens(tokens)) : undefined,
             // Providers that do not price a model report zero, and a $0.00
             // that only means "unpriced" is worse than no column at all.
             cost > 0 ? theme.fg("dim", `$${cost.toFixed(2)}`) : undefined,
