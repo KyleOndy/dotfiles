@@ -321,6 +321,12 @@ in
       owner = "kyle";
       mode = "0400";
     };
+    # OpenRouter key for alamode only (pass: openrouter.ai/api_keys/trex-alamode),
+    # resolved as OPENROUTER_API_KEY for alamode_models_json's openrouter provider.
+    openrouter_api_key = {
+      owner = "kyle";
+      mode = "0400";
+    };
   };
 
   # Password script for mbsync, one case per account in
