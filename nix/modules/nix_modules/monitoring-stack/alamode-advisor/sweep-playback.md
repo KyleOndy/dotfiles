@@ -86,7 +86,13 @@ Steps:
 6. Decide where each failure sits: the file (codec, bad data), the client
    (a codec it claims and cannot play, a retry with no fallback), tiger
    (speed below 1x, GPU errors), or the network (a low or falling link
-   rate, dropped downloads). Use `web_search` on the client's app version
+   rate, dropped downloads). You cannot open a media file, so blame the file
+   only when a log line shows its damage (a demuxer error, `Invalid data`),
+   and never infer its codec from other files: say unverified. Before
+   calling a stall or a hang, compare where the play stopped with the
+   item's length, from a full play of it or the next item's PlaybackInfo:
+   a stop at its end, reported minutes later from the post-play screen, is
+   a finished play. Use `web_search` on the client's app version
    and the error signature for a known upstream bug. Rule out the known
    failure modes first:
    - A Roku's 0 ms stops on a direct play with no video ffmpeg run are most
