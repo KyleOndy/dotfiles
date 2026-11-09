@@ -91,7 +91,13 @@ values, never from an aggregate across them.
    - rests on a value you did not query this run. It goes under Not checked
      instead.
 
-   Name what you dropped, and why, under Checked.
+   Name what you dropped, and why, under Checked. Then recheck what
+   earlier sweeps got wrong: a hwmon chip's name comes from
+   `node_hwmon_chip_names` (pika's acpitz is `thermal_thermal_zone0`); a
+   day of AP or client retries uses the delta form above, never
+   `increase()`; a client is new only by its own `tfirst_over_time` with a
+   `mac` matcher, never a truncated list; trex was awake only by its sample
+   count.
 
 Report up to 8 findings, ranked by how much Kyle should care, in the sweep
 layout. The report starts with its bold verdict line: no title, and nothing

@@ -63,7 +63,12 @@ outside that range, and say how far.
    - you concluded is not a fault, such as the restarts and errors a
      deploy explains.
 
-   Name what you dropped, and why, under Checked.
+   Name what you dropped, and why, under Checked. Then recheck what
+   earlier sweeps got wrong: a `rtsp_<hash>` source is a named stream
+   restarting, not a new one; a deploy shows as its
+   `switching to system configuration` line even when a later boot reset
+   the activation timestamp; a reboot after a sudo `COMMAND=` reboot line
+   is Kyle's.
 
 Report up to 8 findings, ranked by how much Kyle should care, in the sweep
 layout. The report starts with its bold verdict line: no title, and nothing
