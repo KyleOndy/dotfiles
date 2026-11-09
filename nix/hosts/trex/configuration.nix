@@ -315,12 +315,6 @@ in
       mode = "0400";
       sopsFile = ../../secrets/shared-tiger-trex.yaml;
     };
-    # z.ai Coding Plan key, resolved as ZAI_API_KEY for alamode_models_json's
-    # zai provider. Goes with that provider when the plan lapses.
-    zai_api_key = {
-      owner = "kyle";
-      mode = "0400";
-    };
     # OpenRouter key for alamode only (pass: openrouter.ai/api_keys/trex-alamode),
     # resolved as OPENROUTER_API_KEY for alamode_models_json's openrouter provider.
     openrouter_api_key = {

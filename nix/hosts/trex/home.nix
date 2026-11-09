@@ -247,8 +247,6 @@ in
     # level null, thinkingFormat "qwen-chat-template"): with thinking on, these
     # models emit no tool calls. Run `mlx start` before selecting one.
     #
-    # `zai` is the z.ai Coding Plan. Its catalog entry and zai_api_key go with it.
-    #
     # `openrouter` forwards each request to an upstream OpenRouter picks, so a
     # session's prompts reach that upstream too. Its catalog entry sets
     # thinkingFormat, because pi only sees the relay's loopback URL and cannot
@@ -260,7 +258,6 @@ in
       trustedProviders = [
         "mcloud"
         "local"
-        "zai"
         "openrouter"
       ];
       sandbox.privateProviderHosts = [ "127.0.0.1" ];
@@ -270,7 +267,6 @@ in
       sandbox.envFromCommands = {
         KAGI_API_KEY = "/usr/bin/security find-generic-password -s alamode -a kagi -w";
         MCLOUD_API_KEY = mcloudKeyCommand;
-        ZAI_API_KEY = "/bin/cat ${osConfig.sops.secrets.zai_api_key.path}";
         OPENROUTER_API_KEY = "/bin/cat ${osConfig.sops.secrets.openrouter_api_key.path}";
       };
       sandbox.envGrantGates.KAGI_API_KEY = "kagi";
