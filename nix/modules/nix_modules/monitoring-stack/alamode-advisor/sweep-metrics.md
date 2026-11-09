@@ -42,7 +42,13 @@ values, never from an aggregate across them.
      battery charge, runtime and load.
    - Network (unpoller): WAN latency, packet loss and throughput, AP retries
      and channel utilisation, device uptime resets that mean a reboot, client
-     counts that changed shape. unpoller's VAP retry counters sum the
+     counts that changed shape. The first poll after the UDM's Network app
+     restarts reads every AP and switch at uptime 0, so count reboots with
+     `resets((unpoller_device_uptime_seconds > 0)[1d:1m])`. A gap in every
+     unpoller series while the esphome scrapes stay up is that app
+     restarting, not an outage. `unpoller_client_uptime_seconds` is how long
+     a client has been associated, so it cannot date a client's reboot.
+     unpoller's VAP retry counters sum the
      stations now associated, so they drop when one leaves, and increase()
      reads that drop as a reset and adds the whole value. Count a day with
      `sum_over_time(clamp_min(delta(x[1m]), 0)[1d:1m])`, read the raw 1m
