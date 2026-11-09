@@ -1873,6 +1873,9 @@ in
           bazarr = {
             enable = true;
             apiKeyFile = config.sops.secrets.bazarr_api_key.path;
+            # The per-series episodes call is most of each scrape, and only
+            # feeds bazarr_episode_subtitles_*, which nothing reads.
+            enableAdditionalMetrics = false;
           };
           sabnzbd = {
             enable = true;
