@@ -31,7 +31,10 @@ instead.
   A source named `rtsp_<hash>` is a real stream's capture id, logged while
   that stream restarts.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
-  gaps in its data are expected and not a finding on their own. Its disk use
+  gaps in its data are expected and not a finding on their own. Asleep, it
+  dark-wakes about every 15 minutes and sends a few node samples, so an
+  average `up` of 1 says nothing about whether it was awake: it was only
+  while `count_over_time(up{host="trex",job="node"}[1h])` is near 240. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
   trex builds its x86_64-linux derivations on tiger, over ssh as
   `svc.nixbuild`. A build there raises tiger's load, slows every scrape on
