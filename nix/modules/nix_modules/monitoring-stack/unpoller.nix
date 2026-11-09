@@ -65,6 +65,35 @@ in
   };
 
   config = mkIf (parentCfg.enable && cfg.enable) {
+    # Every poll fetches the site's device tags, and below Network 11.0.96
+    # each fetch leaks an HTTP/2 stream in the UDM's Network app, about 11 MB
+    # of heap a day until it stalls
+    # (https://github.com/timgladwell/homelab/issues/388). Network 11 needs
+    # UniFi OS 6, which the UDM Pro is not offered yet. unpoller 5.9.3 can
+    # skip the fetch; nixpkgs ships 2.39.0.
+    nixpkgs.overlays = [
+      (final: prev: {
+        unpoller =
+          if lib.versionOlder prev.unpoller.version "5.9.3" then
+            prev.unpoller.overrideAttrs (old: {
+              version = "5.9.4";
+              src = old.src.override {
+                hash = "sha256-LOAdTGFEx4W2Bqi8u0jwDkljKI0qb353regSD3gEWwM=";
+              };
+              vendorHash = "sha256-1dqXfHU0kZ/LizR55Q629Xk6YfyFLTeu91oXoqogOBI=";
+            })
+          else
+            prev.unpoller;
+      })
+    ];
+    systemd.services.unifi-poller.environment = {
+      UP_UNIFI_DEFAULT_SKIP_DEVICE_TAGS = "true";
+      # From 3.2.0 /metrics serves a background poll and keeps the last good
+      # one when the controller fails, so an outage reads as frozen values
+      # with up at 1. 0 polls on each scrape, so it shows as a gap.
+      UP_PROMETHEUS_INTERVAL = "0";
+    };
+
     services.unpoller = {
       enable = true;
 
