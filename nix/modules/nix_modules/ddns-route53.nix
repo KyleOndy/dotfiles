@@ -109,14 +109,17 @@ let
       fi
 
       # Read only, through a public resolver so a LAN override cannot mask
-      # what the internet sees. A failed lookup reads as a mismatch, and dig's
-      # error lands in the log line below.
-      resolved=$(dig +short "@$PUBLIC_RESOLVER" A "$UNIFI_RECORD" 2>&1 | paste -sd ' ' -) || true
+      # what the internet sees. dig prints a ";;" line for each try that
+      # times out, including tries it then retries successfully, so those
+      # lines stay out of the compare. A failed lookup reads as a mismatch,
+      # and dig's own output lands in the log line below.
+      dig_out=$(dig +short "@$PUBLIC_RESOLVER" A "$UNIFI_RECORD" 2>&1) || true
+      resolved=$(printf '%s\n' "$dig_out" | awk '!/^;;/' | paste -sd ' ' -)
       unifi_match=0
       if [ "$resolved" = "$ip" ]; then
         unifi_match=1
       else
-        echo "ddns-route53: $UNIFI_RECORD resolves to ''${resolved:-nothing} via $PUBLIC_RESOLVER, not $ip" >&2
+        echo "ddns-route53: $UNIFI_RECORD resolves to ''${resolved:-nothing} via $PUBLIC_RESOLVER, not $ip; dig: $(printf '%s' "$dig_out" | paste -sd ' ' -)" >&2
       fi
 
       # The match is current_ip against the WAN IP, not a read of the records:
