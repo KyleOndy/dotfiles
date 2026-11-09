@@ -212,11 +212,14 @@ in
       # patch is https://github.com/jellyfin/jellyfin/pull/18383 backported
       # to 10.11.11; no release carries it. The second keeps a restarted run
       # from serving a segment ffmpeg is still writing, which the first's
-      # in-place segment muxer makes frequent; 12.4 has the same race.
+      # in-place segment muxer makes frequent; 12.4 has the same race. The
+      # third ends each ffmpeg job log line with a newline, so Alloy ships a
+      # run's last line when it is written.
       package = pkgs.jellyfin.overrideAttrs (old: {
         patches = old.patches ++ [
           ./jellyfin-remux-segment-cuts.patch
           ./jellyfin-hls-stale-segments.patch
+          ./jellyfin-ffmpeg-log-newline.patch
         ];
       });
       group = cfg.group;

@@ -1,0 +1,19 @@
+End each line of an ffmpeg job log with a newline, not start it with one.
+
+JobLogger writes NewLine + line, so a log's last line never ends in a
+newline. Alloy's file tailer holds an unterminated line until more bytes
+arrive or the file goes away, so the final frame= line of every run
+reached Loki only when Jellyfin's daily log cleanup deleted the file,
+three days later, stamped with the deletion time.
+
+--- a/MediaBrowser.Controller/MediaEncoding/JobLogger.cs
++++ b/MediaBrowser.Controller/MediaEncoding/JobLogger.cs
+@@ -33,7 +33,7 @@
+ 
+                         ParseLogLine(line, state);
+ 
+-                        var bytes = Encoding.UTF8.GetBytes(Environment.NewLine + line);
++                        var bytes = Encoding.UTF8.GetBytes(line + Environment.NewLine);
+ 
+                         // If ffmpeg process is closed, the state is disposed, so don't write to target in that case
+                         if (!target.CanWrite)
