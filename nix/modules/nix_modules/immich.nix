@@ -76,7 +76,13 @@ in
       # Immich uses fixed-function decode only. Both share /dev/dri/renderD128 safely.
       accelerationDevices = [ "/dev/dri/renderD128" ];
 
-      machine-learning.enable = true;
+      machine-learning = {
+        enable = true;
+        # gunicorn 26 opens a control socket in $XDG_RUNTIME_DIR or ~/.gunicorn.
+        # The immich user has neither (home is /var/empty), so every start
+        # logs "Operation not permitted", and nothing here uses the socket.
+        environment.GUNICORN_CMD_ARGS = "--no-control-socket";
+      };
 
       # immich-server runs two workers, each with its own metrics endpoint:
       # api (requests, users) and microservices (jobs). Immich hands the
