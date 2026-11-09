@@ -896,7 +896,7 @@ export default function (pi: ExtensionAPI) {
     name: "alert_rules",
     label: "Alert rules",
     description:
-      "Show vmalert's alerting rules. Without filter, the rule names per group, to see what the static rules already cover. With filter, each matching rule's expression, for, state and summary.",
+      "Show vmalert's alerting rules. Without filter, the rule names per group, to see what the static rules already cover. With filter, each matching alerting rule's expression, for, state and summary, then each matching Loki recording rule's LogQL: a metric named like jellyfin:playback_failure_lines:count5m is recorded there.",
     promptSnippet: "Show the alerting rules that exist",
     parameters: Type.Object(
       {
@@ -937,7 +937,23 @@ export default function (pi: ExtensionAPI) {
               `${g.name} / ${r.name} [${r.state}, for ${r.duration ?? 0}s]\n  expr: ${r.query}\n  summary: ${r.annotations?.summary ?? ""}`,
           ),
       );
-      return result(matches.length ? matches.join("\n") : "no matching rules");
+      // vmalert holds no recording rules; every one is LogQL in Loki's ruler.
+      const loki = await get(LOKI, "/prometheus/api/v1/rules", {}, signal);
+      const records = (loki.data?.groups ?? []).flatMap((g: any) =>
+        (g.rules ?? [])
+          .filter(
+            (r: any) =>
+              r.type === "recording" &&
+              (r.name.toLowerCase().includes(needle) ||
+                String(r.query).toLowerCase().includes(needle)),
+          )
+          .map(
+            (r: any) =>
+              `loki ${g.name} / ${r.name} [recording]\n  logql: ${r.query}`,
+          ),
+      );
+      const all = [...matches, ...records];
+      return result(all.length ? all.join("\n") : "no matching rules");
     },
   });
 }
