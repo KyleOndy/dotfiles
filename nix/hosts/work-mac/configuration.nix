@@ -17,6 +17,10 @@ in
 
   systemFoundry.alamodeBuilder.enable = true;
 
+  # The 1Password app's CLI integration only trusts op at /usr/local/bin,
+  # which this module installs and home.packages can't.
+  programs._1password.enable = true;
+
   # Upstream sets the builder's maxJobs to its cores, and on trex 8 jobs
   # each taking all 8 cores thrashed 12 GiB. Four jobs at 3 GiB each, out of
   # 48 GiB and held only while the VM is up.
