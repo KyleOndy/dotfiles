@@ -968,6 +968,9 @@ in
     PrintingEnabled = false;
     BookmarkBarEnabled = false;
     SearchSuggestEnabled = false;
+    # Bytes. The profile is on /run (tmpfs), so the cache is RAM: uncapped it
+    # reached 190 MiB over five days of kiosk uptime.
+    DiskCacheSize = 33554432;
   };
 
   systemd.services.cogsworth-kiosk = {
