@@ -109,7 +109,7 @@ if [ "$tool" = Bash ]; then
 	if runs 'gh pr create( |$)' && ! grep -qE '[[:space:]](--draft|-d)([[:space:]=]|$)' <<<"$cmd"; then
 		findings+=("Open the PR as a draft (--draft). Kyle marks it ready, or approves gh pr ready, once he has read it.")
 	fi
-else
+elif [[ $tool == mcp__* ]]; then
 	kind=mcp
 	has_prose=true
 	# Only the fields holding new text. IDs and commands are not prose, and
@@ -123,6 +123,8 @@ else
 		| join("\n\n")
 	' <<<"$input")
 	body=$text
+else
+	exit 0
 fi
 
 if $has_prose && [ "$kind" != commit ]; then
