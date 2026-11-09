@@ -59,15 +59,16 @@ let
         exit 1
       fi
 
-      tmp=$(mktemp -d)
-      trap 'rm -rf "$tmp" "$link" "$localdir"' EXIT
-
       # Firefox only splits the disposable half of a profile out of the root when
       # the root sits under Profiles/, so launch against the link, not $prof.
-      mkdir -p "$(dirname "$link")" "$(dirname "$localdir")"
+      mkdir -p "$(dirname "$link")"
       ln -sfn "$prof" "$link"
+
+      # The link and the cache outlive the session, and the cache is cleared at
+      # launch. Firefox can replace itself with a new process on the same
+      # profile (the updater applying a staged update, an in-app restart), so
+      # this script getting control back does not mean the profile is closed.
       rm -rf "$localdir"
-      ln -s "$tmp" "$localdir"
 
       "${firefoxBin}" --profile "$link" --new-instance "$@"
     '';
