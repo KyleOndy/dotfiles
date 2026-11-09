@@ -34,7 +34,7 @@ readonly MAX_ALERT_REPORTS_PER_DAY=20
 readonly RUN_TIMEOUT=15m
 # A mistaken paste into the acknowledgements file should not fill the
 # model's context.
-readonly MAX_ACKS_CHARS=20000
+readonly MAX_ACKS_CHARS=32000
 
 system_prompt=$(<"${ALAMODE_ADVISOR_ASSETS}/system.md")
 readonly system_prompt
@@ -47,6 +47,13 @@ acks=""
 if [[ -s $ALAMODE_ADVISOR_ACKS ]]; then
 	acks=$'\n\n## Acknowledged issues (Kyle\'s list)\n\n'
 	acks+=$(head -c "$MAX_ACKS_CHARS" "$ALAMODE_ADVISOR_ACKS")
+	# head -c cuts mid-entry, so a cut has to be said out loud or the entries
+	# past it vanish without anyone noticing.
+	acks_size=$(wc -c <"$ALAMODE_ADVISOR_ACKS")
+	if ((acks_size > MAX_ACKS_CHARS)); then
+		echo "alamode-advisor: acknowledgements are ${acks_size} bytes, only the first ${MAX_ACKS_CHARS} reach the model" >&2
+		acks+=$'\n\n'"(Kyle's list is cut at ${MAX_ACKS_CHARS} of ${acks_size} characters. Say so at the top of the report's Not checked, or at its end in a triage.)"
+	fi
 fi
 readonly acks
 

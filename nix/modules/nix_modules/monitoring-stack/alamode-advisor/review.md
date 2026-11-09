@@ -164,7 +164,7 @@ EOF
 
 An entry covers one event, not a category: name the thing, the dates and what
 is known. Add `until YYYY-MM-DD` to a "known, fixing later" entry. The advisor
-reads only the first 20,000 characters, so offer to prune entries past their
+reads only the first 32,000 characters, so offer to prune entries past their
 `until` or no longer true.
 
 **Silences**: `silence-host <host> "<duration>" "<reason>"` for a whole host.
