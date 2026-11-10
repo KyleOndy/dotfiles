@@ -574,6 +574,8 @@ export default function coordinator(pi: ExtensionAPI) {
       "Child sessions survive this UI closing. Use agent_status to reconcile before spawning replacements. " +
       "A runtime outcome, an agent report and independent verification are separate facts. " +
       "Resume never replays interrupted work. Send an explicit instruction after examining the preserved state. " +
+      "An error outcome from a provider failure (5xx, overload, timeout, dropped stream) means the agent's own retries ran out; its session and work are intact, so send it continue. " +
+      "After a second provider failure in a row, stop and tell the human. " +
       "Grant changes require the human's trusted session launcher. Child tools cannot widen grants.";
   });
 }
