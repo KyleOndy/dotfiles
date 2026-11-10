@@ -679,6 +679,27 @@ class PolicyTests(unittest.TestCase):
                 self.assertIn("flake", available())
                 self.assertTrue(grant()["nix"])
 
+    def test_forge_is_offered_only_with_a_coordinator_forge(self):
+        runtime = self.work / "runtime"
+
+        def available():
+            environment = session.child_environment(
+                self.config, self.manifest, self.root, runtime
+            )
+            return environment["ALAMODE_AVAILABLE_GRANTS"].split(",")
+
+        def grant():
+            return session.policy(
+                session.parse(["--allow-forge"], self.config), self.config, self.root
+            )
+
+        self.assertNotIn("forge", available())
+        with self.assertRaisesRegex(session.SessionError, "coordinator has no forge"):
+            grant()
+        self.config["coordinatorForge"] = True
+        self.assertIn("forge", available())
+        self.assertTrue(grant()["forge"])
+
     def session_daemon(self):
         # A host whose --allow-nix is the session daemon. The client plays
         # each canary from the (stderr, exit code) pairs in CANARY_OUTCOMES,

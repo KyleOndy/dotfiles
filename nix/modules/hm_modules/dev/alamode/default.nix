@@ -54,6 +54,7 @@ let
             }
           )
         );
+        coordinatorForge = cfg.coordinator.enable && cfg.coordinator.forge.enable;
       }
     else
       pkgs.llm-agents.pi;

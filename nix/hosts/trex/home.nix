@@ -279,9 +279,10 @@ in
 
       # Coordinated agents on this host hold no forge: coordinator.forge
       # stays off (only work-mac has forge), so the broker is built without
-      # it, spawn_agent takes no size here, and nothing forge-shaped reaches
-      # a coordinator's prompt (extensions/coordinator.ts gates its VM prose
-      # on ALAMODE_COORD_FORGE, which this build does not export).
+      # it, the wrapper refuses --allow-forge, spawn_agent takes no size
+      # here, and nothing forge-shaped reaches a coordinator's prompt
+      # (extensions/coordinator.ts gates its VM prose on ALAMODE_COORD_FORGE,
+      # which only an --allow-forge session exports).
       coordinator.enable = true;
     };
   };

@@ -65,6 +65,7 @@
   defaultGitWrite ? true,
   defaultListenPorts ? [ ],
   coordinatorDaemon ? "",
+  coordinatorForge ? false,
   delegateBin ? "",
   seatsBin ? "",
   sliceBin ? "",
@@ -154,6 +155,7 @@ let
       seatsBin = seatsBin;
       sliceBin = sliceBin;
       inherit
+        coordinatorForge
         seatsFile
         settingsFile
         catalogFile

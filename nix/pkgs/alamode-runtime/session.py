@@ -547,6 +547,10 @@ def policy(options, config, home):
         raise SessionError(
             "No isolated Nix builder or session daemon is configured. Host daemon access is not a session grant."
         )
+    if result["forge"] and not config.get("coordinatorForge"):
+        raise SessionError(
+            "This host's coordinator has no forge (hmFoundry.dev.alamode.coordinator.forge.enable is off), so --allow-forge has nothing to authorize."
+        )
     return result
 
 
@@ -560,16 +564,18 @@ def grant_switches(config):
 
     A bundle's policy key is None: policy() lists it under "grants".
     policy() refuses nix on a host without a builder or session daemon, so
-    there neither nix nor a bundle that needs it is offered.
+    there neither nix nor a bundle that needs it is offered. Forge goes the
+    same way on a host whose coordinator has none.
     """
     nix = nix_available(config)
+    offered = {"nix": nix, "forge": bool(config.get("coordinatorForge"))}
     return [
         *(
             (name, None, "--allow-" + name, None)
             for name, bundle in config["bundles"].items()
             if nix or not bundle.get("nix")
         ),
-        *(row for row in SWITCHES if nix or row[0] != "nix"),
+        *(row for row in SWITCHES if offered.get(row[0], True)),
     ]
 
 
