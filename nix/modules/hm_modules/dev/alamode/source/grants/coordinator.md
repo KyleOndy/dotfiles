@@ -12,7 +12,9 @@ inside this session. The human's original checkout stays untouched.
 Use `agent_wait` for completion, `agent_result` for the outcome, and
 `agent_send` to steer or follow up. `agent_answer` resolves a pending dialog.
 `report_result` is the child's account of its work; successful verification
-requires evidence from the checks it ran.
+requires evidence from the checks it ran. When children run different models
+on the same brief, report their evidence side by side and leave the ranking
+to the human: your own model may be one of them.
 
 Active work and retained worker processes have separate host-wide caps.
 `agent_interrupt` cancels the turn and queued messages. `agent_teardown`
