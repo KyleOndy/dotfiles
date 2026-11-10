@@ -405,9 +405,8 @@ class _Handler(BaseHTTPRequestHandler):
             or (authorization and api_keys)
             or not hmac.compare_digest(supplied.encode(), relay.token.encode())
             or relay.closed.is_set()
-            or time.monotonic() >= relay.expires_at
         ):
-            self._error(403, "Provider capability denied or expired")
+            self._error(403, "Provider capability denied or revoked")
             return
         lengths = self.headers.get_all("Content-Length", [])
         if self.headers.get("Transfer-Encoding") or self.headers.get(
@@ -501,11 +500,6 @@ class _Handler(BaseHTTPRequestHandler):
             ):
                 self._error(403, "Only client-executed tools are supported")
                 return
-        with relay.lock:
-            if relay.requests >= relay.request_limit:
-                self._error(429, "Session provider request budget exhausted")
-                return
-            relay.requests += 1
         try:
             body = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode()
         except (ValueError, RecursionError):
@@ -656,9 +650,7 @@ class Relay:
         bell=None,
         approve=None,
         allow_private_hosts=(),
-        request_limit=1000,
         max_concurrency=8,
-        lifetime=86400,
         max_request_bytes=16 * 1024 * 1024,
         max_response_bytes=64 * 1024 * 1024,
         io_timeout=120,
@@ -667,25 +659,21 @@ class Relay:
         if any(
             type(value) is not int or value <= 0
             for value in (
-                request_limit,
                 max_concurrency,
                 max_request_bytes,
                 max_response_bytes,
             )
         ) or any(
             type(value) not in (int, float) or not math.isfinite(value) or value <= 0
-            for value in (lifetime, io_timeout, request_timeout)
+            for value in (io_timeout, request_timeout)
         ):
             raise ValueError("Relay limits must be positive and finite")
         self.token = secrets.token_urlsafe(32)
         self.allow_private_hosts = frozenset(allow_private_hosts)
-        self.request_limit = request_limit
         self.max_request_bytes = max_request_bytes
         self.max_response_bytes = max_response_bytes
         self.io_timeout = io_timeout
         self.request_timeout = request_timeout
-        self.expires_at = time.monotonic() + lifetime
-        self.requests = 0
         self.lock = threading.Lock()
         self.slots = threading.BoundedSemaphore(max_concurrency)
         self.closed = threading.Event()
@@ -788,7 +776,7 @@ class Relay:
             for client, (connection, deadline) in active:
                 try:
                     disconnected = bool(select.select([client], [], [], 0)[0])
-                    if disconnected or now >= deadline or now >= self.expires_at:
+                    if disconnected or now >= deadline:
                         self._cancel(client, connection)
                 except (OSError, ValueError):
                     pass

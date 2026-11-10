@@ -187,7 +187,7 @@ class RelayTests(unittest.TestCase):
         self.assertNotIn(KEY, sanitized)
         self.assertNotIn("trusted-resolver", sanitized)
 
-    def test_limits_redirect_and_expiry(self):
+    def test_limits_and_redirect(self):
         self.assertEqual(self.request(max_tokens=1025)[0], 403)
         self.assertEqual(self.request(tools=[{"type": "web_search"}])[0], 403)
         self.assertEqual(self.request(background=True)[0], 400)
@@ -196,11 +196,6 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(len(self.upstream.calls), 1)
         self.relay.max_request_bytes = 100
         self.assertEqual(self.request(messages=["x" * 200])[0], 413)
-        self.relay.max_request_bytes = 16384
-        self.relay.request_limit = self.relay.requests
-        self.assertEqual(self.request()[0], 429)
-        self.relay.expires_at = time.monotonic() - 1
-        self.assertEqual(self.request()[0], 403)
 
     def test_stored_state_references_never_reach_upstream(self):
         for api in self.catalog["providers"]:
@@ -680,7 +675,6 @@ class RelayTests(unittest.TestCase):
             relay.rung_at -= relay_module.BELL_INTERVAL
             self.assertEqual(send({})[0], 204)
             self.assertEqual(len(rings), 2)
-            self.assertEqual(relay.requests, 0)
 
     def test_streams_before_upstream_finishes_and_disconnects(self):
         connection = http.client.HTTPConnection("127.0.0.1", self.relay.port, timeout=2)
