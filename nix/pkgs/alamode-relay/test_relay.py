@@ -805,7 +805,7 @@ class RelayTests(unittest.TestCase):
                 + ";\n"
                 + "export default async function () {\n"
                 + "  let tool; task({registerTool: t => tool = t});\n"
-                + '  const result = await tool.execute("fixture", {tasks:["FORCE_PROVIDER_FAILURE"]}, undefined, undefined, {mode:"print", hasUI:false, model:{provider:"openai-completions",id:"fixture"}});\n'
+                + '  const result = await tool.execute("fixture", {tasks:["FORCE_PROVIDER_FAILURE"]}, undefined, undefined, {mode:"print", hasUI:false, model:{provider:"openai-completions",id:"fixture"}, modelRegistry:{find: () => undefined}});\n'
                 + "  console.log(JSON.stringify(result));\n"
                 + '  process.exit(result.details.results[0].state === "failed" ? 0 : 1);\n'
                 + "}\n"
