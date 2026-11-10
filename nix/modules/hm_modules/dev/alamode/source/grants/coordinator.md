@@ -2,8 +2,7 @@
 
 `spawn_agent` starts a sandboxed alamode session with its own repository and
 branch. Give it a complete brief; it cannot read this conversation.
-Children inherit this session's grants and cannot widen them. Forge is
-optional and requires the human's `--allow-forge` grant.
+Children inherit this session's grants and cannot widen them.
 
 Children start from this session's recorded snapshot. Set `include_commits`
 to include the current committed HEAD; the worktree must be clean.

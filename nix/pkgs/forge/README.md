@@ -103,10 +103,12 @@ the VM, edits its CPUs and memory, and starts it again. `forge-small.yaml`
 declares the management cluster and one single-node workload cluster, which is
 what alamode-coordinator brings a small instance up with.
 
-A named instance's directory is the only path alamode's `--allow-forge=<n>`
-grants besides the socket. From inside that sandbox `forge down` and
-`forge up` work against the instance; creating or deleting the VM does not,
-since lima's instance directory is not granted.
+Inside alamode, only a coordinator agent spawned with a size holds an
+instance, leased to it by alamode-coordinator: the VM's docker socket, its
+forge config read-only, and its port window. From inside that sandbox
+`forge down` and `forge up` work against the instance; creating or deleting
+the VM does not, since lima's instance directory is not granted. In any other
+alamode session forge refuses to run.
 
 ---
 
@@ -136,8 +138,8 @@ others.
 and otherwise creates or starts the VM and its mirrors, under a lock in
 `~/.local/state/forge/cache.lock` because a coordinator's agents run several
 `up`s at once. A sandboxed agent's `up` gets as far as that check, which is
-enough once the cache is running, since `--allow-forge` grants loopback
-egress.
+enough once the cache is running, since the lease grants loopback egress to
+the mirror ports.
 `forge cache nuke` deletes it and everything it cached.
 
 Two pulls go through it:
@@ -240,9 +242,9 @@ kubectl --context kind-forge-mgmt port-forward svc/argocd-server -n argocd 8080:
 | `forge claim`      | -       | -        | -       | -      |
 | `forge resize`     | restart | -        | -       | -      |
 
-`forge init` writes the VM's lima definition and leaves it stopped, which is
-all alamode's `--allow-forge` checks for, so a session can hold the grant before
-the first `forge up`.
+`forge init` writes the VM's lima definition and leaves it stopped.
+alamode-coordinator runs it when it leases an instance, and boots the VM only
+when the agent calls `forge_boot`.
 
 `forge up` creates what is declared and missing, starts a stopped VM, and
 leaves everything else alone. It does not resize an existing cluster or
@@ -310,7 +312,7 @@ tool.
 `forge up` also re-exports the context of every cluster that already exists, so
 deleting the file loses nothing the next `up` cannot restore.
 
-The default still sits under `$HOME`, which the sandbox denies wholesale.
-alamode's `--allow-forge` grants that one path, plus the loopback egress its API
-servers need. `FORGE_KUBECONFIG` overrides the config for a caller that would
-rather place the file itself, but `--allow-forge` grants only the default path.
+The default still sits under `$HOME`. An alamode sandbox has a `$HOME` of its
+own, so a leased instance's kubeconfig lands there, and the lease adds the
+loopback egress its API servers need. `FORGE_KUBECONFIG` overrides the config
+for a caller that would rather place the file itself.

@@ -230,7 +230,10 @@ export default function coordinator(pi: ExtensionAPI) {
     name: "spawn_agent",
     label: "Spawn agent",
     description:
-      "Start an independent session and Git branch. Defaults to the coordinator launch snapshot. include_commits exports the coordinator's current committed HEAD inside its sandbox. Uncommitted changes require a commit first. Forge is optional and separate.",
+      "Start an independent session and Git branch. Defaults to the coordinator launch snapshot. include_commits exports the coordinator's current committed HEAD inside its sandbox. Uncommitted changes require a commit first." +
+      (process.env.ALAMODE_COORD_FORGE
+        ? " size gives the agent its own forge VM, the only way any session gets one: small 4 GiB, large 8, xlarge 16, drawn from a memory budget the coordinator's agents share (32 GiB by default). The agent calls forge_boot, then runs forge up. Teardown deletes the VM."
+        : ""),
     parameters: Type.Object({
       agent: Type.String(),
       task: Type.String(),

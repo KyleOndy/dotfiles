@@ -67,9 +67,10 @@ yq_get() {
 # Unset is the one instance forge has always managed: VM "forge", the base
 # port window, and the kubeconfig the config names. A named instance is VM
 # "forge-<n>" with its own window, and keeps its kubeconfig and a copy of its
-# config under ~/.local/state/forge/<n>. The alamode wrapper grants exactly
-# that directory (nix/pkgs/alamode/wrapper.sh), so the path is fixed rather
-# than configurable, and neither the config's kubeconfig nor FORGE_KUBECONFIG
+# config under ~/.local/state/forge/<n>. alamode-coordinator's lease sets an
+# agent's KUBECONFIG to that path under the sandbox's own $HOME
+# (nix/pkgs/alamode-coordinator/forge.py), so the path is fixed rather than
+# configurable, and neither the config's kubeconfig nor FORGE_KUBECONFIG
 # moves it.
 INSTANCE="${FORGE_INSTANCE:-}"
 if [[ -n ${INSTANCE} ]]; then
@@ -259,7 +260,8 @@ mirror_port() {
 }
 
 # Every mirror answering on the host's loopback, the path the forge VMs take
-# too. A sandboxed caller can run this: --allow-forge grants loopback egress.
+# too. A sandboxed caller can run this: a forge lease grants loopback egress
+# to the mirror ports.
 cache_healthy() {
 	local i
 	for i in "${!MIRRORS[@]}"; do
@@ -355,7 +357,7 @@ ensure_cache() {
 # Empty for an instance that does not exist: limactl exits 1 and logs
 # "unmatched instances" for a name it does not know.
 #
-# Under alamode's --allow-forge the socket is granted and the instance
+# Under an alamode forge lease the socket is granted and lima's instance
 # directory is not, so limactl sees nothing there; a daemon that answers is
 # a running VM.
 vm_status() {
@@ -1173,8 +1175,8 @@ cmd_events() {
 
 # ─── Commands ─────────────────────────────────────────────────────────────────
 
-# Defines the VM without booting it. alamode's --allow-forge checks the
-# instance's lima.yaml, not whether it runs, and ensure_vm starts a Stopped
+# Defines the VM without booting it, so alamode-coordinator can lease an
+# instance before its agent asks for the VM, and ensure_vm starts a Stopped
 # instance.
 cmd_init() {
 	if [[ -f ${VM_LIVE_CONFIG} ]]; then
@@ -1356,9 +1358,8 @@ Usage:
 
 Commands:
   init [--size S]
-                 Create the VM if absent, without starting it. Enough for
-                 alamode's --allow-forge, which checks the VM's definition;
-                 'forge up' boots it later.
+                 Create the VM if absent, without starting it; 'forge up'
+                 boots it later.
   start          Create the VM if absent, and boot it if stopped. Clusters
                  are left alone.
   up [--size S]  Create the VM if absent, then converge to the config: Docker
@@ -1464,6 +1465,14 @@ parse_size_flag() {
 	esac
 	[[ -z ${SIZE} ]] || size_cpus "${SIZE}" >/dev/null
 }
+
+# Inside an alamode sandbox only a coordinator's sized agent holds a VM, with
+# FORGE_INSTANCE set. Anywhere else in one, forge fails later on a masked
+# ~/.lima or on lima's 104-byte socket path limit, which reads as something to
+# work around rather than a missing grant.
+if [[ -n ${ALAMODE_SESSION_ID:-} && -z ${INSTANCE} && ! ${1:-} =~ ^(help|-h|--help)$ ]]; then
+	die "this alamode session holds no forge instance, and /regrant cannot add one. Only an agent that 'alamode coord --allow-forge' spawns with a size gets one. To reach a service the human runs on forge, ask for --listen <port>."
+fi
 
 # cmd_status does not run check_prerequisites, so the config guards belong here
 # rather than there: without them a missing config surfaces as a raw yq error.
