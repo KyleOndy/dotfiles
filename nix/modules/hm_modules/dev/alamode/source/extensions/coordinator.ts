@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 
 const LIMIT = 2 * 1024 * 1024;
 const SETTLED = new Set(["idle", "closed", "lost", "failed", "waiting_input"]);
@@ -542,10 +543,19 @@ export default function coordinator(pi: ExtensionAPI) {
           (agent) => agent.state !== "closed",
         );
         const width = Math.max(0, ...agents.map((agent) => agent.agent.length));
+        const lines = agents.flatMap((agent) =>
+          describe(agent, width).split("\n"),
+        );
+        // A string-array widget word-wraps, so a long activity spills onto
+        // extra rows; truncating to the terminal keeps one row per line.
         ctx.ui.setWidget(
           "coordinator",
-          agents.length
-            ? agents.map((agent) => describe(agent, width))
+          lines.length
+            ? () => ({
+                render: (columns: number) =>
+                  lines.map((line) => truncateToWidth(line, columns, "...")),
+                invalidate() {},
+              })
             : undefined,
         );
       } catch (error) {
