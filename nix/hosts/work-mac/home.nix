@@ -117,6 +117,8 @@
     };
     alamode.coordinator = {
       enable = true;
+      # The option's ceiling.
+      maxAgents = 15;
       # The one host with forge.
       forge.enable = true;
     };
