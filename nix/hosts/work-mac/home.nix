@@ -164,9 +164,9 @@
       # VM mounts, so this is the only place the question gets decided. The
       # cost is bind mounts in unrelated `docker run` invocations.
       #
-      # --allow-forge does not rest on this setting: it grants forge's VM
-      # (nix/pkgs/forge/vm.nix) and refuses unless that instance declares the
-      # same property, which is checked against the instance at grant time.
+      # Forge does not rest on this setting: a coordinator agent's lease grants
+      # the docker socket of its own forge VM, a separate lima VM whose
+      # definition (nix/pkgs/forge/vm.nix) declares no mounts itself.
       mounts = [ "none" ];
     };
   };
