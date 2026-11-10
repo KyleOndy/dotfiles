@@ -677,5 +677,45 @@ os.execve({os.environ["ALAMODE_TEST_BIN"]!r},[{os.environ["ALAMODE_TEST_BIN"]!r}
         self.assertIn("resumed", self.settled()["outcome"]["text"])
 
 
+class ActivityRedactionTests(unittest.TestCase):
+    def row(self, command):
+        from supervisor import activity
+
+        return activity({"toolName": "bash", "args": {"command": command}})
+
+    def test_masks_credentials_and_keeps_their_labels(self):
+        key = "sk-mod-acme-" + "7" * 64
+        cases = {
+            f"A='Authorization: Bearer\n{key}'": "bash A='Authorization: Bearer ***'",
+            "git clone https://kyle:hunter2@host/r": "bash git clone https://kyle:***@host/r",
+            "GITHUB_TOKEN=abc123 gh pr list": "bash GITHUB_TOKEN=*** gh pr list",
+            """echo '{"api_key": "abc123"}'""": """bash echo '{"api_key": "***"}'""",
+            "vault login --password hunter2": "bash vault login --password ***",
+            "curl -u kyle:hunter2 https://h": "bash curl -u kyle:*** https://h",  # gitleaks:allow
+            "echo AKIAIOSFODNN7EXAMPLE": "bash echo ***",
+            "echo ghp_" + "a" * 36: "bash echo ***",
+            "echo eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.sig": "bash echo ***",
+            "echo " + key: "bash echo ***",
+        }
+        for command, row in cases.items():
+            with self.subTest(command=command):
+                self.assertEqual(self.row(command), row)
+
+    def test_leaves_ordinary_commands_alone(self):
+        for command in (
+            "jq '.max_tokens=4096' req.json",
+            "git push -u origin main",
+            "curl -s -b cookies.txt http://localhost:3000",
+            "grep -n token src/",
+            "cat task-runner-with-a-long-name.sh",
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(self.row(command), "bash " + command)
+
+    def test_masks_a_token_the_row_limit_would_split(self):
+        row = self.row("x" * 100 + " Bearer " + "s" * 40)
+        self.assertNotIn("sss", row)
+
+
 if __name__ == "__main__":
     unittest.main()

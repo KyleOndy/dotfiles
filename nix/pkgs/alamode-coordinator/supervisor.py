@@ -2,6 +2,7 @@ import hmac
 import json
 import os
 from pathlib import Path
+import re
 import signal
 import subprocess
 import threading
@@ -15,9 +16,37 @@ from results import classify_result
 # Characters; the coordinator draws it as one row.
 ACTIVITY_LIMIT = 120
 
+# The row is on screen, so a credential on a child's command line lands in
+# screenshots. Each pattern keeps group 1, the label or scheme, and masks the
+# value after it. A token with no recognizable label or prefix still shows.
+VALUE = r"[^\s'\"&;,)]+"
+REDACTIONS = [
+    re.compile(r"(?i)(\bbearer\s+|authorization:\s*(?:basic|token)\s+)" + VALUE),
+    re.compile(r"(://[^/\s:@]+:)[^/\s@]+(?=@)"),
+    re.compile(
+        r"(?i)([\w-]*(?:token|secret|passw(?:or)?d|api[_-]?key|access[_-]?key"
+        r"|private[_-]?key|credentials?|cookie)['\"]?\s*[=:]\s*['\"]?)" + VALUE
+    ),
+    re.compile(r"(?i)(--?(?:token|secret|password|api-key)[= ]\s*)" + VALUE),
+    re.compile(r"(\s-u\s*[^\s:]+:)" + VALUE),
+    re.compile(
+        r"()\b(?:sk[-_][\w-]{20,}|rk_live_\w{20,}|gh[pousr]_\w{30,}"
+        r"|github_pat_\w{30,}|glpat-[\w-]{20,}|xox[abposr]-[\w-]{10,}"
+        r"|npm_\w{30,}|lin_api_\w{30,}|AIza[\w-]{35}|(?:AKIA|ASIA)[0-9A-Z]{16}"
+        r"|eyJ[\w-]{10,}\.eyJ[\w-]{10,}\.[\w-]+)"
+    ),
+]
+
+
+def redact(text):
+    for pattern in REDACTIONS:
+        text = pattern.sub(r"\1***", text)
+    return text
+
 
 # The child authors every byte of its tool calls, and the row is drawn into
 # the human's terminal, where a control or format character is a command.
+# Redaction runs before the cut, so a token the limit would split still matches.
 def activity(event):
     args = event.get("args")
     args = args if isinstance(args, dict) else {}
@@ -34,7 +63,7 @@ def activity(event):
     text = "".join(
         " " if unicodedata.category(char) in ("Cc", "Cf") else char for char in text
     )
-    return " ".join(text.split())[:ACTIVITY_LIMIT]
+    return redact(" ".join(text.split()))[:ACTIVITY_LIMIT]
 
 
 class Supervisor:
