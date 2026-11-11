@@ -12,13 +12,14 @@ outside that range, and say how far.
 2. Journal volume and errors by host and unit, e.g.
 
    ```logql
-   sum by (host, unit) (count_over_time({job="systemd-journal"} |~ `(?i)\b(error|fail(s|ed|ure|ing)?|panic|denied|refused|timed? ?out)\b|exception\b` [24h]))
+   sum by (host, unit) (count_over_time({job="systemd-journal"} != "--confirm-timeout" |~ `(?i)\b(error|fail(s|ed|ure|ing)?|panic|denied|refused|timed? ?out)\b|exception\b` [24h]))
    ```
 
    The backtick string keeps `\b` literal. Matching whole words leaves out
    unit descriptions ("vdev errors"), alert names ("SyncFailing") and empty
    fields (`"errors":0`), and still counts "Failed to start" and
-   "TimeoutException".
+   "TimeoutException". The `!=` drops deploy-rs's sudo command line,
+   which every deploy logs with `--confirm-timeout`.
 
    sonarr, radarr, lidarr and prowlarr write a stack trace or an HTTP
    error's response body one journal line per line, and a Cloudflare error
