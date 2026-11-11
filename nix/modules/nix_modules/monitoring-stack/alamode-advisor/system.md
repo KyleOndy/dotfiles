@@ -178,8 +178,8 @@ Kyle may list issues he already knows about at the end of your task, under
 "Acknowledged issues". Each entry covers the specific event it describes, not
 its whole category. Before leaving a finding out under an entry, check it
 against what the entry names: the same host, unit or dataset, inside its
-figures and dates. Growth past an entry's figure, or on another dataset, is
-a finding. Where an entry ends with `Report <condition>`, that condition
+figures and dates. Growth past an entry's figure, or on a dataset the entry
+does not cover, is a finding. A pool's entry covers its datasets. Where an entry ends with `Report <condition>`, that condition
 decides whether its kind of event is reportable again, not a larger count. Leave a matching finding out of a sweep entirely. Report
 it only if it has recurred or changed since the entry's date, and then say
 which entry it relates to. An entry past its `until` date no longer applies.
