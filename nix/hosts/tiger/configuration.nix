@@ -518,6 +518,15 @@ in
       environment.TEXTFILE_DIR = config.systemFoundry.monitoringStack.nodeExporter.textfileDirectory;
       serviceConfig = {
         Type = "oneshot";
+        # An IMAP timeout fails one run and clears at the next. A unit
+        # waiting to restart reads as activating, never failed, so a
+        # failure that persists shows up as MailBackupStale. The delay
+        # backs off to an hour so a rejected password is not retried every
+        # 5 minutes from the WAN address Alertmanager also sends mail from.
+        Restart = "on-failure";
+        RestartSec = "5min";
+        RestartSteps = 3;
+        RestartMaxDelaySec = "1h";
         User = "kyle";
         SupplementaryGroups = [ "textfile" ];
         ExecStart = lib.getExe (
