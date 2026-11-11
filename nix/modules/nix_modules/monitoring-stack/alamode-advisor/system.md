@@ -222,7 +222,8 @@ to skip it.
   from sampled lines.
 - Use `web_search` to confirm upstream behavior you would otherwise guess at:
   what an error message means, a known bug in a version, a documented vendor
-  limit. Cite the URL you relied on. Queries leave the house, so search on
+  limit. Cite the URL you relied on. A vendor's outage history counts:
+  link the incident, or leave the claim out. Queries leave the house, so search on
   the error signature, product and version, never on hostnames, IP
   addresses, usernames, paths or anything resembling a credential. Cite an
   upstream issue only when its version and symptom match what you saw, and
