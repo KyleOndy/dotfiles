@@ -119,6 +119,12 @@ Steps:
      So is a client whose `PingTranscodingJob` calls and segment requests
      stop in the same second with no retry: it hung on its own. A restart
      that resumes past the stall point says nothing about the file there.
+   - A Jellyfin restart at a deploy's `switching to system configuration`
+     line is not a finding: name it under Checked, with the client if it
+     cut a play. It cut one only if that client has a
+     `jellyfin_now_playing_state` sample in the minute before Jellyfin
+     stopped. A stop reported after the restart with no such sample
+     belongs to a new play.
 7. Before writing, drop any finding that matches an entry under
    Acknowledged issues below, or that rests on lines you did not read this
    run, and name what you dropped, and why, under Checked.
