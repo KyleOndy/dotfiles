@@ -20,6 +20,12 @@ outside that range, and say how far.
    fields (`"errors":0`), and still counts "Failed to start" and
    "TimeoutException".
 
+   sonarr, radarr, lidarr and prowlarr write a stack trace or an HTTP
+   error's response body one journal line per line, and a Cloudflare error
+   page runs past 100, so their counts measure page length. For these four,
+   run `baseline` on entry headers, ``|~ `^\[(Warn|Error|Fatal)\]` ``, and
+   count failed requests by URL.
+
    Run it again with `[24h] offset 7d` (Loki accepts `offset` only right
    after the range), to find units that are new to the list or
    went quiet when they normally log. Keep the two lists apart: a count from
