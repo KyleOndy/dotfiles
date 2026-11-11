@@ -69,6 +69,9 @@ outside that range, and say how far.
      instead.
    - you concluded is not a fault, such as the restarts and errors a
      deploy explains.
+   - is one `alamode-advisor tool-error` line. That run's model wrote the
+     query, so it is not stored anywhere to fail again. Report it only
+     when the run has no `wrote` line or the same tool fails in every run.
 
    Name what you dropped, and why, under Checked. Then recheck what
    earlier sweeps got wrong: a `rtsp_<hash>` source is a named stream
