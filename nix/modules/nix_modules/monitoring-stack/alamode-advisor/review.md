@@ -3,8 +3,8 @@
 tiger sends two kinds of mail to kyle@ondy.org, both from `monitoring@ondy.org`:
 
 - **`[alamode-advisor] ...`**: the read-only advisor (`README.md` beside
-  this file). One report per alert triage, plus the daily logs and metrics
-  sweeps around 06:30.
+  this file). One report per alert triage, plus the daily logs, metrics and
+  playback sweeps from 06:00 to 06:45.
 - **`[FIRING:n] <alertname> (...)` and `[RESOLVED] ...`**: Alertmanager,
   grouped by alertname (`nix/modules/nix_modules/monitoring-stack/alertmanager.nix`).
 
