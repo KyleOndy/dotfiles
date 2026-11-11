@@ -53,6 +53,12 @@ weight.
   module's frontmatter on `agent-context/style.md`
 - `~/.claude/skills/`: every skill in `agent-context`
 - `~/.claude/commands/`: the git commands (below)
+- `~/.claude/agents/orchestrator.md` and `claude-orch`: a main session on
+  Opus that delegates everything to subagents, with Read, Grep and Glob
+  but no Edit, Write or Bash. `claude-orch [PROMPT_FILE] [CLAUDE_ARGS...]`
+  starts it with `orchestrator-prompt.md` appended to Claude Code's own
+  system prompt; the agent file's body stays empty because a body would
+  replace that prompt
 
 Hook and statusline scripts are packaged with `writeShellApplication`,
 so `jq`, `git`, `ffplay`, `tmux`, and GNU `grep` and `sed` come from the

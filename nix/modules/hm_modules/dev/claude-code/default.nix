@@ -74,6 +74,24 @@ let
     pkgs.gnused
     pkgs.coreutils
   ];
+
+  # --disallowedTools is variadic and swallows a prompt placed after it. In
+  # the agent's frontmatter, Agent(fork) removes the whole Agent tool.
+  claudeOrch = pkgs.writeShellApplication {
+    name = "claude-orch";
+    runtimeInputs = [ pkgs.claude-code ];
+    text = ''
+      if [ "$#" -gt 0 ] && [ -f "$1" ]; then
+        prompt=$(<"$1")
+        shift
+        set -- "$prompt" "$@"
+      fi
+      exec claude "$@" \
+        --agent orchestrator \
+        --append-system-prompt-file ${./orchestrator-prompt.md} \
+        --disallowedTools 'Agent(fork)'
+    '';
+  };
 in
 {
   options.hmFoundry.dev.claude-code.enable = mkEnableOption "Claude Code configuration";
@@ -82,6 +100,7 @@ in
     # Ensure Claude Code and required tools are installed
     home.packages = with pkgs; [
       claude-code
+      claudeOrch
     ];
 
     # settings.json is copied as a real writable file instead of the usual
@@ -99,6 +118,7 @@ in
       # own tools.
       ".claude/CLAUDE.md".text = readFile ../agent-context/instructions.md + "\n" + readFile ./CLAUDE.md;
       ".claude/rules/clojure.md".source = ./rules/clojure.md;
+      ".claude/agents/orchestrator.md".source = ./agents/orchestrator.md;
       ".claude/statusline.sh".source = statusline;
 
       ".claude/hooks/auth-stall.sh".source = authStall;
