@@ -392,6 +392,39 @@ in
     };
   };
 
+  # vmagent and node_exporter keep running through a DarkWake, which can last
+  # an hour, while launchd user agents such as mbsync may not run at all. The
+  # launchd_agents rules in vmalert.nix read this to tell the two apart. pmset
+  # lists the Graphics capability only in a full wake, and the file is left
+  # alone otherwise, so a DarkWake shows as a timestamp going stale whether or
+  # not this daemon runs in one.
+  launchd.daemons.full-wake = {
+    command = lib.getExe (
+      pkgs.writeShellApplication {
+        name = "full-wake";
+        text = ''
+          readonly PROM=${config.systemFoundry.monitoringAgent.textfileDirectory}/full_wake.prom
+
+          case "$(/usr/bin/pmset -g systemstate)" in
+          *Graphics*) ;;
+          *) exit 0 ;;
+          esac
+
+          {
+            echo '# HELP darwin_full_wake_timestamp_seconds Unix time pmset last reported a full wake'
+            echo '# TYPE darwin_full_wake_timestamp_seconds gauge'
+            echo "darwin_full_wake_timestamp_seconds $(date +%s)"
+          } >"$PROM.tmp"
+          mv -f "$PROM.tmp" "$PROM"
+        '';
+      }
+    );
+    serviceConfig = {
+      StartInterval = 60;
+      RunAtLoad = true;
+    };
+  };
+
   # The laptop's shell history reaches storage/backups only by pushing; nothing
   # on tiger can reach a roaming laptop to pull it. Midday because the machine
   # has to be awake and able to route to tiger, and a missed calendar interval

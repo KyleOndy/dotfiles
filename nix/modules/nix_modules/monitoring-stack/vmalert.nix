@@ -1251,8 +1251,11 @@ in
                 summary: "No Jellyfin watch history backup metric from tiger"
                 description: "No jellyfin_history_backup_last_success_timestamp_seconds series exists for tiger, so JellyfinHistoryBackupStale cannot fire. Either jellyfin-history-backup has never succeeded, or the unit does not set TEXTFILE_DIR. Check `journalctl -u jellyfin-history-backup` on tiger."
 
-        # launchd agents on trex. Every rule here goes quiet while trex
-        # sleeps, because its vmagent stops pushing and the series go stale.
+        # launchd agents on trex. While it sleeps its vmagent stops pushing
+        # and these series go stale. Through a DarkWake vmagent keeps pushing
+        # while the agents may not run, so a staleness rule here also requires
+        # a full wake in the last 3 minutes (full-wake in trex's
+        # configuration.nix), or no full-wake metric at all.
         - name: launchd_agents
           interval: 60s
           rules:
@@ -1276,7 +1279,11 @@ in
               expr: |-
                 (absent(mlx_agent_loaded{host="trex"}) and on (host) (up{host="trex",job="node"} == 1))
                 or
-                (time() - node_textfile_mtime_seconds{host="trex",file=~".*/mlx_agent.prom"} > 600)
+                (
+                  (time() - node_textfile_mtime_seconds{host="trex",file=~".*/mlx_agent.prom"} > 600)
+                  and on (host)
+                  ((time() - darwin_full_wake_timestamp_seconds{host="trex"} < 180) or absent(darwin_full_wake_timestamp_seconds{host="trex"}))
+                )
               for: 30m
               labels:
                 severity: warning
@@ -1287,7 +1294,10 @@ in
             # A wake waits out the rest of the 15 minute StartInterval, and the
             # first run after it can beat the network up, so `for:` is an hour.
             - alert: MbsyncStale
-              expr: time() - mbsync_last_success_timestamp_seconds{host="trex"} > 2 * 3600
+              expr: |-
+                (time() - mbsync_last_success_timestamp_seconds{host="trex"} > 2 * 3600)
+                and on (host)
+                ((time() - darwin_full_wake_timestamp_seconds{host="trex"} < 180) or absent(darwin_full_wake_timestamp_seconds{host="trex"}))
               for: 1h
               labels:
                 severity: warning
