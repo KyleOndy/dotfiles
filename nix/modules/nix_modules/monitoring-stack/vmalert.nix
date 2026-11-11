@@ -2096,9 +2096,12 @@ in
                   localhost:3100/metrics | grep loki_prometheus_rule` for
                   evaluation failures.
 
+            # A UDM firmware reboot holds this true for up to 15 minutes:
+            # unpoller times out about 4 minutes before the LAN stop, and the
+            # 10 minute rate window outlasts the last failure.
             - alert: VmagentScrapesFailing
               expr: rate(vm_promscrape_scrapes_failed_total[10m]) > 0
-              for: 15m
+              for: 20m
               labels:
                 severity: warning
               annotations:
