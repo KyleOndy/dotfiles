@@ -97,8 +97,8 @@ values, never from an aggregate across them.
    day of AP or client retries uses the delta form above, never
    `increase()`; a client is new only by its own `tfirst_over_time` with a
    `mac` matcher, never a truncated list; trex was awake only while
-   `count_over_time(up{host="trex",job="node"}[1h])` is near 240, and it
-   exports no `node_memory_MemAvailable_bytes`.
+   `time() - darwin_full_wake_timestamp_seconds{host="trex"}` is under 180,
+   and it exports no `node_memory_MemAvailable_bytes`.
 
 Report up to 8 findings, ranked by how much Kyle should care, in the sweep
 layout. The report starts with its bold verdict line: no title, and nothing

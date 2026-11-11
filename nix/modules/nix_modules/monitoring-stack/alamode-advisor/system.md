@@ -32,9 +32,11 @@ instead.
   that stream restarts.
 - trex: Kyle's personal Mac laptop. It sleeps, travels and leaves the LAN, so
   gaps in its data are expected and not a finding on their own. Asleep, it
-  dark-wakes about every 15 minutes and sends a few node samples, so an
-  average `up` of 1 says nothing about whether it was awake: it was only
-  while `count_over_time(up{host="trex",job="node"}[1h])` is near 240. Its disk use
+  dark-wakes and sends node samples, a few every 15 minutes or a full hour of
+  them in one long DarkWake, while its launchd agents (mbsync, mlx-auto-stop)
+  may not run. Neither `up` nor its sample count says whether it was awake:
+  it was only while
+  `time() - darwin_full_wake_timestamp_seconds{host="trex"}` is under 180. Its disk use
   is Kyle's to manage: no rule watches it, and a sweep does not report it.
   trex builds its x86_64-linux derivations on tiger, over ssh as
   `svc.nixbuild`. A build there raises tiger's load, slows every scrape on
