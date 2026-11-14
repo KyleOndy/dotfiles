@@ -15,7 +15,9 @@ day that holds a step (a deploy, a restart, a cleanup) has the median of
 whichever side lasted longer, so state a current level from an instant
 query and quote it beside the median. Before calling a current value a
 change, read it at a 1m step over the 10 minutes around it: one sample out
-of line is a spike, not a level. Fit a trend toward a limit with `predict_linear` over `[7d]`,
+of line is a spike, not a level. Before tying an event to a schedule or
+window, find its minute with `tlast_over_time` or a 1m range: a 6-hour
+bucket does not place it. Fit a trend toward a limit with `predict_linear` over `[7d]`,
 and only over the part after the window's last step (a restart, a deploy, a
 dip and its rebound): a line across a step invents a trend. Say which window
 you used. `zfs_pool_allocated_bytes` is raw, so on the raidz1 `storage` pool it
