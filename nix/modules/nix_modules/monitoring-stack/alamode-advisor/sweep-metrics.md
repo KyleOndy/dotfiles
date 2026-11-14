@@ -72,7 +72,9 @@ values, never from an aggregate across them.
      on the IoT or guest network, or once it stays for days. Before calling
      one new, read `tfirst_over_time(unpoller_client_uptime_seconds{mac="<mac>"}[120d])`,
      since the 14-day baseline hides an earlier stay, and compare its name
-     and AP with MACs that stopped just before it appeared.
+     and AP with MACs that stopped just before it appeared. A MAC that
+     `unpoller_device_info` also carries is a UniFi device, which shows as
+     a client for a few minutes while it adopts.
    - Services: scrape targets flapping (`up`), scrape duration creeping up,
      process memory that only grows, restarts.
    - Backups: last-success timestamps drifting later even when still inside
