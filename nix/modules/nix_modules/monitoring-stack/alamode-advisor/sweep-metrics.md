@@ -82,7 +82,10 @@ values, never from an aggregate across them.
      read each series' own history before calling a cadence broken. Most
      jobs write their timestamp only when they finish, so one past its slot
      while `node_systemd_unit_state{name="<unit>",state="active"}` reads 1
-     is a run still going, not a missed one.
+     is a run still going, not a missed one. trex is usually asleep when
+     the sweep runs, so read its timestamps with `last_over_time(x[1d])`,
+     as its rules do: an instant read finds nothing 5 minutes after its
+     last sample.
 4. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.
