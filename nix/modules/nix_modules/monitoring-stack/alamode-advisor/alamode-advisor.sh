@@ -98,7 +98,7 @@ slug() {
 # advise <name> <header> <task>
 advise() {
 	local name="$1" header="$2" task="$3"
-	local file work status=0 usage first
+	local file work status=0 usage first n
 	file="$(date -u +%Y%m%dT%H%M%SZ)-${name}.md"
 	# Built outside the reports directory, so the only change the mailer's
 	# path unit sees there is the finished report arriving.
@@ -107,6 +107,13 @@ advise() {
 	# pi reads a non-TTY stdin to its end and adds it to the prompt, and the
 	# caller's stdin may be the rest of the alert list.
 	timeout "$RUN_TIMEOUT" pi "${PI_ARGS[@]}" "$task" </dev/null >"${work}.out" 2>"${work}.err" || status=$?
+
+	# The model sometimes opens with a line about its evidence before the
+	# verdict.
+	n=$(head -n 8 "${work}.out" | grep -n -m 1 '^\*\*' | cut -d: -f1 || true)
+	if [[ -n $n ]] && ((n > 1)); then
+		sed -i "1,$((n - 1))d" "${work}.out"
+	fi
 
 	# Every layout opens with a bold verdict. A degraded model exits 0 with a
 	# few lines of noise instead, and the header's first line is the subject.
