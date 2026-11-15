@@ -104,7 +104,9 @@ Steps:
    calling a stall or a hang, compare where the play stopped with the
    item's length, from a full play of it or the next item's PlaybackInfo:
    a stop at its end, reported minutes later from the post-play screen, is
-   a finished play. Use `web_search` on the client's app version
+   a finished play. So is a stop inside its last chapter, the credits on
+   most films, from the `Chapter #0:N: start` lines of its ffmpeg log. Use
+   `web_search` on the client's app version
    and the error signature for a known upstream bug. Rule out the known
    failure modes first:
    - A Roku's 0 ms stops on a direct play with no video ffmpeg run are most
