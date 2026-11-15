@@ -45,8 +45,13 @@ Steps:
      finding.
    - `A task was canceled. URL GET /videos/`: the client dropped a segment
      download part way.
-   - `Transcoding kill timer stopped`: the client went silent for 60s
-     without reporting a stop.
+   - `Transcoding kill timer stopped`: the client fetched nothing for 60s
+     without reporting a stop. A paused player stops fetching and stops its
+     progress reports, so when `jellyfin_now_playing_state` reads 0
+     (paused) across the gap, it is a pause, not a hang. When play resumes,
+     Jellyfin starts a new ffmpeg at the start of the next segment the
+     player asks for, so that run's `-ss` is a segment boundary, not a
+     retry or where the player was.
    - `FFmpeg exited with code` other than 0. 137 is SIGKILL.
    - `Not throttling transcoder gap -`: a negative gap means the player has
      caught up with ffmpeg and is starved. `Throttling transcoder gap` and
