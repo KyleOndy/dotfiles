@@ -48,7 +48,15 @@ instead.
   an increase in `unpoller_site_intenet_drops_total` (unpoller's spelling)
   and a stall in `unpoller_device_wan_receive_bytes_total`.
   `unpoller_site_latency_seconds` holds its last value through a drop, so it
-  cannot rule one out.
+  cannot rule one out. Read upload as
+  `rate(unpoller_device_wan_transmit_bytes_total[5m])`:
+  `unpoller_device_wan_transmit_rate_bytes` is a point sample that swings
+  between 0 and the line rate on bursty traffic. A client's
+  `unpoller_client_receive_bytes_total` counts what it sent and `transmit`
+  what it got. tiger's public traffic, remote Jellyfin streams included,
+  leaves on enp10s0, so
+  `node_network_transmit_bytes_total{host="tiger",device="enp10s0"}` is its
+  share of the upload; unpoller counts tiger's about twice over.
 
 All configuration is declarative NixOS and nix-darwin in a dotfiles repo, so a
 real fix is a change to that config followed by a deploy, not an edit on the
