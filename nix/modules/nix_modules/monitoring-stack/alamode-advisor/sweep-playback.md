@@ -61,6 +61,13 @@ Steps:
      the end of the last segment the client fetched, so ffmpeg's position
      minus the gap is how far the client has downloaded. Segments on disk
      past that are not in the client's buffer.
+   - Outside the journal, in `{job="caddy-access", vhost=~"jellyfin.*"}`: a
+     `/Subtitles/` request with status 499 or 0 after about 30 s. The Roku
+     gave up on the track while Jellyfin extracted it, and the play went on
+     without subtitles. Name the title and the time between its
+     `SubtitleEncoder` command and `extraction completed` lines. tiger's
+     Jellyfin pre-extracts every track with the Subtitle Extract plugin, so
+     any one is a finding.
 4. For each play that stood out, read its ffmpeg runs: the command line
    (`-codec:v:0 copy` is video passed through, `h264_qsv` or `hevc_qsv` is
    a GPU encode, `libmp3lame` is audio converted), the input's streams,
