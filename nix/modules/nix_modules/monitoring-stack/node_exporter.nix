@@ -97,8 +97,10 @@ in
         # `$`. Opening a path under .zfs/snapshot automounts that snapshot,
         # and a snapshot of a dataset node-exporter cannot read fails statfs
         # with EACCES, which fires FilesystemDeviceError until ZFS expires the
-        # mount or sanoid prunes the snapshot.
-        "--collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)|/[.]zfs/snapshot/"
+        # mount or sanoid prunes the snapshot. Jellyfin's data directory is
+        # 0700, so a dataset mounted inside it fails statfs the same way;
+        # zfs_exporter reports that dataset's space.
+        "--collector.filesystem.mount-points-exclude=^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($$|/)|/[.]zfs/snapshot/|^/var/lib/jellyfin/"
       ];
     };
   };
