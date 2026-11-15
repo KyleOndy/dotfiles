@@ -424,10 +424,13 @@ in
         };
         script = ''
           API_KEY=$(cat "$API_KEY_FILE")
+          # Subtitles is the cache of tracks extracted from the media files,
+          # which Jellyfin rebuilds from them. Each zip would carry all of
+          # it, about 21 GB with the Subtitle Extract plugin.
           curl -sf "http://127.0.0.1:8096/Backup/Create" \
             -H "Content-Type: application/json" \
             -H "Authorization: MediaBrowser Token=$API_KEY" \
-            -d '{"Database": true, "Metadata": true, "Subtitles": true, "Trickplay": false}'
+            -d '{"Database": true, "Metadata": true, "Subtitles": false, "Trickplay": false}'
           find "$BACKUP_DIR" -name "*.zip" -mtime +"$RETENTION_DAYS" -delete
         '';
         serviceConfig = {
