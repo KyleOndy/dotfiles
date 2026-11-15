@@ -13,9 +13,12 @@ NixOS host config for the Raspberry Pi 5 (4GB) kiosk. App-level docs (backend, d
 - `wyoming-openwakeword.service`: wake word detection on `127.0.0.1:10400`, disabled until nixpkgs unbreaks pyopen-wakeword on aarch64-linux
 - `birdnet-go.service`: classifies bird song from the outdoor cameras' RTSP audio (`birdnet-go.nix`); web UI and API on `:8090`, Prometheus telemetry on `127.0.0.1:8091`
 - `caddy.service`: LAN HTTP on `:80`, proxied to the backend on `127.0.0.1:8080`
+- `cogsworth-airplay.service`: UxPlay AirPlay receiver (`airplay.nix`) drawing into the kiosk's Sway session, advertised over avahi on wlan0; restarts with the kiosk
+- `cogsworth-kiosk-guard.service`: follows Sway window events and UxPlay's closed-client log line, and polls every 5s (`airplay.nix`). Fullscreens any window but Chromium, fullscreens Chromium again once it is alone (windowed it shows browser toolbar), restarts `cogsworth-airplay` when its window is up with no client connected (UxPlay leaves the last frame up after "Stop Mirroring"), and after 30 min covered restarts `cogsworth-airplay`, then 2 min later `cogsworth-kiosk`, since the touchscreen cannot close a covering window
 
-The firewall is on and opens only ssh and `:80`, so `:8080` and `:8090`,
-though bound to every interface, are reachable only over `ssh -L`.
+The firewall is on and opens only ssh, `:80`, mDNS (UDP 5353) and
+UxPlay's TCP and UDP 7000-7002, so `:8080` and `:8090`, though bound to
+every interface, are reachable only over `ssh -L`.
 
 ## Viewing Logs
 

@@ -61,7 +61,10 @@ let
   };
 in
 {
-  imports = [ ./birdnet-go.nix ];
+  imports = [
+    ./airplay.nix
+    ./birdnet-go.nix
+  ];
 
   # Sops configuration - use pre-baked SSH host key for decryption
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
@@ -1240,9 +1243,6 @@ in
       }
     ];
   };
-
-  # mDNS disabled - using DNS/hosts entries instead
-  services.avahi.enable = false;
 
   # Minimal system packages
   environment.systemPackages = with pkgs; [
