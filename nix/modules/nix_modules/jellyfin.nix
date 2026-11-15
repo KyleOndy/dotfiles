@@ -213,9 +213,11 @@ in
         nightly at 01:00 for anything still missing. A Roku drops a subtitle
         request after 30 s, and Jellyfin extracts the tracks of a 15 GB remux
         in about 3 minutes, so a first play without this loses its subtitles.
-        The cache is under the data directory, about 21 GB for tiger's movies
-        and shows in 2026-11, nearly all of it Blu-ray PGS. The plugin's
-        options and the task's trigger are written on every start.
+        The cache is data/subtitles in the data directory, a path Jellyfin
+        fixes, about 21 GB for tiger's movies and shows in 2026-11, nearly all
+        of it Blu-ray PGS. Mount a dataset there to keep it off the root disk.
+        The plugin's options and the task's trigger are written on every
+        start.
       '';
     };
 

@@ -14,6 +14,9 @@ let
   pikaAddress = "10.24.89.102";
   trexSources = "10.24.89.0/24,192.168.5.0/24";
   service_root = "/var/lib";
+  # Hardcoded under the data directory:
+  # https://github.com/jellyfin/jellyfin/blob/v10.11.11/Emby.Server.Implementations/Library/PathManager.cs#L39
+  jellyfinSubtitles = "${config.services.jellyfin.dataDir}/data/subtitles";
 
   # Directory under /mnt/backups -> the Windows machine that mirrors into it
   # with Syncthing, so a machine cannot end up with a directory nothing
@@ -423,6 +426,22 @@ in
       fsType = "zfs";
       neededForBoot = false;
     };
+    # About 21 GB, all of it extracted from the media files and rebuilt by
+    # the Subtitle Extract plugin's nightly run, so scratch, which nothing
+    # snapshots or replicates. Create the dataset once on the host:
+    #   zfs create -o mountpoint=legacy scratch/jellyfin-subtitles
+    ${jellyfinSubtitles} = {
+      device = "scratch/jellyfin-subtitles";
+      fsType = "zfs";
+      neededForBoot = false;
+    };
+  };
+  # Without the mount, Jellyfin would refill the cache on the root disk.
+  systemd.services.jellyfin.unitConfig.RequiresMountsFor = [ jellyfinSubtitles ];
+  # A new dataset's root is root:root 0755, which Jellyfin cannot write.
+  systemd.tmpfiles.settings.jellyfinSubtitles.${jellyfinSubtitles}.d = {
+    inherit (config.services.jellyfin) user group;
+    mode = "0700";
   };
 
   # pika faces the internet, so this key buys exactly one capability and no
