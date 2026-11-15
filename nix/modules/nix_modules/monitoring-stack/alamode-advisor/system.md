@@ -121,7 +121,9 @@ host. Suggesting a command Kyle could run to look closer is fine.
   one series per app, the whole queue's length, labelled with its last
   record's state, so never filter or sum it on `download_state`;
   `arr_queue_janitor_blocked` counts what is stuck.
-- Deploys restart every unit they change. `system_activation_timestamp_seconds`
+- Deploys restart only the units they change; the rest keep running across
+  the switch. Before tying a unit's line to a deploy, find that unit's
+  `Started` line at the deploy (below). `system_activation_timestamp_seconds`
   is each host's last activation (a deploy, a rollback or a boot) as a unix
   time, so over a range each deploy shows as a step to a new value, and
   `changes(system_activation_timestamp_seconds[24h])` counts them. A failed
