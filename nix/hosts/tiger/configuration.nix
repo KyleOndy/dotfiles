@@ -1563,6 +1563,7 @@ in
         domainName = "jellyfin.tiger.infra.ondy.org";
         transcodeDebugLogging = true;
         installPlaybackReportingPlugin = true;
+        installSubtitleExtractPlugin = true;
         historyBackup.destinationPath = "${backup_path}/jellyfin";
         backup = {
           enable = true;

@@ -123,6 +123,36 @@ let
       <MaxDataAge>-1</MaxDataAge>
     </ReportPlaybackOptions>
   '';
+
+  # 7.0.0.0 targets ABI 10.11.2.0; 8 already targets 12.0.0.0. The hash is
+  # the one published beside the release asset.
+  subtitleExtract = pkgs.fetchurl {
+    url = "https://github.com/jellyfin/jellyfin-plugin-subtitleextract/releases/download/v7/subtitle-extract_7.0.0.0.zip";
+    sha256 = "1e7c5f0d97b22cbf6a9a71274321202abc28a1f901a9e1bfad11388b3f1373d2";
+  };
+
+  # Every other option keeps its default: all libraries, text and graphical
+  # subtitles.
+  subtitleExtractXml = pkgs.writeText "jellyfin-subtitle-extract.xml" ''
+    <?xml version="1.0" encoding="utf-8"?>
+    <PluginConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+      <ExtractionDuringLibraryScan>true</ExtractionDuringLibraryScan>
+    </PluginConfiguration>
+  '';
+
+  # The plugin's Extract Subtitles task ships with no trigger. Jellyfin names
+  # a task's trigger file after the MD5 of its type name, as a Guid built from
+  # the UTF-16LE bytes (ScheduledTaskWorker.Id). 01:00 local, in ticks of
+  # 100 ns.
+  subtitleExtractTask = "57c13bea-bcf2-2297-adf3-d1bcacabf4d7";
+  subtitleExtractTrigger = pkgs.writeText "jellyfin-subtitle-extract-trigger.js" (
+    builtins.toJSON [
+      {
+        Type = "DailyTrigger";
+        TimeOfDayTicks = 36000000000;
+      }
+    ]
+  );
 in
 {
   options.systemFoundry.jellyfin = {
@@ -171,6 +201,21 @@ in
         its options on every Jellyfin start, so the history is kept forever and
         a retention set in the plugin's settings page reverts on the next
         restart.
+      '';
+    };
+
+    installSubtitleExtractPlugin = mkOption {
+      type = types.bool;
+      default = false;
+      description = ''
+        Install the Subtitle Extract plugin, which extracts every embedded
+        subtitle track into Jellyfin's cache as a video is scanned, and again
+        nightly at 01:00 for anything still missing. A Roku drops a subtitle
+        request after 30 s, and Jellyfin extracts the tracks of a 15 GB remux
+        in about 3 minutes, so a first play without this loses its subtitles.
+        The cache is under the data directory, about 21 GB for tiger's movies
+        and shows in 2026-11, nearly all of it Blu-ray PGS. The plugin's
+        options and the task's trigger are written on every start.
       '';
     };
 
@@ -352,6 +397,15 @@ in
             ${getExe pkgs.unzip} -o ${playbackReporting} -d "$plugin"
           fi
           install -m 0644 ${playbackReportingXml} ${jfCfg.configDir}/playback_reporting.xml
+        '')
+        (mkIf cfg.installSubtitleExtractPlugin ''
+          plugin=${jfCfg.dataDir}/plugins/SubtitleExtract_7.0.0.0
+          if [ ! -f "$plugin/meta.json" ]; then
+            mkdir -p "$plugin"
+            ${getExe pkgs.unzip} -o ${subtitleExtract} -d "$plugin"
+          fi
+          install -D -m 0644 ${subtitleExtractXml} ${jfCfg.dataDir}/plugins/configurations/Jellyfin.Plugin.SubtitleExtract.xml
+          install -D -m 0644 ${subtitleExtractTrigger} ${jfCfg.configDir}/ScheduledTasks/${subtitleExtractTask}.js
         '')
       ];
     };
