@@ -131,8 +131,9 @@ Steps:
      is not deployed. A stall under `-f segment` with
      `Content-Length mismatch` lines is a segment served mid-write; one
      without them, on an input above the client's limit, is the client.
-     So is a client whose `PingTranscodingJob` calls and segment requests
-     stop in the same second with no retry: it hung on its own. A restart
+     So is a client whose progress reports (Jellyfin's `PingTranscodingJob`
+     DBG lines, logged for every play method) and segment requests stop in
+     the same second with no retry: it hung on its own. A restart
      that resumes past the stall point says nothing about the file there.
    - A Jellyfin restart at a deploy's `switching to system configuration`
      line is not a finding: name it under Checked, with the client if it
