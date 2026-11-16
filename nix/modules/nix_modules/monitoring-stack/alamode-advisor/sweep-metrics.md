@@ -92,6 +92,7 @@ values, never from an aggregate across them.
      last sample.
 4. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
+     meets the entry's `Report` condition, or, for an entry without one,
      recurred or changed after the entry's date, and name the entry.
    - a fleet note in your instructions already explains, such as trex's gaps
      and disk.
