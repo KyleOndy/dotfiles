@@ -138,7 +138,12 @@ host. Suggesting a command Kyle could run to look closer is fine.
   deploy-rs copies the closure for minutes before that switch line (6 on
   cogsworth on 11-06), raising the host's load, network and disk, so a
   failed scrape or a load spike in the minutes after an
-  `Accepted publickey for svc.deploy` line is the deploy too.
+  `Accepted publickey for svc.deploy` line is the deploy too. A series that
+  ends at a deploy's switch was most likely dropped by that deploy's config,
+  such as a collector exclude: say so and name the closure. You cannot read
+  the config, so never say it lacks something, and never infer from a
+  missing series that a mount or unit is gone. A ZFS dataset's space is
+  `zfs_dataset_*_bytes{name="<pool>/<dataset>"}` whatever node_exporter sees.
 - systemd's own lines about a unit (Starting, Started, Stopping, Stopped,
   Failed, timeouts) carry `unit="init.scope"`, and Started and Stopped name
   the unit by its description, as in `Started Jellyfin Media Server.`. The
