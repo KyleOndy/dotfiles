@@ -53,7 +53,8 @@ instead.
   `unpoller_device_wan_transmit_rate_bytes` is a point sample that swings
   between 0 and the line rate on bursty traffic. A client's
   `unpoller_client_receive_bytes_total` counts what it sent and `transmit`
-  what it got. tiger's public traffic, remote Jellyfin streams included,
+  what it got, so write a client's bytes as down (transmit) and up
+  (receive), never tx or rx. tiger's public traffic, remote Jellyfin streams included,
   leaves on enp10s0, so
   `node_network_transmit_bytes_total{host="tiger",device="enp10s0"}` is its
   share of the upload; unpoller counts tiger's about twice over.
