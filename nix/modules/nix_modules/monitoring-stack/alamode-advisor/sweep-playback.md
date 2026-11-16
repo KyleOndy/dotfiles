@@ -66,8 +66,9 @@ Steps:
      gave up on the track while Jellyfin extracted it, and the play went on
      without subtitles. Name the title and the time between its
      `SubtitleEncoder` command and `extraction completed` lines. tiger's
-     Jellyfin pre-extracts every track with the Subtitle Extract plugin, so
-     any one is a finding.
+     Jellyfin pre-extracts every track with the Subtitle Extract plugin,
+     whose first full pass ended at 07:44Z on 2026-11-16, so any one after
+     that is a finding.
 4. For each play that stood out, read its ffmpeg runs: the command line
    (`-codec:v:0 copy` is video passed through, `h264_qsv` or `hevc_qsv` is
    a GPU encode, `libmp3lame` is audio converted), the input's streams,

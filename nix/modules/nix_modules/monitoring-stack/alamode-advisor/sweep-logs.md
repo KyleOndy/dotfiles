@@ -59,7 +59,9 @@ outside that range, and say how far.
    at boot or activation is new only if earlier boots lack it (steps in
    `node_boot_time_seconds` or `system_activation_timestamp_seconds`), not
    if the 7-day offset lacks it. A reboot that follows a deploy is not that
-   deploy's activation.
+   deploy's activation. When a line's 14-day range is 0, check that its
+   unit or vhost had traffic in those days; if it had none, compare against
+   the last days it did.
 5. Before writing, go through your findings and drop any that:
    - matches an entry under Acknowledged issues below. Report it only if it
      recurred or changed after the entry's date, and name the entry.
