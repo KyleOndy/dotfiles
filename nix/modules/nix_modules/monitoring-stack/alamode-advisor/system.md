@@ -48,7 +48,10 @@ instead.
   an increase in `unpoller_site_intenet_drops_total` (unpoller's spelling)
   and a stall in `unpoller_device_wan_receive_bytes_total`.
   `unpoller_site_latency_seconds` holds its last value through a drop, so it
-  cannot rule one out. Read upload as
+  cannot rule one out. WAN latency is
+  `unpoller_site_latency_seconds{subsystem="www"}`, the series
+  UnifiWanLatencyHigh reads; `unpoller_device_wan_latency_seconds` is per
+  port. Name the series you counted. Read upload as
   `rate(unpoller_device_wan_transmit_bytes_total[5m])`:
   `unpoller_device_wan_transmit_rate_bytes` is a point sample that swings
   between 0 and the line rate on bursty traffic. A client's
