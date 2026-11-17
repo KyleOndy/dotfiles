@@ -794,6 +794,13 @@
             meta.description = "Render the domestique pad case parts to 3MF";
             program = "${pkgs.callPackage ./keyboard/domestique-pad/case { }}/bin/pad-case";
           };
+
+          # An app for the same reason as pad-case.
+          jumper-trays = {
+            type = "app";
+            meta.description = "Render the jumper wire tray parts to 3MF";
+            program = "${pkgs.callPackage ./3d-models/jumper-wire-trays { }}/bin/jumper-trays";
+          };
         }
       );
 
