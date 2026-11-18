@@ -15,22 +15,28 @@ out=$(jq -r '
 	(.error // "")
 ' <<<"$input")
 
+# A real error starts its line, after any `word: ` labels (`aws: [ERROR]:`,
+# `error:`, `botocore.exceptions.ClientError:`) and mk exec's per-cluster
+# prefix. Source and docs that quote these strings indent or quote them, so
+# a session reading such a file does not trip the hook.
+lead='^([^[:space:]]+ +[^[:alnum:][:space:]]+ )?([^[:space:]]+: )*'
+
 what='' fix=''
-if grep -qE 'ExpiredToken|Token has expired|SSO session associated with this profile has expired|Error when retrieving token from sso|Error loading SSO Token' <<<"$out"; then
+if grep -qE "${lead}(An error occurred \(ExpiredToken|Token has expired|(The )?SSO session associated with this profile has expired|Error when retrieving token from sso|Error loading SSO Token)" <<<"$out"; then
 	profile=$(grep -oE '(--profile[= ]|AWS_PROFILE=)[A-Za-z0-9_.-]+' <<<"$cmd" | head -1 | sed -E 's/^(--profile[= ]|AWS_PROFILE=)//' || true)
 	what='The AWS SSO session expired'
 	fix="aws sso login${profile:+ --profile $profile}"
-elif grep -qE 'gpg: signing failed|gpg failed to sign the data|gpg: decryption failed: No secret key|pinentry' <<<"$out"; then
+elif grep -qE "${lead}(gpg: signing failed|gpg failed to sign the data|gpg: decryption failed: No secret key|gpg: .*pinentry)" <<<"$out"; then
 	what='The gpg agent is locked'
 	fix='unlock the YubiKey (any gpg or pass command that prompts)'
 elif grep -qE '(^|[;&|(])[[:space:]]*pup ' <<<"$cmd" &&
 	grep -qiE '\b(401|403)\b|unauthori[sz]ed|not authenticated|token (is )?expired' <<<"$out"; then
 	what='pup is not authenticated'
 	fix='pup auth refresh'
-elif grep -qE 'HTTP 401: Bad credentials|gh auth login' <<<"$out"; then
+elif grep -qE "${lead}(HTTP 401: Bad credentials|To get started with GitHub CLI|Try authenticating with: +gh auth login)" <<<"$out"; then
 	what='The gh token is invalid or expired'
 	fix='gh auth refresh'
-elif grep -qE 'You must be logged in to the server' <<<"$out"; then
+elif grep -qE "${lead}You must be logged in to the server" <<<"$out"; then
 	what='The cluster credentials expired'
 	fix='aws sso login for an EKS cluster, or re-auth the Rancher one'
 fi
