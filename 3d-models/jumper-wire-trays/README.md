@@ -1,8 +1,8 @@
 # Jumper wire trays
 
 Six trays for the ELEGOO EL-CP-0059 kit: M-M, M-F and F-F, each at 10 cm and
-20 cm. The kit ships as six 40-pin ribbons in 10 colors, so a tray holds one
-ribbon's worth, four wires per color.
+20 cm. The kit ships as six 40-pin ribbons in 10 colors, four wires per color.
+A tray holds eight per color, so a second kit fits.
 
 ```bash
 nix run .#jumper-trays                    # every part, to out/<part>.3mf
@@ -30,10 +30,13 @@ bed-size check.
 - **One tray per type and length**: three type rows side by side would be about
   50 cm wide, and stepped rows bury the lower ones. Six trays also means taking
   out only what a build needs.
-- **Deep slots, one wire wide and four high**: the four wires in a slot are
+- **Deep slots, one wire wide and eight high**: the wires in a slot are
   identical, so the top one is always the right one. A pocket four wires wide
-  lets one or two wires slide around. An optional lip at the mouth holds the
-  top wire in; the fit test decides whether it's worth having.
+  lets one or two wires slide around. Gravity holds them, since the trays sit
+  level and rarely move.
+- **Rejected, a lip at the slot mouth**: the fit test's lips were 0.15 to 0.25
+  mm a side and none of them caught a housing. The plain 2.7 slots held fine,
+  so we dropped it rather than make it bigger.
 - **Combs and rails as separate parts**: a 20 cm tray is about 230 mm long and
   too wide to fit the bed even diagonally. A rail up to about 20 mm wide does, so
   rails print diagonally and are saved already turned 45 degrees. The 10 cm
@@ -49,22 +52,16 @@ bed-size check.
 ## Fit test
 
 Print `fit-test.3mf` in the filament the trays will use. Each piece has its
-value engraved.
+value engraved. The first print gave the values now in `params.scad`.
 
-- **Slot widths** (2.7 to 3.1 mm): load four wires into each and keep the
-  narrowest one they drop into without a push.
-- **Slot mouths** (2.9 is no lip, then 2.6, 2.5, 2.4): pick the mouth whose
-  lip holds the top wire when the piece is tipped on its side, and still lets
-  it out without pulling the wire off its housing.
+- **Slot widths** (2.7 to 3.1 mm): load wires into each and keep the narrowest
+  one they drop into without a push. 2.7 held them well.
 - **Rail sockets** (0.05 to 0.20 mm a side): push a stub into each and keep the
-  one that holds without glue or a mallet.
+  one that holds without glue or a mallet. 0.15.
 - **Stack sockets** (0.1 to 0.3 mm a side): keep the loosest one that doesn't
-  rattle on the pin tab.
+  rattle on the pin tab. The pin went into 0.3.
 - **Label strip**: digits at the comb's real pitch in two sizes and a type
-  label. Fill them with a Sharpie and keep the size that reads.
-
-Then set `slot_width`, `slot_mouth`, `rail_clearance` and `stack_clearance` in
-`params.scad`.
+  label. Fill them with a Sharpie and keep the size that reads. 3 mm.
 
 ## Still needed before the comb
 

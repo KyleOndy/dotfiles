@@ -4,8 +4,6 @@ include <params.scad>
 use <slot.scad>
 
 slot_widths = [2.7, 2.8, 2.9, 3.0, 3.1];
-// Each on a slot_width slot; the first has no lip.
-slot_mouths = [slot_width, 2.6, 2.5, 2.4];
 // Per side.
 rail_clearances = [0.05, 0.10, 0.15, 0.20];
 stack_clearances = [0.1, 0.2, 0.3];
@@ -32,29 +30,28 @@ module label_text(t, size = 3) {
 }
 
 // One slot between its own two walls, so each wall flexes as a comb's would.
-module test_slot(width, mouth) {
+module test_slot(width) {
     w = width + 2 * slot_wall;
     difference() {
         translate([-w / 2, 0, 0])
             cube([w, pocket + stop, comb_height]);
-        slot_void(width, mouth);
+        slot_void(width);
     }
 }
 
-// Load each slot with four wires: the right width drops a housing in without
-// rattling side to side.
-module slot_strip(widths, mouths, labels) {
+// The right width drops a housing in without rattling side to side.
+module slot_strip(widths) {
     n = len(widths);
     difference() {
         translate([0, -ledge, 0])
             cube([n * test_pitch, ledge + pocket + stop, comb_base]);
         for (i = [0 : n - 1])
             translate([(i + 0.5) * test_pitch, -ledge / 2, comb_base - label_depth])
-                label_text(labels[i]);
+                label_text(fmt(widths[i], 1));
     }
     for (i = [0 : n - 1])
         translate([(i + 0.5) * test_pitch, 0, 0])
-            test_slot(widths[i], mouths[i]);
+            test_slot(widths[i]);
 }
 
 // Printed as the comb will be, so each socket's roof is a bridge.
@@ -124,13 +121,8 @@ module label_strip() {
 row1 = ledge;
 row2 = ledge + pocket + stop + gap;
 
-translate([0, row1, 0])
-    slot_strip(slot_widths, slot_widths, [for (w = slot_widths) fmt(w, 1)]);
-translate([len(slot_widths) * test_pitch + gap, row1, 0])
-    slot_strip([for (m = slot_mouths) slot_width], slot_mouths,
-               [for (m = slot_mouths) fmt(m, 1)]);
-translate([(len(slot_widths) + len(slot_mouths)) * test_pitch + 2 * gap, 0, 0])
-    label_strip();
+translate([0, row1, 0]) slot_strip(slot_widths);
+translate([len(slot_widths) * test_pitch + gap, 0, 0]) label_strip();
 
 translate([0, row2, 0]) rail_sockets();
 translate([len(rail_clearances) * 14 + gap, row2, 0]) stack_sockets();
