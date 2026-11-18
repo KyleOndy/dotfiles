@@ -12,13 +12,21 @@ rail_clearance = 0.15;
 stack_clearance = 0.3;
 digit_size = 3;
 
+// Between a new wire's housings: 7 1/4 in measured on a 20 cm, 10 cm a guess.
+wire_gap_10 = 84;
+wire_gap_20 = 184;
+// Bent wires come up short; a new one's housings sit out of their pockets.
+gap_slack = 5;
+
 slot_wall = 1.6;
 // Clears 24 AWG insulation and stops a housing.
 wire_slit = 1.9;
-// Shorter than a housing, so male pins stick out past the outer face.
+// Housings are 14 long, so male pins stick out past the outer face.
 pocket = 12;
 stop = 2;
 comb_base = 2;
+ledge = 7;
+socket_wall = 2;
 stack_height = wires_per_slot * housing + 0.3;
 comb_height = comb_base + stack_height;
 

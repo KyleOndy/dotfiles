@@ -11,7 +11,7 @@ A1 mini (180 x 180 x 180 mm), sliced in Bambu Studio.
 | [wine-shelf-fixtures](wine-shelf-fixtures/)               | Jigs for the brass stemware hangers                    | Partly printed, see its README |
 | [oneida-cyclone-wall-spacer](oneida-cyclone-wall-spacer/) | Spacer between the Oneida motor housing and the wall   | In use                         |
 | [kekap-tool-hub-extended](kekap-tool-hub-extended/)       | Scripts and notes for a longer KeKap tool hub          | Paid model, no meshes here     |
-| [jumper-wire-trays](jumper-wire-trays/)                   | Stacking trays for Dupont jumpers, by type and color   | Fit test designed              |
+| [jumper-wire-trays](jumper-wire-trays/)                   | Stacking trays for Dupont jumpers, by type and color   | Fit test printed, trays not    |
 | [domestique pad case](../keyboard/domestique-pad/case/)   | Aerobar carrier and key pod                            | Lives with its firmware        |
 
 ## Layout

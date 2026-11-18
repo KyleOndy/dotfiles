@@ -10,7 +10,7 @@
 #   jumper-trays fit-test       only the named parts
 #   jumper-trays edit fit-test  the OpenSCAD GUI, which redraws on every save
 
-readonly PARTS=(fit-test)
+readonly PARTS=(fit-test combs rails-10 rails-20)
 # The A1 mini prints 180 x 180 x 180.
 readonly BED=180
 

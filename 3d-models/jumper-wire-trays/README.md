@@ -37,14 +37,20 @@ bed-size check.
 - **Rejected, a lip at the slot mouth**: the fit test's lips were 0.15 to 0.25
   mm a side and none of them caught a housing. The plain 2.7 slots held fine,
   so we dropped it rather than make it bigger.
-- **Combs and rails as separate parts**: a 20 cm tray is about 230 mm long and
+- **Combs and rails as separate parts**: a 20 cm tray is about 220 mm long and
   too wide to fit the bed even diagonally. A rail up to about 20 mm wide does, so
   rails print diagonally and are saved already turned 45 degrees. The 10 cm
   trays use the same parts with shorter rails.
-- **Debossed labels**: the type ("M-F") on the comb and a resistor color code
-  digit under each slot, so an empty slot still says which color goes there.
-  Debossed rather than raised so a Sharpie fill stays put.
-- **Stacking pins**: two stacks of three in the drawer.
+- **Span 5 mm under a new wire**: used wires bend and come up short. A housing
+  is 14 mm in a 12 mm pocket open to the outside, so a new wire takes up the
+  slack by its housings sitting a couple of mm out.
+- **Debossed labels**: a resistor color code digit under each slot, so an empty
+  slot still says which color goes there, plus the type and length on the
+  outer face, which is the face that shows on a stack. Debossed rather than
+  raised so a Sharpie fill stays put.
+- **A front and a back comb per tray**: the back comb faces the other way, so
+  its digits run 9 to 0 and each color stays on one line across the tray.
+- **Stacking pins**: two stacks of three in the drawer, about 71 mm tall.
 - **Rejected, buying one**: nothing off the shelf sorts by type, length and
   color. The printable designs we looked at were either slot-per-wire combs
   for one length or Gridfinity bins, which need a baseplate.
@@ -63,9 +69,17 @@ value engraved. The first print gave the values now in `params.scad`.
 - **Label strip**: digits at the comb's real pitch in two sizes and a type
   label. Fill them with a Sharpie and keep the size that reads. 3 mm.
 
-## Still needed before the comb
+## Parts
 
-- The gap between the plastic ends of one wire from each ribbon, since the
-  comb spacing comes from the shortest.
-- The body length of a male and a female housing, to check `pocket`.
-- The color order along a ribbon, which sets the digit order.
+| Part       | Holds                                | Print |
+| ---------- | ------------------------------------ | ----- |
+| `combs`    | All 12 combs, front and back for six | once  |
+| `rails-10` | All six 10 cm rails                  | once  |
+| `rails-20` | Three 20 cm rails, diagonal          | twice |
+
+Press each rail all the way into its sockets, since a seated rail is what sets
+the span. A front comb reads 0 to 9 left to right, so pair it with the back
+comb of the same type and length.
+
+`wire_gap_10` in `params.scad` is a guess, 100 mm less than the measured 20 cm
+gap. Measure a 10 cm wire before printing `rails-10`.

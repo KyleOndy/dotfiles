@@ -1,7 +1,7 @@
 // One plate of fit tests, printed before any comb or rail. The value that fits
 // best on each piece goes into params.scad.
 include <params.scad>
-use <slot.scad>
+use <shapes.scad>
 
 slot_widths = [2.7, 2.8, 2.9, 3.0, 3.1];
 // Per side.
@@ -10,8 +10,6 @@ stack_clearances = [0.1, 0.2, 0.3];
 
 // Wider than a comb's real pitch so each value fits under its slot.
 test_pitch = 10;
-ledge = 7;
-socket_wall = 2;
 stub_length = 30;
 gap = 6;
 
@@ -22,12 +20,6 @@ function fmt(v, places) =
     let(scale = pow(10, places), n = round(v * scale),
         whole = floor(n / scale), frac = n - whole * scale)
     str(whole, ".", places == 2 && frac < 10 ? "0" : "", frac);
-
-module label_text(t, size = 3) {
-    linear_extrude(label_depth + 0.01)
-        text(t, size = size, font = label_font,
-             halign = "center", valign = "center");
-}
 
 // One slot between its own two walls, so each wall flexes as a comb's would.
 module test_slot(width) {
@@ -93,13 +85,8 @@ module stack_sockets() {
 }
 
 module stack_pin_tab() {
-    chamfer = 0.4;
     translate([-5, -5, 0]) cube([10, 10, 2]);
-    translate([0, 0, 2]) {
-        cylinder(d = stack_pin, h = stack_pin_height - chamfer);
-        translate([0, 0, stack_pin_height - chamfer])
-            cylinder(d1 = stack_pin, d2 = stack_pin - 2 * chamfer, h = chamfer);
-    }
+    translate([0, 0, 2]) pin();
 }
 
 // Digits at the comb's real pitch in two sizes, and a type label, to fill
