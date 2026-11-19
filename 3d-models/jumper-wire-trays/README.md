@@ -41,9 +41,10 @@ bed-size check.
   too wide to fit the bed even diagonally. A rail up to about 20 mm wide does, so
   rails print diagonally and are saved already turned 45 degrees. The 10 cm
   trays use the same parts with shorter rails.
-- **Span 5 mm under a new wire**: used wires bend and come up short. A housing
+- **Span 2 mm under a new wire**: used wires bend and come up short. A housing
   is 14 mm in a 12 mm pocket open to the outside, so a new wire takes up the
-  slack by its housings sitting a couple of mm out.
+  slack by its housings sitting a mm out. At 5 mm under, the first 20 cm tray
+  bowed a wire into an S.
 - **Debossed labels**: a resistor color code digit under each slot, so an empty
   slot still says which color goes there, plus the type and length on the
   outer face, which is the face that shows on a stack. Debossed rather than

@@ -16,7 +16,7 @@ digit_size = 3;
 wire_gap_10 = 84;
 wire_gap_20 = 184;
 // Bent wires come up short; a new one's housings sit out of their pockets.
-gap_slack = 5;
+gap_slack = 2;
 
 slot_wall = 1.6;
 // Clears 24 AWG insulation and stops a housing.
