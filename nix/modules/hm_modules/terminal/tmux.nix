@@ -81,8 +81,10 @@ let
     bg = "colour239";
     fg = "colour223";
   };
+  # A zoomed pane fills the window, so tmux draws no pane borders to recolour,
+  # and these formats drop the #F flag that would show Z.
   currentWindowFmt = mkCurrentTabFmt {
-    bg = "colour214";
+    bg = "#{?window_zoomed_flag,colour167,colour214}";
     fg = "colour239";
   };
 in
