@@ -2007,34 +2007,49 @@ in
                 summary: "The sump pump ran {{ $value | humanizePercentage }} of the last hour"
                 description: "Heavy inflow, or short cycling from a float set too tight or a failed check valve. Runs per hour on the Appliances dashboard tell them apart: a few long runs is inflow, dozens of short ones is cycling."
 
-        # The basement dehumidifier's ESPHome plug. Above 150 W is the
-        # compressor running; it drew 368.5 W on the plug's first scrape.
-        - name: dehumidifier
-          interval: 5m
+        # The plug feeding the Aprilaire 700 humidifier and the condensate
+        # pump that drains it, both single speed and the plug's only loads.
+        # Measured over a 63-minute run on 2026-11-21: fan alone 37.5-39.2 W,
+        # pump alone 57 W, both 89-95.5 W. Above 20 W the fan is running,
+        # above 50 W the pump is.
+        - name: condensate_pump
+          interval: 1m
           rules:
-            # A dehumidifier that stops draining fills its tank and stops, which
-            # looks the same as a dry basement. There is no basement humidity
-            # sensor, so this reads outdoor dew point from birdnet-go's yr.no
-            # weather (Magnus formula, Sonntag constants). A 12 C dew point is
-            # 56% RH at 21 C and wetter in any cooler basement, so a working
-            # unit runs at least once in 2 days of it.
-            - alert: DehumidifierIdle
+            # The 700 feeds 6 gph and evaporates 0.75 (Aprilaire form 222), so
+            # the pump takes over 5 gph. It cycled every 4-5 minutes, 14 times
+            # in the measured run.
+            - alert: CondensatePumpIdle
+              expr: |
+                avg_over_time((esphome_sensor_value{job="esphome",host="condensate-pump",id="power"} > bool 20)[30m:15s]) > 0.33
+                and max_over_time(esphome_sensor_value{job="esphome",host="condensate-pump",id="power"}[30m]) < 50
+              labels:
+                severity: critical
+              annotations:
+                summary: "The humidifier is running and the condensate pump has not started in 30 minutes"
+                description: "The humidifier ran {{ $value | humanizePercentage }} of the last 30 minutes, draining over 5 gph into the pump, and the plug never read above 50 W, where a pump cycle reads about 95 W. Look for water around the pump: a stuck float or a dead motor overflows the reservoir. A dry reservoir means the humidifier's water valve is shut or its supply is off."
+
+            # A dead pump whose overflow switch cuts the humidifier stops the
+            # water before CondensatePumpIdle can count 10 minutes of it.
+            # There is no indoor humidity sensor, so this reads outdoor dew
+            # point from birdnet-go's yr.no weather (Magnus formula, Sonntag
+            # constants): air at a 0 C dew point is 25% RH heated to 21 C, so
+            # a working humidifier calls within 12 hours of it.
+            - alert: HumidifierIdle
               expr: |
                 WITH (
                   t = weather_temperature_celsius{job="birdnet-go"},
                   g = ln(weather_humidity_percentage{job="birdnet-go"} / 100) + 17.62 * t / (243.12 + t),
                 )
-                max_over_time(esphome_sensor_value{job="esphome",host="dehumidifier",id="power"}[2d]) < 150
-                and on() avg_over_time((243.12 * g / (17.62 - g))[2d:15m]) > 12
-              for: 1h
+                max_over_time(esphome_sensor_value{job="esphome",host="condensate-pump",id="power"}[12h]) < 20
+                and on() avg_over_time((243.12 * g / (17.62 - g))[12h:15m]) < 0
               labels:
                 severity: warning
               annotations:
-                summary: "The dehumidifier has not run in 2 days of humid weather"
-                description: "Outdoor dew point averaged above 12 C for 2 days and the compressor never started (peak draw {{ $value | humanize }} W). Check the tank: a full one stops the unit, so the drain hose is kinked, clogged or lifted above the outlet. 0 W also fits a unit switched off or tripped; a steady few dozen watts is the fan alone, so a frozen coil or a failed compressor."
+                summary: "The humidifier has not run in 12 hours of dry weather"
+                description: "Outdoor dew point averaged below 0 C for 12 hours and nothing on the plug started (peak draw {{ $value | humanize }} W). Check the condensate pump's reservoir first: a full one means the pump died and its overflow switch, if wired to the humidifier, shut it off. Otherwise the humidistat is off or set low, or the current sensing relay is not seeing the furnace blower."
 
-            # DehumidifierIdle cannot fire without the weather series.
-            - alert: DehumidifierWeatherMissing
+            # HumidifierIdle cannot fire without the weather series.
+            - alert: HumidifierWeatherMissing
               expr: absent(weather_humidity_percentage{host="cogsworth"}) and on(host) up{host="cogsworth",job="birdnet-go"} == 1
               for: 2h
               labels:
@@ -2042,7 +2057,7 @@ in
                 service: birdnet-go
               annotations:
                 summary: "birdnet-go is up but exports no weather"
-                description: "DehumidifierIdle reads outdoor dew point from birdnet-go's weather_temperature_celsius and weather_humidity_percentage, so it cannot fire. Either weather polling is off in birdnet-go's config or an upgrade renamed the metrics. On cogsworth: `curl -s localhost:8091/metrics | grep ^weather_`."
+                description: "HumidifierIdle reads outdoor dew point from birdnet-go's weather_temperature_celsius and weather_humidity_percentage, so it cannot fire. Either weather polling is off in birdnet-go's config or an upgrade renamed the metrics. On cogsworth: `curl -s localhost:8091/metrics | grep ^weather_`."
 
         # The stack watching itself. `up` covers a process that stops
         # answering; these cover the ones that answer and still move no data.

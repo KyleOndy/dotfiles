@@ -2196,9 +2196,11 @@ in
                   };
                 }
                 {
+                  # Feeds the HVAC humidifier and the condensate pump that
+                  # drains it. Its firmware and web UI name it dehumidifier.
                   targets = [ "192.168.3.68:80" ];
                   labels = {
-                    host = "dehumidifier";
+                    host = "condensate-pump";
                   };
                 }
               ];
