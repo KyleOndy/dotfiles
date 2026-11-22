@@ -457,12 +457,69 @@
     },
     {
       "type": "stat",
-      "title": "Last Pump Run",
-      "description": "Time since the plug last read above 50 W, the pump running, looking back 7 days.",
+      "title": "Running Now",
+      "description": "Decoded from the plug's single power reading. Both are single speed and its only loads: fan alone 37.5-39.2 W, pump alone 57 W, both 89-95.5 W. A pump cycle lasts 10-20 s, so Last Pump Run says more about the pump.",
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 0,
+        "y": 27
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "WITH (p = esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"}) (p > bool 20) * (p < bool 50) + (p > bool 75)",
+          "legendFormat": "humidifier fan",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"} > bool 50",
+          "legendFormat": "condensate pump",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "off",
+                  "color": "transparent"
+                },
+                "1": {
+                  "text": "running",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Last Pump Run",
+      "description": "Time since the plug last read above 50 W, the pump running, looking back 7 days.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 6,
         "y": 27
       },
       "datasource": {
@@ -499,8 +556,8 @@
       "description": "Pump starts above 50 W, counted from 15 s samples, so a run shorter than one scrape can be missed.",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 6,
+        "w": 4,
+        "x": 10,
         "y": 27
       },
       "datasource": {
@@ -534,11 +591,11 @@
     {
       "type": "stat",
       "title": "Humidifier Runtime, 24h",
-      "description": "Time in the last 24 hours the plug read above 20 W, the humidifier's fan running.",
+      "description": "Time in the last 24 hours the humidifier's fan ran, decoded as in Running Now.",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 12,
+        "w": 5,
+        "x": 14,
         "y": 27
       },
       "datasource": {
@@ -548,7 +605,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "avg_over_time((esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"} > bool 20)[24h:15s]) * 86400",
+          "expr": "avg_over_time((WITH (p = esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"}) (p > bool 20) * (p < bool 50) + (p > bool 75))[24h:15s]) * 86400",
           "instant": true
         }
       ],
@@ -574,8 +631,8 @@
       "description": "Outdoor dew point averaged over 12 hours, from birdnet-go's yr.no weather on cogsworth. Below 0 C, HumidifierIdle fires if nothing on the plug ran in those 12 hours.",
       "gridPos": {
         "h": 4,
-        "w": 6,
-        "x": 18,
+        "w": 5,
+        "x": 19,
         "y": 27
       },
       "datasource": {
@@ -619,11 +676,11 @@
       }
     },
     {
-      "type": "timeseries",
-      "title": "Humidifier Minutes and Pump Runs per Hour",
-      "description": "Humidifier fan minutes and pump starts per hour, against outdoor dew point. Humidifier minutes with no pump runs is what CondensatePumpIdle catches; a dry stretch with neither is HumidifierIdle.",
+      "type": "state-timeline",
+      "title": "Running",
+      "description": "When each one ran, decoded as in Running Now. A block is marked running if any 15 s sample in it was, so a 10-20 s pump cycle still shows at wide time ranges.",
       "gridPos": {
-        "h": 8,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 31
@@ -635,7 +692,96 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "avg_over_time((esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"} > bool 20)[$__interval:15s]) * 60",
+          "expr": "max_over_time((WITH (p = esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"}) (p > bool 20) * (p < bool 50) + (p > bool 75))[$__interval:15s])",
+          "legendFormat": "humidifier fan"
+        },
+        {
+          "refId": "B",
+          "expr": "max_over_time((esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"} > bool 50)[$__interval:15s])",
+          "legendFormat": "condensate pump"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 80,
+            "lineWidth": 0
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "off",
+                  "color": "transparent"
+                },
+                "1": {
+                  "text": "running",
+                  "color": "purple"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "condensate pump"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": "off",
+                        "color": "transparent"
+                      },
+                      "1": {
+                        "text": "running",
+                        "color": "green"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showValue": "never",
+        "mergeValues": true,
+        "rowHeight": 0.8,
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Humidifier Minutes and Pump Runs per Hour",
+      "description": "Humidifier fan minutes and pump starts per hour, against outdoor dew point. Humidifier minutes with no pump runs is what CondensatePumpIdle catches; a dry stretch with neither is HumidifierIdle.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "avg_over_time((WITH (p = esphome_sensor_value{job=\"esphome\",host=\"condensate-pump\",id=\"power\"}) (p > bool 20) * (p < bool 50) + (p > bool 75))[$__interval:15s]) * 60",
           "legendFormat": "humidifier minutes"
         },
         {
@@ -748,7 +894,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 44
       },
       "panels": []
     },
@@ -760,7 +906,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 45
       },
       "datasource": {
         "type": "prometheus",
@@ -879,7 +1025,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 45
       },
       "datasource": {
         "type": "prometheus",
@@ -998,7 +1144,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 53
       },
       "datasource": {
         "type": "prometheus",
@@ -1110,7 +1256,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 53
       },
       "datasource": {
         "type": "prometheus",
