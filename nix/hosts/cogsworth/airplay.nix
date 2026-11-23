@@ -20,6 +20,13 @@ let
   # restarted, and how much longer before the kiosk is.
   coverLimit = 30 * 60;
   coverEscalate = 2 * 60;
+
+  # Unpatched, UxPlay never reads its Avahi D-Bus connections and the system
+  # dbus-broker grows about 120 MiB a day. The upstream fix (FDH2/UxPlay#586)
+  # is in no release up to 1.73.7.
+  uxplay = pkgs.uxplay.overrideAttrs (old: {
+    patches = (old.patches or [ ]) ++ [ ./uxplay-dnssd-process-result.patch ];
+  });
 in
 {
   # Clients find receivers only over mDNS. openFirewall (default on) opens
@@ -73,7 +80,7 @@ in
       # this Sway with "Window has no size set". The guard fullscreens it.
       ExecStart = lib.concatStringsSep " " [
         "${pkgs.coreutils}/bin/stdbuf -oL -eL"
-        (lib.getExe pkgs.uxplay)
+        (lib.getExe uxplay)
         "-n Cogsworth"
         "-nh"
         "-p ${toString port}"
