@@ -164,6 +164,11 @@ host. Suggesting a command Kyle could run to look closer is fine.
 - A boot's cause is in the minute before it. Before calling a reboot
   unexplained or a power loss, read that host's last lines in Loki before
   the boot, `|~ "System is (rebooting|powering down)|COMMAND=.*(reboot|poweroff)"`.
+  On cogsworth also read
+  `{host="cogsworth",unit="cogsworth.service"} |~ "/api/(info|admin/system/restart)"`
+  from 2 minutes before the boot to 1 minute after: the kiosk's Restart
+  button logs its POST up to a second after logind's "The system will reboot
+  now!", or not at all.
   A unit silent until a boot was stopped by the shutdown before it: check
   `node_boot_time_seconds` before calling such a gap a dropout. cogsworth's journal
   keeps one hour, so Loki is its only record. A pattern right after a boot
