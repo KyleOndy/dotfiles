@@ -52,6 +52,17 @@ Steps:
      Jellyfin starts a new ffmpeg at the start of the next segment the
      player asks for, so that run's `-ss` is a segment boundary, not a
      retry or where the player was.
+   - A `Playback stopped reported by app` line can be Jellyfin's own idle
+     check, which every 5 minutes stops a session that sent no report for
+     over 5
+     ([SessionManager.cs](https://github.com/jellyfin/jellyfin/blob/v10.11.11/Emby.Server.Implementations/Session/SessionManager.cs#L644-L667)).
+     It is that check when caddy-access has no
+     `POST /Sessions/Playing/Stopped` from the client and
+     `Transcoding kill timer stopped` follows 60-120 s later. Its position
+     is the client's last report plus the time since, so it can lie past
+     anything ffmpeg produced, and Jellyfin saves it as the resume point.
+     Where the client was comes from its last
+     `POST /Sessions/Playing/Progress`.
    - `FFmpeg exited with code` other than 0. 137 is SIGKILL.
    - `Not throttling transcoder gap -`: a negative gap means the player has
      caught up with ffmpeg and is starved. `Throttling transcoder gap` and
@@ -60,7 +71,9 @@ Steps:
      second, so `1780100000` is 178 s. The gap is ffmpeg's position minus
      the end of the last segment the client fetched, so ffmpeg's position
      minus the gap is how far the client has downloaded. Segments on disk
-     past that are not in the client's buffer.
+     past that are not in the client's buffer. One
+     `Throttling transcoder gap` value repeated every 5 s for minutes means
+     the client stopped fetching when it last changed.
    - Outside the journal, in `{job="caddy-access", vhost=~"jellyfin.*"}`: a
      `/Subtitles/` request with status 499 or 0 after about 30 s. The Roku
      gave up on the track while Jellyfin extracted it, and the play went on
@@ -99,7 +112,10 @@ Steps:
 6. Decide where each failure sits: the file (codec, bad data), the client
    (a codec it claims and cannot play, a retry with no fallback), tiger
    (speed below 1x, GPU errors), or the network (a low or falling link
-   rate, dropped downloads). You cannot open a media file, so blame the file
+   rate, dropped downloads). Judge a remote client's delivery by the
+   content it fetched each minute (distinct segments times segment length)
+   against realtime, never by Caddy's `duration`, which ends when the bytes
+   reach the socket buffer. You cannot open a media file, so blame the file
    only when a log line shows its damage (a demuxer error, `Invalid data`),
    and never infer its codec from other files: say unverified. Before
    calling a stall or a hang, compare where the play stopped with the
@@ -131,9 +147,14 @@ Steps:
      is not deployed. A stall under `-f segment` with
      `Content-Length mismatch` lines is a segment served mid-write; one
      without them, on an input above the client's limit, is the client.
-     So is a client whose progress reports (Jellyfin's `PingTranscodingJob`
-     DBG lines, logged for every play method) and segment requests stop in
-     the same second with no retry: it hung on its own. A restart
+     So is a client whose progress reports and segment requests stop in
+     the same second with no retry: it hung or quit on its own. A remote
+     client's progress reports are its `POST /Sessions/Playing/Progress`
+     lines in caddy-access, every 10 s from jellyfin-roku. Jellyfin's
+     `PingTranscodingJob` DBG lines also come from its own 1 s progress
+     timer and go on after the client is gone, so they never show a client
+     alive; on the LAN, which bypasses Caddy, a throttler gap that still
+     moves does. A restart
      that resumes past the stall point says nothing about the file there.
    - A Jellyfin restart at a deploy's `switching to system configuration`
      line is not a finding: name it under Checked, with the client if it
