@@ -31,7 +31,13 @@ one active at that cutoff, then every store path no root holds. On tiger
 that includes the inputs of trex's remote builds, so a run frees them even
 when no generation ages out. Read `{unit="nix-gc.service"} |= "freed"`
 before projecting a date it fills. Call a trend steady only from each series' own
-values, never from an aggregate across them.
+values, never from an aggregate across them. A series that falls with a
+process's uptime and recovers when it restarts compares across restarts
+only at equal time since each start: name the start behind each value.
+Before reporting a daily max above its range, give its timestamp and check
+`node_boot_time_seconds` and `system_activation_timestamp_seconds` for a
+step within 10 minutes before it: a peak right after a boot or a deploy is
+that start, not a trend.
 
 1. Call `alerts` and `alert_rules` without a filter, so you know what is
    firing, what fired in the last 24h, and what is already watched.
