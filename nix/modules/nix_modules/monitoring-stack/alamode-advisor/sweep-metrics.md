@@ -61,7 +61,11 @@ that start, not a trend.
      reads that drop as a reset and adds the whole value. Count a day with
      `sum_over_time(clamp_min(delta(x[1m]), 0)[1d:1m])`, read the raw 1m
      samples before reporting a jump, and name the client whose
-     `unpoller_client_transmit_retries_total` rose with it. That client
+     `unpoller_client_transmit_retries_total` rose with it. A client was on
+     that VAP only in the minutes its `unpoller_client_radio_signal_db`
+     carries the VAP's `bssid`; `ap_name` spans both of an AP's radios.
+     Before calling a VAP's day re-counted, sum its clients' counter rises
+     over their minutes on that `bssid`. That client
      counter is per association and follows the client from AP to AP, so
      the delta form counts its carried value again at each roam. Count a
      client's day with
