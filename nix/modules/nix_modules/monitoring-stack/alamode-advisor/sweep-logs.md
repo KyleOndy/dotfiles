@@ -25,7 +25,10 @@ outside that range, and say how far.
    error's response body one journal line per line, and a Cloudflare error
    page runs past 100, so their counts measure page length. For these four,
    run `baseline` on entry headers, ``|~ `^\[(Warn|Error|Fatal)\]` ``, and
-   count failed requests by URL.
+   count failed requests by URL. A check on a fixed schedule logs the same
+   headers each time it fails, so count failed checks, not headers: a day's
+   headers are its checks times the headers per check, and a rise toward
+   that ceiling is more of the day's checks failing, not something growing.
 
    Run it again with `[24h] offset 7d` (Loki accepts `offset` only right
    after the range), to find units that are new to the list or
@@ -52,7 +55,9 @@ outside that range, and say how far.
    still gets its distinct messages listed before you call it normal: the
    count can hold while a new error replaces old ones. Before calling a
    count a jump, run `baseline` on the specific line that stood out
-   (`|= "<text>"`), not only the broad regex. A unit that logs a fixed
+   (`|= "<text>"`), not only the broad regex. A line a weekly job logs
+   compares by week, with `count_over_time(...[7d])` over the prior weeks:
+   one day holds none, one or all of a week's runs. A unit that logs a fixed
    burst at every start rises with its starts, so before calling its count a trend, count its starts with a
    line it logs once per start, divide, and say what started it: a deploy,
    a watchdog's own lines, or a manual `systemctl restart`. A line logged
