@@ -237,7 +237,10 @@ to skip it.
   says how many, not when, and neither an alert's start nor a grab's time
   is when the thing itself happened: find the sample or the line. A job's
   start comes from its journal line, never from two metric samples hours
-  apart.
+  apart. The `alerts` tool's 24h list gives the first time seen firing
+  inside the window, so a first time at the window's start means the alert
+  was already firing: read `ALERTS{alertname="<name>"}` from before the
+  window for its start and write "firing since <time>".
 - Throughput comes from a byte counter's increase, never from one sample of
   a rate gauge. A raidz pool's allocated bytes include parity, so data
   written comes from the datasets, not the pool.
