@@ -143,6 +143,11 @@
         # Written around Claude Code's tools and token budget.
         harnesses = [ "claude-code" ];
       }
+      {
+        name = "disk-reclaim";
+        source = ./skills/disk-reclaim.md;
+        isFile = true;
+      }
     ];
     kubernetes.enable = true; # kubectl, kubectx, k9s, helm, kustomize, kind
     nixTools.enable = true; # nixfmt, nixpkgs-review, nix-index
@@ -190,6 +195,20 @@
       }
     ))
     forge
+    (writeShellApplication {
+      name = "disk-reclaim";
+      # go, golangci-lint and uv come from the user's PATH, and each step
+      # skips when its tool is missing.
+      runtimeInputs = [
+        coreutils
+        findutils
+        gawk
+        gnugrep
+        gnused
+        git
+      ];
+      text = lib.removePrefix "#!/usr/bin/env bash\n" (builtins.readFile ./disk-reclaim.sh);
+    })
     linear-cli
     opencode
     pdm
