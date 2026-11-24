@@ -76,8 +76,13 @@
     mkdir -p $HOME/src/modularml
   '';
 
-  # Add Homebrew to PATH for all managed shells (including Claude Code)
-  home.sessionPath = [ "/opt/homebrew/bin" ];
+  # Add Homebrew to PATH for all managed shells (including Claude Code).
+  # Also add uv's tool install dir (~/.local/bin) since `uv tool update-shell`
+  # can't write the home-manager managed .zshenv symlink.
+  home.sessionPath = [
+    "/opt/homebrew/bin"
+    "$HOME/.local/bin"
+  ];
 
   # Enable development modules
   hmFoundry.dev = {
